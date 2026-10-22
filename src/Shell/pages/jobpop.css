@@ -23,13 +23,11 @@ body{font-family:Figtree,system-ui,sans-serif}
 /* 2026-10-22 (his "squashed, I can't read it"): the % in the readable body font, bold, even-width digits. */
 .pj .pct{flex:none;font:700 13px Figtree,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:normal;color:#3a2a18}
 .pj .lt{flex:none;font:600 12.5px Figtree,sans-serif;color:#6b5236;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
-.pj .chip{flex:none;font:400 9px Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap}
-.pj .chip.needs{all:unset;flex:none;font:400 9px Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap;cursor:pointer;
+.pj .chip{flex:none;font:700 12px Figtree,system-ui,sans-serif;letter-spacing:.2px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap}
+.pj .chip.needs{all:unset;flex:none;font:700 12px Figtree,system-ui,sans-serif;letter-spacing:.2px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap;cursor:pointer;
   background:#7cc4ff;color:#0b2a44;box-shadow:0 0 0 2px #1d4f78,0 0 10px rgba(124,196,255,.65)}
 .pj .chip.needs:hover{background:#9ad3ff}
 .pj .chip.paused{background:#6f7787;color:#fff;box-shadow:0 0 0 2px #3c414b}
-.pj .pin{all:unset;cursor:pointer;flex:none;width:26px;height:28px;display:grid;place-items:center;border-radius:7px;transition:background .15s,box-shadow .15s}
-.pj .pin canvas{image-rendering:pixelated;display:block;transition:transform .1s}
 .pj canvas.jpill{image-rendering:pixelated;display:block}
 .pj .det{height:0;overflow:hidden}
 .pj.open .det{height:auto}
@@ -40,7 +38,7 @@ body{font-family:Figtree,system-ui,sans-serif}
    command's sub-bar, the helper agents and the CI runs, under the live line. One line each, cut rather than wrapped. */
 .pj .ovr{display:flex;align-items:center;gap:8px;margin-top:6px}
 .pj .ovr .ow{min-width:0;font:500 11.5px Figtree,sans-serif;color:#6b5236;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pj .tag{flex:none;font:400 7.5px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e;width:52px}
+.pj .tag{flex:none;font:700 11.5px Figtree,system-ui,sans-serif;letter-spacing:.2px;color:#6b5236;width:62px}
 .pj .rows{margin-top:2px}
 .pj .rows>div{display:flex;align-items:center;gap:7px;font:600 12px/1.55 Figtree,sans-serif;color:#5b2f8f;white-space:nowrap;overflow:hidden}
 .pj .rows>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -51,7 +49,7 @@ body{font-family:Figtree,system-ui,sans-serif}
 .pj .rows{margin-left:38px}
 .pj .ovr{margin:4px 0 0 30px}
 .pj .ag{font:600 12px Figtree,sans-serif;color:#6b5236;margin:3px 0 0 38px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pj .mc{flex:none;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
+.pj .mc{flex:none;font:700 11.5px Figtree,system-ui,sans-serif;letter-spacing:.2px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
 .pj .list{margin:4px 0 0}
 .pj .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 Figtree,sans-serif;color:#8f7458}
 .pj .ob .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -79,12 +77,8 @@ body{font-family:Figtree,system-ui,sans-serif}
 .pj.done .big > span:last-child{min-width:0}
 .pj.done .ckeys{margin:10px 0 4px}
 
-/* ---- the pin, his rule (2026-10-21): pinned must look clearly different, so he can always find it. Pressed into a
-   dark well, lit warm round the rim, and the pin itself sits a pixel lower, as if pushed in. ---- */
-.pj .pin.on{background:radial-gradient(70% 70% at 50% 40%,rgba(255,196,120,.35),rgba(120,60,25,.18));
-  box-shadow:inset 0 2px 3px rgba(42,26,16,.6),inset 0 0 0 1.5px rgba(106,70,40,.7),0 0 0 1.5px rgba(255,190,110,.9),0 0 9px rgba(255,160,80,.75)}
-.pj .pin.on canvas{transform:translateY(1px)}
-.pj .pin:not(.on):hover{background:rgba(120,80,30,.12)}
+/* ---- the pin, his rule (2026-10-21): pinned must look clearly different, so he can always find it. Since the clean-up
+   (2026-10-22) it is the family's pin key (pinkey.css / pinkey.js): pressed in, gold and glowing, the pin on its side. ---- */
 
 /* ---- overlays beside the card that never fade with it (verbatim from sheet 52) ---- */
 .ro{position:absolute;top:-30px;right:-6px;font:400 12px Silkscreen,monospace;color:#fff;background:#0d0e10;border-radius:7px;padding:6px 8px 4px;box-shadow:0 0 0 2px #3a3d45;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;pointer-events:none;white-space:nowrap}

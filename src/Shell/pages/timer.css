@@ -20,7 +20,7 @@ html,body{margin:0;background:transparent;overflow:hidden;font:500 14px var(--bo
   border-radius:9px;background:linear-gradient(180deg,#56371F,var(--wood2));box-shadow:0 3px 0 var(--outline);
   opacity:0;visibility:hidden;transition:opacity .15s ease .5s,visibility 0s linear .65s}
 .tw:hover .trow,.trow:hover{opacity:1;visibility:visible;transition:opacity .12s ease 0s,visibility 0s}
-.tb{font:400 9px var(--label);letter-spacing:1px;padding:4px 7px 3px;border:2.5px solid var(--outline);border-radius:6px;
+.tb{font:700 12px var(--body);letter-spacing:.2px;padding:4px 7px 3px;border:2.5px solid var(--outline);border-radius:6px;
   background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;cursor:pointer}
 .tb.stop{background:linear-gradient(180deg,#b5452f,#7a2416)}
 /* pinned, like the pop-out: the mouse goes through it; Ctrl+Alt+P over it unpins */
@@ -30,11 +30,11 @@ body.pinned .trow{display:none}
 .nmenu{position:absolute;left:6px;width:168px;padding:8px;border-radius:12px;background:linear-gradient(180deg,#56371F,var(--wood2));
   border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:6px}
 .nmenu[hidden]{display:none}
-.nm-lab{font:400 8px var(--label);color:#c7b28c;letter-spacing:1.5px}
-.nm-slide{display:flex;align-items:center;gap:8px}.nm-slide input{flex:1;accent-color:#FFC43C}.nm-slide span{font:400 9px var(--label);color:#FFE096;width:34px;text-align:right}
+.nm-lab{font:700 11.5px var(--body);color:#c7b28c;letter-spacing:.2px}
+.nm-slide{display:flex;align-items:center;gap:8px}.nm-slide input{flex:1;accent-color:#FFC43C}.nm-slide span{font:700 12px var(--body);color:#FFE096;width:34px;text-align:right}
 .nm-sep{height:2px;background:rgba(0,0,0,.4);margin:2px 0}
-.mrow2{display:block;width:100%;text-align:left;padding:7px 9px;border:0;border-radius:6px;background:none;font:400 10px var(--label);
-  color:#E6DCC8;letter-spacing:.5px;cursor:pointer;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.mrow2{display:block;width:100%;text-align:left;padding:7px 9px;border:0;border-radius:6px;background:none;font:700 12.5px var(--body);
+  color:#E6DCC8;letter-spacing:.2px;cursor:pointer;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
 .mrow2:hover{background:rgba(255,224,150,.12)}
 .mrow2.warn{color:var(--orange)}
 @media (prefers-reduced-motion:reduce){.trow{transition:none}}

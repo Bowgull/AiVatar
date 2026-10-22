@@ -12,12 +12,12 @@ body{display:block !important;padding:0 !important}
 .tabmenu button{align-items:center;font-size:16px;padding:10px 12px;min-height:44px}
 .tabmenu button:hover:not(:disabled){padding-left:38px}
 .tabmenu button.on{color:#ffe28c}
-.tabmenu button i{margin-left:18px;font-style:normal;font-size:10px;letter-spacing:.5px}
+.tabmenu button i{margin-left:18px;font-style:normal;font-size:12px;letter-spacing:.2px}
 .tabmenu button i.st{color:#bfae8a}
 .tabmenu button i .ar{font:700 17px var(--body);margin-left:8px;vertical-align:-1px}
 .tabmenu button:disabled .ic{opacity:.45}
 .tabmenu .sep{margin:7px 2px}
-.tabmenu .mhead{font:400 10px var(--label);letter-spacing:1px;color:#bfae8a;padding:9px 12px 5px}
+.tabmenu .mhead{font:700 12.5px var(--body);letter-spacing:.2px;color:#bfae8a;padding:9px 12px 5px}
 
 /* the icon slot: an 11x11 hand-placed pixel icon at exactly 2x (22 px, plus its 1 px drop), before the words */
 .lab{display:inline-flex;align-items:center;gap:12px;white-space:nowrap}
@@ -33,14 +33,13 @@ body{display:block !important;padding:0 !important}
 .tabmenu.keys{min-width:470px;display:block;box-sizing:border-box}
 .tabmenu.keys .sep{width:auto}
 .tabmenu.keys button{box-sizing:border-box;gap:22px}
-.tabmenu.keys button .lab small{font:400 10px var(--label);letter-spacing:1px;color:#9fd8ff;margin-left:4px}
+.tabmenu.keys button .lab small{font:700 12.5px var(--body);letter-spacing:.2px;color:#9fd8ff;margin-left:4px}
 .tabmenu.keys .kr{display:inline-flex;align-items:center;margin-left:auto}
 .tabmenu.keys button i.kk{display:inline-flex;align-items:center;gap:5px;margin-left:auto;font:400 12px var(--body);color:#bfae8a;letter-spacing:0}
-.kc{display:inline-block;min-width:14px;text-align:center;font:400 11px var(--label);letter-spacing:.5px;color:#f1e3c4;padding:5px 7px 4px;border-radius:6px;
-  background:linear-gradient(180deg,#3a2516,#24160d);box-shadow:0 0 0 2px #120a05,0 3px 0 #0d0703,inset 0 2px 0 rgba(255,224,150,.16)}
+/* the keycaps are cockpit.css .kc, the one keycap everywhere (cleanup 2026-10-22) */
 .kp{font:700 13px var(--body);color:#8f7d60}
 /* "hold to change" shows on the row he points at */
-.tabmenu.keys button .hint{display:none;white-space:nowrap;font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;margin-right:6px}
+.tabmenu.keys button .hint{display:none;white-space:nowrap;font:700 12px var(--body);letter-spacing:.2px;color:#bfae8a;margin-right:6px}
 .tabmenu.keys button:hover .hint{display:inline}
 .tabmenu.keys button.fixed{cursor:default}
 .tabmenu.keys button.fixed .kc{opacity:.7}
@@ -56,11 +55,11 @@ body{display:block !important;padding:0 !important}
 .tabmenu.keys button.holding .hint{color:#ffe28c}
 /* listening: the row waits for the new keys */
 .tabmenu.keys button.listen{color:#ffe28c;background:rgba(255,196,60,.08) !important;box-shadow:inset 0 0 0 2px rgba(255,196,60,.55);border-radius:7px}
-.listen .wait{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:#ffc43c;padding:6px 9px 5px;border-radius:6px;box-shadow:0 0 0 2px #120a05,0 0 12px rgba(255,196,60,.55)}
+.listen .wait{font:700 12.5px var(--body);letter-spacing:.2px;color:#2a1c00;background:#ffc43c;padding:6px 9px 5px;border-radius:6px;box-shadow:0 0 0 2px #120a05,0 0 12px rgba(255,196,60,.55)}
 .listen .wait b{display:inline-block;width:7px;height:11px;background:#2a1c00;margin-left:6px;vertical-align:-1px}
 /* taken: the keys he pressed belong to someone else */
 .tabmenu.keys button.taken{color:#ffb4a6;box-shadow:inset 0 0 0 2px rgba(255,120,100,.55);border-radius:7px;background:rgba(255,90,74,.07) !important}
-.taken .kc{color:#ffd8d0;background:linear-gradient(180deg,#5a2418,#3a160e);box-shadow:0 0 0 2px #120a05,0 3px 0 #0d0703,0 0 10px rgba(255,90,74,.45)}
+.taken .kc{background:#7a2a1c;box-shadow:0 0 0 2px #2a1a10,0 3px 0 2px #2a1a10,inset 0 2px 0 rgba(255,150,130,.45),0 0 10px rgba(255,90,74,.45)}
 .tabmenu.keys .warn{display:flex;gap:10px;align-items:flex-start;font:600 13.5px/1.45 var(--body);color:#ffd8d0;padding:4px 12px 10px 12px;max-width:450px}
 .tabmenu.keys .warn .ic{flex:none;margin-top:1px}
 .tabmenu.keys .warn u{text-decoration:none;color:#ffe28c;border-bottom:2px solid rgba(255,226,140,.45);cursor:pointer}

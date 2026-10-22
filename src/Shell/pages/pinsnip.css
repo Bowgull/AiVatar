@@ -5,18 +5,15 @@ html,body{ background:transparent !important }
 .frame{ border-radius:12px; height:100%; opacity:var(--op,1); transition:opacity .18s ease }
 /* The bar is dragged by the page (pinsnip.js), not by Windows: the window lets the mouse through until it is on it. */
 .bar{ -webkit-app-region:no-drag; cursor:grab }
-.what{ color:#f3e2b8; font-size:11px }
+.what{ color:#f3e2b8 }
 .stage{ overflow:hidden; display:grid; place-items:center; background:#120a05 }
 .stage img{ max-width:100%; max-height:100%; display:block; image-rendering:auto }
-/* The pin, the job pop-out's art, on the pop-out's plum key; pressed in and lit while pinned. */
-.key canvas{ display:block; image-rendering:pixelated }
-#pin.on{ top:2px; box-shadow:0 1px 0 var(--outline), inset 0 2px 0 rgba(255,196,120,.45);
-  background:linear-gradient(180deg,#6b3f9c,var(--plum-deep)) }
+/* The pin is the family's pin key (pinkey.css / pinkey.js, cleanup 2026-10-22). */
 /* The see-through slider, beside the frame while the mouse is on it (sheet 52's B, never under 30%). */
 .vs{ position:absolute; top:40px; right:-36px; width:26px; height:96px; border-radius:13px; background:#1b130c;
   box-shadow:0 0 0 2px #4a2e18,0 6px 14px rgba(0,0,0,.5); opacity:0; transition:opacity .15s; pointer-events:none; cursor:ns-resize }
 .vs.on{ opacity:1; pointer-events:auto }
 .vs canvas{ image-rendering:pixelated; position:absolute; left:5px; top:6px }
-.ro{ position:absolute; top:8px; right:-40px; font:400 11px var(--label); color:#fff; background:#0d0e10; border-radius:7px;
+.ro{ position:absolute; top:8px; right:-40px; font:700 12px var(--body); color:#fff; background:#0d0e10; border-radius:7px;
   padding:5px 7px 3px; box-shadow:0 0 0 2px #3a3d45; opacity:0; transition:opacity .15s; pointer-events:none; white-space:nowrap }
 .ro.on{ opacity:1 }

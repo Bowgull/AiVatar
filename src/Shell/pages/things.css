@@ -7,7 +7,7 @@
 .search svg path{fill:#bfae8a}
 .hrow{position:relative;display:flex;align-items:center;gap:14px;padding:8px 24px;border-top:1px solid rgba(255,255,255,.05);image-rendering:auto;cursor:pointer;transition:padding-left .08s}
 .card h3+.hrow,.card h3+div>.hrow:first-child{border-top:none}
-.hrow time{flex:0 0 64px;font:400 9px var(--label);letter-spacing:1px;color:#9f94b4}
+.hrow time{flex:0 0 64px;font:700 12px var(--body);letter-spacing:.2px;color:#9f94b4}
 .hrow .fav{flex:0 0 auto;width:16px;height:16px;border-radius:3px;display:grid;place-items:center;font:800 10px var(--body);color:#fff;background:#5a4a6a;overflow:hidden}
 .hrow .fav img{width:16px;height:16px}
 .hrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--body);color:#efe4cc}
@@ -20,7 +20,7 @@
 .foot .grow{flex:1}
 .pick.danger{color:#ff9a8a}
 .clear{display:flex;gap:8px;align-items:center}
-.clear b{font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;margin-right:4px}
+.clear b{font:700 12px var(--body);letter-spacing:.2px;color:#ffe28c;margin-right:4px}
 .empty.pad{padding:4px 24px 18px}
 /* downloads: the same paper icons as the tray */
 .drow{position:relative;display:flex;align-items:center;gap:14px;padding:9px 24px;border-top:1px solid rgba(255,255,255,.05);image-rendering:auto;cursor:grab;transition:padding-left .08s}

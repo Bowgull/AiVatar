@@ -93,7 +93,7 @@ app.whenReady().then(async () => {
   check('icon, project, %, time left, pill', folded.icon && folded.pr === 'Waymark' && /^\d+%$/.test(folded.pct) && !!folded.lt && folded.pill, folded);
   // Sheet 58 C (his pick, 2026-10-21): its helper agent is a small row right under the folded bar, always in view.
   check('folded: the helper row under the bar (icon, Explore, what, its bar, time)', folded.under === true && /^explore\/Explore\/Mapping the code\/true\/true\/\d+ s$/.test(folded.ag ?? ''), folded);
-  check('one pin is the only chrome', folded.buttons.length === 1 && folded.buttons[0] === 'pin', folded.buttons);
+  check('one pin is the only chrome (the family pin key)', folded.buttons.length === 1 && folded.buttons[0] === 'pin pinkey', folded.buttons);
   check('no border: the window has no frame and a see-through page', await js(`getComputedStyle(document.body).backgroundColor === 'rgba(0, 0, 0, 0)'`) === true);
   const hFold = w.getSize()[1]!;
   await pic(w, 'jobpop-folded.png');
@@ -187,12 +187,13 @@ app.whenReady().then(async () => {
   check('the slider and readout do not fade with the card', await js(`getComputedStyle(document.querySelector('.vs')).opacity === '1'`) === true);
   check('the pin never fades, so he can always find it', await js(`(() => { let e = document.querySelector('.pin'), o = 1; while (e) { o *= Number(getComputedStyle(e).opacity); e = e.parentElement; } return o; })()`) === 1);
 
-  // 5. The pin: on top, and it looks clearly different (pressed in and lit).
-  const pinLook = () => js(`(() => { const b = document.querySelector('.pin'), c = b.querySelector('canvas'); return { on: b.classList.contains('on'), pressed: b.getAttribute('aria-pressed'), shadow: getComputedStyle(b).boxShadow, bg: getComputedStyle(b).backgroundImage, px: c.toDataURL().length + ':' + c.toDataURL().slice(-40) }; })()`);
+  // 5. The pin: on top, and it looks clearly different (the family's pin key, cleanup 2026-10-22: pressed in, gold, the pin on its side).
+  const pinLook = () => js(`(() => { const b = document.querySelector('.pin'), c = b.querySelector('svg'); return { on: b.classList.contains('on'), pressed: b.getAttribute('aria-pressed'), shadow: getComputedStyle(b).boxShadow, bg: getComputedStyle(b).backgroundColor, px: c.outerHTML }; })()`);
   const before = await pinLook();
   await js(`document.querySelector('.pin').click(); 1`);
   check('pinned: always on top', await until(() => w.isAlwaysOnTop(), 2000));
   await until(async () => (await pinLook()).on, 2000);
+  await wait(200);   // the key's press is a 50 ms transition
   const after = await pinLook();
   check('pinned: the pin looks pressed in and lit', after.on && after.pressed === 'true' && after.shadow !== before.shadow && after.shadow.includes('inset') && after.bg !== before.bg && after.px !== before.px, { before: before.shadow, after: after.shadow });
   check('pinning did not fold it or redraw the fade', await js(`document.querySelector('.pj').style.getPropertyValue('--op')`) === '0.55');

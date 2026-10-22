@@ -6,6 +6,6 @@ html,body{margin:0;background:transparent;overflow:hidden;width:100%;height:100%
   box-shadow:0 4px 0 var(--outline),0 8px 16px rgba(0,0,0,.5);transform:scale(0);transition:transform .22s cubic-bezier(.32,1.5,.5,1),box-shadow .15s}
 .disc.in{transform:scale(1)}
 .disc.on{box-shadow:0 0 0 3px var(--gold),0 4px 0 var(--outline),0 8px 16px rgba(0,0,0,.5);transform:scale(1.1)}
-.disc span{position:absolute;top:-15px;font:400 8px var(--label);color:var(--gold-light);white-space:nowrap;text-shadow:1px 1px 0 #000;letter-spacing:1px}
+.disc span{position:absolute;top:-15px;font:700 11.5px var(--body);color:var(--gold-light);white-space:nowrap;text-shadow:1px 1px 0 #000;letter-spacing:.2px}
 .gi{filter:drop-shadow(1.5px 0 0 #120A05) drop-shadow(-1.5px 0 0 #120A05) drop-shadow(0 1.5px 0 #120A05) drop-shadow(0 -1.5px 0 #120A05) drop-shadow(2px 3px 0 rgba(0,0,0,.55))}
 @media (prefers-reduced-motion:reduce){.disc{transition:none}}

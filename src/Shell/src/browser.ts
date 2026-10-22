@@ -2235,9 +2235,9 @@ export class AangBrowser {
     const kind = sendKindFor(p, isWeb(t.url));
     if (!kind || !wc || wc.isDestroyed()) return;
     const site = hostOf(t.url) || 'a page';
-    const base = { kind, site, url: isWeb(t.url) ? t.url : '', samara: true };
+    const base = { kind, site, url: isWeb(t.url) ? t.url : '', samara: true, icon: this.faviconFor(t.url) };
     if (kind === 'words') { this.onSendToAang?.({ ...base, text: p.selectionText, title: t.title }); return; }
-    if (kind === 'link') { this.onSendToAang?.({ ...base, url: p.linkURL, title: p.linkText || '', site: hostOf(p.linkURL) || site }); return; }
+    if (kind === 'link') { this.onSendToAang?.({ ...base, url: p.linkURL, title: p.linkText || '', site: hostOf(p.linkURL) || site, icon: this.faviconFor(p.linkURL) || base.icon }); return; }
     if (kind === 'page') {
       const text = await within(wc.executeJavaScript('String(document.body ? document.body.innerText : "").slice(0, 6000)', true) as Promise<string>, 1500, '');
       this.onSendToAang?.({ ...base, title: wc.getTitle() || t.title, text: typeof text === 'string' ? text : '' });
@@ -2552,6 +2552,9 @@ export class AangBrowser {
     this.pane = home;
     this.changed();
   }
+
+  /** A site's favicon as Samara stored it (a data: picture), or ''. Read-only; nothing is fetched (cleanup 2026-10-22). */
+  faviconFor(url: string): string { const d = this.iconOf(url); return /^data:image\//.test(d) && d.length < 20_000 ? d : ''; }
 
   private iconOf(url: string): string {
     try { const h = new URL(url).hostname; return this.icons.get(h) ?? this.icons.get(h.replace(/^www\./, '')) ?? this.icons.get('www.' + h) ?? ''; } catch { return ''; }
