@@ -28,6 +28,8 @@ import { checkPlayerCmd, readPrefs, springAt, VIS, SCENES, type PlayerCmd, type 
 
 /** CSS pixels: the art is 212 x 104 art pixels at exactly 2x; the shade is 26 art pixels tall, the same width. */
 export const FULL_W = 424, FULL_H = 208, SHADE_H = 52;
+/** Its family shapes (familywin.ts SHAPE API): wide keeps its own height; the column is 200 px wide, at least 300 tall. */
+export const PLAYER_LAYOUTS = { tall: { width: 200, minHeight: 300 }, wide: { height: 'auto' as const } };
 /** The fold's spring (sheet 59 motion 3). */
 export const FOLD = { response: 0.5, damping: 0.825 };
 const MIN_OPACITY = 0.3;
@@ -185,7 +187,7 @@ export class MiniPlayer {
     const h = done ? f.to : Math.round(f.from + (f.to - f.from) * k);
     const clamped = Math.max(SHADE_H - 4, Math.min(FULL_H + 4, h));
     const b = w.getBounds();
-    if (b.height !== clamped || b.width !== FULL_W) w.setBounds({ x: b.x, y: b.y, width: FULL_W, height: clamped });
+    if (b.height !== clamped) w.setBounds({ x: b.x, y: b.y, width: b.width, height: clamped });
     if (done) this.stopFold();
   }
   private stopFold(): void { if (this.fold) clearInterval(this.fold.timer); this.fold = null; }
@@ -196,6 +198,9 @@ export class MiniPlayer {
   private member() {
     return {
       id: 'player', kind: 'player' as const, win: () => this.window, card: '.mp', osCorners: true,
+      // F4 (family part 2): above or below a wider window it is a strip as wide as it (the full player or the shade, its
+      // own height); beside a taller one a column: the picture on top, then the screen, then the keys.
+      layouts: PLAYER_LAYOUTS,
       setOpacity: (n: number) => this.applyOpacity(n),
       // Its pin is "stay on top", nothing else: the family's pin is the same.
       setPinned: (on: boolean) => this.applyOnTop(on),

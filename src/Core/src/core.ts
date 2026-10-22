@@ -105,7 +105,8 @@ import type { CalEvent, Fetch } from './google.ts';
 import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
 import { exactOf, meansOf } from './plain.ts';
-import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
+import { saveDigest, weeklySweep } from './watch.ts';
+import { AddonDesk, realDeps as addonDeskDeps, type Said as AddonSaid } from './addondesk.ts';
 import { MediaState, checkMediaCmd, checkMediaNow, wantsPlayer } from './media.ts';
 
 export interface CoreConfig {
@@ -1446,6 +1447,7 @@ export class Core {
     // What the sort did, so "I saw no emails" can be answered from the log (2026-10-14). His own log; names only.
     const past = mail.filter(couldBeWaiting);
     console.log(`brief: ${mail.length} unread from the last two days; ${past.length} past the rules (${past.map(m => m.from).join(', ') || 'none'}); ${waiting.length} waiting on him (${waiting.map(w => w.from).join(', ') || 'none'})`);
+    const addons = this.addonDesk.section();
     const card: BriefCard = {
       ...(weather ? { weather } : {}),
       ...(parts ? { parts: parts.parts, rainFrom: parts.rainFrom, rainIsSnow: parts.rainIsSnow } : {}),
@@ -1461,6 +1463,8 @@ export class Core {
       waiting: this.homeData().waiting,
       // Samara's engine, when a newer one is out (his ask, 2026-10-14): a row with the lantern and an Update button.
       ...(this.engineNews ? { engine: { title: `Version ${this.engineNews.label}: ${this.engineNews.name}` } } : {}),
+      // Sheet 65: the Addons slip, from the list kept by the morning look (addondesk.ts). Absent when nothing to show.
+      ...(addons ? { addons } : {}),
       week: q ? q.week : null,
       weekResetsAt: q ? q.weekResetsAt : null,
       ...(d.error ? { error: d.error } : {}),
@@ -1470,6 +1474,24 @@ export class Core {
   }
   /** The brief last sent, so a button under one of its rows knows what it is about (sheet 24). */
   private lastBrief: BriefCard | null = null;
+
+  /**
+   * Sheet 65 (2026-10-22): addon updates in the brief; Aang drives CurseForge on his yes (addondesk.ts). Its lines go to
+   * the desk with the icons and progress the bubble draws; the last line is kept in the conversation like anything said.
+   */
+  private _addonDesk: AddonDesk | null = null;
+  private get addonDesk(): AddonDesk {
+    return this._addonDesk ??= new AddonDesk(addonDeskDeps({
+      stateDir: this.cfg.stateDir, act: a => this.actRunner(a),
+      ask: async (prompt, o) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(prompt, o); return { ok: r.ok, text: r.text }; },
+      say: s => this.addonSay(s),
+    }));
+  }
+  private addonSay(s: AddonSaid): void {
+    if (this.whereHeIs() === 'discord') { if (s.final) this.announce(s.text, { asked: true }); return; }
+    const turn = s.final ? this.memory.saveSaid(s.text, 'say') : null;
+    this.sendTo('desktop', { t: 'bubble', text: s.text, stream: false, id: s.id, who: 'Aang', proactive: true, ...(turn !== null ? { turn } : {}), addons: s.addons });
+  }
 
   /**
    * Haiku sorts the brief's mail (briefmail.ts): no tools, no memory, no conversation, one turn. Its answer is read
@@ -2263,6 +2285,25 @@ export class Core {
   private hookServer: HookServer | null = null;
   private checkpointTimer: NodeJS.Timeout | null = null;
   private briefTimer: NodeJS.Timeout | null = null;
+  /**
+   * The morning brief, once a day. 2026-10-22 (his pick: "when I first sit down"; he is up at 6 or before): from 5:00
+   * Toronto time it comes the moment he is at the PC (also checked when the pet says he sat down); if he is not at the
+   * PC by 7:00 it goes out anyway, which routes it to Discord on his phone as before.
+   */
+  private briefBusy = false;
+  private briefIfDue(): void {
+    if (this.briefBusy) return;
+    const here = this.atDesk && this.clientsOf('desktop').length > 0;
+    const m = this.mail();
+    if (!m) return;
+    this.briefBusy = true;
+    void m.dailyBrief(here ? 5 : 7).then(async t => {
+      if (!t) return;
+      await this.addonDesk.morning().catch(() => null);                // sheet 65: CurseForge's list, fresh, WoW closed
+      const card = await this.briefCard().catch(() => null);
+      this.announce(t, card ? { brief: card } : {});
+    }).catch(() => { /* tried again in ten minutes */ }).finally(() => { this.briefBusy = false; });
+  }
   private factTimer: NodeJS.Timeout | null = null;
   private timerTick: NodeJS.Timeout | null = null;
 
@@ -2295,12 +2336,6 @@ export class Core {
         return { ok: r.ok, text: r.text };
       },
     };
-    try {
-      const addons = await checkAddons(deps);
-      // No saveSaid here: announce() stores it itself when it reaches him. Saving it here as well wrote every
-      // addon line and research sentence twice, so it showed twice in the scroll-back (found 2026-10-20).
-      if (addons) this.announce(addons, { asked: true });
-    } catch (e) { console.error('addons: ' + (e as Error).message); }
     try {
       const { said, note, card } = await weeklySweep(deps);
       const file = note ? saveDigest(note) : '';
@@ -2699,11 +2734,7 @@ export class Core {
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
     // At the desk it arrives as the card (sheet 13); away, Discord draws its own card (sheet 21), the text riding along.
-    this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(async t => {
-      if (!t) return;
-      const card = await this.briefCard().catch(() => null);
-      this.announce(t, card ? { brief: card } : {});
-    }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
+    this.briefTimer = setInterval(() => this.briefIfDue(), 10 * 60_000);
     // Facts read out of his documents, offered one at a time when he is not busy and not in a game.
     // offerFact() does the deciding; this only gives it a chance to. Five minutes because none of these
     // is urgent - they came out of documents he already has - and a question at a bad moment costs far
@@ -2773,6 +2804,7 @@ export class Core {
     if (this.permission) this.answerPermission(this.permission.id, 'no');
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
+    this._addonDesk?.stop();
     if (this.factTimer) clearInterval(this.factTimer);
     for (const t of this.feedTimers) clearTimeout(t);
     if (this.backupTimer) clearInterval(this.backupTimer);
@@ -3345,7 +3377,7 @@ export class Core {
         this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() });
         break;
       }
-      case 'desk': this.atDesk = m.active !== false; break;
+      case 'desk': { const was = this.atDesk; this.atDesk = m.active !== false; if (!was && this.atDesk) setTimeout(() => this.briefIfDue(), 20_000).unref?.(); break; }
       // He clicked Aang, so the typing box is opening: warm the lane now rather than at every
       // restart (step Q1). Costs the same one silent turn, but only when he is actually here.
       case 'poked': this.warmNow(); break;
@@ -3722,6 +3754,8 @@ export class Core {
         break;
       }
       case 'brief.act': this.briefAct(ws, Number(m.item), String(m.act ?? '')); break;
+      // Sheet 65: "Update ticked" under the brief's Addons slip. Only ids from the list Aang showed are used (addondesk.ts).
+      case 'addons.update': void this.addonDesk.update((Array.isArray(m.ids) ? m.ids : []).map(Number).filter(Number.isInteger).slice(0, 60)).catch(e => console.error('addons: ' + (e as Error).message)); break;
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
       case 'presence': {

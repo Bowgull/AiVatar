@@ -13,7 +13,10 @@ import * as S from './player/scenes.js';
 import { Timeline, nextVis, nextScene, SCENES, fmtTime, marqueeOffset, barLevels, Peaks } from './playerstate.js';
 
 const api = window.player;
-const W = 212, H = 104, SH = 26;                 // art pixels; the window is twice that
+const H = 104, SH = 26;                          // art pixels; the window is twice that
+// The shape the family gives it (familywin.ts SHAPE API): free (212 art wide), wide (a strip as wide as its neighbour,
+// its own height) or tall (a column, 100 art wide: the picture on top, then the screen, then the keys).
+let W = 212, HT = H, TALL = false;
 const a2 = (n) => n * P;
 const SHADE_PX = a2(SH);
 const SCENE_NAME = { campfire: 'Campfire in Waymark’s forest', skate: 'Skating the boulevard', rain: 'Rain on the window', fishing: 'Caribbean sunset, fishing' };
@@ -131,13 +134,13 @@ function drawScene(c, name, f, t) {
 }
 /** The cover into its 68 px canvas: the real picture smoothed down, its corners cut on the same pixel staircase. */
 function drawCover(c, img) {
-  const g = c.getContext('2d');
-  c.width = 68; c.height = 68;
-  g.clearRect(0, 0, 68, 68);
-  if (img) { g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, 68, 68); }
-  else { const pc = cover(34, 1); g.imageSmoothingEnabled = false; g.drawImage(pc, 0, 0, 68, 68); }
-  const d = g.getImageData(0, 0, 68, 68);
-  for (let y = 0; y < 68; y++) for (let x = 0; x < 68; x++) if (!ROUND34[(y >> 1) * 34 + (x >> 1)]) d.data[(y * 68 + x) * 4 + 3] = 0;
+  const g = c.getContext('2d'), n = Number(c.dataset.px) || 68, k = n / 34;
+  c.width = n; c.height = n;
+  g.clearRect(0, 0, n, n);
+  if (img) { g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, n, n); }
+  else { const pc = cover(34, 1); g.imageSmoothingEnabled = false; g.drawImage(pc, 0, 0, n, n); }
+  const d = g.getImageData(0, 0, n, n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!ROUND34[Math.floor(y / k) * 34 + Math.floor(x / k)]) d.data[(y * n + x) * 4 + 3] = 0;
   g.putImageData(d, 0, 0);
 }
 
@@ -152,7 +155,7 @@ const F = {}, Sh = {};           // the full layout's and the shade's live parts
 const bodies = new Map();
 
 function bodyAt(hArt, shade) {
-  const key = (shade ? 's' : 'f') + hArt;
+  const key = (shade ? 's' : 'f') + W + 'x' + hArt;
   let b = bodies.get(key);
   if (!b) { b = rr(W, hArt, 5, { band: 's2', E: shade ? 3 : 4, fill: fills.wood(1.05), shadow: 0 }); b.classList.add('body'); bodies.set(key, b); }
   return b;
@@ -160,68 +163,85 @@ function bodyAt(hArt, shade) {
 
 // ---------------------------------------------------------------- the full player
 function buildFull() {
-  const L = el('div', 'lay full'); L.style.height = a2(H) + 'px';
-  F.L = L; F.bodyHost = el('div'); L.append(F.bodyHost); F.bodyHost.append(bodyAt(H, false));
+  const L = el('div', 'lay full'); L.style.height = a2(HT) + 'px'; L.style.width = a2(W) + 'px';
+  F.L = L; F.bodyHost = el('div'); L.append(F.bodyHost); F.bodyHost.append(bodyAt(HT, false));
   F.parts = [];
   const put = (e, x, y, h = 0) => { at(L, e, x, y); F.parts.push({ e, bottom: y + (h || e.offsetHeight || 20) }); return e; };
-  // the title strip: Spotify's mark and name, or the app's; pin, fold, close (28 px)
+  // the title strip: Spotify's mark and name, or the app's; pin, fold, close (28 px). The column has room for the mark only.
   F.mark = put(spr(SPOT, { G: '#1ed760', K: '#0b2a14' }, { drop: 'rgba(0,0,0,.5)' }), a2(9), a2(8), 20);
   F.mark.classList.add('at');
   F.lab = put(el('span', 'lab at'), a2(21), a2(10), 22);
+  F.lab.hidden = TALL;
   F.fade = put(fadeSlider(), a2(9), a2(7), 24);
-  F.pin = put(tkey('pin', () => api.pin(), {}), a2(W - 59), a2(5), 30);
+  F.pin = put(tkey('pin', () => api.pin(), {}), a2(W - (TALL ? 43 : 59)), a2(5), 30);
   F.pin.title = 'Pin on top (every pop-out follows)';
   F.pin.addEventListener('pointerenter', () => showFade(true));
-  F.fold = put(tkey('shade', () => api.shade()), a2(W - 43), a2(5), 30); F.fold.title = 'Fold to the strip (or double-click)';
+  // the fold only where there is a strip to fold to (not as a column)
+  if (!TALL) { F.fold = put(tkey('shade', () => api.shade()), a2(W - 43), a2(5), 30); F.fold.title = 'Fold to the strip (or double-click)'; }
   F.close = put(tkey('close', () => api.close()), a2(W - 27), a2(5), 30); F.close.title = 'Close';
-  // the one picture in its sunken frame
-  put(rr(38, 38, 6, { band: 'recess', fill: fills.flat('#1a100a'), shadow: 0 }), a2(8), a2(21), a2(38)).classList.add('at');
-  const pic = el('div', 'pic'); F.pic = put(pic, a2(10), a2(23), 68);
-  F.cov = el('canvas', 'cov'); F.scn = el('canvas', 'scn'); F.scn.width = S.SW; F.scn.height = S.SH;
+  // the one picture in its sunken frame: 2 px a scene pixel, 4 px in a tall enough column
+  const big = TALL && HT >= 192, R = big ? 72 : 38, px = big ? 136 : 68;
+  const rx = TALL ? Math.round((W - R) / 2) : 8;
+  put(rr(R, R, big ? 10 : 6, { band: 'recess', fill: fills.flat('#1a100a'), shadow: 0 }), a2(rx), a2(21), a2(R)).classList.add('at');
+  const pic = el('div', 'pic'); F.pic = put(pic, a2(rx + 2), a2(23), px);
+  pic.style.width = pic.style.height = px + 'px';
+  F.cov = el('canvas', 'cov'); F.cov.dataset.px = String(px); F.scn = el('canvas', 'scn'); F.scn.width = S.SW; F.scn.height = S.SH;
+  for (const c of [F.cov, F.scn]) { c.style.width = c.style.height = px + 'px'; }
   pic.append(F.cov, F.scn);
-  drawCover(F.cov, null);
+  drawCover(F.cov, coverImg);
   pic.addEventListener('pointerdown', (e) => { if (ui.vis === 'scene') e.stopPropagation(); });
   pic.addEventListener('dblclick', (e) => { if (ui.vis === 'scene') e.stopPropagation(); });
   pic.addEventListener('click', (e) => { if (ui.vis !== 'scene') return; e.stopPropagation(); setScene(nextScene(ui.scene)); });
-  F.pager = put(el('div', 'pager'), a2(20), a2(60), 8);
-  for (const s of SCENES) {
-    const d = el('i'); d.title = SCENE_NAME[s]; d.dataset.s = s;
+  F.pager = put(el('div', 'pager'), a2(rx + R / 2) - 14, a2(21 + R + 1), 8);
+  for (const sn of SCENES) {
+    const d = el('i'); d.title = SCENE_NAME[sn]; d.dataset.s = sn;
     d.addEventListener('pointerdown', (e) => e.stopPropagation());
-    d.addEventListener('click', (e) => { e.stopPropagation(); setScene(s); });
+    d.addEventListener('click', (e) => { e.stopPropagation(); setScene(sn); });
     F.pager.append(d);
   }
-  // the amber screen: time + bars | the song
-  const LX = 50, LY = 21, lw = W - LX - 8, lh = 38;
-  put(rr(lw, lh, 7, { band: 'recess', shadow: 0, fill: (x, y) => (x === 61 && y > 4 && y < lh - 5 ? '#2c1a0e' : y % 2 ? mix('#1c110a', '#120a05', y / lh) : mix('#20140b', '#150c06', y / lh)) }), a2(LX), a2(LY), a2(lh)).classList.add('at');
+  // the amber screen. Free or wide: time + bars | the song. A column: time + bars over the scrolling song.
+  const LX = TALL ? 8 : 50, LY = TALL ? 21 + R + 5 : 21, lw = W - LX - 8, lh = TALL ? 30 : 38, div = TALL ? -1 : 61;
+  put(rr(lw, lh, 7, { band: 'recess', shadow: 0, fill: (x, y) => (x === div && y > 4 && y < lh - 5 ? '#2c1a0e' : y % 2 ? mix('#1c110a', '#120a05', y / lh) : mix('#20140b', '#150c06', y / lh)) }), a2(LX), a2(LY), a2(lh)).classList.add('at');
   const lcd = el('div', 'lcd'); F.lcd = put(lcd, a2(LX + 2), a2(LY + 2), a2(lh - 4));
-  lcd.style.width = a2(lw - 4) + 'px'; lcd.style.height = a2(lh - 4) + 'px';
-  F.time = at(lcd, el('span', 'time', '0:00'), 12, 6);
-  F.bars = at(lcd, el('canvas'), 12, 44);
-  F.pane = at(lcd, el('div', 'pane'), 124, 6, { width: '170px', height: '24px' });
-  F.scroll = at(F.pane, el('span', 'scroll'), 0, 0);
-  F.sub = at(lcd, el('span', 'sub'), 128, 30, { width: '166px' });
-  F.tags = at(lcd, el('span', 'tags'), 128, 52);
+  const lcdW = a2(lw - 4);
+  lcd.style.width = lcdW + 'px'; lcd.style.height = a2(lh - 4) + 'px';
+  F.nb = TALL ? 10 : 14;
+  F.time = at(lcd, el('span', 'time', '0:00'), TALL ? 6 : 12, TALL ? 2 : 6);
+  F.bars = at(lcd, el('canvas'), TALL ? lcdW - 58 - 6 : 12, TALL ? 10 : 44);
+  if (TALL) {
+    F.pane = at(lcd, el('div', 'pane'), 2, 32, { width: lcdW - 4 + 'px', height: '20px' });
+    F.scroll = at(F.pane, el('span', 'scroll'), 0, 0, { fontSize: '19px' });
+    F.sub = el('span'); F.tags = el('span');
+  } else {
+    F.pane = at(lcd, el('div', 'pane'), 124, 6, { width: lcdW - 130 + 'px', height: '24px' });
+    F.scroll = at(F.pane, el('span', 'scroll'), 0, 0);
+    F.sub = at(lcd, el('span', 'sub'), 128, 30, { width: lcdW - 134 + 'px' });
+    F.tags = at(lcd, el('span', 'tags'), 128, 52);
+  }
   lcd.append(el('div', 'scan'));
-  // the seek: the gold pill, an 18 px bead, the times either side (Figtree bold, readable)
-  const sx = 30, sw = W - sx - 30;
+  // the seek: the gold pill, an 18 px bead, the times (Figtree bold, readable). A column puts the times above the bar.
+  const yb = TALL ? HT - 66 : 0;
+  const sx = TALL ? 8 : 30, sw = TALL ? W - 16 : W - sx - 30, sy = TALL ? yb + 8 : 66;
   F.sw = sw; F.sx = sx;
-  F.tPos = put(el('span', 'tm'), a2(8), a2(66) - 1, 14);
-  F.seek = put(pillCanvas(sw, 6, 0, GOLD), a2(sx), a2(66), 12); F.seek.classList.add('at');
-  F.seekGrab = put(el('div', 'grab'), a2(sx) - 8, a2(62), 26);
+  F.tPos = put(el('span', 'tm'), a2(8), TALL ? a2(yb) : a2(66) - 1, 14);
+  F.seek = put(pillCanvas(sw, 6, 0, GOLD), a2(sx), a2(sy), 12); F.seek.classList.add('at');
+  F.seekGrab = put(el('div', 'grab'), a2(sx) - 8, a2(sy - 4), 26);
   F.seekGrab.style.width = a2(sw) + 16 + 'px'; F.seekGrab.style.height = '26px';
-  F.seekBead = put(bead(GOLDK), a2(sx - 4), a2(64), 20); F.seekBead.classList.add('bead', 'seekb');
-  F.tLen = put(el('span', 'tm'), a2(W - 26), a2(66) - 1, 14);
+  F.seekBead = put(bead(GOLDK), a2(sx - 4), a2(sy - 2), 20); F.seekBead.classList.add('bead', 'seekb');
+  F.tLen = put(el('span', 'tm'), a2(W - 26), TALL ? a2(yb) : a2(66) - 1, 14);
   // the keys, 38 px tall
-  F.prev = put(makeKey(26, 19, () => api.cmd('prev')), a2(8), a2(78), a2(20)); F.prev.draw('prev'); F.prev.title = 'Previous';
-  F.play = put(makeKey(32, 19, () => api.cmd('toggle')), a2(38), a2(78), a2(20)); F.play.title = 'Play / pause';
-  F.next = put(makeKey(26, 19, () => api.cmd('next')), a2(74), a2(78), a2(20)); F.next.draw('next'); F.next.title = 'Next';
-  F.volIcon = put(spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(106), a2(84), 20); F.volIcon.classList.add('at');
-  const vx = 119, vw = 48; F.vx = vx; F.vw = vw;
-  F.vol = put(pillCanvas(vw, 7, 0.7, CREAM), a2(vx), a2(84), 14); F.vol.classList.add('at');
-  F.volGrab = put(el('div', 'grab'), a2(vx) - 8, a2(80), 26);
+  const ky = TALL ? yb + 17 : 78, kx = TALL ? [7, 34, 67] : [8, 38, 74];
+  F.prev = put(makeKey(26, 19, () => api.cmd('prev')), a2(kx[0]), a2(ky), a2(20)); F.prev.draw('prev'); F.prev.title = 'Previous';
+  F.play = put(makeKey(32, 19, () => api.cmd('toggle')), a2(kx[1]), a2(ky), a2(20)); F.play.title = 'Play / pause';
+  F.next = put(makeKey(26, 19, () => api.cmd('next')), a2(kx[2]), a2(ky), a2(20)); F.next.draw('next'); F.next.title = 'Next';
+  const vy = TALL ? yb + 44 : 84, gx = TALL ? 8 : 106, vx = TALL ? 21 : 119, vw = TALL ? W - 21 - 46 : 48;
+  F.volIcon = put(spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(gx), a2(vy), 20); F.volIcon.classList.add('at');
+  F.vx = vx; F.vw = vw;
+  F.vol = put(pillCanvas(vw, 7, 0.7, CREAM), a2(vx), a2(vy), 14); F.vol.classList.add('at');
+  F.volGrab = put(el('div', 'grab'), a2(vx) - 8, a2(vy - 4), 26);
   F.volGrab.style.width = a2(vw) + 16 + 'px'; F.volGrab.style.height = '26px'; F.volGrab.title = 'Spotify’s volume';
-  F.volBead = put(bead(PLUMK), a2(vx - 4), a2(83), 20); F.volBead.classList.add('bead');
-  F.vis = put(makeKey(32, 19, () => setVis(nextVis(ui.vis)), 'vis'), a2(W - 40), a2(78), a2(20));
+  F.volBead = put(bead(PLUMK), a2(vx - 4), a2(vy - 1), 20); F.volBead.classList.add('bead');
+  F.vis = put(makeKey(32, 19, () => setVis(nextVis(ui.vis)), 'vis'), a2(W - 40), a2(TALL ? yb + 39 : 78), a2(20));
   slider(F.seekGrab, (f, phase) => scrub(f, phase));
   slider(F.volGrab, (f, phase) => volume(f, phase));
   root.append(L);
@@ -229,7 +249,7 @@ function buildFull() {
 
 // ---------------------------------------------------------------- the shade strip
 function buildShade() {
-  const L = el('div', 'lay shade'); L.style.height = a2(SH) + 'px'; L.hidden = true;
+  const L = el('div', 'lay shade'); L.style.height = a2(SH) + 'px'; L.style.width = a2(W) + 'px'; L.hidden = true;
   Sh.L = L; L.append(bodyAt(SH, true));
   Sh.play = at(L, makeKey(20, 17, () => api.cmd('toggle')), a2(5), a2(4)); Sh.play.title = 'Play / pause';
   Sh.recess = el('div'); at(L, Sh.recess, a2(29), a2(5), { zIndex: 1 });
@@ -245,7 +265,8 @@ function buildShade() {
 }
 let shadeKey = '';
 function layShade() {
-  const bars = ui.vis === 'bars', lw = bars ? 112 : 132, lh = 16, LX = 29, key = `${lw}`;
+  // as wide as the strip allows: the screen takes whatever the player's width adds
+  const bars = ui.vis === 'bars', lw = (bars ? 112 : 132) + Math.max(0, W - 212), lh = 16, LX = 29, key = `${lw}`;
   if (key !== shadeKey) {
     shadeKey = key;
     Sh.recess.replaceChildren(rr(lw, lh, 5, { band: 'recess', shadow: 0, fill: (x, y) => (y % 2 ? '#1a100a' : '#20140b') }));
@@ -330,7 +351,7 @@ function paintMode() {
   F.bars.style.display = v === 'off' ? 'none' : '';
   F.time.classList.toggle('big', v === 'off');
   F.time.style.top = v === 'off' ? '14px' : '6px';
-  if (v !== 'off') drawBars(F.bars, new Array(14).fill(0.08), new Array(14).fill(0.12));
+  if (v !== 'off') drawBars(F.bars, new Array(F.nb).fill(0.08), new Array(F.nb).fill(0.12));
   layShade();
   wake();
 }
@@ -398,13 +419,13 @@ function needs() {
   let ms = 0;
   const want = (n) => { ms = ms ? Math.min(ms, n) : n; };
   if (tl.playing || scrubbing !== null) want(100);
-  if (ui.vis === 'scene' && !ui.shade) want(100);
+  if (ui.vis === 'scene' && !shadeShown()) want(100);
   if (ui.vis !== 'off' && tl.playing) want(33);
   if (marqueeLive()) want(60);
   return ms;
 }
 function marqueeLive() {
-  const sc = ui.shade ? Sh.scroll : F.scroll, pane = ui.shade ? Sh.pane : F.pane;
+  const sc = shadeShown() ? Sh.scroll : F.scroll, pane = shadeShown() ? Sh.pane : F.pane;
   return sc.offsetWidth > pane.clientWidth;
 }
 function wake() { if (!timer && needs()) timer = setTimeout(tick, 0); }
@@ -415,7 +436,7 @@ function tick() {
   // the time and the bead, smoothly between the brain's updates
   if (now - lastClock >= 95) { lastClock = now; paintTime(); }
   // the marquee: whole pixels, a soft fade at the pane's edges (CSS mask)
-  const sc = ui.shade ? Sh.scroll : F.scroll, pane = ui.shade ? Sh.pane : F.pane;
+  const sc = shadeShown() ? Sh.scroll : F.scroll, pane = shadeShown() ? Sh.pane : F.pane;
   const tw = sc.offsetWidth, bw = pane.clientWidth;
   if (tw > bw) {
     const off = marqueeOffset(now - marqueeT0, tw, bw);
@@ -430,31 +451,55 @@ function tick() {
   if (ui.vis !== 'off' && tl.playing && now - lastBars >= 30) {
     const dt = lastBars ? Math.min(0.1, (now - lastBars) / 1000) : 0.03; lastBars = now; barT += dt;
     const lv = barLevels(barT);
-    if (!ui.shade) drawBars(F.bars, lv, peaks.step(lv, dt));
+    if (!shadeShown()) { const l = lv.slice(0, F.nb); drawBars(F.bars, l, peaks.step(l, dt)); }
     else if (ui.vis === 'bars') { const l6 = [lv[0], lv[2], lv[4], lv[6], lv[9], lv[12]]; drawBars(Sh.bars, l6, peaks6.step(l6, dt), { h: 12 }); }
   }
   // the scene, 10 fps
-  if (ui.vis === 'scene' && !ui.shade && now - lastScene >= 100) { lastScene = now; frame++; drawScene(F.scn, ui.scene, frame % 8, frame); }
+  if (ui.vis === 'scene' && !shadeShown() && now - lastScene >= 100) { lastScene = now; frame++; drawScene(F.scn, ui.scene, frame % 8, frame); }
   const ms = needs();
   if (ms) timer = setTimeout(tick, Math.max(16, ms - ((performance.now() - now) | 0)));
 }
 document.addEventListener('visibilitychange', () => { if (isAwake()) { lastBars = 0; wake(); } });
 
-// ---------------------------------------------------------------- folding (the main process springs the height)
+// ---------------------------------------------------------------- folding and reshaping
+// The fold: the main process springs the window's height; the body is redrawn at each height and what no longer fits is
+// tucked away, the strip taking over at the end. The shapes (family part 2): the family holds the panel (.mp) at
+// --fam-w x --fam-h and says data-fam-shape; the player is rebuilt at that size. A column never folds.
+const shadeShown = () => !!Sh.L && !Sh.L.hidden;
+function shapeNow() {
+  const h = document.documentElement, cs = getComputedStyle(h);
+  const shape = h.dataset.famShape, fw = parseFloat(cs.getPropertyValue('--fam-w')), fh = parseFloat(cs.getPropertyValue('--fam-h'));
+  if (shape === 'tall' && fw > 0) return { W: Math.round(fw / P), HT: Math.max(160, Math.round((fh > 0 ? fh : window.innerHeight) / P)), TALL: true };
+  if (shape === 'wide' && fw > 0) return { W: Math.max(212, Math.round(fw / P)), HT: H, TALL: false };
+  return { W: 212, HT: H, TALL: false };
+}
+function reshape() {
+  const n = shapeNow();
+  if (n.W === W && n.HT === HT && n.TALL === TALL) return false;
+  W = n.W; HT = n.HT; TALL = n.TALL;
+  F.L?.remove(); Sh.L?.remove(); shadeKey = ''; lastPx = -1;
+  buildFull(); buildShade();
+  layShade(); paintMode(); paintSong(); paintStatus();
+  F.pin.draw('pin', ui.pinned); Sh.pin.draw('pin', ui.pinned); F.fade.set(ui.opacity);
+  return true;
+}
 function fit() {
+  if (!F.L) return;                // not built yet: the build fits itself
+  reshape();
   const h = window.innerHeight;
-  const shadeNow = ui.shade && h <= SHADE_PX + 4;
+  const shadeNow = !TALL && ui.shade && h <= SHADE_PX + 4;
   F.L.hidden = shadeNow; Sh.L.hidden = !shadeNow;
   if (!shadeNow) {
-    const hArt = Math.max(SH, Math.min(H, Math.round(h / P)));
+    const hArt = TALL ? HT : Math.max(SH, Math.min(H, Math.round(h / P)));
     const b = bodyAt(hArt, false);
     if (F.bodyHost.firstChild !== b) F.bodyHost.replaceChildren(b);
-    for (const p of F.parts) p.e.style.visibility = p.bottom > h - 6 && hArt < H ? 'hidden' : (p.e === F.mark || p.e === F.lab) && F.fade.classList.contains('show') ? 'hidden' : '';
+    F.L.style.height = a2(hArt) + 'px';
+    for (const p of F.parts) p.e.style.visibility = !TALL && p.bottom > h - 6 && hArt < H ? 'hidden' : (p.e === F.mark || p.e === F.lab) && F.fade.classList.contains('show') ? 'hidden' : '';
   }
-  root.style.height = h + 'px';
   wake();
 }
 window.addEventListener('resize', fit);
+window.addEventListener('famshape', fit);
 
 // ---------------------------------------------------------------- dragging and the double-click fold
 let press = null;
@@ -476,7 +521,7 @@ const letGo = (e) => {
   press = null;
 };
 root.addEventListener('pointerup', letGo); root.addEventListener('pointercancel', letGo);
-root.addEventListener('dblclick', () => api.shade());
+root.addEventListener('dblclick', () => { if (!TALL) api.shade(); });
 
 // ---------------------------------------------------------------- the main process (heard once the player is built)
 function listen() {

@@ -1,0 +1,3 @@
+## Interface: 120105
+## Title: Details! Damage Meter
+## Version: #Details.20261015.15339.172

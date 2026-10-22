@@ -12,6 +12,7 @@
 // The brain keeps the truth (claude.jobs, claude.wait); this page keeps only what he is looking at: which jobs he
 // tracks, which bar is unfolded, which way a % is flipped, where he is in a set of questions.
 
+import { kindOfWait, tagRow, exactBlock, exactOfInput } from './askkind.js';
 import { barNow, EtaSteady, etaRange, etaWords, overallNow, overallWords, remaining, roundLeft, seedOf } from './progressmath.js';
 
 const CL = 'art/claude-icon.png';
@@ -957,15 +958,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   }
   function answer(w, decision, message) {
     send({ t: 'claude.answer', id: w.id, decision, ...(message ? { message } : {}) });
-    done(w, decision === 'allow' ? (w.kind === 'plan' ? 'Go' : 'Allow') : decision === 'always' ? 'Always allow' : decision === 'deny' ? 'No' : message);
-  }
-  function claudeWords(text) {
-    const frag = document.createDocumentFragment();
-    const cw = btn('cw'); cw.append(h('i'), document.createTextNode("CLAUDE'S WORDS"));
-    const box = h('pre', 'cwbox', text); box.hidden = true;
-    cw.addEventListener('click', (e) => { e.stopPropagation(); box.hidden = !box.hidden; onChange(); });
-    frag.append(cw, box);
-    return frag;
+    done(w, decision === 'allow' ? (w.kind === 'plan' ? 'Go' : 'Allow') : decision === 'always' ? 'Always allow' : decision === 'deny' ? 'Not this time' : message);
   }
   function stateOf(w) { let s = steps.get(w.id); if (!s) { s = { at: 0, answers: {}, picks: new Set() }; steps.set(w.id, s); } return s; }
   /** One question's answer is in: the next one, or all of them go together. */
@@ -1032,8 +1025,6 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       sendKey.addEventListener('click', (e) => { e.stopPropagation(); if (!s.picks.size) return; s.answers[q.question] = q.options.map((o) => o.label).filter((l) => s.picks.has(l)).join(', '); nextQuestion(w, s); });
       count(); card.append(row);
     }
-    const asked = w.questions.map((x, i) => `${i + 1}. ${x.question}${x.multiSelect ? ' (pick any)' : ''}\n${x.options.map((o) => '   - ' + o.label + (o.description ? ': ' + o.description : '')).join('\n')}`).join('\n');
-    card.append(claudeWords(`${w.tool || 'AskUserQuestion'}\n${asked}`));
   }
   function paintPins() {
     pins.replaceChildren();
@@ -1046,13 +1037,18 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     pins.hidden = !w && !toast;
     if (!w) return;
     const card = h('div', `pin k-${w.kind} fadein`);
+    // Sheet 64 (2026-10-22): the card says its kind (bubble.js tints the closed bubble's frame from it).
+    const kind = kindOfWait(w);
+    if (kind) { card.dataset.kind = kind; card.dataset.id = w.id; }
     if (list.length > 1) {
       const more = h('span', 'pmore', `${list.length - 1} MORE`); more.setAttribute('role', 'button'); more.title = 'The next thing waiting';
       more.addEventListener('click', (e) => { e.stopPropagation(); const i = list.indexOf(w); shownId = list[(i + 1) % list.length].id; paintPins(); onChange(); });
       card.append(more);
     }
-    const tag = h('span', 'ctag'), img = document.createElement('img'); img.src = CL; img.alt = '';
-    tag.append(img, document.createTextNode(w.project)); card.append(tag);
+    // Sheet 64: the kind's tag, and "Claude · <project>" beside it, which is the door to that exact session (Open in
+    // Claude; the bubble closes). No separate link, and no "Claude's words" fold any more.
+    if (kind) card.append(tagRow(kind, { claude: true, project: w.project, open: () => openIn(jobOf(w.session) ?? null) }));
+    else { const tag = h('span', 'ctag'), img = document.createElement('img'); img.src = CL; img.alt = ''; tag.append(img, document.createTextNode(w.project)); card.append(tag); }
     // 2026-10-21: a wait the brain only knows of (it restarted while Claude was asking): Aang can show it but not
     // answer it, so the one key opens the session in Claude, where the question is still up.
     if (w.readonly) {
@@ -1067,24 +1063,25 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     if (w.kind === 'question') questionCard(card, w);
     else if (w.kind === 'plan') {
       card.append(h('p', 'q', w.plain || w.summary || `${w.project} has a plan ready.`));
-      const lines = w.plan.split('\n'), short = lines.slice(0, 4).join('\n');
-      const fold = h('pre', 'planfold', short + (lines.length > 4 ? '\n…' : ''));
-      card.append(fold);
+      // The whole plan (it scrolls past 220 px): "Claude's words" used to hold the rest of a long one.
+      card.append(h('pre', 'planfold', w.plan));
       const keys = h('div', 'ckeys');
       const go = btn('key sm primary', 'Go'), ch = btn('key sm', 'Change it');
       go.addEventListener('click', (e) => { e.stopPropagation(); answer(w, 'allow'); });
       ch.addEventListener('click', (e) => { e.stopPropagation(); askWords(w, `Tell ${w.project} what to change`, (text) => answer(w, 'deny-message', text)); });
       keys.append(go, ch); card.append(keys);
-      if (lines.length > 4) card.append(claudeWords(w.plan));
     } else {
       card.append(h('p', 'q', w.plain || w.summary || `${w.project} wants to use ${w.tool || 'a tool'}.`));
+      // Sheet 64: "Exactly this", the command, file or site word for word, before the keys.
+      const exact = exactOfInput(w.input);
+      if (exact) card.append(exactBlock(exact));
       const keys = h('div', 'ckeys');
       const key = (label, cls, go) => { const b = btn('key sm' + cls, label); b.addEventListener('click', (e) => { e.stopPropagation(); go(); }); keys.append(b); };
       key('Allow', ' primary', () => answer(w, 'allow'));
       if (w.canAlways) key('Always', '', () => answer(w, 'always'));
-      key('No', '', () => answer(w, 'deny'));
+      key('Not this time', '', () => answer(w, 'deny'));
       key('No, and...', '', () => askWords(w, `Tell ${w.project} why, or what to do instead`, (text) => answer(w, 'deny-message', text)));
-      card.append(keys, claudeWords(`${w.tool}\n${w.input}`.trim()));
+      card.append(keys);
     }
     pins.append(card);
   }

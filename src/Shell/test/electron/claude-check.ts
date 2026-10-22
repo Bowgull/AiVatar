@@ -237,12 +237,11 @@ app.whenReady().then(async () => {
   await deliver({ t: 'claude.wait', items: [PERM, MULTI, THREE] });
   await wait(300);
   check('pinned: the permission, its plain line and "2 MORE"', (await pinText()).includes('run the sound tests') && (await pinText()).includes('2 MORE'));
-  check('pinned: Allow / Always / No / No, and...', JSON.stringify(await js(`[...document.querySelectorAll('#ckpins .pin .ckeys .key')].map(k => k.textContent)`)) === '["Allow","Always","No","No, and..."]');
+  check('pinned: Allow / Always / Not this time / No, and... (sheet 64)', JSON.stringify(await js(`[...document.querySelectorAll('#ckpins .pin .ckeys .key')].map(k => k.textContent)`)) === '["Allow","Always","Not this time","No, and..."]');
   check('pinned: under the conversation, above the strip and the typing area', (await js(`(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); return r('#lblist').bottom <= r('#ckpins').top + 2 && r('#ckpins').bottom <= r('#ckjobs').top + 2 && r('#ckjobs').bottom <= r('#ck').top + 2; })()`)) === true);
-  await click('#ckpins .cw');
-  check("Claude's exact words one click away", ((await js(`document.querySelector('#ckpins .cwbox:not([hidden])')?.textContent`)) as string)?.includes('npm test -- sounds'));
+  // Sheet 64: no "Claude's words" fold; the OK quotes exactly what it would run, from the start.
+  check('Exactly this: the command, word for word', ((await js(`document.querySelector('#ckpins .kq')?.textContent`)) as string)?.includes('npm test -- sounds') && (await js(`!document.querySelector('#ckpins .cw')`)) === true);
   if (process.env.CLAUDE_SHOT) {
-    await click('#ckpins .cw');
     await js(`document.body.style.background = '#2a2238'; document.getElementById('lblist').scrollTop = 1e6`);
     await wait(700);
     writeFileSync(process.env.CLAUDE_SHOT, (await w.webContents.capturePage()).toPNG());

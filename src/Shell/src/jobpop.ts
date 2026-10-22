@@ -265,10 +265,12 @@ export class JobPops {
   hearSize(p: Pop, h: number): void {
     if (p.w.isDestroyed() || !Number.isFinite(h)) return;
     const height = Math.round(Math.max(FOLDED_H, Math.min(900, h)));
+    // Only the height follows the card: the width is its own, or the family's (a job fitted to a side, F4).
     const [cw, ch] = p.w.getSize();
-    if (cw === WIN_W && ch === height) return;
+    const width = cw!;
+    if (cw === width && ch === height) return;
     const [x, y] = p.w.getPosition();
-    p.w.setBounds({ x: x!, y: y!, width: WIN_W, height });
+    p.w.setBounds({ x: x!, y: y!, width, height });
   }
   hearDrag(p: Pop, phase: unknown, dx: number, dy: number): void {
     if (p.w.isDestroyed()) return;

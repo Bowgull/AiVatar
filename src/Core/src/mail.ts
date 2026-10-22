@@ -537,12 +537,15 @@ export class MailService {
     return out;
   }
 
-  /** Once a day, the first time this is asked after 7:00 Toronto time. Returns the text or null. */
-  async dailyBrief(): Promise<string | null> {
+  /**
+   * Once a day, the first time this is asked after `fromHour` Toronto time (7 by default). Returns the text or null.
+   * 2026-10-22 (his ask, "I'm usually up at 6 if not before"): at the desk the brief comes from 5:00 (core.ts).
+   */
+  async dailyBrief(fromHour = 7): Promise<string | null> {
     const t = this.now();
     const day = t.toLocaleDateString('en-CA', { timeZone: TZ });
     const hour = Number(t.toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', hour12: false }).slice(0, 2));
-    if (hour < 7 || this.store.briefDay === day || !this.g.connected) return null;
+    if (hour < fromHour || this.store.briefDay === day || !this.g.connected) return null;
     this.store.briefDay = day;
     return this.brief();
   }
