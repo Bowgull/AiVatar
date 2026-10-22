@@ -1,4 +1,4 @@
-# Connect Aang to Spotify, so "play lo-fi girl" works. Double-click spotify-setup.cmd to run it.
+﻿# Connect Aang to Spotify, so "play lo-fi girl" works. Double-click spotify-setup.cmd to run it.
 #
 # Before this, once: at developer.spotify.com/dashboard, Create app (any name, e.g. Aang), Redirect URI
 #   http://127.0.0.1:47835/callback
@@ -15,7 +15,9 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 Write-Host ''
 Write-Host '  Aang: connect to Spotify' -ForegroundColor Yellow
 Write-Host '  ------------------------'
-$clientId = if ($args.Count -gt 0) { $args[0] } else { (Read-Host '  Client ID from your Spotify developer app') }
+# 2026-10-22: a second run reuses the Client ID already saved, so signing in again (for new permissions) is one click.
+$saved = $null; try { $saved = (Get-Content $store -Raw | ConvertFrom-Json).clientId } catch { }
+$clientId = if ($args.Count -gt 0) { $args[0] } elseif ($saved) { Write-Host '  Using your saved Spotify app.'; $saved } else { (Read-Host '  Client ID from your Spotify developer app') }
 $clientId = "$clientId".Trim()
 if ($clientId -notmatch '^[0-9a-f]{32}$') { Write-Host '  That does not look like a Spotify Client ID (32 letters and digits).' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
 
@@ -27,7 +29,7 @@ $challenge = B64Url ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.
 $state = Rand 16
 $redirect = 'http://127.0.0.1:47835/callback'
 $q = @{ client_id = $clientId; response_type = 'code'; redirect_uri = $redirect; code_challenge_method = 'S256'; code_challenge = $challenge; state = $state
-        scope = 'user-modify-playback-state user-read-playback-state' }
+        scope = 'user-modify-playback-state user-read-playback-state user-read-currently-playing user-library-read user-library-modify playlist-read-private playlist-read-collaborative' }
 $url = 'https://accounts.spotify.com/authorize?' + (($q.GetEnumerator() | ForEach-Object { "$($_.Key)=$([Uri]::EscapeDataString($_.Value))" }) -join '&')
 
 $http = New-Object Net.HttpListener; $http.Prefixes.Add('http://127.0.0.1:47835/'); $http.Start()
