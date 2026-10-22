@@ -576,6 +576,8 @@ export type FromBody =
   /** Sheet 17: a note saved from the editor, the screen, or a new one; and a note deleted. */
   | { t: 'notes.save'; note: unknown }
   | { t: 'notes.delete'; id: string }
+  /** Sheet 62 (2026-10-22): "Keep as a note" on something he sent to Aang: its words (or name), the link and the site. */
+  | { t: 'notes.keep'; text: string; url: string; site: string }
   /** His pick from a choice list: the option's index, or -1 for "Something else". */
   | { t: 'choice.reply'; id: string; pick: number }
   | { t: 'action.list' }

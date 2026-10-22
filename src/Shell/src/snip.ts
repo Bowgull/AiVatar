@@ -1,14 +1,16 @@
 // Step 6.17, pass 1: Snipit.
 //
-// Ctrl+Shift+Plus (his key) freezes the screen under the mouse, he drags a box, and the snip shrinks to a
-// corner card with Send and Bin it. It NEVER sends by itself. Send hands it to the typing box as a chip,
-// so it lands in the chat like everything else he gives Aang (his rule, 2026-10-04): he says what he
-// wants, and the brain gets the picture's path with his words.
+// Ctrl+Shift+Plus (his key) freezes the screen under the mouse, he drags a box, and the snip lands in his typing box as
+// a chip, so it lands in the chat like everything else he gives Aang (his rule, 2026-10-04): he says what he wants, and
+// the brain gets the picture's path with his words. It NEVER sends by itself.
+//
+// Sheet 62 (his pick, 2026-10-22, "one uniform action"): the old corner card (Send / Bin it) is gone. A snip lands the
+// same way as everything sent from Samara: the chip, and Aang asks one line (Ask about it / Keep as a note / Pin it).
 //
 // Saved as a PNG in his own Pictures folder ("Aang snips"), not in Aang's data folder: it is his picture,
 // he should be able to find it, and Aang reading it goes through the same "read a file" permission as any
-// other file. Bin it moves it to the Recycle Bin rather than deleting it outright.
-import { BrowserWindow, desktopCapturer, globalShortcut, screen, shell, type NativeImage } from 'electron';
+// other file.
+import { BrowserWindow, desktopCapturer, globalShortcut, screen } from 'electron';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
@@ -18,20 +20,17 @@ export interface SnipOptions {
   preloadPath: string;
   /** Where snips are saved: Pictures\Aang snips. */
   dir: string;
-  /** He pressed Send: the snip goes to the typing box. */
-  onSend: (file: string) => void;
+  /** He drew a box: the snip goes to the typing box (its file, and a small picture for the chip). */
+  onSend: (file: string, thumb: string) => void;
 }
 
 export class Snipper {
   private overlay: BrowserWindow | null = null;
-  private card: BrowserWindow | null = null;
-  private full: NativeImage | null = null;
-  private file: string | null = null;
+  private full: Electron.NativeImage | null = null;
   private readonly o: SnipOptions;
   constructor(o: SnipOptions) { this.o = o; }
 
   isOverlay(sender: Electron.WebContents): boolean { return Boolean(this.overlay && !this.overlay.isDestroyed() && sender === this.overlay.webContents); }
-  isCard(sender: Electron.WebContents): boolean { return Boolean(this.card && !this.card.isDestroyed() && sender === this.card.webContents); }
 
   private win(opts: Electron.BrowserWindowConstructorOptions): BrowserWindow {
     const w = new BrowserWindow({ frame: false, show: false, skipTaskbar: true, resizable: false, movable: false,
@@ -45,7 +44,6 @@ export class Snipper {
   /** Freeze the screen the mouse is on and let him drag a box over it. */
   async start(): Promise<void> {
     if (this.overlay && !this.overlay.isDestroyed()) return;
-    this.closeCard();
     const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const sf = d.scaleFactor || 1;
     try {
@@ -92,63 +90,19 @@ export class Snipper {
       width: Math.max(1, Math.min(size.width, Math.round(r.w * sx))), height: Math.max(1, Math.min(size.height, Math.round(r.h * sy))),
     };
     const img = full.crop(crop);
+    let file: string;
     try {
       mkdirSync(this.o.dir, { recursive: true });
       const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '.');
-      this.file = path.join(this.o.dir, `Snip ${stamp}.png`);
-      writeFileSync(this.file, img.toPNG());
-    } catch (e) { console.error('shell: snip: could not save it: ' + (e as Error).message); this.file = null; return; }
-    this.showCard(img);
-  }
-
-  /** The corner card, bottom-right of the screen he snipped. Shown without taking focus from his game. */
-  private showCard(img: NativeImage): void {
-    this.closeCard();
-    const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
-    const W = 300, H = 270;
-    const w = this.win({ x: d.x + d.width - W - 16, y: d.y + d.height - H - 16, width: W, height: H,
-      transparent: true, backgroundColor: '#00000000', hasShadow: false, alwaysOnTop: true, focusable: false });
-    w.setAlwaysOnTop(true, 'pop-up-menu');
-    w.webContents.once('did-finish-load', () => {
-      if (w.isDestroyed()) return;
-      w.webContents.send('snip:card', { url: img.resize({ width: Math.min(560, img.getSize().width) }).toDataURL() });
-      // Shown once it has measured itself (fitCard), so it never appears cut off; this is the fallback.
-      setTimeout(() => { if (!w.isDestroyed() && !w.isVisible()) w.showInactive(); }, 800);
-    });
-    w.on('closed', () => { if (this.card === w) this.card = null; });
-    this.card = w;
-    void w.loadURL(`${this.o.origin}/snipcard.html`);
-  }
-
-  /** The card measured itself: resize the window to it, still anchored to the bottom-right corner. */
-  fitCard(width: number, height: number): void {
-    const w = this.card;
-    if (!w || w.isDestroyed() || width < 100 || height < 100) return;
-    const W = Math.min(600, Math.round(width)), H = Math.min(700, Math.round(height));
-    const b = w.getBounds();
-    // setBounds, never setSize: setSize is ignored on a non-resizable window on this machine (see main.ts).
-    w.setBounds({ x: b.x + b.width - W, y: b.y + b.height - H, width: W, height: H });
-    if (!w.isVisible()) w.showInactive();
-  }
-
-  private closeCard(): void { if (this.card && !this.card.isDestroyed()) this.card.close(); this.card = null; }
-
-  send(): void {
-    const f = this.file;
-    this.file = null;
-    this.closeCard();
-    if (f) this.o.onSend(f);
-  }
-
-  bin(): void {
-    const f = this.file;
-    this.file = null;
-    this.closeCard();
-    if (f) void shell.trashItem(f).catch(() => { /* already gone */ });
+      file = path.join(this.o.dir, `Snip ${stamp}.png`);
+      writeFileSync(file, img.toPNG());
+    } catch (e) { console.error('shell: snip: could not save it: ' + (e as Error).message); return; }
+    const sz = img.getSize();
+    const thumb = (sz.width > 48 ? img.resize({ width: 48, quality: 'good' }) : img).toDataURL();
+    this.o.onSend(file, thumb);
   }
 
   close(): void {
     if (this.overlay && !this.overlay.isDestroyed()) this.overlay.close();
-    this.closeCard();
   }
 }

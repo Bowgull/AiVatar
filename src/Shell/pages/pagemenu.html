@@ -4,9 +4,11 @@
 <meta charset="utf-8">
 <!-- 6.22b bug 2: the menu you get by right-clicking a page. Its own small window, so it is never cut off at the
      browser's edge and nothing in the page can draw over it. The page's words (a link, the selected text)
-     arrive as plain data and are drawn with textContent. -->
+     arrive as plain data and are drawn with textContent.
+     2026-10-22 (sheet 62): img-src 'self' added. Without it the wood art and the glove (pagemenu.css, sheet 27) were
+     blocked and the menu drew as a flat dark box, not the wood sheet 62 shows. Only our own pictures; nothing remote. -->
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'self'; script-src 'self'; font-src 'self'; form-action 'none'; base-uri 'none'">
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; font-src 'self'; form-action 'none'; base-uri 'none'">
 <title>Menu</title>
 <link rel="stylesheet" href="cockpit.css">
 <link rel="stylesheet" href="pagemenu.css">

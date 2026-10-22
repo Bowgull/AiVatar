@@ -15,7 +15,7 @@
 // third way out. Those three keys are what his hands already know.
 
 /**
- * @typedef {{ label: string, key: 'A'|'S'|'X'|'Z', choice: string, tone?: 'primary'|'warn'|'burnt', hold?: boolean }} AskKey
+ * @typedef {{ label: string, key: 'A'|'S'|'D'|'X'|'Z', choice: string, tone?: 'primary'|'warn'|'burnt', hold?: boolean }} AskKey
  * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, mail?: { to: string, subject: string, body: string, fresh: string, cc?: string, files?: string }, keys: AskKey[] }} Ask
  */
 
@@ -88,6 +88,24 @@ export function askFrom(m) {
         { label: 'Not true', key: 'X', choice: 'no' },
         { label: 'Skip', key: 'Z', choice: 'skip' },
       ],
+    };
+  }
+
+  // Sheet 62 (his pick, 2026-10-22): something he sent to Aang (words, a picture, a link, a page, a snip) is on his
+  // typing box as a chip; Aang asks one line. Ask about it puts his cursor in the box, Keep as a note makes a plain note
+  // with the link, and a snip gets a third key, Pin it. The Shell decides what each key does (sendtoaang.ts).
+  if (m.t === 'send.ask') {
+    const snip = m.snip === true;
+    /** @type {AskKey[]} */
+    const keys = [
+      { label: 'Ask about it', key: 'A', choice: 'ask', tone: 'primary' },
+      { label: 'Keep as a note', key: 'S', choice: 'note' },
+    ];
+    if (snip) keys.push({ label: 'Pin it', key: 'D', choice: 'pin' });
+    return {
+      plaque: snip ? 'YOUR SNIP' : m.fromSamara === true ? 'SENT FROM SAMARA' : 'SENT TO AANG',
+      question: snip ? 'Got your snip. Ask about it, keep it, or pin it?' : 'Got it. Ask about it, or keep it as a note?',
+      keys,
     };
   }
 
