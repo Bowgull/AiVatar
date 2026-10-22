@@ -121,6 +121,13 @@ interface Tab {
   /** Lent to the popout: the live page is playing over his game; the browser shows a plate where it was. */
   lent: boolean;
   scrollY: number;
+  /**
+   * Coming back after a restart (2026-10-22, his Mac): Chromium's own saved state for the page he was on (scroll, form
+   * contents but never passwords), so the page comes back where it was as it draws, and the colour of the page, so the
+   * page area shows that colour (not near-white) until it does. Kept on this machine only; sync never carries them.
+   */
+  pageState?: string;
+  pageBg?: string;
   zoom: number;
   lastSeen: number;
   /** 6.24: a call is live in this tab (he allowed its camera, mic or a screen share): never slowed, never put to sleep. */
@@ -287,6 +294,16 @@ const BAND_HEIGHT = 58;
 /** The page's corners, rounded natively: the floating page (2026-10-12) has big soft corners (Flow browser does this). */
 const PAGE_RADIUS = 16;
 const PAGE_COLOUR = '#f6f3ee';
+/** Chromium's saved state for a page is kept only up to this size (a page full of form fields can be large). */
+const PAGE_STATE_MAX = 64 * 1024;
+/** Where the page is scrolled, and the colour it shows behind its content (the body's, else the page's, else white). */
+const PAGE_LOOK_JS = `[window.scrollY, (() => { const c = (e) => e ? getComputedStyle(e).backgroundColor : ''; const clear = (x) => !x || x === 'transparent' || /rgba\\(.*,\\s*0\\)$/.test(x);
+  const b = c(document.body); if (!clear(b)) return b; const h = c(document.documentElement); return clear(h) ? 'rgb(255, 255, 255)' : h; })()]`;
+/** 'rgb(14, 14, 16)' as '#0e0e10'; anything else is not a colour we keep. */
+function hexOf(c: unknown): string | undefined {
+  const m = /^rgba?\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})/.exec(String(c));
+  return m ? '#' + m.slice(1, 4).map((x) => Math.min(255, Number(x)).toString(16).padStart(2, '0')).join('') : undefined;
+}
 /** The soft fade between pages (his pick, option 5): fade length, when a slow site dims, when a page counts as instant. */
 const VEIL_FADE_MS = 250, VEIL_DIM_MS = 1500, VEIL_INSTANT_MS = 300, VEIL_MAX_MS = 8000;
 
@@ -657,7 +674,7 @@ export class AangBrowser {
     });
     // A web page never reaches this computer or the home network (2026-10-14): on before the ad lists load.
     guardRequests(this.ses, netGuard, null);
-    void blockAds(this.ses, o.stateDir, { cosmetic: true, guard: netGuard }).then((b) => { this.ads = b; if (b) { for (const h of [...this.paused, ...CALL_SITES]) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
+    void blockAds(this.ses, o.stateDir, { cosmetic: true, guard: netGuard }).then((b) => { this.ads = b; if (b) { b.pauseMany([...this.paused, ...CALL_SITES], true); if (!this.prefs.ads) b.stop(); } });
     this.callFile = path.join(o.stateDir, 'in-call.json');
     try { unlinkSync(this.callFile); } catch { /* none left over */ }
   }
@@ -1050,8 +1067,8 @@ export class AangBrowser {
     if (Array.isArray(L.httpOk)) meet(L.httpOk, this.httpOk, this.peerHttp, this.httpOkFile);
     if (Array.isArray(L.adsPaused)) {
       const next = new Set(hostList(L.adsPaused));
-      for (const h of this.paused) if (!next.has(h)) this.ads?.pause(h, false);
-      for (const h of next) if (!this.paused.has(h)) this.ads?.pause(h, true);
+      this.ads?.pauseMany([...this.paused].filter((h) => !next.has(h)), false);
+      this.ads?.pauseMany([...next].filter((h) => !this.paused.has(h)), true);
       this.paused = next; put(this.pausedFile, this.paused);
     }
     if (Array.isArray(L.stash)) {
@@ -1572,8 +1589,9 @@ export class AangBrowser {
     const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses, preload: this.o.tabPreloadPath, plugins: true } });
     const wc = view.webContents;
     // A new view paints white until its page draws; that white is the flash between pages. Paint it the
-    // page area's own colour instead, and keep it in the window, hidden, so switching to it is instant.
-    view.setBackgroundColor(PAGE_COLOUR);
+    // page area's own colour instead (or, coming back, the page's own colour: a dark site stays dark), and keep it in
+    // the window, hidden, so switching to it is instant.
+    view.setBackgroundColor(tab.pageBg ?? PAGE_COLOUR);
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime: square corners */ }
     view.setVisible(false);
     this.inTab(tab);
@@ -1734,18 +1752,32 @@ export class AangBrowser {
     // The keys work wherever the keyboard is, page or frame.
     // Not while it is lent to the popout: Ctrl+W there must not close a tab in here.
     on('before-input-event', (e, input) => { if (!tab.lent && this.key(input)) e.preventDefault(); });
-    // Back where it was: the zoom at once, the scroll once the page has drawn.
+    // Back where it was: the zoom at once. The scroll (2026-10-22, measured on his Mac: it waited for every picture on
+    // the page, so a busy page sat at the top for up to ~15 s and then jumped): Chromium's own saved state when there is
+    // one, so the page draws where he left it, as Chrome does after a restart; otherwise as soon as the page can scroll,
+    // and once more when it has loaded, unless he has scrolled it himself in between.
     if (tab.zoom) wc.setZoomLevel(tab.zoom);
     if (tab.muted) wc.setAudioMuted(true);
-    const back = tab.scrollY;
-    if (back > 0) wc.once('did-finish-load', () => { void within(wc.executeJavaScript(`window.scrollTo(0, ${Math.round(back)})`, true), 1500, null); });
+    const back = Math.round(tab.scrollY), state = tab.pageState;
+    tab.pageState = undefined;                          // used once: a later wake loads the page afresh
     // A mockup from an earlier run: the page server has a new port each run, the commit and path stay the same.
     // (A live page, 2026-10-22, has no commit and keeps its own address.)
     if (tab.mock?.commit && this.mockServer) tab.url = this.mockServer.rebase(tab.url);
     const l = this.stopFor(tab.url);
     if (l.length) { this.block(tab, tab.url, l); return; }
     tab.blocked = null;
-    void wc.loadURL(this.secured(tab, tab.url)).catch(() => {});
+    const to = this.secured(tab, tab.url);
+    if (state && to === tab.url && !tab.mock) {
+      wc.navigationHistory.restore({ index: 0, entries: [{ url: tab.url, title: tab.title, pageState: state }] }).catch(() => { void wc.loadURL(to).catch(() => {}); });
+      return;
+    }
+    if (back > 0) {
+      // WebFrameMain's run does not wait for the page to finish loading the way webContents.executeJavaScript does.
+      let placed = -1;
+      wc.once('dom-ready', () => { void wc.mainFrame.executeJavaScript(`(scrollTo(0, ${back}), scrollY)`, true).then((y) => { placed = Number(y); }, () => {}); });
+      wc.once('did-finish-load', () => { void wc.mainFrame.executeJavaScript(`(scrollY === ${placed} || scrollY === 0) && scrollTo(0, ${back})`, true).catch(() => {}); });
+    }
+    void wc.loadURL(to).catch(() => {});
   }
 
   /**
@@ -1940,6 +1972,8 @@ export class AangBrowser {
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
   private sleep(tab: Tab): void {
     if (!tab.view) return;
+    // Its page comes back where it was when it wakes (Chromium's own state, kept with the tab).
+    try { const h = tab.view.webContents.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; if (s && s.length <= PAGE_STATE_MAX && !tab.mock) tab.pageState = s; } catch { /* the scroll is kept as before */ }
     this.closeView(tab);
     tab.loading = false; tab.audible = false;
   }
@@ -3754,8 +3788,10 @@ export class AangBrowser {
     await Promise.all(keep.map(async (t) => {
       if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
       if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
-      const y = await within(t.view.webContents.executeJavaScript('window.scrollY', true) as Promise<number>, 800, t.scrollY);
-      if (typeof y === 'number' && Number.isFinite(y)) t.scrollY = y;
+      const wc = t.view.webContents;
+      const got = await within(wc.executeJavaScript(PAGE_LOOK_JS, true) as Promise<[number, string]>, 800, null);
+      if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
+      try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
     }));
     const data = {
       v: 1,
@@ -3766,6 +3802,8 @@ export class AangBrowser {
         url: t.url, title: t.title, opener: t.opener === null ? null : keep.findIndex((x) => x.id === t.opener),
         scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done, win: winOf.get(t.pane) ?? 0,
         ...(t.mock ? { mock: { ...t.mock } } : {}),
+        ...(t.pageBg ? { pageBg: t.pageBg } : {}),
+        ...(t.pageState && !t.mock ? { pageState: t.pageState } : {}),
         ...(t.favicon && /^(https:|data:image\/)/.test(t.favicon) && t.favicon.length < 4000 ? { favicon: t.favicon } : {}),
       })),
       trails,
@@ -3792,6 +3830,8 @@ export class AangBrowser {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: fav,
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
           trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
+        if (typeof t.pageBg === 'string' && /^#[0-9a-f]{6}$/.test(t.pageBg)) tab.pageBg = t.pageBg;
+        if (typeof t.pageState === 'string' && t.pageState.length <= PAGE_STATE_MAX && /^[A-Za-z0-9+/=]+$/.test(t.pageState)) tab.pageState = t.pageState;
         // Sheet 47: a mockup tab comes back as one (only while the mockups are on here), in the MOCKUPS trail.
         const m = t.mock;
         if (m && typeof m.sheet === 'string' && typeof m.commit === 'string' && typeof m.key === 'string') { tab.mock = { sheet: m.sheet, commit: m.commit, key: m.key }; tab.trail = MOCK_TRAIL; }

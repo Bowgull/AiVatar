@@ -440,3 +440,42 @@ Not done: dark mode earlier (would flash white before pages darken), tab list as
 | Ad blocker on start (2nd launch on) | ~900 ms freeze every launch | 36 ms (adcache-check) |
 
 The cold-start row in perf-trace still shows the full build, because the harness starts from an empty folder every run.
+
+## 7. Cold start on his Mac (2026-10-22, MacBook Pro 2017, 2-core i5, 8 GB)
+
+His report: "laggy, slow, takes forever to load and refresh, the tab bar glitches". Measured with
+`test/electron/startup-check.ts` (a restored session, front tab a long dark page he had scrolled 3,000 px down, four
+asleep; WARM=1 = a normal restart, none = the first start with nothing kept; KEEPTABS=1 = from the tabs the last run
+saved). A screen recording of his real Samara starting (scratch only) showed the near-white page area, then the page
+at the top, then the jump to his spot.
+
+**Causes, from a CPU profile of the main process** (which also serves Samara's own pages, so any stall there holds up
+the window and the band):
+- Phishing lists read into a 414,000-entry Map on every start: ~0.8 s plus ~1 s of garbage collection.
+- Ad blocker: each paused site (the 7 call sites included) applied as its own engine update, ~0.5 s; and once a day the
+  first start waited for 5 list downloads and a ~1.8 s rebuild on the main process.
+- Scroll put back only at `did-finish-load` (every picture loaded): the page sat at the top for up to ~15 s, then jumped.
+- The page area painted `#f6f3ee` until the page drew, a white flash on dark sites.
+- Found on the way: Ghostery ignores `@@||site^$document` for a page's own requests, so "let ads through here" (and the
+  call sites) never worked. Now `@@*$domain=site` (test/electron/adrefresh-check.ts proves it against the real lists).
+
+**Fixes:** phishing lists kept as sorted 64-bit fingerprints (index-v1.bin, read in ~5 ms, built in steps when a list
+changes); kept ad lists used at once even when a day old, fresh ones fetched and built in a worker thread
+(skip/adbuild-worker.mjs) and swapped in with the same paused sites; pauses applied in one update; Chromium's own page
+state saved per tab (`navigationHistory.restore`) so the page draws where he left it, with a dom-ready fallback; the
+page area painted the page's own last colour.
+
+| On his Mac | Before | After |
+|---|---|---|
+| First start: window shown | 8.7-9.6 s | 1.1-1.5 s |
+| First start: page drawn | 12.9-15.9 s | 1.9-2.9 s |
+| First start: longest main-process freeze | 3.2-6.3 s | 0.4-0.5 s |
+| Normal restart: window shown | 2.0-2.9 s | 1.1-1.5 s |
+| Normal restart: page drawn | 2.9-4.0 s | 1.9-2.4 s |
+| Back at his scroll spot | 17-18 s (a jump) | on the first frame |
+| Page area before the page draws | near-white | the page's own colour |
+| A day-old start of the ad blocker | ~1 s (waited for downloads) | ~60 ms |
+| Phishing lists on start | ~0.8 s + GC | ~5 ms |
+
+Not covered here (needs the PC or his eyes): the castLabs engine and Widevine wait in macmain (stock Electron in the
+harness), the real window on his screen, and Windows.
