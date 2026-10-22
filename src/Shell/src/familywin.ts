@@ -151,6 +151,19 @@ html[data-fam-sized] ${s}{box-sizing:border-box !important;width:var(--fam-w) !i
 }
 
 /** The settle spring (0.32 s, damping 0.85) as a CSS linear() easing, so the page's re-flow moves like the windows do. */
+/**
+ * A window cut by a region shows only what lies inside its own bounds. Right after the cut its page grows by the invisible
+ * resize borders and is padded back a moment later (checkPad); until then the panel measured is 8 px bigger each way and
+ * part of it is cut off. The family places by what SHOWS, so that moment no longer moves the group (family-check: the
+ * video ended 8 px off where the group was dragged, 2026-10-22, once the corner requests worked again).
+ */
+export function clipTo(r: F.Box, b: F.Box): F.Box {
+  const x = Math.max(r.x, b.x), y = Math.max(r.y, b.y);
+  const R = Math.min(r.x + r.width, b.x + b.width), B = Math.min(r.y + r.height, b.y + b.height);
+  if (R <= x || B <= y) return r;
+  return { x, y, width: R - x, height: B - y };
+}
+
 export function springEasing(motion: { response: number; damping: number } = F.MOTION.settle, steps = 24): string {
   const out: string[] = [];
   let s: F.Spring = { x: 0, v: 0 };
@@ -261,7 +274,15 @@ export class FamilyHost implements FamilyHooks {
     if (!l || !w || w.isDestroyed()) return null;
     const c = w.getContentBounds();
     const k = l.card ?? { x: 0, y: 0, width: c.width, height: c.height };
-    return { x: Math.round(c.x + k.x), y: Math.round(c.y + k.y), width: Math.round(k.width), height: Math.round(k.height) };
+    const r = { x: Math.round(c.x + k.x), y: Math.round(c.y + k.y), width: Math.round(k.width), height: Math.round(k.height) };
+    return l.regioned ? clipTo(r, w.getBounds()) : r;
+  }
+  /** Where the panel sits inside its window (what setPos keeps), measured the same way boxOf measures it. */
+  private panelOffset(l: Live, w: BrowserWindow): { x: number; y: number } {
+    const b = w.getBounds(), c = w.getContentBounds(), k = l.card ?? { x: 0, y: 0, width: c.width, height: c.height };
+    const r = { x: Math.round(c.x + k.x), y: Math.round(c.y + k.y), width: Math.round(k.width), height: Math.round(k.height) };
+    const v = l.regioned ? clipTo(r, b) : r;
+    return { x: v.x - b.x, y: v.y - b.y };
   }
   private syncBoxes(): void { for (const id of this.live.keys()) { const b = this.boxOf(id), m = this.fam.get(id); if (b && m) m.box = b; } }
 
@@ -274,8 +295,8 @@ export class FamilyHost implements FamilyHooks {
     x = Math.round(x) + 0; y = Math.round(y) + 0;
     if (l.last && l.last.x === x && l.last.y === y) return;
     l.last = { x, y };
-    const b = w.getBounds(), c = w.getContentBounds(), k = l.card ?? { x: 0, y: 0 };
-    w.setPosition(Math.round(x - k.x - (c.x - b.x)) + 0, Math.round(y - k.y - (c.y - b.y)) + 0);
+    const o = this.panelOffset(l, w);
+    w.setPosition(Math.round(x - o.x) + 0, Math.round(y - o.y) + 0);
     const m = this.fam.get(id);
     if (m) m.box = { ...m.box, x, y };
   }

@@ -307,7 +307,8 @@ app.whenReady().then(async () => {
       const a = f.get(id)!.anchor, L = H.layoutsOf(id);
       if (a && L && !L.aspect && !L.max) {
         const p = now.get(a.to)!;
-        if (shape === 'tall' && b.height !== p.height) problems.push(`${SHORT[id]} column ${b.height} tall beside ${SHORT[a.to]} ${p.height}`);
+        // A fitHeight column (the timer since v2, his "a ton of empty space") is only as tall as its own page, never taller.
+        if (shape === 'tall' && L.tall?.fitHeight ? b.height > p.height : shape === 'tall' && b.height !== p.height) problems.push(`${SHORT[id]} column ${b.height} tall beside ${SHORT[a.to]} ${p.height}`);
         if (shape === 'wide' && b.width !== p.width) problems.push(`${SHORT[id]} strip ${b.width} wide on ${SHORT[a.to]} ${p.width}`);
       }
     }
