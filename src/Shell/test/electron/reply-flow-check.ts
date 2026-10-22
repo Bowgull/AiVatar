@@ -147,6 +147,61 @@ app.whenReady().then(async () => {
   const reenter = (r.enter as any[]).filter((x) => x.at > tFirst && x.on).length;
   check('the finished reply does not blink: no fade-in restart after the first word', reenter === 0, `${reenter} restarts`);
   check('every word is shown at the end', r.lit === r.words && r.words > 30, `${r.lit}/${r.words}`);
+  // 2026-10-21 (his report): the bubble's width is set ONCE per exchange. Opening gives the window one width (it went
+  // 287 -> 466 -> 416), and the long answer above never changed width from thinking to the end.
+  const openSizes = (r.sizes as any[]).filter((x) => x.at >= t0 && x.at < tFirst);
+  check('opening: the window is given one width (no 287 -> 466 -> 416)', new Set(openSizes.map((x) => x.width)).size <= 1, openSizes.map((x) => `${x.width}x${x.height}`).join(' '));
+  const shown1 = S.filter((x) => !x.hidden && x.at >= (firstShown?.at ?? t0) + 600 && x.at <= tLast + 1500);
+  check('one width from thinking to the end of the answer', new Set(shown1.map((x) => x.w)).size === 1, [...new Set(shown1.map((x) => x.w))].join(' -> '));
+
+  // Thinking -> a SHORT answer: his "Clear, cool, calm." Each starts from a closed bubble. Whole, streamed, and small talk.
+  const shortFrames: { name: string; png: Electron.NativeImage }[] = [];
+  const exchange = async (name: string, question: string, lane: string, parts: string[], whole: string) => {
+    await js(`window.__deliver({ t: 'bubble.clear' }); true`); await wait(500);
+    const a = Number(await js(`performance.now()`));
+    await js(`window.__deliver({ t: 'asked', text: ${JSON.stringify(question)} }); true`);
+    await wait(15);
+    await js(`window.__deliver({ t: 'bubble.dots', who: ${JSON.stringify(lane)} }); window.__deliver({ t: 'state', state: 'think' }); true`);
+    await wait(700);
+    shortFrames.push({ name: name + '-thinking', png: await w.webContents.capturePage({ x: 260, y: 60, width: W - 260, height: H - 60 }) });
+    const b = Number(await js(`performance.now()`));
+    for (const p of parts) { await js(`window.__deliver({ t: 'bubble', text: ${JSON.stringify(p)}, stream: true, id: ${JSON.stringify(name)}, who: ${JSON.stringify(lane)} }); true`); await wait(50); }
+    await js(`window.__deliver({ t: 'bubble', text: ${JSON.stringify(whole)}, stream: false, id: ${JSON.stringify(name)}, who: ${JSON.stringify(lane)} }); window.__deliver({ t: 'state', state: 'idle' }); true`);
+    await wait(1400);
+    shortFrames.push({ name: name + '-answer', png: await w.webContents.capturePage({ x: 260, y: 60, width: W - 260, height: H - 60 }) });
+    const q = await js(`({ s: window.__s, sizes: window.__sizes, lit: document.querySelectorAll('#said span.w:not(.o)').length })`);
+    const seen = (q.s as any[]).filter((x) => x.at >= a && !x.hidden);
+    const settled = seen.filter((x) => x.at >= a + 600);
+    const widths = [...new Set(settled.map((x) => x.w))];
+    const opening = (q.sizes as any[]).filter((x) => x.at >= a && x.at < b);
+    const all = (q.sizes as any[]).filter((x) => x.at >= a);
+    // the balloon's width frame to frame once it is open: never a step bigger than a glide makes
+    let step = 0, prevW: number | null = null;
+    for (const x of settled) { if (prevW !== null) step = Math.max(step, Math.abs(x.w - prevW)); prevW = x.w; }
+    console.log(`${name}: balloon widths after opening ${widths.join(' -> ')}; window sizes ${all.map((x) => `${x.width}x${x.height}`).join(' ')}`);
+    return { widths, opening, all, step, lit: q.lit, b };
+  };
+  const whole = await exchange('whole', 'describe yourself in three words', 'Smart', [], 'Clear, cool, calm.');
+  check('thinking -> short whole answer: no width snap (one balloon width throughout)', whole.widths.length === 1, whole.widths.join(' -> '));
+  check('...opening gives the window one width', new Set(whole.opening.map((x: any) => x.width)).size <= 1, whole.opening.map((x: any) => x.width).join(' '));
+  check('...the window keeps one width for the whole exchange', new Set(whole.all.map((x: any) => x.width)).size <= 1, whole.all.map((x: any) => x.width).join(' '));
+  check('...the answer is shown', whole.lit === 3, `${whole.lit} words`);
+  const streamed = await exchange('streamed', 'describe yourself in three words', 'Smart', ['Clear, ', 'Clear, cool, ', 'Clear, cool, calm.'], 'Clear, cool, calm.');
+  check('thinking -> short STREAMED answer: no width snap at the end', streamed.widths.length === 1, streamed.widths.join(' -> '));
+  check('...the window keeps one width for the whole exchange', new Set(streamed.all.map((x: any) => x.width)).size <= 1, streamed.all.map((x: any) => x.width).join(' '));
+  const small = await exchange('smalltalk', 'hey buddy', 'Quick', ['Hey! ', 'Hey! Good to see you.'], 'Hey! Good to see you.');
+  check('small talk: opens narrow and stays narrow (one width)', small.widths.length === 1 && small.widths[0]! < 300, small.widths.join(' -> '));
+  check('no frame-to-frame width jump bigger than a glide step in any of them', Math.max(whole.step, streamed.step, small.step) <= 60, `${whole.step}/${streamed.step}/${small.step} px`);
+  {
+    const sz1 = shortFrames[0]!.png.getSize(), k1 = 0.5, fw1 = Math.round(sz1.width * k1), fh1 = Math.round(sz1.height * k1);
+    const st = Buffer.alloc(fw1 * shortFrames.length * fh1 * 4);
+    shortFrames.forEach((f, i) => {
+      const bm = f.png.resize({ width: fw1, height: fh1, quality: 'good' }).toBitmap();
+      for (let y = 0; y < fh1; y++) bm.copy(st, (y * fw1 * shortFrames.length + i * fw1) * 4, y * fw1 * 4, (y + 1) * fw1 * 4);
+    });
+    writeFileSync(path.join(OUT, 'short-strip.png'), nativeImage.createFromBitmap(st, { width: fw1 * shortFrames.length, height: fh1 }).toPNG());
+    console.log('short strip: ' + path.join(OUT, 'short-strip.png'));
+  }
   check('no page errors', errors.length === 0, errors.join(' | '));
   console.log(`numbers: Enter->dots ${firstShown ? Math.round(firstShown.at - t0) : '-'} ms, first chunk->first word ${Math.round(fl)} ms, window resizes while streaming ${sz.length} (streamed ${chunks + 1} chunks over ${Math.round(tLast - tFirst)} ms), last chunk->all words lit ${Math.round((S.find((x) => x.at > tLast && x.words >= r.words)?.at ?? NaN) - tLast)} ms`);
 

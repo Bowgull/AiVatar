@@ -222,18 +222,23 @@ function growTo(w, h, done) {
   const from = { ...cur }, bigger = w * h >= from.w * from.h;
   // His motion rules (2026-10-21): a big grow springs (520 ms, slight overshoot), a shrink settles (340 ms), and a
   // small change (a few dozen pixels, the bubble already up) glides 300 ms on Samara's ease with no overshoot.
-  const small = from.w > 0 && from.h > 0 && w > 0 && Math.abs(w - from.w) <= 48 && Math.abs(h - from.h) <= 48;
+  // 2026-10-21: and a change of WIDTH while the bubble is up (a new exchange at another width) glides the same way, so
+  // it never reads as a snap; the window keeps the wider of the two until it lands.
+  const small = from.w > 0 && from.h > 0 && w > 0 && ((Math.abs(w - from.w) <= 48 && Math.abs(h - from.h) <= 48) || w !== from.w);
   const ms = reduceMotion ? 0 : small ? 300 : (bigger ? 520 : 340), fn = small ? samaraEase : bigger ? ease.open : ease.close;
   const cs = getComputedStyle(bubble);
   if (w > 0) bubble.style.setProperty('--cw', Math.max(0, w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + 'px');
   // The spring's overshoot never asks past the tallest window main.ts allows (it would cut the frame's top off).
   const tallest = Math.max(h, SHAPE_MAX_H - (rimOn() ? RIM_G : 0));
-  if (bigger) sendWindow(Math.max(from.w, Math.ceil(from.w + (w - from.w) * (small ? 1 : OVERSHOOT))),
+  // 2026-10-21: only the HEIGHT springs past its target; the width stops at its own. The width overshooting 12% made
+  // the window go 287 -> 466 -> 416 wide as the bubble opened (his shell.log); now it is given its final width once.
+  if (bigger || w > from.w) sendWindow(Math.max(from.w, w),
                          Math.min(tallest, Math.max(from.h, Math.ceil(from.h + (h - from.h) * (small ? 1 : OVERSHOOT)))));
   const t0 = performance.now();
   const f = (now) => {
     const k = ms ? Math.min(1, (now - t0) / ms) : 1, e = fn(k);
-    cur = { w: Math.max(0, from.w + (w - from.w) * e), h: Math.max(0, Math.min(tallest, from.h + (h - from.h) * e)) };
+    const ww = from.w + (w - from.w) * e;
+    cur = { w: Math.max(0, w >= from.w ? Math.min(w, ww) : Math.max(w, ww)), h: Math.max(0, Math.min(tallest, from.h + (h - from.h) * e)) };
     place(Math.round(cur.w), Math.round(cur.h));
     if (k < 1) { anim = frame(f); return; }
     cur = { w, h };
@@ -461,16 +466,36 @@ function paintList() {
  * How many lines the text would take at a width, measured with the grow's fixed size taken off for a moment (the same
  * trick as natural()). Nothing is drawn in between, so trying a width costs a layout and never shows.
  */
-function linesIf(wide, widest) {
+function atWidth(wide, widest, measure) {
   const cl = bubble.classList, had = [cl.contains('wide'), cl.contains('widest'), cl.contains('sizing')];
   const sw = bubble.style.width, sh = bubble.style.height;
   bubble.style.width = ''; bubble.style.height = '';
   cl.toggle('wide', wide); cl.toggle('widest', widest); cl.remove('sizing');
-  const n = lineCount();
+  const n = measure();
   cl.toggle('wide', had[0]); cl.toggle('widest', had[1]); if (had[2]) cl.add('sizing');
   bubble.style.width = sw; bubble.style.height = sh;
   return n;
 }
+const linesIf = (wide, widest) => atWidth(wide, widest, lineCount);
+
+/**
+ * 2026-10-21 (his report: the thinking bubble opened wide with his question, then a short answer, "Clear, cool, calm.",
+ * snapped it narrow in one jump; and opening alone resized it three times, 287 -> 466 -> 416): the bubble's width is
+ * decided ONCE per exchange, when the thinking bubble opens on Enter, and the answer keeps it. It is the wider of what
+ * his question line needs and what the answer is expected to need. The answer is expected to run past a line unless
+ * what he typed is plain small talk: the brain's own rule (Core/src/route.ts SMALL_TALK, copied here) sends only that
+ * to Quick, and everything else to Smart, which answers in sentences. The brain's dots, 15 ms later, name the lane;
+ * by then the width is decided and stays, because changing it then was the second of the three resizes.
+ */
+const SMALL_TALK = /^\s*(?:(?:hey|hi|hiya|hello|yo|sup|morning|evening|afternoon|good (?:morning|night|evening|afternoon)|gm|gn|night|nite|thanks?(?: (?:you|so much|a lot))?|thx|ty|tysm|cheers|lol|lmao|haha+|hehe+|nice|cool|sweet|awesome|bye|later|cya|see ya|how are (?:you|ya|u)|how'?s it going|how you doing|what'?s up|wassup|whats good|checking in|love you|gg)(?:,? (?:bud|buddy|man|aang|dude|bro|pal|my guy|my man|homie))?[\s!.?~]*)+$/i;
+function exchangeWide(question, lane) {
+  const answerWide = typeof lane === 'string' && lane !== '' ? lane !== 'Quick' : !(question.length <= 80 && SMALL_TALK.test(question));
+  if (answerWide) return true;
+  // His question line is cut with "…" when it does not fit: at the narrow width a long one would be cut short.
+  return !who.hidden && atWidth(false, false, () => who.scrollWidth > who.clientWidth + 1);
+}
+/** The reply that answers a thinking bubble: it keeps the exchange's width (see exchangeWide). */
+let holdGen = -1;
 /**
  * 2026-10-21 (his "a bit jumpy"): a STREAMED reply picks its width at its first words and keeps it while it arrives.
  * Measured line by line as before, it went 256 -> 416 at its second line and 416 -> 556 past its eighteenth, and the
@@ -479,7 +504,19 @@ function linesIf(wide, widest) {
  */
 let lockGen = -1, liveWho = '', liveId = null;
 function lockWidth() {
-  if (lockGen === reveal.gen || !reveal.streaming) return lockGen === reveal.gen;
+  if (lockGen === reveal.gen) return true;
+  // 2026-10-21: the answer to a thinking bubble keeps the width the exchange opened at. Two exceptions, both decided
+  // here, at the answer's first paint, before a single word of it is lit (so nothing he is reading can rewrap):
+  // a narrow exchange whose answer runs past one line widens, and a whole (not streamed) answer too long for 416
+  // takes the widest width. It never narrows: a short answer sits in the bubble it was asked in.
+  if (holdGen === reveal.gen) {
+    lockGen = reveal.gen;
+    const cl = bubble.classList;
+    if (!cl.contains('wide') && linesIf(false, false) > 1) cl.add('wide');
+    if (!reveal.streaming && cl.contains('wide') && !cl.contains('widest') && linesIf(true, false) > WIDEST_AFTER_LINES) cl.add('widest');
+    return true;
+  }
+  if (!reveal.streaming) return false;
   lockGen = reveal.gen;
   const wide = liveWho !== 'Quick' || linesIf(false, false) > 1;
   bubble.classList.toggle('wide', wide);
@@ -488,7 +525,8 @@ function lockWidth() {
 }
 /** The streamed reply is all in: a short one that fits one narrow line narrows (one line cannot rewrap). */
 function settleWidth() {
-  if (lockGen !== reveal.gen || expanded) return;
+  // Not an answer to a thinking bubble (2026-10-21): narrowing at the end was the snap he saw.
+  if (lockGen !== reveal.gen || holdGen === reveal.gen || expanded) return;
   const cl = bubble.classList;
   if (cl.contains('wide') && !cl.contains('widest') && linesIf(false, false) <= 1) cl.remove('wide');
 }
@@ -1551,17 +1589,16 @@ let thinkGen = -1;
 let provisional = 0;
 const TURN_NEWS = new Set(['bubble.dots', 'bubble', 'whisper', 'queued', 'error', 'pet.say', 'timer.setup', 'bubble.clear', 'notes.board']);
 const isThinking = () => thinkGen === reveal.gen && !reveal.whole && !working.hidden && !bubble.hidden && !bubble.classList.contains('leaving');
-function thinking(label, lane) {
+function thinking(label, lane, retry = false) {
   if (typeof label === 'string') doing.textContent = label;
   if (cockpit) { working.hidden = false; show(); return; }
-  // 2026-10-21: the brain's dots say which lane is answering. Anything but Quick's small talk answers in more than a
-  // line, so the thinking bubble takes the answer's width now, while there is nothing to read: the answer then only
-  // grows taller, line by line, and no word slides sideways as the width springs open under it.
-  const answerWide = typeof lane === 'string' && lane !== '' && lane !== 'Quick';
-  if (isThinking()) {
-    if (answerWide && !bubble.classList.contains('wide')) { bubble.classList.add('wide'); fit(); reportSize(); }
-    return;
-  }
+  // 2026-10-21: already thinking: the brain's dots (and the lane they name) only change the label. The width was
+  // decided when the bubble opened (exchangeWide) and stays for the whole exchange; widening here was the second of
+  // the three resizes he saw on opening.
+  if (isThinking()) return;
+  // A retried turn goes back to the dots in the bubble he is already looking at, at the width it already has.
+  const keep = retry && !bubble.hidden && !bubble.classList.contains('leaving');
+  const had = [bubble.classList.contains('wide'), bubble.classList.contains('widest')];
   working.hidden = false;
   // A question waiting on him, a card, the notes or his history stay where they are: the dots join them, as before.
   if (asking || !card.hidden || reading || boardOpen) { show(); fit(); reportSize(); return; }
@@ -1571,7 +1608,6 @@ function thinking(label, lane) {
   thinkGen = reveal.gen;
   expanded = false; replyList = null; claudeDone = null; holdOverride = 0; linkWord = ''; focusWindow = null; macSession = false;
   bubble.classList.remove('wide', 'widest', 'whisper', 'lantern', 'cdone');
-  if (answerWide) bubble.classList.add('wide');
   mediaRow.hidden = true; scroller.hidden = false;
   for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
   curAbout = null; paintAbout(false);
@@ -1580,8 +1616,11 @@ function thinking(label, lane) {
   who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
   who.hidden = !who.textContent; who.classList.remove('plaque', 'red');
   // New content fades in while the balloon grows (sheet 13); from here on, nothing restarts that until the answer is in.
-  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  if (!keep) { bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter'); }
   show();
+  // The exchange's one width (2026-10-21), measured with his question in place, before anything is drawn.
+  if (keep) { bubble.classList.toggle('wide', had[0]); bubble.classList.toggle('widest', had[1]); }
+  else bubble.classList.toggle('wide', exchangeWide(line, lane));
   paint();
 }
 
@@ -1748,9 +1787,10 @@ function onBrain(m) {
     liveWho = typeof m.who === 'string' ? m.who : '';
     if (same) reveal.append(m.text, m.stream === true);
     else if (sameTurn && !cockpit) {
-      const locked = lockGen === reveal.gen;
+      const locked = lockGen === reveal.gen, held = holdGen === reveal.gen;
       reveal.start(m.text, m.stream === true);
       if (locked) lockGen = reveal.gen;
+      if (held) holdGen = reveal.gen;
     }
     // A NEW reply starts revealing here. This line was deleted on 2026-10-05 by a regex that removed
     // every line mentioning setRating(), and this one happened to mention it - so a new reply never
@@ -1760,7 +1800,9 @@ function onBrain(m) {
     else {
       reveal.start(m.text, m.stream === true);
       expanded = false;
-      bubble.classList.remove('wide', 'widest');
+      // 2026-10-21: the answer to the thinking bubble keeps the exchange's width (lockWidth); anything else starts over.
+      if (fromThinking && !cockpit) holdGen = reveal.gen;
+      else bubble.classList.remove('wide', 'widest');
       // An ask's explaining line and command belong to the ask, never to the reply that follows it.
       for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
       // New content fades in 160 ms into the grow, over 300 ms (sheet 13). Restarted, not stacked. Not out of the
@@ -1878,7 +1920,7 @@ function onBrain(m) {
   if (m.t === 'bubble.clear') {
     // The brain is asking again (Quick handed it to Smart, or it is told to look first): back to the dots in the same
     // bubble, never a vanish and a pop (2026-10-21).
-    if (m.retry === true && !cockpit && !bubble.hidden && !asking) { thinking(''); return; }
+    if (m.retry === true && !cockpit && !bubble.hidden && !asking) { thinking('', undefined, true); return; }
     // He stopped Aang from the cockpit (Esc while working), or the brain is retrying the turn: only the live answer
     // goes. The cockpit, the conversation and any question pinned in it stay (2026-10-21; before, the whole bubble
     // shut under his hands, typing area and all).

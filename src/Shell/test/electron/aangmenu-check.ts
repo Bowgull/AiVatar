@@ -30,7 +30,8 @@ const until = async (fn: () => boolean | Promise<boolean>, ms = 6000) => { const
 const OUT = (() => { const a = process.argv.at(-1); try { return a && statSync(a).isDirectory() ? a : os.tmpdir(); } catch { return os.tmpdir(); } })();
 
 app.whenReady().then(async () => {
-  const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
+  // AANGMENU_PAGES: the same check against another copy of the pages (the before picture).
+  const pages = await servePages(process.env.AANGMENU_PAGES || path.join(HERE, '..', '..', 'pages'));
   const picks: string[] = [];
   const menu = new AangMenu({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
     iconPath: path.join(HERE, '..', '..', 'assets', 'aang.ico'), pick: (id) => picks.push(id) });
@@ -104,7 +105,7 @@ app.whenReady().then(async () => {
   await move(hush.x, hush.y);
   check('Hush opens its submenu on a rest', await until(async () => (await js(`document.querySelector('#sub')?.dataset.of`)) === 'hush', 2000));
   const sub = await rect('#sub'), hr = await rect('[data-sub=hush]');
-  check('to the side of the main menu, level with Hush', !!sub && !!main && sub.x >= main.x + main.w - 8 && Math.abs(sub.y - (hr!.y - 9)) <= 3, { sub, hr });
+  check('to the side of the main menu, level with Hush', !!sub && !!main && sub.x >= main.x + main.w - 8 && Math.abs(sub.y - (hr!.y - 10)) <= 3, { sub, hr });
   check('Hush reads gold while it is open', await js(`document.querySelector('[data-sub=hush]').classList.contains('on')`) === true);
   const subItems = await js(`[...document.querySelectorAll('#sub > *')].map((e) => e.classList.contains('sep') ? '-' : e.classList.contains('mhead') ? '#' + e.textContent
     : e.querySelector('.lab').textContent + (e.querySelector('[data-tick]') ? ' (tick)' : '') + (e.disabled ? ' (grey)' : ''))`);
@@ -208,44 +209,67 @@ app.whenReady().then(async () => {
   await wait(60);
   check('losing focus (a click elsewhere) closes it', !menu.visible && picks.length === 0);
 
-  // 7b. 2026-10-21 (his report): readable (14.5 px words, taller rows, 20 px icon slots), and at the bottom-right corner it
-  // opens BESIDE Aang and his mark, never on top of him, fully on screen, its submenu too.
+  // 7b. 2026-10-21 (his reports): clearly readable (16 px words, 44 px rows, 10 px Silkscreen tags, 22-24 px icons drawn at
+  // a whole-number scale, the submenu the same), and wherever Aang stands or tucks, it opens BESIDE him and his mark,
+  // never on top of him, fully on screen, its submenu too.
   {
     await openAt(300, Y);
-    const look = await js(`(() => { const b = document.querySelector('#main button'), r = b.getBoundingClientRect(), ic = b.querySelector('.ic').getBoundingClientRect();
-      return { font: getComputedStyle(b).fontSize, h: Math.round(r.height), ic: Math.round(ic.width) }; })()`);
-    check('readable: 14.5 px words, rows at least 38 px, icons 18-20 px', look.font === '14.5px' && look.h >= 38 && look.ic >= 18 && look.ic <= 20, look);
+    const look = await js(`(() => { const b = document.querySelector('#main button'), r = b.getBoundingClientRect(), c = b.querySelector('.ic'), ic = c.getBoundingClientRect();
+      const tag = document.querySelector('#main i.st');
+      return { font: getComputedStyle(b).fontSize, h: Math.round(r.height), ic: Math.round(ic.width), drawn: c.width, dpr: devicePixelRatio,
+        tag: getComputedStyle(tag).fontSize, tagFace: getComputedStyle(tag).fontFamily }; })()`);
+    // whole-number scale: the canvas is 11 art pixels times a whole number of screen pixels, plus the 1-pixel drop
+    const whole = Number.isInteger((look.drawn - Math.max(1, Math.round(look.dpr))) / 11);
+    check('readable: 16 px words, 44 px rows, 10 px Silkscreen tags, icons 22-24 px at a whole-number scale',
+      look.font === '16px' && look.h >= 44 && look.ic >= 22 && look.ic <= 24 && look.tag === '10px' && /Silkscreen/i.test(look.tagFace) && whole, look);
+    const hs0 = await centre('[data-sub=hush]');
+    await move(hs0.x, hs0.y);
+    await until(async () => (await js(`document.querySelector('#sub')?.dataset.of`)) === 'hush', 2000);
+    const sl = await js(`(() => { const b = document.querySelector('#sub button'), r = b.getBoundingClientRect(), h = document.querySelector('#sub .mhead'); return { font: getComputedStyle(b).fontSize, h: Math.round(r.height), head: getComputedStyle(h).fontSize }; })()`);
+    check('the submenu is the same scale', sl.font === '16px' && sl.h >= 44 && sl.head === '10px', sl);
     await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100);
     if (menu.visible) { await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100); }
-    // Aang standing in the bottom-right corner (his sprite, real screen pixels as the pet sends it), right-clicked on his body.
-    const spriteDip = { x: wa.x + wa.width - 200, y: wa.y + wa.height - 190, width: 180, height: 180 };
-    const tl = screen.dipToScreenPoint({ x: spriteDip.x, y: spriteDip.y }), br = screen.dipToScreenPoint({ x: spriteDip.x + spriteDip.width, y: spriteDip.y + spriteDip.height });
-    const avoid = avoidRect({ x: tl.x, y: tl.y, width: br.x - tl.x, height: br.y - tl.y });
-    shapes.length = 0;
-    menu.open(phys(wa.width - 110, wa.height - 100), STATE, avoid);
-    await until(() => menu.visible && shapes.length > 0);
-    const m = await rect('#main');
-    const A = avoid ? { x: avoid.x - wa.x, y: avoid.y - wa.y, w: avoid.width, h: avoid.height } : null;
-    const over = (r: { x: number; y: number; w: number; h: number } | null) => !!r && !!A && r.x < A.x + A.w && A.x < r.x + r.w && r.y < A.y + A.h && A.y < r.y + r.h;
+    const over = (r: { x: number; y: number; w: number; h: number } | null, A: { x: number; y: number; w: number; h: number } | null) => !!r && !!A && r.x < A.x + A.w && A.x < r.x + r.w && r.y < A.y + A.h && A.y < r.y + r.h;
     const onScreen = (r: { x: number; y: number; w: number; h: number } | null) => !!r && r.x >= 0 && r.y >= 0 && r.x + r.w <= wa.width && r.y + r.h <= wa.height;
-    check('bottom-right corner: never over Aang or his mark, and on screen', !!A && !over(m) && onScreen(m), { m, A });
-    check('...it opens to his left', !!m && !!A && m.x + m.w <= A.x, { m, A });
-    const hs = await centre('[data-sub=hush]');
-    await move(hs.x, hs.y);
-    await until(async () => (await js(`document.querySelector('#sub')?.dataset.of`)) === 'hush', 2000);
-    const s = await rect('#sub');
-    check('its submenu flips away from Aang, on screen, never over him', !over(s) && onScreen(s) && !!s && !!m && s.x < m.x, { s, m, A });
-    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(80);
-    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(80);
-    // Tucked at the bottom edge with only his head up: still never over him, still on screen.
-    const avoid2 = avoidRect({ x: tl.x, y: screen.dipToScreenPoint({ x: 0, y: wa.y + wa.height - 70 }).y, width: br.x - tl.x, height: br.y - tl.y }, true);
-    shapes.length = 0;
-    menu.open(phys(wa.width - 110, wa.height - 40), STATE, avoid2);
-    await until(() => menu.visible && shapes.length > 0);
-    const m2 = await rect('#main');
-    const A2 = avoid2 ? { x: avoid2.x - wa.x, y: avoid2.y - wa.y, w: avoid2.width, h: avoid2.height } : null;
-    check('tucked at the bottom: beside his head, on screen', !!m2 && !!A2 && onScreen(m2) && !(m2.x < A2.x + A2.w && A2.x < m2.x + m2.w && m2.y < A2.y + A2.h && A2.y < m2.y + m2.h), { m2, A2 });
-    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100);
+    // Aang's sprite (in DIP inside the work area) and where he is right-clicked; tucked = only part of him on screen.
+    const spots: { name: string; s: { x: number; y: number; width: number; height: number }; click: { x: number; y: number }; tucked?: boolean }[] = [
+      { name: 'bottom-right corner', s: { x: wa.width - 200, y: wa.height - 190, width: 180, height: 180 }, click: { x: wa.width - 110, y: wa.height - 100 } },
+      { name: 'bottom-left corner', s: { x: 20, y: wa.height - 190, width: 180, height: 180 }, click: { x: 110, y: wa.height - 100 } },
+      { name: 'top-left corner', s: { x: 20, y: 60, width: 180, height: 180 }, click: { x: 110, y: 150 } },
+      { name: 'top-right corner', s: { x: wa.width - 200, y: 60, width: 180, height: 180 }, click: { x: wa.width - 110, y: 150 } },
+      { name: 'middle', s: { x: wa.width / 2 - 90, y: wa.height / 2 - 90, width: 180, height: 180 }, click: { x: wa.width / 2, y: wa.height / 2 } },
+      { name: 'tucked at the bottom', s: { x: wa.width - 200, y: wa.height - 70, width: 180, height: 180 }, click: { x: wa.width - 110, y: wa.height - 40 }, tucked: true },
+      { name: 'tucked at the right edge', s: { x: wa.width - 60, y: wa.height / 2 - 90, width: 180, height: 180 }, click: { x: wa.width - 30, y: wa.height / 2 }, tucked: true },
+      { name: 'tucked at the left edge', s: { x: -120, y: wa.height / 2 - 90, width: 180, height: 180 }, click: { x: 30, y: wa.height / 2 }, tucked: true },
+      { name: 'tucked at the top', s: { x: wa.width / 2 - 90, y: -110, width: 180, height: 180 }, click: { x: wa.width / 2, y: 40 }, tucked: true },
+    ];
+    for (const sp of spots) {
+      const tl = screen.dipToScreenPoint({ x: wa.x + sp.s.x, y: wa.y + sp.s.y }), br = screen.dipToScreenPoint({ x: wa.x + sp.s.x + sp.s.width, y: wa.y + sp.s.y + sp.s.height });
+      const avoid = avoidRect({ x: tl.x, y: tl.y, width: br.x - tl.x, height: br.y - tl.y }, sp.tucked);
+      shapes.length = 0;
+      menu.open(phys(sp.click.x, sp.click.y), STATE, avoid);
+      await until(() => menu.visible && shapes.length > 0);
+      const m = await rect('#main');
+      const A = avoid ? { x: avoid.x - wa.x, y: avoid.y - wa.y, w: avoid.width, h: avoid.height } : null;
+      // every submenu, opened in turn
+      const subs: Record<string, unknown> = {};
+      let subOk = true;
+      for (const which of ['hush', 'dock', 'model']) {
+        const c = await centre(`[data-sub=${which}]`);
+        await move(c.x, c.y);
+        await until(async () => (await js(`document.querySelector('#sub')?.dataset.of`)) === which, 2000);
+        const s = await rect('#sub');
+        subs[which] = s;
+        if (!s || over(s, A) || !onScreen(s)) subOk = false;
+      }
+      check(`${sp.name}: the menu is never over Aang or his mark, and on screen`, !!A && !over(m, A) && onScreen(m), { m, A });
+      check(`${sp.name}: its submenus too`, subOk, { subs, A });
+      await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(80);
+      if (menu.visible) { await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(80); }
+      if (sp.name === 'bottom-right corner') {
+        check('...at the bottom-right it opens to his left', !!m && !!A && m.x + m.w <= A.x, { m, A });
+      }
+    }
     picks.length = 0;
   }
 

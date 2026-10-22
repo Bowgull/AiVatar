@@ -7,27 +7,30 @@
 
 const P = 2;   // one art pixel = 2 CSS pixels, whole-number, like his sprite
 
-// ---------------------------------------------------------------- hand-placed 9x9 icons (the mockup's own pixels)
+// ---------------------------------------------------------------- hand-placed 11x11 icons
+// 2026-10-21 (his report: the menu read about 12 px on his screen, too small): redrawn on an 11x11 grid from the
+// mockup's 9x9 ones, so at the same whole-number 2x they come out 22 px, crisp, never scaled by a fraction.
 const ICONS = {
-  back: ['..OOOOO..', '.O.....O.', 'O...O...O', 'O...O...O', 'O...OO..O', 'O.......O', 'A.O...O..', 'AA.OOO...', 'AAA......'],
-  hunt: ['..OOO....', '.O...O...', 'O.....O..', 'O.....O..', 'O.....O..', '.O...O...', '..OOOOO..', '......OO.', '.......OO'],
-  hush: ['..OOOO...', '.OO......', 'OO.......', 'OO.......', 'OO.......', 'OO......O', '.OO....O.', '..OOOOO..', '.........'],
-  dock: ['....O....', '....O....', '....O....', '..O.O.O..', '...OOO...', '....O....', '.........', 'OOOOOOOOO', 'OOOOOOOOO'],
-  back2: ['OOOOOOOOO', 'OOOOOOOOO', '.........', '....O....', '...OOO...', '..O.O.O..', '....O....', '....O....', '....O....'],
-  hide: ['O........', '.O.......', '..OOOOO..', '.O.O...O.', 'O...O...O', '.O...O.O.', '..OOOOO..', '.......O.', '........O'],
-  model: ['....O....', '....O....', '...OOO...', '..OOOOO..', 'OOOOOOOOO', '..OOOOO..', '...OOO...', '....O....', '....O....'],
-  quota: ['OOOOOOOOO', '.O.....O.', '..OAAAO..', '...OAO...', '....O....', '...O.O...', '..O.A.O..', '.OAAAAAO.', 'OOOOOOOOO'],
-  quit: ['OO.....OO', 'OOO...OOO', '.OOO.OOO.', '..OOOOO..', '...OOO...', '..OOOOO..', '.OOO.OOO.', 'OOO...OOO', 'OO.....OO'],
-  claude: ['....O....', '.O..O..O.', '..O.O.O..', '...OOO...', 'OOOOOOOOO', '...OOO...', '..O.O.O..', '.O..O..O.', '....O....'],
-  tick: ['.........', '........O', '.......OO', 'O.....OO.', 'OO...OO..', '.OO.OO...', '..OOO....', '...O.....', '.........'],
+  back: ['...OOOOO...', '.OO.....OO.', '.O...O...O.', 'O....O....O', 'O....O....O', 'O....OOO..O', 'O.........O', 'A.........O', 'AA.......O.', 'AAA....OO..', '...OOOO....'],
+  hunt: ['..OOOO.....', '.O....O....', 'O......O...', 'O......O...', 'O......O...', 'O......O...', '.O....O....', '..OOOOOO...', '.......OO..', '........OO.', '.........OO'],
+  hush: ['...OOOO....', '..OO.......', '.OO........', 'OO.........', 'OO.........', 'OO.........', 'OO........O', '.OO......O.', '..OOO..OO..', '....OOOO...', '...........'],
+  dock: ['.....O.....', '.....O.....', '.....O.....', '.....O.....', '..O..O..O..', '...O.O.O...', '....OOO....', '.....O.....', '...........', 'OOOOOOOOOOO', 'OOOOOOOOOOO'],
+  back2: ['OOOOOOOOOOO', 'OOOOOOOOOOO', '...........', '.....O.....', '....OOO....', '...O.O.O...', '..O..O..O..', '.....O.....', '.....O.....', '.....O.....', '.....O.....'],
+  hide: ['O..........', '.O.........', '..OOOOOOO..', '.O.O.....O.', 'O...O.....O', 'O....O....O', 'O.....O...O', '.O.....O.O.', '..OOOOOOO..', '.........O.', '..........O'],
+  model: ['.....O.....', '.....O.....', '....OOO....', '...OOOOO...', '..OOOOOOO..', 'OOOOOOOOOOO', '..OOOOOOO..', '...OOOOO...', '....OOO....', '.....O.....', '.....O.....'],
+  quota: ['OOOOOOOOOOO', '.O.......O.', '..OAAAAAO..', '...OAAAO...', '....OAO....', '.....O.....', '....O.O....', '...O.A.O...', '..O.AAA.O..', '.OAAAAAAAO.', 'OOOOOOOOOOO'],
+  quit: ['OO.......OO', 'OOO.....OOO', '.OOO...OOO.', '..OOO.OOO..', '...OOOOO...', '....OOO....', '...OOOOO...', '..OOO.OOO..', '.OOO...OOO.', 'OOO.....OOO', 'OO.......OO'],
+  claude: ['.....O.....', '.O...O...O.', '..O..O..O..', '...O.O.O...', '....OOO....', 'OOOOOOOOOOO', '....OOO....', '...O.O.O...', '..O..O..O..', '.O...O...O.', '.....O.....'],
+  tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
 };
+const N = 11;
 const TONE = { O: '#d8c8a8', A: '#a8946e', sh: 'rgba(0,0,0,.65)', red: '#ff9a8a', tick: '#ffe28c', claude: '#E88A6A' };
 
 /** One icon, drawn at the screen's own pixel density so every art pixel is a whole block of real pixels. */
 function icon(name, tone = {}) {
   const map = ICONS[name], pal = { O: tone.O ?? TONE.O, A: tone.A ?? TONE.A };
   const dpr = window.devicePixelRatio || 1, px = Math.max(1, Math.round(P * dpr)), sh = Math.max(1, Math.round(dpr));
-  const c = document.createElement('canvas'); c.width = 9 * px + sh; c.height = 9 * px + sh;
+  const c = document.createElement('canvas'); c.width = N * px + sh; c.height = N * px + sh;
   const g = c.getContext('2d');
   const put = (col, o) => map.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = col ?? pal[ch]; g.fillRect(x * px + o, y * px + o, px, px); } }));
   put(TONE.sh, sh);   // a 1-pixel drop, like the words' text-shadow
@@ -166,7 +169,8 @@ function placeSub(parent) {
   sub.style.left = '0px'; sub.style.top = '0px';
   even(sub);
   const mr = main.getBoundingClientRect(), pr = parent.getBoundingClientRect(), r = sub.getBoundingClientRect(), w = r.width, h = r.height;
-  const y = clamp(Math.round((pr.top - 9) / P) * P, EDGE, H - EDGE - h);
+  // level with its row: the menu's 8 px padding plus the 2 px rim (2026-10-21, the bigger menu)
+  const y = clamp(Math.round((pr.top - 10) / P) * P, EDGE, H - EDGE - h);
   const right = { x: mr.right - 4, y, w, h }, left = { x: mr.left + 4 - w, y, w, h };
   const A = avoid ?? { x: at.x, y: at.y, width: 0, height: 0 };
   const sides = A.x + A.width / 2 >= mr.left + mr.width / 2 ? [left, right] : [right, left];
