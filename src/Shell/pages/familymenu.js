@@ -101,7 +101,7 @@ function showCatch(m) {
   mode = 'catch';
   document.body.classList.add('catch');
   const p = h('div', 'plate hint');
-  p.append('Drag one out', h('i', '', '·'), h('b', '', 'ESC'), ' to join back');
+  p.append('Drag one out', h('i', '', '·'), h('b', 'kc', 'ESC'), ' to join back');
   document.body.append(p);
   hintEl = p;
   const r = p.getBoundingClientRect();

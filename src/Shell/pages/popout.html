@@ -5,12 +5,13 @@
 <!-- Served from 127.0.0.1, not from a file: a YouTube embed from file:// fails with Error 153.
      frame-src is the one thing this page is allowed to reach out for, because the video lives there. -->
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self';
                frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.twitch.tv https:;
                style-src-attr 'unsafe-inline';
                form-action 'none'; base-uri 'none'">
 <title>Aang</title>
 <link rel="stylesheet" href="popout.css">
+<link rel="stylesheet" href="pinkey.css">
 </head>
 <body>
   <div class="frame" id="frame">

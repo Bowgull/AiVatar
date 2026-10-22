@@ -17,7 +17,7 @@
 .plate.hint{position:absolute;margin:0;max-width:none;padding:9px 16px 8px;border-radius:10px;white-space:nowrap;font:600 15px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);
   opacity:0;transition:opacity .2s ease;pointer-events:none}
 .plate.hint.on{opacity:1}
-.plate.hint b{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:4px 6px 2px;border-radius:5px;box-shadow:0 0 0 2px #120a05;margin:0 3px;text-shadow:none}
+.plate.hint .kc{margin:0 3px}
 .plate.hint i{font-style:normal;color:#bfae8a;margin:0 8px}
 /* While a group is pulled apart this window lies over the desktop under the windows, to hear a click on the empty desktop.
    A whisper of colour (1%), so Windows counts the click as landing here. */

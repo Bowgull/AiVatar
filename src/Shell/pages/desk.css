@@ -11,7 +11,7 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
   box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
 .desk .tabs{display:flex;gap:5px;padding:9px 9px 0;background:linear-gradient(180deg,#56371F,var(--wood2));
   border-bottom:3px solid var(--outline);flex-wrap:wrap}
-.desk .tab{font:400 10.5px var(--label);letter-spacing:.5px;padding:10px 12px 11px;border-radius:7px 7px 0 0;
+.desk .tab{font:700 12.5px var(--body);letter-spacing:.2px;padding:10px 12px 11px;border-radius:7px 7px 0 0;
   border:2.5px solid var(--outline);border-bottom:none;color:#E6DCC8;cursor:pointer;
   background:linear-gradient(180deg,var(--plum),var(--plum-deep));text-shadow:1px 1px 0 rgba(0,0,0,.7);position:relative;top:3px}
 .desk .tab.on{background:linear-gradient(180deg,var(--gold-lit),var(--gold));color:#2a1c00;top:0;
@@ -61,12 +61,12 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .tl .ev::before{content:"";position:absolute;left:-24px;top:9px;width:12px;height:12px;border-radius:3px;
   border:2.5px solid var(--outline);background:var(--gold)}
 .tl .ev.asked::before{background:var(--orange)} .tl .ev.undo::before{background:#8e879e}
-.tl .when{font:400 9.5px var(--label);letter-spacing:.5px;color:#8a6a2a}
+.tl .when{font:700 12px var(--body);letter-spacing:.2px;color:#6e5220}
 .tl .what{font:500 14.5px/1.45 var(--body);color:#271c10}
 
 /* ---- drafts ---- */
 .mailcard .hdr{display:grid;grid-template-columns:70px 1fr;gap:6px 12px;align-items:center;margin-bottom:12px}
-.mailcard .hdr span{font:400 10px var(--label);letter-spacing:1px;color:#8a6a2a}
+.mailcard .hdr span{font:700 12.5px var(--body);letter-spacing:.2px;color:#6e5220}
 .mailcard .hdr div{font:600 15px var(--body);color:#271c10;overflow-wrap:anywhere}
 .letter{background:rgba(255,255,255,.45);border:3px solid rgba(90,60,25,.35);border-radius:8px;padding:14px 16px;
   font:500 14.5px/1.65 var(--body);color:#271c10;box-shadow:inset 0 2px 0 rgba(255,255,255,.6);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -79,19 +79,19 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .jobcard .ttl{font:700 19px/1.3 var(--body);color:#271c10}
 .jobcard .where{font:500 13.5px var(--body);color:#5a4834;margin-top:3px}
 .jobcard .why{font:500 14.5px/1.55 var(--body);color:#271c10;margin-top:12px}
-.jobcard .left{font:400 10px var(--label);letter-spacing:1px;color:#8a6a2a;margin-top:12px}
+.jobcard .left{font:700 12.5px var(--body);letter-spacing:.2px;color:#6e5220;margin-top:12px}
 
 /* ---- history ---- */
 .searchslot{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:8px;
   background:rgba(90,60,25,.16);border:3px solid rgba(90,60,25,.5);box-shadow:inset 0 3px 0 rgba(90,60,25,.25)}
 .searchslot .q{flex:1;font:500 15px var(--body);color:var(--carve-ink)}
-.searchslot .lab{font:400 10px var(--label);color:#8a6a2a;letter-spacing:1px}
+.searchslot .lab{font:700 12.5px var(--body);color:#6e5220;letter-spacing:.2px}
 /* added: the slot is a real input */
 .searchslot input.q{background:none;border:none;outline:none;min-width:0;padding:2px 0}
 .searchslot input.q::placeholder{color:#8a7458}
 .turn{margin:12px 0 0;max-width:84%}
 .turn.r{margin-left:auto}
-.who{font:400 9.5px var(--label);letter-spacing:1px;margin:0 0 5px;color:#8a6a2a}
+.who{font:700 12px var(--body);letter-spacing:.2px;margin:0 0 5px;color:#6e5220}
 .turn.r .who{text-align:right;color:var(--plum-edge)}
 .bub{padding:11px 14px;border-radius:8px;border:3px solid var(--outline);font:500 14.5px/1.55 var(--body);
   white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
@@ -116,7 +116,7 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
 /* C5 (2026-10-21): the chime volume, a gold slider on the same dark bed as the switches */
 .volrow .volcell{display:grid;place-items:center;height:28px}
-.volrow .volpct{font:400 10px var(--label);letter-spacing:1px;color:var(--carve-ink);font-style:normal}
+.volrow .volpct{font:700 12.5px var(--body);letter-spacing:.2px;color:var(--carve-ink);font-style:normal}
 .volrow .vol{display:block;width:100%;max-width:320px;margin-top:8px;accent-color:var(--gold)}
 /* ---- the morning brief, whole (sheet 6 section 7), lifted rule for rule ---- */
 .brief{max-width:600px;margin:0 auto;border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
@@ -159,7 +159,7 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .ev2 .what{padding-left:12px;font:700 16px/1.35 var(--body);color:#271c10}
 .ev2 .what small{display:block;font:500 12.5px var(--body);color:#5a4834;margin-top:1px}
 .nowline{display:grid;grid-template-columns:86px 22px 1fr;align-items:center;height:20px}
-.nowline .lab{justify-self:end;margin-right:12px;font:400 9px var(--label);letter-spacing:1px;color:var(--orange-deep)}
+.nowline .lab{justify-self:end;margin-right:12px;font:700 12px var(--body);letter-spacing:.2px;color:var(--orange-deep)}
 .nowline .ln{grid-column:2 / 4;height:4px;border-radius:2px;background:var(--orange);box-shadow:0 1px 0 rgba(0,0,0,.35)}
 .mailrow{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:10px 4px}
 .mailrow+.mailrow{border-top:3px solid rgba(90,60,25,.22)}
@@ -169,12 +169,12 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .medal.logo img{width:100%;height:100%;object-fit:cover;display:block}
 .mailrow .from{font:700 15px var(--body);color:#271c10}
 .mailrow .subj{font:500 13.5px var(--body);color:#4e3d28;margin-top:1px}
-.mailrow .when{font:400 9.5px var(--label);letter-spacing:.5px;color:#8a6a2a;white-space:nowrap}
-.mailrow.job .from::after{content:"JOB";font:400 8.5px var(--label);letter-spacing:.5px;padding:2px 5px;border-radius:3px;
+.mailrow .when{font:700 12px var(--body);letter-spacing:.2px;color:#6e5220;white-space:nowrap}
+.mailrow.job .from::after{content:"JOB";font:700 12px var(--body);letter-spacing:.2px;padding:2px 5px;border-radius:3px;
   border:2px solid var(--outline);background:var(--green);color:#163a24;margin-left:8px;vertical-align:2px}
 .freebar{display:flex;align-items:center;gap:9px;margin-top:16px;padding:9px 12px;border-radius:7px;
   background:rgba(120,230,150,.16);border:2.5px solid rgba(47,122,74,.55)}
-.freebar b{font:400 9.5px var(--label);letter-spacing:1px;color:#1d5230;padding:3px 6px;border-radius:3px;
+.freebar b{font:700 12px var(--body);letter-spacing:.2px;color:#1d5230;padding:3px 6px;border-radius:3px;
   border:2px solid var(--outline);background:var(--green)}
 .freebar span{font:500 13px var(--body);color:#2f5a3a}
 
@@ -185,7 +185,7 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .sbox .glass::after{content:"";position:absolute;width:3px;height:9px;background:var(--gold);right:-6px;bottom:-8px;transform:rotate(-45deg);border-radius:2px}
 .sbox .q{flex:1;font:600 17px var(--body);color:var(--gold-lit);background:none;border:none;outline:none;min-width:0;caret-color:var(--gold-lit)}
 .sbox .q::placeholder{color:#a08a5a}
-.sbox .k{font:400 9.5px var(--label);color:#a08a5a;letter-spacing:1px}
+.sbox .k{font:700 12px var(--body);color:#a08a5a;letter-spacing:.2px}
 .srcs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 4px}
 .srcs span{font:700 12.5px var(--body);padding:5px 10px;border-radius:999px;border:2.5px solid var(--outline);
   background:var(--gold-lit);color:#2a1c00;box-shadow:0 2px 0 var(--outline)}
@@ -197,8 +197,8 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .hit .ttl{font:700 15px var(--body);color:#271c10;overflow-wrap:anywhere}
 .hit .sn{font:500 13px/1.45 var(--body);color:#4e3d28;margin-top:2px}
 .hit mark{background:linear-gradient(rgba(255,196,60,.75),rgba(255,196,60,.75));color:inherit;padding:0 2px;border-radius:2px}
-.hit .how{font:400 8.5px var(--label);letter-spacing:.5px;color:#8a6a2a;text-align:right;white-space:nowrap}
-.hit .medal{width:34px;height:34px;font:400 9px var(--label);color:#2a1c08}
+.hit .how{font:700 12px var(--body);letter-spacing:.2px;color:#6e5220;text-align:right;white-space:nowrap}
+.hit .medal{width:34px;height:34px;font:700 12px var(--body);color:#2a1c08}
 .m-mem{background:linear-gradient(180deg,#fff0c4,var(--gold))}
 .m-vault{background:linear-gradient(180deg,#d9c8f4,var(--plum-edge))}
 .m-talk{background:linear-gradient(180deg,#f8e8cc,#d8bf8c)}
@@ -209,7 +209,7 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 /* ---- the charts (6.18), sheet 7 section 2 lifted ---- */
 .chart{position:relative;margin:6px 0 4px;max-width:560px}
 .chart svg{display:block;width:100%;height:auto;overflow:visible}
-.chart .axis{font:400 9px var(--label);fill:#8a6a2a;letter-spacing:.5px}
+.chart .axis{font:700 12px var(--body);fill:#8a6a2a;letter-spacing:.2px}
 .chart .lab{font:600 13px var(--body);fill:#271c10}
 .chart .val{font:700 13px var(--body);fill:#271c10}
 .chart .base{stroke:#5a4834;stroke-width:2}
@@ -227,7 +227,7 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
   border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
 .daydiv .endcap{width:14px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
   border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
-.daydiv span{font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;padding:0 12px;
+.daydiv span{font:700 12.5px var(--body);color:var(--gold);letter-spacing:.2px;padding:0 12px;
   text-shadow:0 2px 0 var(--outline)}
 .empty-line{margin:14px 4px;font:500 14px/1.55 var(--body);color:var(--ink-dim)}
 

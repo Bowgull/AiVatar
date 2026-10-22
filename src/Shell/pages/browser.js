@@ -15,6 +15,12 @@ const SOLO = new URLSearchParams(location.search).has('tray');
 if (SOLO) document.documentElement.classList.add('solo');
 const tabsBox = el('tabs'), urlEl = el('url'), lock = el('lock'), edit = el('edit'), loading = el('loading');
 let state = { active: null, tabs: [], canBack: false, canForward: false };
+/** His rule (2026-10-22): a name carries its icon. The last row added to a menu (Send to Aang) gets Aang's face in front. */
+function aangFaceOn(m) {
+  const b = m.lastElementChild; if (!b) return;
+  b.classList.add('toaang');
+  b.prepend(Object.assign(document.createElement('img'), { src: 'art/aang-face.png', alt: '', className: 'aface' }));
+}
 
 // ---- 6.19: where the page area is. Measured, then the Shell keeps it in place on every resize itself.
 const page = el('page');
@@ -707,7 +713,7 @@ function tabMenu(t, x, y) {
     bs('New branch...', () => window.aang?.browserMockup?.({ act: 'branchnew', sheet: t.mock.sheet }));
     if (t.mock.branch != null || t.mock.parent) item('Make it top level', () => window.aang?.browserMockup?.({ act: 'top', sheet: t.mock.sheet }));
     // Send to Aang (his pick, 2026-10-21): only while Aang is running, like the words item on a page.
-    if (state.mockups?.toAang) item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendtab', id: t.id }));
+    if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendtab', id: t.id })); aangFaceOn(m); }
   } else {
   for (const tr of trails) if (tr.id !== t.trail) item('Move to ' + tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }), { sub: true });
   item('Move to a new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }), { sub: true });
@@ -1221,7 +1227,7 @@ function versionMenu(id, x, y) {
     m.append(b);
   };
   item('Open this version', () => window.aang?.browserMockup?.({ act: 'show', id }));
-  if (state.mockups?.toAang) item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'send', id }));
+  if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'send', id })); aangFaceOn(m); }
   placeMenu(m, x, y);
 }
 const mockEls = { head: null, from: null, hist: null, tidy: null, list: null, listSig: '', branches: new Map() };
@@ -1264,7 +1270,7 @@ function branchMenu(b, x, y) {
   };
   item('Rename', () => mockEls.branches.get(b.id)?.querySelector('.nm')?.click());
   item(b.folded ? 'Unfold' : 'Fold', () => window.aang?.browserMockup?.({ act: 'bfold', id: b.id }));
-  if (state.mockups?.toAang) item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendbranch', id: b.id }));
+  if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendbranch', id: b.id })); aangFaceOn(m); }
   m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   item('Delete branch (its mockups stay)', () => window.aang?.browserMockup?.({ act: 'bdelete', id: b.id }), 'danger');
   placeMenu(m, x, y);

@@ -209,7 +209,7 @@ app.whenReady().then(async () => {
   await wait(60);
   check('losing focus (a click elsewhere) closes it', !menu.visible && picks.length === 0);
 
-  // 7b. 2026-10-21 (his reports): clearly readable (16 px words, 44 px rows, 10 px Silkscreen tags, 22-24 px icons drawn at
+  // 7b. 2026-10-21 (his reports): clearly readable (16 px words, 44 px rows, 10 px Silkscreen tags, since the clean-up 2026-10-22 12 px Figtree, 22-24 px icons drawn at
   // a whole-number scale, the submenu the same), and wherever Aang stands or tucks, it opens BESIDE him and his mark,
   // never on top of him, fully on screen, its submenu too.
   {
@@ -220,13 +220,13 @@ app.whenReady().then(async () => {
         tag: getComputedStyle(tag).fontSize, tagFace: getComputedStyle(tag).fontFamily }; })()`);
     // whole-number scale: the canvas is 11 art pixels times a whole number of screen pixels, plus the 1-pixel drop
     const whole = Number.isInteger((look.drawn - Math.max(1, Math.round(look.dpr))) / 11);
-    check('readable: 16 px words, 44 px rows, 10 px Silkscreen tags, icons 22-24 px at a whole-number scale',
-      look.font === '16px' && look.h >= 44 && look.ic >= 22 && look.ic <= 24 && look.tag === '10px' && /Silkscreen/i.test(look.tagFace) && whole, look);
+    check('readable: 16 px words, 44 px rows, 12 px Figtree tags (cleanup 2026-10-22), icons 22-24 px at a whole-number scale',
+      look.font === '16px' && look.h >= 44 && look.ic >= 22 && look.ic <= 24 && look.tag === '12px' && /Figtree/i.test(look.tagFace) && whole, look);
     const hs0 = await centre('[data-sub=hush]');
     await move(hs0.x, hs0.y);
     await until(async () => (await js(`document.querySelector('#sub')?.dataset.of`)) === 'hush', 2000);
     const sl = await js(`(() => { const b = document.querySelector('#sub button'), r = b.getBoundingClientRect(), h = document.querySelector('#sub .mhead'); return { font: getComputedStyle(b).fontSize, h: Math.round(r.height), head: getComputedStyle(h).fontSize }; })()`);
-    check('the submenu is the same scale', sl.font === '16px' && sl.h >= 44 && sl.head === '10px', sl);
+    check('the submenu is the same scale', sl.font === '16px' && sl.h >= 44 && sl.head === '12.5px', sl);
     await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100);
     if (menu.visible) { await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100); }
     const over = (r: { x: number; y: number; w: number; h: number } | null, A: { x: number; y: number; w: number; h: number } | null) => !!r && !!A && r.x < A.x + A.w && A.x < r.x + r.w && r.y < A.y + A.h && A.y < r.y + r.h;
