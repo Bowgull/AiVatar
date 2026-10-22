@@ -760,3 +760,21 @@ synthetic keys into WoW, and off-screen harnesses that catch their own errors.
 - Click through: family menu (whole group, ALL n) and the note's and timer's own menus (just that one). Locked members
   (the video pinned, or his pop-out switch) are never changed by it. ONE way back: Ctrl+Alt+P over any click-through
   member brings its group back (FamilyHost.reachAt); the key is held while anything is click-through.
+
+## Part 2, built 2026-10-22: F4 reshape on snap + F5 save and restore
+- Shapes (family.ts shapeFor / fitShapes / applyFits): beside a TALLER window -> tall (a column as tall as it, lined up
+  from the top); above/below a WIDER one -> wide (a strip as wide as it); otherwise its own shape. Fitted from the head of
+  the group down, so a note beside a job column is as tall as the column. "Biggest leads" now ranks by OWN size.
+  Kinds (familywin.ts KIND_LAYOUTS): job column 152 wide (sheet 59) / strip with its own height; note max 200 wide / strip
+  at its own height; timer 140 wide, stacked / strip; pinned snip keeps its aspect (max 720x560, now a family member).
+- The window is resized once (grown first, or shrunk after the 320 ms re-flow); the page re-flows in a view transition on
+  the settle spring (CSS linear() from springStep). Leaving the family (pull apart + drag out, its partner hidden or closed)
+  gives back the shape and size it had before it joined.
+- SHAPE API for any member (the mini player): pass `layouts` (family.ts Layouts: tall {width|maxWidth, minHeight},
+  wide {height|'auto'}, aspect, max) to FamilyHost.add; style under html[data-fam-shape="tall"|"wide"]; the panel (`card`)
+  is held at --fam-w x --fam-h; a page that redraws listens for the 'famshape' event (fired inside the view transition).
+- Save (familysave.ts, userData/family-layout.json): anchors + own sizes per screen arrangement (monitor ids + scale +
+  size), newest 40 members, 8 arrangements; a new arrangement uses the last one and groups are kept on a screen that is
+  there. A window closing never erases slots; the ones it left wait for it, and reopening pulls them back; a member
+  opening (also after a restart) goes back against its saved parent if that is open.
+- Tests: test/family-shapes.test.ts (11), test/electron/family3-check.ts (job + video + note, 3 pictures).

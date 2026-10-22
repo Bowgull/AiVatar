@@ -81,15 +81,52 @@ function nowPct(k, now) {
 }
 
 /* ---- the card ---- */
-function card() {
-  const j = job, needs = waits.length > 0, paused = j.phase === 'paused';
-  const st = done ? 'done' : needs ? 'needs' : paused ? 'paused' : 'work';
-  const c = h('div', 'pj' + (st === 'done' ? ' done' : st === 'paused' ? ' paused' : '') + (open && !done ? ' open' : ''));
-  c.dataset.state = st;
+/**
+ * The window family's part 2 (F4, 2026-10-22): snapped beside a taller window (the video) the job is a COLUMN, sheet 59's
+ * snap picture: the mark and the pin, the title, the % big and readable (Figtree bold, even digits), the bar, the live line
+ * wrapping, the time left at the foot. Stacked, never rotated. Above or below a wider window it stays the strip, as wide
+ * as that window (the family's CSS). The family says which on <html data-fam-shape>, and fires 'famshape' inside its view
+ * transition, so the redraw below is what glides.
+ */
+const isCol = () => document.documentElement.dataset.famShape === 'tall';
+function pinButton() {
   const pinB = btn('pin' + (pinned ? ' on' : ''), undefined, pinned ? 'Pinned: stays on top (click to unpin)' : 'Pin: stays on top');
   pinB.setAttribute('aria-pressed', String(pinned));
   pinB.append(pinArt(pinned));
   pinB.addEventListener('click', (e) => { e.stopPropagation(); api?.pin(); });
+  return pinB;
+}
+function columnCard() {
+  const j = job, needs = waits.length > 0, paused = j.phase === 'paused';
+  const st = needs ? 'needs' : paused ? 'paused' : 'work';
+  const c = h('div', 'pj col' + (paused ? ' paused' : ''));
+  c.dataset.state = st;
+  const img = document.createElement('img'); img.className = 'ci'; img.src = CL; img.alt = '';
+  const top = h('div', 'top');
+  top.append(img, pinButton());
+  const pct = liveText(h('div', 'pct'), (now) => { const p = liveProgress(latest(), now).percent; return p === null ? '' : p + '%'; });
+  // The bar runs the column's width inside its 14 px margins (sheet 59: wA - 14 art pixels at 2 px each).
+  const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--fam-w'), 10) || 152;
+  const pbw = h('div', 'pbw');
+  pbw.append(livePill(Math.max(20, Math.floor((w - 28) / 2)), 9, 2, latest, paused ? SLATE : SEA, !paused));
+  const now = liveText(h('div', 'cnow'), (t) => describeNow(latest(), t).line);
+  const foot = h('div', 'cfoot');
+  if (st === 'needs') {
+    const chip = btn('chip needs', 'NEEDS YOU', 'Claude needs you: Aang will show you the question');
+    chip.addEventListener('click', (e) => { e.stopPropagation(); api?.act('ask'); });
+    foot.append(chip);
+  } else if (st === 'paused') foot.append(h('span', 'chip paused', 'PAUSED'));
+  else foot.append(liveText(h('span', 'lt'), (t) => String(leftOf(latest(), t)).replace(/^about /, '')));
+  c.append(top, h('b', 'pr', j.project), pct, pbw, now, foot);
+  return c;
+}
+function card() {
+  const j = job, needs = waits.length > 0, paused = j.phase === 'paused';
+  const st = done ? 'done' : needs ? 'needs' : paused ? 'paused' : 'work';
+  if (st !== 'done' && isCol()) return columnCard();
+  const c = h('div', 'pj' + (st === 'done' ? ' done' : st === 'paused' ? ' paused' : '') + (open && !done && !isCol() ? ' open' : '') + (isCol() ? ' col' : ''));
+  c.dataset.state = st;
+  const pinB = pinButton();
   const top = h('div', 'top');
   if (st === 'done') {
     const big = h('div', 'big'), tk = h('span', 'tk'), words = h('span');
@@ -166,7 +203,7 @@ function card() {
 /** What changes the card's layout; the %, the bar and the live lines update in place every frame instead. */
 function signature() {
   const j = job;
-  return JSON.stringify([j.id, j.project, j.machine, j.phase, j.open ? 1 : 0, j.tasks.map((t) => t.status + t.text + t.active),
+  return JSON.stringify([isCol() ? 'col' + document.documentElement.style.getPropertyValue('--fam-w') : 'strip', j.id, j.project, j.machine, j.phase, j.open ? 1 : 0, j.tasks.map((t) => t.status + t.text + t.active),
     rowsKey(j), waits.length > 0, done ? 1 : 0]);
 }
 
@@ -197,7 +234,7 @@ new ResizeObserver(() => report()).observe(pw);
 
 /* ---- unfold / fold, the mockup's motion: ~520 ms with a 4% overshoot that settles, ~340 ms back with no bounce ---- */
 function setOpen(on) {
-  if (!pj || done) return;
+  if (!pj || done || isCol()) return;     // a column shows what it has; unfolding is the strip's
   open = on;
   const det = pj.querySelector('.det'), inner = det.firstElementChild;
   const ht = inner.offsetHeight;
@@ -320,4 +357,10 @@ api?.onData((d) => {
   }
 });
 api?.onLeave(() => { pw.classList.add('leaving'); });
+// The family changed its shape (inside its view transition): column or strip, redrawn now so the change glides.
+window.addEventListener('famshape', () => {
+  if (!job) return;
+  const s = signature();
+  if (s !== sig) { sig = s; render(); }
+});
 api?.ready();

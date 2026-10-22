@@ -98,3 +98,25 @@ body{font-family:Figtree,system-ui,sans-serif}
    session in the Claude app. The whole card takes the click (inner keys keep theirs), with a pointer and a small lift. */
 .pj.done{cursor:pointer;transition:transform .12s ease}
 .pj.done:hover{transform:translateY(-1px)}
+
+/* ---- the window family, part 2 (F4, 2026-10-22): the job fitted to a side. The family holds the card at --fam-w x
+   --fam-h (its own CSS) and says the shape on <html data-fam-shape>. Beside a taller window: sheet 59's COLUMN, stacked,
+   never rotated (snap.png: mark + pin, title, the % big in Figtree bold with even digits, the bar, the live line wrapping,
+   the time left at the foot). Above or below a wider one: the same strip, as wide as that window. ---- */
+html[data-fam-sized] .pw{width:var(--fam-w)}
+.pj.col{display:flex;flex-direction:column;padding:14px}
+.pj.col .top{height:22px;justify-content:space-between}
+.pj.col .ci{width:22px;height:22px}
+.pj.col .pr{display:block;margin-top:8px;font:700 15px Figtree,sans-serif;max-width:none}
+.pj.col .pct{margin-top:8px;font:700 30px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#3a2a18;min-height:30px}
+.pj.col .pbw{flex:none;justify-content:flex-start;margin-top:10px}
+.pj.col .cnow{margin-top:8px;font:600 13px/1.4 Figtree,sans-serif;color:#3a2a18;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.pj.col .cfoot{margin-top:auto;padding-top:8px;min-height:18px}
+.pj.col .lt{max-width:none;white-space:normal;font:600 12.5px Figtree,sans-serif;color:#6b5236}
+.pj.col.done .top,.pj.col.done .big{flex-direction:column;align-items:flex-start;gap:8px}
+.pj.col.done .big small{white-space:normal}
+.pj.col.done .ckeys{margin-top:auto}
+/* What glides between strip and column (the rest crossfades); no pixel art is scaled, only moved. */
+.pj .pin{view-transition-name:fam-pin}
+.pj .pr{view-transition-name:fam-title}
+.pj .pct{view-transition-name:fam-pct}
