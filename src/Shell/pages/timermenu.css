@@ -1,0 +1,13 @@
+/* Sheet 67 v2 (2026-10-22): the timer menu's own bits, lifted from docs/cockpit/sheet-67/sheet67.css. Everything else is
+   Aang's menu (aangmenu.css) and the family's groove (familymenu.css). */
+.tabmenu button.open{color:#ffe28c}
+.tabmenu .tf{display:flex;align-items:center;gap:10px;padding:6px 12px 10px}
+.tabmenu .tf input{all:unset;box-sizing:border-box;width:86px;font:800 18px var(--body);font-variant-numeric:tabular-nums;color:#fffaf0;background:rgba(0,0,0,.45);border-radius:6px;
+  padding:6px 10px;box-shadow:inset 0 2px 0 rgba(0,0,0,.5),0 0 0 2px rgba(255,196,60,.45);caret-color:#FFC43C}
+.tabmenu .tf input:focus{box-shadow:inset 0 2px 0 rgba(0,0,0,.5),0 0 0 2px #FFC43C}
+.tabmenu .tf input::placeholder{color:#8a7a62}
+.tabmenu .tf input.bad{box-shadow:inset 0 2px 0 rgba(0,0,0,.5),0 0 0 2px #ff9a8a}
+.tabmenu .tf .mcap{padding:0;font:500 13px var(--body);color:#c9b48c}
+/* Stop: hold. A gold fill sweeps the row (--k), the hotkeys menu's hold. */
+.tabmenu button.holdrow{color:#ffe28c;border-radius:7px;box-shadow:inset 0 0 0 2px rgba(255,196,60,.45);
+  background:linear-gradient(90deg,rgba(255,196,60,.26) 0 var(--k),rgba(255,196,60,.05) var(--k)) !important}

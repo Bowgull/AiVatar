@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Sheet 17: one running timer. A hand-drawn hourglass on a wood plate he can put anywhere on his screen. -->
+<!-- Sheet 67 v2 + 67b (2026-10-22): one timer. The brass-capped hourglass (sandglass.js) in a dark slot on a wood plate,
+     its name on a carved nameplate and its time beside it. Click the glass = pause (it lies down), hold it = turn it over,
+     hover = +1 / +5 / hold X, scroll = a minute, right-click = its menu (timermenu.html). -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
                font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
@@ -12,21 +14,10 @@
 </head>
 <body>
 <div class="tw" id="tw">
-  <span id="glass"></span>
-  <div class="twr"><span class="twl" id="label">Timer</span><span class="tmv" id="left">0:00</span></div>
-  <div class="trow" id="keys">
-    <button class="tb" id="add" type="button" title="One more minute">+1</button>
-    <button class="tb" id="pause" type="button" title="Pause">II</button>
-    <button class="tb stop" id="stop" type="button" title="Stop">X</button>
-  </div>
-</div>
-<div class="nmenu" id="menu" hidden>
-  <div class="nm-lab">SEE-THROUGH</div>
-  <div class="nm-slide"><input type="range" min="25" max="100" value="100" id="see"><span id="seev">100%</span></div>
-  <div class="nm-sep"></div>
-  <button class="mrow2" id="pin" type="button">Pin</button>
-  <button class="mrow2" id="thr" type="button" title="Clicks go through to whatever is behind. Ctrl+Alt+P over it brings it back.">Click through</button>
-  <button class="mrow2 warn" id="mstop" type="button">Stop</button>
+  <div class="gbox" id="gbox" title="Click: pause. Hold: turn it over"><canvas class="gl" id="gl"></canvas><canvas class="ring" id="ring"></canvas></div>
+  <div class="twr"><span class="np" id="np">Timer</span><span class="tmv" id="left">0:00</span><span class="pz">PAUSED</span></div>
+  <div class="chip2" id="chip"></div>
+  <div class="trow" id="keys"></div>
 </div>
 <script src="timer.js" type="module"></script>
 </body>
