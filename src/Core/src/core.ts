@@ -21,10 +21,11 @@ import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign as signBytes, timingSafeEqual } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { runOffThread } from './offthread.ts';
+import { readFile as readFileAsync } from 'node:fs/promises';
 import { releaseName } from './releasenames.ts';
 
-import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersion, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
+import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersionAsync, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
 import { pathToFileURL } from 'node:url';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
@@ -74,7 +75,9 @@ import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
 import { clearReadCache, looksVisual, readWindow } from './screen.ts';
-import { CLAUDE_WINDOW, asksSomething, frameJob, isFrom, newsFor, nextState, openInClaude } from './claude.ts';
+import { CLAUDE_WINDOW, asksSomething, frameJob, isFrom, lastAssistantText, newsFor, nextState, openInClaude } from './claude.ts';
+import { ReplyNotifier } from './claudereplies.ts';
+import type { ReplyLine } from './claudereplies.ts';
 import { MAX_RUNNING, TaskStore, WORKER_PROMPT, WORKER_TIMEOUT_MS, WORKER_TURNS, describeTasks } from './worker.ts';
 import type { Task } from './worker.ts';
 import type { JobKind, Launched } from './claude.ts';
@@ -2131,6 +2134,30 @@ export class Core {
   private readonly claudeNames = new SessionNames();
   readonly claudeJobs = new JobTracker(this.claudeNames);
   /**
+   * His rule (2026-10-21, "Aang never notified me of this reply"): every turn a Claude session ends while he is not
+   * looking at Claude gets ONE quiet line, "<title> replied: <first sentence>", whatever its length (claudereplies.ts).
+   * Fed by the aang-link mod and the old hooks alike; one line per turn end however many of them report it.
+   */
+  private readonly replies = new ReplyNotifier({
+    title: (session, project) => this.claudeJobs.list().find(j => j.id === session)?.title || this.claudeNames.of(session)?.title || project,
+    words: session => { const p = this.hooks.sessions.get(session)?.transcriptPath; return p ? lastAssistantText(p) : ''; },
+    say: line => this.sayReply(line),
+  });
+  /** One "<title> replied" line. False when it is not said: he is in Claude on this PC (he saw it there), or it is a
+   *  session Aang launched, which already gets its own fuller news (newsFor). */
+  private sayReply(line: ReplyLine): boolean {
+    if (this.inClaude() && !line.host) return false;
+    if (this.launched.some(l => l.state !== 'ended' && l.sessionId === line.session)) return false;
+    this.announce(line.text, { asked: true, done: true, blocking: false, claude: line.project, session: line.session, ...(line.host ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW }) });
+    // The teal done flash and the soft chime at the desk. In a game the pet holds the line itself as the teal mark
+    // (its own rule for a finished job); muted, hushed or away, nothing extra.
+    if (!this.bodyQuiet && !this.muted && this.hushUntil <= Date.now() && this.whereHeIs() === 'desktop') {
+      const st = this.claudeState();
+      this.sendTo('desktop', { ...this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking), flash: 'complete', sound: 'step' });
+    }
+    return true;
+  }
+  /**
    * The two models that do the plain-words work (plainwords.ts): Qwen on this PC first, free, and it steps aside by
    * itself while a game holds the graphics card; then Claude's quick model, with no tools and thinking off.
    */
@@ -2480,9 +2507,15 @@ export class Core {
   /** VACUUM INTO, verify, commit, push - see backup.ts. A quiet receipt in #log either way; a spoken word only
    *  if the last GOOD backup is already more than STALE_MS old, so one slow push on a fast night never sounds
    *  an alarm by itself. */
+  /** One memory backup at a time (2026-10-21: it is in the background now, so a slow push must not overlap the next). */
+  private memoryBackup: Promise<void> | null = null;
   private runBackup(): void {
-    const wasStale = this.backup.stale();
-    const r = this.backup.run();
+    if (this.memoryBackup) return;
+    this.memoryBackup = this.runBackupNow().catch(e => console.error('backup: ' + (e as Error).message)).finally(() => { this.memoryBackup = null; });
+  }
+  private async runBackupNow(): Promise<void> {
+    const wasStale = await this.backup.stale();
+    const r = await this.backup.run();
     const rec = this.actions.add({ tool: 'backup', did: r.ok ? `backed up his memory: ${r.detail}` : `backup failed: ${r.detail}`, ok: r.ok, note: r.ok ? '' : r.detail });
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });
     if (!r.ok && wasStale) this.announce(`I have not backed up cleanly in over 12 hours. The last attempt failed: ${r.detail}.`);
@@ -2493,7 +2526,8 @@ export class Core {
 
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
-    this.writeChangelog();
+    // 2026-10-21: the finished version is worked out in the background (refreshRelease); the changelog follows it.
+    void this.refreshRelease().then(() => this.writeChangelog());
     this.watchMacShip();
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({
@@ -2540,6 +2574,14 @@ export class Core {
       // the session so the working icon can say "on your MacBook" and route a click there.
       if (remote) { const s = this.hooks.sessions.get(String(ev?.session_id ?? '')); if (s) s.host = 'mac'; }
       this.pushClaudeWorking();
+      // The "<title> replied" line (2026-10-21): a prompt starts a turn, a Stop ends one (claudereplies.ts dedupes it
+      // with the link mod's own turn.end).
+      {
+        const hookName = String(ev?.hook_event_name ?? ''), sid = String(ev?.session_id ?? '');
+        if (hookName === 'UserPromptSubmit') this.replies.started(sid);
+        else if (hookName === 'Stop') { const s = this.hooks.sessions.get(sid); this.replies.ended({ session: sid, project: s?.project ?? '', ...(s?.lastSaid ? { words: s.lastSaid } : {}), ...(remote ? { host: 'mac' as const } : {}) }); }
+        else if (hookName === 'SessionEnd') this.replies.forget(sid);
+      }
       // A session Aang started for Joshua gets its own, fuller news, with a way straight to it.
       const mine = this.launched.find(l => l.state !== 'ended' && isFrom(l, ev));
       if (mine) {
@@ -2562,7 +2604,8 @@ export class Core {
       // did not launch; a click on the icon takes him to Claude (here, or on the Mac).
       // A MacBook session (it came over Tailscale) says so, and a click brings Claude forward on the Mac, not here.
       // Not while he is in the Claude app on this PC: he can already see it there. A MacBook session still says so.
-      if (said && !(this.inClaude() && !remote)) {
+      // 2026-10-21: a finished turn is now the "<title> replied" line above, for every turn, so only waiting is said here.
+      if (said && said.kind === 'waiting' && !(this.inClaude() && !remote)) {
         const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         const claude = said.session.project, session = said.session.id;
@@ -2578,6 +2621,11 @@ export class Core {
     // restarts); the CI watcher runs only in the real brain (the same switch as the transcript scan), never in tests.
     this.claudeJobs.useData(this.cfg.dataDir, { ci: this.cfg.scanTranscripts === true });
     this.claudeJobs.onChange = (what, urgent) => this.pushClaudeLink(what, urgent);
+    this.claudeJobs.onTurn = (session, what, info) => { if (what === 'start') this.replies.started(session); else this.replies.ended({ session, project: info.project, aborted: info.aborted }); };
+    // 2026-10-21: his session names are read in the background now (claudenames.ts), so a name learned later sends
+    // the jobs again; the first read starts here rather than inside the first push.
+    this.claudeNames.onChange = () => this.pushClaudeLink('jobs');
+    void this.claudeNames.refresh();
     // His ask (2026-10-21): the sessions already running show at once, even before their mods reach this brain.
     if (this.cfg.scanTranscripts) { this.claudeScan = new TranscriptScan(this.claudeJobs, { selfCwd: () => this.selfCwd() }); this.claudeScan.start(); }
     // 2026-10-21: the stale rule for the mark (claudeState) needs a look as time passes, not only on events.
@@ -2703,6 +2751,7 @@ export class Core {
     clearToken(this.cfg.stateDir);
     clearLinkKey(this.cfg.dataDir);
     this.claudeJobs.close();
+    this.replies.close();
     this.claudePusher.close();
     this.claudeScan?.stop();
     if (this.busyTimer) { clearInterval(this.busyTimer); this.busyTimer = null; }
@@ -2943,35 +2992,67 @@ export class Core {
   // the old one by itself if the new one will not start). Nothing installs without his press.
   private macHas: { version: string; commit: string } | null = null;
   private macOffer: string | null = null;
-  private macReleaseCache: { at: number; r: MacRelease } | null = null;
   private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'];
   private repoRoot(): string { return path.join(import.meta.dirname, '..', '..', '..'); }
-  private git(args: string[]): string { try { return execFileSync('git', args, { cwd: this.repoRoot(), encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } }
+  /**
+   * git, '' on any failure. 2026-10-21: these were execFileSync, ~50-200 ms of a frozen brain each, several per Mac
+   * offer (and a worktree checkout could take seconds); now git is started from the helper thread (offthread.ts) and
+   * the brain keeps answering meanwhile.
+   */
+  private async git(args: string[]): Promise<string> {
+    const r = await runOffThread('git', args, { cwd: this.repoRoot(), timeout: 60_000 });
+    return r.ok ? r.out.trim() : '';
+  }
   /**
    * The finished version, frozen (2026-10-14: his update key vanished while Claude was mid-work). The Mac's updates
    * are built only from a separate copy of the code at the commit Claude marked shipped (mac-ship), never from the
    * files being worked on, so work in progress can neither change nor withdraw what the Mac is offered.
+   *
+   * 2026-10-21: worked out in the background and kept for a minute. Hashing the release's files on the brain's thread
+   * took 0.8-1.5 s on his PC, every time the Mac connected and every five minutes after. releaseRoot() and macRelease()
+   * answer from what was last worked out (and start a fresh look when it is over a minute old); macReleaseFresh()
+   * waits for an up-to-date answer, for the offer and the update itself.
    */
+  private release: { at: number; root: string | null; r: MacRelease } | null = null;
+  private releasing: Promise<{ at: number; root: string | null; r: MacRelease }> | null = null;
+  private refreshRelease(): Promise<{ at: number; root: string | null; r: MacRelease }> {
+    if (this.releasing) return this.releasing;
+    this.releasing = (async () => {
+      let root: string | null = null;
+      let r: MacRelease = { version: '', commit: '' };
+      try {
+        let ship = ''; try { ship = (await readFileAsync(path.join(this.cfg.dataDir, 'mac-ship'), 'utf8')).trim(); } catch { /* none marked */ }
+        if (/^[0-9a-f]{7,40}$/.test(ship)) {
+          const dir = path.join(this.cfg.stateDir, 'mac-release');
+          if (!existsSync(path.join(dir, '.git'))) { await this.git(['worktree', 'prune']); await this.git(['worktree', 'add', '--detach', '--force', dir, ship]); }
+          else if (!(await this.git(['-C', dir, 'rev-parse', 'HEAD'])).startsWith(ship)) await this.git(['-C', dir, 'checkout', '--detach', '--force', ship]);
+          if ((await this.git(['-C', dir, 'rev-parse', 'HEAD'])).startsWith(ship)) root = dir;
+        }
+        if (root) r = { version: await macSourceVersionAsync(path.join(root, 'src', 'Shell'), path.join(root, 'src', 'Core', 'src'), Core.DESK_FILES), commit: await this.git(['-C', root, 'rev-parse', '--short=12', 'HEAD']) };
+      } catch (e) { console.error('update key: could not read the finished version: ' + (e as Error).message); }
+      const got = { at: Date.now(), root, r };
+      this.release = got;
+      if (root && r.commit && this.frozen?.commit !== r.commit) {
+        const commit = r.commit, from = root;
+        import(pathToFileURL(path.join(from, 'src', 'Core', 'src', 'macsetup.ts')).href + '?c=' + commit)
+          .then((m: typeof import('./macsetup.ts')) => { this.frozen = { commit, root: from, setup: m.macSetupScript, bundle: m.macBrowserBundle }; })
+          .catch((e: Error) => console.error('update key: could not load the finished version: ' + e.message));
+      }
+      return got;
+    })().finally(() => { this.releasing = null; });
+    return this.releasing;
+  }
+  private releaseStale(): boolean { return !this.release || Date.now() - this.release.at >= 60_000; }
   private releaseRoot(): string | null {
-    let ship = ''; try { ship = readFileSync(path.join(this.cfg.dataDir, 'mac-ship'), 'utf8').trim(); } catch { return null; }
-    if (!/^[0-9a-f]{7,40}$/.test(ship)) return null;
-    const dir = path.join(this.cfg.stateDir, 'mac-release');
-    if (!existsSync(path.join(dir, '.git'))) { this.git(['worktree', 'prune']); this.git(['worktree', 'add', '--detach', '--force', dir, ship]); }
-    else if (!this.git(['-C', dir, 'rev-parse', 'HEAD']).startsWith(ship)) this.git(['-C', dir, 'checkout', '--detach', '--force', ship]);
-    return this.git(['-C', dir, 'rev-parse', 'HEAD']).startsWith(ship) ? dir : null;
+    if (this.releaseStale()) void this.refreshRelease();
+    return this.release?.root ?? null;
   }
   private macRelease(): MacRelease {
-    if (this.macReleaseCache && Date.now() - this.macReleaseCache.at < 60_000) return this.macReleaseCache.r;
-    const root = this.releaseRoot();
-    const r = root ? { version: macSourceVersion(path.join(root, 'src', 'Shell'), path.join(root, 'src', 'Core', 'src'), Core.DESK_FILES), commit: this.git(['-C', root, 'rev-parse', '--short=12', 'HEAD']) } : { version: '', commit: '' };
-    this.macReleaseCache = { at: Date.now(), r };
-    if (root && r.commit && this.frozen?.commit !== r.commit) {
-      const commit = r.commit;
-      import(pathToFileURL(path.join(root, 'src', 'Core', 'src', 'macsetup.ts')).href + '?c=' + commit)
-        .then((m: typeof import('./macsetup.ts')) => { this.frozen = { commit, root, setup: m.macSetupScript, bundle: m.macBrowserBundle }; })
-        .catch((e: Error) => console.error('update key: could not load the finished version: ' + e.message));
-    }
-    return r;
+    if (this.releaseStale()) void this.refreshRelease();
+    return this.release?.r ?? { version: '', commit: '' };
+  }
+  private async macReleaseFresh(): Promise<MacRelease> {
+    return (this.releaseStale() ? await this.refreshRelease() : this.release!).r;
   }
   /** The finished version's own setup code (loaded from the frozen copy, so it matches the files it sends). */
   private frozen: { commit: string; root: string; setup: typeof macSetupScript; bundle: typeof macBrowserBundle } | null = null;
@@ -3027,7 +3108,7 @@ export class Core {
   /** Samara's engine update, once the PC's Samara has it fully ready (downloaded, switches set, re-signed, tested):
    *  its version and name, its lines in the changelog, one word from Aang, and the morning brief's row (sheet 35). */
   private engineNews: { version: string; label: string; name: string } | null = null;
-  private engineReady(ws: WebSocket, version: string, major: boolean): void {
+  private async engineReady(ws: WebSocket, version: string, major: boolean): Promise<void> {
     if (!/^\d+\.\d+\.\d+$/.test(version)) return;
     const notesFile = path.join(this.cfg.dataDir, 'engine-notes.json');
     let notes: { at: string; kind: string; text: string; engine: string }[] = [];
@@ -3040,7 +3121,7 @@ export class Core {
         { at, kind: 'feature', engine: version, text: 'A back door other programs could use is closed.' });
       try { writeFileAtomic(notesFile, JSON.stringify(notes, null, 1)); } catch { /* best effort */ }
     }
-    const no = this.macReleaseNo('engine-' + version, this.git(['rev-parse', '--short=12', 'HEAD']));
+    const no = this.macReleaseNo('engine-' + version, await this.git(['rev-parse', '--short=12', 'HEAD']));
     this.engineNews = { version, label: no.label, name: no.name };
     this.send(ws, { t: 'engine.label', version, label: no.label, name: no.name } as never);
     if (fresh) {
@@ -3060,13 +3141,13 @@ export class Core {
   }
   /** What this update brings, in his words (Shell/whats-new.json, kept up with each change that reaches the Mac):
    *  the lines added since the version the Mac runs. */
-  private macPlainNotes(fromCommit: string): string[] {
+  private async macPlainNotes(fromCommit: string): Promise<string[]> {
     const items = this.whatsNew();
     // New = not already in the list the Mac's own version shipped with (his report, 2026-10-14: the same lines came back
     // in every update, because a line's time, not the version, decided what was new).
     let had: Set<string> | null = null;
     if (/^[0-9a-f]{6,40}$/.test(fromCommit)) {
-      const old = this.git(['show', `${fromCommit}:src/Shell/whats-new.json`]);
+      const old = await this.git(['show', `${fromCommit}:src/Shell/whats-new.json`]);
       try { had = new Set(((JSON.parse(old) as { items?: { text?: string }[] }).items ?? []).map(i => String(i?.text ?? ''))); } catch { had = null; }
     }
     const seen = new Set<string>();
@@ -3077,12 +3158,14 @@ export class Core {
   /** Shipped (his ask, 2026-10-14: the key came up while Claude was still working): a version is offered only once
    *  Claude marks it finished (mac-ship in his Aang folder holds that commit) and nothing the Mac runs is half-changed. */
   private macShipped(r: MacRelease): boolean { return !!r.commit && !!r.version; }
-  private macOfferNow(reply: (r: Record<string, unknown>) => void): void {
+  private async macOfferNow(reply: (r: Record<string, unknown>) => void): Promise<void> {
     if (!this.macHas) return;
-    const r = this.macRelease();
+    const r = await this.macReleaseFresh();
+    if (!this.macHas) return;
     if (!r.commit || r.version === this.macHas.version || !this.macShipped(r)) { if (this.macOffer !== null) reply({ t: 'update.none' }); this.macOffer = null; return; }
     const no = this.macReleaseNo(r.version, r.commit);
-    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), label: no.label, name: no.name, notes: this.macPlainNotes(this.macHas.commit) });
+    const notes = await this.macPlainNotes(this.macHas.commit);
+    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), label: no.label, name: no.name, notes });
     if (this.macOffer !== r.version) console.log(`update key: the Mac runs ${this.macHas.version || 'an unknown version'}; offered ${r.version}`);
     this.macOffer = r.version;
   }
@@ -3090,7 +3173,7 @@ export class Core {
     if (m.t === 'update.have') {
       this.macHas = { version: String(m.version ?? '').slice(0, 64), commit: String(m.commit ?? '').slice(0, 40) };
       this.macOffer = null;
-      this.macOfferNow(reply);
+      void this.macOfferNow(reply);
       return;
     }
     // His rule (2026-10-14): an update that fails is never just quietly undone; the Mac sends what happened, it is
@@ -3105,24 +3188,27 @@ export class Core {
       return;
     }
     // update.get: he pressed Restart now on the Mac.
-    const ts = this.hookServer?.tailnet, r = this.macRelease();
+    void this.macUpdateGet(m, reply);
+  }
+  private async macUpdateGet(m: Record<string, unknown>, reply: (r: Record<string, unknown>) => void): Promise<void> {
+    const r = await this.macReleaseFresh(), ts = this.hookServer?.tailnet;
     const f = this.frozen?.commit === r.commit ? this.frozen : null;
     if (ts && r.commit && !f) { reply({ t: 'update.fail', why: 'Still getting the update ready. Press Restart now again in a moment.' }); return; }
     const desk = ts && f ? this.frontDeskFor(f.root, f.bundle) : null;
     if (!ts || !f || !desk?.browser) { reply({ t: 'update.fail', why: "Your PC could not put the update together. Run the Mac code once instead." }); console.error('update key: no update for the Mac (no Tailscale address or nothing to send)'); return; }
     if (!this.macShipped(r)) { reply({ t: 'update.fail', why: 'That update is not finished yet.' }); return; }
-    if (String(m.version ?? '') !== r.version) { this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
+    if (String(m.version ?? '') !== r.version) { await this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
     const script = f.setup(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true, changelog: this.changelogText(), signPub: this.updateKey().pub });
     reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), sig: signBytes(null, Buffer.from(script), this.updateKey().key).toString('base64'), script });
     console.log(`update key: sent the Mac update ${r.version} (${Math.round(script.length / 1024)} KB)`);
   }
   /** Every few minutes while the Mac is connected: a change made here lights its key without waiting for a reconnect. */
-  private macUpdateTimer = setInterval(() => { if (this.bsync.macConnected) this.macOfferNow(r => this.bsync.tellMac(r)); }, 5 * 60_000).unref();
+  private macUpdateTimer = setInterval(() => { if (this.bsync.macConnected) void this.macOfferNow(r => this.bsync.tellMac(r)); }, 5 * 60_000).unref();
   /** The moment Claude marks a version finished (mac-ship), the Mac hears of it, not up to five minutes later. */
   private watchMacShip(): void {
     watchFile(path.join(this.cfg.dataDir, 'mac-ship'), { interval: 2000, persistent: false }, () => {
-      this.macReleaseCache = null;
-      if (this.bsync.macConnected) setTimeout(() => this.macOfferNow(r => this.bsync.tellMac(r)), 1500);
+      if (this.release) this.release.at = 0;   // looked at again, in the background, on the next ask
+      if (this.bsync.macConnected) setTimeout(() => void this.macOfferNow(r => this.bsync.tellMac(r)), 1500);
     });
   }
   /** The last place the pet said it was, for a Shell that connects afterwards. Never persisted: a
@@ -3602,7 +3688,7 @@ export class Core {
       // The browser's Trail clean up (2026-10-12). Tab titles are web page text: they go in as data under a fixed system
       // prompt that says so, and the Shell reads the answer strictly (tab numbers and short names only). askLocal itself
       // refuses while a game is running ('game'), and the Shell then waits and asks again.
-      case 'engine.ready': this.engineReady(ws, String(m.version ?? ''), m.major === true); break;
+      case 'engine.ready': void this.engineReady(ws, String(m.version ?? ''), m.major === true); break;
       case 'engine.signin':
         if (m.signIn === true) this.announce("Samara's new engine couldn't be re-signed for video: castLabs wants you to sign in again. Paste this in PowerShell and follow it: python -m castlabs_evs.account reauth");
         break;

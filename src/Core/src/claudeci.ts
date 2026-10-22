@@ -13,18 +13,19 @@
 // A run's bar is step-weighted, the same sum as a Claude job's (progressmath.ts barNow): finished steps at their real
 // time, the running step by its own history's overrun curve, pending steps at their medians. A queued run has no bar
 // ("Waiting for a runner · 40 s"). With no step history but 3+ past runs, the run as one item; with neither, elapsed only.
-import { execFile } from 'node:child_process';
+import { runOffThread } from './offthread.ts';
 import type { Est, ProgressV3 } from './progressmath.ts';
 import type { ProgressHistory } from './progresshistory.ts';
 
 /** Runs a program; its stdout, or null on any failure. Injected so tests need no gh or git. */
 export type Runner = (cmd: 'gh' | 'git', args: string[], cwd?: string) => Promise<string | null>;
 
-const defaultRunner: Runner = (cmd, args, cwd) => new Promise(resolve => {
-  try {
-    execFile(cmd, args, { cwd, timeout: 15_000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (err, out) => resolve(err ? null : String(out)));
-  } catch { resolve(null); }
-});
+// 2026-10-21: started from the helper thread (offthread.ts): starting gh or git from the brain's own thread held it for
+// 30-150 ms each time on his PC.
+const defaultRunner: Runner = async (cmd, args, cwd) => {
+  const r = await runOffThread(cmd, args, { ...(cwd ? { cwd } : {}), timeout: 15_000, maxBuffer: 4 * 1024 * 1024 });
+  return r.ok ? r.out : null;
+};
 
 /** "owner/repo" from a git remote URL, or null when it is not GitHub. */
 export function parseRemote(url: string): string | null {

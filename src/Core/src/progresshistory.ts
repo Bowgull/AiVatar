@@ -17,6 +17,7 @@
 // Keys go from narrow to broad and each is pulled towards the broader one (shrinkage, k = 3), so a label seen once
 // leans on its kind, and a kind seen once leans on the seed priors below.
 import { appendFile, readFileSync } from 'node:fs';
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { estOf, shrink } from './progressmath.ts';
@@ -114,13 +115,33 @@ export class ProgressHistory {
   private readonly runs = new Set<string>();
   private lines = 0;
   private writing: Promise<void> = Promise.resolve();
-  /** `file` null keeps it in memory only (tests). */
+  /** Samples that finished while the file was still being read: learned after it, so the newest stay the newest. */
+  private early: Sample[] | null = null;
+  /** Resolves once the file has been read back (at once with no file). */
+  readonly ready: Promise<void>;
+  /**
+   * `file` null keeps it in memory only (tests). 2026-10-21: the file is read back in the background, a slice at a
+   * time, so the brain never stops for it (at its 6,000-line cap a one-go read and parse would hold it for tens of ms
+   * at every start). The read is first in the write queue, so nothing is appended before it and nothing counts twice.
+   */
   constructor(file: string | null) {
     this.file = file;
-    if (!file) return;
+    if (!file) { this.ready = Promise.resolve(); return; }
+    this.early = [];
+    this.ready = this.writing = this.load(file).finally(() => {
+      const early = this.early ?? [];
+      this.early = null;
+      for (const s of early) this.learn(s);
+    });
+  }
+
+  /** One asynchronous read, then about 8 ms of lines per turn of the event loop. */
+  private async load(file: string): Promise<void> {
     let text = '';
-    try { text = readFileSync(file, 'utf8'); } catch { return; }
+    try { text = await readFile(file, 'utf8'); } catch { return; }
+    let t = performance.now();
     for (const line of text.split('\n')) {
+      if (performance.now() - t > 8) { await new Promise(r => setImmediate(r)); t = performance.now(); }
       if (!line.trim()) continue;
       try { const s = fromLine(JSON.parse(line)); if (s) { this.learn(s); this.lines++; } } catch { /* a torn last line: skipped */ }
     }
@@ -146,7 +167,7 @@ export class ProgressHistory {
   /** One finished thing. Written in the background; never throws. */
   add(s: Sample): void {
     const clean: Sample = { ...s, key: s.key.slice(0, 80), ...(s.p ? { p: s.p.slice(0, 80) } : {}), ...(s.k ? { k: s.k.slice(0, 40) } : {}), ms: Math.round(s.ms) };
-    this.learn(clean);
+    if (this.early) this.early.push(clean); else this.learn(clean);
     if (!this.file) return;
     const file = this.file;
     this.lines++;
@@ -155,19 +176,20 @@ export class ProgressHistory {
     this.writing = this.writing.then(() => new Promise<void>(resolve => {
       appendFile(file, line, (e) => {
         if (e) reportWriteFailure(file, e);
-        if (compact) this.compact(file);
-        resolve();
+        if (compact) void this.compact(file).finally(resolve); else resolve();
       });
     }));
   }
 
-  /** Cut the file back to its newest KEEP_LINES lines (rare: about once per thousand samples). */
-  private compact(file: string): void {
+  /** Cut the file back to its newest KEEP_LINES lines (rare: about once per thousand samples). Asynchronous (2026-10-21). */
+  private async compact(file: string): Promise<void> {
     try {
-      const all = readFileSync(file, 'utf8').split('\n').filter(l => l.trim());
+      const all = (await readFile(file, 'utf8')).split('\n').filter(l => l.trim());
       if (all.length <= MAX_LINES) { this.lines = all.length; return; }
       const keep = all.slice(-KEEP_LINES);
-      writeFileAtomic(file, keep.join('\n') + '\n');
+      const tmp = `${file}.${process.pid}.tmp`;
+      await writeFile(tmp, keep.join('\n') + '\n');
+      await rename(tmp, file);
       this.lines = keep.length;
     } catch (e) { reportWriteFailure(file, e); }
   }

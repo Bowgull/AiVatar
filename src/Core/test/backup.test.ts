@@ -29,17 +29,17 @@ function makeDb(dir: string, turns: number, facts: number): void {
   db.close();
 }
 
-test('no database yet is reported plainly, not thrown', () => {
+test('no database yet is reported plainly, not thrown', async () => {
   const dir = repo();
-  const r = new Backup(dir).run();
+  const r = await new Backup(dir).run();
   assert.equal(r.ok, false);
   assert.match(r.detail, /no database yet/);
 });
 
-test('a real snapshot is verified, committed, and counted right', () => {
+test('a real snapshot is verified, committed, and counted right', async () => {
   const dir = repo();
   makeDb(dir, 3, 2);
-  const r = new Backup(dir).run();
+  const r = await new Backup(dir).run();
   assert.equal(r.ok, true);
   assert.equal(r.turns, 3);
   assert.equal(r.facts, 2);
@@ -48,39 +48,39 @@ test('a real snapshot is verified, committed, and counted right', () => {
   assert.match(log, /Backup: 3 turns, 2 facts/);
 });
 
-test('running again with no changes is not treated as a failure', () => {
+test('running again with no changes is not treated as a failure', async () => {
   const dir = repo();
   makeDb(dir, 1, 0);
   const b = new Backup(dir);
-  assert.equal(b.run().ok, true);
-  const second = b.run();                              // the db has not changed - "nothing to commit" is fine
+  assert.equal((await b.run()).ok, true);
+  const second = await b.run();                              // the db has not changed - "nothing to commit" is fine
   assert.equal(second.ok, true);
   const log = execFileSync('git', ['log', '--oneline', '--', 'backups/aang.db'], { cwd: dir, encoding: 'utf8' });
   assert.equal(log.trim().split('\n').length, 1, 'a second identical backup must not add a second commit');
 });
 
-test('a push with no remote configured still counts the commit as done', () => {
+test('a push with no remote configured still counts the commit as done', async () => {
   const dir = repo();
   makeDb(dir, 1, 1);
-  const r = new Backup(dir).run();
+  const r = await new Backup(dir).run();
   assert.equal(r.ok, true, 'the local commit succeeded even though there is nowhere to push to');
   assert.match(r.detail, /push failed/);
 });
 
-test('stale() is true with no backup ever, false right after a good one', () => {
+test('stale() is true with no backup ever, false right after a good one', async () => {
   const dir = repo();
   makeDb(dir, 1, 0);
   const b = new Backup(dir);
-  assert.equal(b.stale(), true);
-  assert.equal(b.run().ok, true);
-  assert.equal(b.stale(), false);
+  assert.equal(await b.stale(), true);
+  assert.equal((await b.run()).ok, true);
+  assert.equal(await b.stale(), false);
 });
 
-test('the live database is never modified - only VACUUM INTO reads it', () => {
+test('the live database is never modified - only VACUUM INTO reads it', async () => {
   const dir = repo();
   makeDb(dir, 5, 0);
   const before = new DatabaseSync(path.join(dir, 'aang.db'), { readOnly: true }).prepare('SELECT COUNT(*) n FROM turns').get() as { n: number };
-  new Backup(dir).run();
+  await new Backup(dir).run();
   const after = new DatabaseSync(path.join(dir, 'aang.db'), { readOnly: true }).prepare('SELECT COUNT(*) n FROM turns').get() as { n: number };
   assert.equal(before.n, after.n);
 });
