@@ -83,7 +83,9 @@ import { StartBook } from './jobstart.ts';
 import { JobStarter } from './jobstarter.ts';
 import { nodeDisk } from './jobprompt.ts';
 import { ReplyNotifier } from './claudereplies.ts';
-import type { ReplyLine } from './claudereplies.ts';
+import type { ReplyLine, ReplyWords } from './claudereplies.ts';
+import { confirmQuestion, findQuestion } from './plainquestion.ts';
+import type { QAsk } from './plainquestion.ts';
 import { MAX_RUNNING, TaskStore, WORKER_PROMPT, WORKER_TIMEOUT_MS, WORKER_TURNS, describeTasks } from './worker.ts';
 import type { Task } from './worker.ts';
 import type { JobKind, Launched } from './claude.ts';
@@ -2172,7 +2174,27 @@ export class Core {
     title: (session, project) => this.claudeJobs.list().find(j => j.id === session)?.title || this.claudeNames.of(session)?.title || project,
     words: session => { const p = this.hooks.sessions.get(session)?.transcriptPath; return p ? lastAssistantText(p) : ''; },
     say: line => this.sayReply(line),
+    question: r => this.replyQuestion(r),
   });
+  /**
+   * Qwen's second look at a plain question (plainquestion.ts confirmQuestion), no tools; never Claude (a check on every
+   * turn end must cost no quota). Null: plain code alone. Tests swap it.
+   */
+  plainQAsk: QAsk | null = async (prompt, o) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(prompt, o); return { ok: r.ok, text: r.text }; };
+  /**
+   * 2026-10-22 (his "surface questions that drive the session"): a turn that ends on a plain question to him becomes a
+   * QUESTION card (sheet 64 look), answerable from Aang, instead of the "replied" line. Only a session the aang-link mod
+   * speaks for on this PC (his answer goes back through it), never one Aang launched (it has its own news), never a
+   * test or Aang's own lane (notjobs.ts: those never reach the tracker at all). The card itself goes through the same
+   * doors as every ask: FrontGate holds it while Claude is in front, the mark and the needs-you chime come with it.
+   */
+  private replyQuestion(r: ReplyWords): boolean | Promise<boolean> {
+    if (r.host || !this.claudeJobs.linked(r.session) || notHisCwd(this.claudeJobs.cwdOf(r.session), this.selfCwd())) return false;
+    if (this.launched.some(l => l.state !== 'ended' && l.sessionId === r.session)) return false;
+    const found = findQuestion(r.words);
+    if (!found) return false;
+    return confirmQuestion(r.words, found, this.plainQAsk).then(q => !!q && this.claudeJobs.replyQuestion(r.session, q) !== null);
+  }
   /** One "<title> replied" line. False when it is not said: he is in Claude on this PC (he saw it there), or it is a
    *  session Aang launched, which already gets its own fuller news (newsFor). */
   private sayReply(line: ReplyLine): boolean {
@@ -2633,7 +2655,7 @@ export class Core {
       // with the link mod's own turn.end).
       {
         const hookName = String(ev?.hook_event_name ?? ''), sid = String(ev?.session_id ?? '');
-        if (hookName === 'UserPromptSubmit') this.replies.started(sid);
+        if (hookName === 'UserPromptSubmit') { this.replies.started(sid); this.claudeJobs.typed(sid); }
         else if (hookName === 'Stop') { const s = this.hooks.sessions.get(sid); this.replies.ended({ session: sid, project: s?.project ?? '', ...(s?.lastSaid ? { words: s.lastSaid } : {}), ...(remote ? { host: 'mac' as const } : {}) }); }
         else if (hookName === 'SessionEnd') this.replies.forget(sid);
       }
@@ -2688,7 +2710,7 @@ export class Core {
     // restarts); the CI watcher runs only in the real brain (the same switch as the transcript scan), never in tests.
     this.claudeJobs.useData(this.cfg.dataDir, { ci: this.cfg.scanTranscripts === true });
     this.claudeJobs.onChange = (what, urgent) => this.pushClaudeLink(what, urgent);
-    this.claudeJobs.onTurn = (session, what, info) => { if (what === 'start') this.replies.started(session); else this.replies.ended({ session, project: info.project, aborted: info.aborted }); };
+    this.claudeJobs.onTurn = (session, what, info) => { if (what === 'start') this.replies.started(session); else this.replies.ended({ session, project: info.project, aborted: info.aborted, ...(info.words ? { words: info.words } : {}) }); };
     // 2026-10-21: his session names are read in the background now (claudenames.ts), so a name learned later sends
     // the jobs again; the first read starts here rather than inside the first push.
     this.claudeNames.onChange = () => this.pushClaudeLink('jobs');

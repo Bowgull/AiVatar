@@ -164,6 +164,12 @@ export interface WaitItem {
   toolUseId?: string;
   agentId?: string;
   askedAt?: number;
+  /**
+   * 2026-10-22 (his "surface questions that drive the session"): not a formal ask but a plain question Claude ended its
+   * reply on (plainquestion.ts). The brain made it, not the mod: his answer goes to the session as his next message
+   * (the signed inbox, the mod's $.prompt.submit), and it goes the moment he types anything in that session.
+   */
+  reply?: true;
 }
 
 export type Decision = 'allow' | 'always' | 'deny' | 'deny-message';
@@ -270,7 +276,7 @@ export class JobTracker {
   /** Told once per new waiting item, so the Core can have it rewritten in plain words (C2, 2026-10-21). */
   onAsk: (item: WaitItem) => void = () => {};
   /** A turn started or ended in a linked session (2026-10-21): the Core's "<title> replied" line (claudereplies.ts). */
-  onTurn: (session: string, what: 'start' | 'end', info: { project: string; aborted: boolean }) => void = () => {};
+  onTurn: (session: string, what: 'start' | 'end', info: { project: string; aborted: boolean; words?: string }) => void = () => {};
   private seq = 0;
 
   private id(): string { return `${Date.now().toString(36)}-${(++this.seq).toString(36)}-${randomBytes(4).toString('hex')}`; }
@@ -485,7 +491,9 @@ export class JobTracker {
         // "After this task" with no to-do list to wait on means after this turn.
         this.release(session, (h) => h.afterTask === null || !j.tasks.some(t => t.status === 'in_progress' && t.text === h.afterTask));
         this.onChange('wait');
-        this.onTurn(session, 'end', { project: j.project, aborted: ev?.aborted === true });
+        // 2026-10-22: the mod sends the tail of Claude's answer, for the plain-question card (plainquestion.ts).
+        { const words = typeof ev?.said === 'string' ? ev.said.slice(-4000) : '';
+          this.onTurn(session, 'end', { project: j.project, aborted: ev?.aborted === true, ...(words ? { words } : {}) }); }
         break;
       }
       case 'todos': urgent = true; j.finished = false; this.act(session, t).alive(t); this.setTasks(j, ev?.todos, t); break;
@@ -505,7 +513,8 @@ export class JobTracker {
         for (const g of Array.isArray(ev?.agents) ? ev.agents.slice(0, 20) : []) act.agentStart(cut(g?.id, 100), cut(g?.kind, 60), cut(g?.what, 200), t, g?.bg !== true);
         // The snapshot is the whole truth about what still waits: anything else of this session's was answered meanwhile.
         { const open = new Set((Array.isArray(ev?.asks) ? ev.asks : []).map((k: any) => cut(k?.id, 100)));
-          this.movedOn(session, Infinity, (w) => !open.has(w.id)); }
+          // A plain question the brain made from a reply is not the mod's to list: it stays while the session is idle.
+          this.movedOn(session, Infinity, (w) => !open.has(w.id) && !(w.reply && ev?.phase !== 'working')); }
         for (const k of Array.isArray(ev?.asks) ? ev.asks.slice(0, 10) : []) this.ask(j, { ...k, readonly: true }, t);
         if (Array.isArray(ev?.plan)) this.setPlan(j, ev.plan, t);
         break;
@@ -729,6 +738,36 @@ export class JobTracker {
     this.onAsk(item);
   }
 
+  /**
+   * A plain question Claude ended its turn on (plainquestion.ts, 2026-10-22): up as a QUESTION card, one per session (a
+   * newer one replaces it). Only for a linked session sitting idle (if he already typed, the turn is running and it is
+   * not asked). Null when it was not put up.
+   */
+  replyQuestion(session: string, q: { question: string; options: string[] }, now = Date.now()): WaitItem | null {
+    const j = this.jobs.get(session);
+    if (!j || j.source !== 'link' || j.phase !== 'idle' || !q.question.trim()) return null;
+    for (const [id, w] of [...this.waits]) if (w.session === session && w.reply) this.drop(id);
+    const item: WaitItem = {
+      id: this.id(), session, project: j.project, kind: 'question', tool: '', summary: cut(q.question, 300), input: '',
+      questions: [{ question: cut(q.question, 500), options: q.options.slice(0, 6).map(o => ({ label: cut(o, 200) })) }],
+      canAlways: false, at: now, askedAt: now, reply: true,
+    };
+    this.waits.set(item.id, item);
+    // It is waiting on him, so it is not "done": the done card and the teal tick give way to the question.
+    this.clearDone(session);
+    this.onChange('wait');
+    this.onChange('jobs', true);
+    this.onAsk(item);
+    return item;
+  }
+
+  /** He typed in that session (the old hook's UserPromptSubmit): its plain question is over. */
+  typed(session: string): void {
+    let any = false;
+    for (const [id, w] of [...this.waits]) if (w.session === session && w.reply) { this.drop(id); any = true; }
+    if (any) this.onChange('wait');
+  }
+
   /** The plain words for a waiting item, if it is still waiting. Option lines only fit a single question. */
   setPlain(id: string, plain: string, options: string[] = []): void {
     const w = this.waits.get(id);
@@ -828,6 +867,20 @@ export class JobTracker {
     const w = this.waits.get(id);
     if (!w) return 'That is no longer waiting.';
     if (w.readonly) return 'Open it in Claude to answer: Aang restarted while it was asking.';
+    if (w.reply) {
+      // A plain question: his answer is his next message to the session; "Not this time" just puts it away.
+      if ('answers' in a) {
+        const text = Object.values(a.answers ?? {}).find(v => typeof v === 'string' && v.trim())?.trim().slice(0, 4000);
+        if (!text) return 'No answer was given.';
+        const j = this.jobs.get(w.session);
+        if (!j || j.source !== 'link' || j.phase === 'ended') return 'That session is not running.';
+        this.drop(id);
+        this.push(w.session, 'inbox', { text });
+      } else if (a.decision === 'deny') this.drop(id);
+      else return 'Answer it, or put it away.';
+      this.onChange('wait');
+      return null;
+    }
     let body: Record<string, unknown>;
     if ('answers' in a) {
       if (w.kind !== 'question') return 'That one is not a question.';
