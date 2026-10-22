@@ -46,6 +46,9 @@ export function claudeMessage(raw: unknown): Record<string, unknown> | null {
       const t = text(m.text, 4000);
       return t === null ? null : { t: 'claude.play', session: m.session, text: t };
     }
+    // 2026-10-22: a finished job is read (its done card X'd or opened, or Nice on its pop-out).
+    case 'claude.ackdone':
+      return typeof m.id === 'string' && ID.test(m.id) ? { t: 'claude.ackdone', id: m.id } : null;
     case 'claude.model':
       return typeof m.session === 'string' && ID.test(m.session) && typeof m.model === 'string' && MODEL.test(m.model)
         ? { t: 'claude.model', session: m.session, model: m.model } : null;

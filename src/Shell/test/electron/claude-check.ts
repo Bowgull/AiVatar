@@ -113,17 +113,19 @@ app.whenReady().then(async () => {
 
   // ---- a tracked job ends: the next running one takes its place
   const before = await bars();
-  await deliver({ t: 'claude.jobs', jobs: [WM, SND, { ...SAM, phase: 'ended' }] });
+  await deliver({ t: 'claude.jobs', jobs: [WM, SND, { ...SAM, phase: 'ended', unread: true, doneAt: Date.now() }] });
   await wait(100);
   const after = await bars();
   check('a tracked job ends: the next running one takes its place', before.includes('Samara') && !after.includes('Samara') && after.length === 2 && after.includes('Aang sounds'), `${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
-  // His decision (2026-10-21): a finished job shows JOB COMPLETE in teal for about four seconds, no key, then folds away.
+  // 2026-10-22 (his ask): a finished job he has not seen shows JOB COMPLETE with a soft teal haze and its small x, and stays.
   const doneCard = () => js(`(() => { const d = document.querySelector('#ckjobs .jdone'); return d ? { text: d.textContent, keys: d.querySelectorAll('button').length, ring: getComputedStyle(d).boxShadow, h: d.getBoundingClientRect().height } : null; })()`) as Promise<{ text: string; keys: number; ring: string; h: number } | null>;
   const dc = await doneCard();
-  check('finished: JOB COMPLETE shows for the job that ended, in teal, with no key', Boolean(dc && dc.text.includes('JOB COMPLETE') && dc.text.includes('Samara') && dc.keys === 0 && dc.ring.includes('rgb(63, 196, 180)')), JSON.stringify(dc));
+  check('finished: JOB COMPLETE shows for the unread job, a soft teal haze, its x', Boolean(dc && dc.text.includes('JOB COMPLETE') && dc.text.includes('Samara') && dc.keys === 1 && dc.ring.includes('rgba(63, 196, 180, 0.3)') && !dc.ring.includes('rgb(63, 196, 180)')), JSON.stringify(dc));
   if (process.env.CLAUDE_SHOT) { await js(`document.body.style.background = '#2a2238'`); await wait(300); const f = process.env.CLAUDE_SHOT.replace(/\.png$/i, '') + '-complete.png'; writeFileSync(f, (await w.webContents.capturePage()).toPNG()); console.log('picture: ' + f); }
   await wait(4900);
-  check('finished: it folds away by itself after a few seconds', (await doneCard()) === null);
+  check('finished: it stays until he Xs it or opens it', (await doneCard()) !== null);
+  await js(`document.querySelector('#ckjobs .jdone .jx').click(); true`); await wait(700);
+  check('finished: the x acks it and folds it away', (await doneCard()) === null && JSON.stringify(await lastClaude()) === JSON.stringify({ t: 'claude.ackdone', id: SAM.id }), JSON.stringify(await lastClaude()));
   // An idle job (never seen at work) and an ended one never take a place in the strip.
   await deliver({ t: 'claude.jobs', jobs: [WM, SND, { ...SAM, phase: 'ended' }, job('55555555-aaaa-4bbb-8ccc-000000000005', 'Sleepy', T0 - 9_000_000, [['x', 'pending']], { phase: 'idle' })] });
   await wait(150);

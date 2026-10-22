@@ -849,7 +849,9 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .ckjobs .orow .flip{margin-left:0;min-width:64px}
 .ckjobs .flip .fi{position:relative;display:inline-block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.2,1)}
 .ckjobs .flip.back .fi{transform:rotateX(180deg)}
-.ckjobs .flip .ff,.ckjobs .flip .fb{position:absolute;right:0;top:0;line-height:18px;backface-visibility:hidden;white-space:nowrap;font:400 10px var(--label)}
+/* 2026-10-22 (his words: "the pixel style font is cute but it's squashed, I can't read it"): every progress % is the
+   bubble's readable body font, bold, with even-width digits. The little label words stay pixel. */
+.ckjobs .flip .ff,.ckjobs .flip .fb{position:absolute;right:0;top:0;line-height:18px;backface-visibility:hidden;white-space:nowrap;font:700 12.5px var(--body);font-variant-numeric:tabular-nums;letter-spacing:normal}
 .ckjobs .flip .ff{color:#3a2a18}
 .ckjobs .orow .flip .ff{color:#ffe28c}
 .ckjobs .flip .fb{transform:rotateX(180deg);color:#5b2f8f;padding:0 6px;border-radius:5px;background:#e6d8ff;box-shadow:inset 0 0 0 1.5px #b9a2ec}
@@ -998,9 +1000,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 /* Older rows he scrolled up to fade up, 55 ms apart (the delay is set per row). */
 #lblist .ckin{animation:ckin .3s cubic-bezier(.32,.72,0,1) both}
 @keyframes ckin{from{opacity:0;transform:translateY(6px)}}
-/* JOB COMPLETE: the finished job on its paper with the teal seal, for about four seconds (claudejobs.js). */
+/* JOB COMPLETE: the finished job on its paper (claudejobs.js). It stays until he X's it or opens it (2026-10-22, his words:
+   "that teal glow around them needs to be softer its really ugly right now"): the running jobs' quiet card edge and a
+   soft teal haze, no hard ring. */
 .ckjobs .jdone{box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:9px 12px;margin:0;border-radius:11px;overflow:hidden;color:#21160a;
-  background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 0 0 5px #3fc4b4,0 0 16px rgba(63,196,180,.45);transform-origin:50% 50%}
+  background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:inset 0 0 0 2px rgba(120,80,30,.28),0 0 0 1px rgba(63,196,180,.30),0 0 12px 2px rgba(63,196,180,.16);transform-origin:50% 50%}
 .ckjobs .jdone>img{flex:none;width:20px;height:20px;border-radius:5px}
 .ckjobs .jdone .on{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .ckjobs .jdone .jc{font:400 8px var(--label);letter-spacing:1.5px;font-style:normal;color:#1f7d72}
@@ -1074,7 +1078,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble:not(.cockpit) .ckjobs{margin:10px 0 2px}
 #bubble:not(.cockpit) .ckjobs .job{background:rgba(255,250,236,.6);box-shadow:inset 0 0 0 2px rgba(120,80,30,.28),0 2px 0 rgba(90,60,25,.18)}
 #bubble:not(.cockpit) .ckjobs .job:hover{box-shadow:inset 0 0 0 2px rgba(120,80,30,.42),0 2px 0 rgba(90,60,25,.18)}
-#bubble:not(.cockpit) .ckjobs .jdone{background:rgba(255,250,236,.6);box-shadow:inset 0 0 0 2px #3fc4b4,0 2px 0 rgba(90,60,25,.18)}
+#bubble:not(.cockpit) .ckjobs .jdone{background:rgba(255,250,236,.6);box-shadow:inset 0 0 0 2px rgba(120,80,30,.28),0 0 0 1px rgba(63,196,180,.30),0 0 12px 2px rgba(63,196,180,.16),0 2px 0 rgba(90,60,25,.18)}
 /* the brief on the bubble's paper, never dark wood */
 #bubble:not(.lantern) .briefcard{margin:0}
 #bubble:not(.lantern) .lt-date small{color:#8a5a10}
@@ -1122,6 +1126,18 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    session in the Claude app. The whole card takes the click (inner keys keep theirs), with a pointer and a small lift. */
 .ckjobs .jdone.go{cursor:pointer;transition:transform .12s ease,filter .12s ease}
 .ckjobs .jdone.go:hover{transform:translateY(-1px);filter:brightness(1.04)}
+/* Its X (2026-10-22): Samara's close-tab x (sheet 57 A, browser.css), the hand-placed 5x5 pixel x at 2x, in the paper's
+   wood ink. Only on the card under the pointer; gold when the pointer is on the x itself. The button is 24 px to hit. */
+.ckjobs .jdone .jx{flex:none;align-self:center;width:24px;height:24px;margin:0 -6px 0 -2px;border:none;padding:0;border-radius:7px;background:none;cursor:pointer;
+  position:relative;font-size:0;color:transparent;opacity:0;transition:opacity .12s cubic-bezier(.32,.72,0,1);--ink:#6b5236;--shade:rgba(255,248,230,.75)}
+.ckjobs .jdone .jx::before,.ckjobs .jdone .jx::after{content:"";position:absolute;left:7px;top:7px;width:10px;height:10px;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%205%205%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%224%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%221%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%220%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22/%3E%3C/svg%3E") 0 0/10px 10px no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%205%205%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%224%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%221%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%220%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22/%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22/%3E%3C/svg%3E") 0 0/10px 10px no-repeat;transition:background-color .12s}
+.ckjobs .jdone .jx::before{background:var(--shade);top:8px}
+.ckjobs .jdone .jx::after{background:var(--ink)}
+.ckjobs .jdone:hover .jx,.ckjobs .jdone .jx:focus-visible{opacity:1}
+.ckjobs .jdone .jx:hover{--ink:#c98a12}
+.ckjobs .jdone .jx:focus-visible{outline:2px solid #c98a12;outline-offset:-2px}
+@media (prefers-reduced-motion:reduce){.ckjobs .jdone .jx,.ckjobs .jdone .jx::after{transition:none}}
 #bubble.cdone{cursor:pointer}
 #bubble.cdone #said{transition:transform .12s ease}
 #bubble.cdone:hover #said{transform:translateY(-1px)}

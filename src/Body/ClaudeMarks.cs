@@ -29,6 +29,8 @@ static class ClaudeMarks
         // The job-complete tick: the step tick grown up, no circle (his call, 2026-10-21: "I didnt want that tick mark with
         // the circle"). Bigger than a step, still not huge, and teal (his pick, sheet 50) so it can never be mistaken for the red skull.
         ["complete"] = new[] { "..........OOO", ".........OHHO", "........OHHFO", ".......OHHFSO", ".OOO..OHHFSO.", "OHHHOOHHFSO..", "OFHHHHHFSO...", ".OFFHHFSO....", "..OFFFSO.....", "...OSSO......", "....OO......." },
+        // 2026-10-22 (his pick): the same teal tick, steady, while any finished job is unread. No glow, just the tick.
+        ["done"] = new[] { "..........OOO", ".........OHHO", "........OHHFO", ".......OHHFSO", ".OOO..OHHFSO.", "OHHHOOHHFSO..", "OFHHHHHFSO...", ".OFFHHFSO....", "..OFFFSO.....", "...OSSO......", "....OO......." },
         // 45e: "failed should be a cute little skull".
         ["failed"] = new[] { "..OOOOOOO..", ".OHHHHFFFO.", "OHHFFFFFFSO", "OHOOFFFOOSO", "OFOOFFFOOSO", "OFFFFOFFFSO", ".OFFFFFFSO.", "..OFOFOFO..", "..OOOOOOO.." },
     };
@@ -43,7 +45,7 @@ static class ClaudeMarks
         "question" => Color.FromArgb(0xb0, 0x7c, 0xff),    // #b07cff purple, the message key's colour
         "plan" => Color.FromArgb(0xf3, 0xe2, 0xb8),        // #f3e2b8 cream scroll, a plan on its own paper
         "step" => Color.FromArgb(0xff, 0xc8, 0xa8),        // #ffc8a8 peach: a small step, quiet and warm
-        "complete" => Color.FromArgb(0x3f, 0xc4, 0xb4),    // #3fc4b4 teal: the big tick, never mistaken for failed red
+        "complete" or "done" => Color.FromArgb(0x3f, 0xc4, 0xb4),    // #3fc4b4 teal: the big tick, never mistaken for failed red
         "paused" => Color.FromArgb(0x6f, 0x77, 0x87),      // #6f7787 slate: resting, so the dullest
         "failed" => Color.FromArgb(0xe8, 0x44, 0x3a),      // #e8443a red skull
         _ => Color.FromArgb(0xf0, 0xa6, 0x4a),
@@ -52,7 +54,8 @@ static class ClaudeMarks
     /// <summary>
     /// Which marks also make him glow (his question, 2026-10-21: "some should, some shouldn't"). Only what wants him or
     /// is worth turning round for: needs you, a question, a plan, the job done (its few seconds), failed. Working, a step
-    /// and paused are marks only, so he stays calm while Claude works (sheet 45).
+    /// and paused are marks only, so he stays calm while Claude works (sheet 45). The steady unread tick ("done",
+    /// 2026-10-22) is a mark only too: his pick was "no glow/aura, just the tick".
     /// </summary>
     public static bool Glows(string? kind) => kind is "permission" or "question" or "plan" or "complete" or "failed";
 
