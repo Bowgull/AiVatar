@@ -5,8 +5,8 @@
 //
 // His calls (sheets 45d/45e, COCKPIT-BUILD.md "Marks and glows"): one colour per mark, nothing else over his head.
 // Blocking first: a permission (pale blue) beats a question (lavender) beats a plan ready (sage); then working
-// (honey); then failed (coral skull); then paused (slate). A finished step is a quick SMALL sea tick; JOB COMPLETE
-// (the terracotta seal and the chime) only when every task on the list is ticked.
+// (honey); then failed (coral skull); then paused (slate). A finished step is a quick SMALL sea tick, silent; JOB COMPLETE
+// (the terracotta seal and the done chime) only when every task on the list is ticked.
 import type { Job, WaitItem } from './claudelink.ts';
 
 /** What sits over his head for as long as it is true. */
@@ -14,8 +14,12 @@ import type { Job, WaitItem } from './claudelink.ts';
 export type MarkKind = 'none' | 'permission' | 'question' | 'plan' | 'working' | 'failed' | 'done' | 'paused';
 /** A moment, shown for a couple of seconds over whatever the steady mark is. */
 export type MarkFlash = 'step' | 'complete';
-/** The wooden chimes he picked (docs/cockpit/sounds-45b), by file name. */
-export type ChimeName = 'permission' | 'question' | 'plan-ready' | 'step' | 'job-complete' | 'failed';
+/**
+ * Aang's four sounds, by file name (assets/aang/sfx/chimes). Cut to four 2026-10-22 (his yes): ONE needs-you for a
+ * permission, a question or a plan (the tag colour says which), done for the whole job, failed, and the timer's
+ * three wood knocks. A finished step is silent (the sea tick only).
+ */
+export type ChimeName = 'needs-you' | 'done' | 'failed' | 'timer';
 
 export interface MarkMsg {
   t: 'claude.mark';
@@ -53,13 +57,12 @@ export class MarkDeriver {
     let flash: MarkFlash | undefined;
     let what: string | undefined;
 
-    // New waiting items: a chime for each kind, the most pressing one wins if several land at once.
+    // New waiting items: one needs-you chime whatever the kind; the most pressing one names the project.
     const rank: Record<string, number> = { permission: 3, question: 2, plan: 1 };
-    const chime: Record<string, ChimeName> = { permission: 'permission', question: 'question', plan: 'plan-ready' };
     let best: WaitItem | undefined;
     for (const w of waits) if (!this.seenWaits.has(w.id) && (!best || rank[w.kind]! > rank[best.kind]!)) best = w;
     this.seenWaits = new Set(waits.map(w => w.id));
-    if (best && !first) { sound = chime[best.kind]; what = best.project; }
+    if (best && !first) { sound = 'needs-you'; what = best.project; }
 
     // Ticks: a task newly ticked is a step; the last one ticked is the whole job.
     const live = new Set<string>();
@@ -87,8 +90,8 @@ export class MarkDeriver {
     for (const id of [...this.failedSeen]) if (!live.has(id)) this.failedSeen.delete(id);
 
     // One chime at a time: something blocking that lands in the same breath as a tick wins the sound, and the
-    // tick still shows, so he gets both.
-    if (!sound && flash) sound = flash === 'complete' ? 'job-complete' : 'step';
+    // tick still shows, so he gets both. A step's tick is silent (2026-10-22, "pointless").
+    if (!sound && flash === 'complete') sound = 'done';
 
     const mark = steadyMark(jobs, waits, alsoWorking);
     const key = `${mark.mark}|${mark.what ?? ''}`;

@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { HookServer } from '../src/hooks.ts';
-import { JobTracker, LinkDoor, linkMac } from '../src/claudelink.ts';
+import { JobTracker, LinkDoor, linkMac, MAX_UNREAD } from '../src/claudelink.ts';
+import { claudeBusy, steadyMark } from '../src/claudemark.ts';
 
 test('tracker: to-do progress, the task in hand, and a time left from the pace', () => {
   const t = new JobTracker();
@@ -226,5 +227,41 @@ test('unread: a turn that ends on its own is done and unread until acked or a ne
     assert.equal(t.list(B + 2000 + 12 * 3600_000 + 1).some(j => j.id === 'e'), false);
     t.close(); t2.close();
     await Promise.all([t.hist.flush(), t2.hist.flush()]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// 2026-10-22 (his yes): at most three finished jobs; a fourth reads the oldest by itself, and the tick follows the rest.
+test('unread: at most three finished jobs; the fourth drops the oldest, on disk too, and the tick stays for the rest', async () => {
+  const { mkdtempSync, readFileSync, writeFileSync, rmSync } = await import('node:fs');
+  const os = await import('node:os'), path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-unread3-'));
+  try {
+    assert.equal(MAX_UNREAD, 3);
+    const t = new JobTracker();
+    t.useData(dir, { ci: false });
+    const B = Date.now() - 600_000;
+    const finish = (id: string, at: number) => { t.event({ session: id, type: 'turn.start', cwd: 'C:/code/' + id, prompt: id }, at); t.event({ session: id, type: 'turn.end' }, at + 500); };
+    const unread = () => t.list(B + 60_000).filter(j => j.unread).map(j => j.id).sort();
+    finish('j1', B + 1000); finish('j2', B + 2000); finish('j3', B + 3000);
+    assert.deepEqual(unread(), ['j1', 'j2', 'j3']);
+    finish('j4', B + 4000);
+    assert.deepEqual(unread(), ['j2', 'j3', 'j4'], 'the oldest went by itself');
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'claude-unread.json'), 'utf8')).map((u: { id: string }) => u.id).sort(), ['j2', 'j3', 'j4']);
+    const jobs = t.list(B + 60_000);
+    assert.equal(steadyMark(jobs, []).mark, 'done');
+    assert.equal(claudeBusy({ jobs, waits: [], now: B + 60_000 }).filter(s => s.phase === 'done').length, 3);
+    // Acking the three leaves no tick.
+    for (const id of ['j2', 'j3', 'j4']) t.ack(id);
+    assert.equal(steadyMark(t.list(B + 60_000), []).mark, 'none');
+    t.close();
+    await t.hist.flush();
+    // An older file with five: a fresh brain keeps the newest three.
+    const note = (id: string, at: number) => ({ id, project: id, title: id, open: null, task: id, doneAt: at });
+    writeFileSync(path.join(dir, 'claude-unread.json'), JSON.stringify([note('o1', B + 1), note('o2', B + 2), note('o3', B + 3), note('o4', B + 4), note('o5', B + 5)]));
+    const t2 = new JobTracker();
+    t2.useData(dir, { ci: false });
+    assert.deepEqual(t2.list(B + 60_000).filter(j => j.unread).map(j => j.id).sort(), ['o3', 'o4', 'o5']);
+    t2.close();
+    await t2.hist.flush();
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

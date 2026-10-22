@@ -35,28 +35,28 @@ test('first look only learns: no chime for what was already there', () => {
   assert.equal(d.update([job('W', 'working', ['completed', 'in_progress'])], [wait('p1', 'permission')]), null);
 });
 
-test('a new waiting item chimes by its kind; the most pressing wins', () => {
+test('a new waiting item rings the one needs-you chime, whatever its kind; the most pressing names it', () => {
   const d = new MarkDeriver();
   d.update([job('W', 'working')], []);
-  assert.equal(d.update([job('W', 'working')], [wait('q1', 'question')])!.sound, 'question');
+  assert.equal(d.update([job('W', 'working')], [wait('q1', 'question')])!.sound, 'needs-you');
   const m = d.update([job('W', 'working')], [wait('q1', 'question'), wait('pl', 'plan'), wait('p1', 'permission')])!;
-  assert.equal(m.mark, 'permission'); assert.equal(m.sound, 'permission');
+  assert.equal(m.mark, 'permission'); assert.equal(m.sound, 'needs-you');
   // Answered: back to honey, quietly.
   const back = d.update([job('W', 'working')], [])!;
   assert.equal(back.mark, 'working'); assert.equal(back.sound, undefined);
-  assert.equal(d.update([job('W', 'working')], [wait('x', 'plan')])!.sound, 'plan-ready');
+  assert.equal(d.update([job('W', 'working')], [wait('x', 'plan')])!.sound, 'needs-you');
 });
 
-test('a ticked task is a small step; the last one ticked is JOB COMPLETE', () => {
+test('a ticked task is a small SILENT step; the last one ticked is JOB COMPLETE with the done chime', () => {
   const d = new MarkDeriver();
   d.update([job('W', 'working', ['in_progress', 'pending', 'pending'])], []);
   const step = d.update([job('W', 'working', ['completed', 'in_progress', 'pending'])], [])!;
-  assert.equal(step.flash, 'step'); assert.equal(step.sound, 'step'); assert.equal(step.mark, 'working');
+  assert.equal(step.flash, 'step'); assert.equal(step.sound, undefined, 'no step chime (2026-10-22)'); assert.equal(step.mark, 'working');
   // Same list again: no second tick.
   assert.equal(d.update([job('W', 'working', ['completed', 'in_progress', 'pending'])], []), null);
   // The last two ticked in one go: the whole job.
   const done = d.update([job('W', 'working', ['completed', 'completed', 'completed'])], [])!;
-  assert.equal(done.flash, 'complete'); assert.equal(done.sound, 'job-complete');
+  assert.equal(done.flash, 'complete'); assert.equal(done.sound, 'done');
   // A turn ending with no list moved is not a completion.
   const idle = d.update([job('W', 'idle', ['completed', 'completed', 'completed'])], [])!;
   assert.equal(idle.mark, 'none'); assert.equal(idle.flash, undefined); assert.equal(idle.sound, undefined);
@@ -74,7 +74,7 @@ test('a question landing with a tick: the question wins the chime, the tick stil
   const d = new MarkDeriver();
   d.update([job('W', 'working', ['in_progress', 'pending'])], []);
   const m = d.update([job('W', 'working', ['completed', 'in_progress'])], [wait('q', 'question')])!;
-  assert.equal(m.mark, 'question'); assert.equal(m.flash, 'step'); assert.equal(m.sound, 'question');
+  assert.equal(m.mark, 'question'); assert.equal(m.flash, 'step'); assert.equal(m.sound, 'needs-you');
 });
 
 test('failed: the skull and its chime once, from the hook', () => {

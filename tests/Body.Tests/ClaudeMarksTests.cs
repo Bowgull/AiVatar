@@ -63,7 +63,7 @@ public class ClaudeMarksTests
     [Fact]
     public void Volume_scales_the_samples_and_leaves_the_header()
     {
-        var wav = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "sfx", "chimes", "step.wav"));
+        var wav = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "sfx", "chimes", "needs-you.wav"));
         var half = Chimes.Scaled(wav, 50);
         Assert.Equal(wav.Length, half.Length);
         Assert.Equal(wav.Take(44), half.Take(44));
@@ -72,6 +72,31 @@ public class ClaudeMarksTests
         Assert.InRange(Math.Abs((int)Peak(half)), Math.Abs((int)Peak(wav)) / 2 - 1, Math.Abs((int)Peak(wav)) / 2 + 1);
         foreach (var n in Chimes.Names)
             Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "sfx", "chimes", n + ".wav")), n);
+    }
+
+    /// <summary>2026-10-22 (his yes): exactly four sounds, each a small 16-bit mono WAV at the family's -14 dBFS, and no others in the folder.</summary>
+    [Fact]
+    public void Exactly_four_sounds_at_the_chime_level()
+    {
+        Assert.Equal(new[] { "needs-you", "done", "failed", "timer" }, Chimes.Names);
+        var dir = Path.Combine(AppContext.BaseDirectory, "assets", "aang", "sfx");
+        Assert.Equal(new[] { "done.wav", "failed.wav", "needs-you.wav", "timer.wav" },
+            Directory.GetFiles(dir, "*.wav", SearchOption.AllDirectories).Select(Path.GetFileName).OrderBy(x => x, StringComparer.Ordinal).ToArray());
+        foreach (var n in Chimes.Names)
+        {
+            var b = File.ReadAllBytes(Path.Combine(dir, "chimes", n + ".wav"));
+            Assert.True(b.Length < 200_000, n + " is small");
+            Assert.Equal(1, BitConverter.ToInt16(b, 22));          // mono
+            Assert.Equal(44100, BitConverter.ToInt32(b, 24));
+            Assert.Equal(16, BitConverter.ToInt16(b, 34));
+            int peak = 0; for (int i = 44; i + 1 < b.Length; i += 2) peak = Math.Max(peak, Math.Abs((int)(short)(b[i] | (b[i + 1] << 8))));
+            Assert.InRange(20 * Math.Log10(peak / 32768.0), -14.5, -13.5);
+        }
+        // An older brain's names land on the four; the step tick has no sound.
+        Assert.Equal("needs-you", Chimes.Resolve("plan-ready"));
+        Assert.Equal("needs-you", Chimes.Resolve("question"));
+        Assert.Equal("done", Chimes.Resolve("job-complete"));
+        Assert.Null(Chimes.Resolve("step"));
     }
 
     [Fact]

@@ -687,7 +687,28 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   function doneJobs(run) {
     const out = jobs.filter((j) => j.unread && !acked.has(j.id) && !closing.has(j.id) && !run.some((r) => r.id === j.id));
     for (const [id, j] of closing) out.push(jobOf(id) ?? j);
-    return out.filter((j) => isOpen() || !popped.has(j.id)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    const fresh = out.filter((j) => !closing.has(j.id)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, MAX_DONE);
+    return [...fresh, ...out.filter((j) => closing.has(j.id))]
+      .filter((j) => isOpen() || !popped.has(j.id)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  }
+  /**
+   * 2026-10-22 (his yes): at most three finished jobs in the list. When a fourth finishes, the oldest is read by itself
+   * (the brain drops it, claudelink.ts MAX_UNREAD) and its card folds away gently, the same fold as his X, no bounce.
+   */
+  const MAX_DONE = 3;
+  /** The brain's new list let a done card go that he did not X or open here (the fourth-one rule): fold it, never jump. */
+  function retireDone(before) {
+    const shown = new Set([...strip.querySelectorAll('.jdone')].filter((d) => !d.classList.contains('ck-leaving')).map((d) => d.dataset.id));
+    const run = jobs.filter(running);
+    const still = jobs.filter((j) => j.unread && !acked.has(j.id) && !closing.has(j.id) && !run.some((r) => r.id === j.id))
+      .sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    // An older brain (or one that has not caught up) with more than three: the oldest are read from here.
+    for (const j of still.slice(MAX_DONE)) { ackDone(j.id); if (shown.has(j.id)) acknowledge(j.id, null, true, j); }
+    for (const id of shown) {
+      if (closing.has(id) || acked.has(id) || run.some((r) => r.id === id)) continue;
+      if (jobs.some((j) => j.id === id && j.unread)) continue;
+      acknowledge(id, null, true, before.get(id));
+    }
   }
   /** He has seen it: the brain is told, so the teal tick over Aang goes with the last one. */
   function ackDone(id) { acked.add(id); send({ t: 'claude.ackdone', id }); }
@@ -836,7 +857,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
    * or X's it (the small x on the right, on hover); either one tells the brain he has seen it.
    */
   function doneOf(j) {
-    const d = h('div', 'jdone' + (leaving.has(j.id) ? ' ck-leaving going' : '')); d.dataset.id = j.id;
+    const d = h('div', 'jdone' + (leaving.has(j.id) ? ' ck-leaving going gentle' : '')); d.dataset.id = j.id;
     if (leaving.has(j.id)) d.style.height = '0px';     // redrawn mid-fold: it stays folded
     const img = document.createElement('img'); img.src = CL; img.alt = '';
     const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.project));
@@ -854,27 +875,30 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   /**
    * He X'd it: a tiny bounce, then it folds shut (340 ms, Samara's ease) while the jobs under it close the gap, and the
    * bubble shrinks in the same breath (bubble.js measures without anything marked ck-leaving). Reduced motion: at once.
+   * `gentle` (the fourth-one rule, 2026-10-22): no bounce, it only fades and folds; `was` is the job as last drawn,
+   * since the brain's list may no longer have it.
    */
-  function acknowledge(id, d) {
+  function acknowledge(id, d, gentle = false, was = undefined) {
     if (leaving.has(id) || closing.has(id)) return;
-    closing.set(id, jobOf(id) ?? { id, project: '', tasks: [] });
+    closing.set(id, jobOf(id) ?? was ?? { id, project: '', tasks: [] });
     const instant = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const finish = () => { leaving.delete(id); closing.delete(id); paintJobs(true); onChange(); };
     if (instant) { finish(); return; }
-    d.classList.add('bounce');
+    if (!gentle) d?.classList.add('bounce');
     setTimeout(() => {
       // The strip may have been redrawn during the bounce: fold the card that is on screen now.
       d = [...strip.querySelectorAll('.jdone')].find((x) => x.dataset.id === id) ?? d;
+      if (!d) { finish(); return; }
       leaving.add(id);
       d.style.height = d.offsetHeight + 'px';
       // The last thing in the strip: the strip's own room goes with it, in the same motion.
       if (![...strip.children].some((c) => c !== d && !c.classList.contains('ck-leaving'))) strip.classList.add('ck-leaving');
-      d.classList.add('ck-leaving', 'going');
+      d.classList.add('ck-leaving', 'going', ...(gentle ? ['gentle'] : []));
       void d.offsetHeight;
       d.style.height = '0px';
       onChange();
-      setTimeout(finish, 360);
-    }, 120);
+      setTimeout(finish, gentle ? 540 : 360);
+    }, gentle ? 30 : 120);
   }
   /**
    * Draw the strip. Skipped when nothing he would see has changed: the brain sends the job list again on every bit of
@@ -1097,9 +1121,11 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   /* ---------------------------------------------------------------- the brain */
   window.aang?.onMessage?.((m) => {
     if (m?.t === 'claude.jobs' && Array.isArray(m.jobs)) {
+      const before = new Map(jobs.map((j) => [j.id, j]));
       jobs = m.jobs.slice(0, 50).map(readJob).filter(Boolean);
       // What the brain no longer calls unread is not waiting on its ack any more.
       for (const id of [...acked]) if (!jobs.some((j) => j.id === id && j.unread)) acked.delete(id);
+      retireDone(before);
       // Only when something he would see changed (2026-10-21): the same list again must not re-measure the cockpit.
       if (paintJobs()) onChange();
       // The bars, percents and live lines that were not redrawn move now, not at the next breath (2026-10-21).

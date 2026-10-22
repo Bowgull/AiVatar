@@ -2177,11 +2177,11 @@ export class Core {
     if (this.inClaude() && !line.host) return false;
     if (this.launched.some(l => l.state !== 'ended' && l.sessionId === line.session)) return false;
     this.announce(line.text, { asked: true, done: true, blocking: false, claude: line.project, session: line.session, ...(line.host ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW }) });
-    // The teal done flash and the soft chime at the desk. In a game the pet holds the line itself as the teal mark
+    // The teal done flash and the done chime at the desk (one of his four sounds, 2026-10-22). In a game the pet holds the line itself as the teal mark
     // (its own rule for a finished job); muted, hushed or away, nothing extra.
     if (!this.bodyQuiet && !this.muted && this.hushUntil <= Date.now() && this.whereHeIs() === 'desktop') {
       const st = this.claudeState();
-      this.sendTo('desktop', { ...this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking), flash: 'complete', sound: 'step' });
+      this.sendTo('desktop', { ...this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking), flash: 'complete', sound: 'done' });
     }
     return true;
   }

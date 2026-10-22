@@ -1,12 +1,7 @@
-needs-you.wav
-  "Rise 03" from "Level up, power up, Coin get (13 Sounds)" by WobbleBoxx Workshop
-  https://opengameart.org/content/level-up-power-up-coin-get-13-sounds
-  CC0 (public domain). Pitched down from the original.
-
-done.wav
-  "Load/Save" from "JRPG Style UI Sounds" by KillaMaaki
-  https://opengameart.org/content/jrpg-style-ui-sounds
-  CC-BY 3.0 - https://creativecommons.org/licenses/by/3.0/
-
 chimes/*.wav
-  Aang's wooden chime set, made for Aang (sheet 45b, picked 2026-10-21); copied from docs/cockpit/sounds-45b.
+  Aang's four sounds (cut to four 2026-10-22, his yes), all made for Aang:
+  needs-you.wav  the wooden "permission" chime from sheet 45b (docs/cockpit/sounds-45b), now for permission, question and plan
+  done.wav       the wooden "job-complete" chime from sheet 45b
+  failed.wav     the wooden "failed" chime from sheet 45b
+  timer.wav      three soft wood knocks on F, sheet 67 (docs/cockpit/sheet-67/times-up-wood.mp3), 44.1 kHz mono, -14 dBFS
+  The old needs-you.wav / done.wav (OpenGameArt) and the question, plan-ready and step chimes were retired; see git history.
