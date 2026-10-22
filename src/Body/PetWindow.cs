@@ -35,6 +35,8 @@ sealed class PetWindow : Form
     readonly Anim anim = new();
     readonly BubbleView bubble = new();
     readonly CoreLink link = new(new Uri("ws://127.0.0.1:47831/body"));
+    /// <summary>What is playing, for the Spotify mini player (NowPlaying.cs). Null with --no-core.</summary>
+    NowPlaying? nowPlaying;
     readonly System.Windows.Forms.Timer timer = new() { Interval = 50 };
     readonly System.Windows.Forms.Timer fgTimer = new() { Interval = 500 };
     readonly NotifyIcon tray = new();
@@ -317,6 +319,7 @@ sealed class PetWindow : Form
             // which it does on its own - would otherwise know nothing about where Aang is until he is next
             // dragged. The pet does not move just because something reconnected.
             SendPetAt();
+            nowPlaying?.Resend();                                                  // a restarted brain knows nothing of the song
         };
         PushStatus();
         BuildTray();
@@ -437,6 +440,8 @@ sealed class PetWindow : Form
         link.Start();
         if (!noCore)
         {
+            nowPlaying = new NowPlaying(new SmtcSource(), p => link.SendAsync(p));
+            nowPlaying.Start();
             if (!cfg.AutostartAsked) { Autostart.Set(true); cfg.AutostartAsked = true; cfg.Save(); }   // first run: start with Windows
             else Autostart.Migrate();
             supervisor = new CoreSupervisor(47831, cfg.CoreDir, cfg.NodePath);
@@ -736,6 +741,10 @@ sealed class PetWindow : Form
                     break;
                 case "claude.mark":
                     OnClaudeMark(m);
+                    break;
+                // The mini player's buttons (media.ts checked them; MediaCommand checks again before acting).
+                case "media.cmd":
+                    if (nowPlaying is { } np) _ = Task.Run(() => np.CommandAsync(m));
                     break;
                 case "settings.do":
                     if (Str(m, "what") is string sw && sw is "hotkey" or "undock") RunSettingAction(sw);
@@ -3115,6 +3124,7 @@ sealed class PetWindow : Form
         }
         supervisor?.Dispose();
         shell?.Dispose();
+        nowPlaying?.Dispose();
         tray.Visible = false; tray.Dispose();
         link.Dispose();
         base.OnFormClosing(e);
