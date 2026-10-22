@@ -485,6 +485,46 @@
       "at": "2026-10-22T04:10:00-04:00",
       "text": "Aang answers sooner, and his replies flow in smoothly.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T12:40:00-04:00",
+      "text": "Samara's tab list is bigger and easier to read, with a small x to close a tab.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T12:42:00-04:00",
+      "text": "Closing Samara also closes the pop-out playing its tab.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T12:44:00-04:00",
+      "text": "Twitch in the pop-out catches up to live after an ad, so sound and picture match.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T12:46:00-04:00",
+      "text": "One broom tidies both your tabs and Claude's mockups.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T12:48:00-04:00",
+      "text": "Labels and links in Samara are easier to read.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T12:55:00-04:00",
+      "text": "On your Mac, mockups Claude makes now open in Samara's Mockups trail.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T12:56:00-04:00",
+      "text": "Claude on your Mac now knows: mockups always go to Samara.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T12:57:00-04:00",
+      "text": "On your Mac, Notes for this site is hidden for now; your notes live with Aang on the PC.",
+      "kind": "fix"
     }
   ]
 }
