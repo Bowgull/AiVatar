@@ -12,7 +12,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { readdir as readdirAsync, readFile as readFileAsync, stat as statAsync } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -184,6 +184,59 @@ const HOOKS_JXA = String.raw`function run(argv) {
   return 'Claude Code hooks written to ' + path;
 }`.replace('EVENTS', JSON.stringify(HOOK_EVENTS));
 
+/**
+ * 2026-10-22: the aang-link mod for Claude Code on the Mac, the way the PC loads it: Claude Code's settings
+ * (~/.claude/settings.json) name the mod's folder in env.CLAUDE_CODE_PLUGIN_DIRS. Here that folder is inside Samara.app
+ * (the update swaps Samara's Contents, never the folder, so the path stays). Merged: any other folder already listed is
+ * kept, an old Aang entry is replaced, the file is backed up first, and a file that is not JSON is left alone (exit 2).
+ * Run by the Mac's own Node with argv [settings.json, mod folder].
+ */
+export const PLUGIN_MERGE_JS = String.raw`const fs = require('fs'), path = require('path');
+const [file, dir] = process.argv.slice(1);
+let j = {}, raw = null;
+if (fs.existsSync(file)) { raw = fs.readFileSync(file, 'utf8'); try { j = JSON.parse(raw); } catch (e) { process.exit(2); } }
+if (!j || typeof j !== 'object' || Array.isArray(j)) process.exit(2);
+j.env = j.env && typeof j.env === 'object' ? j.env : {};
+const was = String(j.env.CLAUDE_CODE_PLUGIN_DIRS || '');
+const keep = was.split(path.delimiter).filter((d) => d && !/(^|\/)claude-link\/?$/.test(d));
+const now = [...keep, dir].join(path.delimiter);
+if (now === was) { console.log('same'); process.exit(0); }
+j.env.CLAUDE_CODE_PLUGIN_DIRS = now;
+fs.mkdirSync(path.dirname(file), { recursive: true });
+if (raw !== null) fs.writeFileSync(file + '.before-aang-' + Date.now(), raw);
+fs.writeFileSync(file + '.aang-tmp', JSON.stringify(j, null, 2) + '\n'); fs.renameSync(file + '.aang-tmp', file);
+console.log('written');`;
+
+/**
+ * 2026-10-22: his global rules for every Claude session, the Mac's ~/.claude/CLAUDE.md, get the same "Mockups always go
+ * to Samara" section as the PC's. Merged, never overwritten: the section lives between Aang's own markers and only that
+ * part is ever replaced; a section he wrote himself under the same heading (no markers) is left as it is; everything else
+ * in the file stays. Run by the Mac's own Node with argv [CLAUDE.md, section as base64].
+ */
+export const RULES_MERGE_JS = String.raw`const fs = require('fs'), path = require('path');
+const [file, b64] = process.argv.slice(1);
+const A = '<!-- aang:mockups-in-samara -->', B = '<!-- /aang:mockups-in-samara -->';
+const block = A + '\n' + Buffer.from(b64, 'base64').toString('utf8').trim() + '\n' + B;
+let s = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+const i = s.indexOf(A), k = s.indexOf(B);
+let out;
+if (i >= 0 && k > i) out = s.slice(0, i) + block + s.slice(k + B.length);
+else if (/^## Mockups always go to Samara\s*$/m.test(s)) { console.log('his own'); process.exit(0); }
+else out = (s.trim() ? s.replace(/\s*$/, '\n\n') : '# Joshua\'s rules for every Claude session\n\n') + block + '\n';
+if (out === s) { console.log('same'); process.exit(0); }
+fs.mkdirSync(path.dirname(file), { recursive: true });
+if (s) fs.writeFileSync(file + '.before-aang-' + Date.now(), s);
+fs.writeFileSync(file + '.aang-tmp', out); fs.renameSync(file + '.aang-tmp', file);
+console.log('written');`;
+
+/** The section itself, the same words as on the PC (C:\Users\Shadow\.claude\CLAUDE.md, 2026-10-22). */
+export const MOCKUP_RULES = `## Mockups always go to Samara
+- Every mockup, design sheet or visual you make for Joshua opens in **Samara** (his browser inside Aang), never Firefox, Chrome or a bare file path.
+- Use the \`show_mockup\` tool (from the aang-link mod) for every mockup page: a committed \`.html\` file in the repo, or a live local page (127.0.0.1 / localhost). Commit the file first; the tool says so if you forgot.
+- Samara files every mockup in its Mockups trail, grouped by project and branch, one row per sheet with its versions. Give each a clear title ("NN · Name") and a branch (the topic), so it lands in the right place.
+- If \`show_mockup\` is missing or says Aang is not running, tell Joshua where the file is in one line. Do not open another browser.
+- Never ask permission to open a local mockup page in Samara; just open it.`;
+
 /** M3: the MacBook front desk, when this setup should install it. Files are the exact source that runs there. */
 export interface DeskPayload {
   token: string; key: string; port: number; files: Record<string, string | Buffer>;
@@ -211,7 +264,11 @@ export function macBrowserBundle(shellDir: string): Buffer {
   const out = path.join(os.tmpdir(), `aang-mac-browser-${process.pid}-${Date.now()}.tgz`);
   const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
   try {
-    execFileSync(tar, ['-czf', out, '-C', shellDir, 'src', 'pages', 'drm', '-C', path.join(shellDir, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'ignore', timeout: 60_000 });
+    // 2026-10-22: the aang-link Claude Code mod rides along (claude-link/: its manifest and hooks, never its tests), so the
+    // Mac's Claude sessions load the same mod from inside Samara.app (the update's post step points Claude Code at it).
+    const repo = path.join(shellDir, '..', '..');
+    const link = existsSync(path.join(repo, 'claude-link', 'hooks', 'hooks.json')) ? ['-C', repo, 'claude-link/.claude-plugin', 'claude-link/hooks'] : [];
+    execFileSync(tar, ['-czf', out, '-C', shellDir, 'src', 'pages', 'drm', ...link, '-C', path.join(shellDir, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'ignore', timeout: 60_000 });
     return readFileSync(out);
   } finally { try { unlinkSync(out); } catch { /* gone */ } }
 }
@@ -234,6 +291,8 @@ export function macSourceVersion(shellDir: string, coreSrcDir: string, deskFiles
     }
   };
   for (const d of ['src', 'pages', 'drm']) walk(shellDir, d);
+  // 2026-10-22: the aang-link mod ships in the Mac bundle too, so a change to it is a new Mac version.
+  for (const d of ['claude-link/.claude-plugin', 'claude-link/hooks']) walk(path.join(shellDir, '..', '..'), d);
   for (const f of ['package.json', 'package-lock.json']) { try { add('mac-pkg/' + f, path.join(shellDir, 'mac-pkg', f)); } catch { /* none */ } }
   for (const f of [...deskFiles, 'macsetup.ts'].sort()) { try { add('core/' + f, path.join(coreSrcDir, f)); } catch { /* none */ } }
   return h.digest('hex').slice(0, 16);
@@ -255,6 +314,7 @@ export async function macSourceVersionAsync(shellDir: string, coreSrcDir: string
     }
   };
   for (const d of ['src', 'pages', 'drm']) await walk(shellDir, d);
+  for (const d of ['claude-link/.claude-plugin', 'claude-link/hooks']) await walk(path.join(shellDir, '..', '..'), d);
   for (const f of ['package.json', 'package-lock.json']) { try { await add('mac-pkg/' + f, path.join(shellDir, 'mac-pkg', f)); } catch { /* none */ } }
   for (const f of [...deskFiles, 'macsetup.ts'].sort()) { try { await add('core/' + f, path.join(coreSrcDir, f)); } catch { /* none */ } }
   return h.digest('hex').slice(0, 16);
@@ -620,6 +680,15 @@ ${opts.changelog ? `    # Samara's changelog, the same one as on the PC (his ask
     fi
     if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Samara (aang-browser). Reopen a Claude session to see it."
     else echo "     Could not add Samara to Claude Code here."; fi
+    # 2026-10-22: the aang-link mod (show_mockup, so Claude's mockups land in Samara's Mockups trail here) and his global
+    # rule about mockups, the same as on the PC. Both merged into his own files, backed up first; nothing else is touched.
+    PLUG="$APP/Contents/Resources/app/claude-link"
+    if [ -f "$PLUG/hooks/hooks.json" ]; then
+      R=$("$NODE_DIR/bin/node" -e "$(printf '%s' '${b64(PLUGIN_MERGE_JS)}' | /usr/bin/base64 -D)" "$HOME/.claude/settings.json" "$PLUG" 2>/dev/null) || R=fail
+      case "$R" in written) echo "     Claude Code here loads Aang's link (show_mockup). Reopen a Claude session to see it.";; same) ;; *) echo "     Could not add Aang's link to Claude Code here (its settings file was left as it was).";; esac
+    fi
+    R=$("$NODE_DIR/bin/node" -e "$(printf '%s' '${b64(RULES_MERGE_JS)}' | /usr/bin/base64 -D)" "$HOME/.claude/CLAUDE.md" '${b64(MOCKUP_RULES)}' 2>/dev/null) || R=fail
+    case "$R" in written) echo "     Your Claude rules here now say: mockups always go to Samara.";; same|"his own") ;; *) echo "     Could not add the mockup rule to ~/.claude/CLAUDE.md.";; esac
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
     BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
     if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then
