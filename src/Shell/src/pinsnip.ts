@@ -96,6 +96,8 @@ export class PinSnips {
     return w;
   }
   windows(): BrowserWindow[] { return [...this.pins].map((p) => p.w).filter((w) => !w.isDestroyed()); }
+  /** A pinned snip's title by its family id (its name on Samara's taskbar, taskbar.ts). */
+  titleOf(fid: string): string | null { for (const p of this.pins) if (p.fid === fid) return p.title; return null; }
   closeAll(): void { for (const p of [...this.pins]) if (!p.w.isDestroyed()) p.w.destroy(); this.pins.clear(); }
   dispose(): void { this.closeAll(); all.delete(this); }
 
