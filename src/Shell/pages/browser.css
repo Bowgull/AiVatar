@@ -954,3 +954,60 @@ html.solo .railhandle{left:340px}
 .drawer .tp.on .x:hover{--ink:#b4520c}
 .drawer .tp .x:focus-visible{outline:2px solid #FFC43C;outline-offset:-2px}
 @media (prefers-reduced-motion:reduce){.drawer .tp .x,.drawer .tp .x::after{transition:none}}
+
+/* ---- The MOCKUPS tidy (his ask, 2026-10-22: "organize the mockups ... a cleanup function that's somehow smart"). A TIDY key
+   on the trail's head (Samara's own broom art), and the history organised: project > branch > one row per sheet, its
+   versions in a fold under it, the older ones in a fold of their own, the Archive last. Numbers in Figtree (no pixel
+   digits); folds spring open as grid rows 0fr -> 1fr, so nothing jumps. */
+.drawer .th.mock .nm{flex:0 0 auto}
+.drawer .th.mock .n{white-space:nowrap}
+.drawer .th.mock .thm{padding:0 2px}
+.drawer .th .mtidy{order:2;flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:2px 6px 2px 5px;border-radius:7px;cursor:pointer;
+  background:linear-gradient(180deg,#ffe28c,#FFC43C);color:#2a1c00;border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline),inset 0 1px 0 rgba(255,255,255,.5);
+  font:800 10px var(--body);letter-spacing:.6px;text-shadow:none;transition:transform .14s cubic-bezier(.32,1.6,.5,1),filter .12s}
+.drawer .th .mtidy img{width:14px;height:14px;image-rendering:pixelated}
+.drawer .th .mtidy:hover{filter:brightness(1.07);transform:translateY(-1px)}
+.drawer .th .mtidy:active{transform:translateY(2px);box-shadow:0 0 0 var(--outline)}
+.drawer .th .mtidy.sweep img{animation:msweep .5s cubic-bezier(.32,.72,0,1)}
+@keyframes msweep{0%{transform:rotate(0)}35%{transform:rotate(-28deg)}70%{transform:rotate(16deg)}100%{transform:rotate(0)}}
+.drawer .mproj{font:700 12px var(--display);letter-spacing:1.5px;color:#f2e3c2;text-transform:uppercase;margin:4px 0 4px;padding:0 0 6px;
+  background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1.5px,rgba(255,224,150,.18) 1.5px 3px) left bottom/100% 3px no-repeat}
+.drawer .mgap{height:8px}
+.drawer .mfold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s cubic-bezier(.32,.72,0,1)}
+.drawer .mfold.open{grid-template-rows:1fr}
+.drawer .mfold>.mfi{min-height:0;overflow:hidden;opacity:0;transition:opacity .18s ease-out}
+.drawer .mfold.open>.mfi{opacity:1;transition:opacity .22s ease-in .05s}
+.drawer .msr{display:flex;align-items:center;gap:8px;width:100%;margin:3px 0 0;padding:6px 8px 6px 4px;border:none;border-radius:7px;background:none;cursor:pointer;text-align:left;
+  font:700 14px var(--body);color:#f2e3c2;transition:background-color .12s}
+.drawer .msr:hover{background:rgba(255,196,60,.10)}
+.drawer .msr.kid{margin-left:22px;width:calc(100% - 22px);font-size:13.5px}
+.drawer .msr.closed .nm{color:#d9c7a2}
+.drawer .msr .chev{flex:0 0 auto;width:0;height:0;margin:0 2px 0 4px;border:5px solid transparent;border-left:6px solid #ffe28c;border-right:0;transition:transform .22s cubic-bezier(.32,1.4,.5,1)}
+.drawer .msr.open .chev{transform:rotate(90deg)}
+.drawer .msr .num{flex:0 0 auto;min-width:26px;box-sizing:border-box;padding:2px 5px;border-radius:5px;text-align:center;font:800 12px/1.2 var(--body);color:#2a1c00;
+  background:linear-gradient(180deg,#e9c98a,#c99a52);box-shadow:0 2px 0 var(--outline),inset 0 1px 0 rgba(255,255,255,.35)}
+.drawer .msr .nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer .msr .pk{flex:0 0 auto;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:900 11px/1 var(--body);color:#08302b;background:#3FBFAE;
+  box-shadow:0 2px 0 var(--outline)}
+.drawer .msr .cnt{flex:0 0 auto;font:700 11.5px var(--body);color:#a98e6a}
+.drawer .msr .why{flex:0 1 auto;min-width:0;font:500 11.5px var(--body);color:#a98e6a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
+.drawer .msr .mrestore{flex:0 0 auto;padding:3px 7px;border-radius:6px;font:800 10px var(--body);letter-spacing:.8px;color:#08302b;background:#3FBFAE;
+  border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline);cursor:pointer}
+.drawer .msr .mrestore:hover{filter:brightness(1.1)}
+.drawer .msr .mrestore:active{transform:translateY(2px);box-shadow:none}
+.drawer .msr.arch{flex-wrap:wrap;row-gap:1px}
+.drawer .msr.arch .nm{color:#bfa77e;flex:1 1 0}
+.drawer .msr.arch .why{order:9;flex:1 0 100%;max-width:none;box-sizing:border-box;padding-left:52px;font-size:11px}
+.drawer .mfi .mv{margin-left:22px;width:calc(100% - 22px)}
+.drawer .mfi .mv.kid{margin-left:44px;width:calc(100% - 44px)}
+.drawer .mv .vv{flex:0 0 auto;min-width:24px;font:800 12px var(--body);color:#ffe28c}
+.drawer .mold{display:flex;align-items:center;gap:7px;margin:2px 0 2px 22px;padding:3px 8px;border:none;background:none;cursor:pointer;
+  font:600 12px var(--body);color:#a98e6a;border-radius:6px}
+.drawer .mold.kid{margin-left:44px}
+.drawer .mold:hover{color:#f2e3c2;background:rgba(255,196,60,.08)}
+.drawer .mold .chev,.drawer .march .chev{width:0;height:0;border:4px solid transparent;border-left:5px solid currentColor;border-right:0;transition:transform .22s cubic-bezier(.32,1.4,.5,1)}
+.drawer .mold.open .chev,.drawer .march.open .chev{transform:rotate(90deg)}
+.drawer .mold+.mfold .mv{opacity:.85}
+.drawer .march{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 2px;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;
+  background:rgba(0,0,0,.3);border:2px solid rgba(0,0,0,.5);box-shadow:inset 0 1px 0 rgba(255,224,150,.12);font:700 11px var(--display);letter-spacing:1.2px;color:#ffe28c}
+@media (prefers-reduced-motion:reduce){.drawer .mfold,.drawer .mfold>.mfi,.drawer .msr .chev,.drawer .mold .chev,.drawer .march .chev,.drawer .th .mtidy{transition:none}.drawer .th .mtidy.sweep img{animation:none}}

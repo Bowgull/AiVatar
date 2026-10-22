@@ -16,6 +16,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { tidyMockups, type SheetMeta, type TidyReport } from './mockuptidy.ts';
 
 /** The only folders a mockup page (or anything it links to) may come from. */
 export const MOCK_DIRS = ['docs/', 'src/Shell/pages/', 'assets/'];
@@ -167,7 +168,11 @@ export function parseVersioned(url: string): { repo: string | null; commit: stri
 
 // ------------------------------------------------------------------ a version, and the history file
 /** One version Claude opened: which sheet, its name, the commit it was shown at, when, and what it looked like (key). */
-export interface MockVersion { id: number; sheet: string; title: string; commit: string; at: number; key: string; v: number }
+export interface MockVersion {
+  id: number; sheet: string; title: string; commit: string; at: number; key: string; v: number;
+  /** 2026-10-22, the tidy (mockuptidy.ts): folded into the sheet's "older" fold, and the times of duplicates merged into it. */
+  old?: boolean; seen?: number[];
+}
 
 /** A sheet's title from its own <title>: "Sheet 47 - The Mockups trail" reads as "47 · The Mockups trail". */
 export function titleFrom(html: string, sheet: string): string {
@@ -235,6 +240,9 @@ export class MockStore {
   places = new Map<string, MockPlace>();
   /** 2026-10-22: the other repos a sheet can come from (@<name>/...), by name: their full folder. */
   repos = new Map<string, string>();
+  /** 2026-10-22: what the tidy keeps about each sheet (mockuptidy.ts SheetMeta), and when it last ran. */
+  meta = new Map<string, SheetMeta>();
+  tidiedAt = 0;
   private seq = 0;
   private branchSeq = 0;
   private readonly file: string;
@@ -249,7 +257,25 @@ export class MockStore {
         // A live page has no commit (2026-10-22); every other version has one.
         this.list = a.filter((x: Partial<MockVersion>) => Number.isInteger(x?.id) && typeof x?.sheet === 'string' && cleanSheet(x.sheet) && typeof x?.commit === 'string' && (COMMIT_RE.test(x.commit) || (x.commit === '' && sheetKind(x.sheet) === 'live'))
           && typeof x?.key === 'string' && Number.isFinite(x?.at) && Number.isInteger(x?.v))
-          .map((x: MockVersion) => ({ id: x.id, sheet: x.sheet, title: String(x.title ?? '').slice(0, 80), commit: x.commit, at: Number(x.at), key: x.key.slice(0, 100), v: x.v })).slice(-2000);
+          .map((x: MockVersion) => ({ id: x.id, sheet: x.sheet, title: String(x.title ?? '').slice(0, 80), commit: x.commit, at: Number(x.at), key: x.key.slice(0, 100), v: x.v,
+            ...(x.old === true ? { old: true } : {}), ...(Array.isArray(x.seen) ? { seen: x.seen.filter((n) => Number.isFinite(n)).slice(0, 50) } : {}) })).slice(-2000);
+        // The tidy's notes per sheet (2026-10-22): archived (when, why, by which), picked, decided, last opened.
+        const mt = s?.meta && typeof s.meta === 'object' ? s.meta as Record<string, Record<string, unknown>> : {};
+        for (const [k, v] of Object.entries(mt)) {
+          if (!cleanSheet(k) || !v || typeof v !== 'object') continue;
+          const m: SheetMeta = {};
+          if (Number.isFinite(v.archived)) m.archived = Number(v.archived);
+          if (v.why === 'gone' || v.why === 'stale' || v.why === 'hand') m.why = v.why;
+          if (typeof v.by === 'string' && cleanSheet(v.by)) m.by = v.by;
+          if (v.kept === true) m.kept = true;
+          if (typeof v.picked === 'boolean') m.picked = v.picked;
+          if (typeof v.decided === 'boolean') m.decided = v.decided;
+          if (typeof v.dkey === 'string') m.dkey = v.dkey.slice(0, 100);
+          if (Number.isFinite(v.opened)) m.opened = Number(v.opened);
+          if (m.archived && !m.why) m.why = 'hand';
+          this.meta.set(k, m);
+        }
+        if (Number.isFinite(s?.tidiedAt)) this.tidiedAt = Number(s.tidiedAt);
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
           .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true })).slice(0, 100);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};
@@ -267,7 +293,7 @@ export class MockStore {
     this.branchSeq = this.branches.reduce((m, x) => Math.max(m, x.id), 0);
   }
   private save(): void {
-    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos) })); }
+    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt })); }
     catch (e) { console.error('shell: mockups: the history could not be saved: ' + (e as Error).message); }
   }
   /** Another repo's folder by its name, or null. */
@@ -360,6 +386,10 @@ export class MockStore {
     const v = mine.find((x) => x.key === key)?.v ?? mine.reduce((m, x) => Math.max(m, x.v), 0) + 1;
     const r: MockVersion = { id: ++this.seq, sheet, title: title.slice(0, 80), commit, at, key, v };
     if (!this.places.has(sheet)) this.places.set(sheet, this.fileNew(sheet));
+    // Claude opened it again: an archived sheet comes back by itself, and it counts as opened.
+    const m = this.meta.get(sheet);
+    if (m?.archived) { delete m.archived; delete m.why; delete m.by; }
+    this.meta.set(sheet, { ...(m ?? {}), opened: at });
     this.list.push(r);
     if (this.list.length > 2000) this.list.splice(0, this.list.length - 2000);
     this.save();
@@ -379,6 +409,44 @@ export class MockStore {
     }
     return out;
   }
+  // ---------------------------------------------------------------- the tidy (2026-10-22, mockuptidy.ts has the rules)
+  /** Run the tidy with what git said (exists) and which sheets are open; the store takes the result. Returns what it did. */
+  tidy(open: Set<string>, exists: (sheet: string) => boolean | null, now = Date.now()): TidyReport {
+    const r = tidyMockups({ versions: this.list, meta: Object.fromEntries(this.meta), open, exists, now });
+    this.list = r.versions as MockVersion[];
+    this.meta = new Map(Object.entries(r.meta));
+    this.tidiedAt = now;
+    this.save();
+    return r.report;
+  }
+  /** Archive one sheet by hand (never deleted; Restore brings it back). */
+  archive(sheet: string, now = Date.now()): string {
+    if (!this.list.some((x) => x.sheet === sheet)) return 'no such mockup';
+    const m = this.meta.get(sheet) ?? {};
+    m.archived = now; m.why = 'hand'; delete m.by; delete m.kept;
+    this.meta.set(sheet, m); this.save(); return '';
+  }
+  /** Out of the Archive, and the tidy leaves it alone from now on. */
+  restore(sheet: string, now = Date.now()): string {
+    const m = this.meta.get(sheet);
+    if (!m?.archived) return 'not archived';
+    delete m.archived; delete m.why; delete m.by; m.kept = true; m.opened = now;
+    this.save(); return '';
+  }
+  /** His own picked mark: on, off (both win over what the sheet says). */
+  setPicked(sheet: string, on: boolean): string {
+    if (!this.list.some((x) => x.sheet === sheet)) return 'no such mockup';
+    this.meta.set(sheet, { ...(this.meta.get(sheet) ?? {}), picked: on }); this.save(); return '';
+  }
+  /** What the sheet's newest version says about itself (read by the Shell from git, only when the version changed). */
+  setDecided(sheet: string, key: string, decided: boolean): void {
+    this.meta.set(sheet, { ...(this.meta.get(sheet) ?? {}), decided, dkey: key });
+  }
+  /** A tab showed it (no save: the next save carries it; the tidy only needs it roughly). */
+  opened(sheet: string, at = Date.now()): void { if (this.list.some((x) => x.sheet === sheet)) this.meta.set(sheet, { ...(this.meta.get(sheet) ?? {}), opened: at }); }
+  archived(sheet: string): boolean { return Boolean(this.meta.get(sheet)?.archived); }
+  /** Save after setDecided/opened. */
+  flush(): void { this.save(); }
   /** The broom, only when he presses it: the duplicates go, nothing else. */
   sweep(): number {
     const d = this.dups();
