@@ -109,7 +109,7 @@ test('claude.reply finds the tracked job by its folder and continues it in the S
   ]));
   const core: any = new Core({ testDoor: true, port: 48010, dataDir: tmp(), stateDir, warm: false, consolidate: false });
   const calls: any[] = [];
-  core.startClaude = async (...args: any[]) => { calls.push(args); return 'Opened a new Claude Code session in the Claude app for the browsing job.'; };
+  core.startClaudeTyped = async (...args: any[]) => { calls.push(args); return 'Opened a new Claude Code session in the Claude app for the browsing job.'; };
   await core.start();
   const c = new WebSocket('ws://127.0.0.1:48010/body');
   const inbox: any[] = [];
