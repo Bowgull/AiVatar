@@ -620,6 +620,8 @@ const link = new CoreLink({
     if (!cockpitOn) input?.send('brain:message', m);
   },
   onConnected: up => {
+    // Spotify Connect (2026-10-22): a brain that (re)started does not know the player is showing; told after the hello.
+    if (up) setTimeout(() => miniPlayer?.rewatch(), 0);
     // C7 (2026-10-21): no brain, no jobs to show, so the rune leaves Samara's band.
     if (!up) aangBrowser?.claudeNews(null);
     // Aang off (Samara on its own, 2026-10-20): a brain that is not there is not news; nothing pops up to say so.
