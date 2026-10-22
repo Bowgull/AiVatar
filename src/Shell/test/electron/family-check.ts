@@ -131,7 +131,7 @@ app.whenReady().then(async () => {
   const menuUp = await until(() => !!ov.w && ov.w.isVisible(), 4000);
   const ojs = (s: string) => ov.w!.webContents.executeJavaScript(s, true);
   const menu = menuUp ? await ojs(`(() => { const m = document.querySelector('.tabmenu'); const r = m.getBoundingClientRect(); return { head: m.querySelector('.mhead').textContent, rows: [...m.querySelectorAll('button')].map((b) => b.textContent), see: !!m.querySelector('.seerow .track'), r: { x: r.left, y: r.top, width: r.width, height: r.height } }; })()`) : null;
-  check('right-click a joined window: one family menu (see-through, pin, pull apart)', !!menu && menu.head === '3 WINDOWS JOINED' && menu.see && /Pin on top/.test(menu.rows[0]) && /ALL 3/.test(menu.rows[0]) && /Pull apart/.test(menu.rows[1]), menu);
+  check('right-click a joined window: one family menu (see-through, pin, click through, pull apart)', !!menu && menu.head === '3 WINDOWS JOINED' && menu.see && /Pin on top/.test(menu.rows[0]) && /ALL 3/.test(menu.rows[0]) && /Click through/.test(menu.rows[1]) && /Pull apart/.test(menu.rows[2]), menu);
   if (menu) {
     await ojs(`document.querySelector('.tabmenu').classList.add('on'); document.documentElement.style.setProperty('background', '#22262d', 'important'); document.body.style.setProperty('background', '#22262d', 'important'); 1`);
     await wait(200);

@@ -61,6 +61,7 @@ function showMenu(at, part) {
   const m = openMenu(document.body, at, paper, note, 'screen', (what, v) => {
     if (what === 'opacity') window.aang?.noteOpacity?.(v);
     else if (what === 'pin') window.aang?.notePin?.(true);
+    else if (what === 'through') window.aang?.noteThrough?.();
     else if (what === 'back') window.aang?.noteBack?.();
     else if (what === 'delete') window.aang?.noteDelete?.();
   }, part);
