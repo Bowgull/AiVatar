@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 67b - Timer colours</title>
+<!-- Sheet 67b (2026-10-22). His picks on sheet 67 v2: frame B (Brass), "but can we make the blue one the default, it's
+     lovely. Show it to me in a mockup quick: show me the different colours, a few, with A and B, that I can click and
+     rotate." Every glass is the live sheet-67 engine (sheet-67/glass2.js); only the sand ramp changes. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<link rel="stylesheet" href="sheet-67/sheet67.css">
+<style>
+  .row{display:flex;flex-wrap:wrap;gap:22px 22px;align-items:flex-start}
+  .tw.col{flex-direction:column;gap:12px;padding:16px 14px 14px;cursor:default}
+  .tw.col .twr{align-items:center;min-width:0}
+  .tw.col .gbox{margin:6px}
+  .tw.col .pz{display:block;visibility:hidden}
+  .tw.col.paused .pz{visibility:visible}
+  .tw.col.def .pz{display:none}
+  .tw.col.def.paused .pz{display:block}
+  .tw.col.def.paused .tag{display:none}
+  .tw.col.def{box-shadow:inset 0 2px 0 rgba(255,224,150,.10),0 0 0 2px #FFC43C,0 3px 0 #1a1009,0 10px 18px rgba(0,0,0,.42)}
+  .tag{font:800 10.5px Figtree,sans-serif;letter-spacing:1.3px;color:#1a1009;background:#FFC43C;border-radius:5px;padding:3px 7px 2px;margin-top:-2px}
+  .lhead{margin-bottom:14px}
+  .ctrl{margin:0 0 18px}
+</style>
+</head>
+<body>
+<h1>SHEET 67b &middot; TIMER COLOURS</h1>
+<p class="real">22 Oct: your frame B (Brass) and A (Walnut), five sands each, blue first as the new default</p>
+<p class="lead">Every hourglass here is live. <b>Click one</b> and it lies down (paused); click again and it stands back up. <b>Flip all</b> starts them all again.</p>
+<div class="ctrl"><button id="flip" type="button">Flip all</button></div>
+
+<div class="take">
+  <div class="lhead"><div class="L">B</div><div class="nm">Brass caps <span class="pick">YOUR PICK</span></div></div>
+  <div class="desk"><div class="row" id="r-brass"></div></div>
+</div>
+<div class="take">
+  <div class="lhead"><div class="L">A</div><div class="nm">Walnut</div></div>
+  <div class="desk"><div class="row" id="r-walnut"></div></div>
+</div>
+
+<script type="module">
+import { Glass, secondly, fmt } from './sheet-67/glass2.js';
+
+// sand ramps, light to deep, plus the stream (brightest thing on the glass). Blue = sheet 67's "sea", unchanged.
+const COLOURS = [
+  ['Blue', ['#DDFBF4', '#9BE7D8', '#5CC4B3', '#3A9688'], ['#F2FFFC', '#BFF3E8', '#9BE7D8', '#BFF3E8']],
+  ['Gold', ['#FFF4D2', '#F9DA92', '#EDBD62', '#CF9645'], ['#FFFBEA', '#FFEBA8', '#F9DA92', '#FFEBA8']],
+  ['Rose', ['#FFE8EE', '#F8B6C6', '#E5849C', '#BF5F78'], ['#FFF6F8', '#FCD3DD', '#F8B6C6', '#FCD3DD']],
+  ['Jade', ['#E9FBDC', '#B6E89E', '#82C96A', '#5A9E48'], ['#F7FFF0', '#D3F4C2', '#B6E89E', '#D3F4C2']],
+  ['Violet', ['#F4E4FF', '#D3B0F5', '#AC82DE', '#8460B4'], ['#FCF5FF', '#E3CBFA', '#D3B0F5', '#E3CBFA']],
+];
+const rgba = (h) => { const n = parseInt(h.slice(1), 16); return ((255 << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16)) >>> 0; };
+const SCALE = 3, BOX = 35, S = 45, TOTAL = 3 * 60_000;
+const all = [];
+
+function glass(host, design, [name, ramp, stream], i, first) {
+  const el = document.createElement('div'); el.className = 'tw col' + (first ? ' def' : '');
+  el.innerHTML = '<div class="gbox"><canvas class="gl"></canvas></div><div class="twr"><span class="np"></span><span class="tmv">0:00</span><span class="pz">PAUSED</span></div>';
+  host.append(el);
+  const box = el.querySelector('.gbox'), cv = el.querySelector('canvas'), tm = el.querySelector('.tmv');
+  el.querySelector('.np').textContent = name;
+  if (first) { const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = 'DEFAULT'; el.querySelector('.twr').append(tg); }
+  box.style.width = box.style.height = BOX * SCALE + 'px';
+  cv.style.left = cv.style.top = -((S - BOX) / 2) * SCALE + 'px';
+  const g = new Glass(cv, { scale: SCALE, design, ramp: 'sea', seed: 11 + i * 37 + (design === 'brass' ? 5 : 0) });
+  g.sand.ramp = ramp.map(rgba); g.sand.streamCols = stream.map(rgba); g.paint();
+  let t = { total: TOTAL, end: Date.now() + TOTAL * (0.92 - i * 0.13), paused: 0 };
+  const show = () => { tm.textContent = fmt(g.left()); el.classList.toggle('paused', !!t.paused); };
+  const restart = () => { const go = () => { t = { total: TOTAL, end: Date.now() + TOTAL, paused: 0 }; g.set(t); show(); }; if (t.paused) { t.paused = 0; g.tip(false); setTimeout(() => g.turnOver(go), 450); } else g.turnOver(go); };
+  g.onEnd = () => setTimeout(restart, 2500);
+  g.set(t); show();
+  secondly(show, undefined, () => (t.paused ? 0 : t.end));
+  box.addEventListener('click', () => {
+    if (g.left() <= 0) return restart();
+    if (t.paused) { t = { ...t, end: Date.now() + t.paused, paused: 0 }; g.set(t); g.tip(false); }
+    else { t = { ...t, paused: g.left() }; g.set(t); g.tip(true); }
+    show();
+  });
+  all.push(restart);
+}
+COLOURS.forEach((c, i) => glass(document.getElementById('r-brass'), 'brass', c, i, i === 0));
+COLOURS.forEach((c, i) => glass(document.getElementById('r-walnut'), 'walnut', c, i, false));
+document.getElementById('flip').addEventListener('click', () => all.forEach((f) => f()));
+</script>
+</body>
+</html>
