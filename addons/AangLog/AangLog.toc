@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: AangLog
+## Notes: Turns the combat log on in dungeons and raids, off everywhere else. For Aang's rotation coach.
+## Author: Aang
+## Version: 1.0.0
+
+AangLog.lua
