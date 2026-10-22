@@ -2,7 +2,7 @@
 // surface is hand-placed pixels at exactly 2x: Samara's wood (band.png rim, tray.png surface), the bubble's paper, the
 // job pop-out's pin, the product's own pill bar for the seek bar. Coordinates are CSS pixels, always even.
 import { P, loadTex, rr, rrMask, shape, drawMask, close, fills, spr, art, GLYPH, pin, cover, spectrum, mix, hex, paperAt, trayAt } from './pix.js';
-import { pill } from '../../../src/Shell/pages/claudejobs.js';
+import { pill, SEA } from '../../../src/Shell/pages/claudejobs.js';
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-full';
 const GOLD = ['#fff3d8', '#ffe7b0', '#ffd88a', '#ffc96a', '#f0b04a', '#d9952f', '#b97a22', '#8f5a16'];
@@ -385,6 +385,48 @@ function shadeC(vis) {
   return pl;
 }
 
+
+// ---------------------------------------------------------------- snapped: GAP or FLUSH (asked 2026-10-22)
+/** A rounded rectangle with its own radius per corner [top-left, top-right, bottom-right, bottom-left]; 0 = square. */
+function rrMask4(w, h, [tl, tr, br, bl]) {
+  const m = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const px = x + 0.5, py = y + 0.5, left = px < w / 2, top = py < h / 2, r = top ? (left ? tl : tr) : (left ? bl : br);
+    if (!r) { m[y * w + x] = 1; continue; }
+    const cx = left ? Math.max(r, px) : Math.min(w - r, px), cy = top ? Math.max(r, py) : Math.min(h - r, py);
+    m[y * w + x] = Math.hypot(px - cx, py - cy) <= r + 0.01 ? 1 : 0;
+  }
+  return m;
+}
+function reBody(pl, w, h, corners, opts) { const b = shape(rrMask4(w, h, corners), w, h, opts); b.classList.add('body'); pl.querySelector('canvas.body').replaceWith(b); }
+/** The Claude job reshaped as a tall column for the video's right side: stacked, never rotated; the product's own
+ *  pill bar (SEA), Claude mark, words in the job pop-out's colours, the % in Figtree bold with tabular figures. */
+function jobColumn(wA, hA, corners) {
+  const d = box(a2(wA), a2(hA + 1));
+  d.append(Object.assign(shape(rrMask4(wA, hA, corners), wA, hA, { band: 's2', E: 3, fill: fills.paper(hA) }), { className: 'body' }));
+  const ic = new Image(); ic.src = '../../../src/Shell/pages/art/claude-icon.png'; ic.style.cssText = 'width:22px;height:22px;image-rendering:pixelated';
+  at(d, ic, 14, 14); at(d, pinBtn(false), a2(wA) - 30, 12);
+  const t = (txt, css) => { const e = el('div', '', txt); e.style.cssText = css; return e; };
+  at(d, t('Waymark', 'font:700 15px Figtree,sans-serif;color:#8a3e1c;white-space:nowrap'), 14, 44);
+  at(d, t('48%', 'font:700 30px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#3a2a18'), 14, 70);
+  at(d, pill(wA - 14, 9, P, [0.2, 0.4, 0.6, 0.8, 1], 0.48, 2, SEA, false), 14, 110);
+  at(d, t('Folding the route list to one line', `font:600 13px/1.4 Figtree,sans-serif;color:#3a2a18;width:${a2(wA) - 28}px`), 14, 136);
+  at(d, t('7 min left', 'font:600 12.5px Figtree,sans-serif;color:#6b5236'), 14, a2(hA) - 30);
+  return d;
+}
+async function snapGroup(stage, X, Y, mode) {
+  const gap = mode === 'gap' ? 6 : 0, VW = a2(AW), VH = 236, JW = 76, flush = mode === 'flush';
+  const shadow = 'drop-shadow(0 4px 7px rgba(0,0,0,.5))';
+  const wrap = el('div'); wrap.style.cssText = `position:absolute;left:${X}px;top:${Y}px;width:${VW + gap + a2(JW)}px;height:${VH + gap + a2(SH + 1)}px;${flush ? 'filter:' + shadow : ''}`; stage.append(wrap);
+  const vid = el('iframe', 'prod'); vid.src = 'video.html'; Object.assign(vid.style, { left: '0px', top: '0px', width: VW + 'px', height: VH + 'px', zIndex: '1', filter: flush ? 'none' : shadow }); wrap.append(vid);
+  await new Promise((r) => { vid.onload = r; setTimeout(r, 4000); });
+  const fr = vid.contentDocument.querySelector('.frame'); fr.style.borderRadius = flush ? '12px 0 0 0' : '12px';
+  const job = jobColumn(JW, VH / P - 1, flush ? [0, 12, 12, 12] : [12, 12, 12, 12]); at(wrap, job, VW + gap, 0, { filter: flush ? 'none' : shadow });
+  const strip = shadeA(true); at(wrap, strip, 0, VH + gap, { filter: flush ? 'none' : shadow });
+  if (flush) reBody(strip, AW, SH, [0, 0, 10, 10], { band: 's2', E: 3, fill: fills.wood(1.05) });
+  return wrap;
+}
+
 const BUILD = { A: [playerA, shadeA], B: [playerB, shadeB], C: [playerC, shadeC] };
 
 // ---------------------------------------------------------------- scenes
@@ -486,6 +528,13 @@ window.__ready = (async () => {
     });
     big(stage, x0, 44 + a2(AH) + 66 + 110, 'SPRING: RESPONSE 0.5 S, DAMPING 0.825 &middot; UNDER 1% OVERSHOOT &middot; DOUBLE-CLICK AGAIN AND IT OPENS THE SAME WAY');
     crop = { x: 0, y: 0, w: x0 + 2 * colW, h: 44 + a2(AH) + 66 + 140 };
+  } else if (SCENE === 'snap') {
+    const GW = a2(AW) + 6 + a2(76);
+    tag(stage, 40, 18, '<b>GAP</b> &middot; 6 PX APART, EACH KEEPS ITS ROUND CORNERS AND SHADOW');
+    tag(stage, 40 + GW + 90, 18, '<b>FLUSH</b> &middot; WINAMP STYLE, THE JOINED SIDES GO SQUARE, ONE SHADOW');
+    await snapGroup(stage, 40, 44, 'gap'); await snapGroup(stage, 40 + GW + 90, 44, 'flush');
+    await new Promise((r) => setTimeout(r, 500));
+    crop = { x: 0, y: 0, w: 40 + 2 * GW + 90 + 40, h: 44 + 236 + 6 + a2(SH + 1) + 40 };
   } else if (SCENE === 'family') {
     const H = 470, X = 40, Y = 30, VW = a2(AW);
     const vid = el('iframe', 'prod'); vid.src = 'video.html'; Object.assign(vid.style, { left: X + 'px', top: Y + 'px', width: VW + 'px', height: '236px', zIndex: '1' }); stage.append(vid);
