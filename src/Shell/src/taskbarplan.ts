@@ -111,7 +111,8 @@ export function barFor(jobs: JobNow[]): Bar {
   const pick = (l: JobNow[]) => l.filter((j) => j.pct !== null).sort((a, b) => a.pct! - b.pct!)[0];
   if (slow.length) { const j = pick(slow); return { value: Math.max(0.03, (j?.pct ?? 50) / 100), mode: 'paused' }; }
   const j = pick(act);
-  return j ? { value: Math.max(0.01, j.pct! / 100), mode: 'normal' } : { value: 1, mode: 'indeterminate' };
+  // No percent known: no bar at all (his catch, 2026-10-22: Windows' 'indeterminate' bar pulses green and reads as flashing).
+  return j ? { value: Math.max(0.01, j.pct! / 100), mode: 'normal' } : { value: -1, mode: 'none' };
 }
 
 // ---------------------------------------------------------------- the buttons under a picture

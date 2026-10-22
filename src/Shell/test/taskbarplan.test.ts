@@ -75,7 +75,7 @@ test('the bar under the lantern: none, normal (the one furthest behind), amber w
   assert.deepEqual(P.barFor([j('working', 80), j('working', 30)]), { value: 0.3, mode: 'normal' });
   assert.deepEqual(P.barFor([j('working', 80), j('paused', 60)]), { value: 0.6, mode: 'paused' });
   assert.deepEqual(P.barFor([j('working', 40, true)]), { value: 0.4, mode: 'paused' });
-  assert.deepEqual(P.barFor([j('working', null)]), { value: 1, mode: 'indeterminate' });
+  assert.deepEqual(P.barFor([j('working', null)]), { value: -1, mode: 'none' });
   assert.equal(P.barFor([j('working', 0)]).value, 0.01);
 });
 
