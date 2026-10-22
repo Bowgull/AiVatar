@@ -125,7 +125,8 @@ app.whenReady().then(async () => {
   host.endWiggle();
   await wait(1600);
   const tb2 = B().get(TID)!, p3 = await pageNow();
-  check('taken out: free again, back to its OWN plate size and row shape', host.shapeOf(TID) === 'free' && !host.joined(TID) && tb2.width === tb0.width && tb2.height === tb0.height && p3.shape === 'free' && !p3.sized && p3.dir === 'row', { tb2, tb0, p3 });
+  // 1 px of width either way: the plate is as wide as its ticking time, and 7:00 and 6:58 are not the same width.
+  check('taken out: free again, back to its OWN plate size and row shape', host.shapeOf(TID) === 'free' && !host.joined(TID) && Math.abs(tb2.width - tb0.width) <= 1 && tb2.height === tb0.height && p3.shape === 'free' && !p3.sized && p3.dir === 'row', { tb2, tb0, p3 });
   await picture([video, tw], 'timer-left.png');
 
   // 4. Dropped under the video: a strip as wide as the video, its own height.
