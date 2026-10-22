@@ -7,6 +7,7 @@ import type { NoteWindows } from './notewin.ts';
 import type { TimerWindows } from './timerwin.ts';
 import type { JobPops } from './jobpop.ts';
 import type { PinSnips } from './pinsnip.ts';
+import type { MiniPlayer } from './miniplayer.ts';
 
 export function wireFamily(o: {
   origin: string;
@@ -17,6 +18,8 @@ export function wireFamily(o: {
   jobs?: JobPops | null;
   /** Pinned snips (sheet 62), a member since part 2: they keep their picture's shape when they join a side. */
   snips?: PinSnips | null;
+  /** Sheet 59's mini player (2026-10-22): joins whenever it is open. */
+  player?: MiniPlayer | null;
   /** F5: where the group layouts are kept (default: family-layout.json in the Shell's user data). */
   saveFile?: string | null;
 }): FamilyHost {
@@ -25,6 +28,7 @@ export function wireFamily(o: {
   if (o.timers) o.timers.family = host;
   if (o.jobs) o.jobs.family = host;
   if (o.snips) o.snips.family = host;
+  if (o.player) o.player.family = host;
   if (o.popout) { o.popout.family = host; o.popout.joinFamily(); }
   // Made now, hidden, so the first right-click on a joined window opens the menu at once.
   host.overlay.warm();

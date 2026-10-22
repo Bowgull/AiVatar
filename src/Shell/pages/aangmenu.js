@@ -24,6 +24,8 @@ const ICONS = {
   // Sheet 61 v2 (2026-10-22): the Hotkeys row's keyboard, and the "taken" warning (the sheet's own pixels)
   keys: ['...........', 'OOOOOOOOOOO', 'O.........O', 'O.O.O.O.O.O', 'O.........O', 'O.OO.O.O.OO', 'O.........O', 'O..OOOOO..O', 'O.........O', 'OOOOOOOOOOO', '...........'],
   warn: ['....OO....', '...OOOO...', '...O..O...', '..OO..OO..', '..O....O..', '.OO.OO.OO.', '.O..OO..O.', 'OO......OO', 'O...OO...O', 'OOOOOOOOOO', '..........'],
+  // Sheet 59 (2026-10-22): the Music player row, a pixel quaver
+  music: ['....OOOOOO.', '....OOOOOO.', '....O....O.', '....O....O.', '....O....O.', '....O....O.', '..OOO..OOO.', '.OOOO.OOOO.', '.OOOO.OOOO.', '..OO...OO..', '...........'],
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
 };
 const N = 11;
@@ -61,6 +63,7 @@ function mainRows(s) {
     { id: 'jobs', ic: 'claude', t: 'Claude jobs', tag: jobs > 0 ? `${jobs} RUNNING` : '' },
     { id: 'claudejob', ic: 'claude', t: 'Start a Claude job' },
     { id: 'hunt', ic: 'hunt', t: 'Job hunt now' },
+    { id: 'player', ic: 'music', t: 'Music player' },
     '-',
     { sub: 'hush', ic: 'hush', t: 'Hush', tag: hushed ? `UNTIL ${clock(Number(s.hushedUntil))}` : '' },
     '-',
