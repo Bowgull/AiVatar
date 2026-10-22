@@ -112,6 +112,8 @@ interface Live {
   pending: NodeJS.Timeout[];
   /** F5: opened and not yet put back into its old slot (done on the page's first measurement). */
   fresh: boolean;
+  /** The window's size round its panel, worked out when the last reshape began (kept while one is under way). */
+  chrome: { w: number; h: number } | null;
 }
 interface Anim { x: F.Spring; y: F.Spring; tx: number; ty: number; motion: { response: number; damping: number } }
 
@@ -190,7 +192,7 @@ export class FamilyHost implements FamilyHooks {
     if (!w || w.isDestroyed()) return;
     const had = this.live.get(m.id);
     if (had && had.w === w) { had.m = m; return; }
-    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: false, pad: null, seed: ++this.seeds, last: null, aot: null, through: false, shape: 'free', applied: null, sized: null, view: 'free', pending: [], fresh: true };
+    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: false, pad: null, seed: ++this.seeds, last: null, aot: null, through: false, shape: 'free', applied: null, sized: null, view: 'free', pending: [], fresh: true, chrome: null };
     this.live.set(m.id, l);
     const box = this.boxOf(m.id)!;
     this.fam.set(m.id, { id: m.id, kind: m.kind, box, own: { width: box.width, height: box.height } });
@@ -256,11 +258,13 @@ export class FamilyHost implements FamilyHooks {
   private setPos(id: string, x: number, y: number): void {
     const l = this.live.get(id), w = l?.m.win();
     if (!l || !w || w.isDestroyed()) return;
-    x = Math.round(x); y = Math.round(y);
+    // + 0 turns -0 into 0: Math.round(-0.3) is -0, and Electron's setPosition throws on -0 (not an int32). A spring
+    // landing on x 0 from the left is every join at the seam between his two screens (screen 2 ends at x 0), or y 0.
+    x = Math.round(x) + 0; y = Math.round(y) + 0;
     if (l.last && l.last.x === x && l.last.y === y) return;
     l.last = { x, y };
     const b = w.getBounds(), c = w.getContentBounds(), k = l.card ?? { x: 0, y: 0 };
-    w.setPosition(Math.round(x - k.x - (c.x - b.x)), Math.round(y - k.y - (c.y - b.y)));
+    w.setPosition(Math.round(x - k.x - (c.x - b.x)) + 0, Math.round(y - k.y - (c.y - b.y)) + 0);
     const m = this.fam.get(id);
     if (m) m.box = { ...m.box, x, y };
   }
@@ -423,7 +427,8 @@ export class FamilyHost implements FamilyHooks {
     this.syncBoxes();
     const ids = F.groupOf(this.fam, id);
     if (ids.length < 2) return;
-    const spread = F.arrange(this.fam, id, F.SPREAD);
+    // In a corner the spread would push the outer ones off the screen: the whole spread slides back on instead.
+    const spread = this.keepOnScreen(F.arrange(this.fam, id, F.SPREAD), ids);
     this.fam = F.rerootBiggest(this.fam, id);
     this.wiggle = { ids, fam: spread, t0: Date.now() };
     // Above the catcher (the click-on-the-desktop sheet) while it lasts; each goes back to its own level after.
@@ -442,7 +447,8 @@ export class FamilyHost implements FamilyHooks {
     this.syncBoxes();
     // Where each one stands without its 1 px shimmy, so the join lands on whole, exact places.
     for (const x of wg.ids) { const b = wg.fam.get(x)?.box, m = this.fam.get(x); if (b && m && !this.anims.has(x)) { m.box = { ...m.box, x: b.x, y: b.y }; this.setPos(x, b.x, b.y); } }
-    this.anims.clear();
+    // Only the wiggling ones stop: one he just took out may still be sliding back onto its screen at its own size.
+    for (const x of wg.ids) this.anims.delete(x);
     // The anchors as he left them (minus whatever he took out), the boxes where they are now; then flush.
     const n = F.clone(this.fam);
     for (const [id, m] of wg.fam) { const cur = n.get(id); if (cur) { if (m.anchor) cur.anchor = { ...m.anchor }; else delete cur.anchor; } }
@@ -462,6 +468,20 @@ export class FamilyHost implements FamilyHooks {
     return { x: Math.round((L + R) / 2), y: T };
   }
 
+  /**
+   * A pulled-apart group (or a rearrangement while apart) moved as a whole so every member stays on a screen: pulled apart
+   * in a corner, the spread would otherwise push the outer windows off it (his corners, 2026-10-22 combos check).
+   */
+  private keepOnScreen(f: F.Fam, ids: string[]): F.Fam {
+    const live = ids.filter((x) => f.has(x));
+    if (!live.length) return f;
+    const s = F.onScreen(live.map((x) => f.get(x)!.box), this.areas(), f.get(F.rootOf(f, live[0]!))?.box);
+    if (!s.dx && !s.dy) return f;
+    const n = F.clone(f);
+    for (const x of live) { const m = n.get(x)!; m.box = { ...m.box, x: m.box.x + s.dx, y: m.box.y + s.dy }; }
+    return n;
+  }
+
   /** While he drags one window of a pulled-apart group: the others slide aside to where it would go. No slot is drawn. */
   private wiggleMove(d: NonNullable<FamilyHost['dragNow']>, dx: number, dy: number): void {
     const wg = this.wiggle!, id = d.id, s = d.start.get(id)!;
@@ -470,7 +490,7 @@ export class FamilyHost implements FamilyHooks {
     const others = wg.ids.filter((x) => x !== id);
     const without = F.remove(wg.fam, id);
     const slot = others.length ? F.slotFor(without, others, box) : null;
-    const preview = slot ? F.rearranged(wg.fam, id, slot.target, slot.side, F.SPREAD) : wg.fam;
+    const preview = slot ? this.keepOnScreen(F.rearranged(wg.fam, id, slot.target, slot.side, F.SPREAD), wg.ids) : wg.fam;
     this.animateTo(preview, others, F.MOTION.spread);
   }
 
@@ -482,13 +502,13 @@ export class FamilyHost implements FamilyHooks {
     const without = F.remove(wg.fam, id);
     const slot = others.length ? F.slotFor(without, others, box) : null;
     if (slot) {
-      wg.fam = F.rearranged(wg.fam, id, slot.target, slot.side, F.SPREAD);
+      wg.fam = this.keepOnScreen(F.rearranged(wg.fam, id, slot.target, slot.side, F.SPREAD), wg.ids);
       this.animateTo(wg.fam, others, F.MOTION.spread);
       this.animateTo(wg.fam, [id], F.MOTION.back);
     } else if (F.isFree(box, others.map((x) => this.fam.get(x)!.box))) {
       // Free: it stops wiggling, gets its own corners and size back; the rest stay spread until he ends it.
       wg.ids = others;
-      wg.fam = others.length ? F.arrange(without, others[0]!, F.SPREAD) : without;
+      wg.fam = others.length ? this.keepOnScreen(F.arrange(without, others[0]!, F.SPREAD), others) : without;
       this.fam = F.remove(this.fam, id);
       const l = this.live.get(id), w = l?.m.win();
       if (l && w && !w.isDestroyed() && l.aot !== null) { if (!l.aot) w.setAlwaysOnTop(false); l.aot = null; }
@@ -530,7 +550,7 @@ export class FamilyHost implements FamilyHooks {
     if (this.wiggle?.ids.includes(id)) {
       const wm = this.wiggle.fam.get(id);
       if (wm) wm.box = { ...wm.box, width: now.width, height: now.height };
-      this.wiggle.fam = F.layoutFrom(this.wiggle.fam, F.rootOf(this.wiggle.fam, id), F.SPREAD);
+      this.wiggle.fam = this.keepOnScreen(F.layoutFrom(this.wiggle.fam, F.rootOf(this.wiggle.fam, id), F.SPREAD), this.wiggle.ids);
       this.animateTo(this.wiggle.fam, this.wiggle.ids.filter((x) => x !== id), F.MOTION.settle);
       return;
     }
@@ -562,7 +582,10 @@ export class FamilyHost implements FamilyHooks {
     for (const id of touched) this.applyShape(id, fits.get(id)!);
     const areas = this.areas();
     for (const g of F.groups(target)) {
-      if (g.length < 2 || !touched.has(g[0]!)) continue;
+      // A member on its own that changes size (back to its own size after leaving) is kept on its screen too: a column
+      // let go at the screen's edge grows back into its strip on that screen, not across into the next one.
+      const regrows = g.length === 1 && (() => { const t = target.get(g[0]!)!.box, b = this.fam.get(g[0]!)!.box; return t.width !== b.width || t.height !== b.height; })();
+      if ((g.length < 2 && !regrows) || !touched.has(g[0]!)) continue;
       const s = F.onScreen(g.map((x) => target.get(x)!.box), areas, target.get(g[0]!)!.box);
       if (s.dx || s.dy) for (const x of g) { const t = target.get(x)!; t.box = { ...t.box, x: t.box.x + s.dx, y: t.box.y + s.dy }; }
     }
@@ -595,13 +618,19 @@ export class FamilyHost implements FamilyHooks {
       : l.shape === fit.shape && l.sized?.width === want.width && l.sized?.height === want.height;
     l.applied = fit;
     if (same) return;
+    const inFlight = l.pending.length > 0;
     for (const t of l.pending) clearTimeout(t);
     l.pending = [];
     const cur = { width: Math.round(l.card.width), height: Math.round(l.card.height) };
     if (free && l.shape === 'free' && !l.sized && cur.width === want.width && cur.height === want.height) return;
     const tw = Math.round(want.width ?? cur.width), th = Math.round(want.height ?? cur.height);
     const b = w.getBounds();
-    const finalW = Math.max(1, b.width + tw - cur.width), finalH = Math.max(1, b.height + th - cur.height);
+    // The window round the panel. With a reshape still under way the window is already grown for it and the panel not yet
+    // measured again, so window minus panel would be wrong (two relayouts in a row made a note's own size 394 tall): keep
+    // the one worked out when that reshape began.
+    const chrome = inFlight && l.chrome ? l.chrome : { w: b.width - cur.width, h: b.height - cur.height };
+    l.chrome = chrome;
+    const finalW = Math.max(1, tw + chrome.w), finalH = Math.max(1, th + chrome.h);
     // 1. Held where it is, so growing the window shows nothing new.
     l.sized = { ...cur };
     this.sendState(id);
