@@ -107,7 +107,7 @@ app.whenReady().then(async () => {
 
   const notes = new NoteWindows({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), save: () => {}, overAang: () => false });
   notes.family = host;
-  const nw = notes.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first', col: 'gold', font: 'hand', size: 'm', out: { x: -4300, y: 700, w: 220, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
+  const nw = notes.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first', font: 'hand', size: 'm', out: { x: -4300, y: 700, w: 220, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
   // What the note's window was last told about the mouse.
   let nIgnore: { on: boolean; forward: boolean } = { on: false, forward: false };
   const orig = nw.setIgnoreMouseEvents.bind(nw);

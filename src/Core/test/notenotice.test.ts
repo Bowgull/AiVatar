@@ -10,7 +10,7 @@ import type { LocalResult } from '../src/local.ts';
 
 const NOW = Date.parse('2026-10-22T15:00:00Z');
 const note = (id: string, lines: string[], extra: Partial<Note> = {}): Note =>
-  ({ id, title: 'Errands', html: lines.map(l => `<div class="cl">${l}</div>`).join(''), col: 'parchment', font: 'figtree', size: 'm', updated: NOW - 9 * 86_400_000, ...extra });
+  ({ id, title: 'Errands', html: lines.map(l => `<div class="cl">${l}</div>`).join(''), font: 'figtree', size: 'm', updated: NOW - 9 * 86_400_000, ...extra });
 const answer = (o: object | string): LocalResult => ({ ok: true, text: typeof o === 'string' ? o : JSON.stringify(o), ms: 5 });
 const GOOD = { say: "'Call the bank' has been open a week.", note: 'n1', line: 'Call the bank', kind: 'todo' };
 

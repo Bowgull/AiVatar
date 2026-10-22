@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld('aang', {
   bubbleTyping: on => ipcRenderer.send('bubble:typing', on),
   /** Sheet 17, the notes board in the bubble: save an edit, delete, and drag one out onto the screen. */
   notesSave: n => ipcRenderer.send('bubble:notesave', n),
+  /** Sheet 60: "+ Category" on the board: a category of his own (it takes the next colour). */
+  notesCat: name => ipcRenderer.send('bubble:notecat', name),
   notesDelete: id => ipcRenderer.send('bubble:notedelete', id),
   notesPull: a => ipcRenderer.send('bubble:notepull', a),
   /** Sheet 17, a note stuck on the screen: its data, and what it can ask for. It only ever speaks for itself. */
@@ -92,6 +94,19 @@ contextBridge.exposeInMainWorld('aang', {
   noteThrough: () => ipcRenderer.send('note:through'),
   noteBack: () => ipcRenderer.send('note:back'),
   noteDelete: () => ipcRenderer.send('note:delete'),
+  /** Sheet 60: the quick note is done (Enter or Esc): its note to keep, or null when it was left empty. */
+  noteQuickDone: n => ipcRenderer.send('note:quickdone', n),
+  /** Sheet 60 B: a noticed note is on show (or not): Aang holds it up beside his bubble, in its category's colour. */
+  noticeHeld: a => ipcRenderer.send('bubble:noticeheld', a),
+  /** The held note's own little window: what to draw, and a click on the paper (it opens the note). */
+  onHeldData(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('held:data', h); return () => ipcRenderer.removeListener('held:data', h); },
+  heldOpen: () => ipcRenderer.send('held:open'),
+  heldHover: on => ipcRenderer.send('held:hover', on === true),
+  /** Sheet 60 section 4: Samara's notes rail. This site's notes come in; a new note for this site, or one to open, go out. */
+  onBrowserNotes(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:notes', h); return () => ipcRenderer.removeListener('browser:notes', h); },
+  browserNoteSave: n => ipcRenderer.send('browser:notesave', n),
+  browserNoteOpen: id => ipcRenderer.send('browser:noteopen', id),
+  onBrowserRailClose(fn) { const h = () => fn(); ipcRenderer.on('browser:railclose', h); return () => ipcRenderer.removeListener('browser:railclose', h); },
   /** Sheet 17's wheel: what to draw, where he points, where he let go; and which disc that was. */
   onWheel(fn) { const h = (_e, m) => fn(m); ipcRenderer.on('wheel', h); return () => ipcRenderer.removeListener('wheel', h); },
   wheelPick: slot => ipcRenderer.send('wheel:pick', slot),

@@ -38,6 +38,7 @@ import { Wheel } from './wheelwin.ts';
 import { AangMenu, avoidRect } from './aangmenu.ts';
 import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
+import { NoteHeld, wireNotes60 } from './notes60.ts';
 import { TimerWindows } from './timerwin.ts';
 import { JobPops } from './jobpop.ts';
 import { wireFamily } from './familywire.ts';
@@ -145,6 +146,9 @@ let notForBubble: unknown = null;
 /** The pet's gate, as last told: muted, and Aang hidden. gameQuiet is the third. */
 let bubbleMuted = false, bubbleHidden = false;
 let noteWins: NoteWindows | null = null;
+/** Sheet 60 B: the little note Aang holds up (notes60.ts), and the Hush switch for it as last seen. */
+let noteHeld: NoteHeld | null = null;
+let menuNotesNotice = true;
 /**
  * Sheet 52 (2026-10-21): the Claude jobs he pulled out of the bubble onto his desktop, one small window each. They keep
  * the brain's last job and wait lists so a freshly torn-off job draws at once instead of waiting for the next update.
@@ -194,8 +198,8 @@ const hotkeys = new HotkeyKeeper(STATE_DIR, globalShortcut, {
   talk: () => onHotkey(),
   snip: () => { void snipper?.start(); },
   popout: () => popout?.toggleHidden(),
-  // His interview (2026-10-22): Ctrl + number pad *, a new blank note, ready to type (the board's own + NEW).
-  note: () => bubble?.send('brain:message', { t: 'notes.board', fresh: true }),
+  // His interview (2026-10-22): Ctrl + number pad *. Sheet 60: the quick note is the SAME note, opened small and ready.
+  note: () => { if (!noteWins?.quick()) bubble?.send('brain:message', { t: 'notes.board', fresh: true }); },
   // 1b: the same key is the ONE way back from click-through for every family member (the group under the mouse).
   pin: () => { const p = screen.getCursorScreenPoint(); if (family?.reachAt(p) || timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); },
 });
@@ -424,12 +428,20 @@ const link = new CoreLink({
       const jobs = Array.isArray(lastJobs) ? lastJobs.filter((j) => (j as { phase?: unknown } | null)?.phase === 'working').length : 0;
       // 2026-10-21: where Aang and his mark are, so the menu opens beside him and never on top of him.
       const avoid = avoidRect(petAt?.sprite, Boolean(petAt && petAt.edge !== 'none' && petAt.peeking));
+      // Sheet 60: the one switch for "Aang brings up my notes", as the brain last said it (Hush shows it ticked).
+      menuNotesNotice = (m.state as { notesNotice?: unknown } | undefined)?.notesNotice !== false;
       aangMenu?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }, { ...(m.state && typeof m.state === 'object' ? m.state as Record<string, unknown> : {}), jobsRunning: jobs }, avoid);
       return;
     }
     if (m.t === 'menu.pick') return;               // for the pet, not for us
     // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
-    if (m.t === 'notes.state' && Array.isArray(m.notes)) { notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest); }
+    if (m.t === 'notes.state' && Array.isArray(m.notes)) {
+      // Sheet 60: his own categories travel with the list, so every note window and Samara's rail colour them alike.
+      const own = Array.isArray((m.cats as { own?: unknown } | undefined)?.own) ? ((m.cats as { own: unknown[] }).own).map(String) : [];
+      if (noteWins) noteWins.cats = own;
+      notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest);
+      aangBrowser?.notesNews(m.notes, own);
+    }
     // He clicked Aang. His rule (2026-10-20): what Aang last said comes back (an ask still waiting first), and clicking
     // that message opens the chat box to answer it. With a message already showing, or nothing said yet, the click opens
     // the chat box as before.
@@ -756,7 +768,12 @@ app.whenReady().then(async () => {
       // to the pet, which runs the same handler its old menu item ran.
       aangMenu = new AangMenu({
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), iconPath: AANG_ICON,
-        pick: (id) => { if (id === 'back') bubble?.send('bubble:recall', 'back'); else link?.send({ t: 'menu.pick', id }); },
+        pick: (id) => {
+          if (id === 'back') { bubble?.send('bubble:recall', 'back'); return; }
+          // Sheet 60: "Let Aang bring up my notes" in Hush is the brain's switch (notenotice.ts), not the pet's.
+          if (id === 'notes.notice') { link?.send({ t: 'notice.set', on: !menuNotesNotice }); menuNotesNotice = !menuNotesNotice; return; }
+          link?.send({ t: 'menu.pick', id });
+        },
         keys: hotkeys,
       });
       aangMenu.warm();
@@ -796,6 +813,9 @@ app.whenReady().then(async () => {
         onNear: (id, near) => bubble?.send('jobpop:near', { id, near }),
       });
       jobPops.update(lastJobs, lastWaits);
+      // Sheet 60 B: the note Aang holds up while he brings one up, and the new notes doors (notes60.ts).
+      noteHeld = new NoteHeld({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), pet: () => petAt });
+      wireNotes60({ held: () => noteHeld, notes: () => noteWins, fromBubble, send: (x) => link?.send(x as never), toBubble: (x) => bubble?.send('brain:message', x) });
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
       family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops });
       input.window();
@@ -806,6 +826,9 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
+      aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
+      aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
       aangBrowser.onPopoutAct = (what) => { if (what === 'popclose') popout?.close(); else if (what === 'poppin') popout?.togglePin(); else if (what === 'poppause') popout?.togglePlay(); };
       // Sheet 37: a Claude session's plan goes to Aang's bubble on this PC (when Claude's own window is not in front),
       // and his answer comes back. Five minutes unanswered means no answer.
@@ -1608,7 +1631,7 @@ setInterval(() => {
       console.log('shell: Aang closed; Samara stays');
       for (const k of ['talk', 'snip', 'note'] as const) hotkeys.want(k, false);
       // The brain went down a moment before the pet did: cancel the bubble's "waiting for my brain", silently.
-      try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); timerWins?.sync([]); jobPops?.closeAll(); } catch { /* gone */ }
+      try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); noteHeld?.set({ on: false }); timerWins?.sync([]); jobPops?.closeAll(); } catch { /* gone */ }
       for (const [kind, w] of windows) if (kind !== 'popout' && !w.isDestroyed() && w.isVisible()) w.hide();
     }
   }

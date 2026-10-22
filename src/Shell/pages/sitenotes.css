@@ -1,0 +1,32 @@
+/* Sheet 60 section 4 (his pick, 2026-10-22): "Notes for this site", a RIGHT RAIL opened from the ... menu. It slides in on
+   a spring and the page NARROWS beside it (it is a column of the recess, so the page area shrinks and the page view
+   follows), nothing is covered, nothing is always visible. Samara's own wood; the notes on their category paper. */
+.siterail{flex:0 0 auto;width:0;position:relative;overflow:hidden;display:none}
+.siterail.on{display:block}
+.sr-panel{position:absolute;top:26px;bottom:30px;right:22px;width:300px;box-sizing:border-box;display:flex;flex-direction:column;
+  padding:16px 16px 14px;border-radius:16px;border:3px solid #2c1c10;
+  background:linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.30)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  box-shadow:inset 0 0 0 3px rgba(122,85,50,.55),inset 0 3px 0 rgba(255,220,170,.12),0 6px 0 rgba(0,0,0,.35),0 16px 30px rgba(0,0,0,.45)}
+.sr-head{display:flex;align-items:flex-start;gap:10px}
+.sr-title{flex:1;font:800 19px/1.2 'Figtree',sans-serif;color:#fff3d8;text-shadow:1px 1px 0 rgba(0,0,0,.7);image-rendering:auto}
+.sr-x{flex:none;width:36px;height:36px;padding:0;display:grid;place-items:center;border-radius:10px;cursor:pointer;
+  background:linear-gradient(180deg,#5b3a8a,#3a2160);border:3px solid #1a0c2c;box-shadow:0 3px 0 #1a0c2c,inset 0 2px 0 rgba(255,255,255,.18)}
+.sr-x:hover{filter:brightness(1.15)}
+.sr-site{margin:6px 0 12px;font:800 12.5px 'Figtree',sans-serif;letter-spacing:1.4px;text-transform:uppercase;color:#e8d6b0;text-shadow:1px 1px 0 rgba(0,0,0,.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;image-rendering:auto}
+.sr-list{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:16px;padding:8px 6px 8px 2px;margin:0 -6px 0 -2px}
+.sr-card{flex:none;cursor:pointer;image-rendering:auto;transition:transform .14s}
+.sr-card:hover{transform:translateY(-2px)}
+.sr-card .np-in{padding:28px 14px 12px;gap:0}
+.sr-card .sr-t{font:400 20px/1.15 'Patrick Hand','Figtree',sans-serif;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr-card .np-chip{align-self:flex-start;font-size:12.5px;padding:4px 10px 5px;margin:0 0 8px;cursor:default}
+.sr-card .sr-l{font:500 14.5px/1.45 'Figtree',sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sr-card .sr-m{margin-top:7px;font:800 11.5px 'Figtree',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:color-mix(in srgb,var(--ink) 55%,var(--paper))}
+.sr-card.new{cursor:text}
+.sr-card.new .nbody{min-height:64px;font:500 15px/1.45 'Figtree',sans-serif}
+.sr-none{font:500 14.5px/1.45 'Figtree',sans-serif;color:#d8c8a8;text-shadow:1px 1px 0 rgba(0,0,0,.6);padding:4px 2px;image-rendering:auto}
+.sr-add{flex:none;align-self:flex-start;margin-top:14px;padding:10px 16px 11px;border-radius:12px;cursor:pointer;font:800 15px 'Figtree',sans-serif;color:#2a1c00;
+  background:linear-gradient(180deg,#ffd36a,#e0a020);border:3px solid #2c1c10;box-shadow:0 3px 0 #2c1c10,inset 0 2px 0 rgba(255,255,255,.4);image-rendering:auto}
+.sr-add:hover{filter:brightness(1.06)}
+.sr-foot{margin-top:12px;font:800 12px 'Figtree',sans-serif;letter-spacing:1.3px;color:#e8d6b0;text-shadow:1px 1px 0 rgba(0,0,0,.6);image-rendering:auto}
+.sr-foot b{color:#ffd36a;font-weight:800}

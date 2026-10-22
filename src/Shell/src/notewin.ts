@@ -9,7 +9,10 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import type { FamilyHooks } from './familywin.ts';
 
 export interface NoteOut { x: number; y: number; w: number; h: number; opacity: number; pinned: boolean }
-export interface NoteData { id: string; title: string; html: string; col: string; font: string; size: string; out?: NoteOut; updated: number }
+/** Sheet 60: `cat` is the category (its colour comes with it); `notice: false` = "Aang keeps this one to himself". */
+export interface NoteData { id: string; title: string; html: string; cat?: string; notice?: false; src?: { url: string; site: string }; font: string; size: string; out?: NoteOut; updated: number }
+/** The quick note's size (sheet 60 B-capture): small, the same note. */
+export const QUICK_W = 300, QUICK_H = 196;
 
 const PAD = 14;                    // room around the paper for its pin and shadow
 const MENU_W = 280, MENU_H = 520;  // the room the right-click menu needs while it is open
@@ -19,6 +22,63 @@ export class NoteWindows {
   private drag: { id: string; x: number; y: number; w: number; h: number } | null = null;
   private readonly o: { origin: string; preloadPath: string; save: (n: NoteData) => void; overAang: (p: { x: number; y: number }) => boolean };
   constructor(o: { origin: string; preloadPath: string; save: (n: NoteData) => void; overAang: (p: { x: number; y: number }) => boolean }) { this.o = o; }
+
+  /** His own categories (the brain's notes.state cats.own), so each note window colours them the same. */
+  cats: string[] = [];
+
+  // ---------------------------------------------------------------- the quick note (sheet 60 section 3)
+  private quickWin: BrowserWindow | null = null;
+  /**
+   * Ctrl + number pad *: the SAME note, opened small, empty and ready to type, in the middle of the screen he is on. It
+   * takes the keyboard (he pressed the key to type), and it is not a note until he keeps it (note:quickdone). Pressed
+   * again while it is open, it simply comes back to the front.
+   */
+  quick(): BrowserWindow | null {
+    if (this.quickWin && !this.quickWin.isDestroyed()) { this.quickWin.show(); this.quickWin.focus(); return this.quickWin; }
+    const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    const w = new BrowserWindow({
+      x: Math.round(area.x + (area.width - QUICK_W) / 2) - PAD, y: Math.round(area.y + area.height * 0.32) - PAD, width: QUICK_W + PAD * 2, height: QUICK_H + PAD * 2,
+      frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, movable: false,
+      minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, show: false,
+      webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
+    });
+    w.setAlwaysOnTop(true, 'screen-saver');
+    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    lockDown(w.webContents);
+    denyPermissions(w.webContents.session);
+    const now = Date.now();
+    const n: NoteData = { id: `n${now.toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`, title: '', html: '', font: 'figtree', size: 'm', updated: now };
+    w.webContents.once('did-finish-load', () => { if (!w.isDestroyed()) w.webContents.send('note:data', { ...n, cats: this.cats }); });
+    void w.loadURL(`${this.o.origin}/note.html?quick`);
+    w.once('ready-to-show', () => { if (w.isDestroyed()) return; w.show(); w.focus(); w.webContents.focus(); });
+    w.on('closed', () => { if (this.quickWin === w) this.quickWin = null; });
+    this.quickWin = w;
+    return w;
+  }
+  isQuick(sender: Electron.WebContents): boolean { return !!this.quickWin && !this.quickWin.isDestroyed() && this.quickWin.webContents === sender; }
+  /** The quick note is done: its words (if any) are a note now, on the board like any other; the window goes. */
+  quickDone(sender: Electron.WebContents, note: unknown): NoteData | null {
+    if (!this.isQuick(sender)) return null;
+    const w = this.quickWin!;
+    this.quickWin = null;
+    if (!w.isDestroyed()) w.destroy();
+    if (!note || typeof note !== 'object') return null;
+    const n = note as NoteData;
+    if (typeof n.id !== 'string' || !/^n[a-z0-9]{1,20}$/.test(n.id)) return null;
+    const out: NoteData = { id: n.id, title: String(n.title ?? '').slice(0, 60) || 'Note', html: String(n.html ?? ''), font: 'figtree', size: 'm', updated: Date.now(),
+      ...(typeof n.cat === 'string' && n.cat ? { cat: n.cat.slice(0, 24) } : {}), ...(n.notice === false ? { notice: false as const } : {}) };
+    this.o.save(out);
+    return out;
+  }
+  /** The quick note's category list needs room: the window grows downward while it is open, then goes back. */
+  private quickRoom(open: boolean, at: { x: number; y: number } | null): void {
+    const w = this.quickWin;
+    if (!w || w.isDestroyed()) return;
+    const b = w.getBounds();
+    const area = screen.getDisplayNearestPoint({ x: b.x, y: b.y }).workArea;
+    if (open) w.setBounds({ x: b.x, y: b.y, width: Math.max(QUICK_W + PAD * 2, (at?.x ?? 0) + MENU_W), height: Math.min(area.y + area.height - b.y, Math.max(QUICK_H + PAD * 2, (at?.y ?? 0) + 380)) });
+    else w.setBounds({ x: b.x, y: b.y, width: QUICK_W + PAD * 2, height: QUICK_H + PAD * 2 });
+  }
 
   /** The brain's notes are the truth: a window for each one that is out, none for the rest. */
   sync(notes: NoteData[]): void {
@@ -41,7 +101,7 @@ export class NoteWindows {
     }
     w.setOpacity(n.out.opacity);
     this.applyMouse(n.id);
-    const send = () => w.webContents.send('note:data', n);
+    const send = () => w.webContents.send('note:data', { ...n, cats: this.cats });
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
     return w;
   }
@@ -140,6 +200,7 @@ export class NoteWindows {
 
   /** While the right-click menu is open the window grows to fit it, then goes back. */
   menu(sender: Electron.WebContents, open: boolean, at: { x: number; y: number } | null = null): void {
+    if (this.isQuick(sender)) { this.quickRoom(open, at); return; }
     const v = this.of(sender);
     if (!v || !v.note.out) return;
     const entry = this.wins.get(v.id)!;
@@ -177,7 +238,7 @@ export class NoteWindows {
     const note = { ...v.note, out: { ...v.note.out, pinned: on } };
     v.note = note;
     this.applyMouse(id);
-    v.w.webContents.send('note:data', note);
+    v.w.webContents.send('note:data', { ...note, cats: this.cats });
     this.o.save(note);
   }
   back(id: string): void {
