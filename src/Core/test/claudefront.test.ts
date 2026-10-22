@@ -13,7 +13,7 @@ const line = (text: string, proactive = true): ToBody => ({ t: 'bubble', text, s
 
 test('outside Claude everything passes untouched', () => {
   const { g } = gate();
-  const m: ToBody = { t: 'claude.mark', mark: 'question', sound: 'question', what: 'Waymark' };
+  const m: ToBody = { t: 'claude.mark', mark: 'question', sound: 'needs-you', what: 'Waymark' };
   assert.equal(g.pass(m), m);
   const b = line('hi');
   assert.equal(g.pass(b), b);
@@ -26,7 +26,7 @@ test('in Claude: no proactive bubble, no whisper, no chime, no mark; replies sti
   go('Claude');
   assert.equal(g.pass(line('HisWattson posted a video')), null);
   assert.equal(g.pass({ t: 'whisper', text: 'Now playing: a' }), null);
-  assert.equal(g.pass({ t: 'claude.mark', mark: 'question', flash: 'step', sound: 'question', what: 'Waymark' }), null);
+  assert.equal(g.pass({ t: 'claude.mark', mark: 'question', flash: 'step', sound: 'needs-you', what: 'Waymark' }), null);
   const reply = line('Your demo is Friday.', false);
   assert.equal(g.pass(reply), reply, 'an answer to what he asked is never held');
   const s: ToBody = { t: 'claude.said', of: 'claude.answer', ok: true };
@@ -48,8 +48,8 @@ test('leaving Claude: the latest mark comes back quietly, then the held lines in
   g.pass({ t: 'whisper', text: 'Now playing: a' });
   g.pass({ t: 'whisper', text: 'Now playing: b' });
   g.pass(line('two'));
-  g.pass({ t: 'claude.mark', mark: 'question', sound: 'question', what: 'Waymark' });
-  g.pass({ t: 'claude.mark', mark: 'permission', flash: 'complete', sound: 'permission', what: 'Aang' });
+  g.pass({ t: 'claude.mark', mark: 'question', sound: 'needs-you', what: 'Waymark' });
+  g.pass({ t: 'claude.mark', mark: 'permission', flash: 'complete', sound: 'needs-you', what: 'Aang' });
   assert.deepEqual(go('Claude'), { mark: null, lines: [] }, 'staying in Claude releases nothing');
   const out = go('Code');
   assert.deepEqual(out.mark, { t: 'claude.mark', mark: 'permission', what: 'Aang' }, 'the steady mark, with no chime and no flare');
@@ -64,7 +64,7 @@ test('a mark sent after he left supersedes the one held', () => {
   g.pass({ t: 'claude.mark', mark: 'question' });
   go('explorer');
   // released by moved(); now a fresh one passes as is
-  const m: ToBody = { t: 'claude.mark', mark: 'working', sound: 'step' };
+  const m: ToBody = { t: 'claude.mark', mark: 'working', sound: 'done' };
   assert.equal(g.pass(m), m);
 });
 

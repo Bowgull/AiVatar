@@ -109,7 +109,7 @@ async function turn(port: number, session: string, foreground: string, quiet: bo
   return { lines: inbox.filter(m => m.t === 'bubble' && /replied/.test(m.text)), marks: inbox.filter(m => m.t === 'claude.mark' && m.flash) };
 }
 
-test('a short turn is announced when Claude is not in front: the line, the teal flash and the soft chime', async () => {
+test('a short turn is announced when Claude is not in front: the line, the teal flash and the done chime', async () => {
   const { lines, marks } = await turn(48250, '22222222-0000-0000-0000-000000000001', 'explorer', false);
   assert.equal(lines.length, 1, 'a two-second turn is still said');
   assert.equal(lines[0].text, 'Waymark replied.');
@@ -118,7 +118,7 @@ test('a short turn is announced when Claude is not in front: the line, the teal 
   assert.equal(lines[0].session, '22222222-0000-0000-0000-000000000001');
   assert.equal(marks.length, 1);
   assert.equal(marks[0].flash, 'complete');
-  assert.equal(marks[0].sound, 'step');
+  assert.equal(marks[0].sound, 'done');
 });
 
 test('silent while the Claude app is in front (he saw it there), and not replayed when he leaves', async () => {
