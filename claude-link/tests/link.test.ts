@@ -2,6 +2,7 @@
 // behaves exactly as without the mod). The brain is played by the test's own http.fetch hook.
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { sha256Hex } from '../hooks/link.ts'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_FULL, mockupArgs, OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, agentListOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
 
@@ -37,7 +38,7 @@ describe('plain parts', () => {
 })
 
 /** A pretend brain: proves the key, takes events, and answers one waiting item with `answer` (or a forged MAC). */
-function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number }) {
+function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown }) {
   const seen: string[] = []
   const events: Record<string, unknown>[] = []
   const posts: Record<string, unknown>[] = []
@@ -49,6 +50,11 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
   on('classic.PermissionRequest', () => ({}))
   on('session.id', () => ({ value: SESSION }))
   on('session.model', () => ({ value: 'sonnet' }))
+  // C6: how old the session is (a start is only for a brand-new one), and the Claude app's own session tools.
+  const mcpCalls: { server: string; tool: string; args: unknown }[] = []
+  if (opts.startedAt !== undefined) on('session.usage', () => ({ value: { startedAt: opts.startedAt!, rateLimits: [] } as never }))
+  if (opts.mcp) on('mcp.call', ($, e) => { const x = e as unknown as { server: string; tool: string; args: unknown }; mcpCalls.push(x); return { value: opts.mcp!(x.server, x.tool, x.args) as never } })
+  const starts: string[] = []
   on('fs.read', ($, e) => (String(e.path).endsWith('link.key') ? { value: opts.key ?? KEY } : { deny: 'no such file' }))
   // The session's tools (2026-10-21): TodoWrite unless a test says otherwise; what the mod registers is kept.
   const registered: Record<string, unknown>[] = []
@@ -98,6 +104,18 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
       mockups.push({ body: JSON.parse(body), signed: h['x-aang-link-sig'] === await hmacHex(opts.key ?? KEY, 'req', h['x-aang-link-ts'] ?? '', 'POST', '/link/mockup', body) })
       return reply({ ok: true, message: 'Showing docs/motion.html in the Mockups trail.' })
     }
+    // C6 Door 1: the start waiting on this folder, signed over the nonce and the folder; handed out once.
+    if (u.pathname === '/link/start') {
+      starts.push(u.searchParams.get('f') ?? '')
+      if (!opts.start) return reply({ items: [] })
+      const body = opts.start; opts.start = undefined
+      const mac = opts.forgeStart ? '0'.repeat(64) : await hmacHex(KEY, n, u.searchParams.get('f') ?? '', 'st1', 'start', body)
+      return reply({ items: [{ id: 'st1', kind: 'start', body, mac }] })
+    }
+    if (u.pathname === '/link/wait' && opts.startInbox) {
+      const body = opts.startInbox; opts.startInbox = undefined
+      return reply({ items: [{ id: 'st2', kind: 'start', body, mac: await hmacHex(KEY, n, SESSION, 'st2', 'start', body) }] })
+    }
     if (u.pathname === '/link/wait' && opts.resync) {
       opts.resync = false
       return reply({ items: [{ id: 'r1', kind: 'resync', body: '{}', mac: await hmacHex(KEY, n, SESSION, 'r1', 'resync', '{}') }] })
@@ -113,7 +131,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     }
     return reply({ items: [] })
   }
-  return { seen, clock, events, posts, quiet, until, count, registered, mockups }
+  return { seen, clock, events, posts, quiet, until, count, registered, mockups, starts, mcpCalls }
 }
 
 const start = { cwd: 'C:\\code\\Waymark', surface: null, isInteractive: true } as const
@@ -651,4 +669,68 @@ test('show_mockup with Aang down says so and sends nothing', async ($, on) => {
   expect(r).toMatchObject({ isError: true })
   expect(String((r as { result: unknown }).result)).toMatch(/not running/)
   expect(mockups).toHaveLength(0)
+})
+
+// ------------------------------------------------------------------ C6 (2026-10-22): starting jobs from Aang
+
+const JOB = 'Goal: fix the rune.\n\nJoshua\'s words: "fix the rune"'
+const startJson = async (text = JOB, extra: Record<string, unknown> = {}) => JSON.stringify({ text, hash: await sha256Hex(text), model: 'opus', effort: 'high', ...extra })
+
+/** What reached the engine: commands run, prompts submitted (with whether they read as his own words). */
+function engine(on: On) {
+  const commands: string[] = []
+  const submitted: { text: string; asUser: boolean }[] = []
+  on('command.run', ($, e) => { const x = e as unknown as { command: string; args?: string }; commands.push(`/${x.command} ${x.args ?? ''}`.trim()); return {} })
+  on('prompt.submit', ($, e) => { const x = e as unknown as { text: string; origin?: { asUser?: boolean } }; submitted.push({ text: x.text, asUser: x.origin?.asUser === true }); return { text: x.text } })
+  return { commands, submitted }
+}
+
+test('C6 Door 1: a brand-new session takes the signed start for its folder once, sets the model and effort, and sends the exact text as his words', async ($, on) => {
+  const { commands, submitted } = engine(on)
+  const { clock, quiet, starts, events } = brain(on, { start: await startJson(), startedAt: 0 })
+  await $.session.start(start)
+  await quiet()
+  for (let i = 0; i < 3000 && !submitted.length; i++) await clock.settle()
+  expect(starts).toEqual(['c:\\code\\waymark'])
+  expect(commands).toEqual(['/model opus', '/effort high'])
+  expect(submitted).toEqual([{ text: JOB, asUser: true }])
+  await quiet()
+  expect(events.some(ev => ev.type === 'started' && ev.id === 'st1')).toBe(true)
+})
+
+test('C6 Door 1: a forged MAC, a text that is not what his card hashed, or an old session: nothing is sent', async ($, on) => {
+  const { commands, submitted } = engine(on)
+  const { quiet } = brain(on, { start: await startJson(), forgeStart: true, startedAt: 0 })
+  await $.session.start(start)
+  await quiet()
+  expect(submitted).toHaveLength(0)
+  expect(commands).toHaveLength(0)
+})
+
+test('C6 Door 1: the text must hash to what his card showed, byte for byte', async ($, on) => {
+  const { submitted } = engine(on)
+  const body = JSON.stringify({ text: JOB + ' ', hash: await sha256Hex(JOB) })
+  const { quiet } = brain(on, { start: body, startedAt: 0 })
+  await $.session.start(start)
+  await quiet()
+  expect(submitted).toHaveLength(0)
+})
+
+test('C6 Door 1: a session that started long ago (a mod reload) never asks for a start', async ($, on) => {
+  const { submitted } = engine(on)
+  const { quiet, starts } = brain(on, { start: await startJson(), startedAt: -10 * 60_000 })
+  await $.session.start(start)
+  await quiet()
+  expect(starts).toHaveLength(0)
+  expect(submitted).toHaveLength(0)
+})
+
+test('C6 resume: a signed start in the poll goes in as his own words, no model or effort touched', async ($, on) => {
+  const { commands, submitted } = engine(on)
+  const { clock, quiet } = brain(on, { startInbox: JSON.stringify({ text: JOB, hash: await sha256Hex(JOB) }) })
+  await $.session.start(start)
+  await quiet()
+  for (let i = 0; i < 300 && !submitted.length; i++) await clock.settle()
+  expect(submitted).toEqual([{ text: JOB, asUser: true }])
+  expect(commands).toHaveLength(0)
 })

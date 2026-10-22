@@ -1,0 +1,16 @@
+New feature in AangApp: make the brief show addons
+Opus 5.5 · high
+---
+Goal: Add his WoW addons to the morning brief (likely: which addons have updates).
+
+Where to look: C:\Users\J\Documents\AangApp; start with docs/briefcard-sheet-23.md.
+
+Rules: Before building, interview me with the question tool in rounds until there are no questions left. Plain English, the technical name in brackets. Up to 4 questions a round. Never ask what the code or docs already answer. Before designing anything, read what already exists (grep the code and docs) and say 'kept exactly' where something is already built or decided. Mockups are real rendered pages, opened in Samara with the show_mockup tool, never Firefox. Pixel art crisp, dark grain, wood not flat brown, no generic rounded cards. Test only what you built, once: run that feature's own test file, not the whole suite. Check it in the real app (a picture of the real window), not only the tests. Keep your to-do list ticked as you go (my progress bars are built from it). Commit with a clear message and push when done (pull --rebase if rejected; never stash). Never enter passwords, card numbers or keys. Never touch Cemu or the Desktop 'Dont touch' folder.
+
+Use the run skill (to see it in the real app).
+
+Done means: the real thing works, with a picture.
+
+Report: Replies to me: short, plain, no walls of text, no em dashes. Long detail goes in a file; tell me where. Say what changed, how you checked it, and anything I must decide.
+
+Joshua's words: "make the brief show addons"

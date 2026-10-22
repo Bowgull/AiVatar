@@ -77,7 +77,10 @@ import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
 import { clearReadCache, looksVisual, readWindow } from './screen.ts';
-import { CLAUDE_WINDOW, asksSomething, frameJob, isFrom, lastAssistantText, newsFor, nextState, openInClaude } from './claude.ts';
+import { CLAUDE_WINDOW, asksSomething, frameJob, isFrom, lastAssistantText, newsFor, nextState, openClaudeLink, openInClaude } from './claude.ts';
+import { StartBook } from './jobstart.ts';
+import { JobStarter } from './jobstarter.ts';
+import { nodeDisk } from './jobprompt.ts';
 import { ReplyNotifier } from './claudereplies.ts';
 import type { ReplyLine } from './claudereplies.ts';
 import { MAX_RUNNING, TaskStore, WORKER_PROMPT, WORKER_TIMEOUT_MS, WORKER_TURNS, describeTasks } from './worker.ts';
@@ -2659,6 +2662,10 @@ export class Core {
       // show_mockup (2026-10-22): a session's mockup goes to Samara's Mockups trail; the brain writes the drop file, since a
       // sandboxed session's own %APPDATA% writes never reach the Shell (mockupdrop.ts says what is checked).
       door.onMockup = (ask) => dropMockup(this.cfg.stateDir, ask);
+      // C6 (2026-10-22): jobs he said Go to (jobstart.ts), what the mods say about them, and the probe (npm run c6-probe).
+      door.starts = this.startBook;
+      door.onStart = (session, ev) => this.starter.onEvent(session, ev);
+      door.onProbe = (ask) => this.starter.probe(ask, this.cfg.dataDir);
       this.hookServer.link = door;
     }
     // Progress engine v3 (2026-10-21): the duration history and the phase plans live in his Aang folder (they survive
@@ -3441,7 +3448,7 @@ export class Core {
       // The desktop tray's "Job hunt now": Mac first, his own worker here if it cannot be reached.
       // Same fallback fix as the JOB_HUNT_RE chat trigger below (2026-09-23): do_task cannot actually run this
       // (no Claude in Chrome), start_claude can.
-      case 'job.hunt': void this.runOnMac(SWEEP_REQUEST).then(async onMac => { if (!onMac) await this.startClaude(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt'); this.send(ws, { t: 'job.hunt.reply', onMac }); }); break;
+      case 'job.hunt': void this.runOnMac(SWEEP_REQUEST).then(async onMac => { if (!onMac) await this.startClaudeTyped(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt'); this.send(ws, { t: 'job.hunt.reply', onMac }); }); break;
       case 'status': this.send(ws, { t: 'status.reply', text: this.status() }); break;
       case 'actions': this.send(ws, { t: 'actions.reply', text: this.actions.text(10) }); break;
       case 'trust': this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) }); break;
@@ -3628,7 +3635,7 @@ export class Core {
       case 'claude.reply': {
         const cwd = typeof m.cwd === 'string' ? m.cwd : '', text = typeof m.text === 'string' ? m.text.trim() : '';
         const job = this.launched.find(l => l.state !== 'ended' && l.cwd.toLowerCase() === cwd.toLowerCase());
-        if (job && text) void this.startClaude(text, job.cwd, undefined, job.kind ?? 'task').then(res => this.sendTo('discord', { t: 'bubble', text: res, stream: false, proactive: true }));
+        if (job && text) void this.startClaudeTyped(text, job.cwd, undefined, job.kind ?? 'task').then(res => this.sendTo('discord', { t: 'bubble', text: res, stream: false, proactive: true }));
         break;
       }
       case 'forget.fact': {
@@ -3727,7 +3734,7 @@ export class Core {
             // actually sweep boards logged in as him, and it knew it and gave up. start_claude is the one
             // path that has real browser access; it just needs him to press Enter, so say that up front
             // instead of leaving him to notice a window on his own.
-            if (!onMac) await this.startClaude(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt');
+            if (!onMac) await this.startClaudeTyped(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt');
             this.send(ws, {
               t: 'bubble',
               text: onMac ? 'Starting the job hunt on your MacBook.' : 'Your MacBook is not reachable - opened it in Claude here. Press Enter there to start it.',
@@ -3791,6 +3798,11 @@ export class Core {
       }
       case 'highlight': void this.highlight().catch(e => console.error('highlight failed: ' + (e as Error).message)); break;
       case 'plan.reply': this.answerPlan(String(m.id ?? ''), m.go === true); break;
+      case 'claude.start.reply': {
+        const w = this.cardWait.get(String(m.id ?? ''));
+        if (w) { clearTimeout(w.timer); this.cardWait.delete(String(m.id ?? '')); w.resolve({ choice: m.choice === 'go' || m.choice === 'change' ? m.choice : 'no', hash: String(m.hash ?? '') }); }
+        break;
+      }
       case 'choice.reply': this.answerChoice(String(m.id ?? ''), Number(m.pick)); break;
       case 'choice.forget': if (this.choices.forget(String(m.key ?? ''))) this.sendTo('desktop', { t: 'whisper', text: 'Okay, I\u2019ll ask next time.' }); break;
       case 'permission.reply': this.answerPermission(m.id, m.choice === 'always' || m.choice === 'once' ? m.choice : 'no'); break;
@@ -4488,8 +4500,78 @@ export class Core {
     try { writeFileAtomic(path.join(this.cfg.stateDir, 'launched.json'), JSON.stringify(list, null, 2)); } catch { /* best effort */ }
   }
 
-  /** Open a new session in the Claude app's Code tab with the request typed in, and follow it. */
+  /** C6: the jobs he said Go to, and the flow that makes the card and sends it (jobstarter.ts). */
+  private readonly startBook = new StartBook();
+  private starterInst: JobStarter | null = null;
+  private get starter(): JobStarter {
+    return this.starterInst ??= new JobStarter({
+      stateDir: this.cfg.stateDir, disk: nodeDisk, book: this.startBook, tracker: this.claudeJobs, names: this.claudeNames,
+      openLink: url => openClaudeLink(url),
+      askLocal: async (input, system) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(input, { system, timeoutMs: 20_000, maxTokens: 300 }); return { ok: r.ok, text: r.text, ...(r.why ? { why: r.why } : {}) }; },
+      askHaiku: (input, system) => this.oneShotHaiku(input, system),
+      pickOne: async (q, opts) => { const r = await this.pickOne(q, opts.map(label => ({ label }))); return typeof r === 'number' ? r : -1; },
+      say: text => this.announce(text, { asked: true }),
+    });
+  }
+  /** Cards waiting for his Go, by card id. */
+  private readonly cardWait = new Map<string, { resolve: (a: { choice: 'go' | 'change' | 'no'; hash: string }) => void; timer: NodeJS.Timeout }>();
+
+  /** Haiku, one turn, no tools, no memory (the C6 tidy stand-in). Null when it could not answer. */
+  private async oneShotHaiku(prompt: string, system: string): Promise<string | null> {
+    const stop = new AbortController();
+    const t = setTimeout(() => stop.abort(), 30_000);
+    try {
+      let out: string | null = null;
+      const q = query({
+        prompt,
+        options: {
+          model: MODELS.quick.model, systemPrompt: { type: 'custom', prompt: system, snapshot: false } as never,
+          settingSources: [], tools: [], allowedTools: [], maxTurns: 1, persistSession: false, abortController: stop,
+          canUseTool: async () => ({ behavior: 'deny' as const, message: 'No tools here.' }),
+          cwd: this.selfCwd(), thinking: { type: 'disabled' } as never,
+          env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
+        },
+      });
+      for await (const m of q as AsyncIterable<any>) if (m.type === 'result' && m.subtype === 'success') out = String(m.result ?? '');
+      return out;
+    } catch (e) { console.log('c6: Haiku could not tidy the request: ' + (e as Error).message); return null; }
+    finally { clearTimeout(t); }
+  }
+
+  /**
+   * C6 (2026-10-22): a Claude job from what he just said. The card in his bubble shows one plain line, the folder, the
+   * model and effort, and the whole request folded; on Go it is sent through the door the probe proved (jobstarter.ts).
+   * Only from HIS words: the card quotes the message he sent this turn, never a page, a mail or a Claude reply; what
+   * the chat model passed as `task` only seeds the goal, and only in a turn that read nothing from outside.
+   * Away from the desk (no bubble for the card): the old way, typed in for him to press Enter.
+   */
   private async startClaude(task: string, where?: string, name?: string, kind?: JobKind): Promise<string> {
+    const said = this.active?.sub?.text ?? '';
+    const atDesk = this.clientsOf('desktop').length > 0 && this.whereHeIs() === 'desktop';
+    if (!atDesk || !said.trim()) return this.startClaudeTyped(task, where, name, kind);
+    const prep = await this.starter.prepare(said, { ...(kind ? { legacy: kind } : {}), ...(where ? { where } : {}), seed: task, clean: !this.tainted });
+    if ('error' in prep) return prep.error;
+    const id = prep.card.id;
+    const a = await new Promise<{ choice: 'go' | 'change' | 'no'; hash: string }>(resolve => {
+      const timer = setTimeout(() => { this.cardWait.delete(id); this.sendTo('desktop', { t: 'ask.expired', id }); resolve({ choice: 'no', hash: '' }); }, PERMISSION_TIMEOUT_MS);
+      timer.unref?.();
+      this.cardWait.set(id, { resolve, timer });
+      this.sendTo('desktop', this.starter.message(prep) as ToBody);
+    });
+    const r = this.starter.answer(id, a.hash, a.choice);
+    if (r.launched) {
+      const label = (name ?? '').trim() || prep.line.split(':')[0]!.toLowerCase();
+      const l: Launched = { name: label, cwd: r.launched.folder, sessionId: null, startedAt: Date.now(), kind: kind ?? 'task', state: 'waiting', updatedAt: Date.now() };
+      for (const o of this.launched) if (o.state !== 'ended' && !o.sessionId && o.cwd.toLowerCase() === l.cwd.toLowerCase()) { o.state = 'ended'; o.last = 'Replaced by a newer job before it started.'; }
+      this.launched.push(l);
+      this.saveLaunched();
+      this.pushClaudeWorking();
+    }
+    return r.text;
+  }
+
+  /** The old way (kept for the desk-less paths and the job-hunt menu): a new session with the request typed in, and follow it. */
+  private async startClaudeTyped(task: string, where?: string, name?: string, kind?: JobKind): Promise<string> {
     const k: JobKind = kind ?? (/job/i.test(`${where ?? ''} ${name ?? ''} ${task}`) ? 'job hunt' : 'task');
     const framed = frameJob(k, task, where);
     const cwd = framed.cwd;
