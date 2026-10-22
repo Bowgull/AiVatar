@@ -1,76 +1,118 @@
-/* Sheet 67 (2026-10-22): the timer. The plate is today's (sheet 17, wood band), softened (soft-edges): a 2 px dark-wood
-   edge, round corners, a soft shadow. The digits move to Figtree bold, tabular (his call on bars, 2026-10-22: the
-   squashed pixel font is hard to read). */
+/* Sheet 67 v2 (2026-10-22): the timer, after his notes ("looks like shit", "names should be more apparent", "this deserves
+   a design language pass"). His world: dark pixel wood (Samara's band.png / tray.png), parchment, gold, soft edges
+   (2px dark-wood edges, round corners, soft shadows), game-menu chrome (the FFX glove menu he already has). Calm.
+   Real product pieces used as they are: cockpit.css (colours, .kc keycap), browser.css + aangmenu.css (.tabmenu menu). */
 .desk{position:relative;background:#2a2622;border-radius:14px;box-shadow:inset 0 0 0 2px #3a332c;padding:26px;display:flex;flex-wrap:wrap;gap:30px 40px;align-items:flex-start;max-width:1180px;box-sizing:border-box}
 .desk .cap{font:800 12.5px Figtree,sans-serif;letter-spacing:1.2px;color:#cbbda6;margin:0 0 10px}
 .desk .cap i{font-style:normal;color:#FFC43C;margin-right:6px}
 .slot{display:flex;flex-direction:column}
 .ctrl{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
-.ctrl button,.sbtn{font:700 13px Figtree,sans-serif;color:#f4ead6;background:#3a2c20;border:2px solid #5a4430;border-radius:9px;padding:7px 12px;cursor:pointer}
-.ctrl button:hover,.sbtn:hover{background:#4a3828}
+.ctrl button{font:700 13px Figtree,sans-serif;color:#f4ead6;background:#3a2c20;border:2px solid #5a4430;border-radius:9px;padding:7px 12px;cursor:pointer}
+.ctrl button:hover{background:#4a3828}
 .ctrl button.on{background:#FFC43C;color:#2a1c00;border-color:#8a5a1e}
+.small{font:600 13px Figtree,sans-serif;color:#a99b86;margin:8px 0 0}
 
-/* ---- the timer ---- */
-.tw{position:relative;display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 7px;border:2px solid #3a2414;border-radius:12px;
-  background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.34)),url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;
-  image-rendering:pixelated;box-shadow:0 3px 0 #1d120a,0 8px 16px rgba(0,0,0,.4);cursor:grab;user-select:none}
-.gbox{display:grid;place-items:center;cursor:pointer}
-.gbox canvas{display:block;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.45))}
-.twr{display:flex;flex-direction:column;line-height:1.1;min-width:58px}
-.twl{font:600 11px Cinzel,Georgia,serif;color:#F1E4CC;text-shadow:1px 1px 0 #000;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tmv{font:800 17px Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#FFC43C;letter-spacing:.3px;text-shadow:1px 1px 0 #000}
+/* ---------------------------------------------------------------- the timer plate */
+.tw{position:relative;display:inline-flex;align-items:center;gap:12px;padding:8px 16px 8px 10px;border-radius:14px;
+  border:2px solid #2a1808;
+  background:linear-gradient(180deg,rgba(255,224,150,.05),rgba(0,0,0,.30)),url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;
+  image-rendering:pixelated;box-shadow:inset 0 2px 0 rgba(255,224,150,.10),0 3px 0 #1a1009,0 10px 18px rgba(0,0,0,.42);cursor:grab;user-select:none;
+  transition:transform .15s}
+/* the glass sits in a square, so lying on its side never moves the words; the turning picture may reach past it */
+.gbox{position:relative;flex:none;cursor:pointer}
+.gbox::before{content:"";position:absolute;inset:-5px;border-radius:10px;background:rgba(12,7,3,.62);
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.55),inset 0 0 0 2px rgba(0,0,0,.35),0 1px 0 rgba(255,224,150,.16)}
+.strip .gbox::before{inset:-3px;border-radius:7px}
+.gbox canvas.gl{position:absolute;image-rendering:pixelated;pointer-events:none}
+.gbox canvas.ring{position:absolute;image-rendering:pixelated;pointer-events:none;opacity:0;transition:opacity .12s}
+.gbox.holding canvas.ring{opacity:1}
+.twr{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:96px}
+/* the name: a small carved nameplate with two brass pins (sheet 27: "carved" very dark wood for small name tags) */
+.np{position:relative;display:inline-block;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;
+  font:700 14px/1 Figtree,sans-serif;letter-spacing:.2px;color:#F1E4CC;text-shadow:0 1px 0 #000;padding:5px 12px 6px;border-radius:7px;
+  background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.55),0 1px 0 rgba(255,224,150,.16)}
+.np::before,.np::after{content:"";position:absolute;top:50%;width:3px;height:3px;margin-top:-1.5px;background:#C98C14;box-shadow:inset 1px 1px 0 #FFE096}
+.np::before{left:4px}.np::after{right:4px}
+.np input{all:unset;width:110px;font:inherit;color:#fffaf0;caret-color:#FFC43C}
+.tw.renaming .np{box-shadow:inset 0 2px 0 rgba(0,0,0,.55),0 0 0 2px #FFC43C,0 0 10px rgba(255,196,60,.45)}
+.tmv{font:800 26px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#FFC43C;letter-spacing:.3px;text-shadow:0 2px 0 #1a1009;padding-left:2px}
+.pz{display:none;font:700 11px Figtree,sans-serif;letter-spacing:1.4px;color:#cbbda6;padding-left:3px}
 .tw.paused .tmv{color:#cbbda6}
-.tw .pz{display:none;font:800 9.5px Figtree,sans-serif;letter-spacing:1.4px;color:#cbbda6}
-.tw.paused.stay .pz{display:block}
+.tw.paused .pz{display:block}
 .tw.done .tmv{color:#FFE9A8}
-.tw.done .twl{color:#FFE9A8}
+.tw.done .np{color:#FFE9A8}
 
-/* keys under the plate: on hover (today's rhythm: in at once, out after half a second); always shown when time is up */
-.tw::after{content:"";position:absolute;left:-6px;right:-6px;top:100%;height:12px}
-.trow{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);display:flex;gap:5px;padding:5px;border:2px solid #3a2414;border-radius:10px;
-  background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;box-shadow:0 3px 0 #1d120a;
-  opacity:0;visibility:hidden;transition:opacity .15s ease .5s,visibility 0s linear .65s;z-index:3;white-space:nowrap}
-.tw:hover .trow,.trow:hover,.tw.done .trow,.tw.show .trow{opacity:1;visibility:visible;transition:opacity .12s ease 0s,visibility 0s}
-.tb{position:relative;font:800 12.5px Figtree,sans-serif;padding:5px 9px 4px;border:2px solid #2a1808;border-radius:8px;min-width:30px;
-  background:linear-gradient(180deg,#5b3a86,#3a2160);color:#f3eaff;cursor:pointer;overflow:hidden}
-.tb:hover{filter:brightness(1.15)}
-.tb.stop{background:linear-gradient(180deg,#a8543c,#6e2a1a)}
-.tb.go{background:linear-gradient(180deg,#3d9c8f,#226a61)}
-/* hold to stop: the ring fills while held */
-.tb .fill{position:absolute;inset:0;background:rgba(255,233,168,.45);transform-origin:left;transform:scaleX(0)}
+/* ---- keys: slide in from under the plate on hover (in at once, out after half a second, today's rhythm) ---- */
+.tw::after{content:"";position:absolute;left:-6px;right:-6px;top:100%;height:14px}
+.trow{position:absolute;left:50%;top:100%;display:flex;gap:8px;padding:7px 9px 9px;border-radius:0 0 11px 11px;border:2px solid #2a1808;border-top:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.12) 40%),url(../../../src/Shell/pages/art/browser/band.png) 0 -20px/128px 58px;image-rendering:pixelated;
+  box-shadow:0 3px 0 #1a1009,0 8px 14px rgba(0,0,0,.35);z-index:3;white-space:nowrap;
+  opacity:0;visibility:hidden;transform:translate(-50%,-8px);transition:opacity .14s ease .5s,transform .16s ease .5s,visibility 0s linear .66s}
+.tw:hover .trow,.trow:hover,.tw.done .trow,.tw.show .trow{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .12s ease 0s,transform .16s cubic-bezier(.3,1.4,.5,1) 0s,visibility 0s}
+/* the one keycap (cockpit.css .kc), a size up so it is a comfortable target */
+.tb{position:relative;overflow:hidden;cursor:pointer;border:0;min-width:24px;font:700 13.5px/16px Figtree,sans-serif;letter-spacing:.2px;color:#fff;
+  text-shadow:0 1px 0 rgba(0,0,0,.7);padding:4px 9px 5px;border-radius:6px;background:var(--plum);
+  box-shadow:0 0 0 2px #2a1a10,0 3px 0 2px #2a1a10,inset 0 2px 0 rgba(150,110,200,.5)}
+.tb:hover{background:#5a3884}
+.tb:active{transform:translateY(2px);box-shadow:0 0 0 2px #2a1a10,0 1px 0 2px #2a1a10,inset 0 2px 0 rgba(150,110,200,.5)}
+.tb.go{background:#2f7f76;box-shadow:0 0 0 2px #2a1a10,0 3px 0 2px #2a1a10,inset 0 2px 0 rgba(160,240,225,.45)}
+.tb.stop{background:#7a2a1c;box-shadow:0 0 0 2px #2a1a10,0 3px 0 2px #2a1a10,inset 0 2px 0 rgba(255,150,130,.45)}
+/* hold: a gold sweep fills the key (the hotkeys menu's hold, aangmenu.css) */
+.tb .fill{position:absolute;inset:0;background:rgba(255,196,60,.45);transform-origin:left;transform:scaleX(0)}
 .tb.holding .fill{transform:scaleX(1);transition:transform .6s linear}
-/* scroll feedback */
-.chip{position:absolute;right:6px;top:-10px;font:800 12px Figtree,sans-serif;color:#2a1c00;background:#FFE9A8;border:2px solid #8a5a1e;border-radius:7px;padding:1px 6px;
-  opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .15s,transform .15s}
-.chip.on{opacity:1;transform:none}
-/* time's up: one soft hop (two small bounces), no loop */
+/* scroll: a small chip */
+.chip2{position:absolute;right:8px;top:-12px;font:800 12.5px Figtree,sans-serif;color:#2a1c00;background:#FFE096;border-radius:6px;padding:2px 7px;
+  box-shadow:0 0 0 2px #6b4316;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .15s,transform .15s}
+.chip2.on{opacity:1;transform:none}
+/* time's up: one soft hop */
 @keyframes hop{0%{transform:translateY(0)}22%{transform:translateY(-7px)}44%{transform:translateY(0)}62%{transform:translateY(-3px)}80%,100%{transform:translateY(0)}}
 .tw.hop{animation:hop .55s cubic-bezier(.3,.7,.4,1) 1}
-@keyframes flipHop{0%{transform:translateY(0)}40%{transform:translateY(-5px)}100%{transform:translateY(0)}}
-.gbox.flip{animation:flipHop .36s ease-out 1}
 
-/* shapes (the window family): column beside a taller window, strip under a wider one */
-.tw.column{flex-direction:column;justify-content:center;gap:6px;padding:8px;width:140px;box-sizing:border-box;
-  background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.3)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
-.tw.column .twr{gap:2px}
-.tw.column .twr{align-items:center;text-align:center}
-.tw.column .twl{white-space:normal;text-align:center;font-size:12px}
-.tw.column .tmv{font-size:22px}
-.tw.strip{justify-content:center;gap:10px;padding:3px 12px;box-sizing:border-box}
-.tw.strip .twr{flex-direction:row;align-items:baseline;gap:10px}
-.tw.strip .tmv{font-size:16px}
-.tw.strip .twl{font-size:12px}
-.tw.flush-l{border-top-left-radius:0;border-bottom-left-radius:0;border-left:0}
-.tw.flush-t{border-top-left-radius:0;border-top-right-radius:0;border-top:0}
+/* ---- shapes in a window family: a column beside a taller window, a strip under a wider one ---- */
 .fam{display:flex;align-items:stretch}
 .fam.fam-col{flex-direction:column;align-items:flex-start}
 .fam img{display:block;width:424px;height:236px;image-rendering:pixelated;border-radius:12px}
 .fam.fam-row img{border-top-right-radius:0;border-bottom-right-radius:0}
 .fam.fam-col img{border-bottom-left-radius:0;border-bottom-right-radius:0}
-.stack{display:flex;flex-direction:column;height:236px}
-.stack .tw.column{flex:1;border-radius:0}
-.stack .tw.column:first-child{border-top-right-radius:12px}
-.stack .tw.column:last-child{border-bottom-right-radius:12px;border-top:0}
+.stack{display:flex;flex-direction:column;height:236px;width:250px}
+.stack .tw{flex:1;border-radius:0;border-left:0;box-shadow:inset 0 2px 0 rgba(255,224,150,.10);padding:4px 12px 4px 8px}
+.stack .tw + .tw{border-top:0}
+.stack .tw:first-child{border-top-right-radius:14px}
+.stack .tw:last-child{border-bottom-right-radius:14px;box-shadow:inset 0 2px 0 rgba(255,224,150,.10),0 3px 0 #1a1009}
+.stack .tw .tmv{font-size:22px}
+.srow{display:flex;width:424px}
+.srow .tw{flex:1;border-radius:0;border-top:0;padding:4px 8px;gap:8px;justify-content:center}
+.srow .tw + .tw{border-left:0}
+.srow .tw:first-child{border-bottom-left-radius:14px}
+.srow .tw:last-child{border-bottom-right-radius:14px}
+.srow .tw .twr{flex-direction:column;gap:3px;min-width:0}
+.srow .tw .np{font-size:12.5px;padding:4px 10px 5px;max-width:92px}
+.srow .tw .tmv{font-size:18px}
+.free{position:relative;width:640px;height:260px}
+.free .tw{position:absolute}
+
+/* ---- the gestures: frozen states ---- */
+.states{display:flex;flex-wrap:wrap;gap:34px 36px;align-items:flex-start}
+.states .slot{min-height:170px}
+
+/* ---- the right-click menu: the real one (browser.css .tabmenu + aangmenu.css), placed on the sheet instead of fixed ---- */
+.menus{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start}
+.menus .tabmenu{position:relative;z-index:1}
+.menus .pair{display:flex;align-items:flex-start;gap:4px}
+.menus .pair .submenu{margin-top:8px}
+.tabmenu .tf{display:flex;align-items:center;gap:10px;padding:6px 12px 10px}
+.tabmenu .tf .field{font:800 18px Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#fffaf0;background:rgba(0,0,0,.45);border-radius:6px;padding:6px 10px;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.5),0 0 0 2px #FFC43C;min-width:64px}
+.tabmenu .tf .field b{display:inline-block;width:2px;height:18px;background:#FFC43C;vertical-align:-3px;margin-left:2px}
+.tabmenu .slide{display:flex;align-items:center;gap:14px;padding:10px 12px;min-height:44px;box-sizing:border-box;font:600 16px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.tabmenu .slide .lab{flex:none}
+.tabmenu .slide .tr{position:relative;flex:1;min-width:70px;height:8px;border-radius:4px;background:rgba(0,0,0,.5);box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
+.tabmenu .slide .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:#C98C14;box-shadow:inset 0 2px 0 #FFE096}
+.tabmenu .slide .tr u{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:4px;background:#FFC43C;box-shadow:0 0 0 2px #2a1a10,inset 0 2px 0 #FFE096}
+.tabmenu .slide > span:last-child{font:700 13px Figtree,sans-serif;color:#ffe28c;width:38px;text-align:right}
+.tabmenu button.holdrow{color:#ffe28c;border-radius:7px;box-shadow:inset 0 0 0 2px rgba(255,196,60,.45);
+  background:linear-gradient(90deg,rgba(255,196,60,.26) 0 var(--k),rgba(255,196,60,.05) var(--k)) !important}
 
 /* sounds */
 .sounds{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;max-width:1180px}
@@ -78,20 +120,63 @@
 .snd.rec{border-color:#8a5a1e}
 .snd h3{margin:0 0 4px;font:800 16px Figtree,sans-serif;color:#fffaf0}
 .snd p{margin:0 0 10px;font-size:14px}
-.snd button{font:400 13px Silkscreen,monospace;color:#2a1a0c;background:#FFC43C;border:2px solid #8a5a1e;border-radius:10px;padding:10px 14px;cursor:pointer;box-shadow:0 3px 0 #6b4316}
-.snd button.playing{background:#f7e3b0}
+.pl{font:700 13px Figtree,sans-serif;color:#2a1a0c;background:#FFC43C;border:0;border-radius:7px;padding:6px 11px;cursor:pointer;box-shadow:0 0 0 2px #6b4316,0 3px 0 2px #6b4316}
+.pl.playing{background:#f7e3b0}
+.pl.old{background:#cbbda6}
 
 /* plain tables */
 table.t{border-collapse:separate;border-spacing:0;max-width:1180px;width:100%;background:#1c1a18;border:2px solid #342d27;border-radius:12px;overflow:hidden}
-table.t th,table.t td{text-align:left;padding:9px 12px;border-bottom:1px solid #2e2924;font-size:14.5px;color:#d8cab0;vertical-align:top}
+table.t th,table.t td{text-align:left;padding:9px 12px;border-bottom:1px solid #2e2924;font-size:14.5px;color:#d8cab0;vertical-align:middle}
 table.t th{font:800 12px Figtree,sans-serif;letter-spacing:1px;color:#a99b86;background:#211e1b}
 table.t td b{color:#FFC43C}
 table.t tr:last-child td{border-bottom:0}
+table.t tr.mine td{background:#231c13}
 .good{color:#9be3c4 !important;font-weight:800}
+.bad{color:#ff9a8a !important;font-weight:800}
 .line{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;max-width:1180px}
 .line .st{flex:1 1 170px;background:#1c1a18;border:2px solid #342d27;border-radius:12px;padding:10px 12px;font-size:14px;color:#d8cab0}
 .line .st b{display:block;color:#FFC43C;font:800 13px Figtree,sans-serif;letter-spacing:.6px;margin-bottom:3px}
-.film{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
-.film figure{margin:0;display:flex;flex-direction:column;gap:4px;align-items:center}
-.film img{image-rendering:pixelated;border-radius:8px;box-shadow:0 0 0 2px #2e2924}
-.film figcaption{font:700 12px Figtree,sans-serif;color:#a99b86}
+.zoom{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap}
+.zoom .z{display:flex;flex-direction:column;gap:6px;align-items:center}
+.zoom .z small{font:700 12px Figtree,sans-serif;color:#a99b86}
+.zoom canvas{image-rendering:pixelated;display:block}
+
+/* ---- the right-click menu, LIFTED VERBATIM (2026-10-22) from src/Shell/pages/browser.css (.tabmenu, the glove) and
+   aangmenu.css (sizes, icon slot, group label). Copied, not linked, because both files also set html/body to
+   overflow:hidden for their own windows. Only the art paths are re-pointed. */
+.tabmenu{position:fixed;z-index:50;min-width:190px;padding:6px;border-radius:8px;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border:3px solid var(--outline);box-shadow:0 6px 0 rgba(0,0,0,.5),0 14px 24px rgba(0,0,0,.5)}
+.tabmenu button{display:flex;justify-content:space-between;width:100%;padding:7px 9px;border:none;border-radius:5px;background:none;cursor:pointer;
+  font:600 13px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);text-align:left}
+.tabmenu button:hover:not(:disabled){background:rgba(255,224,150,.10)}
+.tabmenu button:disabled{color:#8a7a62;cursor:default}
+.tabmenu button i{font:700 12px var(--body);font-style:normal;color:#c4b294}
+.tabmenu .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
+.tabmenu .sub{padding-left:14px}
+.menu .mrow,.tabmenu button{position:relative}
+.menu button.mrow:hover:not(:disabled),.tabmenu button:hover:not(:disabled){background:none !important;color:#ffe28c;padding-left:34px}
+.menu button.mrow:hover:not(:disabled)::before,.tabmenu button:hover:not(:disabled)::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;
+  background:url(../../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.menu button.mrow,.tabmenu button{transition:padding-left .08s ease-out}
+.tabmenu button.danger{color:#ff9a8a}
+.tabmenu button.danger:hover{color:#ffb4a6}
+.tabmenu,.plate{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.tabmenu{min-width:296px;padding:8px;user-select:none}
+.tabmenu[hidden]{display:none}
+.tabmenu button{align-items:center;font-size:16px;padding:10px 12px;min-height:44px}
+.tabmenu button:hover:not(:disabled){padding-left:38px}
+.tabmenu button.on{color:#ffe28c}
+.tabmenu button i{margin-left:18px;font-style:normal;font-size:12px;letter-spacing:.2px}
+.tabmenu button i.st{color:#bfae8a}
+.tabmenu button i .ar{font:700 17px var(--body);margin-left:8px;vertical-align:-1px}
+.tabmenu button:disabled .ic{opacity:.45}
+.tabmenu .sep{margin:7px 2px}
+.tabmenu .mhead{font:700 12.5px var(--body);letter-spacing:.2px;color:#bfae8a;padding:9px 12px 5px}
+
+/* the icon slot: an 11x11 hand-placed pixel icon at exactly 2x (22 px, plus its 1 px drop), before the words */
+.lab{display:inline-flex;align-items:center;gap:12px;white-space:nowrap}
+/* The art is 11 pixels at exactly 2x (22 px, crisp, never scaled by a fraction); the slot's extra pixel takes its drop
+   and keeps the words lined up. */
+.ic{width:23px;height:23px;flex:0 0 23px;margin:0;image-rendering:pixelated;display:block}
+.ic.tk{margin-left:18px}
+.tabmenu .mcap{font:500 13px/1.35 var(--body);color:#c9b48c;padding:0 12px 8px 12px;max-width:260px}

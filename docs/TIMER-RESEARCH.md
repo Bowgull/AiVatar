@@ -1,5 +1,38 @@
 # Timer: smoother sand, exact time, lighter, softer sounds, better hands-on (2026-10-22)
 
+## v2 (same day): his notes on v1, and what changed
+"The timer itself looks like shit... the design makes the sands hard to see as they move." "Do any of these sounds
+clash?" "Paused: it SMOOTHLY rotates sideways, and back." "Pause on click, + whatever and X on hover, restart on hold?"
+"New timer and Rename on right-click? Multiple timers. Names more apparent. A design language pass."
+
+- **Art + engine: `sheet-67/glass2.js`** (replaces `sand.js` on the sheet). 27x35 hourglass (v1: 15x25), 85 grains (v1: 43).
+  Legibility rules: DARK glass inside (#0d1317..#1d2a32, lighter down each bulb's middle) behind LIGHT sand (cream to
+  amber, 4 shades; the darkest sand is brighter than the lightest glass); round onion bulbs; a one-pixel stream that is
+  the brightest thing; grey-teal glass wall with a right rim light and a left specular streak drawn OVER the sand.
+  Frames in Samara's wood ramps (band.png / tray.png), dark-wood edges never black: **A walnut** (brass beads,
+  recommended), **B brass caps**, **C lantern**.
+- **Top sand forms a crater**: the falling-sand rule alone eats the top from the sides; v2 takes the top grain of the
+  column standing highest above a gentle V centred on the neck. Piles settle at about 1-in-2 (a sideways slide when the
+  slope is steeper), not the rule's 45 degrees.
+- **Pause turns it on its side**: a spring (k 160, damping 19: about 0.5 s, a hair of overshoot), drawn with a simplified
+  RotSprite (Scale2x three times = 8x, rotate, sample back on the art grid; https://info.sonicretro.org/RotSprite ,
+  https://godotshaders.com/shader/rotsprite-like-algorithm-for-cleaner-pixel-art-rotation): whole art pixels, palette
+  colours only, every frame. Gravity follows the screen's down, so the sand slides as it tips. rAF only while turning.
+- **Restart = hold the glass 0.6 s** (gold pixel ring); it turns right over (180). Sand that hadn't fallen is now in the
+  bottom and pours back up the stream (rewind) instead of jumping.
+- **Controls**: click glass = pause/go on (at time's up: Again); hover = +1 / +5 / hold-X (pause key dropped: the glass
+  does it); scroll = +/-1 min; right-click = New timer (5/10/25/45 + Custom field) / Rename (inline on the nameplate) /
+  Restart / Stop (hold), plus the family's rows (See-through, Pin, Click through, Pull apart) when joined. Rename and
+  Custom need the keyboard: the window takes focus only while that field is open.
+- **Names**: a carved nameplate (dark wood, two brass pins, Figtree 700 14px) above a 26px Figtree 800 time. The glass sits
+  in a dark recessed slot so the wood frame reads against the wood plate.
+- **Sounds, measured** (pitch tracking + peak/RMS from the files): the chimes use C, D, E, G, A and never repeat a note.
+  v1's time's-up (E-G-C marimba) = Job complete's climb and last note (clash); today a timer plays the old
+  `needs-you.wav` at -5 dBFS (10 dB over the set); v1 bowl on G4 = the first note of Question and Permission (mild);
+  v1 notch F#6 out of key. v2: **A clock strike** F5 x3 evenly (peak -15, RMS -24.5), **B bowl** on F4 2.6 s,
+  again = F5 x3 + F6, flip = low F4 knock + pour (-20), notch = F6 tick (-26).
+
+
 His ask: "Look at the timer and make it have more smooth motion; get a more accurate engine that's lightweight for the
 sands - I don't want to be sucking up GPU and CPU; and sounds and interactions of the timer as well. Go big."
 

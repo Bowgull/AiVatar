@@ -62,15 +62,26 @@ function save(name, b, peakDb) {
   writeFileSync(path.join(out, name + '.wav'), Buffer.concat([h, data]));
   console.log(name, (b.length / SR).toFixed(2) + ' s');
 }
-const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, G4 = 392, E6 = 1318.5;
+const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, G4 = 392, E6 = 1318.5, F4 = 349.23, F5 = 698.46, F6 = 1396.9;
 
-// A: the wooden timer. The last sand settles (a breath of hiss), then three soft bars climb to C.
-{ const b = buf(1.7); sand(b, 0, 0.32, 0.10); marimba(b, 0.22, E5, 0.75); marimba(b, 0.36, G5, 0.8); marimba(b, 0.50, C6, 1.0, 0.6); save('times-up-wood', b, -14); }
-// A, ignored for a minute: the same climb, then one more step up, a touch louder (+3 dB). Then it stops.
-{ const b = buf(2.1); marimba(b, 0.02, E5, 0.75); marimba(b, 0.16, G5, 0.8); marimba(b, 0.30, C6, 1.0, 0.5); marimba(b, 0.62, G5, 0.6); marimba(b, 0.76, C6, 0.8); marimba(b, 0.90, E6, 0.85, 0.55); save('times-up-wood-again', b, -11); }
-// B: the air temple bowl. One struck bowl on G, long and soft, with the sand settling under it.
-{ const b = buf(3.4); sand(b, 0, 0.32, 0.08); bowl(b, 0.2, G4, 1); save('times-up-bowl', b, -14); }
-// The small sound: flipping the hourglass (Again) or starting a timer. A knock and a short pour.
-{ const b = buf(0.6); knock(b, 0, 900, 0.9); sand(b, 0.06, 0.45, 0.35); save('flip', b, -20); }
-// The smallest: one notch of the scroll wheel (+/- 1 minute). A tiny tick, quieter than anything else in the set.
-{ const b = buf(0.12); knock(b, 0, 1500, 1); save('notch', b, -26); }
+// v2 (2026-10-22): the timer gets its OWN note. His chimes use C, D, E, G and A (job complete climbs C-E-G-A-G-C, the
+// question G-C-D, permission G-D-G, plan ready E-D-G, needs you E-A-E, done G-C, failed D-A, step a C tick). Nothing
+// uses F, and nothing repeats one note. So the timer strikes F, three times, evenly: a clock striking, which no other
+// sound in the set does. Same wooden marimba, a faint bell partial so it reads "clock"; peak -15 dBFS because three strikes carry more
+// energy, which puts its loudness (RMS -24.5) inside the family's -24..-27.
+/** A marimba bar with a faint bell partial (2.76x, the clock-bell colour). */
+function strike(b, at, f, gain = 1, tau = 0.5) { marimba(b, at, f, gain, tau); bell(b, at, f * 2.76, gain * 0.07); }
+function bell(b, at, f, gain) { const s0 = Math.round(at * SR); for (let i = 0; s0 + i < b.length; i++) { const t = i / SR; if (t > 1.2) break; b[s0 + i] += gain * Math.sin(2 * Math.PI * f * t) * Math.exp(-t / 0.35) * (t < 0.004 ? t / 0.004 : 1); } }
+
+// A (recommended): a breath of sand, then three even strikes on F5. 1.5 s.
+{ const b = buf(1.5); sand(b, 0, 0.28, 0.09); strike(b, 0.20, F5, 0.9); strike(b, 0.50, F5, 0.9); strike(b, 0.80, F5, 1.0, 0.6); save('times-up-wood', b, -15); }
+// A, ignored for a minute: the same three strikes and a fourth an octave up, a touch louder (+3 dB). Then it stops.
+{ const b = buf(1.9); strike(b, 0.02, F5, 0.9); strike(b, 0.32, F5, 0.9); strike(b, 0.62, F5, 0.9); strike(b, 0.92, F6, 0.8, 0.55); save('times-up-wood-again', b, -12); }
+// B: the bowl, moved from G4 (where the question and permission chimes start) down to F4, and shortened.
+{ const b = buf(2.6); sand(b, 0, 0.28, 0.08); bowl(b, 0.18, F4, 1); save('times-up-bowl', b, -14); }
+// Turning it over: a hollow low knock on F4 (the step chime is a high C tick) and a short pour.
+{ const b = buf(0.6); knock(b, 0, F4, 1); sand(b, 0.07, 0.42, 0.3); save('flip', b, -20); }
+// One scroll notch: a tiny tick on F6, in key now (v1's was an F#, outside the set's key), the quietest sound.
+{ const b = buf(0.07); knock(b, 0, F6, 1); save('notch', b, -26); }
+// v1's A, kept only so the sheet can play the clash next to job complete.
+{ const b = buf(1.7); sand(b, 0, 0.32, 0.10); marimba(b, 0.22, E5, 0.75); marimba(b, 0.36, G5, 0.8); marimba(b, 0.50, C6, 1.0, 0.6); save('v1-times-up', b, -14); }

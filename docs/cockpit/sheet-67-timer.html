@@ -4,101 +4,152 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 67 - Timer</title>
-<!-- Sheet 67 v1 (2026-10-22). His ask: "Look at the timer and make it have more smooth motion; get a more accurate engine
-     that's lightweight for the sands; I don't want to be sucking up GPU and CPU; and sounds and interactions of the timer
-     as well. Go big." Research + measurements: docs/TIMER-RESEARCH.md. Every hourglass on this sheet is the proposed
-     engine (sheet-67/sand.js) running live; sounds made by sheet-67/make-sounds.mjs. Mockup only, no product code. -->
+<!-- Sheet 67 v2 (2026-10-22). v1 asked for smoother sand, a lighter engine, sounds and interactions. His notes on v1: "The
+     timer itself looks like shit... the design makes the sands hard to see as they move." "Do any of these sounds clash?"
+     "Paused: it SMOOTHLY rotates sideways, and back once unpaused." "Pause on click, + whatever and X on hover, restart on
+     hold maybe?" "Can't I do New timer and Rename on right-click? Multiple timers at once. Names more apparent. A design
+     language pass." Every hourglass here is the new art + engine (sheet-67/glass2.js) running live. Sounds:
+     sheet-67/make-sounds.mjs. Research: docs/TIMER-RESEARCH.md. Mockup only, no product code. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="sheet-55/sheet55.css">
 <link rel="stylesheet" href="sheet-67/sheet67.css">
 </head>
 <body>
 <h1>SHEET 67 &middot; TIMER</h1>
-<p class="real">v1 &middot; 22 Oct: smoother sand, exact time, lighter on your PC, softer sounds, more ways to touch it</p>
-<p class="lead"><b>What I found:</b> today's hourglass is redrawn from scratch 5 times a second as 364 tiny boxes, and the old boxes pile up until they're cleaned. That's why the timer uses about <b>twice the memory</b> of the other pop-outs. The new sand is one tiny picture that only changes when a grain moves. Every hourglass on this page is the new engine, running for real. Try them: hover, click the glass, scroll on it.</p>
-<p class="topick"><span>WHAT TO PICK</span> <em><b>1</b> pause: A or B &nbsp;&middot;&nbsp; <b>2</b> sound: A or B. I'd pick <b>A</b> and <b>A</b>.</em></p>
+<p class="real">v2 &middot; 22 Oct: a new hourglass you can see the sand in, it lies down when paused, click / hold / hover keys, a right-click menu, many timers, sounds that don't clash</p>
+<p class="lead"><b>What changed since v1:</b> the old glass was pale, so the gold sand vanished into it. The new one is dark glass with bright sand, round bulbs, a dip that forms in the top, a hill that grows in the bottom, and a stream that's the brightest thing on it. It's bigger, with twice the grains, so it moves more often in smaller steps. Every hourglass on this page is live: hover, click, hold, scroll, right-click.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>1</b> hourglass: A, B or C &nbsp;&middot;&nbsp; <b>2</b> time's-up sound: A or B. I'd pick <b>A</b> and <b>A</b>.</em></p>
 
-<h2><span class="n">1</span>THE SAND, LIVE, IN ITS THREE SHAPES</h2>
-<p>Grains tumble like real sand, the stream shimmers down the middle, and the pile builds into a little hill. The clock is exact to the second, and the last grain lands on 0:00. A timer on its own is the plate. Joined beside a window it stands as a column; joined under one it lies as a strip. Two timers get two sand colours.</p>
-<div class="desk">
-  <div class="slot"><div class="cap"><i>a</i>ON ITS OWN</div><div id="s-plate" style="padding-bottom:44px"></div></div>
-  <div class="slot"><div class="cap"><i>b</i>BESIDE THE VIDEO (COLUMN)</div><div class="fam fam-row"><img src="sheet-63/s-video-free.png" width="424" height="236" alt="The video pop-out"><div class="stack" id="s-col"></div></div></div>
-  <div class="slot"><div class="cap"><i>c</i>UNDER THE VIDEO (STRIP)</div><div class="fam fam-col"><img src="sheet-63/s-video-free.png" width="424" height="236" alt="The video pop-out"><div id="s-strip"></div></div></div>
+<h2><span class="n">1</span>THE HOURGLASS, THREE WAYS</h2>
+<p>Each one live, on its plate (real size, 2x), tiny (1x, for a strip), and close up (4x) so you can check every pixel. Same dark glass and sand in all three; only the frame changes.</p>
+<div class="ctrl"><button id="fast1" type="button">&times;10 speed, to watch the sand run</button></div>
+<div class="take">
+  <div class="lhead"><div class="L">A</div><div class="nm">Walnut <span class="pick">RECOMMENDED</span></div>
+    <p class="cap2">Dark wood caps over turned posts, one small brass bead on each post. Calm: the only bright things are the sand and the time.</p></div>
+  <div class="desk" id="d-walnut"><div class="slot"><div class="cap"><i>a</i>ON ITS PLATE</div><div class="p2" style="padding-bottom:50px"></div></div>
+    <div class="slot"><div class="cap"><i>b</i>1X</div><div class="p1 zoom"></div></div><div class="slot"><div class="cap"><i>c</i>4X, CLOSE UP</div><div class="p4 zoom"></div></div></div>
 </div>
-<div class="ctrl"><button id="fast1" type="button">&times;20 speed, to watch a whole run</button></div>
+<div class="take">
+  <div class="lhead"><div class="L">B</div><div class="nm">Brass caps</div>
+    <p class="cap2">The same posts, the caps and beads in brass. Richer, but it's a lot of gold next to gold sand and gold numbers.</p></div>
+  <div class="desk" id="d-brass"><div class="slot"><div class="cap"><i>a</i>ON ITS PLATE</div><div class="p2" style="padding-bottom:50px"></div></div>
+    <div class="slot"><div class="cap"><i>b</i>1X</div><div class="p1 zoom"></div></div><div class="slot"><div class="cap"><i>c</i>4X, CLOSE UP</div><div class="p4 zoom"></div></div></div>
+</div>
+<div class="take">
+  <div class="lhead"><div class="L">C</div><div class="nm">Lantern</div>
+    <p class="cap2">No posts: a wooden disc top and bottom, a brass knob. The glass is the whole thing. Lightest look, but less of your wood.</p></div>
+  <div class="desk" id="d-lantern"><div class="slot"><div class="cap"><i>a</i>ON ITS PLATE</div><div class="p2" style="padding-bottom:50px"></div></div>
+    <div class="slot"><div class="cap"><i>b</i>1X</div><div class="p1 zoom"></div></div><div class="slot"><div class="cap"><i>c</i>4X, CLOSE UP</div><div class="p4 zoom"></div></div></div>
+</div>
 
-<h2><span class="n">2</span>TIME'S UP</h2>
-<p>The last few grains drip one by one, the stream stops, a little glint runs over the pile, and the plate gives one soft hop with the chime. The keys come up on their own: <b>Again</b> turns the hourglass over (same time again), <b>+5</b> turns it over for five minutes, <b>&#x2715;</b> closes it. Aang's card still shows <b>Got it / 5 more</b> as today; either one works.</p>
+<h2><span class="n">2</span>PAUSED: IT LIES DOWN</h2>
+<p>Click the glass and it tips onto its side with a soft spring (about half a second); the sand slides over in each bulb. Click again and it stands back up, and the sand runs on. It turns on the pixel grid, so it stays crisp the whole way round: no blur, no new colours.</p>
 <div class="desk">
-  <div class="slot"><div class="cap"><i>a</i>PRESS PLAY (WITH SOUND)</div><div id="e-plate" style="padding-bottom:44px"></div><div class="ctrl"><button id="e-play" type="button">Play the last 11 seconds</button></div></div>
-  <div class="slot" style="flex:1 1 520px"><div class="cap"><i>b</i>FRAME BY FRAME</div><div class="film" id="film"><figure><img src="sheet-67/f1.png" width="100" height="100" alt="Last grains"><figcaption>1 &middot; Last grains</figcaption></figure><figure><img src="sheet-67/f2.png" width="100" height="100" alt="Stream stops, one drips"><figcaption>2 &middot; Stream stops, one drips</figcaption></figure><figure><img src="sheet-67/f3.png" width="100" height="100" alt="Last grain lands: 0:00"><figcaption>3 &middot; Last grain lands: 0:00</figcaption></figure><figure><img src="sheet-67/f4.png" width="100" height="100" alt="A glint crosses the pile"><figcaption>4 &middot; A glint crosses the pile</figcaption></figure><figure><img src="sheet-67/f5.png" width="100" height="100" alt="Still, waiting for you"><figcaption>5 &middot; Still, waiting for you</figcaption></figure><figure><img src="sheet-67/f6.png" width="100" height="100" alt="Again: onto its side…"><figcaption>6 &middot; Again: onto its side…</figcaption></figure><figure><img src="sheet-67/f7.png" width="100" height="100" alt="…turned over, running"><figcaption>7 &middot; …turned over, running</figcaption></figure></div></div>
+  <div class="slot"><div class="cap"><i>a</i>THE TIMER</div><div id="pz-plate" style="padding-bottom:50px"></div></div>
+  <div class="slot"><div class="cap"><i>b</i>4X, TO SEE THE TURN</div><div id="pz-big" class="zoom"></div></div>
 </div>
-<p style="margin-top:14px"><b>If you don't answer:</b></p>
-<div class="line">
-  <div class="st"><b>0:00</b>Chime once, soft hop, keys up, Aang's mark.</div>
-  <div class="st"><b>1 minute later</b>One more chime, a touch louder, one hop.</div>
-  <div class="st"><b>After that</b>Silent. The plate waits with the mark until you answer.</div>
-  <div class="st"><b>In a game</b>One chime only (you set it, so it rings). Aang's card waits until you're out, as today.</div>
+<div class="ctrl"><button id="pz-btn" type="button">Pause (lies down)</button><button id="pz-auto" type="button">Auto, every 2 seconds</button></div>
+
+<h2><span class="n">3</span>HOW YOU TOUCH IT</h2>
+<p>Your idea, kept almost as is: <b>click</b> the glass to pause, <b>hover</b> for <b>+1 / +5 / &#x2715;</b>, <b>hold</b> the glass to restart. Try it here first:</p>
+<div class="desk"><div class="slot"><div class="cap"><i>&#9758;</i>TRY IT</div><div id="g-try" style="padding-bottom:50px"></div></div></div>
+<p style="margin-top:16px">Every state, held still:</p>
+<div class="desk states">
+  <div class="slot"><div class="cap"><i>a</i>RESTING</div><div id="g-rest"></div></div>
+  <div class="slot"><div class="cap"><i>b</i>HOVER: KEYS SLIDE IN</div><div id="g-hover"></div></div>
+  <div class="slot"><div class="cap"><i>c</i>HOLDING THE GLASS</div><div id="g-hold"></div></div>
+  <div class="slot"><div class="cap"><i>d</i>&hellip;IT TURNS RIGHT OVER</div><div id="g-flip"></div></div>
+  <div class="slot"><div class="cap"><i>e</i>HOLDING &#x2715;</div><div id="g-x"></div></div>
+  <div class="slot"><div class="cap"><i>f</i>SCROLL UP: +1:00</div><div id="g-scroll"></div></div>
+  <div class="slot"><div class="cap"><i>g</i>PAUSED</div><div id="g-paused"></div></div>
+  <div class="slot"><div class="cap"><i>h</i>TIME'S UP</div><div id="g-done"></div></div>
+</div>
+<table class="t" style="margin-top:16px">
+<tr><th>DO THIS</th><th>IT DOES</th></tr>
+<tr><td><b>Click the glass</b></td><td>Pause (it lies down) / go on (it stands up). When time's up: turn it over, same time again.</td></tr>
+<tr><td><b>Hold the glass</b></td><td>A gold ring fills round it (0.6 s), then it turns right over and starts again. Let go early: nothing.</td></tr>
+<tr><td><b>Hover</b></td><td>The keys slide in under it: <b>+1</b>, <b>+5</b>, <b>&#x2715;</b>.</td></tr>
+<tr><td><b>Hold &#x2715;</b></td><td>Stop. A click does nothing; holding fills the key, like your hotkeys.</td></tr>
+<tr><td><b>Scroll on it</b></td><td>Up = one more minute, down = one less (Shift = five). A small "+1:00" shows. Never below 10 seconds.</td></tr>
+<tr><td><b>Right-click</b></td><td>The menu: new timer, rename, restart, stop (section 4).</td></tr>
+<tr><td><b>Drag</b></td><td>Moves it; it snaps to the other pop-outs, as today.</td></tr>
+</table>
+<div class="note"><b>What I changed from your idea, and why</b><ul>
+<li><b>The pause key is gone from the hover keys:</b> the glass already does it, so the keys are just <b>+1 / +5 / &#x2715;</b>.</li>
+<li><b>Click vs hold on the same glass:</b> a press under a quarter second is a click (pause). The ring only shows after 0.15 s, so a click never flashes it.</li>
+<li><b>Restart is a hold, never a click,</b> so one stray click can't wipe a running timer. At time's up a click is fine (nothing to lose).</li>
+<li><b>Rename and Custom time need the keyboard.</b> The timer never takes your keys today (so WoW keeps them). It would take them only while that small box is open, and give them back on Enter, Esc or a click away.</li>
+</ul></div>
+
+<h2><span class="n">4</span>RIGHT-CLICK</h2>
+<p>Your Aang menu's look (the wood, the glove, the red last row), with the timer's own rows. Joined to a window, that window's rows come in below, so one right-click does both. Stop stays last, in red, and needs a hold.</p>
+<div class="desk menus">
+  <div class="slot"><div class="cap"><i>a</i>ON ITS OWN</div><div id="m-solo"></div></div>
+  <div class="slot"><div class="cap"><i>b</i>NEW TIMER &#9656;</div><div id="m-new"></div></div>
+  <div class="slot"><div class="cap"><i>c</i>JOINED TO THE VIDEO (HOLDING STOP)</div><div id="m-fam"></div></div>
+  <div class="slot"><div class="cap"><i>d</i>RENAME: RIGHT ON THE NAMEPLATE</div><div id="m-rename"></div><p class="small">Enter keeps it &middot; Esc puts it back</p></div>
+</div>
+<p class="small" style="margin-top:10px">Telling Aang still works too ("25 min pizza"). The menu is for when your hands are already on the timer.</p>
+
+<h2><span class="n">5</span>MANY TIMERS</h2>
+<p>As many as you like, each its own little window with its name on a nameplate and its own sand colour (gold, sea, plum), so you can tell them apart from across the room.</p>
+<div class="desk">
+  <div class="slot"><div class="cap"><i>a</i>ON THEIR OWN</div><div class="free" id="mt-free"></div></div>
+</div>
+<div class="desk" style="margin-top:14px">
+  <div class="slot"><div class="cap"><i>b</i>SNAPPED BESIDE THE VIDEO: A STACK</div><div class="fam fam-row"><img src="sheet-63/s-video-free.png" width="424" height="236" alt="The video pop-out"><div class="stack" id="mt-stack"></div></div></div>
+  <div class="slot"><div class="cap"><i>c</i>SNAPPED UNDER IT: A ROW</div><div class="fam fam-col"><img src="sheet-63/s-video-free.png" width="424" height="236" alt="The video pop-out"><div class="srow" id="mt-strip"></div></div></div>
+</div>
+
+<h2><span class="n">6</span>TIME'S UP</h2>
+<p>The last grains drip, the stream stops on 0:00, a glint runs over the pile, the plate hops once with the sound, and the keys stay up: <b>Again</b> (turns it over), <b>+5</b>, hold <b>&#x2715;</b>. Aang's card still shows Got it / 5 more; either one works.</p>
+<div class="desk">
+  <div class="slot"><div class="cap"><i>a</i>PRESS PLAY (WITH SOUND)</div><div id="e-plate" style="padding-bottom:50px"></div><div class="ctrl"><button id="e-play" type="button">Play the last 11 seconds</button></div></div>
+</div>
+<div class="line" style="margin-top:14px">
+  <div class="st"><b>0:00</b>Sound once, one hop, keys up, Aang's mark.</div>
+  <div class="st"><b>1 minute later</b>Once more, a touch louder. Then silent; the plate waits.</div>
+  <div class="st"><b>In a game</b>Once only (you set it, so it rings). The card waits until you're out.</div>
   <div class="st"><b>Muted</b>No sound at all, as today.</div>
 </div>
 
-<h2><span class="n">3</span>PAUSED</h2>
-<p>These two pause and go every few seconds (click one to stop that). Clicking the hourglass pauses it.</p>
-<div class="take">
-  <div class="lhead"><div class="L">A</div><div class="nm">Laid on its side <span class="pick">RECOMMENDED</span></div>
-    <p class="cap2">What you'd do with a real hourglass. The sand slides over in each bulb and stops. You can tell it's paused from across the room, without reading anything.</p></div>
-  <div class="desk" style="padding:18px 26px"><div id="p-a"></div></div>
-</div>
-<div class="take">
-  <div class="lhead"><div class="L">B</div><div class="nm">Stays standing</div>
-    <p class="cap2">The stream stops, the time greys, and a small PAUSED shows under it. Quieter, but easier to miss.</p></div>
-  <div class="desk" style="padding:18px 26px"><div id="p-b"></div></div>
-</div>
-
-<h2><span class="n">4</span>THE SOUND WHEN TIME'S UP</h2>
-<p>Made in the same wooden family as your chimes, at the same gentle level (today a timer plays the old, loud needs-you sound). The chimes' volume slider controls it too. Pressing one also makes it the sound in section 2.</p>
-<div class="sounds">
-  <div class="snd rec"><h3>A &middot; Wooden timer <span class="pick">RECOMMENDED</span></h3><p>A breath of sand settling, then three soft wooden notes climbing to C. Short.</p><button type="button" data-snd="times-up-wood">PLAY A</button></div>
-  <div class="snd"><h3>B &middot; Air temple bowl</h3><p>One struck bowl, long and soft, slowly breathing. Calmer, but longer.</p><button type="button" data-snd="times-up-bowl">PLAY B</button></div>
-  <div class="snd"><h3>A, a minute later</h3><p>Only if you didn't answer: the same climb plus one step up, a touch louder. Then it stops.</p><button type="button" data-snd="times-up-wood-again">PLAY</button></div>
-  <div class="snd"><h3>Turning it over</h3><p>Again, +5, or a new timer: a small knock and a short pour.</p><button type="button" data-snd="flip">PLAY</button></div>
-  <div class="snd"><h3>Scroll notch</h3><p>One minute added or taken off with the wheel. The quietest sound in the set.</p><button type="button" data-snd="notch">PLAY</button></div>
-</div>
-
-<h2><span class="n">5</span>HOW YOU TOUCH IT</h2>
+<h2><span class="n">7</span>THE SOUNDS: DO THEY CLASH?</h2>
+<p><b>Yes, v1's did.</b> Its time's-up climbed E-G-C on the same wooden bars as <b>Job complete</b>, and ended on the same note: you'd hear "job done" when it was the pizza. And today a timer plays the <b>old needs-you</b>, 10 dB louder than everything else. The fix: your chimes use C, D, E, G and A, and none of them repeats a note. So the timer gets the one note nobody uses, <b>F</b>, struck three times evenly, like a clock. Same wood, same level.</p>
 <table class="t">
-<tr><th>DO THIS</th><th>IT DOES</th></tr>
-<tr><td><b>Hover</b></td><td>The keys come up under it: <b>+1</b>, <b>II</b> pause, <b>&#x2715;</b> stop. Same rhythm as today.</td></tr>
-<tr><td><b>Click the hourglass</b></td><td>Pause / go on. At time's up: turn it over (Again).</td></tr>
-<tr><td><b>Scroll on it</b></td><td>Up = one more minute, down = one less (Shift = five). A small "+1:00" shows, and grains flow back up or drop through. Never below 10 seconds.</td></tr>
-<tr><td><b>Hold &#x2715;</b></td><td>Stop. Held for half a second (a bar fills), so a stray click never kills a timer.</td></tr>
-<tr><td><b>Drag it</b></td><td>Moves it; it snaps to the other pop-outs, as today.</td></tr>
-<tr><td><b>Right-click</b></td><td>The menu: see-through, pin, click through, stop. Plus <b>Sound</b>: the chime / bowl / none for this timer.</td></tr>
-<tr><td><b>New timer, a name, a preset</b></td><td>Tell Aang ("25 min pizza", "call it raid pull"). One place to talk: no typing box on the timer.</td></tr>
-<tr><td><b>Esc</b></td><td>Closes its menu. (The timer never takes your keyboard, so WoW keeps it.)</td></tr>
+<tr><th>SOUND</th><th>NOTES</th><th>LENGTH</th><th>PEAK</th><th>CLASH WITH THE TIMER?</th><th></th></tr>
+<tr><td>Job complete</td><td>C E G A G C</td><td>1.5 s</td><td>-14</td><td class="bad">v1 timer: same climb, same last note</td><td><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/job-complete.wav">PLAY</button></td></tr>
+<tr><td>Question</td><td>G C D</td><td>0.9 s</td><td>-14</td><td>v1 bowl started on its G (mild)</td><td><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/question.wav">PLAY</button></td></tr>
+<tr><td>Permission</td><td>G D G</td><td>0.8 s</td><td>-14</td><td>v1 bowl's G again (mild)</td><td><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/permission.wav">PLAY</button></td></tr>
+<tr><td>Plan ready</td><td>E D G</td><td>0.9 s</td><td>-14</td><td class="good">no</td><td><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/plan-ready.wav">PLAY</button></td></tr>
+<tr><td>Step</td><td>one C tick</td><td>0.3 s</td><td>-20</td><td>v1 flip / notch were ticks too; now lower and quieter</td><td><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/step.wav">PLAY</button></td></tr>
+<tr><td>Failed</td><td>D A, low</td><td>0.9 s</td><td>-14</td><td class="good">no</td><td><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/failed.wav">PLAY</button></td></tr>
+<tr><td>Needs you (the one you picked)</td><td>E A E</td><td>1.0 s</td><td>-14</td><td>v1 flip's knock sat on its A (mild)</td><td><button class="pl" type="button" data-src="sounds-45b/needs-you.wav">PLAY</button></td></tr>
+<tr><td>Done (the one you picked)</td><td>G C</td><td>0.85 s</td><td>-14</td><td class="good">no</td><td><button class="pl" type="button" data-src="sounds-45b/done.wav">PLAY</button></td></tr>
+<tr><td>Today's old needs-you <small>(what a timer plays NOW)</small></td><td>a rising A</td><td>0.9 s</td><td class="bad">-5</td><td class="bad">10 dB louder than the set; also means "needs you"</td><td><button class="pl old" type="button" data-src="../../assets/aang/sfx/needs-you.wav">PLAY</button></td></tr>
+<tr class="mine"><td><b>v1 timer A</b> (dropped)</td><td>E G C</td><td>1.7 s</td><td>-14</td><td class="bad">sounds like Job complete</td><td><button class="pl old" type="button" data-src="sheet-67/v1-times-up.mp3">PLAY</button></td></tr>
+<tr class="mine"><td><b>New timer A: clock strike</b></td><td>F F F</td><td>1.5 s</td><td>-15</td><td class="good">nothing else uses F or repeats a note</td><td><button class="pl" type="button" data-src="sheet-67/times-up-wood.mp3" data-pick="times-up-wood">PLAY</button></td></tr>
+<tr class="mine"><td><b>New timer B: bowl</b></td><td>one low F</td><td>2.6 s</td><td>-14</td><td class="good">moved off G, shortened</td><td><button class="pl" type="button" data-src="sheet-67/times-up-bowl.mp3" data-pick="times-up-bowl">PLAY</button></td></tr>
+<tr class="mine"><td>A, a minute later</td><td>F F F, high F</td><td>1.9 s</td><td>-12</td><td class="good">no</td><td><button class="pl" type="button" data-src="sheet-67/times-up-wood-again.mp3">PLAY</button></td></tr>
+<tr class="mine"><td>Turning it over</td><td>low F knock + pour</td><td>0.6 s</td><td>-20</td><td class="good">low and hollow; Step is a high tick</td><td><button class="pl" type="button" data-src="sheet-67/flip.mp3">PLAY</button></td></tr>
+<tr class="mine"><td>Scroll notch</td><td>tiny high F</td><td>0.07 s</td><td>-26</td><td class="good">quietest in the set (v1's was out of key)</td><td><button class="pl" type="button" data-src="sheet-67/notch.mp3">PLAY</button></td></tr>
 </table>
+<div class="ctrl"><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/job-complete.wav|sheet-67/v1-times-up.mp3">HEAR THE CLASH: job complete, then v1 timer</button><button class="pl" type="button" data-src="../../assets/aang/sfx/chimes/job-complete.wav|sheet-67/times-up-wood.mp3">job complete, then NEW timer A</button></div>
+<p class="small">Measured from the files: notes by pitch tracking, peak in dBFS. The new A's loudness (RMS) sits inside the family's range. Pressing a timer A/B play key also makes it the sound in section 6.</p>
 
-<h2><span class="n">6</span>IN A GAME, AND WHAT IT COSTS</h2>
-<p>When a game is in front, the stream stands still and only the grains drop, once per grain. Same time, same picture, almost no work. Left: at the desk. Right: in a game.</p>
+<h2><span class="n">8</span>IN A GAME, AND WHAT IT COSTS</h2>
+<p>When a game is in front, the stream stands still and only the grains drop, once per grain. Left: at the desk. Right: in a game.</p>
 <div class="desk">
-  <div class="slot"><div class="cap"><i>a</i>AT THE DESK</div><div id="g-normal"></div></div>
-  <div class="slot"><div class="cap"><i>b</i>IN A GAME (CALM)</div><div id="g-calm"></div></div>
+  <div class="slot"><div class="cap"><i>a</i>AT THE DESK</div><div id="c-normal"></div></div>
+  <div class="slot"><div class="cap"><i>b</i>IN A GAME (CALM)</div><div id="c-calm"></div></div>
 </div>
 <table class="t" style="margin-top:16px">
-<tr><th>MEASURED ON YOUR PC (one timer window, 10-12 s each)</th><th>MEMORY</th><th>CPU</th><th>REDRAWS</th></tr>
-<tr><td>Today's timer</td><td>63-75 MB</td><td>0.31-0.35%</td><td>5 a second, the whole hourglass</td></tr>
-<tr><td>New sand, at the desk</td><td class="good">31 MB</td><td class="good">0.16-0.18%</td><td>about 9 a second, only the changed picture</td></tr>
-<tr><td>New sand, in a game</td><td class="good">31-33 MB</td><td class="good">0.02%</td><td>one short burst per grain</td></tr>
-<tr><td>An empty window, for scale</td><td>24 MB</td><td>0%</td><td>none</td></tr>
+<tr><th>MEASURED ON YOUR PC (v1 engine, one timer window)</th><th>MEMORY</th><th>CPU</th></tr>
+<tr><td>Today's timer</td><td>63-75 MB</td><td>0.31-0.35%</td></tr>
+<tr><td>New sand, at the desk</td><td class="good">31 MB</td><td class="good">0.16-0.18%</td></tr>
+<tr><td>New sand, in a game</td><td class="good">31-33 MB</td><td class="good">0.02%</td></tr>
 </table>
-<div class="note"><ul>
-<li><b>Exact time:</b> Aang's brain keeps the end time; the hourglass only shows it. The clock ticks on the second (not every 0.2 s), and Aang rings on the moment instead of up to a second late.</li>
-<li><b>Hidden = nothing:</b> minimised, covered or locked, it does no work at all, and jumps straight to the right picture when you look again.</li>
-<li><b>Ending today closes the timer instantly,</b> so you never see it run out. In the new one the plate stays and waits for you.</li>
-<li>The time moves from the squashed pixel font to the clear one you picked for progress numbers.</li>
-</ul></div>
+<p class="small">v2 paints the same way (one small picture, only when a grain moves). A turn is about 30 small frames, only while it turns. Re-measured when it's built.</p>
 
-<link rel="modulepreload" href="sheet-67/sand.js">
 <script type="module" src="sheet-67/sheet67.js"></script>
 </body>
 </html>
