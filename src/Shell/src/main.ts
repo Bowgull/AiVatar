@@ -258,6 +258,9 @@ function openTypeBox(dock: { x: number; y: number } | null = null): void {
   const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
   // Opened any way other than a click on a message, it is not a reply to that message any more.
   if (!dock) dockedTurn = null;
+  // 2026-10-21: he is about to type, so the brain gets the lane ready now (its process started, its cache warm if it went
+  // cold) instead of when Enter lands. A click on Aang already said so; the hotkey and the wheel never did.
+  link?.send({ t: 'poked' });
   const at = dock ?? (petAt ? inputAt(petAt, { width: 268, height: 112 }) : null);
   // The cockpit grows to about two thirds of the screen he is on, never past it (sheet 16, his "Height A").
   const area = petAt ? screen.getDisplayNearestPoint({ x: petAt.sprite.x, y: petAt.sprite.y }).workArea : screen.getPrimaryDisplay().workArea;

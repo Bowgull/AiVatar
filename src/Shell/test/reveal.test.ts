@@ -155,11 +155,46 @@ test('the cockpit pace: whole words, one every 38 ms, never faster because more 
   const slow = clock(); const b = new Reveal(slow.now, { wordMs: WORD_MS });
   b.start('w w ', true);
   slow.advance(38 * 2); b.tick();
-  b.append('w '.repeat(50), true);
+  b.append('w '.repeat(8), true);
   slow.advance(38 * 3); b.tick();
   assert.equal(a.text, 'w '.repeat(5), 'five words after five beats, however much is waiting');
-  assert.equal(b.text, a.text, 'and the same for one dribbling in');
+  assert.equal(b.text, a.text, 'and the same for one dribbling in, while it is not behind');
   assert.ok(!/\S$/.test('one tw'.slice(0, wordEnd('one two', 1))), 'never stops mid-word');
+});
+
+// 2026-10-21, his "smoother and faster": a STREAMED reply keeps up with the model. Never faster than the words that
+// have arrived, never more than about LAG_WORDS behind them for long, never faster than FASTEST_WORD_MS. A reply that
+// arrives whole keeps the fixed pace (the test above): the rule against dumping stands.
+test('a streamed reply keeps up with the model, within a moment, never ahead of it', async () => {
+  const { WORD_MS, LAG_WORDS, FASTEST_WORD_MS } = await import('../pages/reveal.js');
+  const c = clock(); const r = new Reveal(c.now, { wordMs: WORD_MS });
+  const words = (t: string) => (t.match(/\S+/g) ?? []).length;
+  r.start('Tom', true);
+  c.advance(200); r.tick();
+  assert.equal(r.text, '', 'a word still arriving ("Tom" of "Tomorrow") is never shown half-made');
+  r.append('Tomorrow you ', true);
+  c.advance(38); r.tick();
+  assert.equal(r.text, 'Tomorrow ', 'and once it is whole it shows');
+  // The model streams 60 words a second, faster than the base pace: the reveal speeds up to stay within a moment.
+  let have = 'Tomorrow you ';
+  let worst = 0;
+  for (let i = 0; i < 120; i++) {
+    have += 'w '; r.append(have, true);
+    c.advance(1000 / 60); r.tick();
+    const behind = words(have) - words(r.text);
+    worst = Math.max(worst, behind);
+    assert.ok(words(r.text) <= words(have), 'never ahead of what arrived');
+  }
+  assert.ok(worst <= LAG_WORDS * 2.5, `stays within a moment of the model (worst ${worst} words behind)`);
+  // A stall: nothing is banked to be dumped when the words come back.
+  c.advance(3000); r.tick();
+  const before = words(r.text);
+  r.append(have + 'a b c d e f g h ', true);
+  c.advance(38); r.tick();
+  assert.ok(words(r.text) - before <= 1 + 38 / FASTEST_WORD_MS, 'after a stall the new words come at the pace, not all at once');
+  r.append(have + 'a b c d e f g h end.', false);
+  for (let i = 0; i < 40; i++) { c.advance(38); r.tick(); }
+  assert.equal(r.done, true, 'and it finishes');
 });
 
 test('a long answer folds to its short version; a short or one-paragraph one never does', async () => {

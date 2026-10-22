@@ -3,7 +3,7 @@
 // The reveal pace, the collapse thresholds and the skip-versus-expand rule all live in reveal.ts, which
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
-import { Reveal, TICK_MS, WORD_MS, hasMore, linesShown, scrolls, summaryOf } from './reveal.js';
+import { Reveal, WORD_MS, hasMore, linesShown, scrolls, summaryOf, streamSummaryOf } from './reveal.js';
 import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES, RIM_G, rimReady } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { blocks, shownWords } from './rich.js';
@@ -90,7 +90,7 @@ function fit() {
   const total = lineCount();
   // A summarised answer shows all of whatever is laid out (the short version, or everything), and its
   // key is always there: Show more, then Show less.
-  const summarised = summaryOf(reveal.whole) !== null && !asking;
+  const summarised = shortOf() !== null && !asking;
   const shown = summarised ? total : linesShown(total, expanded);
   // An ask's explaining line and its exact command sit inside the scroller, under the question, so a cap
   // sized to the question's own lines clipped them away entirely. An ask is never capped.
@@ -238,7 +238,10 @@ function growTo(w, h, done) {
     if (k < 1) { anim = frame(f); return; }
     cur = { w, h };
     place(w, h);
-    if (w > 0) sendWindow(w, h);
+    // 2026-10-21: settles to the exact size at rest; while an answer is still arriving it keeps its spare room
+    // (sendWindow), so the window is not resized line by line.
+    anim = 0;
+    if (w > 0) sendWindow(w, h, true);
     done?.();
   };
   f(t0);
@@ -250,7 +253,7 @@ function snapShut() {
   cur = { w: 0, h: 0 }; goal = { w: 0, h: 0 };
   bubble.style.width = ''; bubble.style.height = '';
   bubble.classList.remove('sizing', 'leaving');
-  skin.innerHTML = ''; lastShape = ''; lastSize = '';
+  skin.innerHTML = ''; lastShape = ''; lastSize = ''; granted = { w: 0, h: 0 };
 }
 
 let lastSize = '';
@@ -266,8 +269,23 @@ function reportSize() {
   growTo(n.w, n.h);
 }
 
-/** Tell the Shell how big the window must be for a shape of sw x sh. */
-function sendWindow(sw, sh) {
+/**
+ * The shape size the window was last given room for. 2026-10-21 (his "a bit jumpy"): while a reply is still arriving
+ * the window only ever grows, and in steps of ROOM_STEP (four lines) rather than a line at a time, so a long answer
+ * resizes the window every few lines instead of on every one. `exact` (the end of a shrink, or nothing arriving) lets
+ * it come down to the shape again.
+ */
+let granted = { w: 0, h: 0 };
+const ROOM_STEP = 96;
+function sendWindow(sw, sh, exact = false) {
+  const arriving = !cockpit && (reveal.streaming || reveal.revealing);
+  if (!exact || arriving) {
+    if (sw <= granted.w && sh <= granted.h) return;
+    const cap = SHAPE_MAX_H - (rimOn() ? RIM_G : 0);
+    if (arriving && sh > granted.h) sh = Math.max(sh, Math.min(cap, sh + ROOM_STEP));
+    sw = Math.max(sw, granted.w); sh = Math.max(sh, granted.h);
+  }
+  granted = { w: sw, h: sh };
   const r = { width: sw, height: sh };
   // Round up: a half pixel short clips the frame's bottom edge.
   // 6 px of margin on the left, 78 on the right: the extra 72 is the room the TAIL hangs in
@@ -321,26 +339,45 @@ function paintChips() {
 /** Paint whatever is revealed so far. */
 /** The words of the current reply, laid out in full, each hidden until its turn. */
 let laidOut = '', words = [];
-function paintWords() {
-  // Folded to its short version until he asks for the rest (summaryOf). The short version is the start of
-  // the whole text, so the words already revealed stay revealed when it opens.
-  const short = expanded ? null : summaryOf(reveal.whole);
-  const visible = short ?? reveal.whole;
-  if (laidOut !== visible) {
-    laidOut = visible;
-    said.replaceChildren();
-    words = [];
-    // 6.11: the reply's own light formatting, as blocks (rich.js). Every element is built here with
-    // textContent; the reply's text never becomes markup.
+/**
+ * 2026-10-21 (his "a bit jumpy"): a streamed reply arrives every ~40 ms, and every arrival used to throw away and
+ * rebuild every word, so the few still fading in popped to full ink each time. Now only the blocks that changed are
+ * rebuilt (`laid`), and each word remembers when it was revealed (`wordAt`), so a rebuilt one carries on its fade from
+ * where it was (a negative animation delay) instead of starting over or popping.
+ */
+let laid = [], wordAt = [], wordsGen = -1, lit = 0;
+const FADE_MS = 280;
+function fadeFrom(s, age) {
+  if (age >= FADE_MS) return;
+  s.classList.add('in');
+  if (age > 0) s.style.animationDelay = `-${Math.round(age)}ms`;
+}
+const sigOf = (b) => b.kind + '|' + JSON.stringify(b.runs) + JSON.stringify(b.cells ?? null);
+function layOut(visible) {
+  // Kept blocks must still be the ones on the page: anything that wrote into `said` directly starts it over.
+  if (laid.length && laid[0].el.parentNode !== said) laid = [];
+  if (!laid.length) said.replaceChildren();
+  const bl = blocks(visible);
+  let keep = 0;
+  while (keep < bl.length && keep < laid.length && laid[keep].sig === sigOf(bl[keep])) keep++;
+  for (const b of laid.splice(keep)) b.el.remove();
+  words = laid.flatMap((b) => b.words);
+  const now = performance.now();
+  // 6.11: the reply's own light formatting, as blocks (rich.js). Every element is built here with
+  // textContent; the reply's text never becomes markup.
+  for (let k = keep; k < bl.length; k++) {
+    const b = bl[k], ws = [];
     const wordsInto = (host, text) => {
       for (const part of text.split(/(\s+)/)) {
         if (!part) continue;
         if (/^\s+$/.test(part)) { host.append(' '); continue; }
-        const s = document.createElement('span');
-        s.className = 'w o';
-        s.textContent = part;
-        host.append(s);
-        words.push(s);
+        const sp = document.createElement('span');
+        const at = wordAt[words.length + ws.length];
+        sp.className = at === undefined ? 'w o' : 'w';
+        if (at !== undefined) fadeFrom(sp, now - at);
+        sp.textContent = part;
+        host.append(sp);
+        ws.push(sp);
       }
     };
     const runsInto = (host, rs) => {
@@ -350,18 +387,49 @@ function paintWords() {
         if (into !== host) host.append(into);
       }
     };
-    for (const b of blocks(visible)) {
-      const el = document.createElement('div');
-      el.className = 'r-' + b.kind;
-      if (b.kind === 'row') for (const c of b.cells ?? []) { const cell = document.createElement('span'); cell.className = 'cell'; runsInto(cell, c); el.append(cell); }
-      else runsInto(el, b.runs);
-      said.append(el);
-    }
+    const el = document.createElement('div');
+    el.className = 'r-' + b.kind;
+    if (b.kind === 'row') for (const c of b.cells ?? []) { const cell = document.createElement('span'); cell.className = 'cell'; runsInto(cell, c); el.append(cell); }
+    else runsInto(el, b.runs);
+    said.append(el);
+    laid.push({ sig: sigOf(b), el, words: ws });
+    words.push(...ws);
   }
-  const n = shownWords(reveal.text);
-  words.forEach((s, i) => { if (i < n || reveal.done) s.classList.remove('o'); });
+  lit = Math.min(words.length, wordAt.length);
+}
+/** Lays out what is to be shown (only if it changed) and reveals the words that are due. True if the layout changed. */
+function paintWords() {
+  // Folded to its short version until he asks for the rest (shortOf). The short version is the start of
+  // the whole text, so the words already revealed stay revealed when it opens.
+  const short = expanded ? null : shortOf();
+  const visible = short ?? reveal.whole;
+  // A new message (or the same one started over) is laid out from scratch: nothing of the last one stays lit.
+  if (wordsGen !== reveal.gen) { wordsGen = reveal.gen; wordAt = []; laid = []; laidOut = null; }
+  let relaid = false;
+  if (laidOut !== visible) { laidOut = visible; layOut(visible); relaid = true; }
+  const n = reveal.done ? words.length : Math.min(words.length, shownWords(reveal.text));
+  const now = performance.now();
+  for (; lit < n; lit++) {
+    if (wordAt[lit] === undefined) wordAt[lit] = now;
+    const sp = words[lit];
+    if (sp.classList.contains('o')) { sp.classList.remove('o'); fadeFrom(sp, now - wordAt[lit]); }
+  }
   // Sheet 41: any web address in his words is a link once the words are all in, and it opens in Samara.
   if (reveal.done) linkifyWords(said);
+  return relaid;
+}
+
+/**
+ * Which short version the reply shows folded (2026-10-21). While it streams: its first paragraph, as soon as that has
+ * arrived (streamSummaryOf), so a fold never hides words he was already reading. Finished: summaryOf, except that a
+ * streamed reply that never folded never folds afterwards, for the same reason.
+ */
+let foldGen = -1, foldLive = false, foldSeen = false;
+function shortOf() {
+  if (foldGen !== reveal.gen) { foldGen = reveal.gen; foldLive = reveal.streaming; foldSeen = false; }
+  if (reveal.streaming) { const s = streamSummaryOf(reveal.whole); if (s) foldSeen = true; return s; }
+  if (foldLive && !foldSeen) return null;
+  return summaryOf(reveal.whole);
 }
 
 /**
@@ -389,8 +457,57 @@ function paintList() {
   if (replyList.moreCount) box.append(T('div', 'lmore', `${replyList.moreCount} more`));
 }
 
+/**
+ * How many lines the text would take at a width, measured with the grow's fixed size taken off for a moment (the same
+ * trick as natural()). Nothing is drawn in between, so trying a width costs a layout and never shows.
+ */
+function linesIf(wide, widest) {
+  const cl = bubble.classList, had = [cl.contains('wide'), cl.contains('widest'), cl.contains('sizing')];
+  const sw = bubble.style.width, sh = bubble.style.height;
+  bubble.style.width = ''; bubble.style.height = '';
+  cl.toggle('wide', wide); cl.toggle('widest', widest); cl.remove('sizing');
+  const n = lineCount();
+  cl.toggle('wide', had[0]); cl.toggle('widest', had[1]); if (had[2]) cl.add('sizing');
+  bubble.style.width = sw; bubble.style.height = sh;
+  return n;
+}
+/**
+ * 2026-10-21 (his "a bit jumpy"): a STREAMED reply picks its width at its first words and keeps it while it arrives.
+ * Measured line by line as before, it went 256 -> 416 at its second line and 416 -> 556 past its eighteenth, and the
+ * text he was reading rewrapped each time. Smart and Deep answers run past a line, so they start wide; Quick's small
+ * talk starts narrow unless its first sentence already wraps. `lockGen` is the reply the width was decided for.
+ */
+let lockGen = -1, liveWho = '', liveId = null;
+function lockWidth() {
+  if (lockGen === reveal.gen || !reveal.streaming) return lockGen === reveal.gen;
+  lockGen = reveal.gen;
+  const wide = liveWho !== 'Quick' || linesIf(false, false) > 1;
+  bubble.classList.toggle('wide', wide);
+  bubble.classList.toggle('widest', wide && linesIf(true, false) > WIDEST_AFTER_LINES);
+  return true;
+}
+/** The streamed reply is all in: a short one that fits one narrow line narrows (one line cannot rewrap). */
+function settleWidth() {
+  if (lockGen !== reveal.gen || expanded) return;
+  const cl = bubble.classList;
+  if (cl.contains('wide') && !cl.contains('widest') && linesIf(false, false) <= 1) cl.remove('wide');
+}
+
 function paint() {
   paintWords();
+  if (!lockWidth()) widen();
+  // No Copy key on the bubble any more: it came up on every reply and was too big (his call, 2026-10-12).
+  // Copying is the right-click menu's Copy text, or Ctrl+C with the mouse on the bubble.
+  tools.hidden = true;
+  paintChips();
+  paintList();
+  markLink();
+  // Measured LAST, once the chips and the list rows are in: measuring first left the balloon sized for
+  // the words alone, with the rows hidden below its edge (found 2026-10-11).
+  fit();
+  reportSize();
+}
+function widen() {
   // Over one line of text, the bubble widens, which is what BubbleView does at WideAfterLines = 1.
   // Wide is decided ONCE per reply, measured at the narrow width, and never undone - BubbleView.Show:
   // `if (!Wide) Wide = Wrap(t).Count > WideAfterLines; // measured at the narrow width`. Toggling it
@@ -402,16 +519,6 @@ function paint() {
   // makes it flip between two sizes and settle on the wrong one.
   if (bubble.classList.contains('wide') && !bubble.classList.contains('widest')
       && lineCount() > WIDEST_AFTER_LINES) bubble.classList.add('widest');
-  // No Copy key on the bubble any more: it came up on every reply and was too big (his call, 2026-10-12).
-  // Copying is the right-click menu's Copy text, or Ctrl+C with the mouse on the bubble.
-  tools.hidden = true;
-  paintChips();
-  paintList();
-  markLink();
-  // Measured LAST, once the chips and the list rows are in: measuring first left the balloon sized for
-  // the words alone, with the rows hidden below its edge (found 2026-10-11).
-  fit();
-  reportSize();
 }
 
 /**
@@ -434,15 +541,27 @@ function markLink() {
 
 // The reveal runs on its own clock and works out how much should be visible from the elapsed time, so
 // this interval only has to be often enough to look smooth. It stops when there is nothing to reveal.
+// 2026-10-21: every 32 ms (was 50), so words start on an even beat, and a tick only lights words: the layout, the
+// chips and the balloon's size change only when new text arrives (onBrain paints then) or when it is all in. Before,
+// every tick rebuilt the chips row and measured the balloon twice, twenty times a second, for nothing.
+const REVEAL_TICK_MS = 32;
 let ticking = null;
+/** The answer's first chunk was only half a word: the dots stay until a word is lit (see onBrain). */
+let dotsTillWords = false;
 function startTicking() {
   if (ticking) return;
   clearTimeout(hideTimer);
   ticking = setInterval(() => {
     reveal.tick();
-    paint();
-    if (reveal.done) { clearInterval(ticking); ticking = null; scheduleHide(); }
-  }, TICK_MS);
+    let relaid = paintWords();
+    if (dotsTillWords && (lit > 0 || reveal.done)) { dotsTillWords = false; working.hidden = true; relaid = true; }
+    if (relaid && !reveal.done) { fit(); reportSize(); }
+    if (reveal.done) {
+      clearInterval(ticking); ticking = null; settleWidth(); paint(); scheduleHide();
+      // All in: the window comes down to the shape once (unless a grow is still running; its end does it).
+      if (!anim && cur.w > 0) sendWindow(cur.w, cur.h, true);
+    }
+  }, REVEAL_TICK_MS);
 }
 
 // ---------------------------------------------------------------- going away
@@ -462,7 +581,7 @@ function holdFor(text) {
   if (holdOverride) return holdOverride;           // a line the pet says carries its own time, as before
   if (expanded) return 300000;                     // opened up to read: five minutes, as the old bubble did
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
-  return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
+  return lineCount() > 6 || shortOf() ? Math.max(base, 60000) : base;
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
@@ -1419,8 +1538,56 @@ function endSessions() {
   if (who.dataset.sessions) { delete who.dataset.sessions; who.textContent = ''; who.hidden = true; who.classList.remove('plaque', 'red'); }
 }
 
+// ---------------------------------------------------------------- thinking (2026-10-21)
+/**
+ * One calm thinking state, his ask: "the way he thinks, how long he thinks smoother and faster". The moment he presses
+ * Enter (the Shell's `asked`, before the brain has even answered) the bubble becomes his question with the dots under
+ * it, growing out on its spring; the brain's own dots, a tool's label and a retried turn only change the label; and
+ * the answer's first words take the dots' place in the SAME bubble, with no fade-out-and-in and no hide between.
+ * `thinkGen` is the empty reveal the thinking state was drawn for, so "still thinking" is one comparison.
+ */
+let thinkGen = -1;
+/** Dots shown on Enter before the brain said a word: if it never does (6 s), they go rather than spin for ever. */
+let provisional = 0;
+const TURN_NEWS = new Set(['bubble.dots', 'bubble', 'whisper', 'queued', 'error', 'pet.say', 'timer.setup', 'bubble.clear', 'notes.board']);
+const isThinking = () => thinkGen === reveal.gen && !reveal.whole && !working.hidden && !bubble.hidden && !bubble.classList.contains('leaving');
+function thinking(label, lane) {
+  if (typeof label === 'string') doing.textContent = label;
+  if (cockpit) { working.hidden = false; show(); return; }
+  // 2026-10-21: the brain's dots say which lane is answering. Anything but Quick's small talk answers in more than a
+  // line, so the thinking bubble takes the answer's width now, while there is nothing to read: the answer then only
+  // grows taller, line by line, and no word slides sideways as the width springs open under it.
+  const answerWide = typeof lane === 'string' && lane !== '' && lane !== 'Quick';
+  if (isThinking()) {
+    if (answerWide && !bubble.classList.contains('wide')) { bubble.classList.add('wide'); fit(); reportSize(); }
+    return;
+  }
+  working.hidden = false;
+  // A question waiting on him, a card, the notes or his history stay where they are: the dots join them, as before.
+  if (asking || !card.hidden || reading || boardOpen) { show(); fit(); reportSize(); return; }
+  clearTimeout(hideTimer);
+  if (ticking) { clearInterval(ticking); ticking = null; }
+  reveal.start('', false); reveal.skip();
+  thinkGen = reveal.gen;
+  expanded = false; replyList = null; claudeDone = null; holdOverride = 0; linkWord = ''; focusWindow = null; macSession = false;
+  bubble.classList.remove('wide', 'widest', 'whisper', 'lantern', 'cdone');
+  if (answerWide) bubble.classList.add('wide');
+  mediaRow.hidden = true; scroller.hidden = false;
+  for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  curAbout = null; paintAbout(false);
+  setSpeaker(null);
+  const line = asked.replace(/\s+/g, ' ').trim();
+  who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
+  who.hidden = !who.textContent; who.classList.remove('plaque', 'red');
+  // New content fades in while the balloon grows (sheet 13); from here on, nothing restarts that until the answer is in.
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  show();
+  paint();
+}
+
 function onBrain(m) {
   if (!m || typeof m !== 'object') return;
+  if (provisional && (TURN_NEWS.has(m.t) || askFrom(m))) { clearTimeout(provisional); provisional = 0; }
   // A hello is not "something he said" (2026-10-21): only real messages come back over the chat box.
   if (!m.recalled && !m.greet && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) { lastShown = m; lastShownAt = Date.now(); }
   // Claude's mark was clicked (2026-10-21): always something in the bubble, never nothing.
@@ -1429,7 +1596,16 @@ function onBrain(m) {
   if (sessionsOpen && SESSION_ENDERS.has(m.t)) endSessions();
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
-  if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; if (cockpit) cockSaid(m.text); else jobsGiveWay(); return; }
+  if (m.t === 'asked' && typeof m.text === 'string') {
+    asked = m.text;
+    if (cockpit) { cockSaid(m.text); return; }
+    jobsGiveWay();
+    // 2026-10-21: thinking shows on Enter, not a brain round trip later (see thinking()).
+    thinking('');
+    clearTimeout(provisional);
+    provisional = setTimeout(() => { provisional = 0; if (isThinking()) { working.hidden = true; goAway(); } }, 6000);
+    return;
+  }
 
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
   // It joins the queue rather than replacing what is there, and the queue decides which is on top.
@@ -1561,8 +1737,21 @@ function onBrain(m) {
     // (Muted, hidden and in-a-game are handled at the top, by the pet's own rule.)
     // A new reply replaces whatever was there; more of the same one is appended. The brain sends the
     // whole text each time, not a delta, so this is a replace either way - the Reveal decides the pace.
-    const same = m.stream && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
+    // 2026-10-21: the FINISHED reply (stream: false, the same id) is the streamed one arriving whole, not a new
+    // message. Treated as new, it restarted the reveal and the bubble's fade-in at the very end of every answer: the
+    // whole bubble blinked, and the width was decided again. And text that starts over within the same turn (after
+    // a tool call, or the finished text cleaned up differently) starts over in place: same width, no fade-in.
+    const sameTurn = typeof m.id === 'string' && m.id !== '' && m.id === liveId && !bubble.hidden && !bubble.classList.contains('leaving');
+    const same = (m.stream || (sameTurn && !cockpit)) && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
+    const fromThinking = isThinking();
+    liveId = typeof m.id === 'string' ? m.id : null;
+    liveWho = typeof m.who === 'string' ? m.who : '';
     if (same) reveal.append(m.text, m.stream === true);
+    else if (sameTurn && !cockpit) {
+      const locked = lockGen === reveal.gen;
+      reveal.start(m.text, m.stream === true);
+      if (locked) lockGen = reveal.gen;
+    }
     // A NEW reply starts revealing here. This line was deleted on 2026-10-05 by a regex that removed
     // every line mentioning setRating(), and this one happened to mention it - so a new reply never
     // started and the bubble showed only his question line. The widths reset with it: `wide` and
@@ -1574,8 +1763,9 @@ function onBrain(m) {
       bubble.classList.remove('wide', 'widest');
       // An ask's explaining line and command belong to the ask, never to the reply that follows it.
       for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
-      // New content fades in 160 ms into the grow, over 300 ms (sheet 13). Restarted, not stacked.
-      bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+      // New content fades in 160 ms into the grow, over 300 ms (sheet 13). Restarted, not stacked. Not out of the
+      // thinking state (2026-10-21): his question stays put and the answer's words fade in on their own.
+      if (!fromThinking) { bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter'); }
     }
     turn = typeof m.turn === 'number' ? m.turn : null;
     // The list rides on the finished reply only; a new reply starts without the last one's.
@@ -1601,7 +1791,11 @@ function onBrain(m) {
     if (cockpit) bubble.classList.add('lantern');
     paintChange(!m.stream);
     if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC', m.face);
-    working.hidden = true;
+    // 2026-10-21: the dots stay until a word of the answer is actually on the paper (a first chunk can be half a word),
+    // so between thinking and answering there is never a moment of empty bubble.
+    reveal.tick();
+    dotsTillWords = !cockpit && reveal.streaming && shownWords(reveal.text) === 0;
+    if (!dotsTillWords) working.hidden = true;
     show();
     paint();
     startTicking();
@@ -1622,14 +1816,19 @@ function onBrain(m) {
     return;
   }
   if (m.t === 'bubble.dots') {
-    if (m.on !== false && !cockpit) jobsGiveWay();
-    working.hidden = m.on === false;
-    doing.textContent = typeof m.doing === 'string' ? m.doing : '';
-    if (m.on !== false) show();
+    if (m.on === false) { working.hidden = true; doing.textContent = typeof m.doing === 'string' ? m.doing : ''; return; }
+    if (!cockpit) jobsGiveWay();
+    thinking(typeof m.doing === 'string' ? m.doing : '', typeof m.who === 'string' ? m.who : undefined);
     return;
   }
 
-  if (m.t === 'tool' && typeof m.label === 'string') { doing.textContent = m.label; planTool(m.name); return; }
+  if (m.t === 'tool' && typeof m.label === 'string') {
+    doing.textContent = m.label; planTool(m.name);
+    // 2026-10-21: a tool call in the middle of an answer puts the dots back under what he is reading, with what it is
+    // doing, instead of the text sitting there frozen; the answer's next words take their place again.
+    if (!cockpit && !asking && !bubble.hidden && reveal.whole && reveal.streaming && working.hidden) { working.hidden = false; fit(); reportSize(); }
+    return;
+  }
 
   // A page of older turns. Keeping his place is the point: if the list grew above him and the view
   // stayed where it was, he would be thrown back to where he started every time.
@@ -1677,6 +1876,9 @@ function onBrain(m) {
   }
 
   if (m.t === 'bubble.clear') {
+    // The brain is asking again (Quick handed it to Smart, or it is told to look first): back to the dots in the same
+    // bubble, never a vanish and a pop (2026-10-21).
+    if (m.retry === true && !cockpit && !bubble.hidden && !asking) { thinking(''); return; }
     // He stopped Aang from the cockpit (Esc while working), or the brain is retrying the turn: only the live answer
     // goes. The cockpit, the conversation and any question pinned in it stay (2026-10-21; before, the whole bubble
     // shut under his hands, typing area and all).
@@ -2851,13 +3053,15 @@ function paintAbout(open) {
 more.addEventListener('click', () => {
   expanded = !expanded;
   // Opening a summarised answer goes to the open size, 556, as the sheet does; closing it goes back.
-  if (summaryOf(reveal.whole)) {
+  if (shortOf()) {
     bubble.classList.toggle('widest', expanded);
     if (expanded) bubble.classList.add('wide');
     paint();
     return;
   }
-  fit();
+  // 2026-10-21: the balloon follows the opened lines on its spring. fit() alone lifted the text's cap, but the balloon
+  // keeps an explicit height once it has grown (place), so the extra lines sat clipped under its edge.
+  fit(); reportSize();
 });
 
 el('copy').addEventListener('click', () => {
