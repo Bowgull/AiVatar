@@ -2285,6 +2285,25 @@ export class Core {
   private hookServer: HookServer | null = null;
   private checkpointTimer: NodeJS.Timeout | null = null;
   private briefTimer: NodeJS.Timeout | null = null;
+  /**
+   * The morning brief, once a day. 2026-10-22 (his pick: "when I first sit down"; he is up at 6 or before): from 5:00
+   * Toronto time it comes the moment he is at the PC (also checked when the pet says he sat down); if he is not at the
+   * PC by 7:00 it goes out anyway, which routes it to Discord on his phone as before.
+   */
+  private briefBusy = false;
+  private briefIfDue(): void {
+    if (this.briefBusy) return;
+    const here = this.atDesk && this.clientsOf('desktop').length > 0;
+    const m = this.mail();
+    if (!m) return;
+    this.briefBusy = true;
+    void m.dailyBrief(here ? 5 : 7).then(async t => {
+      if (!t) return;
+      await this.addonDesk.morning().catch(() => null);                // sheet 65: CurseForge's list, fresh, WoW closed
+      const card = await this.briefCard().catch(() => null);
+      this.announce(t, card ? { brief: card } : {});
+    }).catch(() => { /* tried again in ten minutes */ }).finally(() => { this.briefBusy = false; });
+  }
   private factTimer: NodeJS.Timeout | null = null;
   private timerTick: NodeJS.Timeout | null = null;
 
@@ -2715,12 +2734,7 @@ export class Core {
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
     // At the desk it arrives as the card (sheet 13); away, Discord draws its own card (sheet 21), the text riding along.
-    this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(async t => {
-      if (!t) return;
-      await this.addonDesk.morning().catch(() => null);                // sheet 65: CurseForge's list, fresh, WoW closed
-      const card = await this.briefCard().catch(() => null);
-      this.announce(t, card ? { brief: card } : {});
-    }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
+    this.briefTimer = setInterval(() => this.briefIfDue(), 10 * 60_000);
     // Facts read out of his documents, offered one at a time when he is not busy and not in a game.
     // offerFact() does the deciding; this only gives it a chance to. Five minutes because none of these
     // is urgent - they came out of documents he already has - and a question at a bad moment costs far
@@ -3363,7 +3377,7 @@ export class Core {
         this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() });
         break;
       }
-      case 'desk': this.atDesk = m.active !== false; break;
+      case 'desk': { const was = this.atDesk; this.atDesk = m.active !== false; if (!was && this.atDesk) setTimeout(() => this.briefIfDue(), 20_000).unref?.(); break; }
       // He clicked Aang, so the typing box is opening: warm the lane now rather than at every
       // restart (step Q1). Costs the same one silent turn, but only when he is actually here.
       case 'poked': this.warmNow(); break;
