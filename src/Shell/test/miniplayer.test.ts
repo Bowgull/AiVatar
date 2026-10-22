@@ -124,3 +124,28 @@ test('the player page: its own preload doors only, and no like key anywhere', ()
   const page = readFileSync(path.resolve(import.meta.dirname, '..', 'pages', 'miniplayer.js'), 'utf8');
   assert.ok(!/like/i.test(pre.replace('like the other preloads', '')) && !/\blike\b|liked/i.test(page), 'he does not want a like key');
 });
+
+// 2026-10-22 (his report: "the purple ball at the bottom near the speaker but the bar is half full"): the knob and the
+// fill come from ONE sum, at every volume; no volume yet is an empty groove with the knob at its start.
+import { sliderAt, readDevice } from '../pages/playerstate.js';
+import { readDevices } from '../src/playercmd.ts';
+test('volume: the knob sits on the end of the fill at 0, 50 and 100, and everywhere between', () => {
+  const W = 81;                                            // the free player's groove, art pixels
+  assert.deepEqual(sliderAt(W, 0), { fill: 0, center: 1 });
+  assert.deepEqual(sliderAt(W, 0.5), { fill: 40, center: 41 });
+  assert.deepEqual(sliderAt(W, 1), { fill: 79, center: 80 });
+  for (let v = 0; v <= 100; v++) { const a = sliderAt(W, v / 100); assert.equal(a.center, 1 + a.fill); assert.ok(a.fill >= 0 && a.fill <= W - 2); }
+  for (const bad of [null, undefined, NaN, 'x']) assert.deepEqual(sliderAt(W, bad), { fill: 0, center: 1 });
+  assert.deepEqual(sliderAt(W, 7), sliderAt(W, 1)); assert.deepEqual(sliderAt(W, -1), sliderAt(W, 0));
+});
+test('Spotify Connect on the page: the device chip, the device list', () => {
+  const t = new Timeline();
+  assert.equal(t.take(song({ device: { name: 'iPhone', kind: 'phone' } }), now0), 'song');
+  assert.deepEqual(t.state.device, { name: 'iPhone', kind: 'phone' });
+  assert.equal(t.take({ t: 'media.now', v: 1, app: 'spotify', device: null }, now0 + 10), 'status', 'back on this PC: the chip goes');
+  assert.equal(t.state.device, null);
+  assert.deepEqual(readDevice({ name: 'Kitchen speaker', kind: 'toaster' }), { name: 'Kitchen speaker', kind: 'other' });
+  assert.equal(readDevice({ name: '' }), null);
+  assert.deepEqual(readDevices({ devices: [{ id: 'a1', name: 'iPhone', kind: 'phone', active: true }, { id: 'no good', name: 'x' }], error: 5 }),
+    { devices: [{ id: 'a1', name: 'iPhone', kind: 'phone', active: true }], error: null });
+});

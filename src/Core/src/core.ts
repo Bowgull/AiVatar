@@ -110,7 +110,8 @@ import type { DraftInput, MailDraft } from './mail.ts';
 import { exactOf, meansOf } from './plain.ts';
 import { saveDigest, weeklySweep } from './watch.ts';
 import { AddonDesk, realDeps as addonDeskDeps, type Said as AddonSaid } from './addondesk.ts';
-import { MediaState, checkMediaCmd, checkMediaNow, wantsPlayer } from './media.ts';
+import { checkMediaCmd, checkMediaNow, wantsPlayer, type MediaCmd } from './media.ts';
+import { ConnectPoller, MediaMux, readPlayback, readDevices, checkDeviceId } from './connect.ts';
 
 export interface CoreConfig {
   port: number;
@@ -3266,8 +3267,53 @@ export class Core {
    *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
   private lastPetAt: PetAt | null = null;
   private lastBubbleState: { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean } | null = null;
-  /** What is playing (media.ts), kept for a Shell that starts after the song did. */
-  private readonly media = new MediaState();
+  /**
+   * What is playing, kept for a Shell that starts after the song did: the pet's feed (this PC) or, while the player
+   * window shows and the PC is quiet, Spotify Connect's (his phone, Mac, speakers; connect.ts). One stream to the Shell.
+   */
+  private readonly media = new MediaMux((m) => this.sendToShells(m));
+  private connectSp: Spotify | null = null;
+  /** Spotify for the player's Connect side: one instance, so its access token is reused between polls. */
+  private connectSpotify(): Spotify {
+    this.connectSp ??= new Spotify(path.join(this.cfg.stateDir, 'spotify.json'), this.spotifyFetch);
+    return this.connectSp;
+  }
+  private connectNote: string | null = null;
+  private noteToPlayer(text: string | null): void {
+    if (text === this.connectNote) return;
+    this.connectNote = text;
+    this.sendToShells({ t: 'media.note', text });
+  }
+  private readonly connect = new ConnectPoller({
+    fetch: async () => {
+      const sp = this.connectSpotify();
+      if (!sp.connected) throw Object.assign(new Error('not connected'), { kind: 'none' });
+      return readPlayback(await sp.playback(), Date.now(), os.hostname());
+    },
+    onState: (r) => {
+      if (!this.media.fromRemote(r) || !r?.coverUrl) return;
+      const track = r.track, url = r.coverUrl;
+      void this.connectSpotify().cover(url).then((d) => this.media.cover(track, d), () => this.media.cover(track, null));
+    },
+    onNote: (t) => this.noteToPlayer(t),
+  });
+  /** A key on the player while it shows a remote device: done through the Web API, on that device. */
+  private async remoteCmd(c: MediaCmd): Promise<void> {
+    const r = this.media.remoteNow;
+    if (!r) return;
+    const sp = this.connectSpotify(), dev = r.device.id;
+    try {
+      if (c.op === 'toggle') await sp.control(r.playing ? 'pause' : 'play', dev);
+      else if (c.op === 'seek') await sp.control('seek', dev, c.position);
+      else if (c.op === 'volume') await sp.control('volume', dev, c.volume);
+      else await sp.control(c.op, dev);
+      this.noteToPlayer(null);
+    } catch (e) {
+      const k = (e as { kind?: string }).kind;
+      this.noteToPlayer(k === 'premium' ? 'Spotify only lets Premium be steered from here' : k === 'device' ? `${r.device.name} isn’t answering` : 'Can’t reach Spotify right now');
+    }
+    this.connect.soon();
+  }
   private shellConnected(): boolean {
     return this.wss ? [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)) : false;
   }
@@ -3355,10 +3401,12 @@ export class Core {
           this.shells.add(ws);
           this.bsync.shellChanged(true);
           ws.once('close', () => this.bsync.shellChanged(this.shellUp()));
+          ws.once('close', () => { if (!this.shellUp()) this.connect.setVisible(false); });   // no player window without a Shell
           if (m.bubble === true) this.drawingShells.add(ws);
           if (this.lastPetAt) this.send(ws, this.lastPetAt);
           if (this.lastBubbleState) this.send(ws, this.lastBubbleState);
-          const playing = this.media.now(); if (playing) this.send(ws, playing);
+          if (this.media.source !== 'none' || this.media.pc.now()) this.send(ws, this.media.full());
+          if (this.connectNote) this.send(ws, { t: 'media.note', text: this.connectNote });
         }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') { const st = this.claudeState(); this.send(ws, { t: 'claude.working', ...st.working }); this.send(ws, this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking)); }
@@ -3413,11 +3461,32 @@ export class Core {
       case 'media.now': {
         if (this.shells.has(ws) || this.kindOfSocket(ws) !== 'desktop') break;
         const now = checkMediaNow(m); if (!now) break;
-        this.media.take(now); this.sendToShells(now); break;
+        this.media.fromPc(now); this.connect.setPcPlaying(this.media.pcPlaying); break;
       }
       case 'media.cmd': {
         if (!this.shells.has(ws)) break;
-        const cmd = checkMediaCmd(m); if (cmd) this.sendToPets(cmd); break;
+        const cmd = checkMediaCmd(m); if (!cmd) break;
+        // Showing his phone / Mac / speaker: the Web API steers that device. Otherwise the pet presses the PC's keys.
+        if (this.media.source === 'remote') void this.remoteCmd(cmd); else this.sendToPets(cmd);
+        break;
+      }
+      // Spotify Connect (connect.ts): the player window showing or not (Spotify is asked only while it shows), its
+      // device menu, and moving playback to another device. Only the Shell sends these.
+      case 'player.watch': { if (this.shells.has(ws)) this.connect.setVisible(m.visible === true); break; }
+      case 'media.devices.get': {
+        if (!this.shells.has(ws)) break;
+        const sp = this.connectSpotify();
+        if (!sp.connected) { this.send(ws, { t: 'media.devices', devices: [], error: 'Spotify isn’t connected' }); break; }
+        void sp.devices().then((list) => this.send(ws, { t: 'media.devices', devices: readDevices(list) }),
+          () => this.send(ws, { t: 'media.devices', devices: [], error: 'Can’t reach Spotify right now' }));
+        break;
+      }
+      case 'media.transfer': {
+        if (!this.shells.has(ws)) break;
+        const id = checkDeviceId(m.id); if (!id) break;
+        void this.connectSpotify().transfer(id).then(() => { this.noteToPlayer(null); this.connect.soon(900); },
+          (e) => this.noteToPlayer((e as { kind?: string }).kind === 'premium' ? 'Spotify only lets Premium move playback' : 'Couldn’t move the music there'));
+        break;
       }
       // 6.12b: the Shell caught the hotkey and has its box open already; the pet only moves.
       // `typebox` is the pet asking the Shell to open the new typing box. It goes through here for the

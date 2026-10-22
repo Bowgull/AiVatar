@@ -12,7 +12,7 @@
 // covered (WoW in front): the page's own visibility plus the main process's word.
 import { P, loadTex, rr, rrMask, fills, spr, art, GLYPH, pin, cover, mix, hex, paperAt } from './player/pix.js';
 import * as S from './player/scenes.js';
-import { Timeline, fmtTime, marqueeOffset, barLevels, Peaks, pictureName } from './playerstate.js';
+import { Timeline, fmtTime, marqueeOffset, barLevels, Peaks, pictureName, sliderAt } from './playerstate.js';
 
 const api = window.player;
 const H = 104, SH = 26;                          // art pixels; the window is twice that
@@ -21,7 +21,7 @@ const H = 104, SH = 26;                          // art pixels; the window is tw
 let W = 212, HT = H, TALL = false;
 const a2 = (n) => n * P;
 const SHADE_PX = a2(SH);
-const SKATER = 'tee';                            // his pick: white tee + plum trousers (legs rimmed)
+const SKATER = 'mustard';                        // his pick: mustard hoodie + dark jeans (sun-side edge, legs rimmed)
 
 const KNOB = ['..OOOOO..', '.OHHHFFO.', 'OHHFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OFFFFFSSO', 'OFFFFSSSO', '.OFSSSSO.', '..OOOOO..'];
 const GOLDK = { O: '#2a1a10', H: '#fff3d8', F: '#ffc43c', S: '#b97a22' };
@@ -47,7 +47,7 @@ function pillCanvas(w, ht, p, pal, c = null) {
   const put = (x, y, col, a = 1) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; };
   const inside = (x, y) => { const cx = x < r ? r - 0.5 : x > w - 1 - r ? w - 1 - r + 0.5 : x, cy = y < r ? r - 0.5 : y > ht - 1 - r ? ht - 1 - r + 0.5 : y; return Math.hypot(x - cx, y - cy) <= r + 0.15; };
   for (let y = 0; y < ht; y++) for (let x = 0; x < w; x++) { if (!inside(x, y)) continue; const rim = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1); put(x, y, rim ? (y < ht / 2 ? '#6a4628' : '#3a2414') : y === 1 ? '#1a100a' : '#2a1a10'); }
-  const fw = Math.round((w - 2) * Math.max(0, Math.min(1, p)));
+  const fw = sliderAt(w, p).fill;           // the same sum as the knob's place (playerstate.js sliderAt)
   for (let x = 1; x < 1 + fw; x++) for (let y = 1; y < ht - 1; y++) { if (!(inside(x, y) && inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1))) continue; put(x, y, pal[Math.min(7, Math.round((y - 1) / (ht - 3) * 7))]); }
   for (let x = 2; x < fw; x++) if (inside(x, 2)) put(x, 2, '#fff', 0.45);
   if (fw > 1) for (let y = 1; y < ht - 1; y++) { if (inside(fw, y)) put(fw, y, '#fffaf0'); if (inside(fw + 1, y)) put(fw + 1, y, '#fff3d8', 0.5); }
@@ -232,10 +232,10 @@ function buildFull() {
   const vy = TALL ? yb + 44 : 84, gx = TALL ? 8 : 106, vx = TALL ? 21 : 119, vw = W - vx - 12;
   F.volIcon = put(spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(gx), a2(vy), 20); F.volIcon.classList.add('at');
   F.vx = vx; F.vw = vw;
-  F.vol = put(pillCanvas(vw, 7, 0.7, CREAM), a2(vx), a2(vy), 14); F.vol.classList.add('at');
+  F.vol = put(pillCanvas(vw, 7, 0, CREAM), a2(vx), a2(vy), 14); F.vol.classList.add('at', 'volp');   // empty until the volume is known
   F.volGrab = put(el('div', 'grab'), a2(vx) - 8, a2(vy - 4), 26);
   F.volGrab.style.width = a2(vw) + 16 + 'px'; F.volGrab.style.height = '26px'; F.volGrab.title = 'Spotify’s volume';
-  F.volBead = put(bead(PLUMK), a2(vx - 4), a2(vy - 1), 20); F.volBead.classList.add('bead');
+  F.volBead = put(bead(PLUMK), a2(vx + sliderAt(vw, 0).center - 4), a2(vy - 1), 20); F.volBead.classList.add('bead', 'volb');
   slider(F.seekGrab, (f, phase) => scrub(f, phase));
   slider(F.volGrab, (f, phase) => volume(f, phase));
   root.append(L);
@@ -281,7 +281,7 @@ function fadeSlider() {
   const pct = el('span', '', '100%'); pct.style.cssText = 'position:absolute;left:' + (a2(wA) + 12) + 'px;top:5px';
   const g = el('div', 'grab'); g.style.cssText = `left:-6px;top:0;width:${a2(wA) + 12}px;height:24px`;
   box.append(c, g, b, pct);
-  box.set = (v) => { const f = (v - 0.3) / 0.7; pillCanvas(wA, 7, f, PLUMS, c); b.style.left = a2(Math.round(f * (wA - 2)) - 4) + 'px'; pct.textContent = Math.round(v * 100) + '%'; };
+  box.set = (v) => { const f = (v - 0.3) / 0.7; pillCanvas(wA, 7, f, PLUMS, c); b.style.left = a2(sliderAt(wA, f).center - 4) + 'px'; pct.textContent = Math.round(v * 100) + '%'; };
   box.set(1);
   slider(g, (f, phase) => { const v = 0.3 + 0.7 * f; box.set(v); if (phase !== 'start') api.opacity(v); });
   box.addEventListener('pointerleave', () => { if (!sliding) showFade(false); });
@@ -318,13 +318,14 @@ function scrub(f, phase) {
   }
   paintTime(true);
 }
-let volSent = 0, volPending = null;
+let volSent = 0, volHold = null;
 function volume(f, phase) {
-  if (tl.state.volume === null) return;
+  if (tl.state.volume === null || tl.state.volume === undefined) return;
   paintVol(f);
-  volPending = f;
+  // what he set stays on the slider for a moment, so a late update still carrying the old volume does not snap it back
+  volHold = { v: f, until: Date.now() + 1500 };
   const now = Date.now();
-  if (phase === 'end' || now - volSent > 90) { api.cmd('volume', Math.round(f * 100) / 100); volSent = now; volPending = null; }
+  if (phase === 'end' || now - volSent > 90) { api.cmd('volume', Math.round(f * 100) / 100); volSent = now; }
 }
 
 // ---------------------------------------------------------------- painting what changed
@@ -354,6 +355,7 @@ function paintSong() {
   const words = has ? [s.title, s.artist].filter(Boolean).join('  ·  ').toUpperCase() : 'NOTHING PLAYING';
   for (const sc of [F.scroll, Sh.scroll]) { sc.textContent = words; sc.dataset.w = '0'; }
   F.sub.textContent = has ? (s.album || s.artist || '') : 'Play something in Spotify';
+  if (note) paintNote();
   marqueeT0 = performance.now();
   paintStatus();
 }
@@ -371,14 +373,47 @@ function paintStatus() {
   F.seekGrab.title = seekOk ? 'Grab and drag to move in the song' : '';
   const volOk = s.volume !== null && s.volume !== undefined;
   F.volGrab.classList.toggle('off', !volOk); F.volBead.classList.toggle('dim', !volOk);
-  if (volOk && !sliding) paintVol(s.volume);
+  F.volGrab.title = volOk ? (s.device ? s.device.name + '’s volume' : 'Spotify’s volume') : '';
+  // the knob and the fill always from the same number: the real volume, what he just set, or 0 while it is not known
+  if (!sliding) paintVol(volOk ? (volHold && Date.now() < volHold.until ? volHold.v : s.volume) : 0);
+  paintDevice();
   paintTime(true);
   wake();
 }
 function paintVol(f) {
-  const fw = String(Math.round((F.vw - 2) * f));
-  if (F.vol.dataset.fw !== fw) pillCanvas(F.vw, 7, f, CREAM, F.vol);
-  F.volBead.style.left = a2(F.vx + Math.round(F.vw * f) - 4) + 'px';
+  const at = sliderAt(F.vw, f);
+  if (F.vol.dataset.fw !== String(at.fill)) pillCanvas(F.vw, 7, f, CREAM, F.vol);
+  F.volBead.style.left = a2(F.vx + at.center - 4) + 'px';
+  F.volBead.dataset.v = String(Math.round((Number(f) || 0) * 100));
+}
+// Spotify Connect (2026-10-22): which device it is playing on when that is not this PC ("iPhone", "Kitchen speaker"),
+// a pixel icon and the name on the screen's status line; and one plain line when Spotify cannot be reached.
+const DEV = {
+  phone: ['OOOO', 'O..O', 'O..O', 'O..O', 'OOOO', 'OOOO'],
+  computer: ['.OOOOO.', '.O...O.', '.O...O.', '.OOOOO.', 'OOOOOOO'],
+  speaker: ['OOOOO', 'OO.OO', 'O...O', 'O.O.O', 'O...O', 'OOOOO'],
+  tv: ['OOOOOOO', 'O.....O', 'O.....O', 'OOOOOOO', '..O.O..', '.OOOOO.'],
+  car: ['..OOO..', '.O...O.', 'OOOOOOO', 'OOOOOOO', '.O...O.'],
+  other: ['..OOO', '..O.O', '..O..', 'OOO..', 'OOO..', '.O...'],
+};
+let note = null;
+function paintDevice() {
+  const d = tl.state.app ? tl.state.device : null;
+  F.tags.querySelector('.dev')?.remove();
+  if (d) {
+    const chip = el('span', 'dev'); chip.title = 'Playing on ' + d.name;
+    chip.dataset.kind = d.kind;
+    const ic = spr(DEV[d.kind] ?? DEV.other, { O: '#ffc43c' }); ic.classList.add('devic');
+    chip.append(ic, el('b', '', d.name.toUpperCase().slice(0, 18)));
+    F.tags.append(chip);
+  }
+  F.lcd.dataset.device = d ? d.name : '';
+}
+function paintNote() {
+  F.sub.classList.toggle('note', !!note);
+  if (note) F.sub.textContent = note;
+  F.lcd.dataset.note = note ?? '';
+  F.lcd.title = note ?? '';
 }
 let lastTime = '', lastPx = -1;
 function paintTime(force = false) {
@@ -387,7 +422,7 @@ function paintTime(force = false) {
   const t = fmtTime(pos);
   if (t !== lastTime || force) { lastTime = t; F.time.textContent = t; Sh.time.textContent = t; F.tPos.textContent = t; F.tLen.textContent = dur > 0 ? fmtTime(dur) : '-:--'; }
   const f = dur > 0 ? Math.min(1, pos / dur) : 0;
-  const px = Math.round(F.sw * f);
+  const px = sliderAt(F.sw, f).center;
   if (px !== lastPx || force) {
     lastPx = px;
     pillCanvas(F.sw, 6, f, GOLD, F.seek);
@@ -534,6 +569,7 @@ api.onUi((u) => {
   document.documentElement.classList.toggle('fam-through', !!ui.through);
 });
 api.onAwake((on) => { awake = on !== false; if (awake) { lastBars = 0; wake(); } });
+api.onNote?.((t) => { const was = note; note = typeof t === 'string' && t ? t.slice(0, 80) : null; paintNote(); if (was && !note) paintSong(); });
 }
 
 window.__ready = (async () => {

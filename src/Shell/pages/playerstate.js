@@ -34,12 +34,35 @@ const EASE_MS = 400;
 
 /**
  * @typedef {{ app: string | null, title: string, artist: string, album: string, status: string, position: number, duration: number,
- *   at: number, canSeek: boolean, volume: number | null, spotify: boolean }} PlayState
+ *   at: number, canSeek: boolean, volume: number | null, spotify: boolean, device: { name: string, kind: string } | null }} PlayState
  */
+/** Spotify Connect's device (2026-10-22): a name and one of the six kinds, or null (this PC). */
+/** @param {unknown} d */
+export function readDevice(d) {
+  if (!d || typeof d !== 'object') return null;
+  const o = /** @type {Record<string, unknown>} */ (d);
+  const kinds = ['phone', 'computer', 'speaker', 'tv', 'car', 'other'];
+  const name = typeof o.name === 'string' ? o.name.trim().slice(0, 40) : '';
+  return name ? { name, kind: typeof o.kind === 'string' && kinds.includes(o.kind) ? o.kind : 'other' } : null;
+}
+
+/**
+ * Where a slider's fill ends and its knob sits, in art pixels from the groove's left edge, for a value 0..1 (2026-10-22,
+ * his report: "the purple ball at the bottom near the speaker but the bar is half full"). ONE sum for both, so they can
+ * never disagree: the fill covers pixels 1 .. fill (the groove's 1 px rim on each side), the knob's centre sits on the
+ * fill's end. Anything not a number (no volume yet) is 0: an empty groove with the knob at its start.
+ */
+/** @param {number} trackW @param {unknown} f */
+export function sliderAt(trackW, f) {
+  const p = typeof f === 'number' && Number.isFinite(f) ? Math.max(0, Math.min(1, f)) : 0;
+  const fill = Math.round((Math.max(2, trackW) - 2) * p);
+  return { fill, center: 1 + fill };
+}
+
 export class Timeline {
   constructor() {
     /** @type {PlayState} */
-    this.s = { app: null, title: '', artist: '', album: '', status: 'stopped', position: 0, duration: 0, at: 0, canSeek: false, volume: null, spotify: false };
+    this.s = { app: null, title: '', artist: '', album: '', status: 'stopped', position: 0, duration: 0, at: 0, canSeek: false, volume: null, spotify: false, device: null };
     this.fix = 0;          // seconds still to ease away (shown minus true)
     this.fixAt = 0;
     /** @type {{ position: number, at: number, until: number } | null} */
@@ -85,7 +108,7 @@ export class Timeline {
     const before = this.shown(now), s = this.s;
     if (m.app === null) {
       const had = !!s.app;
-      this.s = { ...s, app: null, title: '', artist: '', album: '', status: 'stopped', position: 0, duration: 0, at: 0, canSeek: false };
+      this.s = { ...s, app: null, title: '', artist: '', album: '', status: 'stopped', position: 0, duration: 0, at: 0, canSeek: false, device: null };
       this.fix = 0; this.hold = null;
       return had ? 'song' : '';
     }
@@ -100,9 +123,11 @@ export class Timeline {
       position: num(m.position, s.position), duration: Math.max(0, num(m.duration, s.duration)), at: num(m.at, s.at || now),
       canSeek: m.canSeek === undefined ? s.canSeek : m.canSeek === true,
       volume: m.volume === undefined ? s.volume : (typeof m.volume === 'number' && Number.isFinite(m.volume) ? Math.max(0, Math.min(1, m.volume)) : null),
+      device: m.device === undefined ? s.device : readDevice(m.device),
     };
     const song = next.title !== s.title || next.artist !== s.artist || next.app !== s.app;
-    const status = next.status !== s.status;
+    // a volume change alone repaints the slider too (it used to wait for the next song or status, leaving it stale)
+    const status = next.status !== s.status || next.volume !== s.volume || next.device?.name !== s.device?.name || next.device?.kind !== s.device?.kind;
     this.s = next;
     if (song) { this.fix = 0; this.hold = null; return 'song'; }
     // A seek he made is kept until the feed agrees (or 2 s pass).

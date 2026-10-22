@@ -70,9 +70,12 @@ namespace Aang { public static class Win {
     if (rg == IntPtr.Zero) return;
     if (SetWindowRgn(h, rg, true) == 0) DeleteObject(rg);
   }
-}
 } }
 `;
+// 2026-10-22 (his report: "my music player edges are straight-up square"): the taskbar commit left one brace too many
+// above, so this never compiled and EVERY corner request did nothing, silently (the helper's errors go nowhere). The
+// thin-framed player and the joined regions went square; thick-framed windows stayed round only by Windows' default.
+// test/winedge.test.ts now compiles both classes.
 
 /**
  * Pop-outs on Samara's taskbar (sheet 66 A, taskbar.ts), compiled only the first time the taskbar asks for something.
@@ -88,6 +91,7 @@ namespace Aang { public static class Win {
  * One line in, "R <seq> <answer>" out. Electron's own windows, by handle:
  *   A seq hwnd 0|1          WS_EX_APPWINDOW on (WS_EX_TOOLWINDOW off) or off; answers the new extended style
  *   Q seq hwnd              answers the extended style
+ *   C seq hwnd              its corners: DWM's corner preference, the region's type and box (read only; the checks)
  * Proxies, by a small id (1..999) the Shell picks:
  *   G seq id 1|0            make one (or remove it)      N seq id b64       its title and tooltip (UTF-8, base64)
  *   W seq id x y w h        where the group is (screen pixels: the live preview's place)
@@ -171,6 +175,8 @@ public static class Tb {
   [DllImport("user32.dll")] static extern IntPtr CreateIconIndirect(ref ICONINFO i);
   [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr i);
   [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
+  [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int a, out int v, int s);
+  [DllImport("user32.dll")] static extern int GetWindowRgnBox(IntPtr h, out RC r);
   [DllImport("dwmapi.dll")] static extern int DwmSetIconicThumbnail(IntPtr h, IntPtr b, uint f);
   [DllImport("dwmapi.dll")] static extern int DwmSetIconicLivePreviewBitmap(IntPtr h, IntPtr b, ref PT p, uint f);
   [DllImport("dwmapi.dll")] static extern int DwmInvalidateIconicBitmaps(IntPtr h);
@@ -262,6 +268,15 @@ public static class Tb {
 
   static string Do(string[] p, long hv) {
     string op = p[0];
+    if (op == "C") {
+      // Its corners, as Windows has them: DWM's corner preference (1 square, 2 round; -1 unread) and the region
+      // (0 = none, 1 null, 2 simple, 3 complex) with its box. Read only.
+      IntPtr h = new IntPtr(hv);
+      if (!IsWindow(h)) return "nowindow";
+      int c; if (DwmGetWindowAttribute(h, 33, out c, 4) != 0) c = -1;
+      RC b; int k = GetWindowRgnBox(h, out b);
+      return c + " " + k + " " + b.l + "," + b.t + "," + b.r + "," + b.b;
+    }
     if (op == "Q" || op == "A") {
       IntPtr h = new IntPtr(hv);
       if (!IsWindow(h)) return "nowindow";
@@ -452,7 +467,7 @@ function ask(line: (n: number) => string, ms: number): Promise<string> {
  * (0), Q = just look. Answers the window's extended style as a number, or a word ('nowindow', 'timeout', 'off' off
  * Windows). The first one waits for the taskbar part to compile (a few seconds); later ones answer in milliseconds.
  */
-export function askHelper(op: 'A' | 'Q', w: BaseWindow, on?: boolean, ms = 15000): Promise<string> {
+export function askHelper(op: 'A' | 'Q' | 'C', w: BaseWindow, on?: boolean, ms = 15000): Promise<string> {
   const h = hwndOf(w);
   if (!h) return Promise.resolve('nowindow');
   return ask((n) => `${op} ${n} ${h}${op === 'A' ? (on === false ? ' 0' : ' 1') : ''}`, ms);

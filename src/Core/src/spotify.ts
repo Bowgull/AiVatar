@@ -9,8 +9,10 @@ export type Kind = 'track' | 'playlist' | 'artist' | 'album';
 export interface Pick { kind: Kind; uri: string; name: string; by: string }
 
 export class SpotifyError extends Error {
-  readonly kind: 'none' | 'signin' | 'device' | 'premium' | 'api';
-  constructor(message: string, kind: 'none' | 'signin' | 'device' | 'premium' | 'api' = 'api') { super(message); this.kind = kind; }
+  readonly kind: 'none' | 'signin' | 'device' | 'premium' | 'rate' | 'api';
+  /** For 'rate' (a 429): how long Spotify asked us to wait, in seconds. */
+  readonly retryAfter: number;
+  constructor(message: string, kind: 'none' | 'signin' | 'device' | 'premium' | 'rate' | 'api' = 'api', retryAfter = 0) { super(message); this.kind = kind; this.retryAfter = retryAfter; }
 }
 
 const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -68,6 +70,10 @@ export class Spotify {
     const r = await this.fetcher(`https://api.spotify.com/v1${path}`, { method, headers: { authorization: `Bearer ${auth}`, ...(body ? { 'content-type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     const text = await r.text();
     let j: any = {}; try { j = text ? JSON.parse(text) : {}; } catch { /* empty */ }
+    if (r.status === 429) {
+      const ra = Number((r as { headers?: { get?: (n: string) => string | null } }).headers?.get?.('retry-after'));
+      throw new SpotifyError('Spotify asked to slow down.', 'rate', Number.isFinite(ra) && ra > 0 ? Math.min(3600, ra) : 30);
+    }
     if (r.status === 401) { if (this.t) this.t.expiresAt = 0; throw new SpotifyError('Spotify turned the sign-in down. Run tools\\spotify-setup.cmd again.', 'signin'); }
     if (r.status === 403) throw new SpotifyError('Spotify only lets Premium accounts be controlled like this.', 'premium');
     if (r.status === 404 && /device/i.test(String(j?.error?.message ?? ''))) throw new SpotifyError('No Spotify is open to play on.', 'device');
@@ -102,5 +108,46 @@ export class Spotify {
     await this.call('PUT', `/me/player/play?device_id=${encodeURIComponent(dev)}`, p.kind === 'track' ? { uris: [p.uri] } : { context_uri: p.uri });
     const what = p.kind === 'track' ? `"${p.name}"${p.by ? ` by ${p.by}` : ''}` : p.kind === 'artist' ? `${p.name}` : `the ${p.kind} "${p.name}"${p.by && p.kind === 'album' ? ` by ${p.by}` : ''}`;
     return `Playing ${what} on Spotify.`;
+  }
+
+  // ---------------------------------------------------------------- Spotify Connect, for the mini player (2026-10-22)
+  // His question: "how does the music player pick up something in Spotify if it's playing on my phone or my Mac or my
+  // smart speakers?" Windows' now-playing only sees this PC; these read and steer whatever device Spotify is playing on.
+
+  /** GET /me/player: the raw playback state, or null when nothing is playing anywhere (204). */
+  async playback(): Promise<any | null> {
+    const j = await this.call('GET', '/me/player?additional_types=episode');
+    return j && typeof j === 'object' && j.device ? j : null;
+  }
+  /** Every device Spotify can play on right now. */
+  async devices(): Promise<any[]> {
+    const j = await this.call('GET', '/me/player/devices');
+    return Array.isArray(j.devices) ? j.devices : [];
+  }
+  /** One of the player's keys, on that device. Positions in seconds, volume 0..1. */
+  async control(op: 'play' | 'pause' | 'next' | 'prev' | 'seek' | 'volume', device: string, value?: number): Promise<void> {
+    const d = `device_id=${encodeURIComponent(device)}`;
+    if (op === 'play') await this.call('PUT', `/me/player/play?${d}`);
+    else if (op === 'pause') await this.call('PUT', `/me/player/pause?${d}`);
+    else if (op === 'next') await this.call('POST', `/me/player/next?${d}`);
+    else if (op === 'prev') await this.call('POST', `/me/player/previous?${d}`);
+    else if (op === 'seek') await this.call('PUT', `/me/player/seek?position_ms=${Math.max(0, Math.round((value ?? 0) * 1000))}&${d}`);
+    else if (op === 'volume') await this.call('PUT', `/me/player/volume?volume_percent=${Math.max(0, Math.min(100, Math.round((value ?? 0) * 100)))}&${d}`);
+  }
+  /** Move playback to another device (Spotify Connect's transfer), playing. */
+  async transfer(device: string): Promise<void> {
+    await this.call('PUT', '/me/player', { device_ids: [device], play: true });
+  }
+  /** An album cover from Spotify's image host, as a data URL for the player (its page loads nothing from the web). */
+  async cover(url: string): Promise<string | null> {
+    let u: URL;
+    try { u = new URL(url); } catch { return null; }
+    if (u.protocol !== 'https:' || !/(^|\.)scdn\.co$|(^|\.)spotifycdn\.com$/.test(u.hostname)) return null;
+    const r = await this.fetcher(u.toString(), { method: 'GET' }) as Awaited<ReturnType<Fetch>> & { arrayBuffer?: () => Promise<ArrayBuffer>; headers?: { get?: (n: string) => string | null } };
+    if (!r.ok || !r.arrayBuffer) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length || buf.length > 400_000) return null;
+    const type = buf[0] === 0x89 && buf[1] === 0x50 ? 'png' : buf[0] === 0xff && buf[1] === 0xd8 ? 'jpeg' : null;
+    return type ? `data:image/${type};base64,${buf.toString('base64')}` : null;
   }
 }
