@@ -24,8 +24,8 @@ html,body{ height:100%; overflow:hidden; background:var(--panel2); color:var(--t
 
 /* ---------------------------------------------------------------- the grab bar
    Sheet 4: "the grip you drag, what is playing, where it came from, and two small keycaps".
-   -webkit-app-region:drag is what makes a frameless window movable by this bar. */
-.bar{ -webkit-app-region:drag; display:flex; align-items:center; gap:9px; padding:0 8px;
+   It is dragged by hand (popout.js, 2026-10-22), not by Windows: the window family must be able to snap it mid-drag. */
+.bar{ -webkit-app-region:no-drag; cursor:grab; touch-action:none; display:flex; align-items:center; gap:9px; padding:0 8px;
   background:linear-gradient(180deg,#56371F 0%,var(--wood1) 45%,var(--wood2) 100%);
   border-bottom:3px solid var(--outline); box-shadow:inset 0 3px 0 rgba(255,224,150,.18) }
 
@@ -194,3 +194,11 @@ html,body{ background:#24160D }
 .frame.pinned #pin{ background:#FFC43C; box-shadow:inset 2px 2px 0 rgba(255,245,200,.7), inset -2px -2px 0 rgba(120,80,10,.5), 0 2px 0 var(--outline) }
 .frame.pinned #pin svg{ transform:rotate(90deg) }
 .frame.pinned #pin svg path{ fill:#2a1c00 }
+
+/* F0 of the window family (2026-10-22, his report: the corners looked too sharp). Windows rounds the window itself (8 px,
+   DWM), but once the controls fade the picture filled the window and ran square into those round corners, so the round
+   only showed on the wood. Now the faded picture sits 4 px inside a wood rim with its own round (radius 6, close to
+   concentric with Windows' 8), the same curve the lent page is cut to (popout.ts setStage -> setBorderRadius). */
+.frame{ background:#24160D }
+.stage{ overflow:hidden }
+.frame.faded .stage{ margin:4px; border-radius:6px }
