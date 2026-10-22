@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 63 - Pull apart</title>
+<!-- Sheet 63 v1 (2026-10-22). His answers (docs/WINDOW-FAMILY-RESEARCH.md, "DECIDED 2026-10-22"): pop-outs snap FLUSH
+     and any member drags the whole group; no hard pull to detach; right-click any joined window for one family menu
+     (see-through slider, pin, Pull apart); Pull apart spreads the group with gaps and the windows wiggle (iOS jiggle);
+     he drags out the ones he wants; while wiggling he can drag one to a new spot; Esc, a right-click or a click on the
+     desktop joins the rest back. The group is sheet 59's FLUSH picture (video pop-out, the Claude job as a tall column on
+     its right, the mini player's strip under it). Pictures: sheet-63/stage.js photographed by sheet-63/shots.mjs. The
+     video pop-out and the job strip are the product's own popout.css / jobpop.css; the menu is Aang's right-click menu
+     look A (browser.css .tabmenu + aangmenu.css); the player strip and the job column are sheet 59's drawn pieces. The
+     moving preview below is those same pictures, cut out one window each (sheet-63/s-*.png), moved by this page's
+     script. Mockup only, no product code. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  .take .shot img{max-width:100%;height:auto}
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:18px 22px}
+  .board .shot img{width:100%;height:auto;display:block}
+  .board .say{font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0;margin:8px 2px 0}
+  /* the moving preview */
+  .pvwrap{width:100%;overflow:hidden;border-radius:14px;box-shadow:0 0 0 3px #120a05,0 0 0 5px #4a2e18}
+  .pv{position:relative;width:1120px;height:560px;transform-origin:0 0;overflow:hidden;
+    background:radial-gradient(900px 500px at 85% 5%, rgba(80,96,140,.30), transparent 60%),radial-gradient(700px 500px at 5% 100%, rgba(120,70,110,.22), transparent 60%),linear-gradient(180deg,#1c1f2b,#151720)}
+  .pv img,.pv canvas,.pv .kb,.pv .slot,.pv .cap{position:absolute;left:0;top:0;will-change:transform,opacity}
+  .pv .slot{box-sizing:border-box;width:424px;height:50px;border:2px dashed #ffd36a;border-radius:0 0 12px 12px;background:rgba(255,211,106,.08);
+    box-shadow:0 0 10px rgba(255,190,80,.45),inset 0 0 10px rgba(255,190,80,.25);opacity:0}
+  .pv .kb{font:400 12px Silkscreen,monospace;letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:7px 10px 5px;border-radius:7px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05;opacity:0}
+  .pv .cap{font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#a9aec2;white-space:nowrap;left:40px;top:28px}
+  .pv .cap b{color:#ffd36a;font-weight:400}
+  .pvbar{display:flex;gap:12px;align-items:center;margin:10px 2px 0;font:500 14px Figtree,sans-serif;color:#bfae8a}
+  .pvbar button{font:400 10px Silkscreen,monospace;letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);border:0;padding:7px 10px 5px;border-radius:7px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05;cursor:pointer}
+  table.spec{border-collapse:collapse;max-width:1150px;width:100%;margin:8px 0 0;font:500 15px/1.45 Figtree,sans-serif;color:#d8cab0}
+  table.spec th{font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#ffd36a;text-align:left;padding:8px 12px;border-bottom:2px solid rgba(0,0,0,.45)}
+  table.spec td{padding:9px 12px;border-bottom:1px solid rgba(255,224,150,.10);vertical-align:top}
+  table.spec td:first-child{font-weight:800;color:#fffaf0;white-space:nowrap}
+  table.spec td.n{font-variant-numeric:tabular-nums;white-space:nowrap;color:#ffe28c}
+  @media (max-width:700px){table.spec td:first-child{white-space:normal}}
+</style>
+</head>
+<body>
+<h1>SHEET 63 &middot; PULL APART</h1>
+<p class="real">v1 &middot; 22 Oct: how a snapped family comes apart, and how it goes back together</p>
+<p class="lead">Your pop-outs snap together flush and drag as one. To take one out, right-click any of them and pick <b>Pull apart</b>: they spread a little and wiggle, like apps on an iPhone. Drag out the ones you want free, or drag one to a new spot. Press Esc and the rest snap back together.</p>
+<div class="decided"><span>Snapped = flush, one shadow</span><span>Drag any one, the whole group moves</span><span>No hard pull to break one off</span><span>Right-click any of them: one family menu</span><span>Esc, right-click or a click on the desktop ends it</span><span>Replaces the 28 px pull-free</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to the six steps and the moving preview, or point at a step, a timing or the wiggle to change.</em></p>
+
+<h2><span class="n">&#9654;</span>SEE IT MOVE</h2>
+<p>The whole thing in one loop, about 14 seconds. These are the real windows, cut out from the pictures below and moved by this page.</p>
+<div class="pvwrap" id="pvwrap"><div class="pv" id="pv"><div class="cap" id="pvcap"></div></div></div>
+<div class="pvbar"><button type="button" id="pvplay">PAUSE</button><span id="pvstep"></span></div>
+
+<h2><span class="n">1</span>STEP BY STEP</h2>
+<div class="board">
+  <div class="cell"><div class="lbl"><i>1</i>TOGETHER &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-63/f1.png" width="1120" height="560" alt="The video pop-out, a Claude job as a tall column on its right and the music strip under it, snapped flush"></div>
+    <p class="say">Snapped flush: the sides that touch go square, one shadow. Grab any of them and the whole group moves.</p></div>
+  <div class="cell"><div class="lbl"><i>2</i>RIGHT-CLICK ANY OF THEM</div><div class="shot"><img src="sheet-63/f2.png" width="1120" height="560" alt="The family menu open over the group: see-through slider, Pin on top, Pull apart"></div>
+    <p class="say">One menu for the whole family, in Aang's right-click wood. <b>See-through</b> and <b>Pin on top</b> work on all of them at once. <b>Pull apart</b> is the way to take one out.</p></div>
+  <div class="cell"><div class="lbl"><i>3</i>PULL APART</div><div class="shot"><img src="sheet-63/f3.png" width="1120" height="560" alt="The three windows spread 14 px apart with a soft gold glow, and a hint: Drag one out, Esc to join back"></div>
+    <p class="say">They spread 14 px apart on a spring, get their round corners back, and wiggle: a tiny shimmy and a soft gold glow. A small hint says what to do.</p></div>
+  <div class="cell"><div class="lbl"><i>4</i>DRAG ONE OUT</div><div class="shot"><img src="sheet-63/f4.png" width="1120" height="560" alt="The music strip dragged away from the group"></div>
+    <p class="say">Grab one and pull it away. It stops wiggling the moment you grab it. Let go away from the group and it is on its own.</p></div>
+  <div class="cell"><div class="lbl"><i>5</i>OR MOVE ONE TO A NEW SPOT</div><div class="shot"><img src="sheet-63/f5.png" width="1120" height="560" alt="The job column dragged toward the bottom of the video, with a gold slot showing it will land there as a wide strip"></div>
+    <p class="say">Drag one toward another side of the group and a gold slot shows where it will land, already in its new shape: the job, moved from the right to the bottom, becomes a wide strip.</p></div>
+  <div class="cell"><div class="lbl"><i>6</i>ESC: BACK TOGETHER</div><div class="shot"><img src="sheet-63/f6.png" width="1120" height="560" alt="The video and the job strip joined flush again; the music strip stays where it was left"></div>
+    <p class="say">Esc, a right-click on any of them, or a click on the empty desktop: the wiggle stops and the rest snap back flush. The one you took out stays where you put it.</p></div>
+</div>
+
+<h2><span class="n">2</span>HOW IT MOVES</h2>
+<p>Calm and small. The same spring as the music player's fold, so the whole family feels like one thing.</p>
+<table class="spec">
+  <tr><th>WHAT</th><th>TIMING</th><th>WHAT YOU SEE</th></tr>
+  <tr><td>Menu opens</td><td class="n">120 ms</td><td>Fades in where you clicked, the way Aang's own menu does. Never on top of Aang.</td></tr>
+  <tr><td>Spread</td><td class="n">spring 0.35 s, damping 0.7</td><td>The biggest window stays put; the others slide 14 px away from it, with the smallest bit of bounce. Every joined corner rounds back to 12 px.</td></tr>
+  <tr><td>Wiggle: shimmy</td><td class="n">1 px, every 0.26&ndash;0.34 s</td><td>Each window nudges one pixel left, right, up, down on its own little loop, out of step with the others, so they look alive, not shaky.</td></tr>
+  <tr><td>Wiggle: glow</td><td class="n">1.2 s breathe</td><td>A soft gold edge brightens and dims. The one you are holding stops shimmying and its glow turns into a lifted shadow.</td></tr>
+  <tr><td>Hint line</td><td class="n">200 ms fade</td><td>"Drag one out &middot; Esc to join back", above the group. Goes when it joins.</td></tr>
+  <tr><td>Drag out</td><td class="n">follows the mouse</td><td>Let go 40 px or more from the group: it is free, with its own corners and shadow. Closer than that: it slides back to its place (spring 0.4 s, damping 0.8).</td></tr>
+  <tr><td>Drop slot</td><td class="n">120 ms fade</td><td>Shows when the window's middle comes within 60 px of an open side: a gold dashed outline with a faint picture of the window in its new shape.</td></tr>
+  <tr><td>Reshape</td><td class="n">0.25 s cross-fade, then spring 0.4 s</td><td>Let go over a slot: the window turns into its new shape (a column becomes a strip, never turned sideways) and settles into the slot.</td></tr>
+  <tr><td>Join back</td><td class="n">spring 0.5 s, damping 0.825</td><td>Esc, right-click any of them, or click the empty desktop. Gaps close, touching corners go square on the last 2 px, one shared shadow. Under 1% overshoot.</td></tr>
+  <tr><td>No timer</td><td class="n">&ndash;</td><td>It waits for you. Nothing joins back by itself.</td></tr>
+</table>
+
+<div class="note"><b>Honest notes</b>
+<ul>
+<li><b>No real tilt.</b> iPhone apps wiggle by tilting about 1.2&deg;. Windows can't tilt a real window, so here the wiggle is a 1 px shimmy plus the gold glow. Moving a few small windows a pixel at a time is cheap.</li>
+<li>A window can't paint outside its own edge, so in the app the gold glow sits on each window's own rim, just inside it. The pictures draw it a hair outside so you can see it.</li>
+<li>The video pop-out and the job strip are the app's own styles; the menu is Aang's right-click menu (look A) with its real wood and glove. The music strip and the job column are sheet 59's drawn pieces. The video picture is a made-up painting.</li>
+<li>The moving preview is the same pictures cut out window by window and moved by this page. The real springs, the real 14 px.</li>
+</ul></div>
+
+<script>
+(() => {
+  const S = 'sheet-63/';
+  const pv = document.getElementById('pv'), wrap = document.getElementById('pvwrap'), cap = document.getElementById('pvcap'), stepEl = document.getElementById('pvstep');
+  const img = (n, w, h, z) => { const i = new Image(); i.src = S + n + '.png'; i.width = w; i.height = h; i.style.zIndex = z; i.alt = ''; pv.append(i); return i; };
+  // the windows (CSS px; the pictures are 2x)
+  const V = { free: img('s-video-free', 424, 236, 2), tl: img('s-video-tl', 424, 236, 2), top: img('s-video-top', 424, 236, 2) };
+  const Cc = { free: img('s-col-free', 152, 236, 5), flush: img('s-col-flush', 152, 236, 5) };
+  const J = { free: img('s-job-free', 424, 54, 4), flush: img('s-job-flush', 424, 54, 4) };
+  const St = { free: img('s-strip-free', 424, 54, 3), flush: img('s-strip-flush', 424, 54, 3) };
+  const menu = img('s-menu', 392, 246, 8), menuH = img('s-menu-hover', 392, 246, 8), hint = img('s-hint', 306, 76, 7);
+  const slot = document.createElement('div'); slot.className = 'slot'; slot.style.zIndex = 1; pv.append(slot);
+  const kb = document.createElement('div'); kb.className = 'kb'; kb.textContent = 'ESC'; kb.style.zIndex = 9; pv.append(kb);
+  // the Windows arrow pointer at 2x
+  const ptr = document.createElement('canvas'); ptr.width = 22; ptr.height = 32; ptr.style.zIndex = 10; pv.append(ptr);
+  { const g = ptr.getContext('2d'); ['O..........', 'OO.........', 'OWO........', 'OWWO.......', 'OWWWO......', 'OWWWWO.....', 'OWWWWWO....', 'OWWWWWWO...', 'OWWWWWWWO..', 'OWWWWWOOOO.', 'OWWOWWO....', 'OWO.OWWO...', 'OO..OWWO...', 'O....OWWO..', '.....OWWO..', '......OO...']
+      .forEach((r, y) => [...r].forEach((c, x) => { if (c !== '.') { g.fillStyle = c === 'O' ? '#000' : '#fff'; g.fillRect(x * 2, y * 2, 2, 2); } })); }
+
+  // springs (Apple's response / damping form), eases, a tween
+  const spring = (t, response, zeta) => { if (t <= 0) return 0; const w = 2 * Math.PI / response, wd = w * Math.sqrt(1 - zeta * zeta);
+    return 1 - Math.exp(-zeta * w * t) * (Math.cos(wd * t) + zeta / Math.sqrt(1 - zeta * zeta) * Math.sin(wd * t)); };
+  const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+  const seg = (t, a, b) => ease((t - a) / (b - a));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const lp = (p, q, k) => [lerp(p[0], q[0], k), lerp(p[1], q[1], k)];
+  const fade = (t, a, d = 0.12) => Math.max(0, Math.min(1, (t - a) / d));
+
+  // the story, in seconds
+  const X = 40, Y = 110, VW = 424, VH = 236, G = 14, FREE = [672, 120], LOOP = 14;
+  const MENU = [520, 190], ROW = [MENU[0] + 170, MENU[1] + 181], COLGRAB = [70, 18], STRIPGRAB = [334, 22];
+  const SHADOW = 'drop-shadow(0 4px 7px rgba(0,0,0,.5))', HELD = 'drop-shadow(0 12px 16px rgba(0,0,0,.55))';
+  const glow = (t, ph) => { const a = 0.6 + 0.35 * Math.sin((t / 1.2) * 2 * Math.PI + ph); return `drop-shadow(0 0 1px rgba(255,226,140,${a.toFixed(2)})) drop-shadow(0 0 5px rgba(255,186,70,${(a * 0.6).toFixed(2)})) ${SHADOW}`; };
+  const shim = (t, per, ph) => [Math.round(Math.sin((t / per) * 2 * Math.PI + ph)), Math.round(Math.sin((t / (per * 1.13)) * 2 * Math.PI + ph * 1.7) * 0.8)];
+  const put = (el, xy, op = 1, filter = SHADOW) => { el.style.transform = `translate(${Math.round(xy[0])}px,${Math.round(xy[1])}px)`; el.style.opacity = op; el.style.filter = filter; };
+  const show = (pick, set) => { for (const k in set) set[k].style.opacity = k === pick ? 1 : 0; return set[pick]; };
+  const STEPS = [[0, '1 · together, flush'], [1, '2 · right-click: the family menu'], [2.2, '3 · pull apart: they spread and wiggle'], [3.6, '4 · drag one out'], [5.8, '5 · or move one: the gold slot shows where'], [8.2, '6 · Esc: back together, minus what you took']];
+
+  function frame(t) {
+    const step = [...STEPS].reverse().find((s) => t >= s[0]);
+    cap.innerHTML = '<b>' + step[1].split(' · ')[0] + '</b> &middot; ' + step[1].split(' · ')[1].toUpperCase(); stepEl.textContent = 'Step ' + step[1];
+    const T_APART = 2.2, T_ESC = 8.2, T_DROP = 7.4;
+    const wiggling = t >= T_APART && t < T_ESC;
+    const gOpen = spring(t - T_APART, 0.35, 0.7);
+    const gClose = t >= T_ESC ? spring(t - T_ESC, 0.5, 0.825) : 0;
+    const gap = G * gOpen * (1 - gClose);
+    const joined = t < T_APART || (t >= T_ESC && gap < 2);
+    // video: stays put
+    const v = show(t < T_APART ? 'tl' : joined ? 'top' : 'free', V);
+    put(v, wiggling ? [X + shim(t, 0.3, 0)[0], Y + shim(t, 0.3, 0)[1]] : [X, Y], 1, wiggling ? glow(t, 0) : SHADOW);
+    for (const k in V) if (V[k] !== v) V[k].style.opacity = 0;
+    // the music strip: under the video, then dragged out at 3.6-5.0
+    const sHome = [X, Y + VH + gap], sOut = seg(t, 3.6, 5.0);
+    const s = show(t < T_APART ? 'flush' : 'free', St);
+    if (t < 3.6) put(s, wiggling ? [sHome[0] + shim(t, 0.27, 2)[0], sHome[1] + shim(t, 0.27, 2)[1]] : sHome, 1, wiggling ? glow(t, 2) : SHADOW);
+    else put(s, lp([X, Y + VH + G], FREE, sOut), 1, t < 5.0 ? HELD : SHADOW);
+    s.style.zIndex = t >= 3.6 && t < 5.0 ? 7 : 3;   // the one in his hand rides on top
+    // the job: a column on the right; dragged at 5.8-7.4; reshapes into the strip in the slot
+    const cHome = [X + VW + gap, Y], cHeld = [470, 300], dragC = seg(t, 5.8, T_DROP);
+    const c = show(t < T_APART ? 'flush' : 'free', Cc);
+    const reshape = Math.max(0, Math.min(1, (t - T_DROP) / 0.25));
+    const slotXY = [X, Y + VH + G];
+    if (t < 5.8) put(c, wiggling ? [cHome[0] + shim(t, 0.33, 4)[0], cHome[1] + shim(t, 0.33, 4)[1]] : cHome, 1, wiggling ? glow(t, 4) : SHADOW);
+    else if (t < T_DROP) put(c, lp([X + VW + G, Y], cHeld, dragC), 1, HELD);
+    else put(c, lp(cHeld, [slotXY[0] + 136, slotXY[1] - 90], spring(t - T_DROP, 0.4, 0.8)), 1 - reshape, HELD);
+    const j = show(joined && t >= T_ESC ? 'flush' : 'free', J);
+    const slotOp = t < 6.6 ? 0 : t < T_DROP ? fade(t, 6.6) : Math.max(0, 1 - (t - T_DROP) / 0.3);
+    if (t < T_DROP) { J.free.style.opacity = 0; put(J.flush, slotXY, 0.42 * slotOp, 'none'); }   // the faint picture in the slot
+    else {
+      const land = spring(t - T_DROP, 0.4, 0.8), from = [cHeld[0] - 136, cHeld[1] + 90];
+      let xy = t < T_ESC ? lp(from, slotXY, land) : [X, Y + VH + gap];
+      if (wiggling && t > T_DROP + 0.6) xy = [xy[0] + shim(t, 0.29, 5)[0], xy[1] + shim(t, 0.29, 5)[1]];
+      put(j, xy, reshape, wiggling && t > T_DROP + 0.4 ? glow(t, 5) : SHADOW);
+    }
+    // the slot: shows while the column comes near, goes when it lands
+    slot.style.transform = `translate(${slotXY[0]}px,${slotXY[1]}px)`;
+    slot.style.opacity = slotOp;
+    // the menu
+    menu.style.transform = menuH.style.transform = `translate(${MENU[0] - 16}px,${MENU[1] - 16}px)`;
+    const mOn = t >= 1.0 && t < T_APART;
+    menu.style.opacity = mOn && t < 1.65 ? fade(t, 1.0) : 0; menuH.style.opacity = mOn && t >= 1.65 ? 1 : 0;
+    // the hint
+    hint.style.transform = `translate(${160 - 16}px,${56 - 16}px)`;
+    hint.style.opacity = t < T_ESC ? fade(t, T_APART + 0.2, 0.2) : Math.max(0, 1 - (t - T_ESC) / 0.2);
+    // Esc
+    kb.style.transform = `translate(${X + VW + 70}px,${Y + VH + 40}px) translateY(${t >= T_ESC && t < T_ESC + 0.12 ? 2 : 0}px)`;
+    kb.style.opacity = t >= T_ESC - 0.1 && t < T_ESC + 1.2 ? 1 : Math.max(0, 1 - (t - T_ESC - 1.2) / 0.3) * (t >= T_ESC ? 1 : 0);
+    // the pointer
+    const P = [
+      [0, [900, 470]], [0.9, [X + VW + 70, Y + 96]], [1.0, [X + VW + 70, Y + 96]], [1.6, ROW], [2.3, ROW],
+      [3.4, [X + STRIPGRAB[0], Y + VH + G + STRIPGRAB[1]]], [3.6, [X + STRIPGRAB[0], Y + VH + G + STRIPGRAB[1]]],
+    ];
+    let pp;
+    if (t < 3.6) { let i = P.findIndex((p) => p[0] > t); if (i < 0) i = P.length - 1; const a = P[i - 1] ?? P[0], b = P[i]; pp = lp(a[1], b[1], seg(t, a[0], b[0])); }
+    else if (t < 5.0) pp = lp([X + STRIPGRAB[0], Y + VH + G + STRIPGRAB[1]], [FREE[0] + STRIPGRAB[0], FREE[1] + STRIPGRAB[1]], sOut);
+    else if (t < 5.8) pp = lp([FREE[0] + STRIPGRAB[0], FREE[1] + STRIPGRAB[1]], [X + VW + G + COLGRAB[0], Y + COLGRAB[1]], seg(t, 5.0, 5.7));
+    else if (t < T_DROP) pp = lp([X + VW + G + COLGRAB[0], Y + COLGRAB[1]], [cHeld[0] + COLGRAB[0], cHeld[1] + COLGRAB[1]], dragC);
+    else pp = lp([cHeld[0] + COLGRAB[0], cHeld[1] + COLGRAB[1]], [940, 470], seg(t, 7.8, 9.0));
+    ptr.style.transform = `translate(${Math.round(pp[0])}px,${Math.round(pp[1])}px)`;
+    // fade out and back in at the end of the loop
+    pv.style.opacity = t > LOOP - 1.4 ? Math.max(0, 1 - (t - (LOOP - 1.4)) / 0.5) : t < 0.4 ? t / 0.4 : 1;
+  }
+  let playing = true, t0 = performance.now(), held = 0;
+  const btn = document.getElementById('pvplay');
+  btn.onclick = () => { playing = !playing; btn.textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) t0 = performance.now() - held * 1000; };
+  const fit = () => { const k = Math.min(1, wrap.clientWidth / 1120); pv.style.transform = `scale(${k})`; wrap.style.height = Math.round(560 * k) + 'px'; };
+  addEventListener('resize', fit); fit();
+  const tick = (now) => { if (playing) { held = Math.max(0, (now - t0) / 1000) % LOOP; frame(held); } requestAnimationFrame(tick); };
+  frame(0); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

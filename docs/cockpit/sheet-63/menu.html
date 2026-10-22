@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 63 family menu</title>
+<!-- Sheet 63 (2026-10-22): the family menu, drawn exactly the way Aang's right-click menu is (look A): the product's own
+     cockpit.css + browser.css (.tabmenu, the glove on the row he points at) + aangmenu.css (the 44 px rows, the icon
+     slot, the group label), the same .tabmenu > button markup aangmenu.js builds, 11x11 icons at exactly 2x drawn the
+     way aangmenu.js icon() draws them. The see-through groove is popout.css's .track (lifted below: "Scrub, volume and
+     see-through are this one shape at three sizes"). ?what=hint draws the hint line on browser.css's .plate wood
+     instead. A picture maker, not product code. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/browser.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/aangmenu.css">
+<style>
+  /* lifted from popout.css (.track, .fill, .knob, .tnum) with its colours */
+  :root{--gold-lit:#FFE096;--gold-deep:#C98C14;--outline:#120A05}
+  .track{flex:1;min-width:0;height:10px;border-radius:5px;position:relative;cursor:pointer;
+    background:linear-gradient(180deg,rgba(0,0,0,.72) 0 4px,rgba(255,224,150,.2) 4px 7px,transparent 7px);box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+  .track .fill{position:absolute;left:0;top:0;height:7px;border-radius:4px;pointer-events:none;background:linear-gradient(180deg,var(--gold-lit) 0 3px,var(--gold-deep) 3px 7px)}
+  .track .knob{position:absolute;top:-5px;width:15px;height:19px;border-radius:4px;margin-left:-7px;pointer-events:none;
+    background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));border:2.5px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 2px 0 rgba(0,0,0,.5)}
+  .tnum{font:500 11.5px var(--body);color:#c9bfa8;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  /* the slider row sits in the menu like a row, but it is not a button: no glove, nothing to press */
+  .seerow{display:flex;align-items:center;gap:12px;padding:10px 12px;min-height:44px;box-sizing:border-box;font:600 16px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+  .seerow .track{flex:0 0 96px;margin-left:6px}
+  .tabmenu{position:absolute;left:24px;top:16px}
+  .plate.hint{position:absolute;left:24px;top:16px;margin:0;max-width:none;padding:9px 16px 8px;border-radius:10px;white-space:nowrap;font:600 15px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+  .plate.hint b{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:4px 6px 2px;border-radius:5px;box-shadow:0 0 0 2px #120a05;margin:0 3px;text-shadow:none}
+  .plate.hint i{font-style:normal;color:#bfae8a;margin:0 8px}
+</style>
+</head>
+<body>
+<script type="module">
+  const P = 2, N = 11;
+  const ICONS = {
+    see: ['...OOOOO...', '.OOOOO..OO.', '.OOOOO...O.', 'OOOOOO....O', 'OOOOOO....O', 'OOOOOO....O', 'OOOOOO....O', 'OOOOOO....O', '.OOOOO...O.', '.OOOOO..OO.', '...OOOOO...'],
+    pin: ['...OOOOO...', '...O.A.O...', '...O.A.O...', '...O.A.O...', '..OO.A.OO..', '.OOOOOOOOO.', '.....O.....', '.....O.....', '.....O.....', '.....O.....', '.....O.....'],
+    apart: ['OOOO...OOOO', 'O..O...O..O', 'O..O...O..O', 'OOOO...OOOO', '...........', '...........', '...........', 'OOOO...OOOO', 'O..O...O..O', 'O..O...O..O', 'OOOO...OOOO'],
+  };
+  const TONE = { O: '#d8c8a8', A: '#a8946e', sh: 'rgba(0,0,0,.65)' };
+  // aangmenu.js icon(): every art pixel a whole block of real pixels, a 1-pixel drop under it
+  function icon(name, O = TONE.O) {
+    const map = ICONS[name], pal = { O, A: TONE.A };
+    const dpr = window.devicePixelRatio || 1, px = Math.max(1, Math.round(P * dpr)), sh = Math.max(1, Math.round(dpr));
+    const c = document.createElement('canvas'); c.width = N * px + sh; c.height = N * px + sh;
+    const g = c.getContext('2d');
+    const put = (col, o) => map.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = col ?? pal[ch]; g.fillRect(x * px + o, y * px + o, px, px); } }));
+    put(TONE.sh, sh); put(null, 0);
+    c.className = 'ic'; c.style.width = (c.width / dpr) + 'px'; c.style.height = (c.height / dpr) + 'px';
+    return c;
+  }
+  const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.innerHTML = x; return e; };
+  const what = new URLSearchParams(location.search).get('what') || 'menu';
+  if (what === 'hint') {
+    document.body.append(h('div', 'plate hint', 'Drag one out<i>&middot;</i><b>ESC</b> to join back'));
+  } else {
+    const m = h('div', 'tabmenu'); m.setAttribute('role', 'menu');
+    m.append(h('div', 'mhead', '3 WINDOWS JOINED'));
+    const see = h('div', 'seerow'); see.append(icon('see', '#FFE096'), 'See-through');
+    const tr = h('div', 'track', '<i class="fill" style="width:85%"></i><i class="knob" style="left:85%"></i>'); see.append(tr, h('span', 'tnum', '85%'));
+    m.append(see);
+    const row = (id, ic, t, tag) => { const b = h('button'); b.type = 'button'; b.dataset.id = id; const l = h('span', 'lab'); l.append(icon(ic), t); b.append(l); if (tag) b.append(h('i', 'st', tag)); return b; };
+    m.append(row('pin', 'pin', 'Pin on top', 'ALL 3'), h('div', 'sep'), row('apart', 'apart', 'Pull apart'));
+    document.body.append(m);
+    const w = m.getBoundingClientRect().width; m.style.width = (Math.ceil(w / P) * P) + 'px';
+  }
+  window.__done = true;
+</script>
+</body>
+</html>

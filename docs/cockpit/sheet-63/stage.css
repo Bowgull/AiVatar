@@ -1,0 +1,14 @@
+/* Sheet 63 stage: sheet 59's desk and piece rules, plus the pull-apart marks (the gold glow, the drop slot). */
+@import url("../sheet-59/stage.css");
+html.clear,html.clear body{background:transparent !important}
+.ptr{position:absolute;z-index:20;image-rendering:pixelated}
+.pc{position:absolute}
+/* while wiggling: a soft gold edge that breathes (here at its brightest) */
+.glow{filter:drop-shadow(0 0 1px rgba(255,226,140,.95)) drop-shadow(0 0 5px rgba(255,186,70,.55)) drop-shadow(0 4px 7px rgba(0,0,0,.5))}
+.own{filter:drop-shadow(0 4px 7px rgba(0,0,0,.5))}
+.held{filter:drop-shadow(0 12px 16px rgba(0,0,0,.55))}
+/* the drop slot: where the window will land, already the shape it will take */
+.slot{position:absolute;box-sizing:border-box;border:2px dashed #ffd36a;border-radius:0 0 12px 12px;background:rgba(255,211,106,.08);
+  box-shadow:0 0 10px rgba(255,190,80,.45),inset 0 0 10px rgba(255,190,80,.25)}
+.ghost{opacity:.42}
+.ftag{z-index:30}
