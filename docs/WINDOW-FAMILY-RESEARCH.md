@@ -747,3 +747,16 @@ synthetic keys into WoW, and off-screen harnesses that catch their own errors.
 - NO placeholders anywhere (no drop slot, no ghost box) when a window pops in, out, or is rearranged: neighbours slide
   aside live on the spring. A member that leaves the family returns to its own normal shape and size (the shape it had
   before it joined). Every member (player, job, notes, timer, snip) can join on any side: beside -> column, above/below -> strip.
+
+## 1b, built 2026-10-22 (his calls: round outer corners, pin for all, click-through for all)
+- Corners: only the corners a group-mate sits against go square (family.ts squareCorners, per corner, not per side).
+  The video (Windows' own corners) gets Windows' rounding off plus a SetWindowRgn region, pixel-stepped (7,5,3,2,2,1,1
+  at 10 px), round on its outer corners only. Measured: the helper cuts a region in ~1.7 ms, the join costs the Shell ~2 ms.
+- Trap (measured): ANY SetWindowRgn call, even clearing one, makes Chromium let the page grow by the window's invisible
+  8 px resize borders (left, right, bottom), for good. So the region is cut to Electron's own bounds, the page is padded
+  by what it gained (familywin.ts checkPad), and a window that was ever joined keeps a region: free again it is round on
+  all four corners, stepped, without Windows' shadow, until the pop-out is rebuilt (Aang restart).
+- Pin on top (family menu) = on top for every member; the video's own pin (on top + click-through) is unchanged.
+- Click through: family menu (whole group, ALL n) and the note's and timer's own menus (just that one). Locked members
+  (the video pinned, or his pop-out switch) are never changed by it. ONE way back: Ctrl+Alt+P over any click-through
+  member brings its group back (FamilyHost.reachAt); the key is held while anything is click-through.

@@ -258,7 +258,8 @@ function reportChrome() {
   const wasFaded = frame.classList.contains('faded');
   if (wasFaded) frame.classList.remove('faded');
   const stage = document.querySelector('.stage');
-  const px = window.innerHeight - stage.offsetHeight;
+  // The body, not the window: joined in the family the page may be padded by the window's borders (familywin.ts).
+  const px = document.body.clientHeight - stage.offsetHeight;
   if (wasFaded) frame.classList.add('faded');
   if (px > 0) window.aang.popoutChrome(px);
 }

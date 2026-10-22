@@ -153,6 +153,105 @@ export function joinedSides(f: Fam): Map<string, Side[]> {
   return out;
 }
 
+// ------------------------------------------------------------------------------------------------ corners (1b)
+
+/**
+ * His call (2026-10-22): only the JOINED sides go square; every outer corner of every member stays round, joined or not.
+ * A corner goes square only where a group-mate actually sits against it: the window touching that side covers the
+ * corner's own pixel row (or column). A note hanging off the lower half of the video's right side squares the note's
+ * left corners but leaves the video's top-right round. 1 px of slack for rounding.
+ */
+export type Corner = 'tl' | 'tr' | 'br' | 'bl';
+export const CORNERS: Corner[] = ['tl', 'tr', 'br', 'bl'];
+/** Bit per corner, the way the region helper takes it. */
+export const CORNER_BIT: Record<Corner, number> = { tl: 1, tr: 2, br: 4, bl: 8 };
+export const ALL_ROUND = 15;
+
+export function squareCorners(f: Fam): Map<string, Corner[]> {
+  const out = new Map<string, Corner[]>();
+  const covers = (a0: number, len: number, p: number) => a0 - 1 <= p && p < a0 + len + 1;
+  for (const m of f.values()) {
+    const sq = new Set<Corner>();
+    const g = groupOf(f, m.id);
+    if (g.length > 1) {
+      const b = m.box, top = b.y, bot = b.y + b.height - 1, lft = b.x, rgt = b.x + b.width - 1;
+      for (const id of g) {
+        if (id === m.id) continue;
+        const n = f.get(id)!.box, side = contact(n, b);
+        if (side === 'left') { if (covers(n.y, n.height, top)) sq.add('tl'); if (covers(n.y, n.height, bot)) sq.add('bl'); }
+        if (side === 'right') { if (covers(n.y, n.height, top)) sq.add('tr'); if (covers(n.y, n.height, bot)) sq.add('br'); }
+        if (side === 'above') { if (covers(n.x, n.width, lft)) sq.add('tl'); if (covers(n.x, n.width, rgt)) sq.add('tr'); }
+        if (side === 'below') { if (covers(n.x, n.width, lft)) sq.add('bl'); if (covers(n.x, n.width, rgt)) sq.add('br'); }
+      }
+    }
+    out.set(m.id, CORNERS.filter((c) => sq.has(c)));
+  }
+  return out;
+}
+
+/** Which corners stay round, as bits (15 = all four: a free window, Windows' own rounding). */
+export const roundMask = (square: Corner[]) => CORNERS.reduce((m, c) => (square.includes(c) ? m : m | CORNER_BIT[c]), 0);
+
+/**
+ * The stepped corner's radius in DIPs. 10: concentric with the video's faded picture, which sits 4 px inside the wood with
+ * its own 6 px round (popout.css .frame.faded .stage), so the picture always stays inside its rounded wood rim.
+ */
+export const CORNER_RADIUS = 10;
+
+/**
+ * A pixel-stepped corner: how far in each pixel row starts, from the corner's edge row inwards, in whole pixels. A
+ * midpoint circle, so it is symmetric (the same steps read down the column), whole-pixel steps like the rest of his art;
+ * at 10 px it is 7,5,3,2,2,1,1.
+ */
+export function cornerSteps(radius: number): number[] {
+  const r = Math.max(0, Math.round(radius)), out: number[] = [];
+  for (let i = 0; i < r; i++) {
+    const y = r - i - 0.5, inset = Math.round(r - Math.sqrt(Math.max(0, r * r - y * y)));
+    if (inset <= 0) break;
+    out.push(inset);
+  }
+  return out;
+}
+
+/**
+ * The window's shape as rows (what the native helper builds as a polygon region, the same rules): runs of pixel rows
+ * [y0, y1) with the same left and right insets. Round corners take the steps; square ones none. Exported for the tests.
+ */
+export function regionRuns(width: number, height: number, mask: number, steps: number[]): { y0: number; y1: number; l: number; r: number }[] {
+  const W = Math.max(0, Math.floor(width)), H = Math.max(0, Math.floor(height));
+  const k = Math.min(steps.length, Math.floor(Math.min(W, H) / 2));
+  const at = (y: number) => {
+    const t = y < k ? steps[y]! : 0, b = H - 1 - y < k ? steps[H - 1 - y]! : 0;
+    return { l: Math.max(mask & 1 ? t : 0, mask & 8 ? b : 0), r: Math.max(mask & 2 ? t : 0, mask & 4 ? b : 0) };
+  };
+  const runs: { y0: number; y1: number; l: number; r: number }[] = [];
+  const rows = [...Array(k).keys(), ...(H - 2 * k > 0 ? [k] : []), ...[...Array(k).keys()].map((i) => H - k + i)];
+  for (const y of rows) {
+    const { l, r } = at(y), y1 = y === k && H - 2 * k > 0 ? H - k : y + 1;
+    const last = runs.at(-1);
+    if (last && last.l === l && last.r === r && last.y1 === y) last.y1 = y1; else runs.push({ y0: y, y1, l, r });
+  }
+  return runs;
+}
+
+// ------------------------------------------------------------------------------------------------ click-through (1b)
+
+/**
+ * His ask (2026-10-22): any member can be click-through, from the family menu (the whole group) or its own menu (just it).
+ * `locked` members are click-through by their own rule and stay so whatever the group does (the video pinned, or his
+ * pop-out "click through" switch). The group toggle: if any member that can change is not click-through, all go
+ * click-through; if all already are, all come back. Returns the members' new state (only `ids` change).
+ */
+export function groupThrough(now: Map<string, boolean>, ids: string[], locked: Set<string> = new Set()): Map<string, boolean> {
+  const next = new Map(now);
+  const free = ids.filter((id) => !locked.has(id));
+  const on = free.some((id) => !now.get(id));
+  for (const id of free) next.set(id, on);
+  return next;
+}
+/** Shown ticked in the family menu: every member of the group lets clicks through (locked ones count as through). */
+export const allThrough = (now: Map<string, boolean>, ids: string[], locked: Set<string> = new Set()) => ids.length > 0 && ids.every((id) => locked.has(id) || !!now.get(id));
+
 // ------------------------------------------------------------------------------------------------ snapping
 
 const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.min(a1, b1) - Math.max(a0, b0);

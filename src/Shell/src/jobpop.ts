@@ -80,6 +80,8 @@ interface Pop {
   near: boolean;
   drag: { x: number; y: number } | null;
   leaving: boolean;
+  /** Click-through by the family's say (1b): the card stops asking for the mouse. */
+  through?: boolean;
 }
 
 // The ipc doors are process-wide; a second JobPops (only ever in a test) shares them through this list.
@@ -176,6 +178,7 @@ export class JobPops {
       // The fade lives in the page (the card fades, the slider beside it never does).
       setOpacity: (n) => { p.opacity = Math.round(Math.max(MIN_OPACITY, Math.min(1, n)) * 100) / 100; this.remember(p); this.push(p); },
       setPinned: (on) => { if (p.pinned !== on) { p.pinned = on; this.applyPin(p); this.remember(p); this.push(p); } },
+      setThrough: (on) => { p.through = on; if (!p.w.isDestroyed()) p.w.setIgnoreMouseEvents(true, { forward: true }); },
       moved: () => this.remember(p),
     });
   }
@@ -256,6 +259,7 @@ export class JobPops {
   hearClickable(p: Pop, on: boolean): void {
     if (p.w.isDestroyed()) return;
     // While dragging it always takes the mouse, or the drag would fall through to the game mid-way.
+    if (p.through && !p.drag) { p.w.setIgnoreMouseEvents(true, { forward: true }); return; }
     p.w.setIgnoreMouseEvents(!(on || p.drag), { forward: true });
   }
   hearSize(p: Pop, h: number): void {

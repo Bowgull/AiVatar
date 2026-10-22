@@ -3,9 +3,11 @@
 // family.ts has the maths; this moves the windows. Each member module (popout.ts, notewin.ts, timerwin.ts, jobpop.ts)
 // registers its windows here and hands over its custom drag. What he gets:
 //   - within 14 px of another member (20 px of the work area) a dragged window sticks, instantly, while the mouse is down;
-//     let go touching and the two are joined FLUSH (the joined sides go square, the outer corners stay round);
+//     let go touching and the two are joined FLUSH (only the corners a neighbour sits against go square; every outer
+//     corner stays round, the video's too: Windows' rounding off and a pixel-stepped region instead, 1b);
 //   - a plain drag of ANY member moves the whole group; nothing comes off by pulling;
-//   - right-click any joined window: ONE family menu (Aang's menu, look A): see-through for all, pin for all, Pull apart;
+//   - right-click any joined window: ONE family menu (Aang's menu, look A): see-through for all, pin on top for all, click
+//     through for the group (1b; Ctrl+Alt+P over one brings the group back), Pull apart;
 //   - Pull apart: the group spreads 14 px (spring 0.35 s, damping 0.7), every window shimmies 1 px with a soft gold rim; he
 //     drags out the ones he wants (40 px away = free, back to its own size) or drags one to another side (the neighbours
 //     slide aside live, NO slot is drawn); Esc, a right-click on any of them or a click on the empty desktop ends it and
@@ -30,11 +32,23 @@ export interface MemberWin {
   win: () => BrowserWindow | null;
   /** CSS selector of the visible panel inside the window; absent = the whole window (the video pop-out). */
   card?: string;
-  /** The window's corners are Windows' own (DWM), not drawn by the page: squared through winedge while joined. */
+  /**
+   * The window's corners are Windows' own (DWM), not drawn by the page. Joined, Windows' rounding goes off and the window
+   * gets a pixel-stepped region round only on its outer corners (winedge setCorners, 1b).
+   */
   osCorners?: boolean;
   /** Apply the family's shared see-through / pin, the member's own way (no echo back to the family). */
   setOpacity: (n: number) => void;
   setPinned: (on: boolean) => void;
+  /**
+   * "Pin on top" from the family (1b, his yes): just on top. Members whose own pin means more (a note's or timer's pin also
+   * lets clicks through) give this; absent, setPinned is used (the video: its pin exactly as today, click-through included).
+   */
+  setOnTop?: (on: boolean) => void;
+  /** Click-through from the family menu or its own menu (1b): every click goes to whatever is under it. */
+  setThrough?: (on: boolean) => void;
+  /** Click-through by its own rule, whatever the family says (the video pinned, or his pop-out switch). */
+  lockedThrough?: () => boolean;
   /** Back to its own size on leaving (F4 changes sizes; part 1 never does, so this is usually a no-op). */
   resize?: (width: number, height: number) => void;
   /** The family moved it: remember where (its own save). */
@@ -50,9 +64,12 @@ export interface FamilyHooks {
   joined(id: string): boolean;
   /** One member's own see-through or pin changed: every other member follows (his rule). */
   shared(from: string, s: Partial<Shared>): void;
+  /** Click-through for one member, from its own menu (1b): on, off, or flipped when absent. */
+  setThrough(id: string, on?: boolean): void;
 }
 
-interface Live { m: MemberWin; w: BrowserWindow; card: F.Box | null; sides: F.Side[]; seed: number; last: { x: number; y: number } | null; aot: boolean | null }
+interface Pad { t: number; r: number; b: number; l: number }
+interface Live { m: MemberWin; w: BrowserWindow; card: F.Box | null; sides: F.Side[]; square: F.Corner[]; mask: number; regioned: boolean; pad: Pad | null; seed: number; last: { x: number; y: number } | null; aot: boolean | null; through: boolean }
 interface Anim { x: F.Spring; y: F.Spring; tx: number; ty: number; motion: { response: number; damping: number } }
 
 export const MIN_OPACITY = 0.3;
@@ -64,8 +81,9 @@ export const MIN_OPACITY = 0.3;
  */
 export function familyCss(card?: string): string {
   const s = card || 'html';
-  const sq: Record<string, string[]> = { left: ['top-left', 'bottom-left'], right: ['top-right', 'bottom-right'], above: ['top-left', 'top-right'], below: ['bottom-left', 'bottom-right'] };
-  return Object.entries(sq).map(([side, cs]) => `html[data-fam-join~="${side}"] ${s}, html[data-fam-join~="${side}"] ${s} > .fam-rim{${cs.map((c) => `border-${c}-radius:0 !important`).join(';')}}`).join('\n') + `
+  // 1b: per CORNER, not per side: a corner goes square only where a group-mate sits against it (family.ts squareCorners).
+  const sq: Record<F.Corner, string> = { tl: 'top-left', tr: 'top-right', br: 'bottom-right', bl: 'bottom-left' };
+  return Object.entries(sq).map(([c, css]) => `html[data-fam-sq~="${c}"] ${s}, html[data-fam-sq~="${c}"] ${s} > .fam-rim{border-${css}-radius:0 !important}`).join('\n') + `
 .fam-rim{position:absolute !important;inset:0;border-radius:inherit;pointer-events:none;z-index:2147483647;opacity:0 !important;transition:opacity .2s ease}
 html.fam-wiggle .fam-rim{opacity:1 !important;animation:famglow 1.2s ease-in-out infinite alternate}
 html.fam-held .fam-rim{animation:none;opacity:0 !important}
@@ -98,7 +116,7 @@ export class FamilyHost implements FamilyHooks {
     if (!w || w.isDestroyed()) return;
     const had = this.live.get(m.id);
     if (had && had.w === w) { had.m = m; return; }
-    const l: Live = { m, w, card: null, sides: [], seed: ++this.seeds, last: null, aot: null };
+    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: false, pad: null, seed: ++this.seeds, last: null, aot: null, through: false };
     this.live.set(m.id, l);
     const box = this.boxOf(m.id)!;
     this.fam.set(m.id, { id: m.id, kind: m.kind, box, own: { width: box.width, height: box.height } });
@@ -112,11 +130,13 @@ export class FamilyHost implements FamilyHooks {
       this.raise(F.groupOf(this.fam, m.id).filter((x) => x !== m.id));
       if (!w.isDestroyed()) w.moveTop();
     });
+    // A joined window with Windows' own corners has a region cut to its size: cut again when the size changes.
+    if (m.osCorners) w.on('resize', () => { const x = this.live.get(m.id); if (x?.w === w && x.regioned) this.recut(m.id); });
     const hello = () => { void w.webContents.insertCSS(familyCss(m.card)).catch(() => {}); this.sendState(m.id, true); };
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', hello); else hello();
     w.webContents.on('did-finish-load', hello);
     // A newcomer takes the family's see-through and pin.
-    if (this.live.size > 1) { this.applying = true; try { m.setOpacity(this.sharedNow.opacity); m.setPinned(this.sharedNow.pinned); } finally { this.applying = false; } }
+    if (this.live.size > 1) { this.applying = true; try { m.setOpacity(this.sharedNow.opacity); (m.setOnTop ?? m.setPinned)(this.sharedNow.pinned); } finally { this.applying = false; } }
   }
 
   remove(id: string): void {
@@ -232,7 +252,7 @@ export class FamilyHost implements FamilyHooks {
     try {
       for (const [id, l] of this.live) {
         if (id === from) continue;
-        try { if (s.opacity !== undefined) l.m.setOpacity(next.opacity); if (s.pinned !== undefined) l.m.setPinned(next.pinned); } catch { /* that window is gone */ }
+        try { if (s.opacity !== undefined) l.m.setOpacity(next.opacity); if (s.pinned !== undefined) (l.m.setOnTop ?? l.m.setPinned)(next.pinned); } catch { /* that window is gone */ }
       }
       for (const l of this.live.values()) { const w = l.m.win(); if (w && !w.isDestroyed()) w.webContents.send('family:shared', next); }
     } finally { this.applying = false; }
@@ -243,13 +263,61 @@ export class FamilyHost implements FamilyHooks {
   context(id: string, at: { x: number; y: number }): void {
     if (this.wiggle) { this.endWiggle(); return; }
     if (!this.joined(id)) return;
-    this.overlay.openMenu(at, { id, n: F.groupOf(this.fam, id).length, total: this.live.size, ...this.sharedNow });
+    const g = F.groupOf(this.fam, id);
+    this.overlay.openMenu(at, { id, n: g.length, total: this.live.size, ...this.sharedNow, through: F.allThrough(this.throughNow(), g, this.locked()) });
   }
   /** From the menu. */
   pick(id: string, what: string, value?: number): void {
     if (what === 'opacity' && typeof value === 'number') this.shared('', { opacity: value });
     else if (what === 'pin') { this.shared('', { pinned: !this.sharedNow.pinned }); this.overlay.close(); }
     else if (what === 'apart') { this.overlay.close(); this.pullApart(id); }
+    else if (what === 'through') { this.overlay.close(); this.throughGroup(id); }
+  }
+
+  // ---------------------------------------------------------------- click-through (1b, his ask 2026-10-22)
+
+  private throughNow(): Map<string, boolean> { return new Map([...this.live].map(([id, l]) => [id, l.through])); }
+  /** Members the family cannot change: click-through by their own rule, or with no way to be. */
+  private locked(): Set<string> {
+    const out = new Set<string>();
+    for (const [id, l] of this.live) { try { if (l.m.lockedThrough?.() || !l.m.setThrough) out.add(id); } catch { /* gone */ } }
+    return out;
+  }
+  /** Is this member letting clicks through (its own rule or the family's)? */
+  isThrough(id: string): boolean { const l = this.live.get(id); return !!l && (l.through || !!l.m.lockedThrough?.()); }
+  /** Something is click-through by the family's say: the way-back key must be held. */
+  get anyThrough(): boolean { for (const l of this.live.values()) { const w = l.m.win(); if (l.through && w && !w.isDestroyed() && w.isVisible()) return true; } return false; }
+  /** One member, from its own menu (or anywhere): on, off, or flipped. */
+  setThrough(id: string, on?: boolean): void {
+    const l = this.live.get(id);
+    if (!l || !l.m.setThrough) return;
+    const next = on ?? !l.through;
+    if (next === l.through) return;
+    l.through = next;
+    try { l.m.setThrough(next); } catch { /* gone */ }
+    this.sendState(id);
+  }
+  /** The family menu's "Click through": the whole group, the way groupThrough says (locked members untouched). */
+  throughGroup(id: string): void {
+    const g = F.groupOf(this.fam, id);
+    const next = F.groupThrough(this.throughNow(), g, this.locked());
+    for (const x of g) this.setThrough(x, next.get(x));
+  }
+  /**
+   * The way back, ONE way for every member: the key that already unpins the video, a note or a timer (Ctrl+Alt+P, "pin what
+   * is under the mouse"). A click-through member under the mouse takes clicks again, and so does the rest of its group.
+   * True when one did.
+   */
+  reachAt(p: { x: number; y: number }): boolean {
+    for (const [id, l] of this.live) {
+      const w = l.m.win();
+      if (!l.through || !w || w.isDestroyed() || !w.isVisible()) continue;
+      const b = this.boxOf(id) ?? w.getBounds();
+      if (p.x < b.x || p.x >= b.x + b.width || p.y < b.y || p.y >= b.y + b.height) continue;
+      for (const x of F.groupOf(this.fam, id)) this.setThrough(x, false);
+      return true;
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- pull apart
@@ -423,22 +491,49 @@ export class FamilyHost implements FamilyHooks {
   // ---------------------------------------------------------------- what each page is told
 
   private refreshSides(): void {
-    const sides = F.joinedSides(this.fam);
+    const sides = F.joinedSides(this.fam), square = F.squareCorners(this.fam);
     for (const [id, l] of this.live) {
-      const s = this.wiggle?.ids.includes(id) ? [] : (sides.get(id) ?? []);
-      const changed = s.join() !== l.sides.join();
-      l.sides = s;
-      const w = l.m.win();
-      if (changed && l.m.osCorners && w && !w.isDestroyed()) setCorners(w, s.length === 0);
+      const wig = !!this.wiggle?.ids.includes(id);
+      l.sides = wig ? [] : (sides.get(id) ?? []);
+      // 1b (his call): only the corners a group-mate sits against go square; every outer corner stays round.
+      l.square = wig ? [] : (square.get(id) ?? []);
+      const mask = F.roundMask(l.square), changed = mask !== l.mask;
+      l.mask = mask;
+      if (changed && l.m.osCorners) this.recut(id);
       this.sendState(id);
     }
   }
+  /** Windows' own corners: round (free), or off with a stepped region round on the outer corners only (joined). */
+  private recut(id: string): void {
+    const l = this.live.get(id), w = l?.m.win();
+    if (!l || !w || w.isDestroyed()) return;
+    // Once cut, always cut (winedge.ts: Chromium never gives the resize borders back), round all four when free.
+    if (l.mask !== F.ALL_ROUND) l.regioned = true;
+    setCorners(w, l.mask, l.regioned);
+    if (l.regioned) for (const ms of [60, 250, 700, 1500]) setTimeout(() => this.checkPad(id), ms);
+  }
+  /**
+   * With a region the page grows by the window's invisible resize borders (winedge.ts). It is padded by exactly what it
+   * gained, so what shows (cut by the region to Electron's own bounds) is the same page, at the same place, as before.
+   */
+  private checkPad(id: string): void {
+    const l = this.live.get(id), w = l?.m.win();
+    if (!l || !w || w.isDestroyed() || !l.regioned) return;
+    const b = w.getBounds(), c = w.getContentBounds();
+    const pad = { t: Math.max(0, b.y - c.y), r: Math.max(0, c.x + c.width - b.x - b.width), b: Math.max(0, c.y + c.height - b.y - b.height), l: Math.max(0, b.x - c.x) };
+    const same = l.pad && l.pad.t === pad.t && l.pad.r === pad.r && l.pad.b === pad.b && l.pad.l === pad.l;
+    if (same || (!l.pad && !pad.t && !pad.r && !pad.b && !pad.l)) return;
+    l.pad = pad;
+    this.sendState(id, true);
+  }
+  /** For tests: which corners of a member are square right now. */
+  squareOf(id: string): F.Corner[] { return [...(this.live.get(id)?.square ?? [])]; }
   private sendState(id: string, remeasure = false): void {
     const l = this.live.get(id), w = l?.m.win();
     if (!l || !w || w.isDestroyed()) return;
     w.webContents.send('family:state', {
       joined: F.isJoined(this.fam, id), wiggle: !!this.wiggle?.ids.includes(id), held: this.dragNow?.id === id && !!this.dragNow?.wiggle,
-      sides: l.sides, card: l.m.card ?? null, remeasure,
+      sides: l.sides, square: l.square, through: l.through, pad: l.pad, card: l.m.card ?? null, remeasure,
     });
   }
 
@@ -505,11 +600,11 @@ export class FamilyOverlay {
     return b;
   }
 
-  openMenu(at: { x: number; y: number }, s: { id: string; n: number; total: number; opacity: number; pinned: boolean }): void {
+  openMenu(at: { x: number; y: number }, s: { id: string; n: number; total: number; opacity: number; pinned: boolean; through: boolean }): void {
     const b = this.cover(at);
     this.mode = 'menu';
     this.menuFor = s.id;
-    this.send({ kind: 'menu', x: at.x - b.x, y: at.y - b.y, n: s.n, total: s.total, opacity: s.opacity, pinned: s.pinned });
+    this.send({ kind: 'menu', x: at.x - b.x, y: at.y - b.y, n: s.n, total: s.total, opacity: s.opacity, pinned: s.pinned, through: s.through });
   }
   catcher(hint: { x: number; y: number }): void {
     const b = this.cover(hint);
@@ -538,7 +633,7 @@ export class FamilyOverlay {
   pick(sender: Electron.WebContents, what: unknown, value: unknown): void {
     if (!this.owns(sender) || this.mode !== 'menu') return;
     if (what === 'close') { this.close(); return; }
-    if (what !== 'opacity' && what !== 'pin' && what !== 'apart') return;
+    if (what !== 'opacity' && what !== 'pin' && what !== 'apart' && what !== 'through') return;
     this.o.host.pick(this.menuFor, what, typeof value === 'number' && Number.isFinite(value) ? value : undefined);
   }
   /** A click on the empty desktop, or Esc, while pulled apart. */

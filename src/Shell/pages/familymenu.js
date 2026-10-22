@@ -1,5 +1,6 @@
 // The window family's menu (sheet 63 step 2, his picks 2026-10-22): one menu for the whole family, in Aang's right-click
-// wood. See-through (every member at once, never under 30%), Pin on top (every member), Pull apart. Built with the markup
+// wood. See-through (every member at once, never under 30%), Pin on top (every member), Click through (the group, 1b),
+// Pull apart. Built with the markup
 // Aang's menu uses (.tabmenu > button, .sep, .mhead, <i> tags) so the same styles draw it; the 11x11 icons are sheet 63's,
 // drawn the way aangmenu.js draws its own (every art pixel a whole block of real pixels, a 1-pixel drop).
 //
@@ -27,6 +28,7 @@ function icon(name, O = TONE.O) {
   c.setAttribute('aria-hidden', 'true');
   return c;
 }
+function blank() { const c = icon('tick', 'transparent'); c.style.visibility = 'hidden'; return c; }
 const h = (t, c, text) => { const e = document.createElement(t); if (c) e.className = c; if (text !== undefined) e.textContent = text; return e; };
 const api = window.family;
 let mode = 'none', menuEl = null, hintEl = null, opacity = 1;
@@ -66,14 +68,19 @@ function showMenu(m) {
   track.addEventListener('wheel', (e) => { e.preventDefault(); set(Math.max(MIN, Math.min(1, opacity + (e.deltaY < 0 ? 0.05 : -0.05)))); }, { passive: false });
   const row = (id, ic, t, tag, tick) => {
     const b = h('button'); b.type = 'button'; b.dataset.id = id; b.setAttribute('role', 'menuitem');
-    const l = h('span', 'lab'); l.append(icon(ic), t); b.append(l);
+    // No icon of its own (his rule for 1b: no new icons): an empty one keeps the words lined up.
+    const l = h('span', 'lab'); l.append(ic ? icon(ic) : blank(), t); b.append(l);
     if (tag) b.append(h('i', 'st', tag));
     if (tick) { const k = icon('tick', '#ffe28c'); k.classList.add('tk'); b.append(k); b.classList.add('on'); }
     b.addEventListener('click', () => api?.pick(id));
     return b;
   };
   const total = Number(m.total) || 2;
-  menu.append(row('pin', 'pin', 'Pin on top', `ALL ${total}`, m.pinned === true), h('div', 'sep'), row('apart', 'apart', 'Pull apart'));
+  const n = Number(m.n) || 2;
+  // 1b (his ask): the whole group lets clicks through; Ctrl+Alt+P over any of them brings them back.
+  const thr = row('through', null, 'Click through', `ALL ${n}`, m.through === true);
+  thr.title = 'Clicks go through to whatever is behind. Ctrl+Alt+P over one of them brings them back.';
+  menu.append(row('pin', 'pin', 'Pin on top', `ALL ${total}`, m.pinned === true), thr, h('div', 'sep'), row('apart', 'apart', 'Pull apart'));
   document.body.append(menu);
   menuEl = menu;
   // Whole art pixels wide, then placed where he clicked, kept on the screen.

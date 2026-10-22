@@ -68,5 +68,6 @@ plate.addEventListener('contextmenu', (e) => {
 });
 see.addEventListener('input', () => { $('seev').textContent = see.value + '%'; window.aang?.timerOpacity?.(Number(see.value) / 100); });
 $('pin').addEventListener('click', () => { closeMenu(); window.aang?.timerPin?.(true); });
+$('thr').addEventListener('click', () => { closeMenu(); window.aang?.timerThrough?.(); });
 document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(/** @type {Node} */ (e.target))) closeMenu(); });
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });

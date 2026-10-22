@@ -185,7 +185,7 @@ export function openMenu(host, at, paper, n, where, act, part = 'body') {
     sl.append(r, v);
   }
   const sep = document.createElement('div'); sep.className = 'nm-sep'; menu.append(sep);
-  if (where === 'screen') { btn(menu, 'mrow2', 'Pin', () => { closeMenu(host); act('pin'); }); btn(menu, 'mrow2', 'Back to board', () => { closeMenu(host); act('back'); }); }
+  if (where === 'screen') { btn(menu, 'mrow2', 'Pin', () => { closeMenu(host); act('pin'); }); btn(menu, 'mrow2', 'Click through', () => { closeMenu(host); act('through'); }); btn(menu, 'mrow2', 'Back to board', () => { closeMenu(host); act('back'); }); }
   else btn(menu, 'mrow2', 'Stick on screen', () => { closeMenu(host); act('out'); });
   btn(menu, 'mrow2 warn', 'Delete', () => { closeMenu(host); act('delete'); });
 
