@@ -44,11 +44,11 @@
   background:url(art/browser/tray.png) 0 0/128px 256px;border:3px solid #2a1a10;border-right-color:transparent;border-bottom-color:transparent;
   animation:rdrop .3s cubic-bezier(.32,.72,0,1)}
 .rtip[hidden]{display:none}
-.rpanel .gh{display:flex;align-items:center;gap:8px;font:400 9px var(--label);letter-spacing:1.5px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 8px}
+.rpanel .gh{display:flex;align-items:center;gap:8px;font:700 12px var(--body);letter-spacing:.2px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 8px}
 .rpanel .gh::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
 .rpanel .onnow{display:flex;align-items:baseline;gap:8px;margin:0 4px 8px;font:600 13px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);min-width:0}
 .rpanel .onnow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rpanel .onnow b{flex:none;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a}
+.rpanel .onnow b{flex:none;font:700 11.5px var(--body);letter-spacing:.2px;color:#bfae8a}
 .rpanel .big{display:flex;align-items:baseline;gap:10px;margin:0 4px 10px}
 /* 2026-10-21: with nothing to add to the job's own "Working" these two rows hide (rune.js) */
 .rpanel .onnow[hidden],.rpanel .big[hidden]{display:none}
@@ -81,7 +81,7 @@
    command's sub-bar, the helper agents and the CI runs, under the live line. One line each, cut rather than wrapped. */
 .rpanel .job .ovr{display:flex;align-items:center;gap:8px;margin-top:6px}
 .rpanel .job .ovr .ow{min-width:0;font:500 11.5px var(--body);color:#6b5236;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rpanel .job .tag{flex:none;font:400 7.5px var(--label);letter-spacing:1px;color:#8a6a3e;width:52px}
+.rpanel .job .tag{flex:none;font:700 11.5px var(--body);letter-spacing:.2px;color:#6b5236;width:62px}
 .rpanel .job .rows{margin-top:2px}
 .rpanel .job .rows>div{display:flex;align-items:center;gap:7px;font:600 12px/1.55 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden}
 .rpanel .job .rows>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -98,7 +98,7 @@
 .rpanel .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .rpanel .ob.now{color:#21160a}.rpanel .ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
 .rpanel .ob .r{margin-left:auto;font:500 11px var(--body);color:#a98e6a}
-.rpanel .ob.now .r{font:400 9px var(--label);color:#8a5a28}
+.rpanel .ob.now .r{font:700 12px var(--body);color:#8a5a28}
 .rpanel .ckeys{display:flex;gap:6px;margin-top:10px;align-items:center}
 .rpanel .key.sm{padding:6px 10px 7px}
 .rpanel canvas.jpill{image-rendering:pixelated;display:block}
@@ -111,7 +111,7 @@
 /* Added: waiting on him, so the card wears the needs-you blue and says where to answer. */
 .rpanel .job.needs{box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703,0 0 0 5px rgba(124,196,255,.55),0 0 16px rgba(124,196,255,.4)}
 .rpanel .job .ask{margin-top:6px;font:600 12px var(--body);color:#1d4f7a}
-.rpanel .job .ask b{font:400 8px var(--label);letter-spacing:1px;color:#2a6aa4;margin-right:6px}
+.rpanel .job .ask b{font:700 11.5px var(--body);letter-spacing:.2px;color:#2a6aa4;margin-right:6px}
 .rpanel .job.paused .row2 .lt{color:#5d6576}
 /* Added: the purple key's words, in the card (Samara has no typing area of its own). */
 .rpanel .say{display:flex;gap:6px;align-items:center;margin-top:8px}

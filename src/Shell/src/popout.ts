@@ -35,6 +35,8 @@ export interface PopoutDeps {
   /** Where the remembered size and place live, and how they are written back. */
   remembered: () => Box | null;
   remember: (box: Box) => void;
+  /** The site's favicon as Samara stored it (a data: picture) or '', for the source chip. Never fetched for this. */
+  iconFor?: (url: string) => string;
 }
 
 export class Popout {
@@ -339,6 +341,7 @@ export class Popout {
       label: this.showing.embed.label,
       live: this.showing.embed.live,
       title: this.showing.title,
+      icon: this.deps.iconFor?.(this.showing.link) ?? '',
     });
     void this.sendSegments();
   }

@@ -1,0 +1,14 @@
+/* The window family's pin key (cleanup 2026-10-22, pinkey.js): the pop-out's plum key with a small pixel pin. Pinned:
+   pressed in (the lip gone, 2 px lower), gold, a warm glow round it, the pin filled and on its side. One look on the
+   video pop-out, the job pop-out and the pinned snip. */
+button.pinkey{all:unset;box-sizing:border-box;flex:none;width:24px;height:24px;display:grid;place-items:center;cursor:pointer;
+  position:relative;top:0;border:2px solid #120A05;border-radius:4px;background:#4A2C6E;
+  box-shadow:inset 2px 2px 0 rgba(190,150,240,.35),inset -2px -2px 0 rgba(0,0,0,.4),0 2px 0 #120A05;
+  transition:top .05s,box-shadow .05s,background .12s}
+button.pinkey svg{display:block;width:14px;height:14px}
+button.pinkey:hover{background:#5a3784}
+button.pinkey:active{top:2px;box-shadow:inset 2px 2px 0 rgba(190,150,240,.35),inset -2px -2px 0 rgba(0,0,0,.4)}
+button.pinkey.on{top:2px;background:#FFC43C;
+  box-shadow:inset 2px 2px 0 rgba(255,245,200,.7),inset -2px -2px 0 rgba(120,80,10,.5),0 0 0 1.5px rgba(255,196,60,.5),0 0 9px rgba(255,170,60,.6)}
+button.pinkey.on:hover{background:#FFD25E}
+button.pinkey:focus-visible{outline:2px solid #FFE096;outline-offset:2px}
