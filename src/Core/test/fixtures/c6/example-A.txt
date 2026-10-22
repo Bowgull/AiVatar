@@ -1,0 +1,16 @@
+Design job in AangApp: fix the skater colours on the player
+Sonnet 5.5 · medium
+---
+Goal: The skate scene on the Spotify mini player needs colour combos that pop. Joshua liked the scene but the skater does not stand out. Show him 3 to 4 colour options before changing the real one.
+
+Where to look: C:\Users\J\Documents\AangApp; start with docs/spotify-player-scenes.md.
+
+Rules: Before designing anything, read what already exists (grep the code and docs) and say 'kept exactly' where something is already built or decided. Mockups are real rendered pages, opened in Samara with the show_mockup tool, never Firefox. Pixel art crisp, dark grain, wood not flat brown, no generic rounded cards. Test only what you built, once: run that feature's own test file, not the whole suite. Check it in the real app (a picture of the real window), not only the tests. Commit with a clear message and push when done (pull --rebase if rejected; never stash). Never enter passwords, card numbers or keys. Never touch Cemu or the Desktop 'Dont touch' folder.
+
+Use the run skill (to see it in the real app).
+
+Done means: he picks one option in Samara, you apply it to the real thing, and show a picture of it.
+
+Report: Replies to me: short, plain, no walls of text, no em dashes. Long detail goes in a file; tell me where. Say what changed, how you checked it, and anything I must decide.
+
+Joshua's words: "fix the skater colours on the player"

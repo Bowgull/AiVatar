@@ -16,7 +16,7 @@
 
 /**
  * @typedef {{ label: string, key: 'A'|'S'|'D'|'X'|'Z', choice: string, tone?: 'primary'|'warn'|'burnt', hold?: boolean }} AskKey
- * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, mail?: { to: string, subject: string, body: string, fresh: string, cc?: string, files?: string }, keys: AskKey[] }} Ask
+ * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, exactLabel?: string, mail?: { to: string, subject: string, body: string, fresh: string, cc?: string, files?: string }, keys: AskKey[] }} Ask
  */
 
 /**
@@ -151,6 +151,30 @@ export function askFrom(m) {
     return {
       plaque: '',
       question: '',
+      keys: [
+        { label: 'Go', key: 'A', choice: 'go', tone: 'primary' },
+        { label: 'Change', key: 'S', choice: 'change' },
+        { label: 'Not now', key: 'Z', choice: 'no', tone: 'burnt' },
+      ],
+    };
+  }
+
+  // C6 (2026-10-22): a Claude job he asked for, before it is sent. One plain line, the folder and the model, and the
+  // whole request folded under "What I'll send" (his answer 2). Go sends it; Change puts his words back in the box.
+  // The door decides the honest last line: one click on Claude's folder box, or (until the probe proved a door) Enter.
+  if (m.t === 'claude.start' && typeof m.text === 'string') {
+    const folder = String(m.folder ?? '');
+    const base = folder.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || folder;
+    const how = m.resume ? (m.resume.running ? 'Goes into that session now' : 'Opens that session, then sends it')
+      : m.door === 'link' ? 'Claude asks you to confirm the folder (one click)'
+      : m.door === 'door2' ? 'Starts in the Claude app by itself'
+      : 'You press Enter in Claude to send it';
+    return {
+      plaque: m.resume ? `CLAUDE · ${String(m.resume.title ?? base).toUpperCase()}` : `CLAUDE · ${base.toUpperCase()}`,
+      question: String(m.line ?? ''),
+      means: [folder, m.model ? String(m.model) : '', m.quota ? 'might be high quota' : '', how].filter(Boolean).join(' · '),
+      exact: String(m.text),
+      exactLabel: 'What I’ll send',
       keys: [
         { label: 'Go', key: 'A', choice: 'go', tone: 'primary' },
         { label: 'Change', key: 'S', choice: 'change' },

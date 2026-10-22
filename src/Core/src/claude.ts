@@ -90,6 +90,16 @@ export function newSessionLink(prompt: string, folder: string): string {
   return `claude://code/new?q=${encodeURIComponent(prompt.slice(0, 12000))}&folder=${encodeURIComponent(folder)}`;
 }
 
+/** C6: open any claude:// link (a new session by folder, or an existing one) the way a click would. An error, or null. */
+export function openClaudeLink(url: string): string | null {
+  if (!/^claude:\/\/(code\/new\?|claude\.ai\/epitaxy\/local_[0-9a-f-]{36}$)/.test(url)) return 'That is not a Claude app link.';
+  try {
+    const child = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' });
+    child.unref();
+    return null;
+  } catch (e) { return `Could not open the Claude app: ${(e as Error).message}`; }
+}
+
 /** Open that link: Windows hands it to the Claude app, as a click on it would. */
 export function openInClaude(prompt: string, opts: { name: string; cwd: string; now?: number }): Launched | { error: string } {
   try {
