@@ -3,6 +3,12 @@
 html,body{margin:0;background:transparent;overflow:hidden;height:100%}
 .sticky{position:absolute;left:14px;top:14px;width:calc(100vw - 28px);height:calc(100vh - 28px);overflow:visible}
 body.menu .sticky{width:var(--w);height:var(--h)}
+/* Window family (1b): the paper draws its own stepped corners (notecats.css clip-path), so the corners a group-mate
+   sits against go square here; the family CSS only reaches border-radius. */
+html[data-fam-sq~="tl"] .npaper{--ctl:0}
+html[data-fam-sq~="tr"] .npaper{--ctr:0}
+html[data-fam-sq~="br"] .npaper{--cbr:0}
+html[data-fam-sq~="bl"] .npaper{--cbl:0}
 /* drag by the top strip, resize from the corner; both sit over the paper (the ribbon stays visible through the strip) */
 .grab{position:absolute;left:14px;right:14px;top:3px;height:20px;cursor:grab;z-index:3}
 body.menu .grab{right:auto;width:var(--w)}

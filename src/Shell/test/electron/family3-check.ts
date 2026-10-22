@@ -9,7 +9,7 @@
 // Pictures (3): joined, the job taken out, restored after the restart.
 //
 // Run: npx electron test/electron/family3-check.ts [folder for the pictures]
-import { app, BrowserWindow, nativeImage } from 'electron';
+import { dialog, app, BrowserWindow, nativeImage } from 'electron';
 import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
 import { servePages } from '../../src/pageserver.ts';
@@ -18,6 +18,7 @@ import { JobPops } from '../../src/jobpop.ts';
 import { FamilyHost } from '../../src/familywin.ts';
 import * as FS from '../../src/familysave.ts';
 
+dialog.showErrorBox = () => {};   // never a dialog on his screen, whatever breaks
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 4).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 150_000).unref();
