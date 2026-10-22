@@ -3,7 +3,7 @@
 // job pop-out's pin, the product's own pill bar for the seek bar. Coordinates are CSS pixels, always even.
 import { P, loadTex, rr, rrMask, shape, drawMask, close, fills, spr, art, GLYPH, pin, cover, spectrum, mix, hex, paperAt, trayAt } from './pix.js';
 import { pill, SEA } from '../../../src/Shell/pages/claudejobs.js';
-import { skate as skateScene, rain as rainScene, campfire as campScene, pier as pierScene } from './scenes.js';
+import { skate as skateScene, rain as rainScene, campfire as campScene, fishing as fishScene, SW as SCENE_W, SH as SCENE_H } from './scenes.js';
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-full';
 const GOLD = ['#fff3d8', '#ffe7b0', '#ffd88a', '#ffc96a', '#f0b04a', '#d9952f', '#b97a22', '#8f5a16'];
@@ -104,8 +104,8 @@ function bars(levels, peaks, { bw = 2, h = 10, gap = 1 } = {}) {
 }
 const LV = [0.9, 0.8, 0.95, 0.7, 0.62, 0.75, 0.5, 0.58, 0.44, 0.36, 0.48, 0.3, 0.22, 0.28];
 /**
- * The full player. mode: 'bars' (visualizer), 'scene' (a little looping picture in the screen), 'off'.
- * opts: scene (a canvas 56 x 30 art pixels), p (song position), off (title marquee offset in CSS px), pressPlay.
+ * The full player. mode: 'bars' (visualizer), 'scene' (v5: the scene plays in the cover's spot, ONE picture; the screen
+ * keeps the time and the bars), 'off'. opts: scene (a canvas 34 x 34 art pixels, the cover's size), p, off, pressed.
  */
 function playerA(mode = 'bars', { scene = null, p = SONG.p, off = 0, pressed = 'none', grab = false } = {}) {
   if (mode === true) mode = 'bars'; if (mode === false) mode = 'off';
@@ -116,17 +116,17 @@ function playerA(mode = 'bars', { scene = null, p = SONG.p, off = 0, pressed = '
   at(pl, tkey('pin'), a2(W - 59), a2(5)); at(pl, tkey('shade'), a2(W - 43), a2(5)); at(pl, tkey('close'), a2(W - 27), a2(5));
   // the cover in a soft sunken frame, its own corners cut round
   at(pl, rr(38, 38, 6, { band: 'recess', fill: fills.flat('#1a100a'), shadow: 0 }), a2(8), a2(21));
-  at(pl, roundCut(cover(34), 4), a2(10), a2(23));
+  // v5 (his note: "shouldn't it just be one?"): ONE picture. The cover, or in SCENE mode the scene in the same spot.
+  at(pl, roundCut(mode === 'scene' && scene ? scene : cover(34), 4), a2(10), a2(23));
   // the screen: warm dark glass, rounded, two panes (time + visualizer or scene | the song)
   const LX = 50, LY = 21, lw = W - LX - 8, lh = 38;
   at(pl, rr(lw, lh, 7, { band: 'recess', shadow: 0, fill: (x, y) => (x === 61 && y > 4 && y < lh - 5 ? '#2c1a0e' : y % 2 ? mix('#1c110a', '#120a05', y / lh) : mix('#20140b', '#150c06', y / lh)) }), a2(LX), a2(LY));
   const lcd = at(pl, el('div', 'lcd'), a2(LX + 2), a2(LY + 2), { width: a2(lw - 4) + 'px', height: a2(lh - 4) + 'px', borderRadius: '10px' });
-  if (mode === 'bars') { at(lcd, el('span', 'time', SONG.at), 12, 4); at(lcd, bars(LV, LV.map((v, i) => Math.min(1, v + 0.12 + (i % 3) * 0.05))), 12, 44); }
+  if (mode === 'bars' || mode === 'scene') { at(lcd, el('span', 'time', SONG.at), 12, 4); at(lcd, bars(LV, LV.map((v, i) => Math.min(1, v + 0.12 + (i % 3) * 0.05))), 12, 44); }
   if (mode === 'off') { const t = at(lcd, el('span', 'time', SONG.at), 10, 14); t.style.fontSize = '42px'; }
-  if (mode === 'scene' && scene) { roundCut(scene, 3); at(lcd, scene, 2, 2); }
   at(lcd, el('span', 'scroll', `${SONG.t.toUpperCase()}  ·  ${SONG.a.toUpperCase()}  ·  ${SONG.t.toUpperCase()}`), 128 - off, 6);
   at(lcd, el('span', 'sub', SONG.al), 128, 30);
-  const tg = at(lcd, el('span', 'tags'), 128, 52); tg.innerHTML = mode === 'scene' ? `<i>${SONG.at}</i> / ${SONG.len}&nbsp;&nbsp;&middot;&nbsp;&nbsp;3 / 11` : '<i>LIKED</i>&nbsp;&nbsp;3 / 11';
+  const tg = at(lcd, el('span', 'tags'), 128, 52); tg.innerHTML = '<i>LIKED</i>&nbsp;&nbsp;3 / 11';
   // the seek: the product's round pill in gold, an 18 px bead to grab, the times either side
   const sx = 30, sw = W - sx - 30;
   at(pl, el('span', 'tm d', mode === 'x' ? '' : SONG.at), a2(9), a2(66));
@@ -161,12 +161,12 @@ function shadeA(vis = true, { off = 0 } = {}) {
 }
 
 // ---------------------------------------------------------------- SCENES: little looping pictures for the screen
-// 56 x 30 art pixels each, 6 frames, hand-placed palettes, meant to loop at 8-10 fps (and stop when the player is hidden).
-const SCW = 56, SCH = 30;
-// v4: all four scenes live in scenes.js (skate redrawn, rain and campfire redone, the pier new; the drive is gone).
-const SCENES = { skate: skateScene, rain: rainScene, campfire: campScene, pier: pierScene };
+// v5: 34 x 34 art pixels (the cover's size: one picture spot), 8 frames, looping at 10 fps on the sheet itself
+// (stopped when the player is hidden). All four live in scenes.js.
+const SCW = SCENE_W, SCH = SCENE_H;
+const SCENES = { skate: skateScene, rain: rainScene, campfire: campScene, fishing: fishScene };
 const scene = (name, f, s = P) => art(SCW, SCH, SCENES[name](f), s);
-const HERO = { skate: 3, rain: 1, campfire: 1, pier: 3 };   // the frame each hero shows (the push, a lit flame, the dip)
+const HERO = { skate: 3, rain: 1, campfire: 0, fishing: 5 };   // the frame each still shows (the push, a lit flame, the line out)
 
 // ---------------------------------------------------------------- B: a Walkman on parchment
 function reelsWindow(wA, hA, spin = 0) {
@@ -393,9 +393,9 @@ window.__ready = (async () => {
     crop = { x: 0, y: 0, w: 220 + a2(AW) + 36, h: H };
   } else if (SCENE === 'A-scene') {
     const H = 290;
-    at(stage, playerA('scene', { scene: scene('skate', 0) }), 30, 44); tag(stage, 32, 20, 'SCENE <b>SKATING THE BOULEVARD</b>');
-    at(stage, playerA('scene', { scene: scene('pier', 2) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'CLICK THE SCREEN &rarr; <b>THE PIER AT DUSK</b>');
-    big(stage, 32, 44 + a2(AH) + 26, 'THE VIS KEY GOES <b>BARS &rarr; SCENE &rarr; OFF</b>. IN SCENE, A CLICK ON THE SCREEN GOES TO THE NEXT SCENE. IT REMEMBERS.');
+    at(stage, playerA('bars'), 30, 44); tag(stage, 32, 20, 'BARS &middot; <b>THE COVER</b> IN THE PICTURE');
+    at(stage, playerA('scene', { scene: scene('fishing', HERO.fishing) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'SCENE &middot; <b>THE SCENE</b> IN THE SAME SPOT');
+    big(stage, 32, 44 + a2(AH) + 26, '<b>ONE PICTURE</b>: THE COVER, OR IN SCENE MODE THE SCENE IN THE SAME SPOT. CLICK IT FOR THE NEXT SCENE.');
     crop = { x: 0, y: 0, w: 30 + a2(AW) * 2 + 40 + 30, h: H };
   } else if (SCENE.startsWith('z-')) {
     // a work view while drawing: one scene, all four frames at 8x

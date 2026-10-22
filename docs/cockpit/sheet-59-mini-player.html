@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 59 - Spotify mini player</title>
-<!-- Sheet 59 v4 (2026-10-22, night): his notes on v3's scenes: the drive gone; the skater redrawn (a readable side-view
+<!-- Sheet 59 v5 (2026-10-22, later that night): his notes on v4: "shouldn't it just be one?" (ONE picture: the cover, or the
+     scene in the same spot, cross-fading; the amber screen keeps the time, bars and title), the campfire redrawn as a dark
+     fantasy forest in Waymark's language, the skater a Black man, the pier replaced by a Caribbean sunset fishing scene,
+     and "some motion on all of these": every scene now plays on the sheet itself (10 fps, whole-number scale, a pause
+     key). Scenes are 34 x 34 now (the cover's size), 8 drawn frames each, drawn live from sheet-59/scenes.js.
+     Sheet 59 v4 (2026-10-22, night): his notes on v3's scenes: the drive gone; the skater redrawn (a readable side-view
      figure with a real push cycle); rain and campfire redone from scratch; a new fourth scene, the pier at dusk. Six frames
      each, one hero frame per scene (sheet-59/scenes.js, shot as scene-*.png).
      Sheet 59 v3 (2026-10-22, evening): his notes on v2: the cloud scene removed everywhere; the
@@ -28,14 +33,29 @@
   .meaning{display:grid;grid-template-columns:200px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
   .meaning b{font:800 16px Figtree,sans-serif;color:#fffaf0}
   .meaning span{font:500 15.5px/1.5 Figtree,sans-serif;color:#d8cab0}
+  .shot.live{overflow:hidden}
+  .shot.live img{max-width:none}
+  canvas.pic{position:absolute;width:68px;height:68px;image-rendering:pixelated;transition:opacity .4s ease}
+  #picB{cursor:pointer}
+  .playkey{display:flex;align-items:center;gap:14px;margin:4px 0 14px}
+  .playkey button{font:800 14px Figtree,sans-serif;letter-spacing:1.4px;color:#3a2a18;background:linear-gradient(#fff6e0,#ecd5a8);border:0;border-radius:10px;padding:10px 18px;min-height:40px;box-shadow:0 3px 0 #8a6a3c,0 5px 8px rgba(0,0,0,.4);cursor:pointer}
+  .playkey button[aria-pressed=true]{transform:translateY(2px);box-shadow:0 1px 0 #8a6a3c}
+  .playkey button b{color:#8a3e1c;margin-right:4px}
+  .playkey .hint{font:500 14px Figtree,sans-serif;color:#a89a84}
+  .scn{display:flex;flex-wrap:wrap;gap:16px 26px;align-items:flex-start;margin-top:8px}
+  .scn canvas{image-rendering:pixelated;display:block}
+  .scn .hero{width:204px;height:204px}
+  .scn .frames{display:grid;grid-template-columns:repeat(4,68px);gap:18px 14px}
+  .scn .frames div{font:700 11px Figtree,sans-serif;letter-spacing:1px;color:#a89a84;display:flex;flex-direction:column;gap:6px}
+  .scn .frames canvas{width:68px;height:68px}
 </style>
 </head>
 <body>
 <h1>SHEET 59 &middot; SPOTIFY MINI PLAYER</h1>
-<p class="real">v4 &middot; 22 Oct, night: the four scenes redrawn (skater fixed, drive gone, rain and campfire redone, the pier is new)</p>
+<p class="real">v5 &middot; 22 Oct, later: one picture, not two &middot; the scenes MOVE now &middot; Waymark's forest, the skater, a Caribbean sunset</p>
 <p class="lead">A small 90s player on your desktop. Song, artist, cover, seek, play keys, volume, and a visualizer you can switch off. Double-click it to shrink it to a thin strip, like Winamp.</p>
 <div class="decided"><span>Opens from the wheel's Music slot, asking Aang, or his right-click menu</span><span>You sign in to Spotify yourself</span><span>Snaps to the other pop-outs</span><span>Shares their pin and see-through</span><span>Snaps FLUSH (your pick)</span><span>Video pops out only when you click</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to A as reworked, or point at a corner, a key or a scene to change. Then say <b>yes</b> or point at a scene to change: <b>Skate</b>, <b>Rain</b>, <b>Campfire</b>, <b>the Pier</b> (new).</em></p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to A as reworked, or point at a corner, a key or a scene to change. Then say <b>yes</b> or point at a scene to change: <b>Campfire</b>, <b>Skate</b>, <b>Rain</b>, <b>Sunset fishing</b> (new).</em></p>
 
 <div class="take">
   <div class="lhead"><span class="L">A</span><span class="nm">Winamp in wood &middot; soft and easy to hit</span><span class="pick">YOUR PICK</span></div>
@@ -46,16 +66,17 @@
   </div>
 </div>
 
-<h2><span class="n">2</span>SCENES IN THE SCREEN</h2>
-<p>Instead of the bars, a tiny looping picture plays in the screen. Four of them now. The <b>VIS key</b> goes BARS &rarr; SCENE &rarr; OFF; in SCENE, <b>click the screen</b> for the next one. Six hand-drawn frames each, about 9 frames a second, and they stop when the player is hidden or a game is full screen.</p>
-<p class="topick"><span>WHAT CHANGED</span> <em>The <b>drive is gone</b>. The <b>skater is redrawn</b>: cap, face, a cream hoodie, denim legs, white shoes, a board with wheels, and a real push (ride, lift, plant, push, recover, step back on). <b>Rain</b> and <b>campfire</b> are new pictures, not touch-ups. The fourth is <b>new: the pier at dusk</b>.</em></p>
-<div class="cell"><div class="lbl"><i>2</i>A SCENE PLAYING IN THE PLAYER &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-scene.png" width="948" height="290" alt="Player with the skate scene and the pier scene in its screen"></div></div>
-<p style="margin-top:18px">Each scene below: one big frame on the left (6&times;, so you can see every pixel), the whole loop on the right at the size it plays.</p>
-<div class="cell" style="margin-top:10px"><div class="lbl"><i>1</i>SKATING THE BOULEVARD &middot; THE STREET SLIDES IN FOUR LAYERS, HE PUSHES ONCE PER LOOP, A TALL PALM CROSSES THE SUN</div><div class="shot"><img src="sheet-59/scene-skate.png" width="786" height="208" alt="Skate scene, hero frame and six frames"></div></div>
-<div class="cell" style="margin-top:14px"><div class="lbl"><i>2</i>RAIN ON THE WINDOW &middot; THE CAT WATCHES THE LIT FLATS ACROSS THE STREET, ITS TAIL SWINGS, DROPS SLIDE, A WINDOW GOES DARK, THE TV FLICKERS, THE CANDLE AND THE MUG BREATHE</div><div class="shot"><img src="sheet-59/scene-rain.png" width="786" height="208" alt="Rain scene, hero frame and six frames"></div></div>
-<div class="cell" style="margin-top:14px"><div class="lbl"><i>3</i>CAMPFIRE &middot; THE FIRE IS THE ONLY LIGHT: IT RIMS THE TENT AND THE TRAVELLER, THE POOL OF LIGHT BREATHES, EMBERS CLIMB</div><div class="shot"><img src="sheet-59/scene-campfire.png" width="786" height="208" alt="Campfire scene, hero frame and six frames"></div></div>
-<div class="cell" style="margin-top:14px"><div class="lbl"><i>4</i>NEW &middot; THE PIER AT DUSK &middot; SOMEONE FISHING BY A LANTERN, THE SEA SHIMMERS, THE BOBBER DIPS AND SENDS A RING OUT, TWO BIRDS HEAD HOME</div><div class="shot"><img src="sheet-59/scene-pier.png" width="786" height="208" alt="Pier scene, hero frame and six frames"></div></div>
-<p style="margin-top:14px"><b>Why the pier for the fourth:</b> the other three are a street, a room and a forest; this is open water, and it is the only <i>still</i> one (the skate moves, the pier sits). Blue hour with one warm lantern is the same cold-world-warm-light feel as the rain and the fire, and water is where pixel colour-cycling looks best. It is also the fishing spot from every cosy game. (Also tried in my head: a night-train window, too close to the rain window; a lantern market, too busy to read at this size; snow at a cabin, too close to the campfire.)</p>
+<h2><span class="n">2</span>ONE PICTURE, AND THE SCENES IN IT</h2>
+<p>Your note: "shouldn't it just be one?" Yes. The player has <b>one picture</b>: the song's cover. Switch the <b>VIS key</b> to SCENE and a little looping scene cross-fades in <b>in the same spot</b>; leave SCENE and the cover fades back. The amber screen never shows a picture: it keeps the time, the bars and the title. In SCENE, <b>click the picture</b> for the next scene. The thin strip (double-click) has no picture at all: title, time and small bars.</p>
+<p class="topick"><span>WHAT CHANGED</span> <em><b>One picture</b>, not two. Everything below <b>moves</b> (press the key to stop it). The <b>campfire</b> is now in Waymark's dark forest. The <b>skater</b> is a Black man. The pier is gone; the fourth is a <b>Caribbean sunset, fishing</b>.</em></p>
+<div class="playkey"><button id="pp" type="button" aria-pressed="false"><b id="ppg">&#10074;&#10074;</b> <span id="ppt">PAUSE</span></button><span class="hint">or press the space bar &middot; 10 frames a second &middot; every pixel a whole block</span></div>
+<div class="cell"><div class="lbl"><i>2</i>THE SAME PLAYER BOTH WAYS &middot; LEFT FADES COVER &harr; SCENE EVERY FEW SECONDS &middot; RIGHT: CLICK THE PICTURE &middot; SHOWN 2&times;</div>
+  <div class="shot live" style="width:948px;height:290px"><img src="sheet-59/A-scene.png" width="948" height="290" alt="Two players: the cover in the picture, and a scene in the same spot">
+    <canvas class="pic" id="picA" width="34" height="34" style="left:50px;top:90px"></canvas>
+    <canvas class="pic" id="picB" width="34" height="34" style="left:514px;top:90px" title="Click for the next scene"></canvas></div></div>
+<p style="margin-top:18px">Each scene: big on the left (6&times;, so you can see every pixel), moving; on the right its 8 drawn frames at the size they play (2&times;).</p>
+<div id="scenes"></div>
+<p style="margin-top:14px"><b>Why these four:</b> a forest, a street, a room and a beach; night, dusk, night, sunset. Each has ONE warm light (the fire, the sun, the candle and the flats, the sun) and everything else in shadow, so the figure always reads.</p>
 
 <h2><span class="n">3</span>MOTION</h2>
 <p>Small, calm movement that makes it feel like a real little machine. Nothing bounces more than a pixel or two.</p>
@@ -86,7 +107,8 @@
 <div class="meaning">
   <b>Pin</b><span>The same pin as the job pop-out. Pin one pop-out and they all stay on top. Hover by it for the see-through slider; every pop-out follows.</span>
   <b>Fold</b><span>Double-click anywhere (or the minus key) for the thin strip: scrolling title, play/pause, a progress line. Double-click again to come back.</span>
-  <b>VIS key</b><span>BARS, SCENE or OFF. Off by default if you prefer it calm; it remembers. In SCENE, click the screen for the next scene.</span>
+  <b>Picture</b><span>One picture: the cover. In SCENE the scene cross-fades in over it (0.4 s) and the cover comes back when you leave SCENE. Never a second picture in the screen.</span>
+  <b>VIS key</b><span>BARS, SCENE or OFF. Off by default if you prefer it calm; it remembers. In SCENE, click the picture for the next scene; the screen keeps the time and bars.</span>
   <b>Seek and volume</b><span>Grab the gold bead and drag; the big time follows in the screen. The volume knob is Spotify's own volume.</span>
   <b>Where the song comes from</b><span>Spotify's official sign-in, plus Windows' "now playing" so it shows the song even before you sign in.</span>
 </div>
@@ -95,8 +117,62 @@
 <ul>
 <li>The player is new, so it is drawn: every wood, paper, key and icon pixel placed by hand at exactly 2&times;, using Samara's own wood pictures and the bubble's paper colours.</li>
 <li>The seek and volume bars are the app's own round progress bar (gold, cream). The pin is the job pop-out's pin. Round corners are drawn pixel by pixel, never smoothed.</li>
-<li>The four scenes (sheet-59/scenes.js) are made-up pixel paintings built the way the pixel-loop artists build theirs (Waneella, Kirokaze, Mark Ferrari's colour cycling), not copied from them: a small palette per scene, ONE light source and everything else in shadow, people and the cat lit on the side facing the light so they read, light as two or three flat bands (no noisy dither), cycling colours for water, rain and fire, and small 2-4 frame motions (steam, a tail, a bobber). They would ship as small sprite sheets; the skate's street layers would scroll as endless strips.</li>
+<li>The four scenes (sheet-59/scenes.js) are made-up pixel paintings, 34 &times; 34 (the cover's size), built the way the pixel-loop artists build theirs (Waneella, Kirokaze, Mark Ferrari), not copied: a small palette per scene, ONE light source and everything else in shadow, figures lit on the side facing the light, light as flat bands (no noisy dither), and small layered motions (flame, sparks, fireflies, mist; the push and four street layers; rain, drops, tail, steam; the cast, glitter, waves, palm). This page draws them live at 10 fps; they would ship as small sprite sheets, the street layers as endless strips.</li>
+<li>The campfire is Waymark's world (its page-14 clearing and page-33 road): pale trunks in green-black fog, the rune arch with vines at the end of the red-dirt path, moss, mist, fireflies and the cyan motes, in Waymark's own fog and moss colours. Looked at, not copied: nothing was taken from the Waymark repo.</li>
 <li>In section 4 the video pop-out (with 12 px corners, the one change asked for) and the Claude job are drawn by the app's own styles. The cover art is a made-up pixel painting.</li>
 </ul></div>
+<script type="module">
+// v5: the scenes play right here. Each frame is drawn from sheet-59/scenes.js into a 34 x 34 canvas and shown at a whole
+// multiple (2x, 6x) with pixelated scaling, so every art pixel is a crisp block; the corners are cut with the cover's
+// own pixel staircase. 10 frames a second; stops when the tab is hidden or the key is pressed.
+import * as S from './sheet-59/scenes.js';
+import { rrMask } from './sheet-59/pix.js';
+const ORDER = [
+  ['campfire', 'CAMPFIRE IN WAYMARK\u2019S FOREST', 'THE FIRE IS THE ONLY WARM LIGHT: IT RIMS THE HOODED TRAVELLER, SPARKS CLIMB, FIREFLIES DRIFT AND BLINK, MIST SLIDES THROUGH THE TRUNKS, THE ARCH\u2019S RUNES BREATHE TEAL, SPORES RISE, THE MOSS SWAYS'],
+  ['skate', 'SKATING THE BOULEVARD', 'HE PUSHES (LIFT, PLANT, PUSH, PUSH OFF, RECOVER, STEP ON) THEN RIDES; THE TOWN, THE FAR PALMS, THE ROAD AND THE NEAR PALM SLIDE AT FOUR SPEEDS'],
+  ['rain', 'RAIN ON THE WINDOW', 'RAIN STREAKS, DROPS SLIDE DOWN THE GLASS, THE CAT\u2019S TAIL SWINGS, THE CANDLE FLICKERS, STEAM CLIMBS, THE TV FLICKERS, A WINDOW GOES DARK'],
+  ['fishing', 'CARIBBEAN SUNSET, FISHING', 'HE CASTS (ROD BACK, WHIP, THE LINE FLIES, THE LURE LANDS WITH A RING) THEN WAITS AS THE BOBBER RIDES THE SWELL; THE SUN\u2019S PATH GLITTERS, WAVES LAP THE SAND AND THE PAINTED BOAT, THE PALM STIRS, BIRDS HEAD HOME'],
+];
+const RGB = new Map();
+const rgb = (c) => { let v = RGB.get(c); if (!v) { v = [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; RGB.set(c, v); } return v; };
+const ROUND = rrMask(S.SW, S.SH, 4);
+function draw(cv, name, f, t) {
+  const g = cv.getContext('2d'), im = g.createImageData(S.SW, S.SH), d = im.data;
+  S[name](f, t)((x, y, c) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= S.SW || y >= S.SH || !c) return; const i = (y * S.SW + x) * 4, v = rgb(c); d[i] = v[0]; d[i + 1] = v[1]; d[i + 2] = v[2]; d[i + 3] = 255; });
+  for (let i = 0; i < ROUND.length; i++) if (!ROUND[i]) d[i * 4 + 3] = 0;
+  g.putImageData(im, 0, 0);
+}
+const live = [];
+const box = document.getElementById('scenes');
+ORDER.forEach(([name, title, cap], n) => {
+  const cell = document.createElement('div'); cell.className = 'cell'; cell.style.marginTop = n ? '22px' : '6px';
+  cell.innerHTML = `<div class="lbl"><i>${n + 1}</i>${title} &middot; ${cap}</div><div class="scn"><canvas class="hero" width="${S.SW}" height="${S.SH}"></canvas><div class="frames"></div></div>`;
+  box.append(cell);
+  live.push({ cv: cell.querySelector('.hero'), name: () => name });
+  const fr = cell.querySelector('.frames');
+  for (let f = 0; f < 8; f++) { const w = document.createElement('div'), c = document.createElement('canvas'); c.width = S.SW; c.height = S.SH; draw(c, name, f, f); w.append(c, `FRAME ${f + 1}`); fr.append(w); }
+});
+// the two players: the left one fades cover <-> scene every 4 s (the cover is the picture underneath); the right one
+// always plays a scene, click it for the next
+let aIdx = 0, bIdx = 3;
+const picA = document.getElementById('picA'), picB = document.getElementById('picB');
+live.push({ cv: picA, name: () => ORDER[aIdx][0] }, { cv: picB, name: () => ORDER[bIdx][0] });
+picB.addEventListener('click', () => { bIdx = (bIdx + 1) % ORDER.length; draw(picB, ORDER[bIdx][0], t % 8, t); });
+let t = 0, playing = true;
+function tick() {
+  if (!playing || document.hidden) return;
+  for (const l of live) draw(l.cv, l.name(), t % 8, t);
+  picA.style.opacity = Math.floor(t / 40) % 2 ? '1' : '0';
+  if (t % 80 === 79) aIdx = (aIdx + 1) % ORDER.length;
+  t++;
+}
+for (const l of live) draw(l.cv, l.name(), 0, 0);
+picA.style.opacity = '0';
+setInterval(tick, 100);
+const pp = document.getElementById('pp');
+function toggle() { playing = !playing; pp.setAttribute('aria-pressed', String(!playing)); document.getElementById('ppg').innerHTML = playing ? '&#10074;&#10074;' : '&#9654;'; document.getElementById('ppt').textContent = playing ? 'PAUSE' : 'PLAY'; }
+pp.addEventListener('click', toggle);
+addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); toggle(); } });
+</script>
 </body>
 </html>
