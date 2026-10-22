@@ -404,8 +404,8 @@ Joshua: Aang may read his notes, and should surface things. How:
   date and what he's doing (the foreground app/title only), and answers one of: nothing, or ONE line worth saying.
   Kinds: a date coming up ("You noted to renew the thing Friday. That's tomorrow."), a to-do left open a long time
   ("'Call the bank' has been open a week."), a link to what he's doing now. Claude is only used if he replies.
-- **Aang's usual rules:** one line in the speech bubble, click opens that note; silent while Claude is in front; mark
-  only in a game; Hush silences it. Never the same thing twice in a day; at most a few a day; nothing at all when
+- **Aang's usual rules:** one line in the speech bubble, click opens that note; silent while Claude is in front;
+  OFF ENTIRELY while a game runs (his call 2026-10-22: no mark, no icon, Qwen does not read); Hush silences it. Never the same thing twice in a day; at most a few a day; nothing at all when
   Qwen is unsure (empty answer = say nothing).
 - **Control:** each note has "Aang can bring this up" (on by default); one switch to turn noticing off.
 - **Safety:** note text is data to Qwen, never instructions (local.ts rule 1: no tools). Qwen waits while a game runs.
