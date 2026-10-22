@@ -820,6 +820,7 @@ test('"save quota" and "saving off" switch it from Discord, free, without reachi
 // ---------------------------------------------------------------- Q3: #capture notes cost nothing
 
 test('a thought in #capture is written down for free; a question still goes to Aang', async () => {
+  process.env.AANG_CAPTURE_DIR = mkdtempSync(path.join(os.tmpdir(), 'aang-capture-'));   // never his real vault
   const { gw, core } = await make({ paired: true });
 
   gw.say('capture', OWNER, 'raid moved to 7 on saturdays'); await tick();
