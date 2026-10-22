@@ -14,6 +14,7 @@ import { pixIcon, SKIES } from './pixicons.js';
 import { paintLookback, linkifyWords, videoShot, linkEl, kindOf, restKinds } from './lookback.js';
 import { startTyping } from './cocktype.js';
 import { startClaude } from './claudejobs.js';
+import { kindOf as askKind, tagRow, exactBlock, tintRim, KEYS_AFTER_MS } from './askkind.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -93,6 +94,7 @@ function fit() {
   // Comic lettering belongs to the message it was worked out for: anything else shown here (a question, a card, the
   // brief) starts plain.
   if (letterGen !== reveal.gen) clearLettering();
+  if (kindReady) syncKind();
   const total = lineCount();
   // A summarised answer shows all of whatever is laid out (the short version, or everything), and its
   // key is always there: Show more, then Show less.
@@ -154,6 +156,8 @@ function paintSkin(w, h) {
   lastShape = key;
   const d = balloonPath(w, h, head);
   paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId, wood, rimOn() ? { w, h, head } : null);
+  // Sheet 64: the rim and its tail take the ask's kind colour (askkind.js); a redrawn skin is tinted again.
+  tintRim(skin, /** @type {any} */ (bubble.dataset.kind ?? null));
 }
 // 2026-10-21, sheet 55 S2: his wood rim goes round look B's paper (never the Lantern's wood). It sits outside the paper,
 // so the window is RIM_G bigger and the bubble RIM_G further up and left from him (bubble.css .wrap.rimB margins): the
@@ -800,7 +804,7 @@ function rank(m) {
  * answer them).
  */
 function askGone() {
-  asking = null;
+  asking = null; if (kindReady) syncKind();
   asks.hidden = true; asks.replaceChildren();
   choiceList(null); paintPlan(null, -1);
   // The open cockpit never goes away on its own: the timed-out question just leaves its live area (2026-10-21).
@@ -903,6 +907,11 @@ function showAsk(m) {
   reveal.skip();                                  // a question is never revealed slowly
   who.textContent = a.plaque ?? '';
   setSpeaker('aang');
+  // Sheet 64: the kind's tag and who is asking, over the question (the plaque steps aside, asks.css). Samara's plan
+  // card names Claude and the project itself, so its tag stands alone.
+  const kind = askKind(m);
+  kindTag.replaceChildren(...(kind ? [tagRow(kind, m.samara ? null : { name: 'Aang' })] : []));
+  if (fresh) { bubble.classList.remove('kshow', 'kin'); clearTimeout(keyWait); keyWait = 0; }
   said.textContent = a.question;
   choiceList(m);
   // The explaining line, quieter, under the question. Joshua, 2026-10-03: "im just seeing gibberish".
@@ -940,25 +949,17 @@ function showAsk(m) {
   // Sheet 37: a Claude session's plan, on the Lantern's wood. Whatever was showing (the brief) waits its turn.
   if (!card.hidden && lastBrief) { parkedBrief = lastBrief; card.hidden = true; }
   samaraPlan(m.samara ? m : null);
-  // The exact command, one tap away: never code in the balloon unless he asks to see it.
+  // Sheet 64: on an OK, "Exactly this" (the command, the files, the site, word for word), shown from the start so he
+  // reads it before the keys come. It replaced the "See the exact command" fold. Questions and plans never have it.
   let exact = document.getElementById('exact');
   if (!exact) {
     exact = document.createElement('div');
     exact.id = 'exact';
     exact.className = 'exact';
-    exact.innerHTML = '<button type="button" class="exact-key"></button><pre class="exact-text" hidden></pre>';
     means.after(exact);
-    const key = exact.querySelector('.exact-key'), text = exact.querySelector('.exact-text');
-    key.addEventListener('click', () => {
-      text.hidden = !text.hidden;
-      key.textContent = text.hidden ? 'See the exact command' : 'Hide the command';
-      fit(); reportSize();
-    });
   }
-  exact.hidden = !a.exact;
-  exact.querySelector('.exact-text').textContent = a.exact ?? '';
-  exact.querySelector('.exact-text').hidden = true;
-  exact.querySelector('.exact-key').textContent = 'See the exact command';
+  exact.hidden = !(a.exact && kind === 'ok');
+  if (exact.hidden) exact.replaceChildren(); else exactBlock(a.exact, exact);
 
   asks.replaceChildren();
   for (const k of a.keys) {
@@ -1052,7 +1053,7 @@ function answer(choice) {
   if (asking.samara) samaraPlan(null);
   // Off the queue, then show whatever is behind it. Nothing in the stack disappears on its own.
   const done = asking;
-  asking = null;
+  asking = null; if (kindReady) syncKind();
   const at = waiting.indexOf(done);
   if (at >= 0) waiting.splice(at, 1);
   asks.hidden = true;
@@ -2157,6 +2158,7 @@ window.addEventListener('mousemove', e => {
   if (over === overNow) return;
   overNow = over;
   document.getElementById('wrap')?.classList.toggle('over', over);
+  keyHover(over);
   // Keys only while he is pointing at the bubble (2026-10-11: "these buttons should only surface when i hover").
   // The bubble grows to show them, so it is measured again; the 600 ms guard starts when they appear, so a
   // mouse arriving fast cannot land on Allow.
@@ -2183,6 +2185,7 @@ function releaseMouse() {
   if (pullingNote) return;                 // a note is being dragged out: keep the mouse until it lands
   if (!overNow) return;
   overNow = false;
+  keyHover(false);
   document.getElementById('wrap')?.classList.remove('over');
   window.aang?.bubbleClickable?.(false);
   // Hovering paused the clock; leaving has to start it again. The first version only released the
@@ -2569,6 +2572,53 @@ function setSpeaker(kind, machine, face) {
   const img = document.createElement('img'); img.src = 'art/aang-face.png'; img.alt = '';
   speaker.append(img, T('span', 'nm', 'AANG'));
 }
+// ---------------------------------------------------------------- sheet 64: the kind of ask (APPROVED 2026-10-22)
+// An ask (Aang's own, or the Claude card in the closed bubble) wears its kind: the tag over the question, the rim, the
+// tail and a faint glow in the mark's colour (askkind.js, asks.css). Its answer keys wait until the mouse has rested on
+// the bubble for 1.5 s, then slide in and stay; a new ask starts at rest again. Not in the open cockpit: there the keys
+// always show and the frame is the cockpit's.
+const kindTag = document.createElement('div');
+kindTag.id = 'kindtag';
+kindTag.hidden = true;
+bubble.prepend(kindTag);
+let keyWait = 0, kindKey = '';
+// `var`: fit() may run before this line during the module's first pass, and must then simply skip.
+var kindReady = false;
+function syncKind() {
+  let kind = null, key = '';
+  if (!cockpit && !bubble.hidden && !reading) {
+    if (asking) { kind = askKind(asking); key = kind ? `a:${asking.t}:${String(asking.id ?? '')}` : ''; }
+    else {
+      const pin = document.querySelector('#ckpins:not([hidden]) .pin[data-kind]');
+      if (pin) { kind = pin.dataset.kind; key = 'c:' + pin.dataset.id; }
+    }
+  }
+  kindTag.hidden = !(kind && key.startsWith('a:'));
+  if (kind) bubble.dataset.kind = kind; else delete bubble.dataset.kind;
+  if (key === kindKey) return;
+  kindKey = key;
+  bubble.classList.remove('kshow', 'kin', 'kguard');
+  clearTimeout(keyWait); keyWait = 0;
+  if (kind && overNow) keyWait = setTimeout(showKeys, KEYS_AFTER_MS);
+  tintRim(skin, /** @type {any} */ (kind));
+}
+/** The mouse came onto the bubble (or left it): the 1.5 s wait starts over each time. */
+function keyHover(over) {
+  clearTimeout(keyWait); keyWait = 0;
+  if (!over || !bubble.dataset.kind || bubble.classList.contains('kshow')) return;
+  keyWait = setTimeout(showKeys, KEYS_AFTER_MS);
+}
+/** The keys come: the bubble grows to make room (its own spring), then each row rises in, 40 ms after the last. */
+function showKeys() {
+  keyWait = 0;
+  if (!bubble.dataset.kind || bubble.classList.contains('kshow')) return;
+  bubble.classList.add('kshow', 'kin', 'kguard');
+  // The mouse is already resting where a key lands: a short guard, so the arrival itself is never a click.
+  setTimeout(() => bubble.classList.remove('kguard'), 400);
+  setTimeout(() => bubble.classList.remove('kin'), 700);
+  fit(); reportSize();
+}
+
 /** The hover key on a Claude message: that session's window comes forward, on the PC or on the Mac. */
 function openClaude() {
   if (focusWindow) {
@@ -2983,7 +3033,7 @@ function closeCock() {
 /** Aang's own question leaves the screen but stays in the queue (`waiting`), unanswered, for the next open. */
 function parkAsks() {
   if (!asking) return;
-  asking = null;
+  asking = null; if (kindReady) syncKind();
   asks.hidden = true; asks.replaceChildren();
   choiceList(null); paintPlan(null, -1); samaraPlan(null);
   for (const id of ['under', 'count', 'means', 'exact']) { const e = document.getElementById(id); if (e) e.hidden = true; }
@@ -3293,3 +3343,6 @@ function planAnswer(choice) {
   const note = n && !n.hidden ? n.value.trim().slice(0, 500) : '';
   return { choice: choice === 'go' && note ? 'change' : choice, keep: [...planKept], note };
 }
+
+// Sheet 64: everything syncKind reads exists now.
+kindReady = true;
