@@ -41,6 +41,7 @@ import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visi
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
+import { TIDY_KEEP, isPicked, saysDecided, sheetLabel, spaceOf, tidyDue, tidyLine } from './mockuptidy.ts';
 import { MockServer, MockStore, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockVersion, type MockupDrop } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
@@ -559,6 +560,8 @@ export class AangBrowser {
         this.mockServer = new MockServer(repo, (n) => this.mockStore?.repoPath(n) ?? null);
         this.mockStore = new MockStore(path.join(o.stateDir, 'mockups.json'));
         this.mockReady = this.mockServer.start();
+        // The tidy (2026-10-22): at most once a day, a while after start, plain code only (no quota, no Qwen).
+        setTimeout(() => { void this.mockTidy(false); }, 30_000).unref?.();
       }
     }
     this.file = path.join(o.stateDir, 'browser-tabs.json');
@@ -3174,6 +3177,7 @@ export class AangBrowser {
       const url = this.mockServer!.url(ver.commit, ver.sheet);
       const mock = { sheet: ver.sheet, commit: ver.commit, key: ver.key };
       this.mockTrail();
+      this.mockStore?.opened(ver.sheet);
       const t = this.tabs.find((x) => x.mock?.sheet === ver.sheet);
       if (t) {
         t.mock = mock; t.title = ver.title; t.trail = MOCK_TRAIL; t.done = false; t.failed = null; t.blocked = null;
@@ -3199,6 +3203,7 @@ export class AangBrowser {
     this.mockList = true;
     const tr = this.trails.find((x) => x.id === MOCK_TRAIL);
     if (tr) tr.collapsed = false;
+    void this.mockTidy(false);
     if (this.tabs.some((t) => t.mock)) { this.changed(); return; }
     const last = [...this.mockStore.list].sort((a, b) => b.at - a.at || b.id - a.id)[0];
     if (!last) { this.note('No mockups yet. When Claude opens one, it lands here.'); this.sendTabs(); return; }
@@ -3281,7 +3286,12 @@ export class AangBrowser {
       case 'show': { const v = Number.isInteger(a.id) ? st.get(a.id!) : undefined; if (v) this.showMockup(v); return; }
       // Send to Aang: the page names a number only; the Shell builds what goes.
       case 'send': case 'sendtab': case 'sendbranch': if (Number.isInteger(a.id)) void this.mockSend(act === 'send' ? 'version' : act === 'sendtab' ? 'tab' : 'branch', a.id!); return;
-      case 'list': this.mockList = a.open === true; break;
+      case 'list': this.mockList = a.open === true; if (this.mockList) void this.mockTidy(false); break;
+      // The tidy (2026-10-22): "Tidy now" in the trail's head; Archive, Restore and Picked from a sheet's menu.
+      case 'tidy': void this.mockTidy(true); return;
+      case 'archive': if (known(a.sheet)) why = st.archive(a.sheet); break;
+      case 'restore': if (known(a.sheet)) why = st.restore(a.sheet); break;
+      case 'pick': if (known(a.sheet)) why = st.setPicked(a.sheet, a.open === true); break;
       // The broom (his rule): only when he presses it, and only exact duplicates.
       case 'broom': { const n = st.sweep(); if (n) this.note(`Removed ${n} duplicate${n === 1 ? '' : 's'}.`); break; }
       case 'branchnew': if (known(a.sheet)) { const id = st.newBranch(); why = st.toBranch(a.sheet, id); this.freshBranch = id; } break;
@@ -3311,32 +3321,104 @@ export class AangBrowser {
     };
   }
   /**
-   * The history at the bottom of the trail: the count and the branches always; while it is open, the whole tree (branch >
-   * mockup > children), every version under its own mockup, newest first, closed ones too.
+   * The tidy (his ask, 2026-10-22): merge duplicates, fold old versions, archive sheets gone from the repo or superseded
+   * and untouched for two weeks (mockuptidy.ts has the rules). All plain code and git reads: no quota, no Qwen. Runs by
+   * itself at most once a day (start, the trail coming back, the history opening); "Tidy now" runs it at once and always
+   * says what it did. Nothing is deleted: the Archive in the history list has a Restore on every sheet.
+   */
+  private mockTidying = false;
+  async mockTidy(manual: boolean): Promise<string> {
+    const st = this.mockStore;
+    if (!st || this.mockTidying || (!manual && !tidyDue(st.tidiedAt, Date.now()))) return '';
+    this.mockTidying = true;
+    try {
+      const sheets = [...new Set(st.list.map((x) => x.sheet))];
+      // Which files are in their repo at HEAD: one ls-tree per repo. A repo git cannot read says nothing (never "gone").
+      const known = new Map<string, boolean>();
+      const byRepo = new Map<string, { dir: string; rels: Map<string, string> }>();
+      for (const s of sheets) {
+        const w = sheetKind(s) === 'live' ? null : this.mockWhere(s);
+        if (!w) continue;
+        const r = byRepo.get(w.repo) ?? { dir: w.repo, rels: new Map<string, string>() };
+        r.rels.set(w.rel, s); byRepo.set(w.repo, r);
+      }
+      for (const r of byRepo.values()) {
+        const rels = [...r.rels.keys()];
+        for (let i = 0; i < rels.length; i += 100) {
+          const part = rels.slice(i, i + 100);
+          const out = await git(r.dir, ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...part]);
+          if (typeof out !== 'string') continue;
+          const have = new Set(out.split(/\r?\n/).filter(Boolean));
+          for (const rel of part) known.set(r.rels.get(rel)!, have.has(rel));
+        }
+      }
+      // What each sheet says about itself (a "decided" strip, a DECIDED stamp), read again only when its newest version changed.
+      let reads = 0;
+      for (const s of sheets) {
+        if (st.archived(s) || reads >= 80) continue;
+        const v = st.list.filter((x) => x.sheet === s).sort((a, b) => b.at - a.at || b.id - a.id)[0];
+        const w = v?.commit ? this.mockWhere(s) : null;
+        if (!v || !w || st.meta.get(s)?.dkey === v.key) continue;
+        reads++;
+        const html = await git(w.repo, ['cat-file', 'blob', `${v.commit}:${w.rel}`]);
+        if (typeof html === 'string') st.setDecided(s, v.key, saysDecided(html));
+      }
+      const open = new Set(this.tabs.filter((t) => t.mock).map((t) => t.mock!.sheet));
+      const r = st.tidy(open, (s) => known.get(s) ?? null);
+      const line = tidyLine(r);
+      if (line || manual) this.note(line || 'The mockups are already tidy.');
+      this.sendTabs();
+      return line;
+    } catch (e) {
+      console.error('shell: mockups: the tidy failed: ' + (e as Error).message);
+      return '';
+    } finally { this.mockTidying = false; }
+  }
+  /**
+   * The history at the bottom of the trail (2026-10-22, organised): by project (the repo a sheet comes from), then by
+   * branch, one row per SHEET ("59 · Spotify mini player", a picked mark when decided), its versions under it, newest
+   * first, the newest three out and older ones in a fold. Then the Archive. The count and the branches always; the
+   * tree only while the list is open.
    */
   private mockView(): Record<string, unknown> | null {
     const st = this.mockStore;
     if (!st) return null;
     const all = st.list, dups = st.dups();
-    const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null, toAang: Boolean(this.sendMock) };
+    const archivedN = new Set(all.filter((x) => st.archived(x.sheet)).map((x) => x.sheet)).size;
+    const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null,
+      toAang: Boolean(this.sendMock), archived: archivedN, tidiedAt: st.tidiedAt || null };
     if (!this.mockList) return out;
     const shown = new Map(this.tabs.filter((t) => t.mock).map((t) => [t.mock!.sheet, t.mock!.key]));
     const bySheet = new Map<string, MockVersion[]>();
     for (const x of all) bySheet.set(x.sheet, [...(bySheet.get(x.sheet) ?? []), x]);
-    const newest = (s: string) => (bySheet.get(s) ?? []).reduce((m, x) => Math.max(m, x.at), 0);
+    for (const l of bySheet.values()) l.sort((a, b) => b.at - a.at || b.id - a.id);
+    const newest = (s: string) => bySheet.get(s)?.[0]?.at ?? 0;
+    const label = (s: string) => sheetLabel(bySheet.get(s)?.[0]?.title ?? '', s);
     const node = (sheet: string, kids: string[]): Record<string, unknown> => {
-      const items = [...(bySheet.get(sheet) ?? [])].sort((a, b) => b.at - a.at || b.id - a.id);
-      return { sheet, title: items[0]?.title ?? sheet, closed: !shown.has(sheet),
-        items: items.slice(0, 60).map((x) => ({ id: x.id, at: x.at, v: x.v, now: shown.get(sheet) === x.key && !dups.has(x.id), same: dups.get(x.id) ?? null })),
-        children: kids.sort((a, b) => newest(b) - newest(a)).map((k) => node(k, [])) };
+      const items = bySheet.get(sheet) ?? [], m = st.meta.get(sheet), lab = label(sheet);
+      const line = (x: MockVersion) => ({ id: x.id, at: x.at, v: x.v, now: shown.get(sheet) === x.key && !dups.has(x.id), same: dups.get(x.id) ?? null, seen: x.seen?.length ?? 0 });
+      const out1 = (x: MockVersion, i: number) => i < TIDY_KEEP && !x.old;
+      return { sheet, num: lab.num, name: lab.name, title: lab.label, closed: !shown.has(sheet), picked: isPicked(m), hand: m?.picked !== undefined, n: items.length,
+        items: items.filter(out1).map(line), older: items.filter((x, i) => !out1(x, i)).slice(0, 60).map(line),
+        ...(m?.archived ? { archived: m.archived, why: m.why ?? 'hand', by: m.by ? label(m.by).label : null } : {}),
+        children: kids.map((k) => node(k, [])) };
     };
-    // A child whose parent has no history left stands at the top level.
-    const parentOf = (s: string) => { const p = st.placeOf(s).parent; return p && bySheet.has(p) ? p : null; };
-    const tops = [...bySheet.keys()].filter((s) => !parentOf(s));
-    const family = (s: string) => Math.max(newest(s), ...[...bySheet.keys()].filter((k) => parentOf(k) === s).map(newest));
-    const nodes = (branch: number | null) => tops.filter((s) => st.placeOf(s).branch === branch).sort((a, b) => family(b) - family(a)).slice(0, 80)
-      .map((s) => node(s, [...bySheet.keys()].filter((k) => parentOf(k) === s)));
-    out.tree = { loose: nodes(null), branches: st.branches.map((b) => ({ id: b.id, name: b.name, folded: b.folded, mockups: nodes(b.id) })) };
+    // The sheet's number, highest first (a stable order: opening one never makes the list jump); unnumbered by time.
+    const rank = (s: string) => { const n = label(s).num, k = parseInt(n, 10); return Number.isFinite(k) ? k * 100 + (/[a-z]$/.test(n) ? n.charCodeAt(n.length - 1) - 96 : 0) : -1; };
+    const byRank = (a: string, b: string) => rank(b) - rank(a) || newest(b) - newest(a);
+    const live = [...bySheet.keys()].filter((s) => !st.archived(s));
+    // A child whose parent is archived or has no history left stands at the top level.
+    const parentOf = (s: string) => { const p = st.placeOf(s).parent; return p && bySheet.has(p) && !st.archived(p) ? p : null; };
+    const tops = live.filter((s) => !parentOf(s));
+    const kidsOf = (s: string) => live.filter((k) => parentOf(k) === s).sort(byRank);
+    const projName = (sp: string) => (sp === '' ? (path.basename(this.mockRepo) || 'AangApp') : sp === 'live' ? 'Live pages' : sp);
+    const spaces = [...new Set(tops.map(spaceOf))].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a === 'live' ? 1 : b === 'live' ? -1 : a.localeCompare(b)));
+    const projects = spaces.map((sp) => {
+      const nodes = (branch: number | null) => tops.filter((s) => spaceOf(s) === sp && st.placeOf(s).branch === branch).sort(byRank).slice(0, 120).map((s) => node(s, kidsOf(s)));
+      return { name: projName(sp), loose: nodes(null), branches: st.branches.map((b) => ({ id: b.id, name: b.name, mockups: nodes(b.id) })).filter((b) => b.mockups.length) };
+    });
+    const archive = [...bySheet.keys()].filter((s) => st.archived(s)).sort((a, b) => (st.meta.get(b)!.archived! - st.meta.get(a)!.archived!) || byRank(a, b)).slice(0, 200).map((s) => node(s, []));
+    out.tree = { projects, archive };
     return out;
   }
 
