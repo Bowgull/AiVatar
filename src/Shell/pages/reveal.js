@@ -28,6 +28,24 @@ export const CHARS_PER_SECOND = (PER_TICK * 1000) / TICK_MS;
  * because more is waiting. Only the unit moved from characters to words.
  */
 export const WORD_MS = 38;
+/**
+ * 2026-10-21, his "smoother and faster ... displaying what he's saying": a reply that is STREAMING keeps up with the
+ * model. It reads at WORD_MS while it is no more than LAG_WORDS behind what has arrived (about half a second), and
+ * past that speeds up just enough to close the gap, never faster than FASTEST_WORD_MS (2.5x) and never past the words
+ * that have actually arrived. A reply that arrives whole keeps the fixed pace above, as he decided in 4.2: the rule
+ * against dumping is kept, only the lag behind a live answer is gone.
+ */
+export const LAG_WORDS = 12;
+export const FASTEST_WORD_MS = WORD_MS / 2.5;
+
+/**
+ * Whole words in the text; while more is coming, a last word with no space after it may still be growing.
+ * @param {string} text @param {boolean} more @returns {number}
+ */
+function completeWords(text, more) {
+  const n = (text.match(/\S+/g) ?? []).length;
+  return more && n && /\S$/.test(text) ? n - 1 : n;
+}
 
 /**
  * Where the nth word ends, counting the space after it, so the shown part never stops mid-word.
@@ -50,6 +68,11 @@ export class Reveal {
   #startedAt = 0;
   #now;
   #wordMs = 0;
+  /** A streamed reply (2026-10-21): paced by how far behind the arrived words it is, see LAG_WORDS. */
+  #live = false;
+  #pos = 0;
+  #lastAt = 0;
+  #gen = 0;
 
   /**
    * @param {() => number} [now] a clock, so the pace can be tested without waiting in real time
@@ -64,6 +87,10 @@ export class Reveal {
   get revealing() { return this.#shownChars < this.#full.length; }
   /** Nothing more is coming AND all of it is on screen. */
   get done() { return !this.#more && !this.revealing; }
+  /** More of this message is still on its way. */
+  get streaming() { return this.#more; }
+  /** Changes on every start and clear, so the page can tell one message's words from the next one's. */
+  get gen() { return this.#gen; }
 
   /**
    * A new message.
@@ -75,6 +102,10 @@ export class Reveal {
     this.#shownChars = 0;
     this.#more = streaming === true;
     this.#startedAt = this.#now();
+    this.#live = streaming === true;
+    this.#pos = 0;
+    this.#lastAt = this.#startedAt;
+    this.#gen++;
   }
 
   /**
@@ -97,6 +128,19 @@ export class Reveal {
    */
   tick() {
     if (!this.#startedAt) return;
+    if (this.#wordMs && this.#live) {
+      // Integrated rather than worked out from the start time, because the pace changes with the lag: a dropped
+      // frame still catches up (dt is whatever it was), and a stall in the stream never banks words to dump later.
+      const now = this.#now(), dt = Math.max(0, now - this.#lastAt);
+      this.#lastAt = now;
+      const have = completeWords(this.#full, this.#more), behind = have - this.#pos;
+      const ms = behind > LAG_WORDS ? Math.max(FASTEST_WORD_MS, this.#wordMs * LAG_WORDS / behind) : this.#wordMs;
+      // The first word shows the moment it is whole: the wait he feels is to the first word, not to the second.
+      this.#pos = Math.min(have, Math.max(this.#pos + dt / ms, 1));
+      const n = Math.floor(this.#pos);
+      this.#shownChars = !this.#more && n >= have ? this.#full.length : wordEnd(this.#full, n);
+      return;
+    }
     if (this.#wordMs) {
       const words = Math.floor((this.#now() - this.#startedAt) / this.#wordMs);
       this.#shownChars = wordEnd(this.#full, words);
@@ -115,11 +159,12 @@ export class Reveal {
   skip() {
     if (!this.revealing) return false;
     this.#shownChars = this.#full.length;
+    this.#pos = Infinity;
     return true;
   }
 
   /** Nothing is being said. */
-  clear() { this.#full = ''; this.#shownChars = 0; this.#more = false; this.#startedAt = 0; }
+  clear() { this.#full = ''; this.#shownChars = 0; this.#more = false; this.#startedAt = 0; this.#live = false; this.#pos = 0; this.#gen++; }
 }
 
 /**
@@ -151,6 +196,22 @@ export function summaryOf(text) {
   const first = t.slice(0, m.index).trimEnd();
   // A "short version" that is most of the answer is not one.
   return first.length > 0 && first.length <= t.length * 0.6 ? first : null;
+}
+
+/**
+ * The short version while a reply is still STREAMING (2026-10-21). summaryOf needs the whole text, so on a stream it
+ * flipped from "no fold" to "fold" the moment the answer passed 280 characters, and the second paragraph he was
+ * already reading vanished under SHOW MORE. So a stream folds at its first paragraph break, as soon as that arrives,
+ * before anything after it is shown. If the finished answer turns out too short to fold, the bubble opens back up:
+ * words are only ever added, never taken away.
+ * @param {string} text @returns {string | null}
+ */
+export function streamSummaryOf(text) {
+  const t = String(text ?? '');
+  const m = /\n\s*\n/.exec(t);
+  if (!m || m.index === 0) return null;
+  const first = t.slice(0, m.index).trimEnd();
+  return first.length > 0 && first.length <= SUMMARY_AFTER_CHARS ? first : null;
 }
 
 /**

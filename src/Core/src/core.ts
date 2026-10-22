@@ -2855,20 +2855,47 @@ export class Core {
   /** Set at start, cleared by the first warm-up, so a restart alone never spends anything. */
   private warmPending = false;
 
-  /** Warm the Quick lane once, when he first reaches for Aang. */
-  private warmNow(): void {
-    if (!this.warmPending) return;
-    this.warmPending = false;
-    this.warm();
-  }
+  /**
+   * When each lane last sent his prefix to the API (a real turn or a warm-up), so a warm-up is only spent when the
+   * cache has gone cold. The cache lives about an hour here: core.log shows warm-ups 10 and 31 minutes apart both
+   * READING 56817 tokens, and one 78 minutes after the last writing them all again (2026-10-21).
+   */
+  private laneTouched = new Map<LaneName, number>();
+  private static readonly CACHE_STALE_MS = 50 * 60_000;
 
-  private warm(): void {
+  /**
+   * He is reaching for Aang (clicked him, or the chat box opened): get the lane his next message will most likely use
+   * ready while he types.
+   *
+   * 2026-10-21, his "smoother and faster": two things were cold on the first message.
+   *  - The lane's Claude Code process only started when his message arrived. Measured on the real Lane
+   *    (test/lane-latency-live.ts): first word 4266 ms from a cold process, 1026 ms from one already started. Starting
+   *    it is free (no API call until a message), so it starts here every time.
+   *  - The warm-up warmed QUICK, but since 2026-10-13 everything except small talk goes to SMART, a different model
+   *    with its own cache. So it warms the lane routing will actually pick, and again whenever its cache has gone
+   *    cold, not just once per brain start. Still never on a restart alone: only when he reaches for Aang.
+   */
+  private warmNow(): void {
+    if (this.cfg.warm === false) return;
+    const name: LaneName = this.policy.saving ? 'quick' : 'smart';
+    this.lane(name).start?.();
+    if (this.active || this.warming) return;
+    if (Date.now() - (this.laneTouched.get(name) ?? 0) < Core.CACHE_STALE_MS) return;
+    this.warmPending = false;
+    this.warm(name);
+  }
+  private warming = false;
+
+  private warm(name: LaneName = 'quick'): void {
     // In a FORK that is never saved, so it cannot teach this lane anything. The old version sent this
     // into the real session once per Core start: 41 times over five days, after which Haiku answered
     // Joshua's own "hey checking in" with a single "." (2026-10-05). See Lane.warm.
-    void this.lane('quick').warm('Reply with a single period and nothing else.')
-      .then(r => { if (r) console.log(`warm-up: cache written ${r.cacheWriteTokens}, read ${r.cacheReadTokens}`); })
-      .catch(e => console.log('warm-up skipped: ' + (e as Error).message));
+    this.warming = true;
+    this.laneTouched.set(name, Date.now());
+    void this.lane(name).warm('Reply with a single period and nothing else.')
+      .then(r => { if (r) console.log(`warm-up (${name}): cache written ${r.cacheWriteTokens}, read ${r.cacheReadTokens}`); })
+      .catch(e => console.log('warm-up skipped: ' + (e as Error).message))
+      .finally(() => { this.warming = false; });
   }
 
   // ------------------------------------------------------------------ Body side
@@ -3680,7 +3707,8 @@ export class Core {
       this.toTurn(sub, { t: 'bubble', text: this.memory.opened.detail, stream: false, id: sub.id, who: 'Aang' });
       return;
     }
-    this.toTurn(sub, { t: 'bubble.dots' });
+    // `who` (2026-10-21): which lane is answering, so the bubble can take the answer's width while it thinks.
+    this.toTurn(sub, { t: 'bubble.dots', who: MODELS[lane].label });
     this.toTurn(sub, { t: 'state', state: 'think' });
     const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null, escalated, relooked };
     turn.watchdog = setTimeout(() => this.fail(turn, 'That took too long and I gave up waiting.', 'Try again, or ask something shorter.'), TURN_TIMEOUT_MS);
@@ -3694,6 +3722,7 @@ export class Core {
     this.lastLane = lane;
     this.laneUsed.add(lane);
     this.lane(lane).send(text);
+    this.laneTouched.set(lane, Date.now());
     // 5.6: write down what he said NOW, not when the answer comes back.
     //
     // Everything above this line can take minutes - that is the whole window in which the Core can be
@@ -3946,7 +3975,8 @@ export class Core {
           if (!turn.shown && !(visible.length >= 160 || (visible.length >= 30 && /[.!?](\s|$)/.test(visible)))) return;
         }
         if (!turn.stopped && visible) { turn.shown = true; this.toTurn(sub, { t: 'bubble', text: visible, stream: true, id: sub.id, who: MODELS[turn.lane].label }); }
-      }, FLUSH_MS);
+      // 2026-10-21: the first words go out at once; only what follows is batched into ~40 ms paints.
+      }, turn.shown ? FLUSH_MS : 0);
       return;
     }
     if (e.t === 'error') { this.fail(turn, 'I lost my connection to Claude.', 'I will reconnect on your next message.'); return; }
@@ -3970,7 +4000,8 @@ export class Core {
       console.log('escalating: Quick said it could not; handing the turn to Smart');
       if (turn.watchdog) clearTimeout(turn.watchdog);
       // Anything Quick already showed goes before Smart's dots appear: never a refusal with dots under it.
-      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear' });
+      // `retry` (2026-10-21): the bubble goes back to its dots in place instead of vanishing and popping up again.
+      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear', retry: true });
       this.active = null;
       this.begin(sub, 'smart', turn.ackMs, true);
       return;
@@ -3986,7 +4017,7 @@ export class Core {
     if (!turn.relooked && !turn.escalated && !this.policy.saving && !didSomething && !usedTools && GUESSED.test(reply)) {
       console.log('re-asking: he said he did not know without looking anything up');
       if (turn.watchdog) clearTimeout(turn.watchdog);
-      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear' });
+      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear', retry: true });
       this.active = null;
       this.relookPending = true;
       this.begin(sub, turn.lane, turn.ackMs, false, true);

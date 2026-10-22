@@ -434,9 +434,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    inside the shape yet. */
 #bubble.sizing > :not(.tools){width:var(--cw);box-sizing:border-box}
 .said{font-size:15.5px}
-/* Words fade in one by one at the reveal's pace. */
-.said .w{transition:opacity .28s ease}
+/* Words fade in one by one at the reveal's pace. 2026-10-21: an animation, not a transition, so a word in a block that
+   is rebuilt while it fades carries on from where it was (bubble.js sets a negative delay) instead of popping. */
 .said .w.o{opacity:0}
+.said .w.in{animation:wfade .28s ease both}
+@keyframes wfade{from{opacity:0}}
 /* New content in 160 ms after the grow starts, over 300 ms. Old content out in 160 ms before a shrink. */
 #bubble.enter > *{animation:fillin .3s ease-out .16s both}
 @keyframes fillin{from{opacity:0}}
@@ -449,7 +451,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 /* The 600 ms click guard on a fresh set of keys. */
 .asks.guard{pointer-events:none}
 @media (prefers-reduced-motion:reduce){
-  .said .w{transition:none}
+  .said .w.in{animation:none}
   #bubble.enter > *{animation:none}
   #bubble .key{transition:none}
 }

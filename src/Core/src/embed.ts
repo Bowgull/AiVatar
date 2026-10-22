@@ -13,11 +13,20 @@ export const EMBED_DIM = 768;
 const URL = process.env.AANG_OLLAMA ?? 'http://127.0.0.1:11434';
 
 let warnedOffline = false;
+/**
+ * 2026-10-21: after a failure, skip the local model for two minutes instead of waiting on it again. Ollama was up but
+ * hung loading the model, so every search_memory call (the one he is told to make before "I don't know") sat out the
+ * full 8 s timeout, in the middle of his answer, every time. Measured: 8011, 8010, 8013 ms per recall; now one wait of
+ * 3 s, then keyword search at once until the model answers again.
+ */
+const DOWN_FOR_MS = 120_000;
+let downUntil = 0;
 
 /** A vector for this text, or null if the local model is not available. */
-export async function embed(text: string, timeoutMs = 8000): Promise<Float32Array | null> {
+export async function embed(text: string, timeoutMs = 3000): Promise<Float32Array | null> {
   const input = (text ?? '').trim();
   if (!input) return null;
+  if (Date.now() < downUntil) return null;
   try {
     const res = await fetch(`${URL}/api/embed`, {
       method: 'POST',
@@ -32,6 +41,7 @@ export async function embed(text: string, timeoutMs = 8000): Promise<Float32Arra
     warnedOffline = false;
     return normalise(Float32Array.from(v));
   } catch (e) {
+    downUntil = Date.now() + DOWN_FOR_MS;
     if (!warnedOffline) {
       warnedOffline = true;
       console.error(`memory: local embeddings unavailable (${(e as Error).message}); falling back to keyword search`);

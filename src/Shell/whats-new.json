@@ -412,7 +412,7 @@
       "kind": "feature"
     },
     {
-      "at": "2026-10-21T21:00:00-04:00",
+      "at": "2026-10-22T04:10:00-04:00",
       "text": "Claude's jobs and questions now live in the cockpit.",
       "kind": "feature"
     },
@@ -480,6 +480,11 @@
       "at": "2026-10-22T04:00:00-04:00",
       "text": "Claude bars learn real times and show stalls.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T04:10:00-04:00",
+      "text": "Aang answers sooner, and his replies flow in smoothly.",
+      "kind": "fix"
     }
   ]
 }

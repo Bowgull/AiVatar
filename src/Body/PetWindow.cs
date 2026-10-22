@@ -91,7 +91,9 @@ sealed class PetWindow : Form
     /// <summary>Back to rest: idle. Until C5 (2026-10-21) a Claude session working meant THINKING here; his call on
     /// sheet 45 was calm idle while Claude works, with the mark over his head saying it. Every place that drops back
     /// to rest still comes through here, so that rule lives in one spot.</summary>
-    void PlayRest() => anim.Play("idle");
+    // 2026-10-21: while the new bubble shows his turn is being worked on, rest is thinking, not idle: a hello or a look
+    // finishing mid-thought used to drop him to idle with the dots still up.
+    void PlayRest() => anim.Play(NewFrontEnd && shellThinking ? "think" : "idle");
     string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
@@ -697,8 +699,11 @@ sealed class PetWindow : Form
                 // ShowBubble, he was left stuck mid-thought - the dashed ring and three dots - long after
                 // the reply had come and gone (seen in the sweep, 2026-10-04).
                 var kind = tp.GetString();
-                if (kind == "bubble.dots") anim.Play("think");
+                // One think for one turn (2026-10-21): the brain sends its dots AND a "think" state, and each restarted
+                // the loop from frame 0. Already thinking, he carries on.
+                if (kind == "bubble.dots") { shellThinking = true; if (anim.State != "think") anim.Play("think"); }
                 else if (kind == "bubble" && (anim.State is "idle" or "think")) anim.Play("talk");
+                if (kind is "bubble" or "bubble.clear") shellThinking = false;
                 if (kind == "bubble" && !Bool(m, "stream")) { working = false; ackTimer.Stop(); }
                 Wake(); dirty = true; return;
             }
@@ -742,9 +747,14 @@ sealed class PetWindow : Form
                     if (returnTo != IntPtr.Zero && Win32.IsWindow(returnTo)) Win32.ForceForeground(returnTo);
                     break;
                 case "state":
+                {
                     Wake();
-                    anim.Play(Str(m, "state") ?? "idle"); dirty = true;
+                    var st = Str(m, "state") ?? "idle";
+                    if (st == "idle") shellThinking = false;
+                    if (!(st == anim.State && st is "think" or "talk")) anim.Play(st);
+                    dirty = true;
                     break;
+                }
                 case "bubble":
                 {
                     var text = Str(m, "text") ?? "";
@@ -828,6 +838,7 @@ sealed class PetWindow : Form
                     if (working) { bubble.ShowDots($"waiting, number {(m.TryGetProperty("position", out var pos) ? pos.GetInt32() : 1)} in line"); dirty = true; }
                     break;
                 case "error":
+                    shellThinking = false;
                     ShowError(Str(m, "message") ?? "Something went wrong.", Str(m, "next") ?? "");
                     break;
                 case "consent":
@@ -963,6 +974,8 @@ sealed class PetWindow : Form
 
     // ------------------------------------------------------------------ the new front end's gate (parity, 2026-10-11)
     bool shellBusy;
+    /// <summary>The new bubble is showing his turn being worked on (its dots), until the answer or a stop. 2026-10-21.</summary>
+    bool shellThinking;
     Rectangle shellRect = Rectangle.Empty;
     string sentBubbleState = "";
     bool sentBubbleStateConnected;

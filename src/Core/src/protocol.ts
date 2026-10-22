@@ -247,8 +247,8 @@ export type ToBody =
        *  redesign: "just a huge string of text with ** and --"). Set only when the model actually called
        *  present_list this turn; `text` stays short prose around it either way, never the list itself. */
       list?: StructuredList }
-  | { t: 'bubble.dots' }
-  | { t: 'bubble.clear' }
+  | { t: 'bubble.dots'; who?: string; doing?: string }
+  | { t: 'bubble.clear'; retry?: boolean }
   | { t: 'quiet'; on: boolean }
   | { t: 'ping' }
   | { t: 'ack'; id: string }
