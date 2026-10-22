@@ -218,7 +218,7 @@ app.whenReady().then(async () => {
     await wait(1200);
     const ask = await p.js(`(() => { const a = document.getElementById('asks'); return { keys: a.querySelectorAll('.key, .lever').length, shown: getComputedStyle(a).display !== 'none', q: getComputedStyle(document.getElementById('said')).fontWeight, kick: getComputedStyle(document.querySelector('.who')).fontFamily }; })()`);
     check('the question shows its keys while the mouse is on it', ask.shown && ask.keys >= 2, JSON.stringify(ask));
-    check('sheet 51 Styled type: the question 800, the kicker in Silkscreen', ask.q === '800' && /Silkscreen/.test(ask.kick), JSON.stringify(ask));
+    check('sheet 51 Styled type: the question 800, the kicker readable in Figtree (cleanup 2026-10-22, was Silkscreen)', ask.q === '800' && /Figtree/.test(ask.kick), JSON.stringify(ask));
     await picture(p, 'b-ask');
     check('no page errors (b)', !p.errors.length, p.errors.join(' | '));
     p.w.destroy();

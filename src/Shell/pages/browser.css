@@ -18,13 +18,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .rnd.dim{opacity:.4;cursor:default}
 .slot{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;
   background:#0B0718;border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.7);cursor:text}
-.slot .lock{font:400 10px var(--label);letter-spacing:.5px;padding:4px 7px;border-radius:4px;
+.slot .lock{font:700 12.5px var(--body);letter-spacing:.2px;padding:4px 7px;border-radius:4px;
   border:2px solid var(--outline);background:var(--green);color:#163a24;flex:0 0 auto}
 .slot .lock.bad{background:var(--red);color:#2e0b06}
 .slot .url{flex:1;min-width:0;font:500 13.5px var(--body);color:#8a80a5;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 .slot .url b{color:#F0E6FF;font-weight:700}
-.slot .who{font:400 9px var(--label);letter-spacing:1px;color:var(--plum-edge);flex:0 0 auto;
+.slot .who{font:700 12px var(--body);letter-spacing:.2px;color:var(--plum-edge);flex:0 0 auto;
   border-left:2px solid #241a3a;padding-left:9px}
 .loading{height:6px;background:#0B0718;border-bottom:3px solid var(--outline);overflow:hidden}
 /* The gold bar (2026-10-12, his design from the research): full width, slid in from the left so the pixel gold stays
@@ -54,9 +54,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
   box-shadow:0 3px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.55);margin-right:-14px;border-right-width:0;border-radius:7px 0 0 7px;z-index:2}
 .tp.sleep{background:#2a1d14;color:#9a8a72;box-shadow:inset 0 3px 0 rgba(0,0,0,.65);text-shadow:none}
 .tp.sleep .fi{filter:grayscale(1) brightness(.75)}
-.tp.sleep .zz{font:400 8.5px var(--label);color:#8a7a62;letter-spacing:.5px}
+.tp.sleep .zz{font:700 12px var(--body);color:#c4b294;letter-spacing:.2px}
 .tp.crash{border-style:dashed;background:linear-gradient(180deg,#5a2a22,#3a1712);color:#ffcfc4}
-.tp.crash .cr{font:400 8.5px var(--label);color:var(--red);letter-spacing:.5px}
+.tp.crash .cr{font:700 12px var(--body);color:var(--red);letter-spacing:.2px}
 .fi{width:16px;height:16px;border-radius:3px;flex:0 0 auto;background:#fff;border:1.5px solid var(--outline);object-fit:contain}
 .arc{width:18px;height:18px;flex:0 0 auto;border-radius:50%;border:3px solid rgba(0,0,0,.55);border-top-color:var(--gold);border-right-color:var(--gold);animation:spin 1.1s linear infinite;box-sizing:border-box}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -91,7 +91,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .bandchip.site{left:200px;width:300px}
 /* 6.24: the screen-share picker. Pictures of each screen and window on the same parchment as every ask. */
 .bandchip.share{width:584px;max-width:calc(100% - 180px);box-sizing:border-box}
-.bandchip.share .sgl{font:400 9px var(--label);letter-spacing:1.5px;color:#6b5132;margin:10px 0 5px}
+.bandchip.share .sgl{font:700 12px var(--body);letter-spacing:.2px;color:#6b5132;margin:10px 0 5px}
 .bandchip.share .sgl[hidden],.bandchip.share .sgrid:empty{display:none}
 .bandchip.share .sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;max-height:236px;overflow-y:auto;padding:2px}
 .bandchip.share .stile{display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:8px;border:2px solid #6b5132;background:#fff6e4;cursor:pointer;text-align:left;font:700 12px/1.25 var(--body);color:#271c10;min-width:0}
@@ -109,7 +109,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .srow{display:flex;align-items:center;gap:10px;margin-top:9px}
 .srow .sic{width:24px;flex:none;display:grid;place-items:center}
 .srow b{flex:1;font:700 14px var(--body);color:var(--carve-ink)}
-.ssec{font:400 9px var(--label);letter-spacing:1.5px;color:#8a3e1c;margin:14px 0 0;padding-top:10px;border-top:2px dashed rgba(90,60,30,.35)}
+.ssec{font:700 12px var(--body);letter-spacing:.2px;color:#8a3e1c;margin:14px 0 0;padding-top:10px;border-top:2px dashed rgba(90,60,30,.35)}
 .bandchip.site .q img{width:20px;height:20px;border-radius:4px;flex:none}
 .bandchip.site .q span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #sitepanel .sw.on .bed{background:#2a8f82;box-shadow:inset 0 3px 0 rgba(0,0,0,.4),0 0 8px rgba(159,240,230,.55)}
@@ -147,7 +147,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .sw.on .bed{background:linear-gradient(180deg,#2f7a4a,#1d5230)} .sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
 .slot .lock{cursor:pointer}
 .plate .lists{display:flex;gap:6px;margin:4px 0 8px}
-.plate .lists span{font:400 9px var(--label);letter-spacing:.5px;padding:3px 7px;border-radius:4px;border:2px solid var(--outline);background:var(--red);color:#2e0b06}
+.plate .lists span{font:700 12px var(--body);letter-spacing:.2px;padding:3px 7px;border-radius:4px;border:2px solid var(--outline);background:var(--red);color:#2e0b06}
 .lever.red{background:linear-gradient(180deg,#7a2a1e,#3a1210)}
 .toast{position:absolute;right:160px;top:calc(100% + 8px);z-index:21;padding:8px 12px;border-radius:8px;font:600 13px var(--body);
   color:var(--ink-text);background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.45)}
@@ -307,7 +307,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 /* Bookmarks: their own sunk shelf on plum velvet (V8), logo and name on carved plaques, no count. */
 .shelf-bk{border-style:solid;border-width:8px;border-image:url(art/browser/velvetframe.png) 4 repeat;padding:6px 6px 8px;margin:0 -2px 16px;
   background:url(art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated}
-.shelf-bk .lab{font:400 9px var(--label);letter-spacing:1px;color:#d9c3ef;margin:0 2px 6px}
+.shelf-bk .lab{font:700 12px var(--body);letter-spacing:.2px;color:#d9c3ef;margin:0 2px 6px}
 .shelf-bk .row{display:flex;flex-wrap:wrap;gap:5px}
 .shelf-bk .empty{font:500 12px/1.4 var(--body);color:#cdbbe0;margin:0 2px}
 .mark{display:flex;align-items:center;gap:6px;font:600 11px var(--body);color:#E6DCC8;padding:4px 7px;border-radius:5px;cursor:pointer;
@@ -328,38 +328,38 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   box-shadow:0 14px 30px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:#6a4a2a transparent}
 .menu[hidden]{display:none}
 .menu .grp+.grp{margin-top:10px;padding-top:10px;border-top:3px solid rgba(0,0,0,.45);box-shadow:0 1px 0 rgba(255,224,150,.10) inset}
-.menu .gh{font:400 9px var(--label);letter-spacing:1.5px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 6px}
+.menu .gh{font:700 12px var(--body);letter-spacing:.2px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 6px}
 .menu .mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;box-sizing:border-box;padding:7px 8px;border-radius:5px;
   background:none;border:none;font:600 13.5px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);text-align:left;cursor:pointer}
 .menu button.mrow:hover:not(:disabled),.menu .sw-row:hover{background:rgba(255,224,150,.08)}
-.menu .mrow kbd{font:400 9px var(--label);letter-spacing:.5px;color:#bfae8a}
-.menu .mrow i{font:400 8.5px var(--label);font-style:normal;letter-spacing:.5px;color:#8a7a62;margin-left:6px}
+.menu .mrow kbd{font:700 12px var(--body);letter-spacing:.2px;color:#bfae8a}
+.menu .mrow i{font:700 12px var(--body);font-style:normal;letter-spacing:.2px;color:#c4b294;margin-left:6px}
 .menu .mrow.soon{color:#8a7a62;cursor:default}
 .menu .mrow small{display:block;font:500 11.5px var(--body);color:#a8977a;margin-top:2px}
 .menu .gate .sw{opacity:.55}
 .menu .zk{display:flex;align-items:center;gap:6px}
-.menu .zk b{font:400 10px var(--label);color:var(--gold-lit);min-width:38px;text-align:center}
+.menu .zk b{font:700 12.5px var(--body);color:var(--gold-lit);min-width:38px;text-align:center}
 .menu .zb{min-width:26px;height:24px;padding:0 6px;border-radius:5px;border:2px solid var(--outline);cursor:pointer;font:700 13px var(--body);color:#e8e0f5;
   background:#4A2C6E;box-shadow:inset 0 2px 0 rgba(190,150,240,.35),0 2px 0 var(--outline)}
-.menu .zb.wide{font:400 9px var(--label)}
+.menu .zb.wide{font:700 12px var(--body)}
 .menu .zb:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(190,150,240,.35)}
 .menu .sw{flex:0 0 auto}
 .menu .sw:disabled{cursor:default}
 
 /* ---- find on page (Ctrl+F): the slot's own find mode ---- */
-.slot .findtag{font:400 10px var(--label);letter-spacing:.5px;padding:4px 7px;border-radius:4px;border:2px solid var(--outline);background:var(--gold);color:#2a1c00;flex:0 0 auto}
+.slot .findtag{font:700 12.5px var(--body);letter-spacing:.2px;padding:4px 7px;border-radius:4px;border:2px solid var(--outline);background:var(--gold);color:#2a1c00;flex:0 0 auto}
 .slot .findtag[hidden],.slot .findn[hidden]{display:none}
-.slot .findn{font:400 10px var(--label);color:#bfae8a;flex:0 0 auto;letter-spacing:.5px}
+.slot .findn{font:700 12.5px var(--body);color:#bfae8a;flex:0 0 auto;letter-spacing:.2px}
 .slot .findn.none{color:var(--red)}
 
 /* ---- trails, the quest turn-in and the DONE shelf (sheet 3 section 3), in the drawer ---- */
 .drawer .newtrail{display:block;margin:-2px 0 8px auto;background:none;border:none;padding:2px 4px;cursor:pointer;
-  font:400 9px var(--label);letter-spacing:1px;color:#bfae8a}
+  font:700 12px var(--body);letter-spacing:.2px;color:#bfae8a}
 .drawer .newtrail:hover{color:var(--gold-lit)}
 .drawer .th{display:flex;align-items:center;gap:8px;margin:12px 2px 6px;font:700 13px var(--display);letter-spacing:1px;color:var(--gold);text-shadow:0 2px 0 var(--outline)}
 .drawer .th::after{content:"";flex:1;height:5px;border-radius:3px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 5px)}
 .drawer .th .nm{cursor:text;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.drawer .th .n{font:400 9px var(--label);color:#bfae8a;letter-spacing:.5px}
+.drawer .th .n{font:700 12px var(--body);color:#bfae8a;letter-spacing:.2px}
 .drawer .th input{font:700 13px var(--display);letter-spacing:1px;color:var(--gold-lit);background:#0B0718;border:2px solid var(--outline);border-radius:4px;padding:1px 5px;width:170px;outline:none}
 /* The quest mark: a grey ? only while he points at the tab; click it to turn the tab in. */
 .tp .qm{flex:0 0 auto;width:18px;height:18px;border:none;padding:0;border-radius:4px;cursor:pointer;opacity:0;background:none;
@@ -372,7 +372,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   background:linear-gradient(180deg,rgba(60,40,10,.92),rgba(20,12,4,.92));border:2px solid var(--gold-deep);animation:quest .9s ease-out both}
 @keyframes quest{0%{opacity:0;transform:scale(.92)}15%{opacity:1;transform:scale(1.03)}80%{opacity:1}100%{opacity:0}}
 .drawer .shelf{margin-top:14px;padding:8px 7px 6px;border-radius:8px;background:rgba(20,12,6,.82);border:2.5px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.6)}
-.drawer .shelf .lab{font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;margin:0 2px 6px;display:flex;justify-content:space-between}
+.drawer .shelf .lab{font:700 12px var(--body);letter-spacing:.2px;color:#bfae8a;margin:0 2px 6px;display:flex;justify-content:space-between}
 .tp.done{background:linear-gradient(180deg,#4b5a36,#2f3a20);color:#d6e6c0;font-weight:500}
 /* The tab's own menu (right-click), sheet 3 section 7. */
 .tabmenu{position:fixed;z-index:50;min-width:190px;padding:6px;border-radius:8px;background:linear-gradient(180deg,#56371F,var(--wood2));
@@ -381,7 +381,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   font:600 13px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);text-align:left}
 .tabmenu button:hover:not(:disabled){background:rgba(255,224,150,.10)}
 .tabmenu button:disabled{color:#8a7a62;cursor:default}
-.tabmenu button i{font:400 8.5px var(--label);font-style:normal;color:#8a7a62}
+.tabmenu button i{font:700 12px var(--body);font-style:normal;color:#c4b294}
 .tabmenu .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
 .tabmenu .sub{padding-left:14px}
 
@@ -425,13 +425,13 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer .th:hover .thm,.drawer .th .thm:focus-visible{opacity:1}
 .drawer .th .thm:hover{color:#ffe28c}
 .drawer .th::after{order:2}
-.drawer .th.fresh .nm::after{content:"  \2726 NEW";font:400 8.5px var(--label);color:#cfe8ff;letter-spacing:1px}
+.drawer .th.fresh .nm::after{content:"  \2726 NEW";font:700 12px var(--body);color:#cfe8ff;letter-spacing:.2px}
 .drawer .th.shut .nm::before{content:"\25B8 ";color:#bfae8a}
 .drawer .lifted{opacity:.45}
 .drawer .dropline{height:4px;margin:-2px 0 4px;border-radius:2px;background:#ffe28c;box-shadow:0 0 8px #ffe28c;pointer-events:none}
 .tp.dup{opacity:.55}
 .tp.dup .t{text-decoration:line-through}
-.dupchip{flex:0 0 auto;margin-left:auto;font:400 8.5px var(--label);color:#2a1c00;background:#ffe28c;border-radius:4px;padding:2px 5px}
+.dupchip{flex:0 0 auto;margin-left:auto;font:700 12px var(--body);color:#2a1c00;background:#ffe28c;border-radius:4px;padding:2px 5px}
 /* the gust: Aang's air sweeping down the drawer while Qwen sorts; loose tabs shimmer until they are placed */
 #tabs{position:relative}
 #tabs.tidying::after{content:"";position:absolute;left:-12px;right:-12px;height:90px;top:0;pointer-events:none;
@@ -469,7 +469,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer .tidyrow .broom{pointer-events:auto}
 .drawer #tabs{padding-bottom:44px}
 .drawer .tidyrow{display:flex;align-items:center;justify-content:space-between}
-.drawer .cap-dim{font:400 9px var(--label);letter-spacing:1.5px;color:#bfae8a}
+.drawer .cap-dim{font:700 12px var(--body);letter-spacing:.2px;color:#bfae8a}
 .drawer .broom{width:38px;height:38px;padding:0;border:none;border-radius:8px;cursor:pointer;
   background:url(art/browser/tidy_broom_dim.png) center/30px 30px no-repeat;image-rendering:pixelated}
 /* Option A (his pick, 2026-10-12): a faint grey broom at the bottom right; it comes to full colour when he points at
@@ -505,7 +505,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 
 /* ---- 6.22b polish ---- */
 /* the zoom hint: a small plaque in the slot, only when the page is not at 100% */
-.slot .zoomhint{flex:0 0 auto;font:400 9px var(--label);letter-spacing:1px;color:#ffe28c;background:#2c1c12;border:none;border-radius:6px;padding:4px 7px;cursor:pointer}
+.slot .zoomhint{flex:0 0 auto;font:700 12px var(--body);letter-spacing:.2px;color:#ffe28c;background:#2c1c12;border:none;border-radius:6px;padding:4px 7px;cursor:pointer}
 .slot .zoomhint[hidden]{display:none}
 .slot .zoomhint:hover{background:#3d2818}
 /* link preview: in the wood under the page, bottom left, so it never covers the page */
@@ -527,7 +527,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   box-shadow:0 14px 30px rgba(0,0,0,.6);transform-origin:80% 0;animation:dldrop .16s ease-out}
 .dltray[hidden]{display:none}
 @keyframes dldrop{from{transform:translateY(-8px) scaleY(.9);opacity:0}}
-.dltray .gh{display:flex;justify-content:space-between;align-items:baseline;font:400 9px var(--label);letter-spacing:1.5px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:2px 4px 8px}
+.dltray .gh{display:flex;justify-content:space-between;align-items:baseline;font:700 12px var(--body);letter-spacing:.2px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:2px 4px 8px}
 .dltray .gh span{font:500 11px var(--body);letter-spacing:0;color:#a8977a;text-shadow:none}
 .drow{position:relative;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 10px;border-radius:6px;image-rendering:auto;cursor:grab;transition:padding-left .08s}
 .drow+.drow{margin-top:2px}
@@ -591,7 +591,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .stopk:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
 .stopk.big{width:26px;height:26px}
 /* The update tray's "what's new" (the Mac's everything-update, 2026-10-14): short lines, a gold bullet, scrolls if long. */
-.stopk.armed{width:auto;padding:0 6px;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#ffe4dc}
+.stopk.armed{width:auto;padding:0 6px;font:700 12px Figtree,system-ui,sans-serif;letter-spacing:.2px;color:#ffe4dc}
 .slot .who{display:inline-flex;align-items:center;gap:8px;color:#ffe28c;-webkit-app-region:no-drag}
 .slot .who img{width:16px;height:16px;image-rendering:pixelated}
 .tp.drv{box-shadow:inset 3px 0 0 #ffe28c}
@@ -606,7 +606,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .band .upkey[aria-expanded="true"]{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
 .band .upkey svg{display:block}
 .band .upkey svg path{fill:var(--ink,#FFE096)}
-.band .upkey .w{font:400 10px var(--label);letter-spacing:1.2px;color:var(--ink,#FFE096);text-shadow:1px 1px 0 #000;line-height:1}
+.band .upkey .w{font:700 12.5px var(--body);letter-spacing:.2px;color:var(--ink,#FFE096);text-shadow:1px 1px 0 #000;line-height:1}
 .band .upkey.age0{--ink:#FFE096;--glow:rgba(255,196,60,.95);--glow2:rgba(255,140,40,.6)}
 /* 1 day: the purple stays; only the arrow and the word glow turquoise (his ask, 2026-10-14) */
 .band .upkey.age1{--ink:#9FF0E6;--glow:rgba(64,224,208,.95);--glow2:rgba(32,178,170,.65)}
@@ -647,11 +647,11 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   background:url(art/browser/band.png) repeat-x 0 -6px/128px 58px;image-rendering:pixelated;border-bottom:3px solid var(--outline);box-shadow:0 3px 0 rgba(0,0,0,.35)}
 .upx .uphd img{width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,190,90,.85)) drop-shadow(0 0 14px rgba(255,140,40,.45))}
 .upx .uphd .t{display:flex;flex-direction:column;line-height:1.05;min-width:0}
-.upx .uphd small{font:400 9px var(--label);letter-spacing:1.5px;color:#FFC43C;text-shadow:1px 1px 0 #000}
+.upx .uphd small{font:700 12px var(--body);letter-spacing:.2px;color:#FFC43C;text-shadow:1px 1px 0 #000}
 .upx .uphd b{font:700 19px var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.upx .uphd .when{margin-left:auto;font:400 9px var(--label);color:#f1e4cc;text-shadow:1px 1px 0 #000;align-self:flex-start;margin-top:3px;flex:none}
+.upx .uphd .when{margin-left:auto;font:700 12px var(--body);color:#f1e4cc;text-shadow:1px 1px 0 #000;align-self:flex-start;margin-top:3px;flex:none}
 .upx .uplist,.upx .uplog{margin:0 12px 10px;padding:8px 10px;border-radius:9px;background:#e9d3a6;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c;max-height:300px;overflow:auto}
-.upx .grp{font:400 9px var(--label);letter-spacing:1.5px;color:#8a3e1c;margin:6px 0 3px}
+.upx .grp{font:700 12px var(--body);letter-spacing:.2px;color:#8a3e1c;margin:6px 0 3px}
 .upx .it{display:flex;gap:9px;align-items:flex-start;margin:4px 0;font:500 13px/1.4 var(--body);color:#2a1c0c}
 .upx .it small{display:block;font-size:11.5px;color:#7a5a36}
 .upx .it.opt{cursor:pointer}
@@ -750,7 +750,7 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .shelf-bk{overflow:visible}
 @media (prefers-reduced-motion:reduce){.bm-key,.bm-banner{transition:none}}
 /* New tab's hint, readable (it was 10 px at 60%): a small gold keycap */
-.drawer .newtab .k{position:static;margin-left:auto;opacity:1;font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;
+.drawer .newtab .k{position:static;margin-left:auto;opacity:1;font:700 12.5px var(--body);letter-spacing:.2px;color:#2a1c00;
   background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid var(--outline);border-radius:5px;padding:3px 6px 2px}
 /* ---- sheet 43c (his pick C, 2026-10-20): the shelf's frame. The dotted stitching tile read as noise; now a carved wood
    frame with Samara's own gold corner caps (the tidy panel's), and the velvet lifted: a lamp glow from the top, shadow
@@ -773,7 +773,7 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
    grows and shrinks with what is in it; the drawer scrolls as a whole. Tabs are raised wooden plaques like the bookmark
    keys: the site's icon in a small sunk slot, cream words; the tab he is on is lit parchment with a gold ring; a sleeping
    tab is dimmer, with a pixel moon. */
-.drawer .ptitle{position:relative;z-index:2;font:400 9px var(--label);letter-spacing:2px;color:#FFE096;text-shadow:1px 1px 0 #000;margin:-2px 2px 10px;display:flex;align-items:center;gap:8px}
+.drawer .ptitle{position:relative;z-index:2;font:700 12px var(--body);letter-spacing:.2px;color:#FFE096;text-shadow:1px 1px 0 #000;margin:-2px 2px 10px;display:flex;align-items:center;gap:8px}
 .drawer .ptitle::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
 .drawer .tabpanel{position:relative;border:3px solid var(--outline);border-radius:10px;padding:13px 11px 14px;margin:6px 0 44px;image-rendering:pixelated;
   background:radial-gradient(120% 40% at 50% 0%,rgba(255,200,120,.10),transparent 60%),linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(art/browser/tray.png) 0 0/128px 256px;
@@ -839,8 +839,8 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
    FROM CLAUDE under it, a version tag on each mockup, branch sub-headings, and HISTORY in the chest's own look. ---- */
 .drawer .th.mock .nm{cursor:default}
 .drawer .th.mock .who-ic img{border-radius:4px;box-shadow:0 0 0 1.5px var(--outline);image-rendering:auto}
-.drawer .mfrom{font:400 7.5px var(--label);letter-spacing:1px;color:#ffb08a;margin:-4px 2px 8px 28px}
-.tp .ver{flex:0 0 auto;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border:none;border-radius:4px;background:rgba(0,0,0,.25);color:#ffe28c;cursor:pointer}
+.drawer .mfrom{font:700 11.5px var(--body);letter-spacing:.2px;color:#ffb08a;margin:-4px 2px 8px 28px}
+.tp .ver{flex:0 0 auto;font:700 11.5px var(--body);letter-spacing:.2px;padding:3px 5px 2px;border:none;border-radius:4px;background:rgba(0,0,0,.25);color:#ffe28c;cursor:pointer}
 .tp.on .ver{background:#4A2C6E;color:#efe6ff}
 .tp .ver:hover{filter:brightness(1.2)}
 .drawer .bh{display:flex;align-items:center;gap:6px;margin:10px 2px 6px 6px;font:700 11px var(--display);letter-spacing:1px;color:#ffe28c;text-shadow:0 2px 0 var(--outline)}
@@ -849,21 +849,21 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .drawer .bh .chev::before{content:"";position:absolute;left:3px;top:4px;border:5px solid transparent;border-top:6px solid #ffe28c;border-bottom:0}
 .drawer .bh.folded .chev::before{left:5px;top:2px;border:5px solid transparent;border-left:6px solid #ffe28c;border-right:0}
 .drawer .bh .nm{cursor:text;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.drawer .bh .n{font:400 8px var(--label);color:#bfae8a;letter-spacing:.5px}
+.drawer .bh .n{font:700 11.5px var(--body);color:#bfae8a;letter-spacing:.2px}
 .drawer .bh .thm{order:3;background:none;border:none;color:#bfae8a;font:700 13px var(--body);cursor:pointer;padding:0 4px;opacity:0}
 .drawer .bh:hover .thm{opacity:1}
 .drawer .bh input{font:700 11px var(--display);letter-spacing:1px;color:var(--gold-lit);background:#0B0718;border:2px solid var(--outline);border-radius:4px;padding:1px 5px;width:150px;outline:none}
 .drawer .onto{outline:2px solid var(--gold);outline-offset:2px;border-radius:9px}
 .drawer .mhist{display:flex;align-items:center;gap:9px;width:100%;margin:6px 0 0;padding:7px 10px;border-radius:9px;cursor:pointer;background:#0B0718;border:3px solid var(--outline);
-  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.25);font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;text-align:left}
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.25);font:700 12px var(--body);letter-spacing:.2px;color:#ffe28c;text-align:left}
 .drawer .mhist .chev{margin-left:auto;width:0;height:0;border:5px solid transparent;border-top:6px solid #ffe28c;border-bottom:0}
 .drawer .mhist.open .chev{transform:rotate(180deg)}
 .drawer .mlist{margin:6px 0 4px;padding:8px 9px;border-radius:9px;border:3px solid var(--outline);box-shadow:0 3px 0 var(--outline);image-rendering:pixelated;
   background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px}
 .drawer .mlh{display:flex;align-items:center;gap:8px;margin:0 0 6px}
-.drawer .mlh b{font:400 8px var(--label);letter-spacing:1.5px;color:#c9b48e;font-weight:400}
+.drawer .mlh b{font:700 11.5px var(--body);letter-spacing:.2px;color:#c9b48e;font-weight:400}
 .drawer .mbroom{margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 8px 3px;border-radius:6px;cursor:pointer;background:linear-gradient(180deg,#ffe28c,#FFC43C);
-  color:#2a1c00;border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline);font:400 8px var(--label);letter-spacing:1px}
+  color:#2a1c00;border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline);font:700 11.5px var(--body);letter-spacing:.2px}
 .drawer .mbroom img{width:14px;height:14px;image-rendering:pixelated}
 .drawer .mbroom:active{transform:translateY(2px);box-shadow:none}
 .drawer .mbranch{font:700 11px var(--display);letter-spacing:1px;color:#ffe28c;text-shadow:0 2px 0 var(--outline);margin:10px 0 2px}
@@ -874,11 +874,11 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .drawer .mv.kid{margin-left:14px;width:calc(100% - 14px)}
 .drawer .mv:hover{background:rgba(255,196,60,.12)}
 .drawer .mv.now{color:#fff4dc}
-.drawer .mv i{font-style:normal;font:400 7.5px var(--label);letter-spacing:1px;padding:2px 4px 1px;border-radius:3px}
+.drawer .mv i{font-style:normal;font:700 11.5px var(--body);letter-spacing:.2px;padding:2px 4px 1px;border-radius:3px}
 .drawer .mv.now i{background:#3FBFAE;color:#08302b}
 .drawer .mv.dup{color:#8f7458;text-decoration:line-through;text-decoration-color:rgba(240,138,122,.7)}
 .drawer .mv.dup i{background:#f08a7a;color:#3a1008;text-decoration:none;display:inline-block}
-.drawer .mv .tm{margin-left:auto;font:400 8px var(--label);color:#a98e6a}
+.drawer .mv .tm{margin-left:auto;font:700 11.5px var(--body);color:#a98e6a}
 .tabmenu button.exp i{font-style:normal;transition:transform .12s}
 .tabmenu button.exp.open i{transform:rotate(90deg)}
 .tabmenu .expbox{margin:0 0 2px}
@@ -915,7 +915,7 @@ html.rowdrag,html.rowdrag *{cursor:grabbing!important}
 .drawer .th.dragghost{padding:5px 10px;border:3px solid var(--outline);border-radius:9px;
   background:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.3)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
 .drawer .dragghost .dgcount{position:absolute;right:-8px;top:-9px;min-width:20px;height:20px;box-sizing:border-box;padding:3px 5px 0;border-radius:10px;
-  font:400 9px var(--label);color:#2a1c00;text-align:center;background:linear-gradient(180deg,#FFE28C,#FFC43C);border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline)}
+  font:700 12px var(--body);color:#2a1c00;text-align:center;background:linear-gradient(180deg,#FFE28C,#FFC43C);border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline)}
 @media (prefers-reduced-motion:reduce){#tabs.dragging>*,.drawer .dropmark{transition:none}.drawer .th.spring,.drawer .bh.spring{animation:none;background-size:100% 3px,auto}}
 /* His pick (2026-10-21): a mockup's tab wears Claude's icon, drawn down smoothly from its large picture like the trail's head. */
 .drawer .tp .fi.claude{image-rendering:auto;border-radius:6px}
@@ -1011,3 +1011,8 @@ html.solo .railhandle{left:340px}
 .drawer .march{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 2px;padding:6px 8px;border-radius:8px;cursor:pointer;text-align:left;
   background:rgba(0,0,0,.3);border:2px solid rgba(0,0,0,.5);box-shadow:inset 0 1px 0 rgba(255,224,150,.12);font:700 11px var(--display);letter-spacing:1.2px;color:#ffe28c}
 @media (prefers-reduced-motion:reduce){.drawer .mfold,.drawer .mfold>.mfi,.drawer .msr .chev,.drawer .mold .chev,.drawer .march .chev,.drawer .th .mtidy{transition:none}.drawer .th .mtidy.sweep img{animation:none}}
+
+/* Send to Aang carries Aang's face (cleanup 2026-10-22, his rule: a name carries its icon). The face is 18 px art drawn
+   at 6x, so 18 px shows it pixel for pixel. */
+.tabmenu button.toaang,.menu button.toaang{justify-content:flex-start;align-items:center}
+.toaang .aface{width:18px;height:18px;flex:none;margin:-2px 8px -2px 0;image-rendering:pixelated}

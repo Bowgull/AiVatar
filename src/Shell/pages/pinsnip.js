@@ -1,25 +1,12 @@
 // Sheet 62 (2026-10-22): a snip pinned on his desktop. The window decides nothing: pinsnip.ts knows which snip this is
 // and sends its picture; this page draws it, says when the mouse is on it, and asks to be dragged, pinned, faded or closed.
+import { paintPinKey } from './pinkey.js';
 const api = window.pinsnip;
 const MIN_OP = 0.3;
 const frame = document.getElementById('frame'), bar = document.getElementById('bar');
 const vs = document.getElementById('vs'), ro = document.getElementById('ro'), pinB = document.getElementById('pin');
-const rgb = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
-const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) * k)).join(',')})`;
 
-/* ---- the pin and the slider: the job pop-out's pixel art (jobpop.js, sheet 52), the same pin and the same slider ---- */
-const PIN = ['..OOOOO..', '..OHFFO..', '..OHFSO..', '..OHFSO..', '.OOHFSOO.', 'OHHFFFFSO', 'OSSSSSSSO', 'OOOOOOOOO', '....O....', '....O....', '....O....', '....O....'];
-function pinArt(on, px = 1) {
-  const w = PIN[0].length, ht = PIN.length;
-  const cv = Object.assign(document.createElement('canvas'), { width: (w + 1) * px, height: (ht + 1) * px });
-  const g = cv.getContext('2d');
-  const F = on ? '#c4532a' : '#f1e3c4';
-  const col = on ? { O: '#2a1a10', H: mix(F, [255, 255, 255], 0.5), F, S: mix(F, [40, 20, 10], 0.35) } : { O: '#9a7c58', H: '#fffaf0', F, S: '#d6bd90' };
-  if (on) { g.fillStyle = 'rgba(0,0,0,.35)'; PIN.forEach((r, y) => [...r].forEach((c, x) => { if (c !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); })); }
-  PIN.forEach((r, y) => [...r].forEach((c, x) => { if (col[c]) { g.fillStyle = col[c]; g.fillRect(x * px, y * px, px, px); } }));
-  cv.style.width = cv.width + 'px'; cv.style.height = cv.height + 'px';
-  return cv;
-}
+/* ---- the slider: the job pop-out's pixel art (jobpop.js, sheet 52); the pin is the family's pin key (pinkey.js) ---- */
 function vslider(op, px = 2) {
   const W = 8, H = 42, cv = Object.assign(document.createElement('canvas'), { width: W * px, height: H * px });
   const g = cv.getContext('2d'), P = (x, y, c) => { g.fillStyle = c; g.fillRect(x * px, y * px, px, px); };
@@ -35,10 +22,7 @@ const opAt = (y) => { const ky = Math.max(2, Math.min(36, Math.round((y - 6) / 2
 
 let pinned = true, opacity = 1;
 function paintPin() {
-  pinB.classList.toggle('on', pinned);
-  pinB.setAttribute('aria-pressed', String(pinned));
-  pinB.title = pinned ? 'Pinned: stays on top (click to unpin)' : 'Pin: stays on top';
-  pinB.replaceChildren(pinArt(pinned));
+  paintPinKey(pinB, pinned);   // the family's pin key (cleanup 2026-10-22)
 }
 function setOpacity(op, say = true) {
   opacity = Math.max(MIN_OP, Math.min(1, op));

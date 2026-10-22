@@ -30,6 +30,8 @@ export interface Sent {
   thumb?: string;
   /** Samara sent it (the plaque says SENT FROM SAMARA); otherwise the Highlight key or the snip key. */
   samara?: boolean;
+  /** The site's favicon as Samara already stored it (a data: picture), for the chip. Never fetched for this. */
+  icon?: string;
 }
 
 export const MAX_TEXT = 4000, MAX_PAGE_TEXT = 6000, MAX_URL = 2048;
@@ -54,13 +56,14 @@ export function cleanSent(raw: unknown): Sent | null {
   const site = one(r.site, 80) || hostOf(url) || (kind === 'snip' ? 'your screen' : 'a page');
   const title = one(r.title, 120);
   const file = typeof r.file === 'string' && r.file.length < 600 ? r.file : undefined;
+  const icon = typeof r.icon === 'string' && /^data:image\/[a-z.+-]+;base64,[A-Za-z0-9+/=]+$/.test(r.icon) && r.icon.length < 20_000 ? r.icon : undefined;
   const thumb = typeof r.thumb === 'string' && r.thumb.startsWith('data:image/png;base64,') && r.thumb.length < 60_000 ? r.thumb : undefined;
   // Words need words; a picture, a link or a page needs its address (or a picture file); a snip needs its file.
   if (kind === 'words' && !text) return null;
   if ((kind === 'link' || kind === 'page') && !url) return null;
   if (kind === 'image' && !url && !file) return null;
   if (kind === 'snip' && !file) return null;
-  return { kind, site, url, title, text, ...(file ? { file } : {}), ...(thumb ? { thumb } : {}), ...(r.samara === true ? { samara: true } : {}) };
+  return { kind, site, url, title, text, ...(file ? { file } : {}), ...(thumb ? { thumb } : {}), ...(r.samara === true ? { samara: true } : {}), ...(icon ? { icon } : {}) };
 }
 
 // ------------------------------------------------------------------ the page menu
@@ -130,9 +133,9 @@ export function pageMenuItems(p: MenuParams, has: MenuHas): MenuItem[] {
 const LABEL: Record<SendKind, string> = { words: 'WORDS', image: 'PICTURE', link: 'LINK', page: 'PAGE', snip: 'SNIP' };
 
 /** The chip above his typing box: what he sent, with the site (sheet 62: "forever.warcraft.com · Ragnaros knocks"). */
-export function chipOf(s: Sent, i: number): { i: number; label: string; title: string; thumb?: string } {
+export function chipOf(s: Sent, i: number): { i: number; label: string; title: string; thumb?: string; icon?: string } {
   const what = s.kind === 'words' ? s.text : s.title || (s.kind === 'image' ? 'a picture' : s.kind === 'link' ? s.url : s.kind === 'snip' ? 'snip' : 'this page');
-  return { i, label: LABEL[s.kind], title: `${s.site} · ${one(what, 60)}`, ...(s.thumb ? { thumb: s.thumb } : {}) };
+  return { i, label: LABEL[s.kind], title: `${s.site} · ${one(what, 60)}`, ...(s.thumb ? { thumb: s.thumb } : {}), ...(s.icon ? { icon: s.icon } : {}) };
 }
 
 /** Aang's one line (sheet 62 section 2). The bubble draws it through asks.js like any other ask. */

@@ -10,6 +10,7 @@
 // in and lit when pinned; JOB COMPLETE is teal with "Nice", which shrinks it away; "needs you" is a small blue chip.
 // The window decides nothing: the main process (jobpop.ts) knows which job this is and builds every request.
 import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow, kick, liveOverall, liveRows, rowsKey, liveAgents } from './claudejobs.js';
+import { paintPinKey } from './pinkey.js';
 
 const api = window.jobpop;
 const pw = document.getElementById('pw');
@@ -19,19 +20,7 @@ const MIN_OP = 0.3;
 const rgb = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
 const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) * k)).join(',')})`;
 
-/* ---- pixel art, verbatim from sheet 52 (the pin, the slider) and the pet's job-done tick (src/Body/ClaudeMarks.cs) ---- */
-const PIN = ['..OOOOO..', '..OHFFO..', '..OHFSO..', '..OHFSO..', '.OOHFSOO.', 'OHHFFFFSO', 'OSSSSSSSO', 'OOOOOOOOO', '....O....', '....O....', '....O....', '....O....'];
-function pinArt(on, px = 2) {
-  const w = PIN[0].length, ht = PIN.length;
-  const cv = Object.assign(document.createElement('canvas'), { width: (w + 1) * px, height: (ht + 1) * px });
-  const g = cv.getContext('2d');
-  const F = on ? '#c4532a' : '#f1e3c4';
-  const col = on ? { O: '#2a1a10', H: mix(F, [255, 255, 255], 0.5), F, S: mix(F, [40, 20, 10], 0.35) } : { O: '#9a7c58', H: '#fffaf0', F, S: '#d6bd90' };
-  if (on) { g.fillStyle = 'rgba(0,0,0,.35)'; PIN.forEach((r, y) => [...r].forEach((c, x) => { if (c !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); })); }
-  PIN.forEach((r, y) => [...r].forEach((c, x) => { if (col[c]) { g.fillStyle = col[c]; g.fillRect(x * px, y * px, px, px); } }));
-  cv.style.width = cv.width + 'px'; cv.style.height = cv.height + 'px';
-  return cv;
-}
+/* ---- pixel art, verbatim from sheet 52 (the slider; the pin is now the family's pin key, pinkey.js) and the pet's job-done tick (src/Body/ClaudeMarks.cs) ---- */
 /** A vertical groove with a plum gem knob; top = solid, bottom = 30%. knobY is where the knob's middle is, in CSS px. */
 function vslider(op, px = 2) {
   const W = 8, H = 42, cv = Object.assign(document.createElement('canvas'), { width: W * px, height: H * px });
@@ -87,8 +76,7 @@ function card() {
   const c = h('div', 'pj' + (st === 'done' ? ' done' : st === 'paused' ? ' paused' : '') + (open && !done ? ' open' : ''));
   c.dataset.state = st;
   const pinB = btn('pin' + (pinned ? ' on' : ''), undefined, pinned ? 'Pinned: stays on top (click to unpin)' : 'Pin: stays on top');
-  pinB.setAttribute('aria-pressed', String(pinned));
-  pinB.append(pinArt(pinned));
+  paintPinKey(pinB, pinned);   // the family's pin key (cleanup 2026-10-22)
   pinB.addEventListener('click', (e) => { e.stopPropagation(); api?.pin(); });
   const top = h('div', 'top');
   if (st === 'done') {
@@ -316,7 +304,7 @@ api?.onData((d) => {
     // Only the pin changed: swap its look in place (pressed in and lit, or flat), no redraw of the card.
     pinned = newPin;
     const b = pj?.querySelector('.pin');
-    if (b) { b.classList.toggle('on', pinned); b.setAttribute('aria-pressed', String(pinned)); b.title = pinned ? 'Pinned: stays on top (click to unpin)' : 'Pin: stays on top'; b.replaceChildren(pinArt(pinned)); }
+    if (b) paintPinKey(b, pinned);
   }
 });
 api?.onLeave(() => { pw.classList.add('leaving'); });

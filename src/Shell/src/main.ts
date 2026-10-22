@@ -703,6 +703,7 @@ app.whenReady().then(async () => {
       settings: () => settings,
       skips: new FindSkips(STATE_DIR),
       skipSettings: () => skipSettings,
+      iconFor: (u) => aangBrowser?.faviconFor(u) ?? '',
     });
     console.log(`shell: pages on ${pages.origin}`);
 

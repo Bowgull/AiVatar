@@ -320,6 +320,11 @@ function paintChips({ replyTo, pinned, snips, highlights, files, mockups, sent }
       img.style.cssText = 'height:16px;width:auto;border-radius:3px;vertical-align:middle;margin-right:4px;image-rendering:pixelated';
       c.prepend(img);
     }
+    // His rule (2026-10-22): a site always carries its favicon. The one Samara already stored, never fetched for this.
+    if (typeof s.icon === 'string' && /^data:image\//.test(s.icon)) {
+      const fav = Object.assign(document.createElement('img'), { src: s.icon, alt: '', className: 'fav' });
+      c.querySelector('b')?.after(fav);
+    }
     pinnedRow.append(c);
   }
   // 6.17: a snip waiting to go with this message, in Snipit's pale blue.

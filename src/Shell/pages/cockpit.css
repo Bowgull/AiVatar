@@ -266,8 +266,18 @@
   box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
     inset 0 3px 0 rgba(255,224,150,.5),0 8px 14px rgba(0,0,0,.4)}
 .key.warn:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.5)}
-.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+/* the key's own letter, small in its top-right corner; the key keeps room for it so it never sits on the words */
+.key .k{position:absolute;top:2px;right:5px;font:800 10.5px/1 var(--body);opacity:.7}
+.key:has(> .k){padding-right:24px}
+.key.sm:has(> .k){padding-right:20px}
 .keys{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:16px}
+/* ONE keycap (cleanup 2026-10-22): a key named in words (the hotkeys menu, the pull-apart hint, an answer's number) is
+   the bubble's own .key, small: plum, Figtree 700, white letters with a dark drop, a soft 2px dark-wood edge and a 3px
+   lip. Before, the hotkeys menu drew dark-wood caps in pixel letters and the pull-apart hint a yellow chip. */
+.kc{display:inline-block;min-width:14px;box-sizing:content-box;text-align:center;vertical-align:1px;white-space:nowrap;
+  font:700 12px/14px var(--body);letter-spacing:.2px;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  padding:3px 7px 4px;border-radius:5px;background:var(--plum);
+  box-shadow:0 0 0 2px #2a1a10,0 3px 0 2px #2a1a10,inset 0 2px 0 rgba(150,110,200,.5)}
 
 /* ---------------------------------------------------------------- chips */
 .chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
@@ -428,7 +438,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   display:grid;place-items:center;cursor:pointer;position:relative;top:0;
   background:linear-gradient(180deg,var(--plum),var(--plum-deep));
   box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45);
-  color:var(--parch1);font:400 9px var(--label);
+  color:var(--parch1);font:700 12px var(--body);
 }
 .mini:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
 .mini[aria-pressed="true"]{
@@ -533,7 +543,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
    it would keep filling after he let go, which is the one thing it must not do. */
 .lever .txt{position:relative}
 .lever .hold{
-  position:relative;font:400 9px var(--label);letter-spacing:1px;color:#ffe9b0;
+  position:relative;font:700 12px var(--body);letter-spacing:.2px;color:#ffe9b0;
   margin-left:auto;padding:4px 6px;border:2px solid var(--outline);border-radius:4px;
   background:rgba(0,0,0,.35);
 }
@@ -561,7 +571,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 .agc .agr .tm.pc{font:700 12px Figtree,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:normal;color:#8a5a10}   /* a helper's %: readable, not pixel (2026-10-22) */
 .agc .agr.failed .tm{color:#a8352b}
 /* more than three helpers: the rest in one quiet line */
-.agc .agmore{height:20px;display:flex;align-items:center;padding-left:27px;font:400 9.5px Silkscreen,monospace;color:#8f7458}
+.agc .agmore{height:20px;display:flex;align-items:center;padding-left:27px;font:700 12px Figtree,system-ui,sans-serif;color:#6b5236}
 
 /* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
    content, "carved" (very dark wood) for the small name tags. ---- */

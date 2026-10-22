@@ -2,6 +2,7 @@
 // connection, chooses no address, and cannot open a window.
 import { Player, clock, el } from './player.js';
 import { Skipper } from './skipper.js';
+import { paintPinKey } from './pinkey.js';
 
 const what = el('what');
 const src = el('src');
@@ -41,6 +42,7 @@ window.aang.onPopout(v => {
   empty.hidden = v.source !== 'none';
   what.textContent = v.title;
   src.textContent = v.label;
+  srcIcon(v);
   src.hidden = false;
   // Gold for open video, purple for a paid service (sheet 4, section 1).
   src.className = 'src' + (v.source === 'page' ? ' paid' : '');
@@ -117,11 +119,14 @@ el('full').addEventListener('click', () => window.aang.popoutFullscreen());
 el('mac').addEventListener('click', () => window.aang.popoutToMac());
 if (window.aang?.platform === 'darwin') el('mac').title = 'Send this to your PC. It stops playing here.';
 el('pin').addEventListener('click', () => window.aang.popoutPin());
+const PIN_WORDS = { on: 'Pinned: clicks go through to your game. Ctrl+Alt+P unpins.', off: 'Pin: clicks go through to your game. Ctrl+Alt+P pins and unpins.' };
+paintPinKey(el('pin'), false, PIN_WORDS);
 // Pinned: clicks go through to the game and the controls stay away. The bar says so for two seconds.
 let pinned = false, pinSay = null;
 window.aang.onPopoutPinned?.((on) => {
   pinned = on;
   frame.classList.toggle('pinned', on);
+  paintPinKey(el('pin'), on, PIN_WORDS);
   const what = el('what');
   if (!what) return;
   if (pinSay) clearTimeout(pinSay);
@@ -287,3 +292,22 @@ paintSeeThrough();
 showChrome();
 // After a frame, so the layout has actually happened.
 requestAnimationFrame(() => requestAnimationFrame(reportChrome));
+
+// ---------------------------------------------------------------- the source chip's icon (cleanup 2026-10-22)
+// His rule: a site carries its favicon. The one Samara already stored for the site (main passes it as v.icon, a data:
+// picture, never fetched for this); for YouTube with none stored yet, its play mark drawn here in pixels, 9 x 7 at 2x.
+const YT = ['.RRRRRRR.', 'RRRWRRRRR', 'RRRWWRRRR', 'RRRWWWRRR', 'RRRWWRRRR', 'RRRWRRRRR', '.SSSSSSS.'];
+function ytMark() {
+  const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg');
+  s.setAttribute('viewBox', '0 0 9 7'); s.setAttribute('width', '18'); s.setAttribute('height', '14');
+  s.setAttribute('shape-rendering', 'crispEdges'); s.setAttribute('aria-hidden', 'true');
+  for (const [k, fill] of [['R', '#E0281E'], ['S', '#A31A12'], ['W', '#FFFFFF']]) {
+    let d = ''; YT.forEach((r, y) => [...r].forEach((c, x) => { if (c === k) d += `M${x} ${y}h1v1h-1z`; }));
+    const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); p.setAttribute('fill', fill); s.append(p);
+  }
+  return s;
+}
+function srcIcon(v) {
+  if (typeof v.icon === 'string' && /^data:image\//.test(v.icon)) src.prepend(Object.assign(document.createElement('img'), { src: v.icon, alt: '' }));
+  else if (v.source === 'youtube') src.prepend(ytMark());
+}

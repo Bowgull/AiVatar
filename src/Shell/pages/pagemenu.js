@@ -10,6 +10,8 @@ window.aang?.onPageMenu?.((items) => {
     b.type = 'button';
     b.setAttribute('role', 'menuitem');
     b.disabled = it.off === true;
+    // Send to Aang carries Aang's face (his rule, 2026-10-22: a name carries its icon).
+    if (it.id === 'toaang') { b.classList.add('toaang'); b.append(Object.assign(document.createElement('img'), { src: 'art/aang-face.png', alt: '', className: 'aface' })); }
     b.append(Object.assign(document.createElement('span'), { textContent: String(it.label ?? '') }));
     if (it.key) b.append(Object.assign(document.createElement('i'), { textContent: String(it.key) }));
     b.addEventListener('click', () => window.aang?.pageMenuPick?.(String(it.id)));
