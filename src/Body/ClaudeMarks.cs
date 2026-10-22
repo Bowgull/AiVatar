@@ -19,7 +19,9 @@ static class ClaudeMarks
     {
         ["working"] = new[] { "..OOOOOOOOO..", ".OHHHHHFFFSO.", "OHFFFFFFFFFSO", "OHFOFFOFFOFSO", "OHFFFFFFFFFSO", ".OFFFFFFFFSO.", "..OOOFSOOOO..", "....OSO......", "....OO......." },
         ["permission"] = new[] { ".OOOOO..........", "OHHHFSO.........", "OHO.OFSOOOOOOOO.", "OHO.OFFHHHHHHFSO", "OFO.OFSSSSSSSSSO", "OFFFFSOOOOOOSOSO", ".OSSSO.....OSOSO", "..OOO......OOOOO" },
-        ["question"] = new[] { "...OOOOO...", "..OHHFFSO..", ".OHFOOOFSO.", ".OHO...OFSO", "..O....OFSO", "......OFFSO", ".....OFFSO.", "....OFFSO..", "....OFSO...", "....OFSO...", "....OOOO...", "...........", "....OOOO...", "...OHFFSO..", "...OFFSSO..", "....OOOO..." },
+        // Redrawn 2026-10-22 (his "the question mark is really wonky"): an even top arc, a hook that closes cleanly, and
+        // the stem and the dot on the same four columns.
+        ["question"] = new[] { "...OOOOO...", "..OHHHFFO..", ".OHFFFFFSO.", ".OHFOOOFSO.", ".OOO..OFSO.", "......OFSO.", ".....OFFSO.", "....OFFSO..", "....OFSO...", "....OFSO...", "....OOOO...", "...........", "....OOOO...", "....OHSO...", "....OSSO...", "....OOOO..." },
         ["plan"] = new[] { ".OOOOOOOOOO.", "OHHHHHHHFFSO", "OSSSSSSSSSSO", ".OFFFFFFFSO.", ".OFOOOOFFSO.", ".OFFFFFFFSO.", ".OFOOOOOFSO.", ".OFFFFFFFSO.", "OHHHHHHHFFSO", "OSSSSSSSSSSO", ".OOOOOOOOOO." },
         ["paused"] = new[] { "OOOOOOOOO", "OHHHHFFSO", ".OHFFFSO.", "..OHFSO..", "...OSO...", "..OF.SO..", ".OF...SO.", "OHFFFFFSO", "OOOOOOOOO" },
         // 45e: "the step tick is impossible to see" fixed - small but bold.
