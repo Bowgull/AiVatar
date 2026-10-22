@@ -173,3 +173,24 @@ From about 3 ms to about 160 ms (4x: up to 310 ms) **the video is on screen nowh
 **Not measured:** the YouTube/Twitch iframe embed path (needs network), and paid services in the castLabs window.
 
 **Note for him:** one harness run had a typo in the test file. Electron's "App threw an error during load" box may have shown on his screen for up to about 10 minutes, until the run's timeout closed it. The file is now syntax-checked before every run.
+
+## On his Mac (2026-10-22, MacBook Pro 2017, 2-core i5)
+
+His report: "videos in the pop-out are laggy; putting them in the pop-out and taking them off, no smooth transition".
+Measured ON SCREEN with `test/electron/popout-film.ts` (real AangBrowser, Popout and wiring, a local 1080p30 VP9 clip,
+the video's own presented frames via requestVideoFrameCallback, 3 open/close cycles; FILM=<file> also films the
+screen; SKIP=capture,radius,focus,css,poll switches pieces off). A two-window probe showed that moving a playing
+view between windows, the bare-page CSS, the page picture and the window hiding do not stall the video on this Mac.
+
+| | Before | After |
+|---|---|---|
+| Close: video back in Samara | 561-565 ms (Samara showed its "playing in the pop-out" plate) | 3-5 ms |
+| First open: picture settled with its frame | ~1.2 s (window built on the click, picture bare meanwhile) | ~10 ms (built hidden when a video starts) |
+| Samara stepping aside (Mac) | the Dock's minimize animation and back | a 150 ms fade out and in |
+| Video while popping out | 5-8 frames per 1/4 s (smooth) | the same |
+
+Causes and fixes: the page was unpinned and paused only after it had left the pop-out, and a hidden page answered in
+~0.55 s; now it is done while still on screen (the pop-out goes see-through at once), then the page goes home and the
+pop-out hides together (`returnTab`, `close`). The pop-out is built ahead (`prewarm`, on `media-started-playing`).
+On the Mac `tuckFor` fades Samara instead of minimizing; Windows keeps minimize. The video still comes home paused
+(his rule, reconfirmed 2026-10-22).

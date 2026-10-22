@@ -544,6 +544,8 @@ export class AangBrowser {
   onSendToAang: ((s: Record<string, unknown>, picture?: Electron.NativeImage) => void) | null = null;
   /** Told when Samara's last window has closed (the pop-out holding one of its tabs goes with it, 2026-10-21). */
   onLastClosed: (() => void) | null = null;
+  /** A video or song started in one of his tabs (the pop-out gets ready ahead, popoutipc.ts). */
+  onPlaying: (() => void) | null = null;
   /** Right-click "Play in the pop-out" on a link. */
   onPlayInPopout: ((url: string) => void) | null = null;
   private popTab: ((id: number) => void) | null = null;
@@ -1803,6 +1805,8 @@ export class AangBrowser {
     on('update-target-url', (_e, u) => { if (tab.id === this.active) this.win?.webContents.send('browser:hover', isWeb(u) ? u.slice(0, 600) : ''); });
     // One video at a time (his rule, 2026-10-13): when this tab starts making sound, every other one stops, here and on
     // the other machine. Sound, not just playing: a silent hover preview (YouTube's front page) stops nothing.
+    // The pop-out is made ready the moment something plays here (2026-10-22): the first Popout is then as quick as any.
+    on('media-started-playing', () => { if (!tab.internal) { try { this.onPlaying?.(); } catch { /* the video plays on */ } } });
     on('audio-state-changed', (e) => {
       const was = tab.audible;
       tab.audible = (e as unknown as { audible: boolean }).audible;

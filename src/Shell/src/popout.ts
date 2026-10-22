@@ -72,6 +72,7 @@ export class Popout {
   // controls, so nothing reloads and his login comes with it. The page is shown at the video alone by asking the
   // page to put its player in fullscreen, which, with this window not allowed to go fullscreen itself, fills
   // exactly the space it has here. If a page refuses, the whole page shows instead: still the right video.
+  private closeSeq = 0;
   private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null } | null = null;
   private stage = { x: 0, y: 34, width: 0, height: 0 };
   /** The picture's corner radius, as the page draws it (0 while the controls show, rounded when it is just the picture). */
@@ -198,24 +199,34 @@ export class Popout {
     void within(wc.executeJavaScript(`(()=>{const v=window.__aangVideo;if(!v)return false;${js};return true})()`, true), 600, false);
   }
 
-  /** Hand the tab back to the browser, as it is, still playing. */
-  returnTab(): void {
+  /**
+   * Hand the tab back to the browser. Done when it is back in Samara.
+   *
+   * The page is made itself again BEFORE it goes back (2026-10-12): handing it over first showed it for a moment as one
+   * giant player, then snapping back, which is the odd resize he saw. It goes home paused (his rule, 2026-10-20).
+   * And that happens while it is still on screen in the pop-out (2026-10-22, measured on his Mac): done after it had
+   * left, the hidden page took ~0.55 s to answer, and Samara sat on its "playing in the pop-out" plate meanwhile.
+   * `now`: the window itself is closing, so the page leaves it at once (a page never goes down with the window).
+   */
+  returnTab(now = false): Promise<void> {
     const l = this.lent;
-    if (!l) return;
+    if (!l) return Promise.resolve();
     this.lent = null;
     clearInterval(l.poll); clearInterval(l.cursor);
     const wc = l.view.webContents;
-    // The page is made itself again BEFORE it goes back (2026-10-12): handing it over first showed it for a moment
-    // as one giant player, then snapping back, which is the odd resize he saw.
-    // It goes home paused (his rule, 2026-10-20: closing the pop-out pauses the video).
+    const leave = () => {
+      try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
+      try { l.view.setBorderRadius(0); } catch { /* older Electron */ }
+      try { this.window?.setFullScreenable(true); } catch { /* gone */ }
+    };
+    if (now) leave();
+    // WebFrameMain's run, which does not wait for a page that is still loading something.
     const undone = wc.isDestroyed() ? Promise.resolve() : Promise.all([
-      within(wc.executeJavaScript(UNPIN_JS + ";document.querySelectorAll('video,audio').forEach((m)=>{try{m.pause()}catch{}});true", true), 400, null),
+      within(wc.mainFrame.executeJavaScript(UNPIN_JS + ";document.querySelectorAll('video,audio').forEach((m)=>{try{m.pause()}catch{}});true", true), 300, null),
       l.css ? wc.removeInsertedCSS(l.css).catch(() => {}) : Promise.resolve(),
     ]);
-    try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
-    try { l.view.setBorderRadius(0); } catch { /* older Electron */ }
-    try { this.window?.setFullScreenable(true); } catch { /* gone */ }
-    void undone.then(() => l.back(l.view), () => l.back(l.view));
+    const home = () => { if (!now) leave(); l.back(l.view); };
+    return undone.then(home, home);
   }
 
   get window(): BrowserWindow | null { return this.win?.isDestroyed() ? null : this.win; }
@@ -324,7 +335,7 @@ export class Popout {
       // Alt+F4 or the taskbar's Close: the same as its own close key, Samara included.
       const inFront = Boolean(this.win?.isFocused()), after = this.afterClose;
       this.afterClose = null;
-      this.returnTab();
+      void this.returnTab(true);
       try { after?.(inFront); } catch { /* Samara stays where it is */ }
     });
     this.win.on('closed', () => { this.win = null; });
@@ -332,7 +343,8 @@ export class Popout {
       this.send();
       this.win?.webContents.send('popout:settings', this.deps.settings());
     });
-    this.win.once('ready-to-show', () => this.win?.show());
+    // Shown when something is playing; one made ahead (prewarm) waits hidden.
+    this.win.once('ready-to-show', () => { if (this.showing) this.win?.show(); });
 
     void this.win.loadURL(`${this.deps.pages.origin}/popout.html`);
     return this.win;
@@ -565,19 +577,34 @@ export class Popout {
     const after = this.afterClose;
     this.afterClose = null;
     this.pinned = false;
-    this.returnTab();
+    const home = this.returnTab();
     this.pending && clearTimeout(this.pending);
     this.showing = null;
     // Put away, not destroyed (measured 2026-10-20): building it again took about half a second on every open.
-    // Its page is told to stop whatever it was playing and show nothing.
+    // Its page is told to stop whatever it was playing and show nothing. It goes once the page is back in Samara, at
+    // the same moment Samara comes back, so the video is never nowhere (2026-10-22, his Mac: "no smooth transition").
     const w = this.window;
     if (!w) return;
-    w.hide();
-    try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough || this.familyThrough); w.setAlwaysOnTop(false); } catch { /* gone */ }
-    w.webContents.send('popout:pinned', false);
-    w.webContents.send('popout:show', { url: '', source: 'none', label: '', live: false, title: 'Nothing playing' });
-    try { after?.(inFront); } catch { /* Samara stays where it is */ }
+    const seq = ++this.closeSeq;
+    // Gone from sight at once, but still "on screen" to the page so it answers at once (a hidden one is slowed down).
+    const was = w.getOpacity();
+    w.setOpacity(0);
+    void home.then(() => {
+      if (seq !== this.closeSeq || this.lent || this.showing || w.isDestroyed()) { if (!w.isDestroyed()) w.setOpacity(was); return; }   // opened again meanwhile
+      w.hide();
+      w.setOpacity(was);
+      try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough || this.familyThrough); w.setAlwaysOnTop(false); } catch { /* gone */ }
+      w.webContents.send('popout:pinned', false);
+      w.webContents.send('popout:show', { url: '', source: 'none', label: '', live: false, title: 'Nothing playing' });
+      try { after?.(inFront); } catch { /* Samara stays where it is */ }
+    });
   }
+
+  /**
+   * Made ahead and kept hidden (2026-10-22, his Mac): built on the first Popout it took ~1 s, the picture bare and
+   * jumping meanwhile. Samara calls this when a video starts playing in a tab, so the first open is like every other.
+   */
+  prewarm(): void { if (!this.window) this.create(); }
 }
 
 /** Every call into a page has a deadline: a dead page never answers, and must never hang Aang. */
