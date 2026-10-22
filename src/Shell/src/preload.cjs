@@ -231,6 +231,9 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserShareReply: a => ipcRenderer.send('browser:sharereply', a),
+  // Sheet 69: his pick in the keyboard ask ({id, device}), and Forget in the shield (a device's key).
+  browserDevReply: a => ipcRenderer.send('browser:devreply', a),
+  browserDevForget: key => ipcRenderer.send('browser:devforget', key),
   browserUpdateGo: (choices) => ipcRenderer.send('browser:updatego', choices && typeof choices === 'object' ? { lock: choices.lock !== false, closeBackdoors: choices.closeBackdoors !== false } : null),
   // The update tray's ... menu and its two-step skip (sheet 35): one of a fixed few words, and an on/off.
   browserUpdateAct: (a) => { const act = String(a?.act ?? ''); if (['file', 'skip', 'back', 'overnight', 'changelog', 'check', 'seen'].includes(act)) ipcRenderer.send('browser:updateact', { act, on: a?.on === true }); },
@@ -287,6 +290,7 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserChangelog(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:changelog', h); return () => ipcRenderer.removeListener('browser:changelog', h); },
   onBrowserUpdateWhy(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:updatewhy', h); return () => ipcRenderer.removeListener('browser:updatewhy', h); },
   onBrowserShare(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:share', h); return () => ipcRenderer.removeListener('browser:share', h); },
+  onBrowserDevAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:devask', h); return () => ipcRenderer.removeListener('browser:devask', h); },
   /** The downloads tray: act on one by its number (open, show, stop, forget) or the tray (clear, folder, page); drag one out. */
   browserDl: a => ipcRenderer.send('browser:dl', a),
   /** 6.25a: Aang's own pages: stop, close, watch, unwatch or open one ({act, id}). */

@@ -89,6 +89,16 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .bandchip .m{font:500 13px/1.45 var(--body);color:#4e3d28;margin:4px 0 0}
 .bandchip .keys{display:flex;gap:8px;margin-top:10px}
 .bandchip.site{left:200px;width:300px}
+/* Sheet 69: the keyboard ask. The share picker's paper tile, laid out as a row, the same pressed gold ring. */
+.bandchip.devchip{width:400px}
+.bandchip.devchip .q span:first-child{display:inline-grid;place-items:center}
+.dev{display:flex;align-items:center;gap:10px;width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:2px solid #6b5132;background:#fff6e4;
+  cursor:pointer;text-align:left;font:700 13.5px/1.25 var(--body);color:#271c10;box-sizing:border-box}
+.dev:hover{background:#ffeec8}
+.dev[aria-pressed="true"]{border-color:var(--outline);background:#FFE6A6;box-shadow:0 0 0 3px var(--gold)}
+.dev:focus-visible{outline:2px solid var(--gold-deep);outline-offset:2px}
+.dev small{display:block;font:500 12px var(--body);color:#6b5132}
+.dev .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* 6.24: the screen-share picker. Pictures of each screen and window on the same parchment as every ask. */
 .bandchip.share{width:584px;max-width:calc(100% - 180px);box-sizing:border-box}
 .bandchip.share .sgl{font:700 12px var(--body);letter-spacing:.2px;color:#6b5132;margin:10px 0 5px}

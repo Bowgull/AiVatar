@@ -30,7 +30,7 @@ function report() {
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
   // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
   let top = r.top;
-  for (const id of ['askchip', 'sharechip', 'vaultchip', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
+  for (const id of ['askchip', 'sharechip', 'devchip', 'vaultchip', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
   const ins = { left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom };
   // Only when the page area really moved (measured 2026-10-20): every toggle anywhere used to move the page's view,
@@ -929,6 +929,43 @@ el('shareyes').addEventListener('click', () => answerShare(true));
 el('shareno').addEventListener('click', () => answerShare(false));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shareId !== null) { answerShare(false); e.preventDefault(); } });
 
+// ---- Sheet 69: a site asks for a keyboard or mouse. He picks one of the devices listed, then Connect; Esc or Cancel = no.
+let devId = null, devPick = null;
+for (const s of document.querySelectorAll('#devchip [data-pix]')) { const svg = pixIcon(s.dataset.pix, 2); if (svg) s.append(svg); }
+window.aang?.onBrowserDevAsk?.((a) => {
+  if (!a || !Number.isInteger(a.id)) return;
+  if (a.gone) { if (devId === a.id) { devId = null; devPick = null; el('devchip').hidden = true; } return; }
+  if (devId !== a.id) devPick = null;
+  devId = a.id;
+  const list = Array.isArray(a.devices) ? a.devices : [];
+  if (!list.some((d) => d.id === devPick)) devPick = list.length === 1 ? String(list[0].id) : null;
+  el('devm').textContent = list.length ? `${a.host || 'This site'} wants to talk to one device. Pick it.` : `${a.host || 'This site'} wants a keyboard or mouse. None that it can use is plugged in.`;
+  const box = el('devlist');
+  box.replaceChildren();
+  for (const d of list) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'dev'; b.setAttribute('aria-pressed', String(String(d.id) === devPick));
+    const ic = pixIcon('keyboard', 2);
+    const t = document.createElement('span'); t.className = 't';
+    t.append(String(d.name ?? ''), Object.assign(document.createElement('small'), { textContent: String(d.how ?? '') }));
+    if (ic) b.append(ic);
+    b.append(t);
+    b.addEventListener('click', () => { devPick = String(d.id); box.querySelectorAll('.dev').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); el('devyes').disabled = false; });
+    b.addEventListener('dblclick', () => { devPick = String(d.id); answerDev(true); });
+    box.append(b);
+  }
+  el('devyes').disabled = !devPick;
+  el('devchip').hidden = false;
+});
+const answerDev = (yes) => {
+  if (devId === null) return;
+  window.aang?.browserDevReply?.({ id: devId, device: yes ? devPick : null });
+  devId = null; devPick = null; el('devchip').hidden = true;
+};
+el('devyes').addEventListener('click', () => answerDev(true));
+el('devno').addEventListener('click', () => answerDev(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && devId !== null) { answerDev(false); e.preventDefault(); } });
+
 // ---- the SECURE plaque's panel: let ads through on one site, or block them again
 lock.addEventListener('click', (e) => {
   e.stopPropagation();
@@ -962,6 +999,17 @@ function paintSite() {
   setSw('popsw', st.popupBlock, state.prefs?.popups === false);
   setSw('aisw', st.ai); setSw('loginsw', st.login && st.ai, !st.ai);
   setTri('camk', st.camera); setTri('mick', st.mic);
+  // Sheet 69: each keyboard or mouse this site may use, with Forget.
+  const rows = el('devrows');
+  rows.replaceChildren();
+  for (const d of Array.isArray(st.devices) ? st.devices : []) {
+    const r = document.createElement('div'); r.className = 'srow';
+    const ic = Object.assign(document.createElement('span'), { className: 'sic' }); const svg = pixIcon('keyboard', 2); if (svg) ic.append(svg);
+    const f = Object.assign(document.createElement('button'), { type: 'button', className: 'key sm burnt', textContent: 'Forget' });
+    f.addEventListener('click', () => window.aang?.browserDevForget?.(String(d.key)));
+    r.append(ic, Object.assign(document.createElement('b'), { textContent: String(d.name ?? '') }), f);
+    rows.append(r);
+  }
 }
 function paintAdSwitch() { paintSite(); }
 function paintDarkSwitch() { paintSite(); }

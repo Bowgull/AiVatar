@@ -545,6 +545,11 @@
       "at": "2026-10-22T19:23:00-04:00",
       "text": "Letting ads through on a site now really works.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T19:45:00-04:00",
+      "text": "Keyboard sites like Epomaker can connect, once you say yes.",
+      "kind": "feature"
     }
   ]
 }

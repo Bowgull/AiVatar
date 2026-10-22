@@ -31,6 +31,9 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:askreply', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b().answer(a.id, a.allow === true); });
   // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.
   ipcMain.on('browser:sharereply', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b().shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
+  // Sheet 69: his pick in the keyboard ask (only a device the ask listed can be picked), and Forget in the shield.
+  ipcMain.on('browser:devreply', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b().devAnswer(a.id, typeof a.device === 'string' ? a.device.slice(0, 200) : null); });
+  ipcMain.on('browser:devforget', (e, key) => { if ((top(e) && b()?.isFrame(e.sender)) && typeof key === 'string') b().forgetDevice(key.slice(0, 100)); });
   ipcMain.on('browser:adpause', (e, on) => { if ((top(e) && b()?.isFrame(e.sender))) b().pauseAds(on === true); });
   ipcMain.on('browser:darkhere', (e, on) => { if ((top(e) && b()?.isFrame(e.sender))) b().setDarkHere(on === true); });
   // The star's panel: rename the bookmark for this page, or remove it.

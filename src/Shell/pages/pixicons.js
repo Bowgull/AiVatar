@@ -55,6 +55,8 @@ const ICONS2 = {
   popup: ['....ccccccc', '....cBBBBBc', 'cccccwwwwwc', 'cBBBcwwwwwc', 'cwwwcwwwwwc', 'cwwwccccccc', 'cwwwwwwc...', 'cggggggc...', 'cccccccc...'],
   globe: ['...bbbb...', '.bbBlBBbb.', '.bBllBBBb.', 'bBBlllBBBb', 'bBBBllBlBb', 'bBBBBBllBb', '.bBBBBlBb.', '.bbBBBBbb.', '...bbbb...'],
   wont: ['cccccccc', 'cgggggdc', 'cgrggrdc', 'cggrrgdc', 'cggrrgdc', 'cgrggrdc', '.cgggdc.', '..cgdc..', '...cc...'],
+  // Sheet 69: a keyboard, for a site allowed to talk to his keyboard or mouse.
+  keyboard: ['kkkkkkkkkkkk', 'kwGwGwGwGwDk', 'kGGGGGGGGGDk', 'kGwGwGwGwGDk', 'kGGGGGGGGGDk', 'kGGwwwwwwGDk', 'kDDDDDDDDDDk', 'kkkkkkkkkkkk'],
   ads: ['........r.', '......rrR.', 'r...rrRRR.', 'rrrrRRRRR.', 'rRRRRRRRR.', 'rrrrRRRRR.', 'r...rrRRR.', '.r....rrR.', '.r......r.'],
 };
 
