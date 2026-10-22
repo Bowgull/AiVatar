@@ -96,7 +96,7 @@ app.whenReady().then(async () => {
 
   const notes = new NoteWindows({ origin: pages.origin, preloadPath: preload, save: () => {}, overAang: () => false });
   notes.family = host;
-  const nw = notes.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first<br>Pull at 8', col: 'gold', font: 'hand', size: 'm', out: { x: -4300, y: 900, w: 260, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
+  const nw = notes.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first<br>Pull at 8', font: 'hand', size: 'm', out: { x: -4300, y: 900, w: 260, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
 
   const JID = 'job:' + S1;
   const ok = await until(() => host.members().length === 3 && [video, jw, nw].every((w) => !w.webContents.isLoading()), 12000);
@@ -181,7 +181,7 @@ app.whenReady().then(async () => {
   notes2.family = host2;
   await until(() => !video2.webContents.isLoading(), 8000);
   await wait(800);
-  const nw2 = notes2.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first<br>Pull at 8', col: 'gold', font: 'hand', size: 'm', out: { x: -3200, y: 1100, w: 260, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
+  const nw2 = notes2.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first<br>Pull at 8', font: 'hand', size: 'm', out: { x: -3200, y: 1100, w: 260, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
   await until(() => host2.joined('note:n1') && host2.shapeOf('note:n1') === 'wide', 8000);
   await wait(1500);
   const v2 = host2.boxes().get('video')!, n2 = host2.boxes().get('note:n1')!;
