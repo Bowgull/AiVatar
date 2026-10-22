@@ -29,7 +29,9 @@
 
 import { gameRunning } from './gpu.ts';
 
-export const LOCAL_MODEL = process.env.AANG_LOCAL_MODEL ?? 'hf.co/unsloth/Qwen3.5-35B-A3B-GGUF:UD-IQ3_XXS';
+// The same Qwen3.5-35B-A3B UD-IQ3_XXS file, imported into Ollama from LM Studio's copy under this short name (2026-10-21:
+// the hf.co name was never pulled into Ollama, so every "Qwen first" job had quietly fallen back to Claude).
+export const LOCAL_MODEL = process.env.AANG_LOCAL_MODEL ?? 'qwen3.5-35b-a3b:iq3';
 const URL = process.env.AANG_OLLAMA ?? 'http://127.0.0.1:11434';
 
 /** Why a local answer could not be used. Separated so a caller can tell "not running" from "said nothing". */
