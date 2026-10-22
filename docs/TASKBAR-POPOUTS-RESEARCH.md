@@ -126,3 +126,6 @@ bottom-right stays round (visible in the picture). A fresh `refreshSides()` give
 squareCorners while the member still has its old (pre-reshape) size, and the recount after the new size lands
 (card() -> relayout) does not reliably happen. Likely hits every member that reshapes (job column, note strip) and the
 partner's corners too (the video's region is cut from the same count). Not fixed here.
+
+## DECIDED (2026-10-22)
+Option A. A snapped group shows as ONE thumbnail of the whole group (named like "Video + Job + Player"); clicking it brings the whole group forward; the player's buttons if the player is in it. Loose pop-outs get their own thumbnails. Likely via DWM iconic thumbnails (DwmSetIconicThumbnail / DWMWA_FORCE_ICONIC_REPRESENTATION) from the native helper, with the group's other members kept off the taskbar while joined.
