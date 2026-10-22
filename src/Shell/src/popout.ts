@@ -446,6 +446,9 @@ export class Popout {
       id: 'video', kind: 'video', win: () => this.window, card: '.frame', osCorners: true,
       setOpacity: (n) => { this.window?.setOpacity(Math.max(0.2, Math.min(1, n))); },
       setPinned: (on) => { if (this.pinned !== on) this.togglePin(); },
+      // 1b: the family's click-through adds to the video's own (pinned, or his switch), never takes it away.
+      setThrough: (on) => { this.familyThrough = on; const w = this.window; if (w && !w.isDestroyed()) w.setIgnoreMouseEvents(this.mouseThrough()); },
+      lockedThrough: () => this.pinned || this.deps.settings().clickThrough,
       resize: (width, height) => { const w = this.window; if (w) { const b = w.getBounds(); w.setBounds({ ...b, width, height }); } },
       moved: () => { const w = this.window; if (w) this.deps.remember(w.getBounds()); },
     });
@@ -479,15 +482,18 @@ export class Popout {
    * wakes. The same key unpins. The bar says which it is for two seconds.
    */
   pinned = false;
+  /** Click-through by the window family's say (1b): on top of its own pinned / switch rules, never instead of them. */
+  private familyThrough = false;
+  private mouseThrough(): boolean { return this.pinned || this.deps.settings().clickThrough || this.familyThrough; }
   togglePin(): void {
     const w = this.window;
     if (!w || !w.isVisible()) return;
     this.pinned = !this.pinned;
     w.setAlwaysOnTop(this.pinned, 'screen-saver');
-    w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough);
+    w.setIgnoreMouseEvents(this.mouseThrough());
     // The Mac (his report, 2026-10-13: pinned was not click-through there): said again a moment later, once the click
     // on the pin button itself is over, so it holds.
-    if (process.platform === 'darwin') setTimeout(() => { if (!w.isDestroyed()) w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough); }, 150);
+    if (process.platform === 'darwin') setTimeout(() => { if (!w.isDestroyed()) w.setIgnoreMouseEvents(this.mouseThrough()); }, 150);
     w.webContents.send('popout:pinned', this.pinned);
     this.family?.shared('video', { pinned: this.pinned });
     // Pinned means clicks go through to his game: the site's own controls stay away too (his ask, 2026-10-13).
@@ -509,7 +515,7 @@ export class Popout {
     const w = this.window;
     if (!w) return;
     w.setAlwaysOnTop(this.pinned, 'screen-saver');
-    w.setIgnoreMouseEvents(set.clickThrough || this.pinned);
+    w.setIgnoreMouseEvents(set.clickThrough || this.pinned || this.familyThrough);
     w.webContents.send('popout:settings', set);
   }
 
@@ -518,7 +524,7 @@ export class Popout {
     const w = this.window;
     if (!w || !this.showing) return;              // put away after closing: nothing to show
     // Hidden outright rather than made invisible: a window nobody can see still costs the GPU.
-    if (w.isVisible()) w.hide(); else { w.show(); w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough); }
+    if (w.isVisible()) w.hide(); else { w.show(); w.setIgnoreMouseEvents(this.mouseThrough()); }
   }
 
   /** For a look from the PC (M6): what the pop-out is doing, whether the site's controls show, and its picture. */
@@ -557,7 +563,7 @@ export class Popout {
     const w = this.window;
     if (!w) return;
     w.hide();
-    try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough); w.setAlwaysOnTop(false); } catch { /* gone */ }
+    try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough || this.familyThrough); w.setAlwaysOnTop(false); } catch { /* gone */ }
     w.webContents.send('popout:pinned', false);
     w.webContents.send('popout:show', { url: '', source: 'none', label: '', live: false, title: 'Nothing playing' });
     try { after?.(inFront); } catch { /* Samara stays where it is */ }

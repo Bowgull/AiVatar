@@ -15,7 +15,7 @@ interface Spot { x: number; y: number }
 const W = 220, H = 170;          // the plate sits in the top-left; the rest is room for the keys and the menu
 
 export class TimerWindows {
-  private readonly wins = new Map<string, { w: BrowserWindow; pinned: boolean }>();
+  private readonly wins = new Map<string, { w: BrowserWindow; pinned: boolean; through?: boolean }>();
   private dragFrom: { id: string; x: number; y: number } | null = null;
   private readonly o: { origin: string; preloadPath: string; spotFile: string; near: () => Spot | null };
 
@@ -74,7 +74,7 @@ export class TimerWindows {
 
   clickable(sender: Electron.WebContents, on: boolean): void {
     const id = this.idOf(sender); const v = id ? this.wins.get(id) : null;
-    if (!v || v.pinned) return;
+    if (!v || v.pinned || v.through) return;
     v.w.setIgnoreMouseEvents(!on, { forward: true });
   }
   opacity(sender: Electron.WebContents, n: number): void {
@@ -90,6 +90,10 @@ export class TimerWindows {
       id: 'timer:' + id, kind: 'timer', win: () => (w.isDestroyed() ? null : w), card: '.tw',
       setOpacity: (n) => { if (!w.isDestroyed()) w.setOpacity(Math.max(0.25, Math.min(1, n))); },
       setPinned: (on) => this.applyPinned(id, on),
+      // 1b: the family's "Pin on top" is only on top, and a timer always is; its own Pin (click-through too) is separate.
+      setOnTop: () => {},
+      // Click-through (1b): its plate stops asking for the mouse; the rest of the window already lets clicks through.
+      setThrough: (on) => { const v = this.wins.get(id); if (!v || v.w.isDestroyed()) return; v.through = on; if (!v.pinned) v.w.setIgnoreMouseEvents(true, { forward: true }); },
       moved: () => { if (!w.isDestroyed()) { const [x, y] = w.getPosition(); try { writeFileAtomic(this.o.spotFile, JSON.stringify({ x, y })); } catch { /* not worth failing over */ } } },
     });
   }
@@ -121,6 +125,8 @@ export class TimerWindows {
     v.w.setIgnoreMouseEvents(true, on ? undefined : { forward: true });
     v.w.webContents.send('timer:pinned', on);
   }
+  /** The timer's own menu: "Click through" (1b). */
+  toggleThrough(sender: Electron.WebContents): void { const id = this.idOf(sender); if (id) this.family?.setThrough('timer:' + id); }
   pin(sender: Electron.WebContents): void { const id = this.idOf(sender); if (id) this.setPinned(id, true); }
 
   /** Ctrl+Alt+P: the timer under the mouse, if any, flips its pin. True when one did. */
