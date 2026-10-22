@@ -42,6 +42,9 @@ import { NoteHeld, wireNotes60 } from './notes60.ts';
 import { TimerWindows } from './timerwin.ts';
 import { JobPops } from './jobpop.ts';
 import { wireFamily } from './familywire.ts';
+import { wireTaskbarPops } from './taskbarwire.ts';
+import { jumpIcons, type TaskbarPops } from './taskbar.ts';
+import { isPopoutTask } from './taskbarplan.ts';
 import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import type { FamilyHost } from './familywin.ts';
 import type { TimerData } from './timerwin.ts';
@@ -118,8 +121,18 @@ app.on('second-instance', (_e, argv, _cwd, data) => {
   const t = taskFromLockData(data) ?? taskFromArgv(argv);
   if (!t) return;
   console.log('shell: taskbar task ' + t);
+  // Sheet 66 A: the Pop-outs section's six go to the pop-outs (taskbar.ts), the rest to the browser.
+  if (isPopoutTask(t)) { if (taskbarPops) void taskbarPops.runTask(t); else pendingTask = t; return; }
   if (aangBrowser) aangBrowser.jumpTask(t); else pendingTask = t;
 });
+/** Sheet 66 A (2026-10-22): every pop-out under Samara's lantern (taskbar.ts), and the brain's messages it reads. */
+let taskbarPops: TaskbarPops | null = null, taskbarHear: ((m: Record<string, unknown>) => void) | null = null;
+/** Samara's right-click list, written again when Aang comes or goes (New note, Timer, Music need him). */
+function writeJumpList(aang: boolean): void {
+  if (process.env.AANG_TEST) return;
+  const popouts = { aang, icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON) };
+  console.log('shell: Samara taskbar list: ' + writeSamaraJumpList(app, { main: path.join(HERE, 'main.ts'), dir: path.join(HERE, '..'), icon: SAMARA_JUMP_ICON, ownId: 'Aang', popouts }));
+}
 
 /** Every window this Shell has open, by kind, so the brain's messages reach the right one. */
 const windows = new Map<string, BrowserWindow>();
@@ -410,6 +423,7 @@ const link = new CoreLink({
     }
     // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
+    taskbarHear?.(m as Record<string, unknown>);
     if (playerHears?.(m as Record<string, unknown>)) return;
     // Sheet 52 (2026-10-21): the torn-off job windows follow the same lists, so a job on his desktop stays live.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') {
@@ -833,6 +847,14 @@ app.whenReady().then(async () => {
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
       ({ player: miniPlayer, fromBrain: playerHears } = wireMiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, 'playerpreload.cjs'), iconPath: AANG_ICON, prefsFile: path.join(STATE_DIR, 'player.json'), send: (m) => link?.send(m as never) }));
       family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops, snips: pinSnips, player: miniPlayer });
+      // Sheet 66 A (2026-10-22): every pop-out under Samara's lantern; a snapped group is one picture (taskbar.ts).
+      ({ taskbar: taskbarPops, hear: taskbarHear } = wireTaskbarPops({
+        family, popout: () => popout, jobs: () => jobPops, snips: () => pinSnips, samara: () => aangBrowser?.frontWindow() ?? null,
+        jobList: () => lastJobs, notes: () => notesLatest, aang: () => petAt?.sprite ?? null,
+        open: { note: () => { if (!noteWins?.quick()) bubble?.send('brain:message', { t: 'notes.board', fresh: true }); }, timer: () => bubble?.send('brain:message', { t: 'timer.setup' }), player: () => { miniPlayer?.open(); } },
+        send: (m) => link?.send(m as never),
+        log: process.env.AANG_TASKBAR_LOG ? (s) => console.log('shell: taskbar: ' + s) : undefined,
+      }));
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -900,8 +922,8 @@ app.whenReady().then(async () => {
       }
       // Samara's taskbar right-click list (2026-10-21): a task this Shell was started with, then the list itself, written
       // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
-      if (pendingTask) { const t = pendingTask; pendingTask = null; aangBrowser.jumpTask(t); }
-      if (!process.env.AANG_TEST) console.log('shell: Samara taskbar list: ' + writeSamaraJumpList(app, { main: path.join(HERE, 'main.ts'), dir: path.join(HERE, '..'), icon: SAMARA_JUMP_ICON, ownId: 'Aang' }));
+      if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) void taskbarPops?.runTask(t); else aangBrowser.jumpTask(t); }
+      writeJumpList(bodyAlive());
       // 6.28 the update key: a newer engine, downloaded, checked and tested quietly, waits for his Restart now.
       engineUpdates = new EngineUpdates({
         shellDir: path.join(HERE, '..'), stateDir: STATE_DIR,
@@ -1403,7 +1425,7 @@ app.whenReady().then(async () => {
     popout: () => popout, browser: () => aangBrowser, open: (url) => openPopout(url), stopPaid: () => drm?.close(), paidSeparately: () => !onCastlabs(),
     sendToOther: (url) => link?.send({ t: 'watch.tomac', url }),
     openOnOther: (url) => link?.send({ t: 'open.onmac', url }),
-    playback: (s) => link?.send({ t: 'watch.state', ...s }),
+    playback: (s) => { taskbarHear?.({ t: 'watch.state', ...s }); link?.send({ t: 'watch.state', ...s }); },
   });
   // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.
   // The tray's ... menu (sheet 35): put away, skip for good, go back, overnight, every version, check now.
@@ -1657,6 +1679,8 @@ setInterval(() => {
   if (up !== bodyWas) {
     const first = bodyWas === null;
     bodyWas = up;
+    // Sheet 66 A: New note, Timer and Music player are in Samara's right-click list only while Aang runs.
+    if (!first && aangBrowser) writeJumpList(up);
     if (up) { if (!first) { console.log('shell: Aang is back'); freshen(); if (input) takeAangKeys(); } }
     else if (!first) {
       console.log('shell: Aang closed; Samara stays');
@@ -1938,7 +1962,7 @@ function clickedAway(): void {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { family?.saveNow(); samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { family?.saveNow(); taskbarPops?.dispose(); samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

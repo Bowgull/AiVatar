@@ -3901,6 +3901,8 @@ export class AangBrowser {
   private quitting = false;
   /** A Samara window is open (what keeps the Shell running when Aang is off). */
   hasWindow(): boolean { return this.panes.some((p) => this.alive(p)); }
+  /** The Samara window he used last (the Claude job's bar under the lantern goes on it, taskbar.ts), or null. */
+  frontWindow(): BrowserWindow | null { const p = this.lastPane(); return p?.win && !p.win.isDestroyed() ? p.win : null; }
   closeAll(): void {
     void this.ses.cookies.flushStore().catch(() => {});
     this.driver.closeAll();
