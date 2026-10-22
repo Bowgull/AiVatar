@@ -29,6 +29,7 @@ static class Hands
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] static extern void SwitchToThisWindow(IntPtr h, bool alt);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr h, int x, int y, int w, int ht, bool repaint);
@@ -115,7 +116,9 @@ static class Hands
             case "minimise": ShowWindow(h, SW_MINIMIZE); break;
             case "maximise": ShowWindow(h, SW_MAXIMIZE); break;
             case "restore": ShowWindow(h, SW_RESTORE); break;
-            case "front": ShowWindow(h, SW_RESTORE); SwitchToThisWindow(h, true); SetForegroundWindow(h); break;
+            // Bring it forward as he left it (his catch, 2026-10-21): SW_RESTORE also un-maximizes, so a full-screen Claude
+            // came back as a smaller window. Only a minimized window is restored; any other keeps its size and spot.
+            case "front": if (IsIconic(h)) ShowWindow(h, SW_RESTORE); SwitchToThisWindow(h, true); SetForegroundWindow(h); break;
             case "left": case "right":
                 var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
                 GetMonitorInfo(MonitorFromWindow(h, 2 /* nearest */), ref mi);
