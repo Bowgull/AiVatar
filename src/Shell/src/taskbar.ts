@@ -72,7 +72,7 @@ export class TaskbarPops {
   private nextPid = 1;
   private soon: NodeJS.Timeout | null = null;
   private readonly tick: NodeJS.Timeout;
-  private bar: { target: BrowserWindow | null; key: string } = { target: null, key: '' };
+  private bar: { target: BrowserWindow | null; key: string; kind?: string; at?: number } = { target: null, key: '' };
   private iconsSent = false;
   private readonly imgs = new Map<string, Electron.NativeImage>();
   private readonly off: () => void;
@@ -298,9 +298,13 @@ export class TaskbarPops {
     }
     const key = `${b.mode}:${b.value.toFixed(3)}:${target ? target.id : '-'}`;
     if (key === this.bar.key) return;
+    // Calm (2026-10-22): the same kind of bar moves at most every 4 s, so it never flickers or pulses; a change of kind
+    // (none / normal / paused) or of window still goes at once.
+    const kindKey = `${b.mode}:${target ? target.id : '-'}`;
+    if (kindKey === this.bar.kind && now - (this.bar.at ?? 0) < 4000) return;
     const old = this.bar.target;
     if (old && old !== target && !old.isDestroyed()) { try { old.setProgressBar(-1); } catch { /* gone */ } }
-    this.bar = { target, key };
+    this.bar = { target, key, kind: kindKey, at: now };
     if (!target) return;
     try { target.setProgressBar(b.mode === 'none' ? -1 : b.value, { mode: b.mode }); } catch { /* gone */ }
   }

@@ -107,7 +107,8 @@ export interface Bar { value: number; mode: 'none' | 'normal' | 'paused' | 'inde
 export function barFor(jobs: JobNow[]): Bar {
   const act = jobs.filter((j) => j.active);
   if (!act.length) return { value: -1, mode: 'none' };
-  const slow = act.filter((j) => j.phase === 'paused' || j.stalled);
+  // Amber only when a job is really paused (his catch, 2026-10-22: a stall that comes and goes made the bar pulse yellow).
+  const slow = act.filter((j) => j.phase === 'paused');
   const pick = (l: JobNow[]) => l.filter((j) => j.pct !== null).sort((a, b) => a.pct! - b.pct!)[0];
   if (slow.length) { const j = pick(slow); return { value: Math.max(0.03, (j?.pct ?? 50) / 100), mode: 'paused' }; }
   const j = pick(act);
