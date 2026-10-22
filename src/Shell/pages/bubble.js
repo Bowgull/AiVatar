@@ -3119,8 +3119,12 @@ el('copy').addEventListener('click', () => {
 
 
 // ---------------------------------------------------------------- Sheet 37: a Claude session's plan
-// Drawn with the Lantern's pieces (lt-slip, lt-item, lt-tile), on the wood; sites are turquoise ticks he can untick; the
-// steps; what it won't do; Change opens a line to type. Built with textContent: the task, sites and steps are Claude's words.
+// 2026-10-22 (his screenshot: "the icon isn't Samara?", "the tick mark is also off", "'sites' do I need this?"): the card
+// is the speech bubble now, sheet 53 look B's parchment inside the S2 wood rim, never the Lantern's dark wood. Samara's
+// own icon (the L1 plum lantern), the Styled type roles (kicker CLAUDE · <SESSION> in the pixel label, the task as the
+// bold question), the bubble's own keys. SITES lists real websites only: a page on this computer (local) is left out,
+// and with nothing left the section goes. Each tick is a pixel check drawn centred in its box (bubble.css .tq).
+// The pieces are still the slips (lt-slip, lt-item, lt-tile), on the paper. Built with textContent: Claude's words.
 const planBox = document.createElement('div');
 planBox.className = 'samaraplan';
 planBox.hidden = true;
@@ -3129,17 +3133,21 @@ const planKept = new Set();
 function samaraPlan(m) {
   planBox.replaceChildren();
   planBox.hidden = !m;
-  if (!m) { if (!cockpit) bubble.classList.remove('lantern'); return; }
+  if (!m) return;
   const c = m.samara;
   planKept.clear(); for (const x of c.sites ?? []) planKept.add(String(x.site));
-  bubble.classList.add('lantern', 'wide');
+  bubble.classList.add('wide');
   who.hidden = true; said.textContent = '';
   const top = T('div', 'pc-top');
-  const lamp = document.createElement('img'); lamp.src = 'art/samara/samara-lantern-32.png'; lamp.alt = '';
-  const head = T('div'); head.append(T('small', '', 'CLAUDE WANTS TO'), T('b', '', String(c.task ?? '')));
+  const lamp = document.createElement('img'); lamp.src = 'art/samara/samara-32.png'; lamp.srcset = 'art/samara/samara-32.png 1x, art/samara/samara-64.png 2x'; lamp.alt = ''; lamp.width = 32; lamp.height = 32;
+  const from = String(c.from ?? '').trim();
+  const head = T('div'); head.append(T('small', 'pc-kick', from ? `CLAUDE · ${from.toUpperCase()}` : 'CLAUDE'), T('b', 'pc-task', String(c.task ?? '')));
   top.append(lamp, head);
-  const sites = T('div', 'lt-slip'); sites.append(T('h3', '', 'SITES'));
-  for (const x of c.sites ?? []) {
+  planBox.append(top);
+  const web = (c.sites ?? []).filter((x) => !x.local);
+  const sites = T('div', 'lt-slip');
+  if (web.length) { sites.append(T('h3', '', 'SITES')); planBox.append(sites); }
+  for (const x of web) {
     const item = T('div', 'lt-item'), row = T('div', 'lt-head'), tile = T('span', 'lt-tile');
     const globe = () => pixIcon('globe', 2) ?? T('span');
     if (x.favicon) { const i = document.createElement('img'); i.alt = ''; i.onerror = () => i.replaceWith(globe()); i.src = x.favicon; tile.append(i); } else tile.append(globe());
@@ -3151,7 +3159,7 @@ function samaraPlan(m) {
   }
   const steps = T('div', 'lt-slip'); steps.append(T('h3', '', 'STEPS'));
   (c.steps ?? []).forEach((t, i) => { const row = T('div', 'lt-head'), tile = T('span', 'lt-tile'); tile.append(T('span', 'num', String(i + 1))); const txt = T('span', 'lt-txt'); txt.append(T('b', '', String(t))); row.append(tile, txt); const item = T('div', 'lt-item'); item.append(row); steps.append(item); });
-  planBox.append(top, sites, steps);
+  planBox.append(steps);
   if (c.wont) { const w = T('div', 'wont'); const ic = pixIcon('wont', 2); if (ic) w.append(ic); w.append("Won't " + String(c.wont).replace(/^won.?t\s+/i, '')); planBox.append(w); }
   const note = document.createElement('textarea'); note.className = 'plannote'; note.id = 'plannote'; note.rows = 2; note.maxLength = 500; note.placeholder = 'What should Claude change?'; note.hidden = true;
   planBox.append(note);

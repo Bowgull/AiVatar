@@ -62,6 +62,7 @@ import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed
 import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
+import { dropMockup } from './mockupdrop.ts';
 /** 2026-10-21: one line per Claude jobs push with the time each hop took (session -> brain -> Shell), for measuring. */
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
@@ -2616,7 +2617,13 @@ export class Core {
     () => ({ up: true, atDesk: this.atDesk && this.clientsOf('desktop').length > 0 }));
     // C1 (2026-10-21): the aang-link mod's doors, locked with a key made fresh for this run (claudelink.ts).
     const linkKey = newLinkKey(this.cfg.dataDir);
-    if (linkKey) this.hookServer.link = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
+    if (linkKey) {
+      const door = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
+      // show_mockup (2026-10-22): a session's mockup goes to Samara's Mockups trail; the brain writes the drop file, since a
+      // sandboxed session's own %APPDATA% writes never reach the Shell (mockupdrop.ts says what is checked).
+      door.onMockup = (ask) => dropMockup(this.cfg.stateDir, ask);
+      this.hookServer.link = door;
+    }
     // Progress engine v3 (2026-10-21): the duration history and the phase plans live in his Aang folder (they survive
     // restarts); the CI watcher runs only in the real brain (the same switch as the transcript scan), never in tests.
     this.claudeJobs.useData(this.cfg.dataDir, { ci: this.cfg.scanTranscripts === true });

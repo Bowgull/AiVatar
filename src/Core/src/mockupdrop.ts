@@ -1,0 +1,138 @@
+// show_mockup, the brain's half (2026-10-22). His ask: "All Claude sessions should be sending mockups to Samara".
+//
+// Any Claude session on this PC calls the aang-link mod's show_mockup tool (claude-link/hooks/register.ts) with a page
+// to show him: an .html file in its own repo, or a page it serves on this computer (http://127.0.0.1:5173/...). The mod
+// cannot leave the file for Samara itself: a session started by the Claude desktop app runs sandboxed, and its writes to
+// %APPDATA% land in a private copy the Shell never sees. So it asks the brain over the signed link (/link/mockup), and
+// the brain, which sees his real folders, checks the request and leaves the same small .mockup file that
+// tools/open-mockup.mjs leaves, in %APPDATA%\Aang\open-urls. The Shell takes it from there (src/Shell/src/mockups.ts
+// takeMockupFile: it checks everything again) into Samara's MOCKUPS trail, with its versions.
+//
+// THE CHECKS (the Shell repeats them; nothing else is ever written):
+//   - a file must be an .html page inside the git repo the session runs in (its real path, links followed, so a link
+//     out of the repo is refused), no folder or file starting with a dot on the way, and already committed: the trail
+//     shows every version as it was committed, so an uncommitted page has nothing to show yet;
+//   - in AangApp itself, only under the mockup folders (docs/, src/Shell/pages/, assets/), as before;
+//   - a live page must be http(s) on this computer (127.0.0.1, localhost, ::1), with no user name in it;
+//   - the title is cut to 80 characters, the branch name is 1 to 40 or dropped.
+import { execFile } from 'node:child_process';
+import { existsSync, mkdirSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import path from 'node:path';
+
+export interface MockupAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }
+export interface MockupResult { ok: boolean; message: string; file?: string }
+
+/** AangApp's own repo (this brain's), whose mockups may only come from the mockup folders. */
+export const HOME_REPO = path.resolve(import.meta.dirname, '..', '..', '..');
+const MOCK_DIRS = ['docs/', 'src/Shell/pages/', 'assets/'];
+
+/** A live page on this computer, cleaned, or null. The same rule as the Shell's cleanLive. */
+export function cleanLiveUrl(u: unknown): string | null {
+  if (typeof u !== 'string' || !u || u.length > 2000) return null;
+  try {
+    const x = new URL(u);
+    if ((x.protocol !== 'http:' && x.protocol !== 'https:') || x.username || x.password) return null;
+    return ['127.0.0.1', 'localhost', '[::1]'].includes(x.hostname) ? x.href : null;
+  } catch { return null; }
+}
+/** A title cut short: control characters out, spaces collapsed, at most 80. */
+export function cleanTitle(t: unknown): string {
+  // eslint-disable-next-line no-control-regex
+  return typeof t === 'string' ? t.slice(0, 1000).replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim() : '';
+}
+/** A branch name as the Shell's cleanBranch takes it (1 to 40), or null. */
+export function cleanBranchName(b: unknown): string | null {
+  if (typeof b !== 'string' || b.length > 1000) return null;
+  // eslint-disable-next-line no-control-regex
+  const n = b.replace(/[\x00-\x1f\x7f-\x9f]/g, '').replace(/\s+/g, ' ').trim();
+  return n.length >= 1 && n.length <= 40 ? n : null;
+}
+
+const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+/** Is `p` the folder `dir` or inside it? */
+const inside = (p: string, dir: string) => { const r = path.relative(dir, p); return r === '' || (!!r && !r.startsWith('..') && !path.isAbsolute(r)); };
+
+/** The git repo a folder is in (the nearest folder up with a .git), or null. */
+export function repoOf(dir: string): string | null {
+  let d = path.resolve(dir);
+  for (let i = 0; i < 60; i++) {
+    if (existsSync(path.join(d, '.git'))) return d;
+    const up = path.dirname(d);
+    if (up === d) return null;
+    d = up;
+  }
+  return null;
+}
+
+/** git, read-only, with an argument list (never a shell). */
+function git(repo: string, args: string[]): Promise<{ ok: boolean; out: string }> {
+  return new Promise((done) => {
+    try { execFile('git', ['-C', repo, ...args], { windowsHide: true, timeout: 10_000 }, (e, out) => done({ ok: !e, out: String(out ?? '').trim() })); }
+    catch { done({ ok: false, out: '' }); }
+  });
+}
+
+/**
+ * Checks one show_mockup request and, when it passes, leaves its .mockup file in `<stateDir>/open-urls`. Never throws.
+ * `homeRepo` is AangApp (a test passes its own).
+ */
+export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HOME_REPO): Promise<MockupResult> {
+  const title = cleanTitle(ask.title);
+  const branch = ask.branch === undefined || ask.branch === null || ask.branch === '' ? null : cleanBranchName(ask.branch);
+  const branchNote = ask.branch !== undefined && ask.branch !== null && ask.branch !== '' && !branch ? ' (the branch name was not 1 to 40 characters, so it was left out)' : '';
+  const hasPath = typeof ask.path === 'string' && ask.path.trim() !== '', hasUrl = typeof ask.url === 'string' && ask.url.trim() !== '';
+  if (hasPath === hasUrl) return { ok: false, message: 'Pass either path (an .html file in your repo) or url (a page on http://127.0.0.1 or localhost), not both.' };
+  let body: Record<string, string>;
+  if (hasUrl) {
+    const u = cleanLiveUrl(String(ask.url).trim());
+    if (!u) return { ok: false, message: 'url must be a page on this computer: http://127.0.0.1, http://localhost or http://[::1] (any port), with no user name.' };
+    body = { url: u };
+  } else {
+    const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
+    if (!cwd || !path.isAbsolute(cwd) || !existsSync(cwd)) return { ok: false, message: "Your session's folder is not known here, so a file cannot be checked. Serve the page on 127.0.0.1 and pass url instead." };
+    const root0 = repoOf(cwd);
+    if (!root0) return { ok: false, message: "Your session's folder is not in a git repo. The Mockups trail shows committed pages; serve the page on 127.0.0.1 and pass url instead." };
+    const raw = String(ask.path).trim();
+    if (raw.length > 1000 || raw.startsWith('\\\\') || raw.startsWith('//')) return { ok: false, message: 'path must be a file in your repo.' };
+    let file = '', root = '';
+    try {
+      file = realpathSync.native(path.resolve(cwd, raw));
+      root = realpathSync.native(root0);
+      if (!statSync(file).isFile()) throw new Error('not a file');
+    } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
+    if (!inside(file, root)) return { ok: false, message: 'path must be inside your own repo.' };
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    if (!/\.html?$/i.test(rel)) return { ok: false, message: 'path must be an .html page.' };
+    if (rel.length > 400 || rel.split('/').some((s) => !s || s.startsWith('.'))) return { ok: false, message: 'That file is in a hidden folder (or its path is too long), so it is not shown.' };
+    if (root.length > 400) return { ok: false, message: 'Your repo folder path is too long.' };
+    const home = (() => { try { return realpathSync.native(homeRepo); } catch { return path.resolve(homeRepo); } })();
+    const isHome = same(root, home);
+    if (isHome && !MOCK_DIRS.some((d) => rel.startsWith(d))) return { ok: false, message: 'In AangApp, mockups live under docs/, src/Shell/pages/ or assets/.' };
+    const there = await git(root, ['cat-file', '-e', `HEAD:${rel}`]);
+    if (!there.ok) return { ok: false, message: `${rel} is not committed yet. The Mockups trail shows each version as committed (that is how he gets V1, V2...): commit it, then call show_mockup again.` };
+    const dirty = (await git(root, ['status', '--porcelain', '--', rel])).out;
+    body = isHome ? { path: rel } : { repo: root, path: rel };
+    const r = write(stateDir, body, title, branch);
+    if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
+    return { ok: true, file: r, message: `Showing ${rel} in Samara's Mockups trail${branch ? ` (branch ${branch})` : ''}.${dirty ? ' It has changes that are not committed: he sees it as last committed, so commit and call again to show the new version.' : ''}${branchNote}` };
+  }
+  const r = write(stateDir, body, title, branch);
+  if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
+  return { ok: true, file: r, message: `Showing ${body.url} in Samara's Mockups trail${branch ? ` (branch ${branch})` : ''}.${branchNote}` };
+}
+
+/** The .mockup file, written under another name first and then renamed, so the Shell never reads half of one. */
+function write(stateDir: string, body: Record<string, string>, title: string, branch: string | null): string | null {
+  try {
+    const dir = path.join(stateDir, 'open-urls');
+    mkdirSync(dir, { recursive: true });
+    const name = `${Date.now()}-${process.pid}-${randomBytes(3).toString('hex')}.mockup`;
+    const json = JSON.stringify({ ...body, ...(title ? { title } : {}), ...(branch ? { branch } : {}) });
+    if (Buffer.byteLength(json) > 4096) return null;
+    const tmp = path.join(dir, name + '.tmp');
+    writeFileSync(tmp, json);
+    renameSync(tmp, path.join(dir, name));
+    return path.join(dir, name);
+  } catch { return null; }
+}

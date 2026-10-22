@@ -64,7 +64,7 @@ const WORDS = (t) => { const tag = 'page_words_' + randomBytes(4).toString('hex'
 const PAGE = { type: 'integer' };
 const TASK = { type: 'string', description: 'two to four words naming what you are doing' };
 const TOOLS = [
-  { name: 'browser_plan', description: "Start here. Before using Samara, say what you will do: Joshua sees it (inside Claude, or in Aang's bubble) and can untick sites or ask for a change. task: 2-4 words; sites: every site you will open; steps: short plain steps; wont: what you will NOT do (apply, send, buy, sign in anywhere new). If he asks for a change you get his note: make a new plan and send it again. The same plan he allowed before goes without asking. While working, call it with now: <step number from 1> to move his live checklist on, and done: true at the end.",
+  { name: 'browser_plan', description: "Start here. Before using Samara, say what you will do: Joshua sees it (inside Claude, or in Aang's bubble) and can untick sites or ask for a change. task: 2-4 words; sites: every site you will open; steps: short plain steps; wont: what you will NOT do (apply, send, buy, sign in anywhere new). If he asks for a change you get his note: make a new plan and send it again. The same plan he allowed before goes without asking, and so does a plan that only opens or looks at pages on this computer (127.0.0.1, localhost): those also show in his Mockups trail. While working, call it with now: <step number from 1> to move his live checklist on, and done: true at the end.",
     inputSchema: { type: 'object', properties: { task: TASK, sites: { type: 'array', items: { type: 'string' } }, steps: { type: 'array', items: { type: 'string' } }, wont: { type: 'string' }, now: { type: 'integer' }, done: { type: 'boolean' } } } },
   { name: 'browser_extract', description: "A fixed reader for what a page holds beyond its words. kind: details (facts hidden for search engines: job pay, remote, posted date, prices, event dates), tables (clean rows), images (picture and chart labels), links (where links really go; which leave the site). Cheaper than a picture.",
     inputSchema: { type: 'object', properties: { page: PAGE, kind: { type: 'string', enum: ['details', 'tables', 'images', 'links'] } }, required: ['page', 'kind'] } },
@@ -311,7 +311,8 @@ async function plan(a) {
     return r.ok ? text(a.done === true ? 'Marked done.' : `On step ${Number(a.now)}: ${r.step ?? ''}`) : text('This session has no plan to tick.', true);
   }
   if (job !== null) return text('This session already started. The plan can only be shown before the first page; finish it and start a new session to change it.', true);
-  const body = { task: String(a.task ?? ''), sites: Array.isArray(a.sites) ? a.sites.map(String) : [], steps: Array.isArray(a.steps) ? a.steps.map(String) : [], wont: String(a.wont ?? '') };
+  // from (2026-10-22): this session's folder name, for the card's kicker (CLAUDE · WAYMARK). Claude Code starts this connector in the session's folder.
+  const body = { task: String(a.task ?? ''), sites: Array.isArray(a.sites) ? a.sites.map(String) : [], steps: Array.isArray(a.steps) ? a.steps.map(String) : [], wont: String(a.wont ?? ''), from: path.basename(process.cwd()) };
   let r = await step('plan', { ...body, elicit: canElicit });
   if (r.needs === 'elicit') {
     const decided = await elicit(r.plan);
@@ -320,6 +321,8 @@ async function plan(a) {
   if (r.change) return text(`Joshua wants a change: "${r.note}". He kept: ${(r.keep || []).join(', ') || 'no sites'}. Make a new plan with that and call browser_plan again.`);
   if (!r.ok) return text(r.error || 'The plan was not allowed.', true);
   job = r.job; jobName = body.task.slice(0, 30);
+  // Pages on this computer, only looked at (2026-10-22): no card, and he sees them in Samara's Mockups trail.
+  if (r.local) return text(`Pages on this computer need no plan card: go.${r.shown ? ` Joshua can already see ${r.shown === 1 ? 'the page' : `${r.shown} pages`} in Samara's Mockups trail.` : ''} Each local page you open with browser_open also shows in his Mockups trail. To show him a mockup or design page, show_mockup is the direct way.`);
   const out = (r.login || []), rest = (r.sites || []).filter((s) => !out.includes(s)), dropped = body.sites.filter((s) => !(r.sites || []).some((k) => s.includes(k) || k.includes(s)));
   return text(`${r.same ? 'Same plan as one he allowed before: go.' : 'Joshua allowed the plan.'}${out.length ? ` Signed in as him on: ${out.join(', ')}.` : ''}${rest.length ? ` Logged out on: ${rest.join(', ')}.` : ''}${dropped.length ? ` He unticked (never opened): ${dropped.join(', ')}.` : ''} Open pages with browser_open (same task). Tick his live checklist with browser_plan now: <step>.`);
 }

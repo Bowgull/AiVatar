@@ -264,6 +264,20 @@ body.maxed .wk .g-rest{display:inline}
 .hnd button:active{transform:translateX(1px)}
 .hnd .n{position:absolute;left:0;right:2px;bottom:24px;text-align:center;font:400 10px var(--label);color:var(--gold-lit)}
 body.drawer-open .hnd button,body.tray-open .hnd button{filter:brightness(1.25)}
+/* A mockup arrived (2026-10-22, browser.js mockArrived): only the arrow breathes. handle3-arrow.png is the handle's own
+   arrow pixels cut out on the same 16 x 64 canvas, laid exactly over it; each breath brightens it and grows it to 1.08
+   round the arrow's centre (17, 64), on Samara's ease, 1.6 s, four times. Reduced motion: a still gold pixel dot instead. */
+.hnd button::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;background:url(art/browser/handle3-arrow.png) no-repeat 0 0/32px 128px;image-rendering:pixelated;transform-origin:17px 64px}
+.hnd button.breathe::after{animation:hbreathe 1.6s cubic-bezier(.32,.72,0,1) 4}
+@keyframes hbreathe{0%,100%{opacity:0;transform:scale(1);filter:none}50%{opacity:1;transform:scale(1.08);filter:brightness(1.4) drop-shadow(0 0 3px rgba(255,214,120,.75))}}
+@media (prefers-reduced-motion:reduce){
+  .hnd button.breathe::after{animation:none;opacity:0}
+  .hnd button.breathe::before{content:"";position:absolute;left:12px;top:26px;width:6px;height:6px;background:#FFC43C;box-shadow:0 0 0 2px #120A05;pointer-events:none}
+}
+/* ...and in the drawer, the new mockup's row glows gold twice when he opens it. */
+.tp.mfresh{animation:mfresh 1.6s cubic-bezier(.32,.72,0,1) 2}
+@keyframes mfresh{50%{box-shadow:0 0 0 2px #FFC43C,0 0 12px rgba(255,196,60,.6)}}
+@media (prefers-reduced-motion:reduce){.tp.mfresh{animation:none;box-shadow:0 0 0 2px #FFC43C}}
 /* The tray layer (?tray): only the list, on a see-through page, laid over the live page by the Shell. */
 html.solo,html.solo body{background:transparent !important}
 html.solo .bw{background:none;border:0;box-shadow:none;border-radius:0;height:100%}

@@ -247,6 +247,9 @@ export class JobTracker {
 
   private id(): string { return `${Date.now().toString(36)}-${(++this.seq).toString(36)}-${randomBytes(4).toString('hex')}`; }
 
+  /** The folder a session told the brain it runs in ('' when unknown), for show_mockup (2026-10-22). */
+  cwdOf(session: string): string { return (session && this.jobs.get(session)?.cwd) || ''; }
+
   private job(session: string, now: number, cwd = ''): Job {
     let j = this.jobs.get(session);
     if (!j) {
@@ -291,6 +294,13 @@ export class JobTracker {
     return c;
   }
   private act(session: string, now = Date.now()): ActivityKeeper { let a = this.acts.get(session); if (!a) { a = new ActivityKeeper(this.ctx(session), now); this.acts.set(session, a); } return a; }
+
+  /** A helper is at work, so the job is too, even after its turn ended (2026-10-22). Paused stays paused. */
+  private wake(j: Job, session: string, t: number): void {
+    if (j.phase !== 'idle') return;
+    if (this.act(session, t).liveAgents(t) === 0) return;
+    j.phase = 'working'; j.finished = false; this.clock(session).go(t);
+  }
 
   private forget(session: string): void {
     this.jobs.delete(session); this.held.delete(session); this.outbox.delete(session);
@@ -349,9 +359,14 @@ export class JobTracker {
         break;
       case 'turn.end': {
         urgent = true;
-        j.phase = ev?.aborted === true && j.phase === 'paused' ? 'paused' : 'idle';
+        const act0 = this.act(session, t);
+        act0.turnOn = false;
+        // 2026-10-22, his report ("now is saying nothing is working"): a turn can end while background helpers it
+        // started are still at work. The job is still working until the last of them ends (agent.end, below).
+        const helpers = ev?.aborted !== true && act0.liveAgents(t) > 0;
+        j.phase = ev?.aborted === true && j.phase === 'paused' ? 'paused' : helpers ? 'working' : 'idle';
         // A one-step turn (no to-do list) that ended on its own is complete: its bar fills (2026-10-21).
-        j.finished = ev?.aborted !== true && ev?.reason !== 'error' && !j.tasks.length;
+        j.finished = !helpers && ev?.aborted !== true && ev?.reason !== 'error' && !j.tasks.length;
         // v3: a turn that ended in an error shows red until the next one.
         j.failed = ev?.reason === 'error';
         const clock = this.clock(session);
@@ -364,7 +379,7 @@ export class JobTracker {
           if (ms >= 5000) this.hist.add({ at: t, src: 'turn', p: j.project, key: 'turn', ms, ok: ev?.aborted !== true && ev?.reason !== 'error' });
           this.turnW.delete(session);
         }
-        clock.stop(t);
+        if (!helpers) clock.stop(t);
         this.act(session, t).clearTools(t);
         const u = ev?.usage;
         if (u && typeof u === 'object') j.usage = {
@@ -386,7 +401,9 @@ export class JobTracker {
       case 'snapshot': {
         urgent = true;
         const clock = this.clock(session), act = this.act(session, t);
-        if (ev?.phase === 'working') { j.phase = 'working'; j.finished = false; clock.go(t); }
+        act.turnOn = ev?.phase === 'working';
+        const helping = Array.isArray(ev?.agents) && ev.agents.length > 0;
+        if (ev?.phase === 'working' || helping) { j.phase = 'working'; j.finished = false; clock.go(t); }
         else if (j.phase !== 'paused') { j.phase = 'idle'; clock.stop(t); }
         act.alive(t);
         if (Array.isArray(ev?.todos)) this.setTasks(j, ev.todos, t);
@@ -399,18 +416,20 @@ export class JobTracker {
       }
       // Claude began writing its reply, thinking, or a tool call's arguments (2026-10-21): the live line says so.
       case 'step':
+        this.act(session, t).turnOn = true;        // only the main loop's steps are sent: a turn is running
         if (j.phase === 'idle') j.phase = 'working';
         this.clock(session).go(t);
         this.act(session, t).step(cut(ev?.what, 20), cut(ev?.tool, 120), t);
         break;
       // v3 heartbeats: the model still streaming (at most every 2 s), or a helper agent streaming.
-      case 'alive': this.act(session, t).beat(t, cut(ev?.agent, 100)); break;
+      case 'alive': this.act(session, t).beat(t, cut(ev?.agent, 100)); if (ev?.agent) this.wake(j, session, t); break;
       // A helper agent's own tool call: its heartbeat, and one more in "14 tool calls".
-      case 'agent.tool': this.act(session, t).agentTool(cut(ev?.id, 100), t); break;
+      case 'agent.tool': this.act(session, t).agentTool(cut(ev?.id, 100), t); this.wake(j, session, t); break;
       case 'ask': this.ask(j, ev, t); break;
       // The live description (2026-10-21): tools and helper agents as they start and end. A tool starting also means
       // the session is at work, even if the brain missed the turn's start (it restarted mid-turn).
       case 'tool.start':
+        this.act(session, t).turnOn = true;        // the main loop's tools only: a turn is running
         if (j.phase === 'idle') j.phase = 'working';
         this.clock(session).go(t);
         this.act(session, t).toolStart(cut(ev?.id, 100), cut(ev?.tool, 120), readDetail(ev?.detail), t);
@@ -421,8 +440,15 @@ export class JobTracker {
         if (fam === 'Pushing to GitHub' && ev?.ok !== false) this.ci?.pushed(j.cwd);
         break;
       }
-      case 'agent.start': this.act(session, t).agentStart(cut(ev?.id, 100), cut(ev?.kind, 60), cut(ev?.what, 200), t, ev?.bg !== true); break;
-      case 'agent.end': this.act(session, t).agentEnd(cut(ev?.id, 100), t, ev?.ok !== false); break;
+      case 'agent.start': urgent = true; this.act(session, t).agentStart(cut(ev?.id, 100), cut(ev?.kind, 60), cut(ev?.what, 200), t, ev?.bg !== true); this.wake(j, session, t); break;
+      case 'agent.end': {
+        urgent = true;
+        const act = this.act(session, t);
+        act.agentEnd(cut(ev?.id, 100), t, ev?.ok !== false);
+        // The last background helper of a finished turn just ended: now the job is really idle.
+        if (j.phase === 'working' && !act.turnOn && act.liveAgents(t) === 0) { j.phase = 'idle'; this.clock(session).stop(t); }
+        break;
+      }
       // A helper agent's own to-do list, as counts only (2026-10-21, sheet 58 C): its row's bar under the job.
       case 'agent.todos': this.act(session, t).agentTodos(cut(ev?.id, 100), Number(ev?.done), Number(ev?.total), t); break;
       // Compaction: a known pause, "Tidying its memory", left out of working time.
@@ -836,6 +862,11 @@ export class LinkDoor {
   private readonly key: string;
   readonly tracker: JobTracker;
   private readonly ignoreCwd: () => string;
+  /**
+   * show_mockup (2026-10-22): a session asks for a page to be shown in Samara's Mockups trail. Set by core.ts
+   * (mockupdrop.ts dropMockup); its answer goes straight back to the tool call. Null: the door says no.
+   */
+  onMockup: ((ask: { cwd: string; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }) => Promise<{ ok: boolean; message: string }>) | null = null;
   constructor(key: string, tracker: JobTracker, ignoreCwd: () => string = () => '') { this.key = key; this.tracker = tracker; this.ignoreCwd = ignoreCwd; }
 
   private signed(req: http.IncomingMessage, url: string, body: string, now: number): boolean {
@@ -876,6 +907,18 @@ export class LinkDoor {
               for (const one of ev.events.slice(0, 200)) if (one && typeof one === 'object') this.tracker.event({ ...one, session: ev.session, cwd: ev.cwd }, rx);
             } else this.tracker.event(ev, rx);
           } catch { /* already answered; a malformed event is simply dropped */ }
+          return;
+        }
+        // show_mockup (2026-10-22): signed like everything here; the answer is the tool's result. The folder is the one
+        // this session told the brain when it started, when the brain knows it (else the one in the request).
+        if (req.method === 'POST' && q.pathname === '/link/mockup') {
+          const ev = JSON.parse(body) as Record<string, unknown>;
+          if (this.ignoreCwd() && String(ev?.cwd ?? '') === this.ignoreCwd()) { json(403, { ok: false, message: 'not for this session' }); return; }
+          if (!this.onMockup) { json(200, { ok: false, message: "Samara's Mockups trail is not on here." }); return; }
+          const sid = String(ev?.session ?? '').slice(0, 100);
+          const cwd = this.tracker.cwdOf(sid) || String(ev?.cwd ?? '');
+          void this.onMockup({ cwd, path: ev?.path, url: ev?.url, title: ev?.title, branch: ev?.branch })
+            .then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 600) }), () => json(200, { ok: false, message: 'The brain could not hand it over.' }));
           return;
         }
         if (req.method === 'GET' && q.pathname === '/link/wait' && nonceOk && session) {

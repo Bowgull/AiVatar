@@ -137,3 +137,33 @@ test('door: shut when the brain has no key', async () => {
   try { assert.equal((await call('GET', `/link/hello?n=${NONCE}`)).code, 403); }
   finally { await s.stop(); }
 });
+
+test('tracker: a turn that ends with background helpers still running stays working until the last one ends (2026-10-22)', () => {
+  const t = new JobTracker();
+  const now = Date.now();
+  t.event({ session: 'b1', type: 'turn.start', cwd: 'C:\code\Aang', prompt: 'mockups' }, now);
+  t.event({ session: 'b1', type: 'agent.start', id: 'a1', kind: 'general-purpose', what: 'Mockups', bg: true }, now + 1000);
+  t.event({ session: 'b1', type: 'agent.start', id: 'a2', kind: 'general-purpose', what: 'Research', bg: true }, now + 1100);
+  t.event({ session: 'b1', type: 'turn.end', aborted: false }, now + 2000);
+  let [j] = t.list(now + 2000);
+  assert.equal(j!.phase, 'working', 'helpers still at work');
+  assert.equal(j!.finished, false);
+  assert.equal(j!.activity.now, 'Helpers still at work');
+  t.event({ session: 'b1', type: 'agent.end', id: 'a1', ok: true }, now + 60_000);
+  [j] = t.list(now + 60_000);
+  assert.equal(j!.phase, 'working', 'one helper left');
+  t.event({ session: 'b1', type: 'agent.end', id: 'a2', ok: true }, now + 90_000);
+  [j] = t.list(now + 90_000);
+  assert.equal(j!.phase, 'idle', 'the last helper ended');
+  // A new turn and an end with no helpers: idle at once, as before.
+  t.event({ session: 'b1', type: 'turn.start' }, now + 100_000);
+  t.event({ session: 'b1', type: 'turn.end' }, now + 101_000);
+  [j] = t.list(now + 101_000);
+  assert.equal(j!.phase, 'idle');
+  // A brain meeting the session fresh: a snapshot with a background helper and no turn is working.
+  const t2 = new JobTracker();
+  t2.event({ session: 'b2', type: 'snapshot', phase: 'idle', agents: [{ id: 'x', kind: 'Explore', what: 'look', bg: true }] }, now);
+  assert.equal(t2.list(now)[0]!.phase, 'working');
+  t2.event({ session: 'b2', type: 'agent.end', id: 'x' }, now + 5000);
+  assert.equal(t2.list(now + 5000)[0]!.phase, 'idle');
+});

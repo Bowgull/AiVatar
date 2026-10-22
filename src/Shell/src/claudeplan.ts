@@ -10,17 +10,40 @@ import { writeFileAtomic } from './atomic.ts';
 import { siteKey } from './siterules.ts';
 import type { AangBrowser } from './browser.ts';
 
-export interface PlanAsk { task: string; sites: string[]; steps: string[]; wont: string }
+export interface PlanAsk { task: string; sites: string[]; steps: string[]; wont: string; /** 2026-10-22: the session's folder name (WAYMARK), for the card's kicker */ from: string }
 interface Allowed { task: string; sites: string[]; at: number }
+
+// ------------------------------------------------------------------ pages on this computer (2026-10-22)
+// His screenshot: a Waymark session asked him, on the plan card, to "Show Waymark motion" (a 127.0.0.1 page), with a
+// SITES list of one address that is this PC. Pages on this computer hold nothing of his to protect, so a plan whose
+// sites are all this PC and whose steps only open or look at pages is not a question: it starts at once, no card, and
+// the pages open where he sees them, in Samara's Mockups trail (claudedoor.ts). Any other plan still asks.
+
+/** The one key every address on this computer is kept under (localhost has no dot, so siteKey alone would drop it). */
+export const LOCAL_SITE = '127.0.0.1';
+/** Is this site (an address, or a bare host with or without a port) this computer? */
+export function localSite(x: string): boolean {
+  let host = String(x ?? '').trim().toLowerCase();
+  try { if (/^[a-z]+:\/\//.test(host)) host = new URL(host).hostname; else host = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.split(/[/:?#]/)[0]!; } catch { return false; }
+  return host === 'localhost' || host === '::1' || host === '[::1]' || /^127(\.\d{1,3}){3}$/.test(host);
+}
+/** A step that only opens or looks at something ("Open the Waymark motion recording page", "Take a picture of it"). */
+const VIEW_STEP = /^(open|show|look|view|see|watch|load|preview|review|check|display|play|take a (picture|screenshot)|screenshot|capture|scroll|read)\b/i;
+const ACT_WORD = /\b(click|press|type|fill|enter|submit|send|post|sign|log ?in|upload|delete|buy|pay|drag|select|apply|install)\b/i;
+export const viewOnlyStep = (s: string): boolean => VIEW_STEP.test(s.trim()) && !ACT_WORD.test(s);
+/** A plan that only shows him pages on this computer: no card. */
+export const showOnlyPlan = (p: PlanAsk): boolean => p.sites.every((s) => s === LOCAL_SITE) && p.steps.every(viewOnlyStep);
 
 /** The plan as sent, cleaned: plain words, a dozen sites and steps at most, every site a real web address. */
 export function cleanPlan(a: Record<string, unknown>): PlanAsk | null {
   const task = String(a.task ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
-  const sites = [...new Set((Array.isArray(a.sites) ? a.sites : []).map((x) => siteKey(String(x))).filter(Boolean))].slice(0, 12);
+  const sites = [...new Set((Array.isArray(a.sites) ? a.sites : []).map((x) => (localSite(String(x)) ? LOCAL_SITE : siteKey(String(x)))).filter(Boolean))].slice(0, 12);
   const steps = (Array.isArray(a.steps) ? a.steps : []).map((x) => String(x).replace(/\s+/g, ' ').trim().slice(0, 120)).filter(Boolean).slice(0, 12);
   const wont = String(a.wont ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  // The session's folder name (sent by claude-door-mcp.mjs): plain letters only, short; '' when there is none.
+  const from = String(a.from ?? '').replace(/[^A-Za-z0-9 ._-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 30);
   if (!task || !sites.length || !steps.length) return null;
-  return { task, sites, steps, wont };
+  return { task, sites, steps, wont, from };
 }
 
 /** Plans he allowed, kept so the same plan never asks twice (his "ask once, remember" rule). */
@@ -89,6 +112,8 @@ export async function runPlan(b: AangBrowser, mem: PlanMemory, p: PlanAsk, o: { 
     return { ...out, ...(same ? { same: true } : {}), sites: keep, login: keep.filter(login) };
   };
   if (mem.known(p)) return start(p.sites, null, true);
+  // Pages on this computer, only looked at (2026-10-22): nothing to ask.
+  if (showOnlyPlan(p)) return { ...(await start(p.sites, null, false)), local: true };
   // His answer from the form inside Claude: only for the plan that form showed, within ten minutes.
   if (o.decided) {
     const at = o.pending.get(key);
@@ -105,7 +130,8 @@ export async function runPlan(b: AangBrowser, mem: PlanMemory, p: PlanAsk, o: { 
     o.pending.set(key, Date.now());
     return { ok: false, needs: 'elicit', plan: p };
   }
-  const a = await b.askPlan({ task: p.task, sites: p.sites.map((site) => ({ site, login: login(site), favicon: b.planIcon(site) })), steps: p.steps, wont: p.wont });
+  // A site on this computer travels marked local: the card leaves it out (his "sites, do I need this?", 2026-10-22).
+  const a = await b.askPlan({ task: p.task, from: p.from, sites: p.sites.map((site) => ({ site, login: login(site), favicon: b.planIcon(site), ...(site === LOCAL_SITE ? { local: true } : {}) })), steps: p.steps, wont: p.wont });
   if (!a) return { ok: false, error: "Joshua wasn't there to answer the plan. Ask him in chat, then send it again." };
   if (a.change) return { ok: false, change: true, note: a.note, keep: a.keep };
   if (!a.go || !a.keep.length) return { ok: false, error: 'Joshua said not now.' };

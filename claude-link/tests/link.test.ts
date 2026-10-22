@@ -2,7 +2,7 @@
 // behaves exactly as without the mod). The brain is played by the test's own http.fetch hook.
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, agentListOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
+import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_FULL, mockupArgs, OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, agentListOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
 
 const KEY = 'test-key-for-aang-link-0123456789abcdefghij'
@@ -41,6 +41,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
   const seen: string[] = []
   const events: Record<string, unknown>[] = []
   const posts: Record<string, unknown>[] = []
+  const mockups: { body: Record<string, unknown>; signed: boolean }[] = []
   let inbox = opts.inbox
   mock.env(on, { USERPROFILE: 'C:\\Users\\T' })
   const clock = mock.clock(on)
@@ -90,6 +91,13 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
       if (opts.hold) await opts.hold()
       return { value: { status: 204, ok: true, headers: {}, text: '' } }
     }
+    // show_mockup (2026-10-22): kept with whether its signature is right; answered like the brain does.
+    if (u.pathname === '/link/mockup') {
+      const body = e.init?.body ?? ''
+      const h = (e.init as { headers?: Record<string, string> } | undefined)?.headers ?? {}
+      mockups.push({ body: JSON.parse(body), signed: h['x-aang-link-sig'] === await hmacHex(opts.key ?? KEY, 'req', h['x-aang-link-ts'] ?? '', 'POST', '/link/mockup', body) })
+      return reply({ ok: true, message: 'Showing docs/motion.html in the Mockups trail.' })
+    }
     if (u.pathname === '/link/wait' && opts.resync) {
       opts.resync = false
       return reply({ items: [{ id: 'r1', kind: 'resync', body: '{}', mac: await hmacHex(KEY, n, SESSION, 'r1', 'resync', '{}') }] })
@@ -105,7 +113,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     }
     return reply({ items: [] })
   }
-  return { seen, clock, events, posts, quiet, until, count, registered }
+  return { seen, clock, events, posts, quiet, until, count, registered, mockups }
 }
 
 const start = { cwd: 'C:\\code\\Waymark', surface: null, isInteractive: true } as const
@@ -402,9 +410,11 @@ test('no built-in to-do tool: the mod registers its own progress tool, the promp
   on('prompt.compose', () => SECTIONS)
   await $.session.start(start)
   await quiet()
-  expect(registered).toHaveLength(1)
-  expect(registered[0]).toMatchObject({ name: OWN_TOOL, isDeferred: false })
-  expect(String(registered[0]!.description)).toMatch(/start of any task with more than one step/)
+  // (2026-10-22: show_mockup is registered too, in every session; the progress tool is the one asked about here.)
+  const own = registered.filter(r => r.name === OWN_TOOL)
+  expect(own).toHaveLength(1)
+  expect(own[0]).toMatchObject({ name: OWN_TOOL, isDeferred: false })
+  expect(String(own[0]!.description)).toMatch(/start of any task with more than one step/)
   const r = await $.prompt.compose({ ...COMPOSE, tools: ['Bash', OWN_TOOL_FULL] })
   const last = r.sections[r.sections.length - 1]!
   expect(last).toEqual({ id: TODO_SECTION_ID, text: OWN_TOOL_SECTION + ' ' + PLAN_SENTENCE, scope: 'session' })
@@ -423,9 +433,10 @@ test('a session with TodoWrite gets no second to-do tool: the progress tool is o
   on('prompt.compose', () => SECTIONS)
   await $.session.start(start)
   await quiet()
-  expect(registered).toHaveLength(1)
-  expect(registered[0]).toMatchObject({ name: OWN_TOOL, description: OWN_TOOL_PLAN_DESC })
-  expect(JSON.stringify(registered[0]!.inputSchema)).not.toContain('"tasks"')
+  const own = registered.filter(r => r.name === OWN_TOOL)
+  expect(own).toHaveLength(1)
+  expect(own[0]).toMatchObject({ name: OWN_TOOL, description: OWN_TOOL_PLAN_DESC })
+  expect(JSON.stringify(own[0]!.inputSchema)).not.toContain('"tasks"')
   // The prompt asks for the plan once the tool is there, after the to-do paragraph.
   const r = await $.prompt.compose({ ...COMPOSE, tools: ['Bash', 'TodoWrite', OWN_TOOL_FULL] })
   expect(r.sections[r.sections.length - 1]).toEqual({ id: TODO_SECTION_ID, text: TODO_SECTION + ' ' + PLAN_SENTENCE, scope: 'session' })
@@ -600,4 +611,44 @@ test('v3: the phase plan goes through the progress tool, masked and cut, and rid
   await clock.advance(6000)
   await until(() => count('snapshot') >= 2)
   expect([...events].reverse().find(ev => ev.type === 'snapshot')).toMatchObject({ plan: [{ label: 'Phase 1: the engine' }, {}, { label: 'Phase 3: polish' }] })
+})
+
+test('show_mockup (2026-10-22): registered in every session, one prompt line, the call checked then sent signed to the brain, its answer the result', async ($, on) => {
+  const { quiet, registered, mockups, seen } = brain(on, { tools: ['Bash', 'TodoWrite'] })
+  on('prompt.compose', () => SECTIONS)
+  await $.session.start(start)
+  await quiet()
+  expect(registered.filter(r => r.name === MOCKUP_TOOL)).toHaveLength(1)
+  // The prompt line, where the tool is offered: show_mockup, and never asking leave to open local pages.
+  const r = await $.prompt.compose({ ...COMPOSE, tools: ['Bash', 'TodoWrite', MOCKUP_TOOL_FULL] })
+  expect(r.sections.find(s => s.id === MOCKUP_SECTION_ID)).toEqual({ id: MOCKUP_SECTION_ID, text: MOCKUP_SECTION, scope: 'session' })
+  expect(MOCKUP_SECTION).toMatch(/call show_mockup/)
+  expect(MOCKUP_SECTION).toMatch(/Never ask permission to open local mockup pages/)
+  const none = await $.prompt.compose({ ...COMPOSE, tools: ['Bash'] })
+  expect(none.sections.some(s => s.id === MOCKUP_SECTION_ID)).toBe(false)
+  // Checked here first: one of path or url, a url on this computer only. Nothing goes to the brain for a bad call.
+  expect(mockupArgs({}).ok).toBe(false)
+  expect(mockupArgs({ path: 'a.html', url: 'http://127.0.0.1:1/' }).ok).toBe(false)
+  for (const url of ['https://example.com/', 'http://127.0.0.1.evil.example/', 'http://u:p@localhost/', 'file:///C:/x.html']) expect(mockupArgs({ url }).ok).toBe(false)
+  const bad = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'https://example.com/x' } as never)
+  expect(bad).toMatchObject({ isError: true })
+  expect(mockups).toHaveLength(0)
+  // A good one: signed with the key, the session and its folder with it, the title cut, the brain's words back.
+  const ok = await $.tool.call({ tool: MOCKUP_TOOL_FULL, path: 'docs/motion.html', title: 'Waymark motion ' + 'x'.repeat(200), branch: 'Waymark' } as never)
+  expect(ok).toMatchObject({ result: 'Showing docs/motion.html in the Mockups trail.' })
+  expect(mockups).toHaveLength(1)
+  expect(mockups[0]!.signed).toBe(true)
+  expect(mockups[0]!.body).toMatchObject({ session: SESSION, cwd: start.cwd, path: 'docs/motion.html', branch: 'Waymark' })
+  expect(String(mockups[0]!.body.title).length).toBe(80)
+  expect(seen.filter(p => p === '/link/mockup')).toHaveLength(1)
+})
+
+test('show_mockup with Aang down says so and sends nothing', async ($, on) => {
+  const { quiet, mockups } = brain(on, { tools: ['Bash'], down: true })
+  await $.session.start(start)
+  await quiet()
+  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'http://127.0.0.1:5173/rec' } as never)
+  expect(r).toMatchObject({ isError: true })
+  expect(String((r as { result: unknown }).result)).toMatch(/not running/)
+  expect(mockups).toHaveLength(0)
 })

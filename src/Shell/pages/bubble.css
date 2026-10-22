@@ -581,21 +581,30 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .lt-meter u{width:6px;height:9px;background:#3a2a1a;border:1px solid #7a5a3a;text-decoration:none}
 .lt-meter u.on{background:#78c88a} .lt-meter u.on.hot{background:var(--orange)}
 /* Sheet 37: a Claude session's plan on the Lantern's wood */
+/* Sheet 37's plan card, 2026-10-22: on the speech bubble's own parchment (sheet 53 look B, inside the S2 rim), not the
+   Lantern's wood. Samara's icon, the Styled roles (the kicker in the pixel label, the task as the bold question), the
+   slips on the paper. The tick is a pixel check (one 2 px pixel per cell of a 7 x 7 grid, crisp edges) filling the box's
+   14 px inside exactly, its marks spanning columns 0-6 and rows 1-5, so it sits dead centre: the old rotated border sat
+   off to the left and up (his "the tick mark is also off"). */
 .samaraplan[hidden]{display:none}
-.samaraplan .pc-top{display:flex;align-items:center;gap:10px;margin:0 0 10px}
-.samaraplan .pc-top img{width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,190,90,.85)) drop-shadow(0 0 14px rgba(255,140,40,.45))}
-.samaraplan .pc-top small{display:block;font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
-.samaraplan .pc-top b{display:block;font:700 22px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+.samaraplan .pc-top{display:flex;align-items:center;gap:11px;margin:0 0 10px}
+.samaraplan .pc-top img{width:32px;height:32px;flex:none;image-rendering:pixelated;filter:drop-shadow(0 2px 0 rgba(60,30,8,.28))}
+.samaraplan .pc-kick{display:block;margin:0 0 3px;font:400 8px/16px Silkscreen,monospace;letter-spacing:1.5px;color:#8a3e1c;text-transform:uppercase}
+.samaraplan .pc-task{display:block;font:800 17px/1.3 Figtree,sans-serif;color:#1c1208}
+#bubble.lantern .samaraplan .pc-kick{color:var(--gold)}
+#bubble.lantern .samaraplan .pc-task{color:#fbe7bf}
 .samaraplan .lt-tile img{width:20px;height:20px;border-radius:3px}
 .samaraplan .num{font:400 12px var(--label);color:#8a3e1c}
-.samaraplan .tq{flex:none;width:18px;height:18px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;cursor:pointer;padding:0;
-  background:#3FBFAE;box-shadow:0 0 6px rgba(159,240,230,.9),0 0 14px rgba(159,240,230,.45),0 2px 0 rgba(0,0,0,.4)}
-.samaraplan .tq::after{content:"";position:absolute;left:4px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
-.samaraplan .tq.off{background:#cdb78c;box-shadow:0 2px 0 rgba(0,0,0,.4)}.samaraplan .tq.off::after{display:none}
+.samaraplan .tq{flex:none;width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;position:relative}
+/* (The button is the 24 px target every pressable thing gets, cockpit.css; the 18 px box is drawn centred inside it.) */
+.samaraplan .tq::before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border:2px solid #120A05;border-radius:4px;box-sizing:border-box;
+  background:#3FBFAE url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='12' y='2' width='2' height='2'/%3E%3Crect x='10' y='4' width='2' height='2'/%3E%3Crect x='0' y='6' width='2' height='2'/%3E%3Crect x='8' y='6' width='2' height='2'/%3E%3Crect x='2' y='8' width='2' height='2'/%3E%3Crect x='6' y='8' width='2' height='2'/%3E%3Crect x='4' y='10' width='2' height='2'/%3E%3C/svg%3E") 0 0/14px 14px no-repeat;
+  image-rendering:pixelated;box-shadow:0 0 5px rgba(63,191,174,.55),0 2px 0 rgba(60,30,8,.3)}
+.samaraplan .tq.off::before{background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 2px 0 rgba(60,30,8,.2)}
 .samaraplan .lt-item.off .lt-txt{opacity:.5;text-decoration:line-through}
-.samaraplan .wont{display:flex;align-items:center;gap:8px;margin:0 2px 10px;font:600 13px var(--body);color:#f0c9a8}
-.samaraplan .plannote{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:9px 12px;border-radius:8px;border:none;resize:none;outline:none;
-  background:#140b05;color:#ecdcbc;font:500 14px var(--body);box-shadow:inset 0 2px 0 rgba(0,0,0,.7),0 0 0 2px rgba(255,210,120,.25)}
+.samaraplan .wont{display:flex;align-items:center;gap:8px;margin:0 2px 10px;font:500 13.5px/1.45 Figtree,sans-serif;color:#5c4426}
+.samaraplan .plannote{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:9px 12px;border-radius:7px;border:none;resize:none;outline:none;
+  background:#fbf3df;color:#21160a;font:500 14px Figtree,sans-serif;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48}
 .samaraplan .plannote[hidden]{display:none}
 /* burnt orange: the third choice when there are several (his call, 2026-10-14) */
 .key.burnt{background:#C8602A;color:#fff2e4;text-shadow:0 1px 0 rgba(0,0,0,.5);
