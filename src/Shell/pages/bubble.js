@@ -951,14 +951,17 @@ function showAsk(m) {
     const key = exact.querySelector('.exact-key'), text = exact.querySelector('.exact-text');
     key.addEventListener('click', () => {
       text.hidden = !text.hidden;
-      key.textContent = text.hidden ? 'See the exact command' : 'Hide the command';
+      // C6: a Claude job's request folds under its own label ("What I'll send").
+      const lab = key.dataset.label;
+      key.textContent = text.hidden ? (lab || 'See the exact command') : (lab ? 'Fold it away' : 'Hide the command');
       fit(); reportSize();
     });
   }
   exact.hidden = !a.exact;
   exact.querySelector('.exact-text').textContent = a.exact ?? '';
   exact.querySelector('.exact-text').hidden = true;
-  exact.querySelector('.exact-key').textContent = 'See the exact command';
+  exact.querySelector('.exact-key').dataset.label = a.exactLabel ?? '';
+  exact.querySelector('.exact-key').textContent = a.exactLabel ?? 'See the exact command';
 
   asks.replaceChildren();
   for (const k of a.keys) {
@@ -1046,6 +1049,8 @@ function answer(choice) {
     ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
     ...(typeof asking.reminder === 'string' ? { reminder: asking.reminder } : {}),
     ...(asking.t === 'timer.done' ? { label: String(asking.label ?? '') } : {}),
+    // C6: Go carries the hash of the request he is looking at; the brain sends only if it is the card it made.
+    ...(asking.t === 'claude.start' ? { hash: String(asking.hash ?? ''), words: String(asking.words ?? '') } : {}),
   });
   // On Go the plan card stays and becomes the live checklist; the tools that run tick it off.
   if (asking.t === 'plan') { livePlan = choice === 'go' ? { steps: asking.steps, at: 0, ...(asking.samara ? { samara: String(asking.id), task: String(asking.samara.task ?? '') } : {}) } : null; }
@@ -1627,7 +1632,7 @@ function jobsGiveWay() {
 let sessionsOpen = false;
 /** Messages that take the bubble over, and so end the old-sessions card first. Not claude.jobs/claude.wait: those are
  *  state updates that arrive all the time, and ending the card on them would blank it while he reads. */
-const SESSION_ENDERS = new Set(['bubble', 'whisper', 'pet.say', 'permission', 'consent', 'fact.ask', 'backup.ask', 'plan', 'timer.done', 'drop.hover', 'drop.go', 'queued']);
+const SESSION_ENDERS = new Set(['bubble', 'whisper', 'pet.say', 'permission', 'consent', 'fact.ask', 'backup.ask', 'plan', 'claude.start', 'timer.done', 'drop.hover', 'drop.go', 'queued']);
 function markClick(sessions) {
   if (cockpit) return false;
   // The link jobs first: what one waits on, else every running job (the existing jobs view).

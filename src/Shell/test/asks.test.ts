@@ -147,3 +147,17 @@ test('sheet 62: Aang\'s one line after a Send to Aang: two keys, a third (Pin it
   assert.deepEqual(s?.keys.map((k: { choice: string }) => k.choice), ['ask', 'note', 'pin']);
   assert.equal(askFrom({ t: 'send.ask', id: 'send-3' })?.plaque, 'SENT TO AANG');
 });
+
+test('C6: a Claude job card is one plain line, the folder and model, the request folded, and Go / Change / Not now', () => {
+  const text = 'Goal: fix it.\n\nJoshua\'s words: "fix it"';
+  const a = askFrom({ t: 'claude.start', id: 'c1', hash: 'h', words: 'fix it', line: 'Fix in AangApp: fix it', folder: 'C:/Users/J/Documents/AangApp', text, door: 'prefill', model: 'Sonnet 5.5 · medium' });
+  assert.equal(a?.plaque, 'CLAUDE · AANGAPP');
+  assert.equal(a?.question, 'Fix in AangApp: fix it');
+  assert.equal(a?.exact, text, 'exactly what will be sent, folded');
+  assert.equal(a?.exactLabel, 'What I\u2019ll send');
+  assert.match(a!.means!, /You press Enter in Claude/, 'honest until a door is proven');
+  assert.deepEqual(a?.keys.map(k => `${k.label}${k.key}`), ['GoA', 'ChangeS', 'Not nowZ']);
+  const r = askFrom({ t: 'claude.start', id: 'c2', text, folder: 'x', line: 'Continue Waymark grass', door: 'link', resume: { title: 'Waymark grass', running: true } });
+  assert.equal(r?.plaque, 'CLAUDE · WAYMARK GRASS');
+  assert.match(r!.means!, /Goes into that session now/);
+});

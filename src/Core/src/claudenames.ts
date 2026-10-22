@@ -51,6 +51,8 @@ async function recordFiles(root: string): Promise<string[]> {
  */
 export class SessionNames {
   private map = new Map<string, SessionName>();
+  /** C6: when the app last wrote each record, so "pick X back up" tries the newest first. */
+  private ats = new Map<string, number>();
   private readAt = 0;
   private seen = new Map<string, number>();
   private readonly root: string | null;
@@ -63,6 +65,11 @@ export class SessionNames {
     if (!CLI_ID.test(cliId)) return null;
     if (now - this.readAt > this.everyMs || (!this.map.has(cliId) && now - this.readAt > 2_000)) void this.refresh(now);
     return this.map.get(cliId) ?? null;
+  }
+
+  /** C6: every session the app knows by name, newest first (for "pick Waymark back up"). */
+  all(): ({ cli: string; at: number } & SessionName)[] {
+    return [...this.map].map(([cli, n]) => ({ cli, ...n, at: this.ats.get(cli) ?? 0 })).sort((a, b) => b.at - a.at);
   }
 
   /** Reads the records again (one at a time: a second call while one runs waits for that one). Never throws. */
@@ -84,6 +91,7 @@ export class SessionNames {
           if (!LOCAL_ID.test(local) || !CLI_ID.test(cli)) continue;
           const title = String(j?.title ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 80);
           const was = this.map.get(cli);
+          this.ats.set(cli, m);
           if (was?.title === title) continue;
           this.map.set(cli, { title, open: `claude://claude.ai/epitaxy/${local}` });
           changed = true;

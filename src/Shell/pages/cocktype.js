@@ -83,6 +83,8 @@ export function startTyping({ onSize }) {
   window.aang?.onFailed?.((f) => {
     if (!f || typeof f.text !== 'string') return;
     setText(f.text);
+    // C6: words put in the box for him (Start a Claude job), not a failure.
+    if (f.reason === 'prefill') { failRow.hidden = true; onSize(); return; }
     failRow.textContent = '';
     const m = document.createElement('b'); m.textContent = f.reason === 'no-answer' ? 'No answer. Not lost.' : 'Brain is down. Not lost.';
     const how = document.createElement('span'); how.className = 'how'; how.textContent = 'Enter to retry';
