@@ -1,0 +1,77 @@
+/* Sheet 59, the Spotify mini player (2026-10-22). Placing and type only: every surface is a pixel canvas (miniplayer.js).
+   The page's own background is the rim's darkest wood, so whatever Windows' round corner leaves shows as rim, never grey. */
+@font-face{font-family:"VT323";src:url("fonts/notes/VT323.ttf") format("truetype");font-display:block}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#2c1c10;user-select:none;-webkit-user-select:none;cursor:default}
+/* the panel the family measures and, joined, holds at --fam-w x --fam-h: as tall as the layout showing */
+.mp{position:relative;width:424px;overflow:hidden;isolation:isolate}
+.mp canvas{image-rendering:pixelated;display:block}
+.lay{position:relative;width:424px}
+.lay[hidden]{display:none}
+.at{position:absolute;z-index:2}
+.body{position:absolute;left:0;top:0;z-index:0}
+
+/* the label: Spotify's mark where Spotify is named */
+.lab{font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#bfae8a;white-space:nowrap;line-height:10px}
+.lab b{font-weight:400;color:#e9dcc0}
+
+/* the amber screen */
+.lcd{position:absolute;z-index:2;overflow:hidden;font-family:VT323,monospace;color:#ffc43c;text-shadow:0 0 6px rgba(255,170,50,.45);border-radius:10px}
+.lcd .scan{position:absolute;inset:0;background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.18) 2px 4px);pointer-events:none;z-index:3}
+/* readable numbers (his rule after sheet 61): Figtree bold, tabular, never the squashed pixel font */
+.time{position:absolute;font:800 32px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.5px;color:#ffd36a;text-shadow:0 0 7px rgba(255,170,50,.5)}
+.time.big{font-size:40px}
+.pane{position:absolute;overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8px,#000 calc(100% - 14px),transparent 100%)}
+.scroll{position:absolute;left:0;top:0;white-space:nowrap;font-size:22px;line-height:1;will-change:transform}
+.sub{position:absolute;white-space:nowrap;font-size:18px;line-height:1;color:#c98a2e;text-shadow:0 0 5px rgba(201,138,46,.35);overflow:hidden;text-overflow:ellipsis}
+.tags{position:absolute;white-space:nowrap;font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#9a6a26;text-shadow:none}
+.tags i{font-style:normal;color:#ffc43c}
+.tm{font:700 11px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#d8bf8c;letter-spacing:.3px;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+
+/* keys: a soft press (sheet 59 motion 3): sinks 2 px at once, springs back with a little bounce */
+.key{position:absolute;z-index:2;cursor:pointer}
+.key > canvas{position:absolute;left:0;top:0}
+.key > .dn{visibility:hidden}
+.key.down > .up,.key.held > .up{visibility:hidden}
+.key.held > .dn{visibility:visible}
+.key.down > .dn{visibility:visible}
+.key > .up{transition:transform .25s cubic-bezier(.3,1.7,.5,1)}
+.key.release > .up{transform:translateY(2px);transition:none}
+.key.off{cursor:default;filter:saturate(.4) brightness(.7)}
+.key .klab{position:absolute;left:0;right:0;text-align:center;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#3a2a18;pointer-events:none}
+/* the VIS key and the picture say "click me" on hover: a pointer and a one-art-pixel lift with a warm glow */
+.key.vis:hover > div,.pic.click:hover{transform:translateY(-2px);filter:drop-shadow(0 2px 3px rgba(255,190,90,.45))}
+.key.vis:hover > div{transition:transform .12s ease-out}
+.tkey{position:absolute;z-index:2;cursor:pointer;width:28px;height:30px}
+.tkey > canvas{position:absolute;left:0;top:0}
+.tkey:hover{filter:brightness(1.18)}
+.tkey:active{transform:translateY(2px)}
+.tkey.on{filter:drop-shadow(0 0 4px rgba(255,180,90,.7))}
+
+/* the one picture: the cover, the scene cross-fading over it in the same spot (0.4 s) */
+.pic{position:absolute;z-index:2;width:68px;height:68px;transition:transform .12s ease-out}
+.pic canvas{position:absolute;left:0;top:0;width:68px;height:68px}
+.pic .cov{image-rendering:auto}
+.pic .scn{opacity:0;transition:opacity .4s ease}
+.pic.scene .scn{opacity:1}
+.pic.click{cursor:pointer}
+.pager{position:absolute;z-index:2;display:flex;gap:4px;height:6px;align-items:center}
+.pager[hidden]{display:none}
+.pager i{width:4px;height:4px;background:#5a3c22;box-shadow:0 1px 0 rgba(0,0,0,.5);cursor:pointer}
+.pager i.on{background:#ffc43c;box-shadow:0 0 4px rgba(255,180,60,.8)}
+
+/* seek and volume: grab anywhere on the row, the bead follows */
+.grab{position:absolute;z-index:3;cursor:pointer}
+.grab.off{cursor:default}
+.bead{position:absolute;z-index:4;pointer-events:none;transition:filter .15s}
+.bead.settle{transition:left .3s cubic-bezier(.3,1.6,.5,1),filter .15s}
+.grab:hover ~ .bead.seekb,.bead.hot{filter:drop-shadow(0 0 5px rgba(255,196,60,.9))}
+.bead.dim{filter:grayscale(.7) brightness(.7)}
+
+/* the see-through slider, by the pin while the mouse is near it (the job pop-out's idea, lying down) */
+.fade{position:absolute;z-index:3;display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;transition:opacity .15s}
+.fade.show{opacity:1;pointer-events:auto}
+.fade span{font:700 11px Figtree,sans-serif;color:#d8bf8c;font-variant-numeric:tabular-nums}
+
+/* the family's click-through: nothing reacts */
+html.fam-through .key,html.fam-through .tkey,html.fam-through .grab,html.fam-through .pic{cursor:default}

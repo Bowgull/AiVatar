@@ -2,7 +2,7 @@ import './_env.ts';
 // The Spotify mini player's messages (media.ts): the player's buttons are checked strictly, the pet's feed by shape.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MediaState, checkMediaCmd, checkMediaNow } from '../src/media.ts';
+import { MediaState, checkMediaCmd, checkMediaNow, wantsPlayer } from '../src/media.ts';
 
 test('media.cmd: the seven commands pass, rebuilt clean', () => {
   for (const op of ['play', 'pause', 'toggle', 'next', 'prev']) assert.deepEqual(checkMediaCmd({ t: 'media.cmd', op }), { t: 'media.cmd', op });
@@ -47,4 +47,11 @@ test('the latest state keeps the cover for a Shell that connects later', () => {
   assert.deepEqual(s.now(), { t: 'media.now', v: 1, app: null });
   s.take({ t: 'media.now', v: 1, app: 'chrome', title: 'Two' });
   assert.equal(s.now()!.thumb, null);                                                    // the old cover went with the old session
+});
+
+test('"show the music player" and friends open it; "open spotify" and questions do not', () => {
+  for (const s of ['show the music player', 'Show me the music player!', 'open the spotify player', 'hey aang, bring up the mini player', 'mini player', 'music player', 'can you pull up my music controls please', 'open the miniplayer'])
+    assert.equal(wantsPlayer(s), true, s);
+  for (const s of ['open spotify', 'play some music', 'what is the music player?', 'show me my notes', 'put on lofi girl', 'how does the music player work', 'show the music player and also tell me a long story about it'])
+    assert.equal(wantsPlayer(s), false, s);
 });
