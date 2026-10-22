@@ -345,3 +345,6 @@ only T2 passes, Door 2. If neither, fall back to today's prefill + one Enter, ho
 3. **Plan-first jobs:** start on Opus and offer Sonnet for the building part after you OK the plan (saves quota), or
    keep Opus all the way?
 4. **Commit and push by default** in every repo job, or only in AangApp?
+
+## His answers (2026-10-22)
+1. One click on the folder box is fine. 2. Card shows the request folded under "What I'll send". 3. Opus all the way; he changes the model inside the job himself and Aang never overrides it. 4. Commit and push by default in every repo.
