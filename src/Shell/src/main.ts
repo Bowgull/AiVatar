@@ -797,7 +797,7 @@ app.whenReady().then(async () => {
       });
       jobPops.update(lastJobs, lastWaits);
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
-      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops });
+      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops, snips: pinSnips });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -905,6 +905,7 @@ app.whenReady().then(async () => {
         onSend: (file, thumb) => landSend({ kind: 'snip', file, thumb, site: 'your screen', title: 'snip ' + new Date().toTimeString().slice(0, 5) }),
       });
       pinSnips = new PinSnips({ origin: pages.origin, preloadPath: path.join(HERE, 'pinsnippreload.cjs'), iconPath: AANG_ICON });
+      if (family) pinSnips.family = family;
       // Snipit lands in Aang's typing box, so its key is taken with his, only while he runs (Samara on its own does not
       // take his keys).
       if (bodyAlive()) takeAangKeys();
@@ -1891,7 +1892,7 @@ function clickedAway(): void {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { family?.saveNow(); samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
