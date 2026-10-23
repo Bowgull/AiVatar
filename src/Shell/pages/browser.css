@@ -480,7 +480,9 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
    above it, and stays pinned while a long list scrolls under it. */
 .drawer{display:flex;flex-direction:column}
 .drawer>*{flex:0 0 auto}
-.drawer .tidyfoot{position:sticky;bottom:-14px;margin:auto -14px -14px -12px;padding:10px 14px 12px 12px;
+/* At the end of the list, not pinned over it (2026-10-22, his screen: pinned to the drawer's bottom, the broom floated
+   over whichever tab scrolled under it). A short list still has it at the drawer's bottom (margin-top:auto). */
+.drawer .tidyfoot{position:relative;margin:auto -14px -14px -12px;padding:10px 14px 12px 12px;
   background:none;pointer-events:none}
 /* No backing strip (it read as a dark bar, his note): the broom sits straight on the wood. Only its own parts take
    the pointer, and the list keeps room at its end so the last tab never hides behind it. */
