@@ -139,6 +139,10 @@ interface Tab {
   leftShot?: string; waking?: boolean;
   /** Frozen (2026-10-23, Edge's sleeping tabs): its timers and network stop, the page stays; it thaws instantly. */
   frozen?: boolean;
+  /** It was put to sleep (not a brand-new tab): when it wakes it comes back quietly, paused at his spot. */
+  slept?: boolean;
+  /** Where its main video was when it went quiet (his ask, 2026-10-23): a woken tab comes back paused right there. */
+  videoAt?: number;
   pageBg?: string;
   zoom: number;
   lastSeen: number;
@@ -303,6 +307,18 @@ const TRAY_W = { s: 300, m: 320, l: 340 } as const;
 const SLEEP_AFTER_MS = 8 * 60 * 60_000;
 /** A tab out of sight this long is frozen (Chromium's own freezing: no timers, no work, memory the system can reuse). */
 const FREEZE_AFTER_MS = 5 * 60_000;
+/** The page's main video (the biggest one) and where it is, or null: read before a tab freezes or sleeps. */
+const VIDEO_AT_JS = `(() => { const v = [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
+  return v && Number.isFinite(v.duration) && v.duration > 0 && v.currentTime > 1 ? Math.floor(v.currentTime) : null; })()`;
+/** On waking: the main video goes to his spot and stays paused until he presses play himself (his pick, 2026-10-23). */
+const VIDEO_BACK_JS = (at: number) => `(async () => {
+  for (let i = 0; i < 80; i++) {
+    const v = [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
+    if (v && v.readyState >= 1) { v.pause(); if (Math.abs(v.currentTime - ${at}) > 2) v.currentTime = ${at}; v.pause(); return true; }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return false;
+})()`;
 /** Never a tab he looked at in the last 10 minutes, even when memory is short. */
 const SLEEP_MIN_MS = 10 * 60_000;
 /**
@@ -1474,7 +1490,7 @@ export class AangBrowser {
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { this.pane = p; if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
-    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === p.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 500, null); });
+    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === p.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true'), 500, null); });
     w.on('closed', () => {
       this.pane = p;
       const others = this.panes.filter((x) => x !== p && this.alive(x));
@@ -1712,13 +1728,14 @@ export class AangBrowser {
     if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
     if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS);
     if (t.waking) setTimeout(() => this.wokeUp(t), VEIL_FADE_MS + 150);
+    if (t.waking && typeof t.videoAt === 'number') { const at = t.videoAt; t.videoAt = undefined; void sender.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_BACK_JS(at) }]).catch(() => {}); }
   }
   /** A woken tab is on screen: what it held back (his video) may play now, if he is looking at it. */
   private wokeUp(t: Tab): void {
     if (!t.waking) return;
     t.waking = false;
     const wc = t.view?.webContents;
-    if (wc && !wc.isDestroyed() && this.seen(t)) { try { wc.send('tab:shown', true); } catch { /* gone */ } }
+    if (wc && !wc.isDestroyed() && this.seen(t)) { try { wc.send('tab:shown', true); } catch { /* gone */ } }   // only what he started plays
   }
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
@@ -1742,8 +1759,8 @@ export class AangBrowser {
     tab.view = view; tab.crashed = false; tab.loading = true; tab.drawn = false;
     // Coming back from sleep (2026-10-23, his report: a video played before the page showed, and it looked crashed): it
     // counts as loading at once, so the curtain (with its own last picture) covers it, and nothing plays until it shows.
-    tab.phase = 'waiting'; tab.waking = true;
-    setTimeout(() => this.wokeUp(tab), 10_000);
+    tab.phase = 'waiting'; tab.waking = tab.slept === true; tab.slept = false;
+    if (tab.waking) setTimeout(() => this.wokeUp(tab), 10_000);
     // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
@@ -1923,8 +1940,8 @@ export class AangBrowser {
     if (back > 0) {
       // WebFrameMain's run does not wait for the page to finish loading the way webContents.executeJavaScript does.
       let placed = -1;
-      wc.once('dom-ready', () => { void wc.mainFrame.executeJavaScript(`(scrollTo(0, ${back}), scrollY)`, true).then((y) => { placed = Number(y); }, () => {}); });
-      wc.once('did-finish-load', () => { void wc.mainFrame.executeJavaScript(`(scrollY === ${placed} || scrollY === 0) && scrollTo(0, ${back})`, true).catch(() => {}); });
+      wc.once('dom-ready', () => { void wc.mainFrame.executeJavaScript(`(scrollTo(0, ${back}), scrollY)`).then((y) => { placed = Number(y); }, () => {}); });
+      wc.once('did-finish-load', () => { void wc.mainFrame.executeJavaScript(`(scrollY === ${placed} || scrollY === 0) && scrollTo(0, ${back})`).catch(() => {}); });
     }
     void wc.loadURL(to).catch(() => {});
   }
@@ -2145,6 +2162,7 @@ export class AangBrowser {
     if (!wc || wc.isDestroyed() || Boolean(t.frozen) === on) return;
     const dbg = wc.debugger;
     if (dbg.isAttached()) return;
+    if (on) { const at = await within(wc.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_AT_JS }]) as Promise<number | null>, 800, null); if (typeof at === 'number') t.videoAt = at; }
     try {
       dbg.attach('1.3');
       await within(dbg.sendCommand('Page.setWebLifecycleState', { state: on ? 'frozen' : 'active' }), 1500, null);
@@ -2159,7 +2177,7 @@ export class AangBrowser {
     // Its page comes back where it was when it wakes (Chromium's own state, kept with the tab).
     try { const h = tab.view.webContents.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; if (s && s.length <= PAGE_STATE_MAX && !tab.mock) tab.pageState = s; } catch { /* the scroll is kept as before */ }
     this.closeView(tab);
-    tab.loading = false; tab.audible = false; tab.frozen = false;
+    tab.loading = false; tab.audible = false; tab.frozen = false; tab.slept = true;
   }
   private closeView(tab: Tab): void {
     if (!tab.view) return;
@@ -2180,9 +2198,13 @@ export class AangBrowser {
     let any = false;
     // Frozen first: out of sight for 5 minutes and silent; a call, the pop-out and Claude's work never.
     for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !t.audible && !this.panes.some((p) => p.active === t.id) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
-    for (const t of this.tabs) if (can(t) && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    const rest = async (t: Tab) => {
+      if (!t.frozen && t.view) { const at = await within(t.view.webContents.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_AT_JS }]) as Promise<number | null>, 800, null); if (typeof at === 'number') t.videoAt = at; }
+      this.sleep(t); any = true;
+    };
+    for (const t of this.tabs) if (can(t) && now - t.lastSeen > SLEEP_AFTER_MS) await rest(t);
     if (await memoryShort()) {
-      for (const t of this.tabs.filter(can).sort((a, b) => a.lastSeen - b.lastSeen).slice(0, 3)) { this.sleep(t); any = true; }
+      for (const t of this.tabs.filter(can).sort((a, b) => a.lastSeen - b.lastSeen).slice(0, 3)) await rest(t);
     }
     if (any) this.sendTabs();
   }
@@ -2531,7 +2553,7 @@ export class AangBrowser {
     if (kind === 'words') { this.onSendToAang?.({ ...base, text: p.selectionText, title: t.title }); return; }
     if (kind === 'link') { this.onSendToAang?.({ ...base, url: p.linkURL, title: p.linkText || '', site: hostOf(p.linkURL) || site, icon: this.faviconFor(p.linkURL) || base.icon }); return; }
     if (kind === 'page') {
-      const text = await within(wc.executeJavaScript('String(document.body ? document.body.innerText : "").slice(0, 6000)', true) as Promise<string>, 1500, '');
+      const text = await within(wc.executeJavaScript('String(document.body ? document.body.innerText : "").slice(0, 6000)') as Promise<string>, 1500, '');
       this.onSendToAang?.({ ...base, title: wc.getTitle() || t.title, text: typeof text === 'string' ? text : '' });
       return;
     }
@@ -2564,7 +2586,7 @@ export class AangBrowser {
     const wc = t?.view?.webContents;
     let has = false;
     if (wc && !t!.crashed && !t!.blocked && !t!.failed && !t!.lent && t!.url.startsWith('https:')) {
-      has = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')", true) as Promise<boolean>, 800, false) === true;
+      has = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')") as Promise<boolean>, 800, false) === true;
     }
     // His pick: the key shows only where Bitwarden has a login for this site. Until the vault has been opened once
     // there is no list yet, so it shows on any login page, plain, so he can open it the first time.
@@ -2837,7 +2859,7 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.id === s.tab), wc = t?.view?.webContents;
     if (!wc || wc.isDestroyed()) { this.afSave = null; return; }
     // Still a password box on the page: it did not work (a wrong password is never offered).
-    const still = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')", true) as Promise<boolean>, 800, false);
+    const still = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')") as Promise<boolean>, 800, false);
     if (still) { this.afSave = null; return; }
     if (this.vault.current()) {
       const logins = await this.vault.loginsFor('https://' + s.host);
@@ -3490,7 +3512,9 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.view?.webContents === sender);
     if (!t) return { ok: true, shown: true };            // a popup he opened: his
     const at = Math.max(t.playOkAt ?? 0, this.lastGesture.get(t.id) ?? 0);
-    return { ok: Date.now() - at < PLAY_MS || t.waking === true, shown: this.seen(t) && !t.waking };
+    // A woken tab plays nothing by itself (his pick, 2026-10-23): it comes back paused at his spot; his own click on play
+    // in the page plays it.
+    return { ok: !t.waking && Date.now() - at < PLAY_MS, shown: this.seen(t) && !t.waking };
   }
   /** He can see it, or it may play out of sight: a call, the pop-out, Spotify (his only music). */
   private seen(t: Tab): boolean {
@@ -3508,10 +3532,12 @@ export class AangBrowser {
       if (!shown && was !== undefined) this.pauseMedia(x.id);
     }
   }
-  /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang. */
+  /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang.
+   *  No page check here passes "user gesture" (2026-10-23): that told the site he had clicked, so it let video start by
+   *  itself, against his "nothing plays until I click". */
   pauseMedia(id: number): void {
     const wc = this.tabs.find((x) => x.id === id)?.view?.webContents;
-    if (wc) void within(wc.executeJavaScript("document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true", true), 800, null);
+    if (wc) void within(wc.executeJavaScript("document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true"), 800, null);
   }
 
   // ------------------------------------------------------------------ trails and the done shelf (sheet 3 section 3)
@@ -4353,7 +4379,7 @@ export class AangBrowser {
       if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
       if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
       const wc = t.view.webContents;
-      const got = await within(wc.executeJavaScript(PAGE_LOOK_JS, true) as Promise<[number, string]>, 800, null);
+      const got = await within(wc.executeJavaScript(PAGE_LOOK_JS) as Promise<[number, string]>, 800, null);
       if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
       try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
     }));
