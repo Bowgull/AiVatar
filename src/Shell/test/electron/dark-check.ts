@@ -28,6 +28,8 @@ app.whenReady().then(async () => {
   (screen as any).getCursorScreenPoint = () => ({ x: -20000, y: 500 });
   const srv = http.createServer((q, r) => {
     const strict = q.url?.startsWith('/strict');
+    // A site that turns itself dark once loaded (his Bitwarden vault, 2026-10-23).
+    if (q.url?.startsWith('/late')) { r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(PAGE + "<style>html.theme_dark body{background:#15181f;color:#ddd}</style><script>setTimeout(()=>document.documentElement.classList.add('theme_dark'),2000)</script>"); return; }
     r.writeHead(200, { 'Content-Type': 'text/html', ...(strict ? { 'Content-Security-Policy': "default-src 'none'; style-src 'self'" } : {}) });
     r.end(PAGE);
   });
@@ -64,6 +66,16 @@ app.whenReady().then(async () => {
   const c3 = st ? await st.executeJavaScript('getComputedStyle(document.documentElement).backgroundColor', true) : null;
   check('a page with strict security rules comes up dark too', dark(c3), String(c3));
   if (st) console.log('strict page: ' + await st.executeJavaScript(`JSON.stringify([...document.querySelectorAll('style.darkreader')].map(x => [x.className, !!x.sheet && x.sheet.cssRules.length]))`, true));
+
+  // A site that turns dark by itself after loading: Dark Reader steps aside, so its own dark is what shows.
+  b.newTab(`http://127.0.0.1:${port}/late`); await wait(1500);
+  const lt = any.tabs.find((t: any) => t.url.includes('/late'))?.view?.webContents;
+  const on = async () => lt ? await lt.executeJavaScript('document.documentElement.hasAttribute("data-darkreader-mode") || !!document.querySelector("style.darkreader")', true) : null;
+  check('a page that is still white is darkened', (await on()) === true);
+  await wait(2500);
+  check('once it turns itself dark, Dark Reader steps aside', (await on()) === false);
+  const c4 = lt ? await lt.executeJavaScript('getComputedStyle(document.body).backgroundColor', true) : null;
+  check("and the site's own dark is what shows", String(c4) === 'rgb(21, 24, 31)', String(c4));
 
   b.closeAll(); srv.close(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');

@@ -84,7 +84,10 @@ const DARK_THEME = '{brightness:100,contrast:95,sepia:5}';
  * page that is already dark (its own dark mode, or one it chose because sites are told he prefers dark) is left alone,
  * and Dark Reader only works on pages that are really light. Exported for the tab preload, which runs the same test.
  */
-export const ALREADY_DARK = "const __aangAlreadyDark=()=>{try{const lum=(c)=>{const m=/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/.exec(c||'');if(!m||(m[4]!==undefined&&+m[4]<0.5))return null;return(0.2126*m[1]+0.7152*m[2]+0.0722*m[3])/255;};const b=document.body?lum(getComputedStyle(document.body).backgroundColor):null;const h=lum(getComputedStyle(document.documentElement).backgroundColor);const v=b??h;if(v===null)return getComputedStyle(document.documentElement).colorScheme.includes('dark');return v<0.25;}catch{return false;}};";
+// A site that turns dark only once it has loaded (2026-10-23, his Bitwarden vault went black after logging in: its own
+// dark theme under Dark Reader's): the page's own dark marks (a "dark" class or theme on <html> or <body>, or a
+// dark-only color-scheme) are watched, and Dark Reader steps aside the moment they appear.
+export const ALREADY_DARK = "const __aangDarkMark=()=>{try{const els=[document.documentElement,document.body].filter(Boolean);for(const e of els){for(const c of e.classList)if(/dark/i.test(c)&&!/darkreader|light/i.test(c))return true;for(const n of ['data-theme','data-bs-theme','data-color-mode','data-mode','theme'])if(/dark/i.test(e.getAttribute(n)||''))return true;}return (document.querySelector('meta[name=color-scheme]')?.content||'').trim().toLowerCase()==='dark';}catch{return false;}};const __aangWatchDark=()=>{try{const mo=new MutationObserver(()=>{if(__aangDarkMark()){mo.disconnect();DarkReader.disable();}});mo.observe(document.documentElement,{attributes:true,childList:true});if(document.body)mo.observe(document.body,{attributes:true});}catch{}};const __aangAlreadyDark=()=>{try{if(__aangDarkMark())return true;const lum=(c)=>{const m=/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/.exec(c||'');if(!m||(m[4]!==undefined&&+m[4]<0.5))return null;return(0.2126*m[1]+0.7152*m[2]+0.0722*m[3])/255;};const b=document.body?lum(getComputedStyle(document.body).backgroundColor):null;const h=lum(getComputedStyle(document.documentElement).backgroundColor);const v=b??h;if(v===null)return getComputedStyle(document.documentElement).colorScheme.includes('dark');return v<0.25;}catch{return false;}};";
 let darkSrc: string | null | undefined;
 /** A synced list of site names: plain hosts only. */
 function hostList(v: unknown): string[] {
@@ -1168,7 +1171,7 @@ export class AangBrowser {
     const on = this.darkWanted(wc.getURL());
     const src = darkSource();
     if (!src) return;
-    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `${ALREADY_DARK}if(!DarkReader.isEnabled()&&!__aangAlreadyDark())DarkReader.enable(${DARK_THEME});true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
+    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `${ALREADY_DARK}if(!DarkReader.isEnabled()&&!__aangAlreadyDark()){DarkReader.enable(${DARK_THEME});__aangWatchDark();}true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
     void wc.executeJavaScriptInIsolatedWorld(DARK_WORLD, steps).catch(() => { /* the page went away */ });
   }
   private paintDarkAll(): void { for (const t of this.tabs) this.paintDark(t); }
