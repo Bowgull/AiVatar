@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 83 - Settings, the game menu</title>
+<!-- Sheet 83 (2026-10-23), from the settings research (reports/Browser settings layout.md) and his picks: chapters down
+     the left (Switch), bare rows with the value on the row (Stardew / FFX), details behind a tap, one level deep; no grey
+     line under any row. Address lookup online (OpenStreetMap), PIN 4 to 8 with an eye. Cut: "Use the page I was on",
+     "Bring them in", the search box, the Bookmarks chapter. Drawn with Settings' own pieces (settings.css: tray wood, ink
+     card, gold caps, the glove). Values are his real ones from this Mac. Live: click chapters, the arrows, the rows. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/settings.css">
+<style>
+  html,body{height:auto;overflow:auto}
+  body{padding:26px 30px 80px}
+  .sh{font:700 20px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .sl{color:#cdbb9a;margin:0 0 14px;max-width:1100px;text-shadow:1px 1px 0 #000}
+  .ab{display:flex;gap:6px;margin:0 0 18px}
+  .ab button{background:none;border:none;font:700 14px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;padding:4px 6px;position:relative;cursor:pointer}
+  .ab button.on{color:#ffe28c;padding-left:30px}
+  .ab button.on::before{content:"";position:absolute;left:0;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .cap{font:700 12px var(--body);letter-spacing:.3px;color:#c9a35a;margin:22px 0 8px}
+
+  /* One Settings tab, at real size. */
+  .win{display:grid;grid-template-columns:210px 1fr;width:1040px;min-height:560px;border-radius:10px;overflow:hidden;
+    background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+    box-shadow:0 0 0 3px #120a05,0 14px 30px rgba(0,0,0,.55)}
+  .win .side{padding:26px 12px;image-rendering:auto}
+  .win .side h1{margin-bottom:18px}
+  .win .main{padding:26px 34px 20px;max-width:none;display:flex;flex-direction:column;min-height:0;image-rendering:auto}
+  .win .main h2{display:flex;align-items:baseline;gap:12px}
+  .win .main h2 .back{font:700 14px var(--body);color:#d8ccb4;cursor:pointer;text-shadow:1px 1px 0 #000}
+  .win .main h2 .back:hover{color:#fff2d6}
+  .win .card{margin:14px 0 0}
+
+  /* The new row: name on the left, value on the right. Nothing under it. */
+  .r{display:flex;align-items:center;gap:16px;padding:0 22px 0 52px;height:50px;border-top:2px solid rgba(255,255,255,.05);position:relative;cursor:pointer}
+  .card .r:first-of-type{border-top:none}
+  .r b{flex:1;font:700 15px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000}
+  .r:hover{background:rgba(255,226,140,.06)}
+  .r:hover::before{content:"";position:absolute;left:18px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .r .v{font:700 15px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;min-width:0;white-space:nowrap}
+  .r:hover .v{color:#ffe28c}
+  /* ‹ value ›: both arrows clickable; the word is what it is set to */
+  .cyc{display:flex;align-items:center;gap:6px}
+  .cyc .v{min-width:92px;text-align:center}
+  .ar{width:22px;height:22px;border:none;background:none;padding:0;cursor:pointer;display:grid;place-items:center;opacity:.55}
+  .r:hover .ar{opacity:1}
+  .ar svg{width:10px;height:14px}.ar path{fill:#ffe28c}
+  .ar:hover path{fill:#fff}
+  .go{width:10px;height:14px;margin-left:4px;opacity:.55}.go path{fill:#ffe28c}
+  .r:hover .go{opacity:1}
+  .tag2{font:700 12px var(--body);letter-spacing:.2px;color:#9FF0E6;text-shadow:0 0 6px rgba(159,240,230,.55),1px 1px 0 #000}
+  .dim{color:#a99fbd !important}
+
+  /* B: one help line for the row the glove is on (FFX) */
+  .help{margin-top:auto;min-height:44px;display:flex;align-items:center;padding:0 18px;border:6px solid transparent;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
+    background:url(../../src/Shell/pages/art/browser/ink.png) 0 0/64px 64px;font:600 14px var(--body);color:#efe4cc;text-shadow:1px 1px 0 #000}
+  .noB .help{display:none}
+
+  /* A detail: one level in, same card */
+  .fld{display:flex;align-items:center;gap:14px;padding:0 22px 0 52px;height:48px;border-top:2px solid rgba(255,255,255,.05);position:relative}
+  .card .fld:first-of-type{border-top:none}
+  .fld label{width:120px;font:700 15px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000}
+  .fld input{flex:1;max-width:380px;padding:6px 2px;border:none;border-bottom:2px solid rgba(239,228,204,.55);background:transparent;color:#fff;font:600 15px var(--body);outline:none}
+  .fld input:focus{border-bottom-color:#ffe28c}
+  .fld .ok{width:16px;height:14px}.fld .ok path{fill:#7ee08a}
+  .fld.lit::before{content:"";position:absolute;left:18px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .grow{position:relative;flex:1;max-width:380px}
+  .grow input{width:100%;max-width:none;box-sizing:border-box}
+  /* the lookup's answers, in the menu's own box */
+  .sug{position:absolute;left:-8px;right:-8px;top:calc(100% + 6px);z-index:5;border:6px solid transparent;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
+    background:url(../../src/Shell/pages/art/browser/ink.png) 0 0/64px 64px;image-rendering:pixelated;box-shadow:0 10px 22px rgba(0,0,0,.6)}
+  .sug div{position:relative;padding:9px 12px 9px 40px;font:600 14px var(--body);color:#e6edff;text-shadow:1px 1px 0 #000;cursor:pointer;image-rendering:auto}
+  .sug div:hover,.sug div.hi{color:#ffe28c;background:rgba(255,226,140,.07)}
+  .sug div:hover::before,.sug div.hi::before{content:"";position:absolute;left:8px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .sug small{display:block;text-align:right;padding:2px 10px 6px;font:700 10px var(--body);color:#8a7f9e;letter-spacing:.3px}
+  /* PIN: one slot per digit, as long as he chose; the eye shows them */
+  .slots{display:flex;gap:8px;align-items:center}
+  .slots i{width:30px;height:36px;border-radius:6px;display:grid;place-items:center;font:700 18px var(--body);font-style:normal;color:#ffe28c;
+    background:#120a1e;box-shadow:inset 0 3px 0 rgba(0,0,0,.65),inset 0 0 0 2px #2a1f3a;text-shadow:0 0 8px rgba(255,196,60,.6)}
+  .slots i.f{box-shadow:inset 0 0 0 2px #FFC43C,0 0 8px rgba(255,196,60,.4)}
+  .eye{width:34px;height:30px;border:none;background:none;cursor:pointer;display:grid;place-items:center;margin-left:6px;opacity:.7}
+  .eye:hover,.eye.on{opacity:1}
+  .eye.on{filter:drop-shadow(0 0 5px rgba(255,196,60,.9))}
+  .eye svg{width:22px;height:14px}.eye path{fill:#ffe28c}
+  .act{background:none;border:none;font:700 15px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;padding:4px 6px 4px 30px;position:relative;cursor:pointer}
+  .act:hover{color:#ffe28c}
+  .act:hover::before{content:"";position:absolute;left:0;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .acts{display:flex;gap:18px;padding:10px 22px 14px 44px}
+</style>
+</head>
+<body>
+<h1 class="sh">SHEET 83 - SETTINGS, THE GAME MENU</h1>
+<p class="sl">Chapters down the left. Each row is a name and its value, nothing under it. ‹ › change a value. A row with › opens one level in. Cut: the search box, Bookmarks, "Use the page I was on", "Bring them in". Your real settings from this Mac. Everything here is live.</p>
+<div class="ab" id="ab"><button type="button" data-ab="A" class="on">A · details only by tapping</button><button type="button" data-ab="B">B · plus one help line for the row you point at</button></div>
+
+<div class="cap">1 · START, YOUR HOME PAGE SHOWS FOR REAL (TAP IT TO CHANGE IT)</div>
+<div class="win" data-start="start"></div>
+<div class="cap">2 · AUTOFILL › YOUR DETAILS: TYPE YOUR ADDRESS, PICK IT, THE REST FILLS AND IS CHECKED</div>
+<div class="win" data-start="details"></div>
+<div class="cap">3 · AUTOFILL › PIN: PICK 4 TO 8, THE EYE SHOWS WHAT YOU TYPED</div>
+<div class="win" data-start="pin"></div>
+
+<script>
+const HAND = '../../src/Shell/pages/art/browser/hand.png';
+const L = '<svg viewBox="0 0 5 7" shape-rendering="crispEdges"><path d="M3 0h2v1H4v1H3v1H2v1h1v1h1v1h1v1H3V6H2V5H1V4H0V3h1V2h1V1h1z"/></svg>';
+const R = '<svg viewBox="0 0 5 7" shape-rendering="crispEdges"><path d="M0 0h2v1h1v1h1v1h1v1H4v1H3v1H2v1H0V6h1V5h1V4h1V3H2V2H1V1H0z"/></svg>';
+const OK = '<svg class="ok" viewBox="0 0 8 7" shape-rendering="crispEdges"><path d="M7 0h1v2H7v1H6v1H5v1H4v1H3v1H2V6H1V5H0V3h1v1h1v1h1V4h1V3h1V2h1V1h1z"/></svg>';
+const EYE = '<svg viewBox="0 0 11 7" shape-rendering="crispEdges"><path d="M3 0h5v1h2v1h1v3h-1v1H8v1H3V6H1V5H0V2h1V1h2zM4 2v3h3V2zM5 3h1v1H5z"/></svg>';
+const EYEX = '<svg viewBox="0 0 11 7" shape-rendering="crispEdges"><path d="M0 3h1v1h2v1h5V4h2V3h1v1h-1v1H8v1H6v1H5V6H3V5H1V4H0z"/></svg>';
+const ICON = {
+  start: 'M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v3H4V5H3v2H1z',
+  look: 'M2 0h3v1h1v1h1v3H6v1H5v1H2V6H1V5H0V2h1V1h1zM3 2v1H2v1h1v1h1V4h1V3H4V2z',
+  search: 'M1 0h3v1h1v3H4v1H1V4H0V1h1zM1 1v3h3V1zM4 5h1v1H4zM5 6h2v1H5z',
+  autofill: 'M1 0h3v1h1v3H4v1H3v2H2V5H1V4H0V1h1zM2 1v2h1V1z',
+  privacy: 'M0 0h7v4H6v1H5v1H4v1H3V6H2V5H1V4H0z',
+  sounds: 'M3 0h1v7H3zM2 1h1v5H2zM0 2h2v3H0zM5 1h1v1H5zM5 5h1v1H5zM6 2h1v3H6z',
+  about: 'M3 0h1v1H3zM2 2h2v4H2zM2 6h3v1H2z',
+};
+const CH = [['start', 'Start'], ['look', 'Look'], ['search', 'Search'], ['autofill', 'Autofill'], ['privacy', 'Privacy'], ['sounds', 'Sounds'], ['about', 'About']];
+
+// His real settings on this Mac (browser-prefs.json, browser-local.json), 2026-10-23.
+const make = () => ({ home: 'search.brave.com', startup: 'My tabs', dark: 'On', tabSize: 'Medium', engine: 'Brave', ai: 'Off', ads: 'On', popups: 'On',
+  wood: 'On', afs: 'On', lockAfter: '30 min', pinLen: 6, pin: '', pin2: '', eye: false, addr: '', picked: null });
+const CYCLE = { startup: ['My tabs', 'Home page'], dark: ['On', 'Off'], tabSize: ['Small', 'Medium', 'Large'], engine: ['Brave', 'DuckDuckGo', 'Google', 'Yandex'],
+  ai: ['On', 'Off'], ads: ['On', 'Off'], popups: ['On', 'Off'], wood: ['On', 'Off'], afs: ['On', 'Off'], lockAfter: ['5 min', '30 min', '2 hours', 'Until I quit'] };
+// The help line (B only), one short line per row.
+const HELP = {
+  home: 'Every new tab opens here.', startup: 'My tabs: everything comes back. Home page: a fresh start.', dark: 'Websites shown dark. Off for one site from the shield.',
+  tabSize: 'How big the tab list is, on this computer.', engine: 'Where the address bar sends a search.', ai: "The search engine's AI summary above the results.",
+  details: 'What the light offers when you click a box on a page.', pin: 'Opens Bitwarden instead of your master password.', bw: 'Your logins. Locked until you use your PIN.',
+  ads: 'Ads and trackers, on every site.', popups: 'Ones a page opens by itself. Ones you click always open.', phish: 'Known fake sites never load.',
+  https: 'Every site is tried secure first.', sites: 'Every site you set a rule for.', exc: 'Downloads and plain http you said yes to.', aang: 'Stays off: acting on your accounts needs the held lever.',
+  wood: 'A soft tap for tabs and downloads.', afs: 'The call for your PIN, the unlock, the fill.', engineV: 'Chromium 152 (Electron 44, castLabs).', safe: 'Fake sites, ads and trackers, downloads.',
+};
+// What the lookup answers for what he typed (OpenStreetMap). The sheet shows a public address, never his.
+const LOOK = [
+  { line: '100 Queen St W, Toronto, ON', street: '100 Queen St W', city: 'Toronto', region: 'Ontario', postal: 'M5H 2N2', country: 'Canada' },
+  { line: '100 Queen St, Ottawa, ON', street: '100 Queen St', city: 'Ottawa', region: 'Ontario', postal: 'K1P 1J9', country: 'Canada' },
+  { line: '100 Queen St E, Brampton, ON', street: '100 Queen St E', city: 'Brampton', region: 'Ontario', postal: 'L6V 1A9', country: 'Canada' },
+];
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+let AB = 'A';
+
+function mount(win) {
+  const st = make();
+  let ch = win.dataset.start === 'start' ? 'start' : 'autofill';
+  let sub = win.dataset.start === 'details' ? 'details' : win.dataset.start === 'pin' ? 'pin' : null;
+  let editHome = win.dataset.start === 'start';
+  let help = '';
+  if (win.dataset.start === 'details') st.addr = '100 Queen';
+  if (win.dataset.start === 'pin') { st.pin = '4817'; st.eye = true; }
+
+  const cyc = (k, label) => `<div class="r" data-h="${k}"><b>${label}</b><div class="cyc"><button class="ar" data-c="${k}" data-d="-1" aria-label="Back">${L}</button><span class="v">${st[k]}</span><button class="ar" data-c="${k}" data-d="1" aria-label="Next">${R}</button></div></div>`;
+  const go = (k, label, value, dim) => `<div class="r" data-go="${k}" data-h="${k}"><b>${label}</b><span class="v${dim ? ' dim' : ''}">${value}</span><svg class="go" viewBox="0 0 5 7" shape-rendering="crispEdges"><path d="M0 0h2v1h1v1h1v1h1v1H4v1H3v1H2v1H0V6h1V5h1V4h1V3H2V2H1V1H0z"/></svg></div>`;
+  const fixed = (k, label, value) => `<div class="r" data-h="${k}"><b>${label}</b><span class="tag2">${value}</span></div>`;
+  const card = (rows) => `<div class="card"><i class="caps"></i>${rows}</div>`;
+
+  function page() {
+    if (sub === 'details') {
+      const p = st.picked;
+      const sug = !p && st.addr.length >= 3 ? `<div class="sug">${LOOK.map((a, i) => `<div data-pick="${i}"${i === 0 ? ' class="hi"' : ''}>${a.line}</div>`).join('')}<small>OPENSTREETMAP</small></div>` : '';
+      const f = (label, v, ok) => `<div class="fld"><label>${label}</label><input type="text" value="${esc(v)}" spellcheck="false">${ok && v ? OK : ''}</div>`;
+      return `<h2><span class="back" data-back>‹ Autofill</span>Your details</h2>` + card(
+        f('Name', '') + f('Emails', '') + f('Phone', '') +
+        `<div class="fld lit"><label>Address</label><div class="grow"><input id="addr" type="text" value="${esc(p ? p.street : st.addr)}" spellcheck="false" autocomplete="off">${sug}</div>${p ? OK : ''}</div>` +
+        (p ? f('City', p.city, true) + f('Province', p.region, true) + f('Postal code', p.postal, true) + f('Country', p.country, true) : ''));
+    }
+    if (sub === 'pin') {
+      const show = (s, n) => Array.from({ length: n }, (_, i) => `<i${i < s.length ? ' class="f"' : ''}>${i < s.length ? (st.eye ? s[i] : '●') : ''}</i>`).join('');
+      return `<h2><span class="back" data-back>‹ Autofill</span>PIN</h2>` + card(
+        `<div class="r" data-h="pin"><b>Length</b><div class="cyc"><button class="ar" data-len="-1" aria-label="Shorter">${L}</button><span class="v">${st.pinLen} numbers</span><button class="ar" data-len="1" aria-label="Longer">${R}</button></div></div>` +
+        `<div class="fld lit"><label>New PIN</label><div class="slots" data-slot="pin">${show(st.pin, st.pinLen)}</div><button class="eye${st.eye ? ' on' : ''}" type="button" data-eye aria-label="${st.eye ? 'Hide' : 'Show'} PIN">${EYE}</button></div>` +
+        `<div class="fld"><label>Again</label><div class="slots" data-slot="pin2">${show(st.pin2, st.pinLen)}</div></div>` +
+        `<div class="acts"><button class="act" type="button">Set</button></div>`);
+    }
+    if (sub === 'bw') return `<h2><span class="back" data-back>‹ Autofill</span>Bitwarden</h2>` + card(fixed('bw', 'Bitwarden', 'LOCKED') + cyc('lockAfter', 'Locks itself after') + `<div class="acts"><button class="act" type="button">Lock now</button><button class="act" type="button">Sign out</button></div>`);
+    switch (ch) {
+      case 'start': return '<h2>Start</h2>' + card((editHome
+        ? `<div class="fld lit" data-h="home"><label>Home page</label><input id="homein" type="text" value="${esc(st.home)}" spellcheck="false"></div>`
+        : go('home', 'Home page', st.home)) + cyc('startup', 'When Samara opens'));
+      case 'look': return '<h2>Look</h2>' + card(cyc('dark', 'Dark websites') + cyc('tabSize', 'Tab list size'));
+      case 'search': return '<h2>Search</h2>' + card(cyc('engine', 'Search engine') + cyc('ai', 'AI answer box'));
+      case 'autofill': return '<h2>Autofill</h2>' + card(go('details', 'Your details', st.picked ? 'Set' : 'Not set', !st.picked) + go('pin', 'PIN', 'Not set', true) + go('bw', 'Bitwarden', 'Locked'));
+      case 'privacy': return '<h2>Privacy</h2>' + card(cyc('ads', 'Block ads and trackers') + cyc('popups', 'Block popups') + fixed('phish', 'Fake-site lists', 'ALWAYS ON') + fixed('https', 'Secure version first', 'ALWAYS ON'))
+        + card(go('sites', 'Your sites', '') + go('exc', 'Exceptions', '') + fixed('aang', 'Aang acts without asking', 'OFF'));
+      case 'sounds': return '<h2>Sounds</h2>' + card(cyc('wood', 'Wood sounds') + cyc('afs', 'Autofill sounds'));
+      case 'about': return '<h2>About</h2>' + card(fixed('engineV', 'Engine', 'CHROMIUM 152') + go('safe', 'What keeps you safe', ''));
+    }
+    return '';
+  }
+
+  function draw() {
+    win.innerHTML = `<nav class="side"><h1>Settings</h1>${CH.map(([k, n]) => `<a data-ch="${k}" class="${k === ch ? 'on' : ''}"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="${ICON[k]}"/></svg></i>${n}</a>`).join('')}</nav>`
+      + `<main class="main${AB === 'B' ? '' : ' noB'}">${page()}<div class="help">${HELP[help] ?? ''}</div></main>`;
+    const a = win.querySelector('#addr');
+    if (a && !st.picked) { a.focus({ preventScroll: true }); a.setSelectionRange(a.value.length, a.value.length); }
+    const h = win.querySelector('#homein');
+    if (h && document.activeElement !== h && win.dataset.start === 'start' && !win._focused) { h.focus({ preventScroll: true }); h.select(); win._focused = true; }
+  }
+
+  win.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-ch],[data-c],[data-go],[data-back],[data-pick],[data-eye],[data-len]');
+    if (!t) return;
+    if (t.dataset.ch) { ch = t.dataset.ch; sub = null; editHome = false; }
+    else if (t.dataset.c) { const k = t.dataset.c, l = CYCLE[k]; st[k] = l[(l.indexOf(st[k]) + Number(t.dataset.d) + l.length) % l.length]; }
+    else if (t.dataset.len) st.pinLen = Math.min(8, Math.max(4, st.pinLen + Number(t.dataset.len)));
+    else if (t.dataset.go === 'home') editHome = true;
+    else if (t.dataset.go && ['details', 'pin', 'bw'].includes(t.dataset.go)) sub = t.dataset.go;
+    else if ('back' in t.dataset) sub = null;
+    else if (t.dataset.pick) st.picked = LOOK[Number(t.dataset.pick)];
+    else if ('eye' in t.dataset) st.eye = !st.eye;
+    draw();
+  });
+  win.addEventListener('input', (e) => {
+    if (e.target.id === 'addr') { st.addr = e.target.value; st.picked = null; draw(); }
+    if (e.target.id === 'homein') st.home = e.target.value;
+  });
+  win.addEventListener('keydown', (e) => {
+    if (e.target.id === 'homein' && e.key === 'Enter') { editHome = false; draw(); }
+    if (sub === 'pin' && /^[0-9]$/.test(e.key)) { const k = st.pin.length < st.pinLen ? 'pin' : 'pin2'; if (st[k].length < st.pinLen) st[k] += e.key; draw(); }
+    if (sub === 'pin' && e.key === 'Backspace') { if (st.pin2) st.pin2 = st.pin2.slice(0, -1); else st.pin = st.pin.slice(0, -1); draw(); }
+  });
+  win.tabIndex = -1;
+  win.addEventListener('mouseover', (e) => { const r = e.target.closest('[data-h]'); const k = r?.dataset.h ?? ''; if (k !== help) { help = k; const hb = win.querySelector('.help'); if (hb) hb.textContent = HELP[k] ?? ''; } });
+  win._draw = draw;
+  draw();
+}
+const wins = [...document.querySelectorAll('.win')];
+wins.forEach(mount);
+document.getElementById('ab').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ab]'); if (!b) return;
+  AB = b.dataset.ab;
+  for (const x of document.querySelectorAll('#ab button')) x.classList.toggle('on', x === b);
+  wins.forEach((w) => w._draw());
+});
+</script>
+</body>
+</html>
