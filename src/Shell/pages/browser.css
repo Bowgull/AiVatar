@@ -1125,3 +1125,14 @@ html.windrag,html.windrag *{cursor:grabbing !important}
 .drawer .mvnote{display:block;width:calc(100% - 30px);margin:2px 0 4px 26px;box-sizing:border-box;padding:4px 6px;border-radius:5px;border:2px solid #e8913a;background:#1a120b;color:#ffe28c;font:600 12px var(--body);outline:none}
 .drawer .msr .okv{flex:0 0 auto;font:800 11px/1 var(--body);letter-spacing:.4px;padding:4px 6px 3px;border-radius:4px;background:#FFC43C;color:#2a1c00}
 .drawer .msr .okv.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
+
+/* Sheet 81 (2026-10-23): an open mockup's V chip wears its stage. */
+.tp .ver.st-ok{background:#FFC43C;color:#2a1c00}
+.tp .ver.st-built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c;position:relative}
+.tp .ver.st-built::after{content:"✓";position:absolute;right:-5px;top:-6px;width:12px;height:12px;border-radius:50%;font:900 8px/12px var(--body);text-align:center;background:#e9ffe9;color:#2f7d3e;box-shadow:0 0 0 1.5px #2f7d3e}
+.tp .ver.st-fix{background:#e8913a;color:#2b1405}
+
+/* A mockup that arrived and has not been looked at yet (2026-10-23): a soft gold glow that breathes slowly, until opened. */
+.drawer .tp.unseen,.tp.unseen{box-shadow:0 0 0 2px rgba(255,196,60,.55),0 0 12px rgba(255,196,60,.35);animation:unseen 2.8s ease-in-out infinite}
+@keyframes unseen{50%{box-shadow:0 0 0 2px rgba(255,196,60,.8),0 0 16px rgba(255,196,60,.5)}}
+@media (prefers-reduced-motion:reduce){.drawer .tp.unseen,.tp.unseen{animation:none}}
