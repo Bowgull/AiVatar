@@ -3,7 +3,7 @@ const { contextBridge } = require('electron');
 const sent = [];
 let data = { home: '', homeNow: 'https://search.brave.com/', search: 'brave', aiBox: false, startup: 'tabs', ads: true, popups: true, sounds: true, dark: true, tabSize: 'm',
   trusted: [], httpOk: [], sites: [], marks: [], markCount: 0, vault: 'locked', phish: 123456, afSounds: true, lockAfter: '30m',
-  autofill: { details: { name: '', emails: [], phone: '', street: '', city: '', region: '', postal: '', country: '' }, pin: false, pinLen: 0, sounds: true },
+  autofill: { details: { name: '', given: '', family: '', emails: [], phone: '', street: '', city: '', region: '', postal: '', country: '' }, pin: false, pinLen: 0, sounds: true },
   versions: { electron: '44.9.3', chrome: '152.0.0.0' }, mac: true };
 let onData = null;
 contextBridge.exposeInMainWorld('settings', {
