@@ -194,11 +194,12 @@ const BARKEY = (lit) => { const c = lit ? 'y' : 'g', h = lit ? 'Y' : 'G'; return
 
 
 // the slot's ONE icon, on the key's own 7x7 grid: the key (Samara's own path, browser.html #vkey) and a padlock drawn to match
-const KEYPATH = 'M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z';
+// sheet 78 A (his pick, 2026-10-23): the key lying down on a 10x5 grid, its padlock on 7x7; both at 2x
+const KEYPATH = 'M1 0h2v1H1zM0 1h1v3H0zM3 1h1v1H3zM3 2h7v1H3zM3 3h1v1H3zM7 3h1v2H7zM9 3h1v2H9zM1 4h2v1H1z';
 const LOCKBODY = 'M0 3h7v4H0z', LOCKHOLE = 'M3 4h1v2H3z', SHACKLE = 'M2 0h3v1H2zM1 1h1v2H1zM5 1h1v2H5z';
 function vkHTML(kind) {
   const lock = `<svg class="glyph lockg" viewBox="0 0 7 7"><g class="shackle"><path d="${SHACKLE}"/></g><path d="${LOCKBODY}"/><path d="${LOCKHOLE}" style="fill:rgb(11,7,24)"/></svg>`;
-  const key = `<svg class="glyph keyg" viewBox="0 0 7 7" style="opacity:${kind === 'key' ? 1 : 0}"><path d="${KEYPATH}"/></svg>`;
+  const key = `<svg class="glyph keyg" viewBox="0 0 10 5" style="width:20px;height:10px;left:3px;top:7px;opacity:${kind === 'key' ? 1 : 0}"><path d="${KEYPATH}"/></svg>`;
   return `<div class="vk"><span class="halo"></span>${kind === 'lock' ? lock : ''}${key}</div>`;
 }
 
