@@ -4024,7 +4024,7 @@ export class AangBrowser {
       update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
-      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null })),
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined })),
       // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
       mockups: this.mockView(),
       // 2026-10-22: the notes rail needs Aang (its notes live in his brain). Samara alone or on the Mac: the row is hidden.

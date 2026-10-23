@@ -961,6 +961,12 @@ html.solo .railhandle{left:340px}
 .drawer .mv.kid{margin-left:28px;width:calc(100% - 28px)}
 .drawer .mv i{font-size:8.5px}
 
+/* Samara's own pages in the list (his ask, 2026-10-23): the lantern's 16 px pixel art at exactly 16 px (never scaled, so it
+   stays crisp), in the middle of the icon slot at every list size. */
+.drawer .tp .fi.samara{width:16px!important;height:16px!important;padding:7px;box-sizing:content-box;image-rendering:pixelated;object-fit:none}
+html.tsize-m .drawer .tp .fi.samara{padding:6px}
+html.tsize-s .drawer .tp .fi.samara{padding:5px}
+
 /* ---- Sheet 71 (his pick, 2026-10-22): the tab list in three sizes, picked in Settings for each machine. Large is the
    size above (2026-10-21, his ask to read more easily); Medium and Small step it down. The list layer's width in the
    Shell follows (browser.ts TRAY_W). */
