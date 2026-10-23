@@ -281,7 +281,7 @@ const GESTURE_MS = 1000;
 /** His rule (2026-10-20): a page may start playing by itself only this soon after he asked for it (a slow redirect included). */
 const PLAY_MS = 15_000;
 /** The tab rail's slide in and out (his ask, 2026-10-20): the same time the rail's CSS uses. */
-const TRAY_SLIDE_MS = 220;
+const TRAY_SLIDE_MS = 260;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 // 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
 const SLEEP_AFTER_MS = 2 * 60 * 60_000;
@@ -468,7 +468,7 @@ export class AangBrowser {
   private share: { id: number; host: string; sources: Map<string, DesktopCapturerSource>; audio: boolean; done: (s: Electron.Streams | null) => void; timer: NodeJS.Timeout } | null = null;
   /** Sheet 69: the keyboards and mice each site may use, and the one device ask waiting for his pick. */
   private devices!: DeviceOk;
-  private devAsk: { id: number; host: string; list: Electron.HIDDevice[]; done: (id?: string) => void; timer: NodeJS.Timeout } | null = null;
+  private devAsk: { id: number; host: string; list: Electron.HIDDevice[]; done: (id?: string) => void; timer: NodeJS.Timeout; picked: string | null } | null = null;
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
@@ -754,13 +754,15 @@ export class AangBrowser {
       const origin = frame?.origin ?? '';
       const host = hostOf(origin);
       if (!wc || this.driver?.owns(wc) || !/^https:\/\//.test(origin) || !host || !this.win || this.win.isDestroyed()) { done(); return; }
+      // No ask only when the one he allowed is the only match (2026-10-22, his TH99 PRO: with the dongle allowed and the
+      // keyboard's cable plugged in too, the dongle was taken without asking and the cable keyboard never offered).
       const known = details.deviceList.find((d) => this.devices.allowed(host, d));
-      if (known) { done(known.deviceId); return; }
+      if (known && details.deviceList.length === 1) { done(known.deviceId); return; }
       if (this.devAsk) { done(); return; }                       // one ask at a time
       this.inWc(wc);
       const id = ++this.askSeq;
       const timer = setTimeout(() => this.devAnswer(id, null), 120_000);
-      this.devAsk = { id, host, list: [...details.deviceList], done, timer };
+      this.devAsk = { id, host, list: [...details.deviceList], done, timer, picked: known?.deviceId ?? null };
       this.sendDevAsk();
     });
     // Plugged in or out while the ask is up: the list follows.
@@ -772,7 +774,7 @@ export class AangBrowser {
     if (!a || !this.win || this.win.isDestroyed()) return;
     // How it is connected, from its own name (a wireless one calls itself a receiver or dongle); a cable otherwise.
     const how = (d: Electron.HIDDevice) => (/2\.4g|dongle|receiver|wireless/i.test(d.name) ? 'Wireless dongle' : 'Plugged in by cable');
-    this.win.webContents.send('browser:devask', { id: a.id, host: a.host, devices: a.list.map((d) => ({ id: d.deviceId, name: deviceName(d), how: how(d) })) });
+    this.win.webContents.send('browser:devask', { id: a.id, host: a.host, picked: a.picked, devices: a.list.map((d) => ({ id: d.deviceId, name: deviceName(d), how: how(d) })) });
   }
   /** His pick from the device ask: one of the devices it listed, or none. */
   devAnswer(id: number, deviceId: string | null): void {

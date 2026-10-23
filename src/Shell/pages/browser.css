@@ -293,20 +293,27 @@ html.solo,html.solo body{background:transparent !important}
 html.solo .bw{background:none;border:0;box-shadow:none;border-radius:0;height:100%}
 html.solo .band,html.solo .loading,html.solo .well{display:none !important}
 html.solo .body3{display:block;height:100%;position:relative}
-html.solo body .drawer{top:0;bottom:0;left:0;visibility:visible;transform:translateX(-300px);transition:transform .22s cubic-bezier(.4,0,1,1)}
+/* Sheet 70 A (his pick, 2026-10-22): closing eases in to rest on the same curve as opening (it used to speed up into the
+   edge and stop dead), a little longer, 0.26 s (TRAY_SLIDE_MS in browser.ts follows it). */
+html.solo body .drawer{top:0;bottom:0;left:0;visibility:visible;transform:translateX(-300px);transition:transform .26s cubic-bezier(.32,.72,0,1)}
 /* The rail slides out carrying the handle on its edge, the arrow turned to point back (his ask, 2026-10-20). Folded,
-   the handle sits exactly over the band's own, which hides while the rail is out, so there is only ever one. */
+   the handle sits exactly over the band's own, which hides while the rail is out, so there is only ever one.
+   Sheet 70 A: the arrow is its own layer on the bare handle and turns over like a card through the whole slide (a
+   flip on its own middle, 8.5 art pixels in, so it stays in the socket and stays crisp pixel art), facing back just as
+   the rail lands, and turning back as it closes. Before, the picture was swapped at once and the turn was never seen. */
 .railhandle{display:none}
 html.solo .railhandle{display:block;position:absolute;left:300px;top:80px;width:32px;height:128px;z-index:31;pointer-events:none;
-  background:url(art/browser/handle3.png) no-repeat 0 0/32px 128px;image-rendering:pixelated;filter:brightness(1.25);
-  transform:translateX(-300px);transition:transform .22s cubic-bezier(.4,0,1,1)}
+  background:url(art/browser/handle3-bare.png) no-repeat 0 0/32px 128px;image-rendering:pixelated;filter:brightness(1.25);
+  transform:translateX(-300px);transition:transform .26s cubic-bezier(.32,.72,0,1)}
+html.solo .railhandle::after{content:"";position:absolute;inset:0;background:url(art/browser/handle3-arrow.png) no-repeat 0 0/32px 128px;
+  image-rendering:pixelated;transform-origin:17px 64px;transform:scaleX(1);transition:transform .26s cubic-bezier(.32,.72,0,1)}
 html.solo body.out .drawer,html.solo body.out .railhandle{transform:none !important;transition:transform .22s cubic-bezier(.32,.72,0,1)}
-html.solo body.out .railhandle{background-image:url(art/browser/handle3-back.png)}
+html.solo body.out .railhandle::after{transform:scaleX(-1);transition:transform .22s cubic-bezier(.32,.72,0,1)}
 body.rail-out .hnd button{visibility:hidden}
-@media (prefers-reduced-motion:reduce){html.solo .drawer,html.solo .railhandle{transition:none!important}}
+@media (prefers-reduced-motion:reduce){html.solo .drawer,html.solo .railhandle,html.solo .railhandle::after{transition:none!important}}
 /* Drawn once out of sight before the first open (browser.ts warmTray): nearly invisible, no slide either way. */
 html.solo.warm{opacity:.01}
-html.solo.warm .drawer,html.solo.warm .railhandle{transition:none!important}
+html.solo.warm .drawer,html.solo.warm .railhandle,html.solo.warm .railhandle::after{transition:none!important}
 /* The drawer: the tray's own wood (the band's grain one shade darker, planks running down), brass-nailed
    frame, one faint lamp in its top corner. It lies OVER the page; the page shows as a still picture under it. */
 .drawer{position:absolute;left:0;top:0;bottom:0;width:300px;box-sizing:border-box;padding:14px 14px 14px 12px;z-index:30;
