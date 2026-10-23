@@ -33,6 +33,8 @@ app.whenReady().then(async () => {
     await b.openMockupDrop({ path: p, repo: REPO, url: null, title: t, branch: t.startsWith('68') ? 'Showcase' : 'Samara' }).catch((e: Error) => console.log('HARNESS mock ' + e.message));
     await wait(800);
   }
+  // SETTINGS=1: Samara's own Settings page open as a tab too.
+  if (process.env.SETTINGS) { b.openSettings('general'); await wait(1500); }
   await wait(4000);
   b.tray(true, { x: 42, y: 62, hy: 80 });
   await wait(1200);
