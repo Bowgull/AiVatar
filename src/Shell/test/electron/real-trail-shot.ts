@@ -27,10 +27,19 @@ app.whenReady().then(async () => {
   for (let i = 0; i < 100 && !b.win; i++) await wait(150);
   b.win.setContentSize(1100, Number(process.env.H) || 1000);
   await wait(6000);
+  // ARRIVE=73,76: those sheets arrive again now (as when Claude shows them), while Samara does not have his focus.
+  if (process.env.ARRIVE) { for (const n of process.env.ARRIVE.split(',')) { const v = [...b.mockStore.list].filter((x: any) => String(x.title).startsWith(n + ' ·') && !x.sheet.startsWith('http')).sort((a: any, c: any) => c.v - a.v)[0]; if (v) { b.showMockup(v); await wait(700); } }
+    // The harness window counts as focused; he was in another app, so these stay unseen (as they would for him).
+    console.log('FOCUSED ' + Boolean(BrowserWindow.getFocusedWindow()));
+    for (const t of b.tabs) if (t.mock && !t.mock.sheet.startsWith('http') && process.env.ARRIVE.split(',').some((n) => String(t.title).startsWith(n + ' ·')) && t.id !== b.active) t.mock.unseen = true;
+    b.sendTabs(); await wait(400); }
   // PARK=74: park that sheet's open version (it should leave the list for History).
   if (process.env.PARK) { const t = b.tabs.find((x: any) => x.mock && String(x.title).startsWith(process.env.PARK + ' ·')); const info = t ? b.mockTab(t) : null; if (info?.vid != null) b.mockAct('stage', { id: info.vid, to: 'park' }); await wait(800); }
   b.tray(true, { x: 42, y: 62, hy: 80 });
   await wait(1500);
+  // A tab that just opened can fold the list: open it again and let it settle.
+  b.tray(true, { x: 42, y: 62, hy: 80 });
+  await wait(2500);
   // MENU=75: the right-click menu on that mockup tab.
   if (process.env.MENU) await b.trayV.webContents.executeJavaScript(`(() => { const r = [...document.querySelectorAll('.tp')].find((e) => e.textContent.includes(${JSON.stringify(process.env.MENU + ' ·')})); if (!r) return 0; r.scrollIntoView({ block: 'center' }); const b = r.getBoundingClientRect(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: b.left + 60, clientY: b.top + 20 })); return 1; })()`);
   const out = process.argv.find((a) => a.endsWith('-shot')) ?? path.join(os.tmpdir(), 'trail');
@@ -41,6 +50,7 @@ app.whenReady().then(async () => {
     writeFileSync(`${out}-${k}.png`, (await b.trayV.webContents.capturePage()).toPNG());
     await b.trayV.webContents.executeJavaScript(`(() => { const d = document.querySelector('.drawer'); d.scrollTop += d.clientHeight - 80; return 1; })()`);
   }
+  console.log('UNSEEN ' + await b.trayV.webContents.executeJavaScript(`[...document.querySelectorAll('.tp.unseen')].map((e) => e.textContent.trim().slice(0, 20) + ' ' + getComputedStyle(e).boxShadow.slice(0, 60)).join(' | ')`));
   console.log('SHOT');
   app.exit(0);
 });
