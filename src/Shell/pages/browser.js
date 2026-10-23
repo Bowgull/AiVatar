@@ -105,6 +105,12 @@ function trayShut() {
 // The tray closed by itself (Esc in it, a click on the page, a tab picked): the handle follows.
 window.aang?.onBrowserTray?.((s) => {
   if (!s) return;
+  // Sheet 71: the size comes with the list's own messages, so a change lands before the next slide.
+  if (s.size === 's' || s.size === 'm' || s.size === 'l') {
+    const html = document.documentElement;
+    if (!html.classList.contains('tsize-' + s.size)) { html.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); html.classList.add('tsize-' + s.size); }
+    if (s.open === undefined && s.warm === undefined) return;
+  }
   if (SOLO) {
     // Drawn once out of sight before the first real open (the Shell shows this layer for a moment): out, at almost no
     // opacity and with no slide, then folded away again without a slide.
@@ -1089,6 +1095,9 @@ el('failback').addEventListener('click', () => window.aang?.browserAct?.('failba
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
+  // Sheet 71: the tab list's size (this machine's pick in Settings).
+  const size = s.tabSize === 's' || s.tabSize === 'm' ? s.tabSize : 'l';
+  if (!document.documentElement.classList.contains('tsize-' + size)) { document.documentElement.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); document.documentElement.classList.add('tsize-' + size); }
   railTabs(s);
   paintMarks(s.marks);
   el('m-mockups').hidden = !s.mockups;

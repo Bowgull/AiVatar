@@ -590,6 +590,16 @@
       "at": "2026-10-22T21:15:00-04:00",
       "text": "Sites with only a fancy icon still get their real icon on bookmarks.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T21:40:00-04:00",
+      "text": "Pick Small, Medium or Large tabs in Settings, for each computer.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T21:41:00-04:00",
+      "text": "The broom no longer sits on top of your tabs.",
+      "kind": "fix"
     }
   ]
 }
