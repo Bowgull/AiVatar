@@ -778,8 +778,9 @@ function buildRow(t, kid) {
     else if (ringWas.get(t.id) && ringWas.get(t.id) !== 'idle' && !t.crashed) { const b = Object.assign(document.createElement('i'), { className: 'arc burst' }); row.append(b); setTimeout(() => b.remove(), 400); }
     // His pick (2026-10-21): every mockup comes from Claude, so it wears Claude's icon, the same one as the trail's head.
     else if (t.mock) row.append(Object.assign(document.createElement('img'), { className: 'fi claude', alt: '', src: 'art/claude-icon.png' }));
-    // His ask (2026-10-23): Samara's own pages (Settings, Things) wear Samara's lit lantern, its 16 px art at exactly 16 px.
-    else if (t.internal) row.append(Object.assign(document.createElement('img'), { className: 'fi samara', alt: '', src: 'art/samara/samara-lit-16.png' }));
+    // His ask (2026-10-23): Samara's own pages (Settings, Things) wear Samara's lit lantern, its hand-drawn 24 px art at
+    // exactly 24 px (the 16 px one was "miniature" beside the sites' icons).
+    else if (t.internal) row.append(Object.assign(document.createElement('img'), { className: 'fi samara', alt: '', src: 'art/samara/samara-lit-24.png' }));
     else if (t.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = t.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.replaceWith(tileFor(t)); row.append(i); }
     // Sheet 43d: every tab has its icon slot; a site with no icon gets its first letter, carved, never an empty gap.
     else row.append(tileFor(t));
