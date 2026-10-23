@@ -54,25 +54,16 @@
     font:600 12.5px/1.4 var(--body);color:#ffe28c;box-shadow:0 8px 18px rgba(0,0,0,.5)}
   .said small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a;margin-top:4px}
   .tabmenu.sheetmenu{position:relative;left:auto;top:auto;display:block;margin-top:10px;width:250px}
-  /* ---- NEW (sheet 80): the find row at the top of the history ---- */
-  .drawer .mfind{display:flex;flex-direction:column;gap:7px;margin:2px 0 8px}
-  .drawer .msearch{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;background:#0B0718;border:2px solid #3a2a5a;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
-  .drawer .msearch:focus-within{border-color:#ffc43c}
-  .drawer .msearch svg{flex:0 0 auto}
-  .drawer .msearch input{flex:1;min-width:0;background:none;border:none;outline:none;font:600 13px var(--body);color:#f2e3c2}
-  .drawer .msearch input::placeholder{color:#7d6f93}
-  .drawer .mchips{display:flex;flex-wrap:wrap;gap:5px}
-  .drawer .mchip{font:800 10.5px/1 var(--body);letter-spacing:.4px;padding:4px 7px 3px;border-radius:5px;border:1.5px solid #4a3a2a;background:none;color:#c9b48e;cursor:pointer}
-  .drawer .mchip b{font-weight:800;opacity:.7;margin-left:3px}
-  .drawer .mchip.on{border-color:#ffc43c;color:#2a1c00;background:#ffc43c}
-  .drawer .mchip.on.built{background:#2f7d3e;border-color:#5fbf6c;color:#e9ffe9}
-  .drawer .mchip.on.fix{background:#e8913a;border-color:#e8913a;color:#2b1405}
-  .drawer .mchip.on.park{background:#4a3f33;border-color:#6a5b4a;color:#d9c7a2}
-  .drawer .mproj2{display:flex;gap:0;border-radius:6px;overflow:hidden;border:2px solid #4a3a2a;align-self:flex-start}
-  .drawer .mproj2 button{font:800 10.5px/1 var(--body);letter-spacing:.6px;padding:5px 9px 4px;border:none;background:none;color:#c9b48e;cursor:pointer}
-  .drawer .mproj2 button.on{background:#f2e3c2;color:#2a1c00}
+  /* ---- NEW (sheet 80 v2): Samara's own FFX word row (browser.css .drawer .ffxw) as the filter, and its own FIND line ---- */
+  .drawer .ffxw{margin:2px 0 8px;gap:12px;align-items:center}
+  .drawer .ffxw button{font-size:13px}
+  .drawer .mglass{margin-left:auto;background:none;border:none;padding:3px;cursor:pointer;opacity:.8}
+  .drawer .mglass:hover{opacity:1;filter:drop-shadow(0 0 4px rgba(255,224,150,.6))}
+  .drawer .mfindline{display:flex;align-items:center;gap:8px;margin:2px 0 8px;padding:6px 8px;border-radius:7px;background:#0B0718;border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .drawer .mfindline .tag{font:700 12px var(--body);letter-spacing:.2px;padding:3px 6px;border-radius:4px;border:2px solid var(--outline);background:var(--gold);color:#2a1c00;flex:0 0 auto}
+  .drawer .mfindline input{flex:1;min-width:0;background:none;border:none;outline:none;font:600 13.5px var(--body);color:#f2e3c2;caret-color:#ffc43c}
+  .drawer mark{background:none;color:#ffe28c;text-decoration:underline;text-decoration-color:#ffc43c;text-underline-offset:2px}
   .drawer .mempty{font:500 12px var(--body);color:#a98e6a;padding:8px 4px}
-  .drawer mark{background:rgba(255,196,60,.35);color:inherit;border-radius:2px}
   /* the open mockup tab: its own V chip wears the stage */
   .tabcut{position:relative;width:300px;height:58px}
   .tabcut img{display:block;width:300px;height:58px;image-rendering:auto}
@@ -85,22 +76,13 @@
 </head>
 <body>
 <h1>SHEET 80 - FIND A MOCKUP</h1>
-<p class="lead">Your trail has 17 sheets, and five are live pages another Claude session served (127.0.0.1:8765) whose numbers collide with Samara's 75 to 79. So History gets a search box, a chip per stage with its count, and a project switch; and an open mockup tab shows its stage on its own V chip, so you see it without opening History. Try it: type 77 or "autofill", click the chips.</p>
+<p class="lead">Version 2: Samara's own pieces only. The FFX word row (the glove on the one you're on) picks what to see; the little magnifier turns that row into Samara's FIND line. Live pages get their own heading. Nothing else.</p>
 <div class="cols">
-  <div class="col"><h2>HISTORY, WITH FIND</h2><div class="drawer sheet" id="d1"></div></div>
+  <div class="col"><h2>AS IT OPENS</h2><div class="drawer sheet" id="d1"></div></div>
+  <div class="col"><h2>AFTER A TAP ON THE MAGNIFIER</h2><div class="drawer sheet" id="d2"></div></div>
   <div class="col"><h2>AN OPEN MOCKUP TAB</h2>
     <div class="tabcut"><img src="sheet-80/tabrow.png" alt=""><span class="v built">V1<i>✓</i></span></div>
-    <p>Built: the V chip turns green with a small tick.</p>
-    <div class="tabcut" style="margin-top:14px"><img src="sheet-80/tabrow.png" alt=""><span class="v ok">V1</span></div>
-    <p>Approved, not built yet: gold. Needs a fix: orange. A draft keeps today's purple.</p>
-  </div>
-  <div class="col"><h2>HOW IT BEHAVES</h2>
-    <div class="keys" style="display:block;font-size:13px;color:#cbb994;line-height:1.55">
-      <p style="margin:0 0 8px">The search matches the number or the name as you type, across everything shown, and lights up what matched.</p>
-      <p style="margin:0 0 8px">The chips show only sheets at that stage (by their THE-design version); the counts update as you search. One chip at a time; All clears it.</p>
-      <p style="margin:0 0 8px">The switch keeps Samara's sheets apart from live pages (they have no repo, so today they sit under AiVatar). It remembers your last choice.</p>
-      <p style="margin:0">The most useful view for you: <b>Approved</b> = waiting for Claude to build; <b>Fix</b> = waiting on Claude's changes.</p>
-    </div>
+    <p>Its own V chip turns green with a tick once built (gold when approved), so you see it without opening History.</p>
   </div>
 </div>
 <script>
@@ -125,39 +107,35 @@ const ALL = [
   { proj: 'LIVE PAGES', num: '76', name: 'Hard runs and the 5k', st: '', vs: 1 },
   { proj: 'LIVE PAGES', num: '75', name: 'Ledger ring miss', st: '', vs: 1 },
 ];
-const STAGES = [['all', 'ALL'], ['ok', 'APPROVED'], ['built', '✓ BUILT'], ['fix', 'FIX'], ['park', 'PARKED'], ['draft', 'DRAFTS']];
-const S = { q: '', st: 'all', proj: 'ALL' };
+const VIEWS = [['all', 'All'], ['ok', 'To build'], ['built', 'Built'], ['fix', 'Fix']];
 const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const hit = (t, q) => { if (!q) return esc(t); const i = t.toLowerCase().indexOf(q.toLowerCase()); return i < 0 ? esc(t) : esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length)); };
-const stageOf = (x) => x.st === 'chat' ? 'ok' : x.st || 'draft';
-function render() {
-  const d = document.getElementById('d1');
-  const q = S.q.trim();
-  const inProj = ALL.filter((x) => S.proj === 'ALL' || x.proj === S.proj);
-  const found = inProj.filter((x) => !q || x.num.includes(q) || x.name.toLowerCase().includes(q.toLowerCase()));
-  const count = (k) => k === 'all' ? found.length : found.filter((x) => stageOf(x) === k).length;
-  const shown = found.filter((x) => S.st === 'all' || stageOf(x) === S.st);
-  const glass = '<svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="#7d6f93" d="M1 0h3v1H1zM0 1h1v3H0zM4 1h1v3H4zM1 4h3v1H1zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6z"/></svg>';
-  let h = `<div class="mlist"><div class="mlh"><b>EVERY MOCKUP, BY SHEET</b></div><div class="mfind">
-    <label class="msearch">${glass}<input id="q" type="text" placeholder="Number or name" value="${esc(S.q)}" spellcheck="false"></label>
-    <div class="mproj2">${['ALL', 'AIVATAR', 'LIVE PAGES'].map((p) => `<button type="button" data-p="${p}" class="${S.proj === p ? 'on' : ''}">${p}</button>`).join('')}</div>
-    <div class="mchips">${STAGES.map(([k, l]) => `<button type="button" data-s="${k}" class="mchip ${k} ${S.st === k ? 'on' : ''}">${l}<b>${count(k)}</b></button>`).join('')}</div></div>`;
+const GLASS = '<svg width="16" height="16" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="#ffe28c" d="M2 0h3v1H2zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v3H0zM6 2h1v3H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2zM6 6h1v1H6zM7 7h1v1H7z"/></svg>';
+function trail(el, st) {
+  const q = st.q ?? null;
+  const shown = ALL.filter((x) => (st.view === 'all' || (st.view === 'ok' ? x.st === 'ok' || x.st === 'chat' : x.st === st.view)) && (!q || x.num.includes(q) || x.name.toLowerCase().includes(q.toLowerCase())));
+  let h = '<div class="mlist">';
+  h += q === null
+    ? `<div class="ffxw">${VIEWS.map(([k, l]) => `<button type="button" data-v="${k}" class="${st.view === k ? 'on' : ''}">${l}</button>`).join('')}<button type="button" class="mglass" title="Find a sheet">${GLASS}</button></div>`
+    : `<label class="mfindline"><span class="tag">FIND</span><input value="${esc(q)}" spellcheck="false"></label>`;
   let proj = '';
   for (const x of shown) {
     if (x.proj !== proj) { proj = x.proj; h += `<div class="mproj">${proj}</div>`; }
-    const okv = x.st === 'built' ? `<span class="okv built">✓ BUILT V${x.v}</span>` : x.st === 'ok' ? `<span class="okv">APPROVED V${x.v}</span>` : x.st === 'fix' ? '<span class="okv" style="background:#e8913a;color:#2b1405">FIX</span>' : x.st === 'park' ? '<span class="okv" style="background:#4a3f33;color:#b9a684">PARKED</span>' : `<span class="cnt">${x.vs} V</span>`;
-    h += `<button type="button" class="msr"><i class="chev"></i><span class="num">${hit(x.num, q)}</span><span class="nm">${hit(x.name, q)}</span>${okv}</button>`;
+    const okv = x.st === 'built' ? `<span class="okv built">✓ BUILT V${x.v}</span>` : x.st === 'ok' ? `<span class="okv">APPROVED V${x.v}</span>` : `<span class="cnt">${x.vs} V</span>`;
+    h += `<button type="button" class="msr"><i class="chev"></i><span class="num">${hit(x.num, q ?? '')}</span><span class="nm">${hit(x.name, q ?? '')}</span>${okv}</button>`;
   }
-  if (!shown.length) h += '<div class="mempty">Nothing matches.</div>';
-  d.innerHTML = h + '</div>';
-  const inp = d.querySelector('#q');
-  inp.addEventListener('input', () => { S.q = inp.value; const pos = inp.selectionStart; render(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos); });
-  d.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { S.st = b.dataset.s; render(); }));
-  d.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => { S.proj = b.dataset.p; render(); }));
+  if (!shown.length) h += '<div class="mempty">Nothing here yet.</div>';
+  el.innerHTML = h + '</div>';
+  el.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { st.view = b.dataset.v; trail(el, st); }));
+  el.querySelector('.mglass')?.addEventListener('click', () => { st.q = ''; trail(el, st); el.querySelector('input').focus(); });
+  const inp = el.querySelector('.mfindline input');
+  if (inp) {
+    inp.addEventListener('input', () => { st.q = inp.value; const p = inp.selectionStart; trail(el, st); const n = el.querySelector('.mfindline input'); n.focus(); n.setSelectionRange(p, p); });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Escape') { st.q = null; trail(el, st); } });
+  }
 }
-render();
-if (location.hash.startsWith('#q=')) { S.q = decodeURIComponent(location.hash.slice(3)); render(); }
-if (location.hash === '#built') { S.st = 'built'; render(); }
+trail(document.getElementById('d1'), { view: 'all', q: null });
+trail(document.getElementById('d2'), { view: 'all', q: '77' });
 </script>
 </body>
 </html>
