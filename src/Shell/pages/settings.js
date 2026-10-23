@@ -94,7 +94,7 @@ $('#homein').addEventListener('keydown', (e) => { if (e.key === 'Enter') homeDon
 $('#homein').addEventListener('blur', () => homeDone(true));
 
 // ---- your details: kept the moment a box is left; the address box looks his address up (OpenStreetMap)
-const AF = ['name', 'phone', 'street', 'city', 'region', 'postal', 'country'];
+const AF = ['given', 'family', 'phone', 'street', 'city', 'region', 'postal', 'country'];
 const picked = {};   // what the lookup filled in this time (those boxes get the tick while they are unchanged)
 function fillDetails() {
   const d = data?.autofill?.details ?? {};
@@ -115,7 +115,7 @@ function ticks() {
     t.hidden = !v || !(picked[k] === v || (k === 'postal' && POSTAL.test(v)));
   }
 }
-for (const k of ['name', 'emails', ...AF]) {
+for (const k of ['emails', ...AF]) {
   const i = $('#af-' + k);
   if (!i) continue;
   i.addEventListener('change', () => { if (k === 'postal' && POSTAL.test(i.value.trim())) i.value = i.value.trim().toUpperCase().replace(/^([A-Z]\d[A-Z]) ?(\d[A-Z]\d)$/, '$1 $2'); saveDetails(); ticks(); });
@@ -252,7 +252,7 @@ function paint(d) {
   $('#homev').textContent = bare(d.homeNow);
   // autofill
   const det = d.autofill?.details ?? {};
-  const has = det.name || det.emails?.length || det.phone || det.street;
+  const has = det.given || det.family || det.emails?.length || det.phone || det.street;
   $('#detailsv').textContent = has ? 'Set' : 'Not set';
   $('#detailsv').classList.toggle('dim', !has);
   $('#pinv').textContent = d.autofill?.pin ? `${d.autofill.pinLen || 4} numbers` : 'Not set';

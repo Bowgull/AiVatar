@@ -20,8 +20,9 @@ export const PIN_MIN = 4;
 export const PIN_MAX = 8;
 export const PIN_TRIES = 5;
 
-export interface Details { name: string; emails: string[]; phone: string; street: string; city: string; region: string; postal: string; country: string }
-export const NO_DETAILS: Details = { name: '', emails: [], phone: '', street: '', city: '', region: '', postal: '', country: '' };
+/** `name` is his whole name, made from `given` and `family` (two boxes since sheet 83 v3; an old single name is split once). */
+export interface Details { name: string; given: string; family: string; emails: string[]; phone: string; street: string; city: string; region: string; postal: string; country: string }
+export const NO_DETAILS: Details = { name: '', given: '', family: '', emails: [], phone: '', street: '', city: '', region: '', postal: '', country: '' };
 
 /** What a box is for, as the page's own hints tell it (autocomplete, type, name, id, label). */
 export type FieldKind = 'email' | 'username' | 'password' | 'newpassword' | 'name' | 'given' | 'family' | 'tel' | 'street' | 'city' | 'region' | 'postal' | 'country';
@@ -32,17 +33,18 @@ const clip = (v: unknown, n: number) => String(v ?? '').replace(/[\u0000-\u001f]
 export function cleanDetails(d: unknown): Details {
   const o = (d && typeof d === 'object' ? d : {}) as Record<string, unknown>;
   const emails = (Array.isArray(o.emails) ? o.emails : []).map((e) => clip(e, 200)).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-  return { name: clip(o.name, 120), emails: [...new Set(emails)].slice(0, 5), phone: clip(o.phone, 40), street: clip(o.street, 200), city: clip(o.city, 100),
+  let given = clip(o.given, 60), family = clip(o.family, 60);
+  if (!given && !family) { const [g = '', ...rest] = clip(o.name, 120).split(/\s+/); given = g; family = rest.join(' '); }
+  return { name: [given, family].filter(Boolean).join(' '), given, family, emails: [...new Set(emails)].slice(0, 5), phone: clip(o.phone, 40), street: clip(o.street, 200), city: clip(o.city, 100),
     region: clip(o.region, 100), postal: clip(o.postal, 20), country: clip(o.country, 80) };
 }
 /** The value his details give a kind of box ('' when none). */
 export function detailFor(d: Details, kind: FieldKind, email = 0): string {
-  const [given, ...rest] = d.name.split(/\s+/);
   switch (kind) {
     case 'email': return d.emails[email] ?? '';
     case 'name': return d.name;
-    case 'given': return given ?? '';
-    case 'family': return rest.join(' ');
+    case 'given': return d.given;
+    case 'family': return d.family;
     case 'tel': return d.phone;
     case 'street': return d.street;
     case 'city': return d.city;
@@ -73,7 +75,7 @@ export class DetailsStore {
     if (sealed) { try { writeFileAtomic(this.file, JSON.stringify({ v: 1, sealed })); } catch (e) { console.error('shell: your details were not saved: ' + (e as Error).message); } }
     return this.get();
   }
-  empty(): boolean { const d = this.d; return !d.emails.length && !d.name && !d.phone && !d.street; }
+  empty(): boolean { const d = this.d; return !d.emails.length && !d.given && !d.family && !d.phone && !d.street; }
 }
 
 // Modest on purpose: a 4-digit PIN is only ever 10,000 guesses, so the Keychain around it is the real lock; this keeps

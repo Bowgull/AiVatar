@@ -65,6 +65,8 @@ app.whenReady().then(async () => {
   check('each filled box has its tick', (await js(`[...document.querySelectorAll('[data-ok]')].filter(t => !t.hidden).length`)) === 5);
   check('and it is kept at once', (await js(`__sent()`)).includes('"postal":"M5H 2N2"'));
   await shot('details-picked');
+  await js(`(() => { for (const [k, v] of [['given', 'Mary Ann'], ['family', 'van der Berg']]) { const i = document.getElementById('af-' + k); i.value = v; i.dispatchEvent(new Event('change')); } })()`);
+  check('first and last name are two boxes, kept as typed', (await js(`__sent()`)).includes('"given":"Mary Ann","family":"van der Berg"'));
 
   // PIN
   await js(`document.querySelector('[data-back]:not([hidden])') ; document.querySelector('section[data-sec=details] [data-back]').click()`);

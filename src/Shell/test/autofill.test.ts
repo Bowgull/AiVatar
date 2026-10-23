@@ -15,11 +15,17 @@ test('the preload reads boxes exactly as autofill does', () => {
 });
 test('his details: short plain text, real-looking emails, at most five', () => {
   const d = cleanDetails({ name: '  Alex\u0007 Example ', emails: ['a@b.co', 'not an email', 'a@b.co', 'c@d.io', 'e@f.io', 'g@h.io', 'i@j.io', 'k@l.io'], phone: 5550142, extra: 'dropped' });
-  assert.equal(d.name, 'Alex  Example');
+  assert.equal(d.name, 'Alex Example');
   assert.deepEqual(d.emails, ['a@b.co', 'c@d.io', 'e@f.io', 'g@h.io', 'i@j.io']);
   assert.equal(d.phone, '5550142');
   assert.equal((d as unknown as Record<string, unknown>).extra, undefined);
   assert.equal(detailFor(d, 'given'), 'Alex');
   assert.equal(detailFor(d, 'family'), 'Example');
   assert.equal(detailFor(d, 'email', 1), 'c@d.io');
+});
+test('first and last name kept apart, as he typed them (sheet 83 v3)', () => {
+  const d = cleanDetails({ given: 'Mary Ann', family: 'van der Berg', name: 'ignored' });
+  assert.equal(detailFor(d, 'given'), 'Mary Ann');
+  assert.equal(detailFor(d, 'family'), 'van der Berg');
+  assert.equal(detailFor(d, 'name'), 'Mary Ann van der Berg');
 });
