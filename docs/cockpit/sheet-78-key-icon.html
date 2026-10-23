@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 78 - The address bar key</title>
+<!-- Sheet 78 (2026-10-23, his note on sheet 77: "fix the key icon, at present it's squashed"). Samara's key (#vkey) is
+     a 7x7 glyph: too few pixels for a key's ring, shaft and teeth, so it reads as a smudge. Three keys drawn on a bigger
+     grid, each with a padlock of the same build, shown at true size in the real bar (dim, lit, locked) and enlarged.
+     Pixel art at a whole-number scale (2x), one colour like the bar's other symbols. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;overflow:auto;height:auto;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 26px;max-width:900px;line-height:1.55}
+  .opt{display:grid;grid-template-columns:150px 1fr;gap:24px;align-items:start;margin:0 0 36px;max-width:1500px}
+  .opt h2{font:400 15px var(--label);letter-spacing:2px;color:var(--gold);margin:0 0 6px}
+  .opt p{font-size:13px;color:#b9a684;line-height:1.45;margin:0}
+  .big{display:flex;gap:14px;align-items:flex-end;margin-top:12px}
+  .big div{background:rgb(11,7,24);border-radius:8px;padding:10px;display:grid;place-items:center}
+  .bars{display:grid;gap:10px}
+  .barcut{position:relative;width:420px;height:58px;overflow:hidden;border-radius:8px;border:2px solid #3a2a1a}
+  .barcut img{position:absolute;left:-380px;top:0;image-rendering:pixelated}
+  .barcut .slotfix{position:absolute;left:247px;top:24px;width:26px;height:24px;background:rgb(11,7,24);border-radius:6px;display:grid;place-items:center}
+  .barcut .slotfix.hov{background:rgba(255,224,150,.10);background:linear-gradient(rgba(255,224,150,.10),rgba(255,224,150,.10)),rgb(11,7,24)}
+  .barcut .halo{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,110,.6) 0,rgba(255,196,60,.22) 38%,transparent 68%)}
+  .barcut .tag{position:absolute;left:290px;top:22px;font:400 8px var(--label);letter-spacing:1px;color:#8a7a62}
+  svg{display:block;shape-rendering:crispEdges;image-rendering:pixelated;position:relative}
+  .old{opacity:.9}
+</style>
+</head>
+<body>
+<h1>SHEET 78 - THE ADDRESS BAR KEY</h1>
+<p class="lead">Today's key is drawn on a 7-pixel square: there's no room for a ring, a shaft and teeth, so it comes out squashed. Three keys with room to breathe, each with a padlock built the same way. Each row: the key dim (normal), lit (a login is ready / just unlocked), and its padlock (Bitwarden needs your PIN), at true size in the real bar, then enlarged.</p>
+
+<div id="opts"></div>
+
+<script>
+// each glyph as a grid, drawn at exactly 2 screen pixels per art pixel
+const DIM = '#bfae8a', GOLD = '#ffc43c', BG = 'rgb(11,7,24)';
+const svg = (rows, color, s = 2, glow = false) => { const h = rows.length, w = Math.max(...rows.map((r) => r.length)); let r = '';
+  rows.forEach((row, y) => [...row].forEach((c, x) => { if (c === 'X') r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`; if (c === 'o') r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${BG}"/>`; }));
+  return `<svg width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}" style="${glow ? 'filter:drop-shadow(0 0 3px rgba(255,196,60,.9))' : ''}">${r}</svg>`; };
+const OLD = ['.XXX...','X...X..','X...X..','.XXX...','...X...','...XXX.','...XX..'];   // today's (#vkey), for comparison
+const OPTS = [
+  { id: 'A', name: 'A · LYING DOWN', note: 'The classic key on its side: round bow, long shaft, two teeth. Reads instantly, sits low and wide like the bar\'s text.',
+    key: ['.XX.......','X..X......','X..XXXXXXX','X..X...X.X','.XX....X.X'],
+    lock: ['..XXX..','.X...X.','.X...X.','XXXXXXX','XXXoXXX','XXXoXXX','XXXXXXX'] },
+  { id: 'B', name: 'B · ZELDA SMALL KEY', note: 'Standing up, the dungeon small key from the Zelda games: a ring on top, the bit at the bottom. Most "game", narrow.',
+    key: ['.XXX.','X...X','X...X','.XXX.','..X..','..XX.','..X..','..XXX','..X..'],
+    lock: ['.XXX.','X...X','X...X','XXXXX','XXoXX','XXoXX','XXXXX'] },
+  { id: 'C', name: 'C · OLD IRON KEY', note: 'A fancier bow with a hole, a long shaft and a stepped bit, on its side. The most detail, still crisp at true size.',
+    key: ['.XXX........','XXXXX.......','XXoXXXXXXXXX','XXXXX....X.X','.XXX.....X.X'],
+    lock: ['..XXXX..','.X....X.','.X....X.','XXXXXXXX','XXXooXXX','XXXooXXX','XXXXXXXX'] },
+];
+const box = (inner, cls = '') => `<div class="barcut"><img src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="slotfix ${cls}">${inner}</div></div>`;
+document.getElementById('opts').innerHTML =
+  `<div class="opt"><div><h2>TODAY</h2><p>7 by 7: the ring and teeth run together.</p></div><div class="bars"><div style="display:flex;gap:10px">${box(svg(OLD, DIM))}${box('<span class="halo"></span>' + svg(OLD, GOLD, 2, true))}</div>
+   <div class="big"><div>${svg(OLD, DIM, 6)}</div></div></div></div>` +
+  OPTS.map((o) => `<div class="opt"><div><h2>${o.name}</h2><p>${o.note}</p></div><div class="bars">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${box(svg(o.key, DIM))}${box('<span class="halo"></span>' + svg(o.key, GOLD, 2, true))}${box(svg(o.lock, GOLD, 2, true))}</div>
+    <div class="big"><div>${svg(o.key, DIM, 6)}</div><div>${svg(o.key, GOLD, 6)}</div><div>${svg(o.lock, GOLD, 6)}</div></div></div></div>`).join('');
+</script>
+</body>
+</html>
