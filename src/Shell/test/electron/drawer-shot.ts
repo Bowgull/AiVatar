@@ -45,6 +45,8 @@ app.whenReady().then(async () => {
   };
   if (process.env.SIZE && SIZES[process.env.SIZE]) await b.trayV.webContents.insertCSS(SIZES[process.env.SIZE]!.replace(/;/g, ' !important;').replace(/([^;}])}/g, '$1 !important}'));
   await wait(300);
+  // HIST=1: the mockups history open, its first sheet unfolded (for the look of its version rows).
+  if (process.env.HIST) { b.mockAct('list', { open: true }); b.sendTabs(); await wait(1500); await b.trayV.webContents.executeJavaScript(`(() => { for (const r of document.querySelectorAll('.msr')) r.click(); return 1; })()`); await wait(800); await b.trayV.webContents.executeJavaScript(`(() => { const d = document.querySelector('.drawer'); d.scrollTop = d.scrollHeight; return 1; })()`); await wait(300); b.tray(true, { x: 42, y: 62, hy: 80 }); await wait(900); }
   // SCROLL=mid: the list scrolled part way, where the broom used to sit over a tab.
   if (process.env.SCROLL) await b.trayV.webContents.executeJavaScript(`(() => { const d = document.querySelector('.drawer'); d.scrollTop = ${process.env.SCROLL === 'end' ? 'd.scrollHeight' : 'Math.round((d.scrollHeight - d.clientHeight) / 2)'}; return d.scrollTop; })()`, true).then((y: number) => console.log('SCROLLED ' + y));
   await wait(300);
