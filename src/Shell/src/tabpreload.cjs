@@ -82,7 +82,7 @@ try {
 try {
   if (window === window.top && location.protocol === 'https:') {
     function fieldKind(el) {
-      if (!el || el.tagName !== 'INPUT' || el.disabled || el.readOnly) return null;
+      if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'SELECT') || el.disabled || el.readOnly) return null;
       const t = (el.type || 'text').toLowerCase();
       if (['hidden', 'submit', 'button', 'checkbox', 'radio', 'file', 'image', 'reset', 'range', 'color', 'date', 'number', 'search', 'month', 'week', 'time', 'datetime-local'].includes(t)) return null;
       const ac = (el.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
@@ -121,7 +121,7 @@ try {
       if (!box) { ipcRenderer.send('tab:field', null); return; }
       const k = fieldKind(box), r = box.getBoundingClientRect();
       if (!k || r.width < 30 || r.height < 12) { ipcRenderer.send('tab:field', null); return; }
-      const kinds = [...new Set([...(box.form || document).querySelectorAll('input')].map(fieldKind).filter(Boolean))].slice(0, 12);
+      const kinds = [...new Set([...(box.form || document).querySelectorAll('input, select')].map(fieldKind).filter(Boolean))].slice(0, 12);
       ipcRenderer.send('tab:field', { kind: k, kinds, empty: box.value === '', rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } });
     };
     document.addEventListener('focusin', (e) => { here = e.target instanceof HTMLInputElement && fieldKind(e.target) ? e.target : null; say(here); }, true);
