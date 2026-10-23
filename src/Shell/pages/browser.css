@@ -961,6 +961,26 @@ html.solo .railhandle{left:340px}
 .drawer .mv.kid{margin-left:28px;width:calc(100% - 28px)}
 .drawer .mv i{font-size:8.5px}
 
+/* ---- Sheet 71 (his pick, 2026-10-22): the tab list in three sizes, picked in Settings for each machine. Large is the
+   size above (2026-10-21, his ask to read more easily); Medium and Small step it down. The list layer's width in the
+   Shell follows (browser.ts TRAY_W). */
+html.tsize-m .drawer{width:320px}
+html.solo.tsize-m body .drawer,html.solo.tsize-m .railhandle{transform:translateX(-320px)}
+html.solo.tsize-m .railhandle{left:320px}
+html.tsize-m .drawer .tp{font-size:13.5px;padding:8px 10px;gap:9px;margin-bottom:6px}
+html.tsize-m .drawer .tp .fi{width:18px;height:18px}
+html.tsize-m .drawer .th{font-size:14px;margin:12px 2px 6px}
+html.tsize-m .drawer .msheet{font-size:13.5px}
+html.tsize-m .drawer .mv{font-size:12.5px}
+html.tsize-s .drawer{width:300px}
+html.solo.tsize-s body .drawer,html.solo.tsize-s .railhandle{transform:translateX(-300px)}
+html.solo.tsize-s .railhandle{left:300px}
+html.tsize-s .drawer .tp{font-size:12.5px;padding:6px 9px 6px 7px;gap:8px;margin-bottom:5px}
+html.tsize-s .drawer .tp .fi{width:16px;height:16px}
+html.tsize-s .drawer .th{font-size:13px;margin:10px 2px 5px}
+html.tsize-s .drawer .msheet{font-size:12.5px}
+html.tsize-s .drawer .mv{font-size:12px;padding:4px 6px 4px 12px}
+
 /* Sheet 57 A (his pick, 2026-10-21): the close-tab x without the big circle. A hand-placed 5x5 pixel x at 2x (10 px drawn,
    he found the circles "an eyesore" and asked for it a touch smaller than the sheet's 7x7), in quiet wood ink, only on the
    row under the pointer and the open tab; gold when the pointer is on the x itself. The button stays 26 px to hit. */
@@ -976,6 +996,10 @@ html.solo .railhandle{left:340px}
 .drawer .tp.on .x:hover{--ink:#b4520c}
 .drawer .tp .x:focus-visible{outline:2px solid #FFC43C;outline-offset:-2px}
 @media (prefers-reduced-motion:reduce){.drawer .tp .x,.drawer .tp .x::after{transition:none}}
+/* Sheet 71 Small: the close x's button a touch smaller, the pixel x the same. */
+html.tsize-s .drawer .tp .x{width:22px;height:22px}
+html.tsize-s .drawer .tp .x::before,html.tsize-s .drawer .tp .x::after{left:6px;top:6px}
+html.tsize-s .drawer .tp .x::before{top:8px}
 
 /* ---- The MOCKUPS tidy (his ask, 2026-10-22: "organize the mockups ... a cleanup function that's somehow smart"). A TIDY key
    on the trail's head (Samara's own broom art), and the history organised: project > branch > one row per sheet, its

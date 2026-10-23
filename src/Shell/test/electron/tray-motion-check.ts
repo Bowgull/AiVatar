@@ -54,7 +54,9 @@ app.whenReady().then(async () => {
   wireBrowser(() => b);
   b.open();
   if (process.env.NOPEEK) b.peek = async () => {};
-  await wait(6000);                                     // the list layer is built 3 s after the window shows
+  await wait(6000);
+  // SIZE=s|m: switched in Settings while the list is shut (sheet 71), before the first open.
+  if (process.env.SIZE) { b.setSetting('tabSize', process.env.SIZE); await wait(300); }                                     // the list layer is built 3 s after the window shows
   const band = b.win.webContents as Electron.WebContents;
   const trayWc = () => b.trayV?.webContents as Electron.WebContents | undefined;
   // When the Shell shows or hides the list layer.

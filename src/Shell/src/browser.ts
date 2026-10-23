@@ -283,6 +283,8 @@ const GESTURE_MS = 1000;
 const PLAY_MS = 15_000;
 /** The tab rail's slide in and out (his ask, 2026-10-20): the same time the rail's CSS uses. */
 const TRAY_SLIDE_MS = 260;
+/** The tab list's width at each size (sheet 71); browser.css draws the same widths. */
+const TRAY_W = { s: 300, m: 320, l: 340 } as const;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 // 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
 const SLEEP_AFTER_MS = 2 * 60 * 60_000;
@@ -473,6 +475,12 @@ export class AangBrowser {
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
+  /**
+   * Sheet 71 (his pick, 2026-10-22): the tab list's size, Small / Medium / Large (Large = the 2026-10-21 size). Each machine
+   * its own (the Mac's small screen and the PC's big one), so it is kept apart from the prefs, which sync.
+   */
+  tabSize: 's' | 'm' | 'l' = 'l';
+  private localFile = '';
   prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[] };
   /** His home page, or his search engine's front page. Web pages only. */
   private get HOME(): string { return isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
@@ -599,6 +607,8 @@ export class AangBrowser {
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     this.devices = new DeviceOk(path.join(o.stateDir, 'device-ok.json'));
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
+    this.localFile = path.join(o.stateDir, 'browser-local.json');
+    try { const l = JSON.parse(readFileSync(this.localFile, 'utf8')); if (l?.tabSize === 's' || l?.tabSize === 'm') this.tabSize = l.tabSize; } catch { /* Large */ }
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
     this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
     this.iconsFile = path.join(o.stateDir, 'browser-favicons.json');
@@ -1285,7 +1295,7 @@ export class AangBrowser {
     v.setVisible(false);
     const P = this.pane;
     // Opened before its page had loaded (his first hover right after start): slide out once it has.
-    v.webContents.on('did-finish-load', () => { this.pane = P; this.sendTabs(); if (P.trayOn) v.webContents.send('browser:tray', { open: true, hy: P.trayAt.hy }); else this.warmTray(P, v); });
+    v.webContents.on('did-finish-load', () => { this.pane = P; this.sendTabs(); v.webContents.send('browser:tray', { size: this.tabSize }); if (P.trayOn) v.webContents.send('browser:tray', { open: true, hy: P.trayAt.hy, size: this.tabSize }); else this.warmTray(P, v); });
     v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
     void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`);
     this.trayV = v;
@@ -1301,7 +1311,7 @@ export class AangBrowser {
     const w = P.win;
     if (P.trayOn || !w || w.isDestroyed() || v.webContents.isDestroyed() || tries > 10) return;
     const [cw, ch] = w.getContentSize(), wb = w.getContentBounds(), at = P.trayAt;
-    const box = { x: at.x, y: at.y, width: Math.max(0, Math.min(340, cw - at.x)), height: Math.max(0, ch - at.y) };
+    const box = { x: at.x, y: at.y, width: Math.max(0, Math.min(TRAY_W[this.tabSize], cw - at.x)), height: Math.max(0, ch - at.y) };
     const m = screen.getCursorScreenPoint();
     if (m.x >= wb.x + box.x && m.x < wb.x + box.x + box.width && m.y >= wb.y + box.y && m.y < wb.y + box.y + box.height) { setTimeout(() => this.warmTray(P, v, tries + 1), 2000); return; }
     v.setBounds(box);
@@ -1338,7 +1348,7 @@ export class AangBrowser {
     w.contentView.addChildView(v);             // to the top, over the page
     // The rail starts folded, its handle exactly over the band's, then slides out carrying it (his ask, 2026-10-20).
     v.setVisible(true);
-    v.webContents.send('browser:tray', { open: true, hy: this.trayAt.hy });
+    v.webContents.send('browser:tray', { open: true, hy: this.trayAt.hy, size: this.tabSize });
     v.webContents.focus();
     w.webContents.send('browser:tray', { open: true });
     this.sendTabs();
@@ -1353,7 +1363,7 @@ export class AangBrowser {
     const w = this.win, v = this.trayV;
     if (!w || w.isDestroyed() || !v || !this.trayOn) return;
     const [cw, ch] = w.getContentSize();
-    v.setBounds({ x: this.trayAt.x, y: this.trayAt.y, width: Math.max(0, Math.min(340, cw - this.trayAt.x)), height: Math.max(0, ch - this.trayAt.y) });
+    v.setBounds({ x: this.trayAt.x, y: this.trayAt.y, width: Math.max(0, Math.min(TRAY_W[this.tabSize], cw - this.trayAt.x)), height: Math.max(0, ch - this.trayAt.y) });
   }
 
   /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
@@ -1918,7 +1928,7 @@ export class AangBrowser {
     return {
       home: this.prefs.home !== DEFAULT_HOME ? this.prefs.home : '', homeNow: this.HOME,
       search: this.prefs.search, aiBox: this.prefs.aiBox, startup: this.prefs.startup,
-      ads: this.prefs.ads, popups: this.prefs.popups, sounds: this.sounds, dark: this.prefs.dark,
+      ads: this.prefs.ads, popups: this.prefs.popups, sounds: this.sounds, dark: this.prefs.dark, tabSize: this.tabSize,
       popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(), sites: this.yourSites(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
@@ -1937,6 +1947,17 @@ export class AangBrowser {
       case 'aiBox': this.prefs.aiBox = value === true; setSearch(this.prefs.search, this.prefs.aiBox); this.savePrefs(); break;
       case 'startup': this.prefs.startup = value === 'home' ? 'home' : 'tabs'; this.savePrefs(); break;
       case 'ads': case 'popups': case 'sounds': case 'dark': this.setPref(key, value === true); break;
+      case 'tabSize': {
+        this.tabSize = value === 's' || value === 'm' ? value : 'l';
+        try { writeFileAtomic(this.localFile, JSON.stringify({ tabSize: this.tabSize })); } catch { /* this run only */ }
+        // The list layer hears it at once, open or not, so its next slide starts at the new width.
+        for (const p of this.panes) {
+          // ...and is drawn again out of sight at the new size, so the first open after the change is smooth too.
+          if (p.trayV && !p.trayV.webContents.isDestroyed()) { p.trayV.webContents.send('browser:tray', { size: this.tabSize }); if (!p.trayOn) { const v = p.trayV; setTimeout(() => this.warmTray(p, v), 150); } }
+          if (p.trayOn) { const was = this.pane; this.pane = p; this.placeTray(); this.pane = was; }
+        }
+        break;
+      }
       default: return;
     }
     this.sendTabs();
@@ -4024,6 +4045,7 @@ export class AangBrowser {
       site: this.siteState(t?.url ?? ''),
       sounds: this.sounds,
       prefs: this.prefs,
+      tabSize: this.tabSize,
       // The shelf: the bar ones first, as in Chrome, then the rest. Only what the shelf can show is sent.
       marks: [...this.marks.filter((m) => isBar(m.folder)), ...this.marks.filter((m) => !isBar(m.folder))].slice(0, 24).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })),
       markCount: this.marks.length,
