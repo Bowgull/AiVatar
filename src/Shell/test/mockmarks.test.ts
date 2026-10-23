@@ -26,6 +26,7 @@ test('one stage per version, approval moves, the chat needs his words, kept on d
   assert.notEqual(s.setStage(1, 'chat', {}), '', 'an approval from the chat needs his words');
   assert.equal(s.setStage(1, 'chat', { said: 'yes, build it', by: 'claude' }), '');
   assert.equal(s.setStage(1, 'built', { by: 'claude' }), '');
+  assert.equal(s.list.find((x) => x.id === 1)!.said, 'yes, build it', 'built keeps the words he approved it with');
   const again = new MockStore(f).stages();
   assert.deepEqual(again.map((x) => [x.v, x.stage]).sort(), [[1, 'built'], [3, 'fix']]);
   assert.equal(again.find((x) => x.v === 3)!.note, 'key over a key');
