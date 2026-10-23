@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 74 - Autofill, our own way</title>
+<!-- Sheet 74 (2026-10-23, his asks: "does it have to be drop down in the drop down sense? this pin does it have to be
+     that way?", then "that and a few other ideas, let's be creative, we don't have to be like the other browsers").
+     Five ways, each live on a made-up shop under Samara's real band: the answer already in the box; a companion light
+     (Zelda's fairy) that brings it; a Breath of the Wild action prompt; the PIN typed in the password box itself,
+     played like an ocarina; one press for the whole page. Sounds are made here (Web Audio), soft, and only on a key. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;overflow:auto;height:auto;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 28px;max-width:1000px;line-height:1.55}
+  section{margin:0 0 50px}
+  .dh{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+  .dh h2{font:400 15px var(--label);letter-spacing:2px;color:var(--gold);margin:0}
+  .dh span{font-size:13px;color:#b9a684}
+  .dnote{font-size:13px;color:#b9a684;max-width:900px;line-height:1.5;margin:0 0 12px}
+  .dnote kbd{font:400 9px var(--label);letter-spacing:1px;border:2px solid #4a3522;border-radius:4px;padding:1px 5px;color:#e8dcc4}
+  .frame{position:relative;width:900px;border-radius:12px;overflow:hidden;border:3px solid var(--outline);background:var(--wood2)}
+  .frame img.band{display:block;image-rendering:pixelated}
+  .pagewrap{background:#2a1c10;padding:0 12px 12px}
+  .site{position:relative;background:#f6f7f9;border-radius:6px;height:330px;padding:22px 0 0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#1d2330;overflow:hidden}
+  .brand{font:800 14px system-ui;letter-spacing:3px;color:#24426b;text-align:center;margin-bottom:14px}
+  .site h4{margin:0 auto 12px;width:300px;font:700 20px system-ui}
+  .site label{display:block;width:300px;margin:0 auto 4px;font:600 12px system-ui;color:#4a5466}
+  .box{position:relative;width:300px;height:34px;margin:0 auto 12px}
+  .box input{width:100%;height:100%;box-sizing:border-box;border:1.5px solid #c9ced8;border-radius:6px;background:#fff;padding:7px 10px;font:500 14px system-ui;color:#1d2330;outline:none}
+  .box input:focus{border-color:#3b6fd8;box-shadow:0 0 0 3px rgba(59,111,216,.18)}
+  .box.shine input{animation:shine .7s ease-out}
+  @keyframes shine{0%{background:linear-gradient(100deg,#fff 0%,#fff 30%,#fff3c4 45%,#fff 60%) -300px 0/600px 100% no-repeat}100%{background:linear-gradient(100deg,#fff 0%,#fff 30%,#fff3c4 45%,#fff 60%) 300px 0/600px 100% no-repeat}}
+  .site .btn{width:300px;margin:4px auto 0;box-sizing:border-box;border-radius:6px;background:#24426b;color:#fff;text-align:center;padding:9px;font:700 14px system-ui}
+  svg.px{display:block;image-rendering:pixelated;shape-rendering:crispEdges}
+  .ctl{display:flex;gap:10px;margin:10px 0 0}
+  .ctl button{font:400 10px var(--label);letter-spacing:1px;color:#e8dcc4;background:#2b1d12;border:2px solid #4a3522;border-radius:6px;padding:7px 10px;cursor:pointer}
+  .ctl button:hover{border-color:var(--gold-deep);color:var(--gold-lit)}
+
+  /* 1 · ghost in the box */
+  .ghost{position:absolute;left:11.5px;top:1px;height:34px;line-height:34px;font:500 14px system-ui;color:#b4a27a;pointer-events:none;white-space:nowrap}
+  .ghost .k{display:inline-block;margin-left:10px;font:400 8px var(--label);letter-spacing:1px;color:#8a6d33;border:1.5px solid #c9a865;border-radius:3px;padding:0 4px;line-height:14px;vertical-align:2px}
+  .ghost .n{margin-left:6px;font:400 8px var(--label);color:#b4a27a}
+
+  /* 2 · the companion light */
+  .fairy{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;cursor:pointer;z-index:4;
+    background:radial-gradient(circle,#fffbe6 0 18%,rgba(255,232,150,.9) 30%,rgba(255,200,90,.35) 55%,transparent 70%);
+    transition:left .7s cubic-bezier(.3,.8,.3,1),top .7s cubic-bezier(.3,.8,.3,1),opacity .3s;animation:float 1.6s ease-in-out infinite}
+  .fairy::before,.fairy::after{content:"";position:absolute;top:6px;width:12px;height:10px;border-radius:50%;background:rgba(255,248,220,.55);animation:wing .18s ease-in-out infinite alternate}
+  .fairy::before{left:-6px;transform-origin:right}.fairy::after{right:-6px;transform-origin:left}
+  @keyframes wing{to{transform:scaleY(.4)}}
+  @keyframes float{50%{transform:translateY(-4px)}}
+  .fairy .say{position:absolute;left:36px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#24160d;border:3px solid var(--outline);border-radius:6px;
+    padding:5px 9px;font:700 12.5px var(--body);color:#ffe28c;box-shadow:inset 0 2px 0 rgba(255,224,150,.15);opacity:0;transition:opacity .2s;pointer-events:none}
+  .fairy:hover .say,.fairy.talk .say{opacity:1}
+  .fairy .say small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a;margin-top:2px}
+  .sparks{position:absolute;pointer-events:none;z-index:5}
+  .sparks i{position:absolute;width:4px;height:4px;background:#ffe28c;animation:spark .6s ease-out forwards}
+  @keyframes spark{to{transform:translate(var(--x),var(--y));opacity:0}}
+
+  /* 3 · the action prompt (Breath of the Wild's "A  Open") */
+  .prompt{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:7px;white-space:nowrap;
+    background:rgba(20,14,9,.88);border-radius:16px;padding:4px 11px 4px 4px;color:#fff;font:600 13px var(--body);animation:pin .25s ease-out}
+  @keyframes pin{from{opacity:0;transform:translate(-6px,-50%)}}
+  .prompt b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#fff;color:#1a120b;font:400 8px var(--label)}
+  .prompt span small{color:#c8bda8;font-weight:500;margin-left:5px}
+
+  /* 4 · the lock in the box, played like an ocarina */
+  .lockbox input{color:transparent;caret-color:transparent}
+  .lockbox .pips{position:absolute;left:12px;top:0;height:34px;display:flex;align-items:center;gap:7px;pointer-events:none}
+  .lockbox .pips i{width:9px;height:9px;transform:rotate(45deg);border:2px solid #c9a865;box-sizing:border-box;transition:background .12s,box-shadow .12s}
+  .lockbox .pips i.f{background:#ffc43c;border-color:#8a5a0c;box-shadow:0 0 8px rgba(255,196,60,.8)}
+  .lockbox .lk{position:absolute;right:9px;top:8px;pointer-events:none}
+  .lockbox .hint{position:absolute;right:34px;top:0;line-height:34px;font:400 8px var(--label);letter-spacing:1px;color:#a08a5c;pointer-events:none}
+  .lockbox.open input{animation:glow .6s ease-out}
+  @keyframes glow{0%{box-shadow:0 0 0 0 rgba(255,196,60,.9)}100%{box-shadow:0 0 0 14px rgba(255,196,60,0)}}
+  .lockbox.wrong{animation:shake .3s}
+  @keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+  /* 5 · one press, whole page */
+  .keyglow{position:absolute;left:621px;top:13px;width:32px;height:32px;border-radius:8px;cursor:pointer;box-shadow:0 0 0 2px #ffc43c,0 0 14px 4px rgba(255,196,60,.6);animation:breathe 1.4s ease-in-out infinite;z-index:3}
+  @keyframes breathe{50%{box-shadow:0 0 0 2px #ffc43c,0 0 22px 8px rgba(255,196,60,.35)}}
+  .keyglow .say{position:absolute;right:-6px;top:40px;white-space:nowrap;background:#24160d;border:3px solid var(--outline);border-radius:6px;padding:5px 9px;font:700 12.5px var(--body);color:#ffe28c}
+  .keyglow .say kbd{font:400 8px var(--label);letter-spacing:1px;border:1.5px solid #8a6d33;border-radius:3px;padding:0 4px;margin-left:6px;color:#e8dcc4}
+</style>
+</head>
+<body>
+<h1>SHEET 74 - AUTOFILL, OUR OWN WAY</h1>
+<p class="lead">No list popping out of the box, and no separate PIN window. Five ways Samara could do it, each one live: click into the boxes, use Tab and the arrow keys, type on the number pad. Sound is soft and only plays on a key you press. They can mix: for example 1 for typing, 4 for the PIN, 5 for long forms.</p>
+
+<section id="s1">
+  <div class="dh"><h2>1 · ALREADY IN THE BOX</h2><span>quietest of all</span></div>
+  <p class="dnote">Click a box and your answer is already there, faded. <kbd>TAB</kbd> takes it. <kbd>↑</kbd> <kbd>↓</kbd> flick through others right inside the box, like Zelda's quick-select. Start typing and it gets out of the way.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-idea="1"></div></div></div>
+  <div class="ctl"><button data-reset="1">Start again</button></div>
+</section>
+
+<section id="s2">
+  <div class="dh"><h2>2 · THE COMPANION LIGHT</h2><span>Zelda's fairy, or Aang's own little light</span></div>
+  <p class="dnote">A small light flies from the key in the address bar to the box you clicked and waits beside it. Point at it to see what it carries; touch it (or <kbd>TAB</kbd>) and it fills, with a spark. On the password box it brings your key.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-idea="2"></div></div></div>
+  <div class="ctl"><button data-reset="2">Start again</button></div>
+</section>
+
+<section id="s3">
+  <div class="dh"><h2>3 · THE ACTION PROMPT</h2><span>Breath of the Wild's "A · Open"</span></div>
+  <p class="dnote">Beside the box you clicked, one small prompt, the way Hyrule tells you what a button does. <kbd>TAB</kbd> fills. Nothing covers the page.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-idea="3"></div></div></div>
+  <div class="ctl"><button data-reset="3">Start again</button></div>
+</section>
+
+<section id="s4">
+  <div class="dh"><h2>4 · THE LOCK IN THE BOX</h2><span>the PIN played like an ocarina</span></div>
+  <p class="dnote">Bitwarden has locked. The password box itself becomes the lock: type your PIN right in it on the number pad. Each digit lights a gold pip and plays a soft note; the right six notes open it and your password drops in. (Here, any 6 digits open it; 000000 shows a wrong try.)</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-idea="4"></div></div></div>
+  <div class="ctl"><button data-reset="4">Start again</button></div>
+</section>
+
+<section id="s5">
+  <div class="dh"><h2>5 · ONE PRESS, WHOLE PAGE</h2><span>for long forms</span></div>
+  <p class="dnote">On a form Samara knows, the key in the address bar glows. One press (click it, or <kbd>CTRL</kbd> + <kbd>ENTER</kbd>) fills every box in turn, a shine running down the form like a spell landing.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-checkout.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-idea="5"></div></div></div>
+  <div class="ctl"><button data-reset="5">Start again</button></div>
+</section>
+
+<script>
+const ME = { email: 'alex@example.com', email2: 'alex.work@example.com', name: 'Alex Example', phone: '555-0142', street: '12 Harbour St', city: 'Halifax' };
+const PW = '••••••••••';
+const PAL = { O:'#120A05', y:'#FFC43C', Y:'#FFE9A8', d:'#C98C14', k:'#8a6d33' };
+const art = (rows, s = 2) => { const h = rows.length, w = Math.max(...rows.map((r) => r.length)); let r = ''; rows.forEach((row, y) => [...row].forEach((c, x) => { if (PAL[c]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>`; })); return `<svg class="px" width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}">${r}</svg>`; };
+const LOCK = ['..OOO..','.OkkkO.','.Ok.kO.','OOOOOOO','OyyyyyO','OyyOyyO','OyyOyyO','OyyyyyO','OOOOOOO'];
+
+// soft notes (Web Audio), only ever after a key he pressed
+let ac = null;
+const note = (f, t = 0, d = 0.28, v = 0.06) => { try { ac ??= new AudioContext(); const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle'; o.frequency.value = f;
+  g.gain.setValueAtTime(0, ac.currentTime + t); g.gain.linearRampToValueAtTime(v, ac.currentTime + t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + d);
+  o.connect(g).connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + d + 0.05); } catch { /* no sound */ } };
+const SCALE = [392, 440, 523.3, 587.3, 659.3, 784, 880, 1046.5, 1174.7, 1318.5];   // a pentatonic run, one per digit 0-9
+const chord = () => [523.3, 659.3, 784, 1046.5].forEach((f, i) => note(f, i * 0.07, 0.6, 0.05));
+const sparkle = (site, x, y) => { const s = document.createElement('div'); s.className = 'sparks'; s.style.left = x + 'px'; s.style.top = y + 'px';
+  for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2, r = 18 + Math.random() * 14, e = document.createElement('i'); e.style.setProperty('--x', Math.cos(a) * r + 'px'); e.style.setProperty('--y', Math.sin(a) * r + 'px'); s.append(e); }
+  site.append(s); setTimeout(() => s.remove(), 700); };
+
+const signin = `<div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="box" data-f="email"><input></div><label>Password</label><div class="box" data-f="pw"><input type="password"></div><div class="btn">Continue</div>`;
+const ship = `<div class="brand">NORTHWIND</div><h4 style="margin-bottom:8px">Shipping</h4><label>Full name</label><div class="box" data-f="name"><input></div><label>Email</label><div class="box" data-f="email"><input></div><label>Phone</label><div class="box" data-f="phone"><input></div><label>Street</label><div class="box" data-f="street"><input></div>`;
+const choices = { email: [ME.email, ME.email2], pw: [`${PW}`], name: [ME.name], phone: [ME.phone], street: [ME.street] };
+const fill = (box, v) => { const i = box.querySelector('input'); i.value = v; box.classList.remove('shine'); void box.offsetWidth; box.classList.add('shine'); };
+
+const IDEAS = {
+  // 1 · the answer already in the box, faded; Tab takes it, arrows flick
+  1(site) {
+    site.innerHTML = signin;
+    for (const box of site.querySelectorAll('.box')) {
+      const inp = box.querySelector('input'), f = box.dataset.f; let n = 0;
+      const show = () => { box.querySelector('.ghost')?.remove(); if (inp.value) return; const list = f === 'pw' ? ['••••••••••  for ' + ME.email] : choices[f];
+        box.insertAdjacentHTML('beforeend', `<span class="ghost">${list[n % list.length]}<span class="k">TAB</span>${list.length > 1 ? `<span class="n">${n % list.length + 1}/${list.length} ↑↓</span>` : ''}</span>`); };
+      inp.addEventListener('focus', show); inp.addEventListener('blur', () => box.querySelector('.ghost')?.remove()); inp.addEventListener('input', () => box.querySelector('.ghost')?.remove());
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab' && !inp.value) { e.preventDefault(); box.querySelector('.ghost')?.remove(); fill(box, f === 'pw' ? PW : choices[f][n % choices[f].length]); note(784, 0, 0.18, 0.04); if (f === 'email') site.querySelector('[data-f="pw"] input').focus(); }
+        if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !inp.value) { e.preventDefault(); n += e.key === 'ArrowDown' ? 1 : choices[f].length - 1; show(); }
+      });
+    }
+  },
+  // 2 · a companion light that flies to the box and carries the answer
+  2(site) {
+    site.innerHTML = signin;
+    const fairy = document.createElement('div'); fairy.className = 'fairy'; fairy.style.left = '660px'; fairy.style.top = '-20px'; fairy.style.opacity = '0'; fairy.innerHTML = '<div class="say"></div>'; site.append(fairy);
+    let at = null;
+    const go = (box) => { at = box; const f = box.dataset.f; fairy.style.opacity = '1'; fairy.style.left = (box.offsetLeft + box.offsetWidth + 24) + 'px'; fairy.style.top = (box.offsetTop + 17) + 'px';
+      fairy.querySelector('.say').innerHTML = f === 'pw' ? `Your key for northwind<small>FROM YOUR BITWARDEN CHEST</small>` : `${choices[f][0]}<small>TOUCH ME, OR TAB</small>`;
+      fairy.classList.add('talk'); };
+    const give = () => { if (!at) return; fill(at, at.dataset.f === 'pw' ? PW : choices[at.dataset.f][0]); sparkle(site, at.offsetLeft + at.offsetWidth + 24, at.offsetTop + 17); note(1046.5, 0, 0.2, 0.04); note(1318.5, 0.08, 0.3, 0.035);
+      const next = site.querySelector('[data-f="pw"]'); if (at !== next && !next.querySelector('input').value) setTimeout(() => go(next), 350); else { at = null; fairy.style.left = '660px'; fairy.style.top = '-20px'; fairy.style.opacity = '0'; } };
+    fairy.addEventListener('mousedown', (e) => { e.preventDefault(); give(); });
+    for (const box of site.querySelectorAll('.box')) { const inp = box.querySelector('input'); inp.addEventListener('focus', () => { if (!inp.value) go(box); }); inp.addEventListener('keydown', (e) => { if (e.key === 'Tab' && at === box && !inp.value) { e.preventDefault(); give(); } }); }
+  },
+  // 3 · Breath of the Wild's action prompt beside the box
+  3(site) {
+    site.innerHTML = signin;
+    for (const box of site.querySelectorAll('.box')) {
+      const inp = box.querySelector('input'), f = box.dataset.f;
+      const show = () => { box.querySelector('.prompt')?.remove(); if (inp.value) return; box.insertAdjacentHTML('beforeend', `<div class="prompt"><b>TAB</b><span>${f === 'pw' ? 'Use your key' : 'Fill'}<small>${f === 'pw' ? 'Bitwarden' : choices[f][0]}</small></span></div>`); };
+      inp.addEventListener('focus', show); inp.addEventListener('blur', () => box.querySelector('.prompt')?.remove()); inp.addEventListener('input', () => box.querySelector('.prompt')?.remove());
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !inp.value) { e.preventDefault(); box.querySelector('.prompt')?.remove(); fill(box, f === 'pw' ? PW : choices[f][0]); note(659.3, 0, 0.15, 0.04); if (f === 'email') site.querySelector('[data-f="pw"] input').focus(); } });
+    }
+  },
+  // 4 · the PIN typed in the password box itself, a note per digit
+  4(site) {
+    site.innerHTML = signin;
+    site.querySelector('[data-f="email"] input').value = ME.email;
+    const box = site.querySelector('[data-f="pw"]'), inp = box.querySelector('input'); box.classList.add('lockbox');
+    let pin = '';
+    const draw = () => { box.querySelector('.pips')?.remove(); box.querySelector('.lk')?.remove(); box.querySelector('.hint')?.remove(); if (!box.classList.contains('lockbox')) return;
+      box.insertAdjacentHTML('beforeend', `<span class="pips">${[0,1,2,3,4,5].map((i) => `<i class="${i < pin.length ? 'f' : ''}"></i>`).join('')}</span><span class="hint">${pin ? '' : 'YOUR PIN'}</span><span class="lk">${art(LOCK, 2)}</span>`); };
+    inp.addEventListener('keydown', (e) => {
+      if (!box.classList.contains('lockbox')) return;
+      e.preventDefault();
+      if (/^[0-9]$/.test(e.key) && pin.length < 6) { pin += e.key; note(SCALE[+e.key]); draw();
+        if (pin.length === 6) setTimeout(() => {
+          if (pin === '000000') { box.classList.add('wrong'); note(220, 0, 0.3, 0.05); note(207.7, 0.12, 0.4, 0.05); setTimeout(() => { box.classList.remove('wrong'); pin = ''; draw(); }, 350); return; }
+          chord(); box.classList.remove('lockbox'); draw(); inp.type = 'password'; inp.value = 'opened!opened'; box.classList.add('open'); fill(box, inp.value);
+        }, 160); }
+      else if (e.key === 'Backspace') { pin = pin.slice(0, -1); draw(); }
+    });
+    draw();
+  },
+  // 5 · the key in the address bar glows; one press fills the whole form
+  5(site) {
+    site.innerHTML = ship;
+    const frame = site.closest('.frame');
+    frame.querySelector('.keyglow')?.remove();
+    frame.insertAdjacentHTML('beforeend', `<div class="keyglow"><div class="say">Fill this form<kbd>CTRL ENTER</kbd></div></div>`);
+    const run = () => { frame.querySelector('.keyglow')?.remove(); [...site.querySelectorAll('.box')].forEach((b, i) => setTimeout(() => { fill(b, choices[b.dataset.f][0]); note(SCALE[i + 3], 0, 0.2, 0.035); }, i * 140)); };
+    frame.querySelector('.keyglow').addEventListener('click', run);
+    site.tabIndex = 0; site.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); } };
+    site.onmousedown = () => setTimeout(() => site.focus(), 0);
+  },
+};
+for (const site of document.querySelectorAll('.site')) IDEAS[site.dataset.idea](site);
+document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => { const n = b.dataset.reset; IDEAS[n](document.querySelector(`.site[data-idea="${n}"]`)); }));
+
+// For pictures of a moment: #shots puts each idea in its most telling state
+if (location.hash === '#shots') setTimeout(() => {
+  const s = (n) => document.querySelector(`.site[data-idea="${n}"]`);
+  s(1).querySelector('[data-f="email"] input').dispatchEvent(new Event('focus'));
+  s(1).querySelector('[data-f="email"] input').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+  s(2).querySelector('[data-f="pw"] input').dispatchEvent(new Event('focus'));
+  s(3).querySelector('[data-f="email"] input').dispatchEvent(new Event('focus'));
+  const p = s(4).querySelector('[data-f="pw"] input'); for (const k of '3141') p.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
+}, 300);
+</script>
+</body>
+</html>
