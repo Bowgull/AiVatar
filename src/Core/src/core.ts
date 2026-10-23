@@ -26,7 +26,7 @@ import { runOffThread } from './offthread.ts';
 import { readFile as readFileAsync } from 'node:fs/promises';
 import { releaseName } from './releasenames.ts';
 
-import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersionAsync, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
+import { CASTLABS_MAC, MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersionAsync, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
 import { pathToFileURL } from 'node:url';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
@@ -2569,7 +2569,7 @@ export class Core {
       };
       // M6: Aang's browser for the Mac, packed from this PC's own Shell, and the key its sync uses.
       let browser: DeskPayload['browser'];
-      try { browser = { bundle: bundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key'), castlabsSig: readFileSync(path.join(here, '..', '..', 'Shell', 'mac-pkg', 'castlabs-44.5.1-darwin-x64.sig')) }; }
+      try { browser = { bundle: bundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key'), castlabsSig: readFileSync(path.join(here, '..', '..', 'Shell', 'mac-pkg', `castlabs-${CASTLABS_MAC.version}-darwin-x64.sig`)) }; }
       catch (e) { console.error('mac-setup: the Mac browser could not be packed: ' + (e as Error).message); }
       writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
       console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);

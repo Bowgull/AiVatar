@@ -251,7 +251,7 @@ const NODE_MAC = { version: 'v24.22.0', sha256: '495e3f273c645f3c4677d438304cdfc
 /** M6: Bitwarden's official command-line tool for Intel Macs, pinned (the digest GitHub lists for the release asset). */
 export const BITWARDEN_MAC = { version: '2026.9.0', sha256: 'd2a1865c2c1f49c34e6f1b38a42c5b95dcf22e34f81121c4962ebda32f708a3e' };
 /** Paid video on the Mac: castLabs' Electron for Content Security, Intel build, pinned (GitHub's digest for the asset). */
-export const CASTLABS_MAC = { version: '44.5.1', sha256: 'f3ebb426b24fd47dfb86fcd6ea3170f8d5058c4b1c5cb2ee35993fea32ecf454' };
+export const CASTLABS_MAC = { version: '44.9.3', sha256: '99ca1b2c3bb295d7927ef8d17137952385844d67f63dbe827a7214aecca181fe' };
 export const ELECTRON_MAC = { version: '44.7.0', sha256: '4fe494a7159b10a81e2098dab388719582065e99e604c4510bb117e282213566' };
 export const FRONT_DESK_PORT = 47841;
 
