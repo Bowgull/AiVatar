@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 73 - Autofill, three worlds</title>
+<!-- Sheet 73 (2026-10-23, his note on sheet 72: "the drop down feels cheap as well as the pin... think of all the
+     inspirations I've mentioned, LOTR, BOTW, TOTK, Stardew Valley, Zelda games in general, but also understand WHAT
+     this is. Go big"). What autofill is, in those worlds: the papers you carry (your name, your letters, where you
+     live), the keys on your ring (a login per site), a door that wants the word (the PIN), and a new key found (save
+     it). Three directions, each one alive: click a box, move with the arrow keys, Enter picks, type the PIN on the
+     number pad. Samara's real band on top; the shop is made up. Pixel art drawn here at 2x, crisp. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;overflow:auto;height:auto;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 10px;max-width:1100px;line-height:1.55}
+  .what{display:grid;grid-template-columns:repeat(4,minmax(200px,1fr));gap:12px;max-width:1100px;margin:14px 0 30px}
+  .what div{background:#21170f;border:2px solid #3a2a1a;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.45;color:#cbb994}
+  .what b{display:block;font:400 10px var(--label);letter-spacing:1.5px;color:var(--gold);margin-bottom:4px}
+  section.dir{margin:0 0 54px}
+  .dh{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+  .dh h2{font:400 15px var(--label);letter-spacing:2px;color:var(--gold);margin:0}
+  .dh span{font-size:13px;color:#b9a684}
+  .dnote{font-size:13px;color:#b9a684;max-width:900px;line-height:1.5;margin:0 0 12px}
+  .frame{width:900px;border-radius:12px;overflow:hidden;border:3px solid var(--outline);background:var(--wood2)}
+  .frame img.band{display:block;image-rendering:pixelated}
+  .pagewrap{background:#2a1c10;padding:0 12px 12px}
+  .site{position:relative;background:#f6f7f9;border-radius:6px;height:410px;padding:22px 0 0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#1d2330;overflow:hidden}
+  .brand{font:800 14px system-ui;letter-spacing:3px;color:#24426b;text-align:center;margin-bottom:14px}
+  .site h4{margin:0 auto 12px;width:300px;font:700 20px system-ui}
+  .site label{display:block;width:300px;margin:0 auto 4px;font:600 12px system-ui;color:#4a5466}
+  .site .field{width:300px;height:34px;margin:0 auto 12px;box-sizing:border-box;border:1.5px solid #c9ced8;border-radius:6px;background:#fff;padding:7px 10px;font:500 14px system-ui;color:#1d2330;cursor:text;transition:background .25s}
+  .site .field.on{border-color:#3b6fd8;box-shadow:0 0 0 3px rgba(59,111,216,.18)}
+  .site .field.filled{background:#fff9e6}
+  .site .btn{width:300px;margin:4px auto 0;box-sizing:border-box;border-radius:6px;background:#24426b;color:#fff;text-align:center;padding:9px;font:700 14px system-ui;cursor:pointer}
+  .ctl{display:flex;gap:10px;margin:10px 0 0;flex-wrap:wrap}
+  .ctl button{font:400 10px var(--label);letter-spacing:1px;color:#e8dcc4;background:#2b1d12;border:2px solid #4a3522;border-radius:6px;padding:7px 10px;cursor:pointer}
+  .ctl button:hover{border-color:var(--gold-deep);color:var(--gold-lit)}
+  .ctl .lockstate{font:400 10px var(--label);letter-spacing:1px;color:#8a7a62;align-self:center}
+  .pop{position:absolute;left:50%;transform:translateX(-50%);z-index:5}
+  .pop[hidden]{display:none}
+  svg.px{display:block;image-rendering:pixelated;shape-rendering:crispEdges}
+
+  /* ============ A · THE SATCHEL (Stardew Valley's inventory, BOTW's item rows) ============ */
+  .sat{width:372px;padding:10px;box-sizing:border-box;background:#e7b56b;border:4px solid #5b2f12;border-radius:6px;
+    box-shadow:inset 0 0 0 3px #f6d39a,inset 0 0 0 6px #b4712f,0 6px 0 rgba(0,0,0,.35),0 16px 26px rgba(0,0,0,.35)}
+  .sat .slots{display:flex;gap:6px}
+  .sat .slot{width:52px;height:52px;box-sizing:border-box;background:#d59a52;border:3px solid #8a4b1b;border-radius:3px;
+    box-shadow:inset 3px 3px 0 #b8783a,inset -2px -2px 0 #f0c483;display:grid;place-items:center;position:relative;cursor:pointer;transition:transform .08s}
+  .sat .slot.sel{border-color:#c8261b;box-shadow:inset 3px 3px 0 #b8783a,inset -2px -2px 0 #f0c483,0 0 0 3px #ffd84a;transform:translateY(-2px)}
+  .sat .slot.sel svg{animation:bob .9s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(-2px)}}
+  .sat .slot.empty{opacity:.55;cursor:default}
+  .sat .tip{margin-top:9px;background:#fbe4b0;border:3px solid #5b2f12;border-radius:4px;padding:8px 10px;color:#3a1d08;
+    box-shadow:inset 0 0 0 2px #fff3d2}
+  .sat .tip b{display:block;font:800 14px var(--body)}
+  .sat .tip span{display:block;font:600 12.5px var(--body);color:#7a4a1c;margin-top:2px}
+  .sat .tip i{display:block;font:400 9px var(--label);letter-spacing:1px;color:#a0662c;font-style:normal;margin-top:6px}
+  .satpin{width:372px;padding:12px;box-sizing:border-box;background:#e7b56b;border:4px solid #5b2f12;border-radius:6px;
+    box-shadow:inset 0 0 0 3px #f6d39a,inset 0 0 0 6px #b4712f,0 6px 0 rgba(0,0,0,.35),0 16px 26px rgba(0,0,0,.35);text-align:center}
+  .satpin .t{font:800 14px var(--body);color:#3a1d08}
+  .satpin .tumblers{display:flex;justify-content:center;gap:7px;margin:10px 0 4px}
+  .satpin .tum{width:38px;height:52px;box-sizing:border-box;background:linear-gradient(180deg,#6b3a16,#9a5a26 30%,#c07a3a 50%,#9a5a26 70%,#6b3a16);
+    border:3px solid #3a1d08;border-radius:4px;display:grid;place-items:center;font:400 18px var(--label);color:#ffd84a;text-shadow:2px 2px 0 #3a1d08;transition:transform .12s}
+  .satpin .tum.cur{box-shadow:0 0 0 3px #ffd84a}
+  .satpin .tum.f{transform:translateY(2px)}
+  .satpin .tum.f::after{content:"";width:12px;height:12px;background:#ffd84a;box-shadow:0 0 0 3px #3a1d08,0 0 10px #ffd84a}
+  .satpin .tum.f{color:transparent}
+  .satpin .left{font:400 9px var(--label);letter-spacing:1px;color:#7a4a1c}
+  .satsave{position:absolute;left:14px;bottom:14px;display:flex;align-items:center;gap:10px;background:#e7b56b;border:4px solid #5b2f12;border-radius:6px;padding:8px 10px;
+    box-shadow:inset 0 0 0 3px #f6d39a,0 6px 0 rgba(0,0,0,.35);animation:rise .35s cubic-bezier(.2,.9,.3,1.3)}
+  @keyframes rise{from{transform:translateY(30px);opacity:0}}
+  .satsave .slot{width:46px;height:46px}
+  .satsave b{display:block;font:800 13.5px var(--body);color:#3a1d08}
+  .satsave span{display:block;font:600 12px var(--body);color:#7a4a1c}
+  .satsave .k{display:flex;gap:6px;margin-left:8px}
+  .satsave .k button{font:800 12px var(--body);color:#3a1d08;background:#fbe4b0;border:3px solid #5b2f12;border-radius:4px;padding:5px 9px;cursor:pointer}
+  .satsave .k button.y{background:#7bc34a;color:#123}
+
+  /* ============ B · THE DOOR (Lord of the Rings: the doors of Moria, ithildin under moonlight) ============ */
+  .door{width:360px;box-sizing:border-box;padding:12px 14px 12px;border-radius:4px;
+    background:radial-gradient(120% 70% at 50% 0%,rgba(159,240,230,.08),transparent 60%),linear-gradient(180deg,#2b2f33,#1b1e21);
+    border:3px solid #0b0c0d;box-shadow:inset 0 0 0 1px #4a5258,inset 0 0 0 4px #15181a,0 14px 30px rgba(0,0,0,.6);font-family:var(--display)}
+  .door .h{font:700 12px var(--display);letter-spacing:3px;color:#bfe9e4;text-align:center;text-shadow:0 0 8px rgba(159,240,230,.45);margin-bottom:8px}
+  .door .h::before,.door .h::after{content:"";display:inline-block;width:40px;height:1px;background:linear-gradient(90deg,transparent,#9FF0E6);vertical-align:middle;margin:0 8px}
+  .door .h::after{background:linear-gradient(90deg,#9FF0E6,transparent)}
+  .door .row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:3px;cursor:pointer;color:#d9dfe2;font:600 14px var(--body);position:relative}
+  .door .row small{display:block;font:500 11.5px var(--body);color:#8b979c}
+  .door .row.sel{background:linear-gradient(90deg,rgba(159,240,230,.12),transparent);color:#e9fffb}
+  .door .row.sel::after{content:"";position:absolute;left:8px;right:8px;bottom:2px;height:1px;background:linear-gradient(90deg,#9FF0E6,transparent);box-shadow:0 0 6px #9FF0E6}
+  .door .row svg{filter:drop-shadow(0 0 3px rgba(159,240,230,.5))}
+  .arch{width:360px;box-sizing:border-box;padding:16px 14px 14px;text-align:center;background:linear-gradient(180deg,#2b2f33,#1b1e21);
+    border:3px solid #0b0c0d;border-radius:110px 110px 6px 6px;min-height:150px;padding-top:30px;box-shadow:inset 0 0 0 1px #4a5258,inset 0 0 0 4px #15181a,0 14px 30px rgba(0,0,0,.6);transition:box-shadow .5s}
+  .arch .h{font:700 12px var(--display);letter-spacing:3px;color:#bfe9e4;text-shadow:0 0 8px rgba(159,240,230,.45)}
+  .arch .runes{display:flex;justify-content:center;gap:10px;margin:14px 0 6px}
+  .arch .rune{opacity:.18;transition:opacity .25s,filter .25s}
+  .arch .rune.lit{opacity:1;filter:drop-shadow(0 0 4px #9FF0E6) drop-shadow(0 0 10px rgba(159,240,230,.7))}
+  .arch .rune.cur{opacity:.45}
+  .arch.open{box-shadow:inset 0 0 0 1px #9FF0E6,inset 0 0 22px rgba(159,240,230,.5),0 0 30px rgba(159,240,230,.45),0 14px 30px rgba(0,0,0,.6)}
+  .arch .left{font:400 9px var(--label);letter-spacing:1px;color:#6f7b80}
+  .doorsave{position:absolute;right:16px;top:12px;width:300px;box-sizing:border-box;padding:12px 14px;text-align:center;background:linear-gradient(180deg,#2b2f33,#1b1e21);
+    border:3px solid #0b0c0d;box-shadow:inset 0 0 0 1px #4a5258,0 14px 30px rgba(0,0,0,.6);animation:fade .5s ease-out}
+  @keyframes fade{from{opacity:0;transform:translateY(-6px)}}
+  .doorsave .h{font:700 12px var(--display);letter-spacing:3px;color:#bfe9e4;text-shadow:0 0 8px rgba(159,240,230,.45)}
+  .doorsave p{font:600 13px var(--body);color:#d9dfe2;margin:8px 0}
+  .doorsave p small{display:block;color:#8b979c;font-weight:500}
+  .doorsave .k{display:flex;gap:8px;justify-content:center}
+  .doorsave .k button{font:700 12px var(--display);letter-spacing:1px;color:#e9fffb;background:#15181a;border:1px solid #4a5258;border-radius:3px;padding:6px 12px;cursor:pointer}
+  .doorsave .k button.y{border-color:#9FF0E6;box-shadow:0 0 8px rgba(159,240,230,.4)}
+
+  /* ============ C · ITEM GET (Zelda: Ocarina's cursor, a key held up, "You got...") ============ */
+  .zel{width:360px;box-sizing:border-box;padding:10px;background:#0e0a06;border:3px solid var(--outline);border-radius:8px;
+    box-shadow:inset 0 0 0 2px #5a4024,0 14px 30px rgba(0,0,0,.55)}
+  .zel .h{font:400 10px var(--label);letter-spacing:2px;color:var(--gold);margin:2px 6px 6px}
+  .zel .row{display:flex;align-items:center;gap:10px;padding:8px 10px;position:relative;cursor:pointer;color:#efe6d2;font:700 13.5px var(--body)}
+  .zel .row small{display:block;font:500 11.5px var(--body);color:#a8977a}
+  .zel .row.sel{color:#fff6cf}
+  .zel .row.sel .br{position:absolute;width:10px;height:10px;border:3px solid #ffd84a;animation:pulse .7s ease-in-out infinite alternate}
+  .zel .row.sel .br.a{left:0;top:0;border-right:none;border-bottom:none}.zel .row.sel .br.b{right:0;top:0;border-left:none;border-bottom:none}
+  .zel .row.sel .br.c{left:0;bottom:0;border-right:none;border-top:none}.zel .row.sel .br.d{right:0;bottom:0;border-left:none;border-top:none}
+  .zel .row .br{display:none}.zel .row.sel .br{display:block}
+  @keyframes pulse{from{opacity:.55;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+  .zpin{width:360px;box-sizing:border-box;padding:12px;background:#0e0a06;border:3px solid var(--outline);border-radius:8px;box-shadow:inset 0 0 0 2px #5a4024,0 14px 30px rgba(0,0,0,.55);text-align:center}
+  .zpin .h{font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
+  .zpin .gems{display:flex;justify-content:center;gap:12px;margin:12px 0 6px}
+  .zpin .gem{opacity:.22;transition:opacity .15s,transform .15s}
+  .zpin .gem.lit{opacity:1;transform:translateY(-3px);filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}
+  .zpin .gem.cur{opacity:.5}
+  .zpin .left{font:400 9px var(--label);letter-spacing:1px;color:#8a7a62}
+  .zget{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,rgba(255,232,150,.25),rgba(0,0,0,.35) 60%);animation:fade .4s ease-out}
+  .zget .hold{position:relative;display:grid;place-items:center;margin-top:-40px}
+  .zget .rays{position:absolute;width:150px;height:150px;background:repeating-conic-gradient(rgba(255,230,140,.55) 0 8deg,transparent 8deg 30deg);border-radius:50%;
+    mask:radial-gradient(circle,#000 20%,transparent 70%);-webkit-mask:radial-gradient(circle,#000 20%,transparent 70%);animation:spin 8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .zget .hold svg{position:relative;animation:raise .6s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes raise{from{transform:translateY(30px) scale(.6);opacity:0}}
+  .zget .box{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:520px;box-sizing:border-box;padding:12px 16px;background:rgba(14,10,6,.92);
+    border:3px solid var(--outline);border-radius:8px;box-shadow:inset 0 0 0 2px #5a4024;color:#efe6d2;font:600 14px/1.5 var(--body)}
+  .zget .box b{color:#ff6b5a}
+  .zget .box .k{display:flex;gap:16px;margin-top:8px;font:400 10px var(--label);letter-spacing:1px}
+  .zget .box .k span{cursor:pointer;color:#efe6d2}
+  .zget .box .k span.y::before{content:"▶ ";color:#ffd84a}
+</style>
+</head>
+<body>
+<h1>SHEET 73 - AUTOFILL, THREE WORLDS</h1>
+<p class="lead">Sheet 72 felt cheap. Here's what autofill actually is in the worlds you love, then three ways to draw it. Every direction is live: click a box on the shop, move with the arrow keys, press Enter or click to pick. Press "Lock Bitwarden" and pick a login, then type any 6 digits on the number pad. Sign in to see the new-key moment.</p>
+<div class="what">
+  <div><b>YOUR PAPERS</b>Your name, email, phone, home. What a traveller carries and shows at the gate.</div>
+  <div><b>YOUR KEY RING</b>One key per site, from your Bitwarden chest. You pick which key fits this door.</div>
+  <div><b>THE WORD</b>When the chest has locked, it wants your word: the PIN. Quick, on the number pad.</div>
+  <div><b>A NEW KEY</b>You signed in somewhere new. Samara offers to keep the key, like finding an item.</div>
+</div>
+
+<section class="dir" id="A">
+  <div class="dh"><h2>A · THE SATCHEL</h2><span>Stardew Valley's inventory, Breath of the Wild's item rows</span></div>
+  <p class="dnote">Your papers and keys are items in a satchel, each in its own slot. The cursor slot lifts and bobs; a parchment tag says what it is. The PIN is a lock with six tumblers that drop as you type. A new login pops up bottom-left like an item you picked up.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-dir="A"></div></div></div>
+  <div class="ctl" data-for="A"><button data-act="lock">Lock Bitwarden</button><button data-act="reset">Start again</button><span class="lockstate"></span></div>
+</section>
+
+<section class="dir" id="B">
+  <div class="dh"><h2>B · THE DOOR</h2><span>Lord of the Rings: the doors of Moria, lines that only show under moonlight</span></div>
+  <p class="dnote">Dark stone, thin moonlit lines. The chosen row is underlined with a glowing thread. The PIN is an arched door with six runes; each digit wakes one, and on the last the whole door glows and opens. A new key is offered in the same stone, quietly, top-right.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-dir="B"></div></div></div>
+  <div class="ctl" data-for="B"><button data-act="lock">Lock Bitwarden</button><button data-act="reset">Start again</button><span class="lockstate"></span></div>
+</section>
+
+<section class="dir" id="C">
+  <div class="dh"><h2>C · ITEM GET</h2><span>Zelda: Ocarina's pulsing cursor, rupees, a key held up high</span></div>
+  <p class="dnote">A dark Zelda menu with the four gold corners that pulse around what you point at. The PIN lights a rupee per digit (green, blue, red, purple, silver, gold). A new login is the classic moment: the key raised in light, and a text box that says you got it.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-dir="C"></div></div></div>
+  <div class="ctl" data-for="C"><button data-act="lock">Lock Bitwarden</button><button data-act="reset">Start again</button><span class="lockstate"></span></div>
+</section>
+
+<script>
+// ---- pixel art, drawn from little grids (one letter per pixel), at whole-number scales only
+const PAL = { O:'#120A05', y:'#FFC43C', Y:'#FFE9A8', d:'#C98C14', w:'#F3E2B8', W:'#FFF8E8', k:'#6b5132', r:'#c0392b', R:'#ff7a6a', b:'#8a5426', n:'#5a3417',
+  s:'#cfe8ee', t:'#9FF0E6', T:'#e9fffb', g:'#2fa84f', G:'#9af0a8', u:'#2f6fd0', U:'#9cc8ff', p:'#8a3fc8', P:'#d7a6ff', v:'#9aa6ad', V:'#eef3f5', e:'#d63b2f', E:'#ff9a8a' };
+function art(rows, scale = 2, pal = PAL) {
+  const h = rows.length, w = Math.max(...rows.map((r) => r.length));
+  let rects = '';
+  rows.forEach((r, y) => [...r].forEach((c, x) => { if (c !== '.' && pal[c]) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${pal[c]}"/>`; }));
+  return `<svg class="px" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}">${rects}</svg>`;
+}
+const ICON = {
+  key: ['....OOOO....','...OYyyyO...','..OyO..OyO..','..OyO..OydO.','..OyO..OydO.','...OyyyydO..','....OyydO...','.....OyO....','.....OyOO...','.....OyyyO..','.....OyO....','.....OyyO...','.....OyyyO..','......OOO...'],
+  letter: ['OOOOOOOOOOOOOO','OWwwwwwwwwwwWO','OOwwwwwwwwwwOO','OwOwwwwwwwwOwO','OwwOwwwwwwOwwO','OwwwOwrrwOwwwO','OwwwwOrROwwwwO','OwwwwwrrwwwwwO','OwwwwwwwwwwwwO','OWwwwwwwwwwwWO','OOOOOOOOOOOOOO'],
+  scroll: ['.OOOOOOOOOOO..','OwWOwwwwwwwwO.','OwwOwwwwwwwwwO','.OOOwkkkkkwwwO','...OwwwwwwwwwO','...OwkkkkkkwwO','...OwwwwwwwwwO','...OwkkkkwwwwO','...OwwwwwwwwwO','..OOOOOOOOOOwO','.OwWwwwwwwwwOO','..OOOOOOOOOO..'],
+  quill: ['..........OO','.........OWO','........OWwO','.......OWwO.','......OWwO..','.....OWwO...','....OWwO....','...OwwO.....','...OkO......','..OkO.......','..OO........','.O..........'],
+  chest: ['..OOOOOOOOOO..','.ObbbbbbbbbbO.','OObnnnnnnnnbOO','ObbbbbbbbbbbbO','OyyyyyOOyyyyyO','ObbbbbOyObbbbO','ObbbbbOdObbbbO','ObbbbbbObbbbbO','ObnnnnnnnnnnbO','OyyyyyyyyyyyyO','OOOOOOOOOOOOOO'],
+};
+// Moria's six runes, thin lines in the door's own silver
+const RUNES = [
+  ['..T..','..T..','.TTT.','T.T.T','..T..','..T..','..T..'],
+  ['T...T','.T.T.','..T..','..T..','.T.T.','T...T','.....'],
+  ['TTTT.','T..T.','TTTT.','T....','T....','T....','.....'],
+  ['..T..','.T.T.','T...T','T...T','.T.T.','..T..','.....'],
+  ['T.T.T','T.T.T','TTTTT','..T..','..T..','.TTT.','.....'],
+  ['.TTT.','T....','.TT..','...T.','....T','TTTT.','.....'],
+].map((g) => g.map((r) => r.replace(/T/g, 't')));
+const RUPEE = (c, C) => art(['..OO..','.OcCO.','OccCcO','OcCccO','OccCcO','OcCccO','OccCcO','.OccO.','..OO..'].map((r) => r.replace(/c/g, c).replace(/C/g, C)), 3);
+const GEMS = [['g','G'],['u','U'],['e','E'],['p','P'],['v','V'],['y','Y']];
+
+// ---- what the shop knows about (made up)
+const ME = { email: 'alex@example.com', name: 'Alex Example', phone: '555-0142', home: '12 Harbour St, Halifax' };
+const LOGINS = [{ user: 'alex@example.com', note: 'used last week' }, { user: 'alex.work@example.com', note: 'work account' }];
+
+// ---- one live shop per direction
+for (const site of document.querySelectorAll('.site')) {
+  const D = site.dataset.dir;
+  const st = { locked: false, form: 'signin', open: null, sel: 0, pin: '', pick: null, saved: false };
+  const ctl = document.querySelector(`.ctl[data-for="${D}"]`);
+  const show = () => { ctl.querySelector('.lockstate').textContent = st.locked ? 'BITWARDEN IS LOCKED' : 'BITWARDEN IS OPEN'; };
+  function shop() {
+    site.innerHTML = `<div class="brand">NORTHWIND</div>
+      <h4>Sign in</h4><label>Email</label><div class="field" data-f="email"></div><label>Password</label><div class="field" data-f="pw"></div><div class="btn">Continue</div>`;
+    site.querySelectorAll('.field').forEach((f) => f.addEventListener('click', (e) => { e.stopPropagation(); openFor(f.dataset.f); }));
+    site.querySelector('.btn').addEventListener('click', () => signedIn());
+    st.open = null; st.pin = ''; st.pick = null; show();
+  }
+  const field = (f) => site.querySelector(`.field[data-f="${f}"]`);
+  const topOf = (f) => field(f).offsetTop + field(f).offsetHeight + 6;
+  function close() { site.querySelectorAll('.pop').forEach((p) => p.remove()); site.querySelectorAll('.field').forEach((x) => x.classList.remove('on')); st.open = null; }
+  function items(f) { return f === 'email' ? [{ ic: 'letter', main: ME.email, sub: 'Your email' }, { ic: 'scroll', main: ME.name, sub: `${ME.phone} · ${ME.home}` }]
+    : LOGINS.map((l) => ({ ic: 'key', main: l.user, sub: l.note, login: l })); }
+  function openFor(f) {
+    close(); field(f).classList.add('on'); st.open = f; st.sel = 0;
+    const pop = document.createElement('div'); pop.className = 'pop'; pop.style.top = topOf(f) + 'px'; site.append(pop); draw();
+  }
+  function draw() {
+    const pop = site.querySelector('.pop'); if (!pop) return;
+    const list = items(st.open), head = st.open === 'email' ? 'YOUR PAPERS' : 'YOUR KEY RING';
+    if (D === 'A') {
+      const slots = list.map((it, i) => `<div class="slot${i === st.sel ? ' sel' : ''}" data-i="${i}">${art(ICON[it.ic], 3)}</div>`).join('') + '<div class="slot empty"></div>'.repeat(6 - list.length);
+      const it = list[st.sel];
+      pop.innerHTML = `<div class="sat"><div class="slots">${slots}</div><div class="tip"><b>${it.main}</b><span>${it.sub}</span><i>${st.open === 'pw' ? 'FROM YOUR BITWARDEN CHEST' : 'YOUR PAPERS'} · ENTER TO USE</i></div></div>`;
+    } else if (D === 'B') {
+      pop.innerHTML = `<div class="door"><div class="h">${head}</div>${list.map((it, i) => `<div class="row${i === st.sel ? ' sel' : ''}" data-i="${i}">${art(ICON[it.ic].map((r) => r.replace(/[ywWbnd]/g, (c) => ({ y: 't', w: 's', W: 'T', b: 'v', n: 'v', d: 'v' }[c]))), 2)}<span>${it.main}<small>${it.sub}</small></span></div>`).join('')}</div>`;
+    } else {
+      pop.innerHTML = `<div class="zel"><div class="h">${head}</div>${list.map((it, i) => `<div class="row${i === st.sel ? ' sel' : ''}" data-i="${i}"><i class="br a"></i><i class="br b"></i><i class="br c"></i><i class="br d"></i>${art(ICON[it.ic], 2)}<span>${it.main}<small>${it.sub}</small></span></div>`).join('')}</div>`;
+    }
+    pop.querySelectorAll('[data-i]').forEach((el) => {
+      el.addEventListener('mouseenter', () => { if (+el.dataset.i !== st.sel) { st.sel = +el.dataset.i; draw(); } });
+      el.addEventListener('click', (e) => { e.stopPropagation(); st.sel = +el.dataset.i; pick(); });
+    });
+  }
+  function pick() {
+    const it = items(st.open)[st.sel];
+    if (st.open === 'email') {
+      field('email').textContent = it.main.includes('@') ? it.main : ME.email; field('email').classList.add('filled'); close(); return;
+    }
+    st.pick = it.login;
+    if (st.locked) { askPin(); return; }
+    fillLogin();
+  }
+  function fillLogin() {
+    field('email').textContent = st.pick.user; field('pw').textContent = '••••••••••'; field('email').classList.add('filled'); field('pw').classList.add('filled'); close();
+  }
+  function askPin() {
+    const f = 'pw'; site.querySelectorAll('.pop').forEach((p) => p.remove());
+    const pop = document.createElement('div'); pop.className = 'pop'; pop.style.top = topOf(f) + 'px'; pop.dataset.pin = '1'; site.append(pop); st.open = 'pin'; st.pin = ''; drawPin();
+  }
+  function drawPin(open) {
+    const pop = site.querySelector('.pop'); if (!pop) return;
+    const n = st.pin.length, left = '5 TRIES LEFT';
+    if (D === 'A') pop.innerHTML = `<div class="satpin"><div class="t">The chest is locked</div><div class="tumblers">${[0,1,2,3,4,5].map((i) => `<div class="tum${i < n ? ' f' : ''}${i === n ? ' cur' : ''}">${i < n ? '' : '·'}</div>`).join('')}</div><div class="left">${left}</div></div>`;
+    else if (D === 'B') pop.innerHTML = `<div class="arch${open ? ' open' : ''}"><div class="h">SPEAK THE WORD</div><div class="runes">${RUNES.map((r, i) => `<span class="rune${i < n ? ' lit' : ''}${i === n ? ' cur' : ''}">${art(r, 4)}</span>`).join('')}</div><div class="left">${left}</div></div>`;
+    else pop.innerHTML = `<div class="zpin"><div class="h">THE CHEST IS LOCKED</div><div class="gems">${GEMS.map(([c, C], i) => `<span class="gem${i < n ? ' lit' : ''}${i === n ? ' cur' : ''}">${RUPEE(c, C)}</span>`).join('')}</div><div class="left">${left}</div></div>`;
+  }
+  function signedIn() {
+    close();
+    site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Welcome, Alex</h4><label style="font-weight:500">You're signed in.</label>`;
+    const k = ICON.key;
+    if (D === 'A') site.insertAdjacentHTML('beforeend', `<div class="satsave"><div class="slot sel">${art(k, 3)}</div><div><b>New key found</b><span>alex@example.com · northwind.example</span></div><div class="k"><button class="y">Keep</button><button>Leave</button></div></div>`);
+    else if (D === 'B') site.insertAdjacentHTML('beforeend', `<div class="doorsave"><div class="h">KEEP THIS KEY?</div><p>alex@example.com<small>northwind.example · into your Bitwarden chest</small></p><div class="k"><button class="y">Keep it</button><button>Not now</button></div></div>`);
+    else site.insertAdjacentHTML('beforeend', `<div class="zget"><div class="hold"><div class="rays"></div>${art(k, 5)}</div><div class="box">You got the <b>Northwind Key</b>! It opens northwind.example as alex@example.com. Keep it in your Bitwarden chest?<div class="k"><span class="y">KEEP IT</span><span>LEAVE IT</span></div></div></div>`);
+    site.querySelectorAll('button, .k span').forEach((b) => b.addEventListener('click', () => shop()));
+  }
+  site.addEventListener('click', () => close());
+  site.tabIndex = 0;
+  site.addEventListener('keydown', (e) => {
+    if (st.open === 'pin') {
+      if (/^[0-9]$/.test(e.key) && st.pin.length < 6) { st.pin += e.key; drawPin(); if (st.pin.length === 6) { drawPin(true); setTimeout(() => fillLogin(), D === 'B' ? 700 : 350); } }
+      else if (e.key === 'Backspace') { st.pin = st.pin.slice(0, -1); drawPin(); }
+      else if (e.key === 'Escape') close();
+      e.preventDefault(); return;
+    }
+    if (!st.open) return;
+    const n = items(st.open).length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { st.sel = (st.sel + 1) % n; draw(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { st.sel = (st.sel + n - 1) % n; draw(); e.preventDefault(); }
+    else if (e.key === 'Enter') { pick(); e.preventDefault(); }
+    else if (e.key === 'Escape') close();
+  });
+  site.addEventListener('mousedown', () => setTimeout(() => site.focus(), 0));
+  ctl.addEventListener('click', (e) => {
+    const a = e.target.closest('button')?.dataset.act; if (!a) return;
+    if (a === 'lock') { st.locked = true; show(); }
+    if (a === 'reset') { st.locked = false; shop(); }
+  });
+  shop();
+  // For pictures of each moment: #A=pw, #B=pin3, #C=saved ...
+  const want = new URLSearchParams(location.hash.slice(1)).get(D);
+  if (want === 'email') openFor('email');
+  if (want === 'pw') openFor('pw');
+  if (want && want.startsWith('pin')) { st.locked = true; show(); openFor('pw'); pick(); st.pin = '123456'.slice(0, +want.slice(3)); drawPin(); }
+  if (want === 'saved') signedIn();
+}
+</script>
+</body>
+</html>
