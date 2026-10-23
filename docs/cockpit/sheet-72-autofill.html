@@ -9,6 +9,7 @@
      stylesheet); the drop-downs use the parchment of its asks and the rows of its Bitwarden chip. The site is made up. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<link rel="stylesheet" href="../../src/Shell/pages/pagemenu.css">
 <style>
   html,body{background:#17110c !important;overflow:auto !important;height:auto !important}
   body{margin:0;color:#e8dcc4;font-family:var(--body);padding:28px 34px 60px}
@@ -27,24 +28,23 @@
   .site .field.on{border-color:#3b6fd8;box-shadow:0 0 0 3px rgba(59,111,216,.18);color:#3b6fd8}
   .site .btn{width:300px;margin:4px auto 0;box-sizing:border-box;border-radius:6px;background:#24426b;color:#fff;text-align:center;padding:9px;font:700 14px system-ui}
   .site .soft{width:300px;margin:0 auto;color:#4a5466}
-  /* NEW: the fill drop-down, hanging under the box he clicked. Parchment like Samara's asks, rows like its Bitwarden chip. */
-  .fill{position:absolute;left:50%;margin-left:-150px;width:300px;box-sizing:border-box;padding:6px;border-radius:10px;
-    background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);
-    box-shadow:0 5px 0 rgba(0,0,0,.4),0 12px 22px rgba(0,0,0,.35);display:grid;gap:5px;font-family:var(--body)}
-  .fill .vrow{display:flex;align-items:center;gap:9px;text-align:left;padding:7px 9px;border-radius:7px;border:2px solid #6b5132;background:#fff6e4;font:700 13px var(--body);color:#271c10}
-  .fill .vrow.hi{background:#ffeec8;box-shadow:0 0 0 2px var(--gold)}
-  .fill .vrow small{display:block;font:500 11.5px var(--body);color:#6b5132}
-  .fill .vrow .ic{width:18px;height:18px;flex:0 0 auto;display:grid;place-items:center}
-  .fill .vrow .ic svg path{fill:#6b5132}
-  .fill .tag{margin-left:auto;font:400 9px var(--label);letter-spacing:1px;color:#6b5132;border:2px solid #6b5132;border-radius:5px;padding:2px 5px}
-  /* NEW: the PIN, in the same paper, right where the drop-down was. */
-  .pin{position:absolute;left:50%;margin-left:-150px;width:300px;box-sizing:border-box;padding:12px 14px;border-radius:10px;
-    background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 5px 0 rgba(0,0,0,.4),0 12px 22px rgba(0,0,0,.35);font-family:var(--body)}
-  .pin .q{font:800 14px var(--body);color:#271c10}
-  .pin .dots{display:flex;gap:8px;margin-top:10px}
-  .pin .dots i{width:30px;height:36px;border-radius:7px;border:2px solid #6b5132;background:#fffaf0;display:grid;place-items:center}
-  .pin .dots i.f::after{content:"";width:10px;height:10px;border-radius:50%;background:#271c10}
-  .pin .dots i.cur{box-shadow:0 0 0 2px var(--gold-deep)}
+  /* NEW: the fill drop-down. It IS Samara's page menu (pagemenu.css: the right-click menu over pages, in the tab menu's
+     dark wood), hanging under the box he clicked: a gold heading like the ⋯ menu's, the FFX glove on the row it points at. */
+  /* Framed like the ⋯ menu (its trayframe, the gold-pinned edge) and lifted off the page with its shadow. */
+  .pm.fill,.pm.pin{border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;box-shadow:0 14px 30px rgba(0,0,0,.6)}
+  .pm.fill{position:absolute;left:50%;margin-left:-150px;width:300px;max-width:none;display:block}
+  .pm .gh{font:700 12px var(--body);letter-spacing:.2px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:4px 6px 4px}
+  .pm button small{display:block;font:500 11.5px var(--body);color:#a8977a;margin-top:2px;text-shadow:none}
+  .pm button.on{background:none;color:#ffe28c;padding-left:34px}
+  .pm button.on::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .pm button{white-space:normal}
+  /* NEW: the PIN, in the same wood: six carved slots (the name tags' very dark wood), a gold pip for each digit typed. */
+  .pm.pin{position:absolute;left:50%;margin-left:-150px;width:300px;max-width:none;display:block;padding:8px 10px 12px}
+  .pin .slots{display:flex;gap:8px;justify-content:center;margin-top:4px}
+  .pin .slots i{width:30px;height:34px;box-sizing:border-box;background:var(--wood-plaque);border:3px solid var(--outline);border-radius:5px;
+    box-shadow:inset 0 4px 0 rgba(0,0,0,.65);display:grid;place-items:center}
+  .pin .slots i.f::after{content:"";width:8px;height:8px;background:var(--gold);box-shadow:0 0 0 2px #7a4f0c,0 0 8px rgba(255,196,60,.6)}
+  .pin .slots i.cur{border-color:var(--gold-deep);box-shadow:inset 0 4px 0 rgba(0,0,0,.65),0 0 0 2px var(--gold)}
   /* The save bubble: Samara's own ask (bandchip), hanging from the key in the address bar. */
   .bandchip.save{left:auto;right:196px;top:56px;width:290px}
   .bandchip.save .who{margin-top:8px;padding:7px 10px;border-radius:8px;border:2px solid #6b5132;background:#fff6e4;font:700 13px var(--body);color:#271c10}
@@ -63,17 +63,18 @@
 
 <div class="grid">
 <figure>
-  <div class="bw"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="field on">|</div><label>Password</label><div class="field"></div><div class="btn">Continue</div><div class="fill" style="top:143px"><div class="vrow hi"><span class="ic"><svg viewBox="0 0 7 6" width="14" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h7v1H0zM0 1h1v5H0zM6 1h1v5H6zM1 5h5v1H1zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 2h1v1H4zM5 1h1v1H5z"/></svg></span><span>alex@example.com</span></div></div></div></div></div>
+  <div class="bw"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="field on">|</div><label>Password</label><div class="field"></div><div class="btn">Continue</div><div class="pm fill" style="top:143px"><div class="gh">YOUR DETAILS</div><button type="button" class="on"><span>alex@example.com</span></button></div></div></div></div>
   <figcaption><b>1 · You click the Email box.</b> Your email drops down under it. One click fills.</figcaption>
 </figure>
 
 <figure>
-  <div class="bw"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="field">alex@example.com</div><label>Password</label><div class="field on">|</div><div class="btn">Continue</div><div class="fill" style="top:205px"><div class="vrow hi"><span class="ic"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z"/></svg></span><span>alex@example.com<small>Bitwarden</small></span></div><div class="vrow"><span class="ic"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z"/></svg></span><span>alex.work@example.com<small>Bitwarden</small></span></div></div></div></div></div>
+  <div class="bw"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="field">alex@example.com</div><label>Password</label><div class="field on">|</div><div class="btn">Continue</div><div class="pm fill" style="top:205px"><div class="gh">BITWARDEN</div><button type="button" class="on"><span>alex@example.com</span></button>
+<button type="button"><span>alex.work@example.com</span></button></div></div></div></div>
   <figcaption><b>2 · You click the Password box.</b> Your Bitwarden logins for this site. One click fills both boxes.</figcaption>
 </figure>
 
 <figure>
-  <div class="bw"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="field">alex@example.com</div><label>Password</label><div class="field on">|</div><div class="btn">Continue</div><div class="pin" style="top:205px"><div class="q">Bitwarden PIN</div><div class="dots"><i class="f"></i><i class="f"></i><i class="f"></i><i class="cur"></i><i></i><i></i></div></div></div></div></div>
+  <div class="bw"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="field">alex@example.com</div><label>Password</label><div class="field on">|</div><div class="btn">Continue</div><div class="pm pin" style="top:205px"><div class="gh">BITWARDEN PIN</div><div class="slots"><i class="f"></i><i class="f"></i><i class="f"></i><i class="cur"></i><i></i><i></i></div></div></div></div></div>
   <figcaption><b>3 · Bitwarden has locked (30 minutes idle).</b> Picking a login asks for your PIN right there. Type it on the number pad; it fills on the last digit. Five wrong tries and it's back to the master password.</figcaption>
 </figure>
 
@@ -87,7 +88,7 @@
 </figure>
 
 <figure>
-  <div class="bw"><img class="realband" src="sheet-72/band-checkout.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Shipping</h4><label>Full name</label><div class="field on">|</div><label>Phone</label><div class="field"></div><label>Address</label><div class="field"></div><div class="fill" style="top:143px"><div class="vrow hi"><span class="ic"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v1H2zM1 1h1v2H1zM5 1h1v2H5zM2 3h3v1H2zM1 4h5v1H1zM0 5h7v2H0z"/></svg></span><span>Alex Example<small>555-0142 · 12 Harbour St, Halifax</small></span></div></div></div></div></div>
+  <div class="bw"><img class="realband" src="sheet-72/band-checkout.png" width="900" height="58" alt=""><div class="page"><div class="site"><div class="brand">NORTHWIND</div><h4>Shipping</h4><label>Full name</label><div class="field on">|</div><label>Phone</label><div class="field"></div><label>Address</label><div class="field"></div><div class="pm fill" style="top:143px"><div class="gh">YOUR DETAILS</div><button type="button" class="on"><span>Alex Example<small>555-0142 · 12 Harbour St, Halifax</small></span></button></div></div></div></div>
   <figcaption><b>5 · A shipping form.</b> Your name drops down; picking it fills name, phone and address in one go.</figcaption>
 </figure>
 
