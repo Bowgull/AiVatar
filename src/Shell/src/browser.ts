@@ -1282,12 +1282,32 @@ export class AangBrowser {
     v.setVisible(false);
     const P = this.pane;
     // Opened before its page had loaded (his first hover right after start): slide out once it has.
-    v.webContents.on('did-finish-load', () => { this.pane = P; this.sendTabs(); if (P.trayOn) v.webContents.send('browser:tray', { open: true, hy: P.trayAt.hy }); });
+    v.webContents.on('did-finish-load', () => { this.pane = P; this.sendTabs(); if (P.trayOn) v.webContents.send('browser:tray', { open: true, hy: P.trayAt.hy }); else this.warmTray(P, v); });
     v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
     void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`);
     this.trayV = v;
     return v;
   }
+  /**
+   * Drawn once, out of sight, before he first opens it (2026-10-22, measured on his Mac: the very first open stalled the
+   * screen 130-400 ms while the graphics card drew the list's layer for the first time; every later open was smooth).
+   * The layer is shown for a moment at almost no opacity with the list out, then put away. Only while his mouse is
+   * not where it lies, so it never takes a click meant for the page.
+   */
+  private warmTray(P: Pane, v: WebContentsView, tries = 0): void {
+    const w = P.win;
+    if (P.trayOn || !w || w.isDestroyed() || v.webContents.isDestroyed() || tries > 10) return;
+    const [cw, ch] = w.getContentSize(), wb = w.getContentBounds(), at = P.trayAt;
+    const box = { x: at.x, y: at.y, width: Math.max(0, Math.min(340, cw - at.x)), height: Math.max(0, ch - at.y) };
+    const m = screen.getCursorScreenPoint();
+    if (m.x >= wb.x + box.x && m.x < wb.x + box.x + box.width && m.y >= wb.y + box.y && m.y < wb.y + box.y + box.height) { setTimeout(() => this.warmTray(P, v, tries + 1), 2000); return; }
+    v.setBounds(box);
+    w.contentView.addChildView(v);
+    v.setVisible(true);
+    v.webContents.send('browser:tray', { warm: true });
+    setTimeout(() => { if (!P.trayOn && !v.webContents.isDestroyed()) v.setVisible(false); }, 300);
+  }
+
   /** Open the list where the frame says (beside its handle, under the band), or put it away. */
   tray(open: boolean, at?: { x?: unknown; y?: unknown }): void {
     const w = this.win;
