@@ -267,7 +267,65 @@ el('band').addEventListener('dblclick', (e) => {
   if (window.aang?.platform !== 'darwin' || e.target.closest('button, input, .slot, .winkeys, .menu, .suggest, .bandchip')) return;
   window.aang?.browserAct?.('titledbl');
 });
-el('vkey').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.('vault'); });
+el('vkey').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.(afMode === 'save' ? 'afsaveask' : 'vault'); });
+// ---- Sheet 77, autofill in the address bar: the padlock while Bitwarden needs his PIN, four lights as he types it (the
+// keys go to Samara, never to the page), the bloom into the key when it opens, the glow when a new login waits.
+let afMode = 'idle';
+window.aang?.onBrowserAf?.((a) => {
+  if (!a) return;
+  const vk = el('vkey'), lights = el('pinlights'), slot = el('slot'), was = afMode;
+  afMode = a.mode;
+  const pin = a.mode === 'pin';
+  slot.classList.toggle('afpin', pin);
+  slot.classList.toggle('afsave', a.mode === 'save');
+  lights.hidden = !pin;
+  lights.querySelectorAll('i').forEach((d, k) => d.classList.toggle('f', pin && k < a.n));
+  vk.classList.toggle('locked', pin);
+  vk.classList.toggle('lit', (pin && a.n > 0) || a.mode === 'save');
+  vk.style.setProperty('--o', pin ? String(a.n / a.of * 0.55) : a.mode === 'save' ? '.6' : '0');
+  vk.style.setProperty('--s', pin ? String(0.8 + a.n / a.of * 0.3) : '1');
+  if (pin || a.mode === 'save') vk.hidden = false;
+  if (a.beat === 'call') { vk.classList.remove('call'); void vk.offsetWidth; vk.classList.add('call'); }
+  if (a.beat === 'wrong') { lights.hidden = false; lights.classList.remove('shake'); void lights.offsetWidth; lights.classList.add('shake'); }
+  if (a.beat === 'open') {
+    // The shackle lifts (160 ms), it blooms (300 ms) and settles into the glowing key.
+    vk.classList.add('locked', 'lit', 'open'); lights.hidden = false; lights.querySelectorAll('i').forEach((d) => d.classList.add('f'));
+    setTimeout(() => vk.classList.add('bloom'), 140);
+    setTimeout(() => { vk.classList.remove('locked', 'open'); lights.hidden = true; slot.classList.remove('afpin'); }, 300);
+    setTimeout(() => { vk.classList.remove('bloom'); if (afMode === 'idle') { vk.classList.remove('lit'); vk.style.setProperty('--o', '0'); } }, 900);
+  }
+  if (was === 'save' && a.mode !== 'save') el('afsavechip').hidden = true;
+});
+window.aang?.onBrowserAfSave?.((m) => {
+  if (!m) return;
+  el('afsite').value = m.site || ''; el('afuser').value = m.user || ''; el('afpass').value = m.pass || '';
+  el('afsavechip').hidden = false;
+});
+el('afsaveform').addEventListener('submit', (e) => {
+  e.preventDefault();
+  window.aang?.browserAfSaveGo?.({ site: el('afsite').value, user: el('afuser').value, pass: el('afpass').value });
+  el('afpass').value = ''; el('afsavechip').hidden = true;
+});
+el('afsaveno').addEventListener('click', () => { el('afpass').value = ''; el('afsavechip').hidden = true; window.aang?.browserAct?.('afsavecancel'); });
+// Autofill's three sounds (sheet 77), made here, soft, never sharp: the call, the unlock, the fill (and a wrong PIN).
+let afAudio = null;
+function afTone(f, t, d, v, type = 'sine', glide = 0) {
+  try {
+    afAudio ??= new AudioContext();
+    const a = afAudio, o = a.createOscillator(), g = a.createGain(), lp = a.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2600; o.type = type;
+    o.frequency.setValueAtTime(f, a.currentTime + t); if (glide) o.frequency.exponentialRampToValueAtTime(f * glide, a.currentTime + t + d * 0.6);
+    g.gain.setValueAtTime(0, a.currentTime + t); g.gain.linearRampToValueAtTime(v, a.currentTime + t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + t + d);
+    o.connect(lp).connect(g).connect(a.destination); o.start(a.currentTime + t); o.stop(a.currentTime + t + d + 0.05);
+  } catch { /* no sound, no harm */ }
+}
+const AF_SOUND = {
+  call: () => { afTone(880, 0, 0.22, 0.05, 'triangle', 1.06); afTone(1318.5, 0.13, 0.32, 0.045, 'triangle', 1.02); },
+  unlock: () => { afTone(261.6, 0, 0.55, 0.06); afTone(392, 0.05, 0.6, 0.045); [1046.5, 1318.5, 1568].forEach((f, i) => afTone(f, 0.12 + i * 0.05, 0.4, 0.012)); },
+  fill: () => afTone(1046.5, 0, 0.12, 0.025, 'sine', 1.25),
+  wrong: () => { afTone(330, 0, 0.25, 0.04, 'triangle'); afTone(294, 0.1, 0.32, 0.04, 'triangle'); },
+};
+window.aang?.onBrowserAfSound?.((n) => AF_SOUND[n]?.());
 // The vault's chip: the master password box (unlock) or the account list (pick). The password goes to the Shell
 // and the box is emptied at once; nothing here keeps it.
 const vaultpw = el('vaultpw');
@@ -1132,7 +1190,7 @@ window.aang?.onBrowserTabs?.((s) => {
   const vk = el('vkey');
   const showKey = s.hasLogin === true;
   if (showKey && vk.hidden) { vk.classList.remove('pulse'); void vk.offsetWidth; if (s.loginKnown) vk.classList.add('pulse'); }
-  vk.hidden = !showKey;
+  vk.hidden = !showKey && afMode === 'idle';   // the PIN's padlock and a waiting login keep it showing (sheet 77)
   vk.classList.toggle('known', s.loginKnown === true);
   document.body.classList.toggle('maxed', s.maximized === true);
   el('wmax').setAttribute('aria-label', s.maximized ? 'Restore' : 'Maximise');

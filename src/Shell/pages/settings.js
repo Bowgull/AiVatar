@@ -164,5 +164,34 @@ function paint(d) {
   for (const r of document.querySelectorAll('[data-mac]')) r.hidden = !d.mac;
   $('#versions').textContent = `Chromium ${d.versions?.chrome ?? ''} (Electron ${d.versions?.electron ?? ''}).`;
 }
+// ---- Sheet 77: autofill. His details (behind Edit), his PIN (typed twice), how it works (behind Show).
+const AF = ['name', 'phone', 'street', 'city', 'region', 'postal', 'country'];
+$('#afedit').addEventListener('click', () => {
+  const d = data?.autofill?.details ?? {};
+  for (const k of AF) $('#af-' + k).value = d[k] ?? '';
+  $('#af-emails').value = (d.emails ?? []).join(', ');
+  $('#afform').hidden = !$('#afform').hidden;
+});
+$('#afcancel').addEventListener('click', () => { $('#afform').hidden = true; });
+$('#afform').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = { emails: $('#af-emails').value.split(/[,\s]+/).filter(Boolean) };
+  for (const k of AF) v[k] = $('#af-' + k).value;
+  S?.set('afDetails', v);
+  $('#afform').hidden = true;
+});
+$('#afpinform').addEventListener('submit', (e) => {
+  e.preventDefault();
+  S?.set('afPin', { pin: $('#af-pin').value, again: $('#af-pin2').value });
+  $('#af-pin').value = ''; $('#af-pin2').value = '';
+});
+S?.onAfPin?.((r) => { if (r?.text) $('#afpinnote').textContent = r.text; });
+$('#afhowbtn').addEventListener('click', () => { const h = $('#afhow'); h.hidden = !h.hidden; $('#afhowbtn').textContent = h.hidden ? 'Show' : 'Hide'; });
+S?.onData?.((d) => {
+  const set = d?.autofill?.pin === true;
+  $('#afforget').hidden = !set;
+  $('#afpinform').querySelector('button').textContent = set ? 'Change' : 'Set';
+  for (const c of document.querySelectorAll('.choice[data-key="afSounds"]')) for (const b of c.querySelectorAll('button')) b.classList.toggle('on', b.dataset.v === String(d?.autofill?.sounds !== false));
+});
 S?.onData?.(paint);
 S?.get?.().then(paint).catch(() => {});

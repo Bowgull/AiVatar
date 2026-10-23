@@ -1,0 +1,23 @@
+/* Autofill's light (sheet 77). The layer itself is see-through; only the light and its tag draw. Arrives in 110 ms
+   (fade, grow and a 6 px drift, easing out), leaves in 90 ms; a flick swaps the value in 100 ms. */
+html,body{margin:0;background:transparent;overflow:hidden;user-select:none;-webkit-user-select:none}
+.light{position:absolute;left:16px;top:50%;width:28px;height:28px;margin-top:-14px;cursor:pointer;opacity:0;transform:translate(-6px,0) scale(.7);
+  transition:opacity .11s cubic-bezier(.2,.8,.3,1),transform .11s cubic-bezier(.2,.8,.3,1)}
+.light.on{opacity:1;transform:none}
+.light.off{transition-duration:.09s;transition-timing-function:cubic-bezier(.5,0,.8,.4)}
+.orb{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#fffbe6 0 18%,rgba(255,232,150,.9) 30%,rgba(255,200,90,.35) 55%,transparent 70%);animation:float 1.8s ease-in-out infinite}
+.orb::before,.orb::after{content:"";position:absolute;top:6px;width:11px;height:9px;border-radius:50%;background:rgba(255,248,220,.6);animation:wing .18s ease-in-out infinite alternate}
+.orb::before{left:-5px}.orb::after{right:-5px}
+@keyframes wing{to{transform:scaleY(.4)}}
+@keyframes float{50%{transform:translateY(-3px)}}
+.item{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
+.item svg{display:block;shape-rendering:crispEdges;image-rendering:pixelated}
+.tag{position:absolute;left:30px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#24160d;border:3px solid var(--outline);border-radius:6px;
+  padding:5px 9px;font:700 12.5px var(--body);color:#ffe28c;box-shadow:inset 0 2px 0 rgba(255,224,150,.15)}
+.tag[hidden]{display:none}
+.v{display:block;transition:opacity .1s ease-out,transform .1s ease-out}
+.v.swap{opacity:0;transform:translateY(-4px)}
+.v .n{color:#8a7a62;margin-left:6px;font-weight:600}
+.light.give .orb{animation:give .2s ease-out}
+@keyframes give{50%{transform:scale(1.35)}}
+@media (prefers-reduced-motion:reduce){.light,.v{transition:none}.orb{animation:none}}
