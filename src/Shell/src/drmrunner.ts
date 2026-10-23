@@ -23,7 +23,7 @@ export interface DrmDeps {
 export const drmElectron = (shellDir: string) =>
   process.platform === 'darwin'
     // M6: on the Mac, the castLabs app the Mac setup put beside Aang's browser, VMP-signed for streaming.
-    ? path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'browser', 'drm-44.5.1', 'Electron.app', 'Contents', 'MacOS', 'Electron')
+    ? path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'browser', 'drm-44.9.3', 'Electron.app', 'Contents', 'MacOS', 'Electron')
     : path.join(shellDir, 'node_modules', 'electron-drm', 'dist', 'electron.exe');
 
 export class DrmRuntime {
