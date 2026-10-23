@@ -1424,6 +1424,7 @@ export class AangBrowser {
   /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
   open(url?: string): void {
     const p = this.lastPane();
+    if (p && !this.restored) { if (url) this.whenOpen.push(() => this.newTab(url)); return; }
     if (p) {
       this.pane = p;
       bringFront(p.win!);
@@ -1439,6 +1440,7 @@ export class AangBrowser {
    */
   private createPane(url?: string, bring?: Tab | Tab[], at?: { x: number; y: number; width: number; height: number }): void {
     const first = !this.panes.some((x) => this.alive(x));
+    if (first && !bring) this.restored = false;     // a new first window reads his tabs back before anything saves
     const wa = screen.getPrimaryDisplay().workArea;
     const was = first ? this.savedPlace() : null;
     // A new run: the download tray starts empty (its key hidden) until something downloads.
@@ -1545,7 +1547,7 @@ export class AangBrowser {
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
       if (!first) { this.newTab(url ?? this.HOME); return; }
       // A mockup that opened the window (sheet 47) is its first tab: no home page under it.
-      if (this.prefs.startup === 'home' || !this.restore()) { if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
+      if (this.prefs.startup === 'home' || !this.restore()) { this.restored = true; if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
       for (const f of this.whenOpen.splice(0)) { this.pane = p; f(); }
     });
@@ -3832,9 +3834,9 @@ export class AangBrowser {
       this.changed();
     };
     const p = this.lastPane();
-    if (p) { this.pane = p; bringFront(p.win!); go(); return; }
+    if (p && this.restored) { this.pane = p; bringFront(p.win!); go(); return; }
     this.whenOpen.push(go);
-    this.createPane();
+    if (!p) this.createPane();
   }
   /** The mockup in front, while Samara has his focus, has been seen: its glow goes. */
   private mockSeen(): void {
@@ -4391,6 +4393,13 @@ export class AangBrowser {
   private scrollDue = new Set<number>();
   /** The last tabs file written, without its time: nothing changed means nothing written and nothing sent. */
   private lastSnap = '';
+  /**
+   * His saved tabs have been read back this run (or he starts on the home page). Until then nothing writes the tabs file
+   * (2026-10-23: a mockup that arrived while Samara was still starting opened its tab first, that one tab was saved over
+   * his list, and then the list read back held only it: every tab gone, twice). A mockup or link that arrives meanwhile
+   * waits for the window's first load.
+   */
+  private restored = false;
   /** How many of his own tabs (not mockups) the tabs file held when last read or written. */
   private savedCount = 0;
   /**
@@ -4412,6 +4421,7 @@ export class AangBrowser {
     } catch (e) { console.error('shell: browser: the tabs copy was not kept: ' + (e as Error).message); }
   }
   private async snapshot(all = false): Promise<void> {
+    if (!this.restored) return;
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
     // Everything is taken NOW, before waiting on the pages (2026-10-14, his "it should remember what tabs were open"):
     // closing the window emptied the tab list while this waited, and an EMPTY list was written, so nothing came back.
@@ -4465,6 +4475,7 @@ export class AangBrowser {
   /** Bring every tab back from the last snapshot. Only the one he was on loads; the rest come back asleep. */
   private restore(): boolean {
     this.keepTabsCopy('start');
+    this.restored = true;
     try {
       if (!existsSync(this.file)) return false;
       const s = JSON.parse(readFileSync(this.file, 'utf8'));

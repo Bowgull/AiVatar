@@ -69,7 +69,21 @@ app.whenReady().then(async () => {
   check('both windows come back', any.panes.length === 2, where.join(' | '));
   check('each with its own tabs', where.includes('/one,/three') && where.includes('/two'), where.join(' | '));
   void three;
-  b.closeAll(); srv.close(); pages.close();
+  b.closeAll(); await wait(2000);
+
+  // (3) 2026-10-23, twice on his Mac: a mockup or link arriving while Samara is still starting saved its one tab over his
+  // whole list. Something arrives before the window's first load, and a save is tried at once: his list must survive.
+  b = make(s2); b.prefs.home = base + '/home'; any = b as any;
+  b.open(); b.open(base + '/late');
+  await any.snapshot(true);
+  const early = JSON.parse(readFileSync(path.join(s2, 'browser-tabs.json'), 'utf8'));
+  check('nothing is saved before his tabs are back', early.tabs.length === 3, String(early.tabs.length));
+  await wait(5000);
+  check('his tabs come back, and the late one with them', any.tabs.length === 4, any.tabs.map((t: any) => t.url.replace(base, '')).join(' '));
+  b.closeAll(); await wait(2000);
+  const after = JSON.parse(readFileSync(path.join(s2, 'browser-tabs.json'), 'utf8'));
+  check('and all four are saved', after.tabs.length === 4, String(after.tabs.length));
+  srv.close(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');
   setTimeout(() => app.exit(bad ? 1 : 0), 800);
 });
