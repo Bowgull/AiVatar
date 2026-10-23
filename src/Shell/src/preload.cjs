@@ -221,6 +221,7 @@ contextBridge.exposeInMainWorld('aang', {
   // --- the browser frame (6.19, 6.20). Named doors only; the tabs themselves get no preload at all.
   browserInsets: r => ipcRenderer.send('browser:insets', r),
   browserAct: a => ipcRenderer.send('browser:act', a),
+  browserWinDrag: m => ipcRenderer.send('browser:windrag', m),
   /** The tab list in its own layer above the live page (2026-10-13): open (with where it goes) or close. */
   browserTray: a => ipcRenderer.send('browser:tray', a),
   // His ask (2026-10-20): a bookmark's own right-click menu. The address says which one; the Shell checks the rest.

@@ -245,6 +245,21 @@ function paintStash() {
 // His own window buttons. Double-clicking the band still maximises (Windows does that for the drag area).
 el('wmin').addEventListener('click', () => window.aang?.browserAct?.('winmin'));
 el('wmax').addEventListener('click', () => window.aang?.browserAct?.('winmax'));
+// Right-click on the square key: fill, left or right half, his other screen, full screen (what the Mac's green button offers).
+el('wmax').addEventListener('contextmenu', (e) => { e.preventDefault(); window.aang?.browserAct?.('winmenu'); });
+// Option + drag anywhere on the frame moves the window, the address bar included (his ask, 2026-10-23: the wood is thin).
+if (window.aang?.platform === 'darwin') document.addEventListener('pointerdown', (e) => {
+  if (!e.altKey || e.button !== 0) return;
+  e.preventDefault(); e.stopPropagation();
+  const t = e.target instanceof Element ? e.target : document.body;
+  try { t.setPointerCapture(e.pointerId); } catch { /* still follows while over the frame */ }
+  document.documentElement.classList.add('windrag');
+  window.aang?.browserWinDrag?.({ phase: 'start', x: e.screenX, y: e.screenY });
+  const move = (m) => window.aang?.browserWinDrag?.({ phase: 'move', x: m.screenX, y: m.screenY });
+  const end = (m) => { window.aang?.browserWinDrag?.({ phase: 'end', x: m.screenX, y: m.screenY }); document.documentElement.classList.remove('windrag');
+    t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', end); t.removeEventListener('pointercancel', end); };
+  t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+}, true);
 el('wclose').addEventListener('click', () => window.aang?.browserAct?.('winclose'));
 // On the Mac a double-click on the wood (anywhere on the band but its keys and the address) does what the Mac is set to;
 // Windows already does it for the drag area by itself.

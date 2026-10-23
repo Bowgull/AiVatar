@@ -21,7 +21,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
@@ -613,6 +613,9 @@ export class AangBrowser {
     this.localFile = path.join(o.stateDir, 'browser-local.json');
     try { const l = JSON.parse(readFileSync(this.localFile, 'utf8')); if (l?.tabSize === 's' || l?.tabSize === 'm') this.tabSize = l.tabSize; } catch { /* Large */ }
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
+    // Plugging the monitor in or out: Samara goes back to where it was the last time this setup was in use.
+    const setupChanged = () => setTimeout(() => this.backToSetupSpot(), 700);
+    screen.on('display-added', setupChanged); screen.on('display-removed', setupChanged);
     this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
     this.iconsFile = path.join(o.stateDir, 'browser-favicons.json');
     try { if (existsSync(this.iconsFile)) for (const [h, d] of Object.entries(JSON.parse(readFileSync(this.iconsFile, 'utf8')) as Record<string, unknown>)) if (typeof d === 'string' && d.startsWith('data:image/')) this.icons.set(h, d); } catch { /* none yet */ }
@@ -2272,11 +2275,58 @@ export class AangBrowser {
     this.act(dir);
   }
 
+  /** The square key's menu (2026-10-23, his ask: "act like any other window"): fill, halves, his other screens, full screen. */
+  private windowMenu(): void {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    const here = screen.getDisplayMatching(w.getBounds()), a = here.workArea, half = Math.floor(a.width / 2);
+    const put = (r: Electron.Rectangle) => { if (w.isFullScreen()) w.setFullScreen(false); if (w.isMaximized()) w.unmaximize(); w.setBounds(r, true); };
+    const others = screen.getAllDisplays().filter((d) => d.id !== here.id);
+    const moveTo = (d: Electron.Display) => {
+      const b = w.isMaximized() ? null : w.getBounds(), t = d.workArea;
+      if (!b) { w.unmaximize(); w.setBounds({ ...t }, true); w.maximize(); return; }
+      const width = Math.min(b.width, t.width), height = Math.min(b.height, t.height);
+      put({ x: t.x + Math.min(Math.max(0, b.x - a.x), t.width - width), y: t.y + Math.min(Math.max(0, b.y - a.y), t.height - height), width, height });
+    };
+    Menu.buildFromTemplate([
+      { label: w.isMaximized() ? 'Back to its size' : 'Fill the screen', click: () => { if (w.isMaximized()) w.unmaximize(); else w.maximize(); } },
+      { label: 'Left half', click: () => put({ x: a.x, y: a.y, width: half, height: a.height }) },
+      { label: 'Right half', click: () => put({ x: a.x + half, y: a.y, width: a.width - half, height: a.height }) },
+      ...(others.length ? [{ type: 'separator' as const }, ...others.map((d, i) => ({ label: `Move to ${d.label || (others.length > 1 ? `screen ${i + 2}` : 'the other screen')}`, click: () => moveTo(d) }))] : []),
+      { type: 'separator' },
+      { label: w.isFullScreen() ? 'Leave full screen' : 'Full screen', click: () => w.setFullScreen(!w.isFullScreen()) },
+    ]).popup({ window: w });
+  }
+  /** Option + drag anywhere on the frame (2026-10-23, his "the wood is thin, it has to be airtight"): the window follows. */
+  private dragFrom: { x: number; y: number; wx: number; wy: number } | null = null;
+  winDrag(sender: Electron.WebContents, phase: string, x: number, y: number): void {
+    const w = BrowserWindow.fromWebContents(sender);
+    if (!w || w.isDestroyed() || w.isFullScreen()) return;
+    if (phase === 'start') { if (w.isMaximized()) return; const [wx, wy] = w.getPosition(); this.dragFrom = { x, y, wx: wx!, wy: wy! }; return; }
+    const d = this.dragFrom;
+    if (!d) return;
+    if (phase === 'move') w.setPosition(d.wx + x - d.x, d.wy + y - d.y);
+    else this.dragFrom = null;
+  }
+  private backToSetupSpot(): void {
+    const w = this.panes[0]?.win;
+    if (!w || w.isDestroyed() || w.isFullScreen()) return;
+    let p: { x: number; y: number; width: number; height: number; maximized?: boolean } | undefined;
+    try { p = JSON.parse(readFileSync(this.placeFile, 'utf8'))?.setups?.[this.screensNow()]; } catch { return; }
+    if (!p || ![p.x, p.y, p.width, p.height].every(Number.isFinite)) return;
+    if (w.isMaximized()) w.unmaximize();
+    w.setBounds({ x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) });
+    if (p.maximized) w.maximize();
+  }
+  /** Which screens are plugged in, as a name for this setup: the laptop alone, or with the monitor (2026-10-23). */
+  private screensNow(): string { return screen.getAllDisplays().map((d) => `${d.id}:${d.bounds.width}x${d.bounds.height}`).sort().join('|'); }
   /** Where the window was last time, if that spot is still on a screen he has. */
   private savedPlace(): { x: number; y: number; width: number; height: number; maximized: boolean } | null {
     try {
       if (!existsSync(this.placeFile)) return null;
-      const p = JSON.parse(readFileSync(this.placeFile, 'utf8'));
+      const all = JSON.parse(readFileSync(this.placeFile, 'utf8'));
+      // Each screen setup keeps its own spot (his pick, 2026-10-23); a setup never seen yet uses the last one.
+      const p = all?.setups?.[this.screensNow()] ?? all;
       const r = { x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
       if (!Object.values(r).every(Number.isFinite) || r.width < 720 || r.height < 480) return null;
       // At least a good piece of the band must land on a screen, or it opens where it opens by default.
@@ -2292,7 +2342,10 @@ export class AangBrowser {
     const w = this.win;
     if (!w || w.isDestroyed() || w.isMinimized() || w.isFullScreen()) return;
     const b = w.getNormalBounds();
-    try { writeFileAtomic(this.placeFile, JSON.stringify({ ...b, maximized: w.isMaximized() })); } catch { /* best effort */ }
+    const spot = { ...b, maximized: w.isMaximized() };
+    let setups: Record<string, unknown> = {};
+    try { setups = JSON.parse(readFileSync(this.placeFile, 'utf8'))?.setups ?? {}; } catch { /* first time */ }
+    try { writeFileAtomic(this.placeFile, JSON.stringify({ ...spot, setups: { ...setups, [this.screensNow()]: spot } })); } catch { /* best effort */ }
   }
 
   /** Build the right-click menu for what was clicked: a link, a picture, selected words, a text box, or the page. */
@@ -3808,6 +3861,8 @@ export class AangBrowser {
       // A double-click on the band's wood (2026-10-23, his report: nothing happened on the Mac). Windows does this itself
       // for the drag area; on the Mac Samara does what his Mac is set to (System Settings, Desktop & Dock: "Double-click a
       // window's title bar to"): fill the screen and back (the default), tuck it in the Dock, or nothing.
+      // Right-click on the square key: what the Mac's green button offers, which Samara's own keys lost (2026-10-23).
+      case 'winmenu': this.windowMenu(); break;
       case 'titledbl': if (this.win && process.platform === 'darwin') {
         const set = systemPreferences.getUserDefault('AppleActionOnDoubleClick', 'string');
         const tuck = set === 'Minimize' || (!set && systemPreferences.getUserDefault('AppleMiniaturizeOnDoubleClick', 'boolean'));
