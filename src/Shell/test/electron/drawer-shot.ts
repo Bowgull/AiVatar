@@ -33,6 +33,8 @@ app.whenReady().then(async () => {
     await b.openMockupDrop({ path: p, repo: REPO, url: null, title: t, branch: t.startsWith('68') ? 'Showcase' : 'Samara' }).catch((e: Error) => console.log('HARNESS mock ' + e.message));
     await wait(800);
   }
+  // MARKS=1 (sheet 79): a mark on each mockup shown, to see the chips in the history.
+  if (process.env.MARKS) { const L = b.mockStore.list; const st = [['ok', {}], ['fix', { note: 'the key icon over a key icon' }], ['chat', { said: 'yes, build it', by: 'claude' }]]; L.forEach((v: any, i: number) => b.mockStore.setStage(v.id, st[i % 3]![0], st[i % 3]![1])); b.sendTabs(); await wait(500); }
   // SETTINGS=1: Samara's own Settings page open as a tab too.
   if (process.env.SETTINGS) { b.openSettings('general'); await wait(1500); }
   await wait(4000);

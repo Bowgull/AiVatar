@@ -27,6 +27,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import { CCD_SERVER, EFFORT_OK, FRESH_MS, mcpText, normFolder, startOf } from './link.ts'
+import { MARK_TOOL, MARK_TOOL_DESC, MARK_TOOL_FULL, MARK_TOOL_SCHEMA, markArgs } from './link.ts'
 import { callFor, linkOff, notHisCwd } from './link.ts'
 import type { RunningCall, Task } from './link.ts'
 
@@ -450,6 +451,10 @@ async function ensureTool($: $T, L: Link): Promise<void> {
   if (!tools.some(t => t.name === MOCKUP_TOOL_FULL)) {
     try { await $.tool.register({ name: MOCKUP_TOOL, description: MOCKUP_TOOL_DESC, inputSchema: MOCKUP_TOOL_SCHEMA, isDeferred: false }) } catch { L.ownTool = false }
   }
+  // mockup_mark (sheet 79, 2026-10-23): the trail's marks, read before building and set when he says yes.
+  if (!tools.some(t => t.name === MARK_TOOL_FULL)) {
+    try { await $.tool.register({ name: MARK_TOOL, description: MARK_TOOL_DESC, inputSchema: MARK_TOOL_SCHEMA, isDeferred: false }) } catch { L.ownTool = false }
+  }
   if (tools.some(t => t.name === OWN_TOOL_FULL)) return
   // v3: a session with its own to-do tool still gets the progress tool, for the phase plan only (OVERALL).
   const hasTodo = tools.some(t => TODO_TOOLS.includes(t.name))
@@ -476,6 +481,46 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   let j: { ok?: unknown; message?: unknown } = {}
   try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
   const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Aang did not answer, so the mockup was not shown.'
+  return j.ok === true ? { result: msg } : { result: msg, isError: true }
+}
+
+/**
+ * mockup_mark (sheet 79, 2026-10-23): on his Mac, Samara's own signed door (the same lock as show_mockup's). On the PC the
+ * brain does not carry marks yet, so the call says so instead of pretending.
+ */
+async function markMockup($: $T, L: Link, input: Record<string, unknown>): Promise<{ result: string; isError?: true }> {
+  const a = markArgs(input)
+  if (!a.ok) return { result: a.error, isError: true }
+  const home = await macHome($)
+  if (!home) return { result: "Mockup marks live in Samara on his Mac for now; on the PC they are not wired yet. Ask him which version he approved.", isError: true }
+  const key = (await within($, $.fs.read(`${home}/Library/Application Support/Aang/mockup-door.key`), 500))?.trim() || ''
+  if (key.length < 32) return { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true }
+  const base = 'http://127.0.0.1:47844'
+  const signed = async (method: 'GET' | 'POST', pathQ: string, b: string, ms: number) => {
+    const ts = String(Date.now())
+    const headers: Record<string, string> = { 'x-aang-link-ts': ts, 'x-aang-link-sig': await hmacHex(key, 'req', ts, method, pathQ, b) }
+    if (b) headers['content-type'] = 'application/json'
+    return within($, $.http.fetch(base + pathQ, { method, headers, ...(b ? { body: b } : {}) }), ms)
+  }
+  const n = nonce()
+  const hello = await signed('GET', `/hello?n=${n}`, '', 1000)
+  let ok = false
+  try { ok = !!hello?.ok && sameMac(String(JSON.parse(hello.text)?.proof ?? ''), await hmacHex(key, 'hello', n)) } catch { ok = false }
+  if (!ok) return { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true }
+  if (a.list) {
+    const r = await signed('GET', '/stages', '', 4000)
+    let j: { ok?: unknown; stages?: unknown[]; message?: unknown } = {}
+    try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
+    if (j.ok !== true) return { result: typeof j.message === 'string' ? j.message : 'Samara did not answer.', isError: true }
+    const NAME: Record<string, string> = { ok: 'APPROVED (his click)', chat: 'APPROVED (he said yes in chat)', built: 'BUILT', fix: 'FIX', park: 'PARKED' }
+    const lines = (j.stages ?? []).slice(0, 60).map((x) => { const v = x as Record<string, unknown>
+      return `${String(v.sheet)} v${String(v.v)} (commit ${String(v.commit).slice(0, 7)}): ${NAME[String(v.stage)] ?? String(v.stage)}${v.note ? ` · fix: ${String(v.note)}` : ''}${v.said ? ` · his words: "${String(v.said)}"` : ''}` })
+    return { result: lines.length ? lines.join('\n') : 'No marks yet: nothing is approved in the Mockups trail.' }
+  }
+  const r = await signed('POST', '/stage', JSON.stringify({ cwd: L.cwd, ...a.body }), 4000)
+  let j: { ok?: unknown; message?: unknown } = {}
+  try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
+  const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Samara did not answer, so nothing was marked.'
   return j.ok === true ? { result: msg } : { result: msg, isError: true }
 }
 
@@ -752,6 +797,10 @@ export const register: Register = on => {
     // show_mockup (2026-10-22): answered here, by the brain's answer; nothing else runs.
     if (tool === MOCKUP_TOOL_FULL) {
       try { return await showMockup($, L, input) } catch { return { result: 'The mockup could not be sent to Aang.', isError: true as const } }
+    }
+    // mockup_mark (sheet 79): answered here, by Samara's answer; nothing else runs.
+    if (tool === MARK_TOOL_FULL) {
+      try { return await markMockup($, L, input) } catch { return { result: 'The marks could not be reached.', isError: true as const } }
     }
     // v3: a helper agent's own tool call is its heartbeat, and one more in "14 tool calls".
     if (agentId !== undefined && L.agents.has(agentId)) post($, L, 'agent.tool', { id: agentId })

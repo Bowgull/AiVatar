@@ -103,7 +103,8 @@ app.whenReady().then(async () => {
   startClaudeDoor(() => browser, stateDir);
   // show_mockup from this Mac's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).
   const closeMockDoor = startMockupDoor(stateDir, (d) => browser?.openMockupDrop(d) ?? Promise.resolve(null),
-    () => (browser?.mockupsOn ? null : "Samara's Mockups trail on this Mac needs Apple's command line tools (git). Tell the user where the file is; they can install them with: xcode-select --install"));
+    () => (browser?.mockupsOn ? null : "Samara's Mockups trail on this Mac needs Apple's command line tools (git). Tell the user where the file is; they can install them with: xcode-select --install"),
+    undefined, { list: () => browser?.mockStages() ?? [], set: (a) => browser?.mockMark(a) ?? 'Samara is not open yet.' });
   app.on('before-quit', () => closeMockDoor());
   // A .mockup file left in Samara's open-urls folder (the same small JSON tools/open-mockup.mjs leaves on the PC). Only
   // .mockup files; takeMockupFile checks each one and deletes it whatever it says.

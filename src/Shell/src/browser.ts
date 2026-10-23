@@ -45,7 +45,7 @@ import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } fro
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 import { TIDY_KEEP, isPicked, saysDecided, sheetLabel, spaceOf, tidyDue, tidyLine } from './mockuptidy.ts';
-import { MockServer, MockStore, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockVersion, type MockupDrop } from './mockups.ts';
+import { MockServer, MockStore, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 /** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
@@ -3786,6 +3786,28 @@ export class AangBrowser {
    * The frame's clicks: a version to show, the history list opened or shut, the broom, and his moves in the family tree
    * (his ask, 2026-10-21: branches > mockups > children, all by hand, kept in mockups.json with the history).
    */
+  /** Sheet 79: every marked version, for Claude (and Aang): which sheet, which version, which stage, his words. */
+  mockStages(): unknown[] { return this.mockStore?.stages() ?? []; }
+  /**
+   * Claude's mark on one version of a sheet in his repo (sheet 79): approved only with his words from the chat (it shows
+   * as APPROVED · CHAT), built once it is in Samara, fix with a note, park, or clear. The newest version unless `v`.
+   */
+  mockMark(a: { repo: string; sheet: string; v: number | null; stage: string; said: string; note: string }): string {
+    const st = this.mockStore;
+    if (!st) return "This Samara has no Mockups trail.";
+    const names = [...st.repos.entries()].filter(([, p]) => path.resolve(p) === path.resolve(a.repo)).map(([n]) => `@${n}/${a.sheet}`);
+    const keys = [a.sheet, ...names];
+    const mine = st.list.filter((x) => keys.includes(x.sheet));
+    if (!mine.length) return 'That sheet is not in the Mockups trail yet: show it first (show_mockup).';
+    const v = a.v === null ? mine.reduce((m, x) => (x.v > m.v ? x : m)) : mine.find((x) => x.v === a.v);
+    if (!v) return `That sheet has no version ${a.v}.`;
+    const map: Record<string, MockStage | null> = { approved: 'chat', built: 'built', fix: 'fix', park: 'park', clear: null };
+    if (!(a.stage in map)) return 'stage is one of: approved, built, fix, park, clear.';
+    if (a.stage === 'approved' && !a.said.trim()) return "An approval needs his own words from the chat in said (what he wrote when he said yes).";
+    const why = st.setStage(v.id, map[a.stage]!, { said: a.said, note: a.note, by: 'claude' });
+    if (!why) this.sendTabs();
+    return why;
+  }
   mockAct(act: string, a: { id?: number; sheet?: string; to?: string | number | null; name?: string; open?: boolean } = {}): void {
     const st = this.mockStore;
     if (!st) return;
@@ -3801,6 +3823,10 @@ export class AangBrowser {
       case 'archive': if (known(a.sheet)) why = st.archive(a.sheet); break;
       case 'restore': if (known(a.sheet)) why = st.restore(a.sheet); break;
       case 'pick': if (known(a.sheet)) why = st.setPicked(a.sheet, a.open === true); break;
+      // Sheet 79: his mark on one version (FIX with a note, APPROVED, PARKED), or taking it off (null).
+      case 'stage': { const sg = a.to === null || a.to === '' ? null : String(a.to) as MockStage;
+        if (Number.isInteger(a.id) && (sg === null || ['fix', 'ok', 'park'].includes(sg))) why = st.setStage(a.id!, sg, { note: String(a.name ?? '').slice(0, 300), by: 'you' });
+        break; }
       // The broom (his rule): only when he presses it, and only exact duplicates.
       case 'broom': { const n = st.sweep(); if (n) this.note(`Removed ${n} duplicate${n === 1 ? '' : 's'}.`); break; }
       case 'branchnew': if (known(a.sheet)) { const id = st.newBranch(); why = st.toBranch(a.sheet, id); this.freshBranch = id; } break;
@@ -3905,7 +3931,8 @@ export class AangBrowser {
     const label = (s: string) => sheetLabel(bySheet.get(s)?.[0]?.title ?? '', s);
     const node = (sheet: string, kids: string[]): Record<string, unknown> => {
       const items = bySheet.get(sheet) ?? [], m = st.meta.get(sheet), lab = label(sheet);
-      const line = (x: MockVersion) => ({ id: x.id, at: x.at, v: x.v, now: shown.get(sheet) === x.key && !dups.has(x.id), same: dups.get(x.id) ?? null, seen: x.seen?.length ?? 0 });
+      const line = (x: MockVersion) => ({ id: x.id, at: x.at, v: x.v, now: shown.get(sheet) === x.key && !dups.has(x.id), same: dups.get(x.id) ?? null, seen: x.seen?.length ?? 0,
+        ...(x.stage ? { stage: x.stage, note: x.note ?? '', said: x.said ?? '', stageAt: x.stageAt ?? 0 } : {}) });
       const out1 = (x: MockVersion, i: number) => i < TIDY_KEEP && !x.old;
       return { sheet, num: lab.num, name: lab.name, title: lab.label, closed: !shown.has(sheet), picked: isPicked(m), hand: m?.picked !== undefined, n: items.length,
         items: items.filter(out1).map(line), older: items.filter((x, i) => !out1(x, i)).slice(0, 60).map(line),
