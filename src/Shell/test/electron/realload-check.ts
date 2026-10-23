@@ -52,6 +52,8 @@ app.whenReady().then(async () => {
       const t = b.tabs.find((x: any) => !before.has(x.id)); wc = t?.view?.webContents ?? null;
       if (wc) wc.once('did-stop-loading', fin); else fin();
     });
+    if (process.env.SHOT && wc) { await new Promise((r) => setTimeout(r, 4000)); const img = await (wc as Electron.WebContents).capturePage(); (await import('node:fs')).writeFileSync(process.env.SHOT, img.toPNG()); console.log('shot ' + JSON.stringify(img.getSize()) + ' ' + (wc as Electron.WebContents).getURL()); }
+    if (process.env.PROBE && wc) { await new Promise((r) => setTimeout(r, 4000)); console.log('probe ' + JSON.stringify(await (wc as Electron.WebContents).mainFrame.executeJavaScript(process.env.PROBE).catch((e: Error) => e.message))); }
     console.log(`samara  ${u}  drew ${r.drawn || '-'} ms, stopped ${r.stop} ms; ${lag()}`);
   }
   if (process.env.PROFILE) { const { profile } = await post('Profiler.stop'); (await import('node:fs')).writeFileSync(process.env.PROFILE, JSON.stringify(profile)); }

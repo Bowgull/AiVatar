@@ -21,7 +21,7 @@ try {
     ipcRenderer.invoke('tab:dark').then((a) => {
       if (!a || typeof a.src !== 'string') return;
       // Only once the page has a body to read (its own background decides whether it is already dark), at most 1.5 s.
-      const run = () => require('electron').webFrame.executeJavaScriptInIsolatedWorld(1002, [{ code: `if(!globalThis.DarkReader){${a.src}\n};${a.test || ''}if(!DarkReader.isEnabled()&&!(typeof __aangAlreadyDark==='function'&&__aangAlreadyDark()))DarkReader.enable(${a.theme});true` }]).catch(() => {});
+      const run = () => require('electron').webFrame.executeJavaScriptInIsolatedWorld(1002, [{ code: `if(!globalThis.DarkReader){${a.src}\n};${a.test || ''}if(!DarkReader.isEnabled()&&!(typeof __aangAlreadyDark==='function'&&__aangAlreadyDark())){DarkReader.enable(${a.theme});if(typeof __aangWatchDark==='function')__aangWatchDark();}true` }]).catch(() => {});
       if (document.body) run();
       else {
         let done = false;
