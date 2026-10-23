@@ -22,7 +22,7 @@
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
 import { BrowserWindow, Menu, WebContentsView, app, net, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
-import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -2333,6 +2333,7 @@ export class AangBrowser {
       else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
         // Nothing left in the whole browser: remember an empty window (so the closed tabs do not come back next time).
         if (!this.tabs.length) {
+          this.keepTabsCopy('empty');
           try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
           this.sync?.changed('tabs');
         }
@@ -3093,6 +3094,7 @@ export class AangBrowser {
       // The mockup tabs written here stay (sheet 47): they are this PC's own.
       let mocks: unknown[] = [];
       try { const s = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
+      this.keepTabsCopy('other-machine');
       const keepTrails = mocks.length ? [...trails.filter((x) => x.id !== MOCK_TRAIL), { id: MOCK_TRAIL, name: 'MOCKUPS', named: true, mock: true }] : trails;
       try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...mocks], trails: keepTrails, closed })); } catch { /* best effort */ }
       return;
@@ -4389,6 +4391,26 @@ export class AangBrowser {
   private scrollDue = new Set<number>();
   /** The last tabs file written, without its time: nothing changed means nothing written and nothing sent. */
   private lastSnap = '';
+  /** How many of his own tabs (not mockups) the tabs file held when last read or written. */
+  private savedCount = 0;
+  /**
+   * A copy of the tabs file as it is now, kept aside (2026-10-23: one restart came back with every tab gone, and only a
+   * stray copy from that morning brought them back). Taken at every start, and before any write that would drop most
+   * of his tabs at once. The newest 10 are kept, in browser-tabs-kept beside it.
+   */
+  private keepTabsCopy(why: string): void {
+    try {
+      if (!existsSync(this.file)) return;
+      const s = JSON.parse(readFileSync(this.file, 'utf8'));
+      const n = (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: { mock?: unknown }) => !t?.mock).length;
+      if (n < 2) return;
+      const dir = path.join(path.dirname(this.file), 'browser-tabs-kept');
+      mkdirSync(dir, { recursive: true });
+      copyFileSync(this.file, path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${why}.json`));
+      const all = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+      for (const f of all.slice(0, Math.max(0, all.length - 10))) { try { unlinkSync(path.join(dir, f)); } catch { /* next time */ } }
+    } catch (e) { console.error('shell: browser: the tabs copy was not kept: ' + (e as Error).message); }
+  }
   private async snapshot(all = false): Promise<void> {
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
     // Everything is taken NOW, before waiting on the pages (2026-10-14, his "it should remember what tabs were open"):
@@ -4430,6 +4452,9 @@ export class AangBrowser {
     const body = JSON.stringify(data);
     if (!all && body === this.lastSnap) return;
     this.lastSnap = body;
+    const mine = data.tabs.filter((t) => !t.mock).length;
+    if (this.savedCount >= 4 && mine < this.savedCount / 2) this.keepTabsCopy('drop');
+    this.savedCount = mine;
     // In the background while he browses; on closing, written before anything else happens.
     const text = JSON.stringify({ ...data, at: new Date().toISOString() });
     const fail = (e: unknown) => console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message);
@@ -4439,9 +4464,11 @@ export class AangBrowser {
 
   /** Bring every tab back from the last snapshot. Only the one he was on loads; the rest come back asleep. */
   private restore(): boolean {
+    this.keepTabsCopy('start');
     try {
       if (!existsSync(this.file)) return false;
       const s = JSON.parse(readFileSync(this.file, 'utf8'));
+      this.savedCount = (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: { mock?: unknown }) => !t?.mock).length;
       // A mockup tab only where the mockups are on (sheet 47); its page server is not there otherwise.
       const list = Array.isArray(s?.tabs) ? s.tabs.filter((t: { url?: unknown; mock?: unknown }) => typeof t?.url === 'string' && isWeb(t.url as string) && (!t.mock || this.mockServer)).slice(0, 80) : [];
       if (!list.length) return false;

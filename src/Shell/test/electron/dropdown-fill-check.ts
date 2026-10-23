@@ -10,7 +10,7 @@ process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + Str
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 60_000).unref();
 app.setPath('userData', mkdtempSync(path.join(os.tmpdir(), 'ddfill-')));
 const FORM = `<form>
-<input id="given" autocomplete="given-name"><input id="street" autocomplete="address-line1"><input id="city" name="city">
+<input id="given" autocomplete="given-name"><input id="tel10" type="tel" maxlength="10"><input id="telf" type="tel" name="phone"><input id="street" autocomplete="address-line1"><input id="city" name="city">
 <select id="prov" autocomplete="address-level1"><option value="">Choose</option><option value="AB">Alberta</option><option value="ON">Ontario</option></select>
 <select id="prov2" name="state"><option value="">--</option><option>Alberta</option><option>Ontario</option></select>
 <select id="country" autocomplete="country"><option value="">Choose</option><option value="US">United States</option><option value="CA">Canada</option></select>
@@ -23,11 +23,13 @@ app.whenReady().then(async () => {
   await w.loadURL('data:text/html,' + encodeURIComponent(FORM));
   const js = (c: string) => w.webContents.executeJavaScript(c);
   await js(`document.getElementById('kept').value = 'US'; document.getElementById('given').focus()`);
-  const n = await w.webContents.executeJavaScriptInIsolatedWorld(1001, [{ code: fillDetailsScript({ given: 'Sam', street: '100 Queen Street West', city: 'Toronto', region: 'Ontario', country: 'Canada' }, true) }]);
+  const n = await w.webContents.executeJavaScriptInIsolatedWorld(1001, [{ code: fillDetailsScript({ given: 'Sam', street: '100 Queen Street West', city: 'Toronto', region: 'Ontario', country: 'Canada', tel: '(416) 555-0142' }, true) }]);
   const v: Record<string, string> = await js(`Object.fromEntries([...document.querySelectorAll('input,select')].map(e => [e.id, e.value]))`);
   let bad = 0;
   const check = (what: string, ok: boolean) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}`); if (!ok) bad++; };
   console.log(JSON.stringify(v), n);
+  check('a short phone box gets numbers only', v.tel10 === '4165550142');
+  check('a plain phone box gets it tidy', v.telf === '(416) 555-0142');
   check('typed boxes still fill', v.given === 'Sam' && v.city === 'Toronto');
   check('province dropdown with codes picks ON', v.prov === 'ON');
   check('province dropdown with names picks Ontario', v.prov2 === 'Ontario');

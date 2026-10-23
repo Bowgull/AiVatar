@@ -134,8 +134,12 @@ body{background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(art/
 .r:hover .go{opacity:1}
 .tag2{font:700 12px var(--body);letter-spacing:.2px;color:#9FF0E6;text-shadow:0 0 6px rgba(159,240,230,.55),1px 1px 0 #000}
 .tag2.off{color:#e8d6b0;text-shadow:1px 1px 0 #000}
-.help{margin-top:auto;position:sticky;bottom:18px;min-height:44px;display:flex;align-items:center;padding:0 18px;border:6px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
-  background:url(art/browser/ink.png) 0 0/64px 64px;image-rendering:pixelated;font:600 14px var(--body);color:#efe4cc;text-shadow:1px 1px 0 #000}
+/* v4: the row's label, by the mouse after a 2 second rest */
+.tip{position:fixed;z-index:20;max-width:320px;padding:7px 12px;border:4px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:url(art/browser/ink.png) 0 0/64px 64px;image-rendering:pixelated;font:600 13.5px/1.35 var(--body);color:#efe4cc;text-shadow:1px 1px 0 #000;
+  box-shadow:0 8px 18px rgba(0,0,0,.55);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .18s ease,transform .18s ease}
+.tip.on{opacity:1;transform:none}
+.fld.sub label{visibility:hidden}
 .fld{display:flex;align-items:center;gap:14px;padding:0 22px 0 52px;min-height:48px;border-top:2px solid rgba(255,255,255,.05);position:relative;image-rendering:auto}
 .card>.caps+.fld{border-top:none}
 .fld label{width:120px;flex:none;font:700 15px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000}
