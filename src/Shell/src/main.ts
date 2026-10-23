@@ -28,7 +28,7 @@ import { Snipper } from './snip.ts';
 import { SendDesk } from './sendtoaang.ts';
 import { PinSnips } from './pinsnip.ts';
 import { AangBrowser, type UpdateCard, type PlanAnswer } from './browser.ts';
-import { takeMockupFile, type MockSend, type MockSendItem } from './mockups.ts';
+import { takeMarkFile, takeMockupFile, type MockSend, type MockSendItem } from './mockups.ts';
 import { wireBrowser } from './browseripc.ts';
 import { wirePopout } from './popoutipc.ts';
 import { EngineUpdates, onCastlabs, type Ready } from './engineupdate.ts';
@@ -918,6 +918,8 @@ app.whenReady().then(async () => {
             // a repo path the versioned page server may show, a short title, an optional branch, small and fresh. Off where there is no repo.
             // 2026-10-22: from any Claude session (the brain writes them for show_mockup): another repo's page or a live local page too.
             if (n.endsWith('.mockup')) { const m = takeMockupFile(f); if (m && aangBrowser?.mockupsOn) void aangBrowser.openMockupDrop(m); continue; }
+            // Sheet 79: Claude's mark on a mockup version, left by the brain for mockup_mark.
+            if (n.endsWith('.mockmark')) { const k = takeMarkFile(f); if (k && aangBrowser?.mockupsOn) { const why = aangBrowser.mockMark(k); if (why) console.log('shell: mockup mark not set: ' + why); } continue; }
             if (!n.endsWith('.url')) continue;
             let u = '', old = false;
             try { old = Date.now() - statSync(f).mtimeMs > 10 * 60_000; u = readFileSync(f, 'utf8').trim(); unlinkSync(f); } catch { continue; }

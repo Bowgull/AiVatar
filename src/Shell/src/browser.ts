@@ -2911,6 +2911,9 @@ export class AangBrowser {
       this.saveMarks(); this.sendTabs(); this.pushSettings();
     },
     // SY (his "sync everything", 2026-10-14): the lists he made travel with the settings. Money sites never do.
+    // Sheet 79: the Mockups trail's marks travel too, by each version's picture.
+    mockStages: () => [...(this.mockStore?.stageLog.values() ?? [])],
+    takeMockStages: (list: unknown[]) => { if (this.mockStore?.takeStages(list)) this.sendTabs(); },
     // His details travel to his other machine only (his pick, 2026-10-23), with the rest of his settings.
     prefs: () => ({ sounds: this.sounds, ...this.prefs, ...(this.details.empty() ? {} : { autofill: this.details.get() }), lists: {
       popupOk: [...this.popupOk], trusted: [...this.trusted, ...this.peerTrusted], httpOk: [...this.httpOk, ...this.peerHttp], adsPaused: [...this.paused], siteRules: this.rules.all(),
@@ -3795,7 +3798,7 @@ export class AangBrowser {
   mockMark(a: { repo: string; sheet: string; v: number | null; stage: string; said: string; note: string }): string {
     const st = this.mockStore;
     if (!st) return "This Samara has no Mockups trail.";
-    const names = [...st.repos.entries()].filter(([, p]) => path.resolve(p) === path.resolve(a.repo)).map(([n]) => `@${n}/${a.sheet}`);
+    const names = a.repo ? [...st.repos.entries()].filter(([, p]) => path.resolve(p) === path.resolve(a.repo)).map(([n]) => `@${n}/${a.sheet}`) : [];
     const keys = [a.sheet, ...names];
     const mine = st.list.filter((x) => keys.includes(x.sheet));
     if (!mine.length) return 'That sheet is not in the Mockups trail yet: show it first (show_mockup).';
@@ -3805,7 +3808,7 @@ export class AangBrowser {
     if (!(a.stage in map)) return 'stage is one of: approved, built, fix, park, clear.';
     if (a.stage === 'approved' && !a.said.trim()) return "An approval needs his own words from the chat in said (what he wrote when he said yes).";
     const why = st.setStage(v.id, map[a.stage]!, { said: a.said, note: a.note, by: 'claude' });
-    if (!why) this.sendTabs();
+    if (!why) { this.sendTabs(); this.sync?.changed('mstages'); }
     return why;
   }
   mockAct(act: string, a: { id?: number; sheet?: string; to?: string | number | null; name?: string; open?: boolean } = {}): void {
@@ -3826,6 +3829,7 @@ export class AangBrowser {
       // Sheet 79: his mark on one version (FIX with a note, APPROVED, PARKED), or taking it off (null).
       case 'stage': { const sg = a.to === null || a.to === '' ? null : String(a.to) as MockStage;
         if (Number.isInteger(a.id) && (sg === null || ['fix', 'ok', 'park'].includes(sg))) why = st.setStage(a.id!, sg, { note: String(a.name ?? '').slice(0, 300), by: 'you' });
+        if (!why) this.sync?.changed('mstages');
         break; }
       // The broom (his rule): only when he presses it, and only exact duplicates.
       case 'broom': { const n = st.sweep(); if (n) this.note(`Removed ${n} duplicate${n === 1 ? '' : 's'}.`); break; }

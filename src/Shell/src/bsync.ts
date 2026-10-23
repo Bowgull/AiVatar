@@ -34,6 +34,8 @@ export interface SyncTarget {
   cookies(): Promise<SyncCookie[]>; setCookie(c: SyncCookie): Promise<void>; removeCookie(c: SyncCookie): Promise<void>;
   /** The other machine started playing something: stop here (one video at a time, his rule). */
   pauseAll?(): void;
+  /** Sheet 79: the Mockups trail's marks (approved, built, fix, parked), by each version's picture. */
+  mockStages?(): unknown[]; takeMockStages?(list: unknown[]): void;
 }
 
 export type SyncMsg =
@@ -43,7 +45,8 @@ export type SyncMsg =
   | { t: 'bsync.prefs'; at: number; data: Record<string, unknown> }
   | { t: 'bsync.tabs'; at: number; snap: TabSnap }
   | { t: 'bsync.visit'; op: 'add'; list: Visit[] } | { t: 'bsync.visit'; op: 'forget'; url: string; at: number } | { t: 'bsync.visit'; op: 'clear'; from: number }
-  | { t: 'bsync.cookies'; list: { key: string; at: number; c: SyncCookie | null }[] };
+  | { t: 'bsync.cookies'; list: { key: string; at: number; c: SyncCookie | null }[] }
+  | { t: 'bsync.mstages'; list: unknown[] };
 
 const DAY = 86_400_000;
 
@@ -154,8 +157,10 @@ export class BrowserSync {
   private send(m: SyncMsg) { if (this.connected) this.o.send(m); }
 
   // ---- this machine changed something
-  changed(kind: 'marks' | 'prefs' | 'tabs'): void {
+  changed(kind: 'marks' | 'prefs' | 'tabs' | 'mstages'): void {
     if (this.applying) return;
+    // Sheet 79: the mockup marks carry their own times, one each; the whole list goes and the other side keeps the newer.
+    if (kind === 'mstages') { const list = this.o.target.mockStages?.(); if (list) this.send({ t: 'bsync.mstages', list }); return; }
     const at = this.now();
     if (kind === 'marks') { this.s.marksAt = at; this.save(); this.send({ t: 'bsync.marks', at, list: this.o.target.marks() }); }
     else if (kind === 'prefs') { this.s.prefsAt = at; this.save(); this.send({ t: 'bsync.prefs', at, data: this.o.target.prefs() }); }
@@ -215,6 +220,9 @@ export class BrowserSync {
       visits: t.visits().filter(v => v.at > now - 90 * DAY && urlKept(v.url)),
       cookies,
     });
+    // Sheet 79: and the mockup marks, after time apart (each side keeps the newer of each).
+    const ms = t.mockStages?.();
+    if (ms?.length) this.send({ t: 'bsync.mstages', list: ms });
   }
 
   /** Something arrived from the other machine. */
@@ -235,6 +243,7 @@ export class BrowserSync {
           else if (m.op === 'clear') t.clearVisits(Number(m.from));
           break;
         case 'bsync.cookies': for (const r of Array.isArray(m.list) ? m.list : []) await this.takeCookie(r.key, r.at, r.c); this.save(); break;
+        case 'bsync.mstages': if (Array.isArray(m.list)) t.takeMockStages?.(m.list); break;
         case 'bsync.full': {
           // Bookmarks after time apart are joined, never replaced (found 2026-10-13: on the first sync neither side had
           // a change time, so neither took the other's and the Mac stayed empty). A bookmark removed on one machine

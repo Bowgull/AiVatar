@@ -61,3 +61,28 @@ test("Claude's door: the list and a mark, signed only", async () => {
   close();
   randomBytes(1);
 });
+
+test('marks travel between the machines by picture: the newer wins, a later version picks it up, a clear travels too', () => {
+  const mac = store(), pc = store();
+  // The PC shows the sheet as a plain path, the Mac with its repo name in front: the same picture either way.
+  for (const v of pc.s.list) v.sheet = v.sheet; for (const v of mac.s.list) v.sheet = '@AiVatar/' + v.sheet;
+  assert.equal(mac.s.setStage(2, 'chat', { said: 'yes', by: 'claude' }), '');
+  assert.ok(pc.s.takeStages([...mac.s.stageLog.values()]), 'the PC takes the Mac’s mark');
+  assert.equal(pc.s.list.find((x) => x.key === 'k2')!.stage, 'chat');
+  assert.equal(pc.s.list.find((x) => x.key === 'k2')!.said, 'yes');
+  // An older mark from the PC does not undo the Mac's newer one.
+  const stale = [{ ...[...mac.s.stageLog.values()][0]!, stage: null, at: 1 }];
+  assert.equal(mac.s.takeStages(stale), false);
+  assert.equal(mac.s.list.find((x) => x.key === 'k2')!.stage, 'chat');
+  // Taken off on the PC (newer): gone on the Mac too.
+  assert.equal(pc.s.setStage(pc.s.list.find((x) => x.key === 'k2')!.id, null), '');
+  assert.ok(mac.s.takeStages([...pc.s.stageLog.values()]));
+  assert.equal(mac.s.list.find((x) => x.key === 'k2')!.stage, undefined);
+  // A version the other machine has not shown yet takes the mark when it is shown.
+  assert.equal(mac.s.setStage(3, 'fix', { note: 'bigger' }), '');
+  const fresh = new MockStore(path.join(mkdtempSync(path.join(os.tmpdir(), 'mm-')), 'mockups.json'));
+  fresh.takeStages([...mac.s.stageLog.values()]);
+  const r = fresh.add('docs/cockpit/sheet-77-autofill.html', '77 · Autofill', C, 'k3');
+  assert.equal(r.stage, 'fix');
+  assert.equal(r.note, 'bigger');
+});

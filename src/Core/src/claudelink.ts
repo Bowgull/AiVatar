@@ -1085,6 +1085,8 @@ export class LinkDoor {
    * (mockupdrop.ts dropMockup); its answer goes straight back to the tool call. Null: the door says no.
    */
   onMockup: ((ask: { cwd: string; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }) => Promise<{ ok: boolean; message: string }>) | null = null;
+  /** Sheet 79: mockup_mark's brain half (mockupdrop.ts markMockup). */
+  onMockupMark: ((ask: Record<string, unknown>) => Promise<{ ok: boolean; message: string; stages?: unknown[] }>) | null = null;
   /** C6 (2026-10-22): the jobs he said Go to (jobstart.ts). Null: no starts are handed out. */
   starts: StartBook | null = null;
   /** C6: what the mods say about starts (started, caps, door2.result, and turn.start for the probe). */
@@ -1154,6 +1156,17 @@ export class LinkDoor {
           const cwd = this.tracker.cwdOf(sid) || String(ev?.cwd ?? '');
           void this.onMockup({ cwd, path: ev?.path, url: ev?.url, title: ev?.title, branch: ev?.branch })
             .then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 600) }), () => json(200, { ok: false, message: 'The brain could not hand it over.' }));
+          return;
+        }
+        // Sheet 79 (2026-10-23): mockup_mark. Signed like everything here; the folder is the session's own when known.
+        if (req.method === 'POST' && q.pathname === '/link/mockupmark') {
+          const ev = JSON.parse(body) as Record<string, unknown>;
+          if (notHisCwd(ev?.cwd, this.ignoreCwd())) { json(403, { ok: false, message: 'not for this session' }); return; }
+          if (!this.onMockupMark) { json(200, { ok: false, message: "Samara's Mockups trail is not on here." }); return; }
+          const sid = String(ev?.session ?? '').slice(0, 100);
+          const cwd = this.tracker.cwdOf(sid) || String(ev?.cwd ?? '');
+          void this.onMockupMark({ cwd, path: ev?.path, v: ev?.v, stage: ev?.stage, said: ev?.said, note: ev?.note, list: ev?.list })
+            .then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 600), ...(Array.isArray(r.stages) ? { stages: r.stages } : {}) }), () => json(200, { ok: false, message: 'The brain could not hand it over.' }));
           return;
         }
         // C6 Door 1: a brand-new session asks, once, for a start waiting on its folder. Handed out once, first come.

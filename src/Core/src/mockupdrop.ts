@@ -16,7 +16,7 @@
 //   - a live page must be http(s) on this computer (127.0.0.1, localhost, ::1), with no user name in it;
 //   - the title is cut to 80 characters, the branch name is 1 to 40 or dropped.
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
@@ -135,4 +135,57 @@ function write(stateDir: string, body: Record<string, string>, title: string, br
     renameSync(tmp, path.join(dir, name));
     return path.join(dir, name);
   } catch { return null; }
+}
+
+/**
+ * mockup_mark on the PC (sheet 79, his interview 2026-10-23): the brain's half. No stage: the marks Samara keeps in
+ * mockups.json (read only). With a stage: the sheet is checked as show_mockup checks it (in the session's repo, an .html
+ * page, no hidden folder; AangApp's only under its mockup folders), and a small .mockmark file is left for Samara, which
+ * checks it again (src/Shell/src/mockups.ts takeMarkFile) and sets the mark. An approval needs his words.
+ */
+export interface MarkAsk { cwd?: unknown; path?: unknown; v?: unknown; stage?: unknown; said?: unknown; note?: unknown; list?: unknown }
+export async function markMockup(stateDir: string, ask: MarkAsk, homeRepo = HOME_REPO): Promise<MockupResult & { stages?: unknown[] }> {
+  if (ask.list === true || ask.stage === undefined || ask.stage === null || ask.stage === '') {
+    try {
+      const j = JSON.parse(readFileSync(path.join(stateDir, 'mockups.json'), 'utf8'));
+      const stages = (Array.isArray(j?.versions) ? j.versions : []).filter((x: Record<string, unknown>) => typeof x?.stage === 'string')
+        .sort((a: Record<string, number>, b: Record<string, number>) => (b.stageAt ?? 0) - (a.stageAt ?? 0)).slice(0, 60)
+        .map((x: Record<string, unknown>) => ({ sheet: x.sheet, title: x.title, v: x.v, commit: x.commit, stage: x.stage, ...(x.note ? { note: x.note } : {}), ...(x.said ? { said: x.said } : {}), at: x.stageAt, by: x.by }));
+      return { ok: true, message: '', stages };
+    } catch { return { ok: true, message: '', stages: [] }; }
+  }
+  const stage = String(ask.stage);
+  if (!['approved', 'built', 'fix', 'park', 'clear'].includes(stage)) return { ok: false, message: 'stage is one of: approved, built, fix, park, clear.' };
+  // eslint-disable-next-line no-control-regex
+  const said = typeof ask.said === 'string' ? ask.said.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').trim().slice(0, 300) : '';
+  // eslint-disable-next-line no-control-regex
+  const note = typeof ask.note === 'string' ? ask.note.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').trim().slice(0, 300) : '';
+  if (stage === 'approved' && !said) return { ok: false, message: 'An approval needs his own words from the chat in said.' };
+  const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
+  if (!cwd || !path.isAbsolute(cwd) || !existsSync(cwd)) return { ok: false, message: "Your session's folder is not known here, so the sheet cannot be checked." };
+  const root0 = repoOf(cwd);
+  if (!root0) return { ok: false, message: "Your session's folder is not in a git repo." };
+  const raw = typeof ask.path === 'string' ? ask.path.trim() : '';
+  if (!raw || raw.length > 1000 || raw.startsWith('\\\\') || raw.startsWith('//')) return { ok: false, message: 'path must be the sheet, a file in your repo.' };
+  let file = '', root = '';
+  try { file = realpathSync.native(path.resolve(cwd, raw)); root = realpathSync.native(root0); if (!statSync(file).isFile()) throw new Error('not a file'); }
+  catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
+  if (!inside(file, root)) return { ok: false, message: 'path must be inside your own repo.' };
+  const rel = path.relative(root, file).split(path.sep).join('/');
+  if (!/\.html?$/i.test(rel) || rel.length > 400 || rel.split('/').some((x) => !x || x.startsWith('.'))) return { ok: false, message: 'path must be an .html page, not in a hidden folder.' };
+  const home = (() => { try { return realpathSync.native(homeRepo); } catch { return path.resolve(homeRepo); } })();
+  const isHome = same(root, home);
+  if (isHome && !MOCK_DIRS.some((d) => rel.startsWith(d))) return { ok: false, message: 'In AangApp, mockups live under docs/, src/Shell/pages/ or assets/.' };
+  const v = Number(ask.v);
+  const body = { ...(isHome ? {} : { repo: root }), path: rel, stage, ...(Number.isInteger(v) && v > 0 ? { v } : {}), ...(said ? { said } : {}), ...(note ? { note } : {}) };
+  try {
+    const dir = path.join(stateDir, 'open-urls');
+    mkdirSync(dir, { recursive: true });
+    const name = `${Date.now()}-${process.pid}-${randomBytes(3).toString('hex')}.mockmark`;
+    const json = JSON.stringify(body);
+    if (Buffer.byteLength(json) > 4096) return { ok: false, message: 'That mark is too long.' };
+    writeFileSync(path.join(dir, name + '.tmp'), json);
+    renameSync(path.join(dir, name + '.tmp'), path.join(dir, name));
+  } catch { return { ok: false, message: 'The mark could not be handed to Samara (his Aang folder could not be written).' }; }
+  return { ok: true, message: `Marked ${rel} ${stage} in Samara's Mockups trail${Number.isInteger(v) && v > 0 ? ` (version ${v})` : ' (its newest version)'}.` };
 }

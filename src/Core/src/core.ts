@@ -64,7 +64,7 @@ import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoU
 import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
 import { notHisCwd } from './notjobs.ts';
-import { dropMockup } from './mockupdrop.ts';
+import { dropMockup, markMockup } from './mockupdrop.ts';
 /** 2026-10-21: one line per Claude jobs push with the time each hop took (session -> brain -> Shell), for measuring. */
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
@@ -2700,6 +2700,7 @@ export class Core {
       // show_mockup (2026-10-22): a session's mockup goes to Samara's Mockups trail; the brain writes the drop file, since a
       // sandboxed session's own %APPDATA% writes never reach the Shell (mockupdrop.ts says what is checked).
       door.onMockup = (ask) => dropMockup(this.cfg.stateDir, ask);
+      door.onMockupMark = (ask) => markMockup(this.cfg.stateDir, ask);
       // C6 (2026-10-22): jobs he said Go to (jobstart.ts), what the mods say about them, and the probe (npm run c6-probe).
       door.starts = this.startBook;
       door.onStart = (session, ev) => this.starter.onEvent(session, ev);
