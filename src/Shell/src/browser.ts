@@ -21,7 +21,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
@@ -3805,6 +3805,15 @@ export class AangBrowser {
       case 'winmin': this.win?.minimize(); break;
       case 'winmax': if (this.win) { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); } break;
       case 'winclose': this.win?.close(); break;
+      // A double-click on the band's wood (2026-10-23, his report: nothing happened on the Mac). Windows does this itself
+      // for the drag area; on the Mac Samara does what his Mac is set to (System Settings, Desktop & Dock: "Double-click a
+      // window's title bar to"): fill the screen and back (the default), tuck it in the Dock, or nothing.
+      case 'titledbl': if (this.win && process.platform === 'darwin') {
+        const set = systemPreferences.getUserDefault('AppleActionOnDoubleClick', 'string');
+        const tuck = set === 'Minimize' || (!set && systemPreferences.getUserDefault('AppleMiniaturizeOnDoubleClick', 'boolean'));
+        if (tuck) this.win.minimize();
+        else if (set !== 'None') { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); }
+      } break;
       case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('This page is your home page now.'); this.sendTabs(); } break; }
       case 'star': this.toggleMark(); break;
       // The + key on the shelf in the floating tab list (his freeze, 2026-10-20): its name box opened INSIDE that

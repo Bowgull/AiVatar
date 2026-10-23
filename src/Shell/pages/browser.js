@@ -246,6 +246,12 @@ function paintStash() {
 el('wmin').addEventListener('click', () => window.aang?.browserAct?.('winmin'));
 el('wmax').addEventListener('click', () => window.aang?.browserAct?.('winmax'));
 el('wclose').addEventListener('click', () => window.aang?.browserAct?.('winclose'));
+// On the Mac a double-click on the wood (anywhere on the band but its keys and the address) does what the Mac is set to;
+// Windows already does it for the drag area by itself.
+el('band').addEventListener('dblclick', (e) => {
+  if (window.aang?.platform !== 'darwin' || e.target.closest('button, input, .slot, .winkeys, .menu, .suggest, .bandchip')) return;
+  window.aang?.browserAct?.('titledbl');
+});
 el('vkey').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.('vault'); });
 // The vault's chip: the master password box (unlock) or the account list (pick). The password goes to the Shell
 // and the box is emptied at once; nothing here keeps it.

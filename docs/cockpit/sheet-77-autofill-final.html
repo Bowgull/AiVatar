@@ -141,7 +141,7 @@
 
 <section id="s1">
   <div class="dh"><h2>1 · THE LIGHT BRINGS YOUR EMAIL</h2></div>
-  <p class="dnote">Click the Email box. The light appears beside it holding your email. Roll the scroll wheel on it, or press <kbd>↑</kbd> <kbd>↓</kbd>, to flick between your emails. Click it or press <kbd>TAB</kbd>.</p>
+  <p class="dnote">Click the Email box. The light appears beside it holding your email (a letter). Roll the scroll wheel on it, or press <kbd>↑</kbd> <kbd>↓</kbd>, to flick between your emails. Click it or press <kbd>TAB</kbd>. No hints on the light itself: they live in Settings.</p>
   <div class="timing"><span>APPEARS 110 MS</span><span>FLICK 100 MS</span><span>FILL SHINE 450 MS</span><span>LEAVES 90 MS</span></div>
   <div class="frame"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="1" tabindex="-1"></div></div></div>
   <div class="ctl"><button data-reset="1">Start again</button></div>
@@ -149,7 +149,7 @@
 
 <section id="s2">
   <div class="dh"><h2>2 · ONE CLICK, WHOLE FORM</h2></div>
-  <p class="dnote">On a form, the light fills every box it knows at once, a soft shine running down. Change anything after.</p>
+  <p class="dnote">On a form, the light carries your name card and fills every box it knows at once, a soft shine running down. Change anything after.</p>
   <div class="timing"><span>EACH BOX 60 MS APART</span><span>SHINE 450 MS</span></div>
   <div class="frame"><img class="realband" src="sheet-72/band-checkout.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="2" tabindex="-1"></div></div></div>
   <div class="ctl"><button data-reset="2">Start again</button></div>
@@ -157,7 +157,7 @@
 
 <section id="s3">
   <div class="dh"><h2>3 · THE KEY NEEDS YOUR PIN</h2></div>
-  <p class="dnote">Bitwarden is locked. Click the Password box: the key in the address bar calls you (a small nod, a glow, two soft notes) and the bar says what it wants. The key's place shows a padlock, it nods and calls you (two soft notes), and the bar says what it wants. Type your 4-digit PIN on the number pad, no clicking: one small light comes on beside the padlock for each digit, and the padlock warms a little each time. On the fourth, the shackle lifts, it blooms and settles into the glowing key, the warm unlock sound plays, and the light brings your password. (Any 4 digits work here; 0000 shows a wrong try.)</p>
+  <p class="dnote">Bitwarden is locked. Click the Password box: the key's place in the address bar shows a padlock, it nods and calls you (two soft notes), and the bar says what it wants. Type your 4-digit PIN on the number pad, no clicking: one small light comes on beside the padlock for each digit, and the padlock warms a little each time. On the fourth, the shackle lifts, it blooms and settles into the glowing key, the warm unlock sound plays, and the light brings your password. (Any 4 digits work here; 0000 shows a wrong try.)</p>
   <div class="timing"><span>CALL: NOD 450 MS × 2</span><span>EACH LIGHT 140 MS, EASE-OUT</span><span>SHACKLE 160 MS</span><span>BLOOM 300 MS</span><span>LOCK TO KEY 150 MS</span></div>
   <div class="frame"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="3" tabindex="-1"></div></div></div>
   <div class="ctl"><button data-reset="3">Start again</button></div>
@@ -175,6 +175,7 @@
   <div class="setwrap">
     <div class="card"><i class="caps"></i><h3>AUTOFILL</h3>
       <div class="row"><div class="t"><b>Your details</b><small>Name, phone, address, and your emails. Kept on your two computers only.</small></div><div class="choice"><button type="button">Edit</button></div></div>
+      <div class="row"><div class="t"><b>How autofill works</b><small class="tip" hidden>Click a box and the light brings what fits: click it or press Tab. Roll the scroll wheel on it, or press the arrow keys, for your other emails. When Bitwarden is locked, just type your PIN; the key in the address bar opens.</small></div><div class="choice"><button type="button" onclick="this.closest('.row').querySelector('.tip').hidden=!this.closest('.row').querySelector('.tip').hidden">Show</button></div></div>
       <div class="row"><div class="t"><b>Bitwarden PIN</b><small>4 digits. Your master password only after 5 wrong tries or on a new computer.</small></div><div class="choice"><button type="button">Set PIN</button></div></div>
     </div>
     <div class="card" style="margin-top:14px"><i class="caps"></i><h3>SOUND</h3>
@@ -184,11 +185,12 @@
 </section>
 
 <script>
-const PAL = { O:'#120A05', y:'#FFC43C', Y:'#FFE9A8', w:'#F3E2B8', W:'#FFF8E8', r:'#c0392b', g:'#bfae8a', G:'#e9dcc0' };
+const PAL = { O:'#120A05', y:'#FFC43C', Y:'#FFE9A8', w:'#F3E2B8', W:'#FFF8E8', r:'#c0392b', g:'#bfae8a', G:'#e9dcc0', k:'#8a6d33' };
 const art = (rows, s = 2) => { const h = rows.length, w = Math.max(...rows.map((r) => r.length)); let r = ''; rows.forEach((row, y) => [...row].forEach((c, x) => { if (PAL[c]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>`; })); return `<svg class="px" width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}">${r}</svg>`; };
 const LETTER = ['OOOOOOO','OWwwwWO','OOwwwOO','OwOrOwO','OwwwwwO','OOOOOOO'];
 const KEYITEM = ['.OOO.','OyYyO','OyOyO','.OyO.','.OyO.','.OyyO','.OyO.','.OyyO','..O..'];
-const SCROLL = ['.OOOOOO.','OwWwwwwO','.OwrrwO.','.OwwwwO.','.OwrrwO.','OwWwwwwO','.OOOOOO.'];
+// a name card for your details (name, phone, address): a little face and two lines, the letter's paper
+const CARD = ['OOOOOOOOO','OWWWWWWWO','OwrrwkkwO','OwrrwwwwO','OwwwwkkwO','OWWWWWWWO','OOOOOOOOO'];
 // the address bar key: Samara's own glyph, lit from dim to gold
 const BARKEY = (lit) => { const c = lit ? 'y' : 'g', h = lit ? 'Y' : 'G'; return art(['.OOO....',`O${h}${c}${c}O...`,`O${c}O${c}OOOO`,`O${c}${c}${c}${c}${c}${c}O`,`.OOOO${c}O${c}O`,'.....O.O.'].map((r) => r), 2); };
 
@@ -238,7 +240,7 @@ const SCENES = {
   1(site, frame) {
     site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="box" data-f="email"><input></div><label>Password</label><div class="box" data-f="pw"><input type="password"></div><div class="btn">Continue</div>`;
     const l = makeLight(frame), box = site.querySelector('[data-f="email"]'), inp = box.querySelector('input'); let n = 0;
-    const label = (anim) => { const v = l.querySelector('.v'); const put = () => { v.innerHTML = `${EMAILS[n]}<span class="n">${n + 1}/${EMAILS.length}</span><small>CLICK OR TAB · ROLL FOR MORE</small>`; };
+    const label = (anim) => { const v = l.querySelector('.v'); const put = () => { v.innerHTML = `${EMAILS[n]}<span class="n">${n + 1}/${EMAILS.length}</span>`; };
       if (!anim) return put(); v.classList.add('swap'); setTimeout(() => { put(); v.classList.remove('swap'); }, 100); };
     const flick = (d) => { n = (n + d + EMAILS.length) % EMAILS.length; label(true); };
     const give = () => { inp.value = EMAILS[n]; shine(box); SND.fill(); l.classList.add('give'); setTimeout(() => { hide(l); l.classList.remove('give'); }, 140); };
@@ -255,12 +257,12 @@ const SCENES = {
     site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Shipping</h4><label>Full name</label><div class="box" data-f="name"><input></div><label>Email</label><div class="box" data-f="email"><input></div><label>Phone</label><div class="box" data-f="phone"><input></div><label>Street</label><div class="box" data-f="street"><input></div>`;
     const l = makeLight(frame), first = site.querySelector('[data-f="name"]');
     const vals = { name: ME.name, email: EMAILS[0], phone: ME.phone, street: ME.street };
-    const open = () => { l.querySelector('.item').innerHTML = art(SCROLL); l.querySelector('.v').innerHTML = `${ME.name}<small>CLICK OR TAB · FILLS THE WHOLE FORM</small>`; place(l, spot(first)); show(l); };
+    const open = () => { l.querySelector('.item').innerHTML = art(CARD); l.querySelector('.v').innerHTML = `${ME.name}`; place(l, spot(first)); show(l); };
     const give = () => { hide(l); [...site.querySelectorAll('.box')].forEach((b, i) => setTimeout(() => { b.querySelector('input').value = vals[b.dataset.f]; shine(b); }, i * 60)); SND.fill(); };
     first.querySelector('input').addEventListener('focus', () => { if (!first.querySelector('input').value) open(); });
     first.querySelector('input').addEventListener('keydown', (e) => { if (e.key === 'Tab' && l.classList.contains('on')) { e.preventDefault(); give(); } });
     l.addEventListener('mousedown', (e) => { e.preventDefault(); give(); });
-    return { demo: () => { l.querySelector('.item').innerHTML = art(SCROLL); l.querySelector('.v').innerHTML = `${ME.name}<small>CLICK OR TAB · FILLS THE WHOLE FORM</small>`; place(l, spot(first)); l.classList.add('on'); } };
+    return { demo: () => { l.querySelector('.item').innerHTML = art(CARD); l.querySelector('.v').innerHTML = `${ME.name}`; place(l, spot(first)); l.classList.add('on'); } };
   },
   // 3 · the icon needs your PIN: a padlock that calls you; four lights fill as you type; the shackle lifts, it blooms
   //     and settles into the glowing key; the light brings your password. Entrances ease out, exits ease in, 100-300 ms.
