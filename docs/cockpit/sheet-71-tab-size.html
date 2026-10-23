@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 71 - Tab list size</title>
+<!-- Sheet 71 (2026-10-22, his ask: "do you think the tabs are too large? should I have a selection in settings for size?"
+     and his pick: 3 sizes, each machine its own). The pictures are the REAL tab list (test/electron/drawer-shot.ts, 14 tabs,
+     SIZE=s|m), Large being today's size from his 2026-10-21 ask; the Settings row uses Settings' own stylesheet. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/settings.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important}
+  body{margin:0;color:#e8dcc4;font-family:var(--body);padding:28px 34px 50px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 24px;max-width:1240px;line-height:1.5}
+  h2{font:400 11px var(--label);color:#c9b48c;letter-spacing:1.5px;margin:0 0 10px}
+  .sizes{display:flex;gap:30px;align-items:flex-start;margin-bottom:34px}
+  .sizes figure{margin:0}
+  /* At true size (1 picture pixel = 1 screen pixel, so the pixel art stays crisp), all cut to the same height. */
+  .sizes .cut{height:640px;overflow:hidden;border-radius:6px}
+  .sizes img{display:block;width:340px;height:auto;image-rendering:pixelated}
+  .sizes figcaption{font-size:13px;color:#b9a684;margin-top:8px;line-height:1.4}
+  .sizes figcaption b{color:#f3e2b8}
+  .setwrap{max-width:640px}
+</style>
+</head>
+<body>
+<h1>SHEET 71 - TAB LIST SIZE</h1>
+<p class="lead">Your pick: three sizes, each machine keeps its own (the small Mac screen can be Small while the PC stays Large). These are the real tab list with 14 tabs, cut to the same height. Large is today's size, the one you asked for on October 21 to read more easily.</p>
+
+<h2>THE THREE SIZES</h2>
+<div class="sizes">
+  <figure><div class="cut"><img src="sheet-71/list-s.png" alt=""></div><figcaption><b>Small</b> · about a third more tabs than Large</figcaption></figure>
+  <figure><div class="cut"><img src="sheet-71/list-m.png" alt=""></div><figcaption><b>Medium</b> · in between</figcaption></figure>
+  <figure><div class="cut"><img src="sheet-71/list-l.png" alt=""></div><figcaption><b>Large</b> · today, easiest to read</figcaption></figure>
+</div>
+
+<h2>IN SETTINGS, UNDER LOOK</h2>
+<div class="setwrap">
+  <div class="card"><i class="caps"></i>
+    <h3>LOOK</h3>
+    <div class="row"><div class="t"><b>Dark mode for websites</b><small>Every site is shown dark (Dark Reader). Switch it off for one site from the shield.</small></div>
+      <div class="choice"><button type="button" class="on">On</button><button type="button">Off</button></div></div>
+    <div class="row"><div class="t"><b>Tab list size</b><small>Just this computer.</small></div>
+      <div class="choice"><button type="button">Small</button><button type="button">Medium</button><button type="button" class="on">Large</button></div></div>
+  </div>
+</div>
+<script>
+// The choice keys press like the real ones.
+for (const c of document.querySelectorAll('.choice')) for (const btn of c.querySelectorAll('button')) btn.addEventListener('click', () => { for (const x of c.querySelectorAll('button')) x.classList.toggle('on', x === btn); });
+</script>
+</body>
+</html>
