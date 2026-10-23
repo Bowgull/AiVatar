@@ -111,6 +111,7 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('things:dldrag', (e, id) => { if ((top(e) && b()?.isThings(e.sender)) && Number.isInteger(id)) b().dlDrag(e.sender, id); });
   ipcMain.on('things:open', (e, url) => { if ((top(e) && b()?.isThings(e.sender)) && typeof url === 'string') b().openFromThings(url.slice(0, 2000)); });
   ipcMain.on('things:go', (e, where) => { if ((top(e) && b()?.isThings(e.sender)) && where === 'bookmarks') b().act('bookmarks'); });
+  ipcMain.handle('settings:lookup', (e, q) => (top(e) && b()?.isSettings(e.sender)) && typeof q === 'string' ? b().addressLookup(q.slice(0, 200)) : []);
   ipcMain.on('settings:act', (e, a) => { if ((top(e) && b()?.isSettings(e.sender)) && typeof a === 'string') b().settingsAct(a.slice(0, 20)); });
   ipcMain.handle('browser:suggest', (e, text) => (top(e) && b()?.isFrame(e.sender)) && typeof text === 'string' ? b().suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if ((top(e) && b()?.isFrame(e.sender))) b().findStop(); });

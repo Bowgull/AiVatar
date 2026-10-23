@@ -15,7 +15,9 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { writeFileAtomic } from './atomic.ts';
 
-export const PIN_LENGTH = 4;
+/** His PIN is 4 to 8 numbers, his pick (sheet 83, 2026-10-23); PINs set before then are 4. */
+export const PIN_MIN = 4;
+export const PIN_MAX = 8;
 export const PIN_TRIES = 5;
 
 export interface Details { name: string; emails: string[]; phone: string; street: string; city: string; region: string; postal: string; country: string }
@@ -77,14 +79,20 @@ export class DetailsStore {
 // Modest on purpose: a 4-digit PIN is only ever 10,000 guesses, so the Keychain around it is the real lock; this keeps
 // the unlock quick on his slow Mac (~25 ms) instead of half a second.
 const scrypt = (pin: string, salt: Buffer) => new Promise<Buffer>((res, rej) => scryptCb(pin, salt, 32, { N: 1 << 12, r: 8, p: 1, maxmem: 32 * 1024 * 1024 }, (e, k) => (e ? rej(e) : res(k))));
-const pinOk = (pin: string) => new RegExp(`^[0-9]{${PIN_LENGTH}}$`).test(pin);
+export const pinOk = (pin: string) => new RegExp(`^[0-9]{${PIN_MIN},${PIN_MAX}}$`).test(pin);
 
 /** Bitwarden's session key, sealed with his PIN and then the Keychain. */
 export class PinSeal {
   private readonly file: string;
+  private len: number | null = null;   // how many numbers his PIN has (read once, so typing it never waits on the Keychain)
   constructor(file: string) { this.file = file; }
-  private read(): { salt: string; iv: string; tag: string; ct: string; check: string; tries: number } | null {
+  private read(): { salt: string; iv: string; tag: string; ct: string; check: string; tries: number; len?: number } | null {
     try { const j = JSON.parse(readFileSync(this.file, 'utf8')); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; return t ? JSON.parse(t) : null; } catch { return null; }
+  }
+  /** How many numbers his PIN has (4 for one set before he could choose). */
+  length(): number {
+    if (this.len === null) { const n = this.read()?.len; this.len = typeof n === 'number' && n >= PIN_MIN && n <= PIN_MAX ? n : PIN_MIN; }
+    return this.len;
   }
   private write(o: object): boolean { const s = lockText(JSON.stringify(o)); if (!s) return false; try { writeFileAtomic(this.file, JSON.stringify({ v: 1, sealed: s })); return true; } catch { return false; } }
   has(): boolean { return existsSync(this.file) && this.read() !== null; }
@@ -94,7 +102,8 @@ export class PinSeal {
     const salt = randomBytes(16), iv = randomBytes(12), key = await scrypt(pin, salt);
     const c = createCipheriv('aes-256-gcm', key, iv);
     const ct = Buffer.concat([c.update(session, 'utf8'), c.final()]);
-    return this.write({ salt: salt.toString('base64'), iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), ct: ct.toString('base64'), check: 'v1', tries: 0 });
+    this.len = pin.length;
+    return this.write({ salt: salt.toString('base64'), iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), ct: ct.toString('base64'), check: 'v1', tries: 0, len: pin.length });
   }
   /** The session for the right PIN; 'wrong' with the tries left; 'gone' after the last wrong one (the seal is wiped). */
   async open(pin: string): Promise<{ session: string } | { wrong: number } | 'gone'> {
@@ -115,7 +124,7 @@ export class PinSeal {
     this.write({ ...s, tries });
     return { wrong: PIN_TRIES - tries };
   }
-  wipe(): void { try { rmSync(this.file, { force: true }); } catch { /* gone */ } }
+  wipe(): void { this.len = null; try { rmSync(this.file, { force: true }); } catch { /* gone */ } }
 }
 /** Two PINs typed the same, without telling anyone how long the match took. */
 export const samePin = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));

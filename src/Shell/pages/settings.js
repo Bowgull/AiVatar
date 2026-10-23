@@ -1,86 +1,189 @@
 import { pixIcon } from './pixicons.js';
-// The browser's Settings page. Draws what the Shell sends (all text by textContent) and sends back only: a setting
-// key and value, an entry to take off one of his lists, or one of three actions. Nothing else is possible here.
+// The browser's Settings page, sheet 83 v2 (2026-10-23). Draws what the Shell sends (all text by textContent) and sends
+// back only: a setting key and value, an entry to take off one of his lists, an address to look up, or a few actions.
 const $ = (s, r = document) => r.querySelector(s);
 const S = window.settings;
 let data = null;
 
-// ---- sections: the left list; the glove points at the open one
-let current = 'general';
+// Pixel pieces, drawn here (static strings only, never page data).
+const svg = (vb, d) => { const n = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" shape-rendering="crispEdges"><path d="${d}"/></svg>`, 'image/svg+xml').documentElement; return document.importNode(n, true); };
+const LEFT = () => svg('0 0 5 7', 'M3 0h2v1H4v1H3v1H2v1h1v1h1v1h1v1H3V6H2V5H1V4H0V3h1V2h1V1h1z');
+const RIGHT = () => svg('0 0 5 7', 'M0 0h2v1h1v1h1v1h1v1H4v1H3v1H2v1H0V6h1V5h1V4h1V3H2V2H1V1H0z');
+const TICK = () => svg('0 0 8 7', 'M7 0h1v2H7v1H6v1H5v1H4v1H3v1H2V6H1V5H0V3h1v1h1v1h1V4h1V3h1V2h1V1h1z');
+const EYE = () => svg('0 0 11 7', 'M3 0h5v1h2v1h1v3h-1v1H8v1H3V6H1V5H0V2h1V1h2zM4 2v3h3V2zM5 3h1v1H5z');
+for (const g of document.querySelectorAll('.go')) g.append(RIGHT());
+for (const a of document.querySelectorAll('.ar')) a.append(a.classList.contains('l') ? LEFT() : RIGHT());
+for (const o of document.querySelectorAll('.ok')) o.append(TICK());
+$('#eye').append(EYE());
+
+// ---- chapters and one level in; the glove points at the open chapter
+const ALIAS = { general: 'start', passwords: 'autofill', sound: 'sounds' };
+const ALL = [...document.querySelectorAll('section[data-sec]')].map((s) => s.dataset.sec);
+let current = 'start';
 function show(sec) {
-  if ($('#find').value) { $('#find').value = ''; find(); }
-  const name = ['general', 'bookmarks', 'passwords', 'privacy', 'sound', 'about'].includes(sec) ? sec : 'general';
-  for (const el of document.querySelectorAll('section[data-sec]')) el.hidden = el.dataset.sec !== name;
-  for (const a of document.querySelectorAll('.side a')) a.classList.toggle('on', a.dataset.sec === name);
+  const name = ALL.includes(ALIAS[sec] ?? sec) ? (ALIAS[sec] ?? sec) : 'start';
+  const el = document.querySelector(`section[data-sec="${name}"]`);
+  const chapter = el.dataset.up ?? name;
+  for (const s of document.querySelectorAll('section[data-sec]')) s.hidden = s !== el;
+  for (const a of document.querySelectorAll('.side a')) a.classList.toggle('on', a.dataset.sec === chapter);
+  if (current === 'start' && name !== 'start') homeDone(false);
   current = name;
+  helpNow('');
+  if (name === 'details') fillDetails();
+  if (name === 'pin') pinReset();
 }
-
-// ---- search settings: every section at once, only the rows whose words match (all of what he typed)
-function find() {
-  const words = $('#find').value.toLowerCase().split(/\s+/).filter(Boolean);
-  const secs = [...document.querySelectorAll('section[data-sec]')];
-  for (const el of document.querySelectorAll('.nomatch')) el.classList.remove('nomatch');
-  if (!words.length) { $('#nofind').hidden = true; for (const s of secs) s.hidden = s.dataset.sec !== current; for (const a of document.querySelectorAll('.side a')) a.classList.toggle('on', a.dataset.sec === current); return; }
-  const hit = (t) => { const s = t.toLowerCase(); return words.every((w) => s.includes(w)); };
-  let any = false;
-  for (const s of secs) {
-    s.hidden = false;
-    const head = s.querySelector('h2')?.textContent ?? '';
-    let secHit = false;
-    for (const card of s.querySelectorAll('.card')) {
-      const title = card.querySelector('h3')?.textContent ?? '';
-      const rows = [...card.querySelectorAll('.row')].filter((r) => !r.hidden);
-      let cardHit = false;
-      if (rows.length) for (const r of rows) { const ok = hit(head + ' ' + title + ' ' + r.textContent); r.classList.toggle('nomatch', !ok); cardHit ||= ok; }
-      else cardHit = hit(head + ' ' + card.textContent);
-      card.classList.toggle('nomatch', !cardHit);
-      secHit ||= cardHit;
-    }
-    s.classList.toggle('nomatch', !secHit);
-    for (const p of s.querySelectorAll(':scope > h2, :scope > .lead')) p.classList.toggle('nomatch', !secHit);
-    any ||= secHit;
-  }
-  for (const a of document.querySelectorAll('.side a')) a.classList.remove('on');
-  $('#nofind').hidden = any;
-}
-$('#find').addEventListener('input', find);
-$('#find').addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#find').value = ''; find(); } });
 for (const a of document.querySelectorAll('.side a')) a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.sec); });
+for (const b of document.querySelectorAll('[data-back]')) b.addEventListener('click', () => show(b.closest('section').dataset.up));
 S?.onSection?.((s) => show(String(s)));
-show(location.hash.slice(1));
 
-// ---- choices: the glove on the one that is on; a click sets it
-for (const c of document.querySelectorAll('.choice[data-key]')) {
-  for (const b of c.querySelectorAll('button')) b.addEventListener('click', () => {
-    const v = b.dataset.v;
-    S?.set(c.dataset.key, v === 'true' ? true : v === 'false' ? false : v);
-  });
+// ---- the help line: the row the glove has rested on for half a second (his ask: sweeping past rows shows nothing)
+let helpFor = null, helpWait = 0;
+const helpNow = (t) => { $('#help').textContent = t; };
+document.addEventListener('mouseover', (e) => {
+  const r = e.target.closest('[data-help]');
+  if (r === helpFor) return;
+  helpFor = r; clearTimeout(helpWait); helpNow('');
+  if (r?.dataset.help) helpWait = setTimeout(() => { if (helpFor === r) helpNow(r.dataset.help); }, 500);
+});
+
+// ---- ‹ value ›: the word is what it is set to; either arrow moves it, and so does a click on the row
+const ONOFF = [[true, 'On'], [false, 'Off']];
+const CYCLE = {
+  startup: [['tabs', 'My tabs'], ['home', 'Home page']], dark: ONOFF, tabSize: [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']],
+  search: [['brave', 'Brave'], ['ddg', 'DuckDuckGo'], ['google', 'Google'], ['yandex', 'Yandex']], aiBox: ONOFF, ads: ONOFF, popups: ONOFF, sounds: ONOFF, afSounds: ONOFF,
+  lockAfter: [['5m', '5 min'], ['30m', '30 min'], ['2h', '2 hours'], ['quit', 'Until I quit']],
+};
+for (const r of document.querySelectorAll('[data-cyc]')) {
+  const key = r.dataset.cyc;
+  const c = Object.assign(document.createElement('div'), { className: 'cyc' });
+  const mk = (d) => { const b = Object.assign(document.createElement('button'), { type: 'button', className: 'ar' }); b.setAttribute('aria-label', d < 0 ? 'Back' : 'Next'); b.append(d < 0 ? LEFT() : RIGHT()); b.addEventListener('click', (e) => { e.stopPropagation(); step(key, d); }); return b; };
+  c.append(mk(-1), Object.assign(document.createElement('span'), { className: 'v' }), mk(1));
+  r.append(c);
+  r.addEventListener('click', () => step(key, 1));
+}
+function step(key, d) {
+  const l = CYCLE[key], now = l.findIndex(([v]) => v === data?.[key]);
+  const [v] = l[((now < 0 ? 0 : now) + d + l.length) % l.length];
+  if (data) { data[key] = v; paintCycles(); }
+  S?.set(key, v);
+}
+function paintCycles() {
+  for (const r of document.querySelectorAll('[data-cyc]')) {
+    const hit = CYCLE[r.dataset.cyc].find(([v]) => v === data?.[r.dataset.cyc]);
+    r.querySelector('.v').textContent = hit ? hit[1] : '';
+  }
 }
 for (const b of document.querySelectorAll('[data-act]')) b.addEventListener('click', () => S?.act(b.dataset.act));
-$('#homeform').addEventListener('submit', (e) => { e.preventDefault(); S?.set('home', $('#homein').value); });
 
-const ENGINE_NOTE = {
-  brave: 'Brave has its own index and filters the least. Type !g before a search to send it to Google.',
-  ddg: 'DuckDuckGo: private, results mostly from Bing.',
-  google: 'Google: the biggest index; it tracks you and filters the most.',
-  yandex: 'Yandex: its own index. It removes sites Russia bans.',
-};
+// ---- one-level rows (›)
+for (const r of document.querySelectorAll('[data-go]')) r.addEventListener('click', () => { if (r.dataset.go === 'home') homeEdit(); else show(r.dataset.go); });
 
-function chips(id, list, name) {
-  const box = $('#' + id);
-  box.replaceChildren();
-  if (!list.length) { box.append(Object.assign(document.createElement('span'), { className: 'empty', textContent: 'None yet.' })); return; }
-  for (const host of list) {
-    const c = Object.assign(document.createElement('span'), { className: 'chip' });
-    const x = Object.assign(document.createElement('button'), { className: 'x', type: 'button', textContent: 'x', title: 'Take ' + host + ' off this list' });
-    x.setAttribute('aria-label', 'Remove ' + host);
-    x.addEventListener('click', () => S?.remove(name, host));
-    c.append(host, x);
-    box.append(c);
+// ---- the home page: the row shows what is really saved; a click turns it into the box, Enter or leaving it saves
+const bare = (u) => String(u ?? '').replace(/^https:\/\//, '').replace(/\/$/, '');
+function homeEdit() {
+  $('#homerow').hidden = true; $('#homeedit').hidden = false;
+  const i = $('#homein'); i.value = bare(data?.homeNow); i.focus(); i.select();
+}
+function homeDone(save) {
+  if ($('#homeedit').hidden) return;
+  $('#homeedit').hidden = true; $('#homerow').hidden = false;
+  const v = $('#homein').value.trim();
+  if (save && v !== bare(data?.homeNow)) S?.set('home', v);
+}
+$('#homein').addEventListener('keydown', (e) => { if (e.key === 'Enter') homeDone(true); if (e.key === 'Escape') homeDone(false); });
+$('#homein').addEventListener('blur', () => homeDone(true));
+
+// ---- your details: kept the moment a box is left; the address box looks his address up (OpenStreetMap)
+const AF = ['name', 'phone', 'street', 'city', 'region', 'postal', 'country'];
+const picked = {};   // what the lookup filled in this time (those boxes get the tick while they are unchanged)
+function fillDetails() {
+  const d = data?.autofill?.details ?? {};
+  for (const k of AF) $('#af-' + k).value = d[k] ?? '';
+  $('#af-emails').value = (d.emails ?? []).join(', ');
+  ticks();
+}
+function saveDetails() {
+  const v = { emails: $('#af-emails').value.split(/[,\s]+/).filter(Boolean) };
+  for (const k of AF) v[k] = $('#af-' + k).value;
+  S?.set('afDetails', v);
+}
+// A postal code that has the shape of one (Canada A1A 1A1, US 12345 or 12345-6789) gets its tick, typed or found.
+const POSTAL = /^([A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d|\d{5}(-\d{4})?)$/;
+function ticks() {
+  for (const t of document.querySelectorAll('[data-ok]')) {
+    const k = t.dataset.ok, v = $('#af-' + k).value.trim();
+    t.hidden = !v || !(picked[k] === v || (k === 'postal' && POSTAL.test(v)));
   }
 }
+for (const k of ['name', 'emails', ...AF]) {
+  const i = $('#af-' + k);
+  if (!i) continue;
+  i.addEventListener('change', () => { if (k === 'postal' && POSTAL.test(i.value.trim())) i.value = i.value.trim().toUpperCase().replace(/^([A-Z]\d[A-Z]) ?(\d[A-Z]\d)$/, '$1 $2'); saveDetails(); ticks(); });
+  i.addEventListener('input', ticks);
+}
+let lookWait = 0, lookSeq = 0, found = [], hi = 0;
+const sug = $('#sug');
+function sugDraw() {
+  sug.replaceChildren();
+  if (!found.length) { sug.hidden = true; return; }
+  found.forEach((a, i) => {
+    const d = Object.assign(document.createElement('div'), { textContent: a.line, className: i === hi ? 'hi' : '' });
+    d.addEventListener('mousedown', (e) => { e.preventDefault(); pick(i); });
+    sug.append(d);
+  });
+  sug.append(Object.assign(document.createElement('small'), { textContent: 'OPENSTREETMAP' }));
+  sug.hidden = false;
+}
+function pick(i) {
+  const a = found[i]; if (!a) return;
+  for (const k of ['street', 'city', 'region', 'postal', 'country']) { if (a[k]) { $('#af-' + k).value = a[k]; picked[k] = a[k]; } }
+  found = []; sugDraw(); saveDetails(); ticks();
+}
+$('#af-street').addEventListener('input', () => {
+  clearTimeout(lookWait);
+  const q = $('#af-street').value.trim();
+  if (q.length < 4) { found = []; sugDraw(); return; }
+  const seq = ++lookSeq;
+  lookWait = setTimeout(async () => {
+    const r = await S?.lookup?.(q).catch(() => null);
+    if (seq !== lookSeq) return;
+    found = Array.isArray(r) ? r.slice(0, 5) : []; hi = 0; sugDraw();
+  }, 350);
+});
+$('#af-street').addEventListener('keydown', (e) => {
+  if (sug.hidden) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); hi = (hi + (e.key === 'ArrowDown' ? 1 : -1) + found.length) % found.length; sugDraw(); }
+  if (e.key === 'Enter') { e.preventDefault(); pick(hi); }
+  if (e.key === 'Escape') { found = []; sugDraw(); }
+});
+$('#af-street').addEventListener('blur', () => setTimeout(() => { found = []; sugDraw(); }, 120));
 
-// Sheet 37, Your sites: one row per site, the same rules as the shield. Four are on/off, camera and mic are allow / ask / block.
+// ---- the PIN: he picks 4 to 8; one slot per number; the eye shows them; typed twice
+let pinLen = 6, pin1 = '', pin2 = '', eye = false;
+function pinReset() { pin1 = ''; pin2 = ''; eye = false; pinLen = data?.autofill?.pinLen || 6; $('#pinsay').textContent = ''; pinDraw(); setTimeout(() => $('#pin1').focus(), 0); }
+function pinDraw() {
+  $('#pinlen').textContent = `${pinLen} numbers`;
+  for (const [id, v] of [['pin1', pin1], ['pin2', pin2]]) {
+    const box = $('#' + id); box.replaceChildren();
+    for (let i = 0; i < pinLen; i++) box.append(Object.assign(document.createElement('i'), { className: i < v.length ? 'f' : '', textContent: i < v.length ? (eye ? v[i] : '●') : '' }));
+  }
+  $('#pinrow1').classList.toggle('lit', pin1.length < pinLen);
+  $('#pinrow2').classList.toggle('lit', pin1.length === pinLen);
+  $('#eye').classList.toggle('on', eye);
+  $('#eye').setAttribute('aria-label', eye ? 'Hide PIN' : 'Show PIN');
+}
+for (const b of document.querySelectorAll('[data-len]')) b.addEventListener('click', () => { pinLen = Math.min(8, Math.max(4, pinLen + Number(b.dataset.len))); pin1 = pin1.slice(0, pinLen); pin2 = pin2.slice(0, pinLen); pinDraw(); $('#pin1').focus(); });
+$('#eye').addEventListener('click', () => { eye = !eye; pinDraw(); $('#pin1').focus(); });
+for (const id of ['pin1', 'pin2']) $('#' + id).addEventListener('keydown', (e) => {
+  if (/^[0-9]$/.test(e.key)) { e.preventDefault(); if (pin1.length < pinLen) pin1 += e.key; else if (pin2.length < pinLen) pin2 += e.key; pinDraw(); if (pin2.length === pinLen) pinSet(); }
+  else if (e.key === 'Backspace') { e.preventDefault(); if (pin2) pin2 = pin2.slice(0, -1); else pin1 = pin1.slice(0, -1); pinDraw(); }
+  else if (e.key === 'Enter') { e.preventDefault(); pinSet(); }
+});
+function pinSet() { if (pin1.length !== pinLen) return; S?.set('afPin', { pin: pin1, again: pin2 }); }
+$('#pinset').addEventListener('click', pinSet);
+S?.onAfPin?.((r) => { $('#pinsay').textContent = r?.text ?? ''; if (!r?.ok) { pin1 = ''; pin2 = ''; pinDraw(); } });
+
+// ---- Your sites (sheet 37): one row per site, the same rules as the shield. Four are on/off, camera and mic allow / ask / block.
 const YS_COLS = [['ai', 'ai', 2, 'Claude and Aang'], ['login', 'key', 2, 'Use my login'], ['ads', 'ads', 2, 'Ad blocker'], ['popups', 'popup', 2, 'Popup blocker'], ['dark', 'moon', 2, 'Dark mode'], null, ['camera', 'camera', 3, 'Camera'], ['mic', 'mic', 3, 'Microphone']];
 const YS_WORD = { on: 'ON', off: 'OFF', allow: 'ALLOW', ask: 'ASK', block: 'BLOCK', never: 'NEVER' };
 function siteRows(list) {
@@ -88,12 +191,12 @@ function siteRows(list) {
   const q = ($('#sitefind').value || '').trim().toLowerCase();
   box.replaceChildren();
   const shown = list.filter((s) => !q || s.host.includes(q));
-  if (!shown.length) { box.append(Object.assign(document.createElement('div'), { className: 'ysempty', textContent: list.length ? 'No site matches.' : 'None yet. Click the shield next to an address to set a site\'s rules.' })); return; }
+  if (!shown.length) { box.append(Object.assign(document.createElement('div'), { className: 'ysempty', textContent: list.length ? 'No site matches.' : 'None yet.' })); return; }
   for (const s of shown) {
     const r = Object.assign(document.createElement('div'), { className: 'ysgrid ysrow' });
     const b = document.createElement('b');
     // The site's own icon, the one Samara keeps; a pixel globe for a site whose icon it has not seen yet.
-    const globe = () => { const g = Object.assign(document.createElement('span'), { className: 'globe' }); const svg = pixIcon('globe', 2); if (svg) g.append(svg); return g; };
+    const globe = () => { const g = Object.assign(document.createElement('span'), { className: 'globe' }); const p = pixIcon('globe', 2); if (p) g.append(p); return g; };
     let f = globe();
     if (s.favicon) { f = Object.assign(document.createElement('img'), { className: 'fav', alt: '' }); f.onerror = () => f.replaceWith(globe()); f.src = s.favicon; }
     b.append(f, Object.assign(document.createElement('span'), { className: 'nm', textContent: s.host }));
@@ -107,7 +210,7 @@ function siteRows(list) {
       const cell = Object.assign(document.createElement('span'), { className: 'yscell ' + (st === 'off' ? '' : st) });
       const slot = Object.assign(document.createElement('button'), { type: 'button', className: 'slot ' + (st === 'off' ? '' : st), title: name });
       slot.setAttribute('aria-label', `${name} on ${s.host}: ${YS_WORD[st === 'on' && kind === 3 ? 'allow' : st]}`);
-      if (st !== 'never') { const svg = pixIcon(icon, 2.4); if (svg) slot.append(svg); }
+      if (st !== 'never') { const p = pixIcon(icon, 2.4); if (p) slot.append(p); }
       else slot.disabled = true;
       slot.addEventListener('click', () => {
         if (st === 'never') return;
@@ -123,21 +226,57 @@ function siteRows(list) {
     box.append(r);
   }
 }
-for (const el of document.querySelectorAll('.yskey [data-pix]')) { const svg = pixIcon(el.dataset.pix, 2); if (svg) el.append(svg); }
+for (const el of document.querySelectorAll('.yskey [data-pix]')) { const p = pixIcon(el.dataset.pix, 2); if (p) el.append(p); }
 $('#sitefind').addEventListener('input', () => siteRows(data?.sites ?? []));
 
+function chips(id, list, name) {
+  const box = $('#' + id);
+  box.replaceChildren();
+  if (!list.length) { box.append(Object.assign(document.createElement('span'), { className: 'empty', textContent: 'None yet.' })); return; }
+  for (const host of list) {
+    const c = Object.assign(document.createElement('span'), { className: 'chip' });
+    const x = Object.assign(document.createElement('button'), { className: 'x', type: 'button', textContent: 'x', title: 'Take ' + host + ' off this list' });
+    x.setAttribute('aria-label', 'Remove ' + host);
+    x.addEventListener('click', () => S?.remove(name, host));
+    c.append(host, x);
+    box.append(c);
+  }
+}
+
+const VAULT = { missing: 'NOT INSTALLED', 'signed-out': 'SIGNED OUT', locked: 'LOCKED', unlocked: 'UNLOCKED' };
+const n = (k, one, many) => (k ? `${k} ${k === 1 ? one : many}` : '');
 function paint(d) {
   if (!d) return;
   data = d;
-  for (const c of document.querySelectorAll('.choice[data-key]')) {
-    const v = String(d[c.dataset.key]);
-    for (const b of c.querySelectorAll('button')) b.classList.toggle('on', b.dataset.v === v);
-  }
-  if (document.activeElement !== $('#homein')) $('#homein').value = d.home ? String(d.home).replace(/^https:\/\//, '').replace(/\/$/, '') : '';
-  $('#homenow').textContent = 'Every new tab opens at ' + String(d.homeNow).replace(/^https:\/\//, '').replace(/\/$/, '') + '.';
-  $('#enginenote').textContent = ENGINE_NOTE[d.search] ?? '';
-  // bookmarks
-  $('#markcount').textContent = d.markCount ? `${d.markCount} bookmark${d.markCount === 1 ? '' : 's'}. Take one off with its x.` : 'No bookmarks yet. Bring them from Chrome, or press the book in the address bar.';
+  paintCycles();
+  $('#homev').textContent = bare(d.homeNow);
+  // autofill
+  const det = d.autofill?.details ?? {};
+  const has = det.name || det.emails?.length || det.phone || det.street;
+  $('#detailsv').textContent = has ? 'Set' : 'Not set';
+  $('#detailsv').classList.toggle('dim', !has);
+  $('#pinv').textContent = d.autofill?.pin ? `${d.autofill.pinLen || 4} numbers` : 'Not set';
+  $('#pinv').classList.toggle('dim', !d.autofill?.pin);
+  $('#pinforget').hidden = !d.autofill?.pin;
+  $('#pinset').textContent = d.autofill?.pin ? 'Change' : 'Set';
+  const vw = VAULT[d.vault] ?? '';
+  $('#bwv').textContent = vw ? vw[0] + vw.slice(1).toLowerCase() : '';
+  $('#bwstate').textContent = vw;
+  $('#lockbtn').hidden = d.vault !== 'unlocked';
+  $('#signout').hidden = d.vault === 'missing' || d.vault === 'signed-out';
+  if (current === 'details' && !document.activeElement?.closest?.('section[data-sec="details"]')) fillDetails();
+  // privacy
+  const ph = `${Number(d.phish || 0).toLocaleString()} known fake sites and addresses, refreshed every day.`;
+  $('#phishsafe').dataset.help = ph;
+  $('#sitesv').textContent = n((d.sites ?? []).length, 'site', 'sites');
+  $('#excv').textContent = n((d.trusted ?? []).length + (d.httpOk ?? []).length, 'site', 'sites');
+  siteRows(d.sites ?? []);
+  chips('trusted', d.trusted ?? [], 'trusted');
+  chips('httpOk', d.httpOk ?? [], 'httpOk');
+  // about
+  $('#enginev').textContent = `CHROMIUM ${String(d.versions?.chrome ?? '').split('.')[0]}`;
+  $('#enginerow').dataset.help = `Chromium ${d.versions?.chrome ?? ''} (Electron ${d.versions?.electron ?? ''}).`;
+  // bookmarks (only from the ⋯ menu)
   const ml = $('#marklist');
   ml.replaceChildren();
   for (const m of d.marks ?? []) {
@@ -150,48 +289,7 @@ function paint(d) {
     ml.append(row);
   }
   if (!(d.marks ?? []).length) ml.append(Object.assign(document.createElement('span'), { className: 'empty', textContent: 'None yet.' }));
-  // passwords
-  const V = { missing: ['Bitwarden is not on this PC', "Bitwarden's tool needs installing."], 'signed-out': ['Not signed in', 'Sign in once yourself: in PowerShell run the bw login command.'], locked: ['Locked', 'Click the key in the address bar on a login page to unlock it.'], unlocked: ['Unlocked', 'It locks itself 30 minutes after the last fill.'] };
-  const v = V[d.vault] ?? ['Bitwarden', ''];
-  $('#vaultstate').textContent = 'Bitwarden: ' + v[0];
-  $('#vaultnote').textContent = v[1];
-  $('#lockbtn').hidden = d.vault !== 'unlocked';
-  // privacy
-  $('#phishnote').textContent = `${Number(d.phish || 0).toLocaleString()} known fake sites and addresses, refreshed every day.`;
-  siteRows(d.sites ?? []);
-  chips('trusted', d.trusted ?? [], 'trusted');
-  chips('httpOk', d.httpOk ?? [], 'httpOk');
-  for (const r of document.querySelectorAll('[data-mac]')) r.hidden = !d.mac;
-  $('#versions').textContent = `Chromium ${d.versions?.chrome ?? ''} (Electron ${d.versions?.electron ?? ''}).`;
 }
-// ---- Sheet 77: autofill. His details (behind Edit), his PIN (typed twice), how it works (behind Show).
-const AF = ['name', 'phone', 'street', 'city', 'region', 'postal', 'country'];
-$('#afedit').addEventListener('click', () => {
-  const d = data?.autofill?.details ?? {};
-  for (const k of AF) $('#af-' + k).value = d[k] ?? '';
-  $('#af-emails').value = (d.emails ?? []).join(', ');
-  $('#afform').hidden = !$('#afform').hidden;
-});
-$('#afcancel').addEventListener('click', () => { $('#afform').hidden = true; });
-$('#afform').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const v = { emails: $('#af-emails').value.split(/[,\s]+/).filter(Boolean) };
-  for (const k of AF) v[k] = $('#af-' + k).value;
-  S?.set('afDetails', v);
-  $('#afform').hidden = true;
-});
-$('#afpinform').addEventListener('submit', (e) => {
-  e.preventDefault();
-  S?.set('afPin', { pin: $('#af-pin').value, again: $('#af-pin2').value });
-  $('#af-pin').value = ''; $('#af-pin2').value = '';
-});
-S?.onAfPin?.((r) => { if (r?.text) $('#afpinnote').textContent = r.text; });
-$('#afhowbtn').addEventListener('click', () => { const h = $('#afhow'); h.hidden = !h.hidden; $('#afhowbtn').textContent = h.hidden ? 'Show' : 'Hide'; });
-S?.onData?.((d) => {
-  const set = d?.autofill?.pin === true;
-  $('#afforget').hidden = !set;
-  $('#afpinform').querySelector('button').textContent = set ? 'Change' : 'Set';
-  for (const c of document.querySelectorAll('.choice[data-key="afSounds"]')) for (const b of c.querySelectorAll('button')) b.classList.toggle('on', b.dataset.v === String(d?.autofill?.sounds !== false));
-});
 S?.onData?.(paint);
-S?.get?.().then(paint).catch(() => {});
+S?.get?.().then((d) => { paint(d); show(location.hash.slice(1) || current); }).catch(() => {});
+show(location.hash.slice(1));

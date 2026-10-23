@@ -21,7 +21,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, Menu, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, app, net, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
@@ -37,8 +37,8 @@ import { svgToPng } from './svgicon.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
-import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
-import { DETAIL_KINDS, DetailsStore, PIN_LENGTH, PinSeal, cleanDetails, detailFor, fillDetailsScript, samePin, type FieldKind } from './autofill.ts';
+import { BW_LOGIN, LOCK_AFTER, Vault, fillScript, type Login } from './vault.ts';
+import { DETAIL_KINDS, DetailsStore, PIN_MAX, PIN_MIN, PinSeal, cleanDetails, pinOk, detailFor, fillDetailsScript, samePin, type FieldKind } from './autofill.ts';
 import { createHmac, randomBytes } from 'node:crypto';
 import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
@@ -92,6 +92,8 @@ const DARK_THEME = '{brightness:100,contrast:95,sepia:5}';
 export const ALREADY_DARK = "const __aangDarkMark=()=>{try{const els=[document.documentElement,document.body].filter(Boolean);for(const e of els){for(const c of e.classList)if(/dark/i.test(c)&&!/darkreader|light/i.test(c))return true;for(const n of ['data-theme','data-bs-theme','data-color-mode','data-mode','theme'])if(/dark/i.test(e.getAttribute(n)||''))return true;}return (document.querySelector('meta[name=color-scheme]')?.content||'').trim().toLowerCase()==='dark';}catch{return false;}};const __aangWatchDark=()=>{try{const mo=new MutationObserver(()=>{if(__aangDarkMark()){mo.disconnect();DarkReader.disable();}});mo.observe(document.documentElement,{attributes:true,childList:true});if(document.body)mo.observe(document.body,{attributes:true});}catch{}};const __aangAlreadyDark=()=>{try{if(__aangDarkMark())return true;const lum=(c)=>{const m=/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/.exec(c||'');if(!m||(m[4]!==undefined&&+m[4]<0.5))return null;return(0.2126*m[1]+0.7152*m[2]+0.0722*m[3])/255;};const b=document.body?lum(getComputedStyle(document.body).backgroundColor):null;const h=lum(getComputedStyle(document.documentElement).backgroundColor);const v=b??h;if(v===null)return getComputedStyle(document.documentElement).colorScheme.includes('dark');return v<0.25;}catch{return false;}};";
 let darkSrc: string | null | undefined;
 /** A synced list of site names: plain hosts only. */
+/** Bitwarden's lock time as Settings keeps it (sheet 83). */
+const lockPick = (v: unknown): string => (typeof v === 'string' && v in LOCK_AFTER ? v : '30m');
 function hostList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((h): h is string => typeof h === 'string' && /^[a-z0-9.-]{1,253}$/i.test(h)).map((h) => h.toLowerCase()).slice(-2000) : [];
 }
@@ -524,7 +526,7 @@ export class AangBrowser {
    */
   tabSize: 's' | 'm' | 'l' = 'l';
   private localFile = '';
-  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[], afSounds: true };
+  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[], afSounds: true, lockAfter: '30m' };
   /** His home page, or his search engine's front page. Web pages only. */
   private get HOME(): string { return isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
   /** The Stash (Tidy and the trail menu put trails here). Kept between runs. */
@@ -678,6 +680,7 @@ export class AangBrowser {
     this.details = new DetailsStore(path.join(o.stateDir, 'autofill-details.json'));
     this.pinSeal = new PinSeal(path.join(o.stateDir, 'autofill-pin.json'));
     this.vault.keepSealed = () => this.pinSeal.has();
+    this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]);
     try { if (existsSync(this.popupOkFile)) this.popupOk = new Set((JSON.parse(readFileSync(this.popupOkFile, 'utf8')) as unknown[]).filter((x): x is string => typeof x === 'string')); } catch { /* none */ }
     try {
       if (existsSync(this.sitesFile)) {
@@ -718,7 +721,7 @@ export class AangBrowser {
         this.sounds = p?.sounds === true;
         this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
           search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs',
-          dark: p?.dark !== false, darkOff: hostList(p?.darkOff), afSounds: p?.afSounds !== false };
+          dark: p?.dark !== false, darkOff: hostList(p?.darkOff), afSounds: p?.afSounds !== false, lockAfter: lockPick(p?.lockAfter) };
       }
     } catch { /* defaults */ }
     denyPermissions(this.ses);
@@ -1999,7 +2002,8 @@ export class AangBrowser {
       popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(), sites: this.yourSites(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
-      afSounds: this.prefs.afSounds, autofill: { details: this.details.get(), pin: this.pinSeal.has(), sounds: this.prefs.afSounds },
+      afSounds: this.prefs.afSounds, lockAfter: this.prefs.lockAfter,
+      autofill: { details: this.details.get(), pin: this.pinSeal.has(), pinLen: this.pinSeal.has() ? this.pinSeal.length() : 0, sounds: this.prefs.afSounds },
       versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin',
     };
   }
@@ -2019,6 +2023,7 @@ export class AangBrowser {
       case 'afDetails': this.details.set(cleanDetails(value)); this.sync?.changed('prefs'); break;
       case 'afSounds': this.prefs.afSounds = value === true; this.savePrefs(); break;
       case 'afPin': void this.afSetPin(value); return;
+      case 'lockAfter': this.prefs.lockAfter = lockPick(value); this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]); this.savePrefs(); break;
       case 'tabSize': {
         this.tabSize = value === 's' || value === 'm' ? value : 'l';
         try { writeFileAtomic(this.localFile, JSON.stringify({ tabSize: this.tabSize })); } catch { /* this run only */ }
@@ -2050,15 +2055,36 @@ export class AangBrowser {
     this.sendTabs();
     this.pushSettings();
   }
+  /**
+   * Sheet 83 (his pick, 2026-10-23): the address he is typing in Settings, looked up with OpenStreetMap (Photon), so he
+   * picks it and the rest fills in. Only what he typed in that box goes out, and only from Settings; answers are plain text.
+   */
+  async addressLookup(text: string): Promise<{ line: string; street: string; city: string; region: string; postal: string; country: string }[]> {
+    const q = String(text ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200);
+    if (q.length < 4) return [];
+    const clip = (v: unknown, n = 120) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+    try {
+      const r = await within(net.fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=8&lang=en`, { credentials: 'omit', redirect: 'error' }).then((x) => (x.ok ? x.json() : null)), 6000, null);
+      const out: { line: string; street: string; city: string; region: string; postal: string; country: string }[] = [];
+      for (const f of (r as { features?: { properties?: Record<string, unknown> }[] } | null)?.features ?? []) {
+        const p = f.properties ?? {};
+        const road = clip(p.street ?? (p.type === 'street' ? p.name : ''));
+        if (!road) continue;
+        const street = [clip(p.housenumber, 20), road].filter(Boolean).join(' ');
+        const city = clip(p.city ?? p.town ?? p.village ?? p.district ?? p.county), region = clip(p.state), postal = clip(p.postcode, 20).toUpperCase(), country = clip(p.country, 80);
+        const line = [street, city, region].filter(Boolean).join(', ');
+        if (!out.some((o) => o.line === line)) out.push({ line, street, city, region, postal, country });
+        if (out.length === 5) break;
+      }
+      return out;
+    } catch { return []; }
+  }
   settingsAct(act: string): void {
     if (act === 'import') void this.importMarks().then(() => this.pushSettings());
     else if (act === 'import-chrome' || act === 'import-safari') void this.importFrom(act === 'import-chrome' ? 'chrome' : 'safari').then(() => this.pushSettings());
     else if (act === 'lockvault') { this.vault.lock(); this.pushSettings(); }
     else if (act === 'afforgetpin') { this.pinSeal.wipe(); this.pushSettings(); }
-    else if (act === 'homehere') {
-      const t = [...this.tabs].filter((x) => isWeb(x.url)).sort((a, b) => b.lastSeen - a.lastSeen)[0];
-      if (t) this.setSetting('home', t.url);
-    }
+    else if (act === 'signout') { this.pinSeal.wipe(); void this.vault.signOut().then(() => this.pushSettings()); }
   }
 
   // ------------------------------------------------------------------ Your things: History and Downloads (2026-10-12)
@@ -2813,10 +2839,11 @@ export class AangBrowser {
   }
   private async afPinDigit(d: string): Promise<void> {
     const p = this.afPin;
-    if (!p || p.checking || p.digits.length >= PIN_LENGTH) return;   // keys while a PIN is being checked are dropped
+    const len = this.pinSeal.length();
+    if (!p || p.checking || p.digits.length >= len) return;   // keys while a PIN is being checked are dropped
     p.digits += d;
     this.afBand();
-    if (p.digits.length < PIN_LENGTH) return;
+    if (p.digits.length < len) return;
     p.checking = true;
     const r = await this.pinSeal.open(p.digits);
     p.digits = ''; p.checking = false;
@@ -2836,7 +2863,7 @@ export class AangBrowser {
     const v = (value && typeof value === 'object' ? value : {}) as { pin?: unknown; again?: unknown };
     const pin = String(v.pin ?? ''), again = String(v.again ?? '');
     const say = (text: string, ok = false) => { this.pushSettings(); const wc = this.tabs.find((x) => x.internal === 'settings')?.view?.webContents; if (wc && !wc.isDestroyed()) wc.send('settings:afpin', { ok, text }); };
-    if (!new RegExp(`^[0-9]{${PIN_LENGTH}}$`).test(pin)) { say(`A PIN is ${PIN_LENGTH} numbers.`); return; }
+    if (!pinOk(pin)) { say(`A PIN is ${PIN_MIN} to ${PIN_MAX} numbers.`); return; }
     if (!samePin(pin, again)) { say('The two did not match.'); return; }
     const session = this.vault.current();
     if (!session) { say('Open Bitwarden once first (use a login), then set your PIN.'); return; }
@@ -2892,7 +2919,7 @@ export class AangBrowser {
   /** The address bar's key: what it shows now. `beat`: one moment to play (the call, opening, a wrong PIN). */
   private afBand(beat?: 'call' | 'open' | 'wrong'): void {
     this.afBandMode = this.afPin ? 'pin' : this.afSave ? 'save' : 'idle';
-    this.win?.webContents.send('browser:af', { mode: this.afBandMode, n: this.afPin?.digits.length ?? 0, of: PIN_LENGTH, beat: beat ?? null });
+    this.win?.webContents.send('browser:af', { mode: this.afBandMode, n: this.afPin?.digits.length ?? 0, of: this.pinSeal.length(), beat: beat ?? null });
     if (beat === 'call') this.afSound('call');
     if (beat === 'open') this.afSound('unlock');
     if (beat === 'wrong') this.afSound('wrong');
@@ -3013,7 +3040,8 @@ export class AangBrowser {
       this.sounds = p.sounds === true;
       this.prefs = { ads: p.ads !== false, popups: p.popups !== false, home: typeof p.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
         search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox === true, startup: p.startup === 'home' ? 'home' : 'tabs',
-        dark: p.dark !== false, darkOff: hostList(p.darkOff), afSounds: p.afSounds !== false };
+        dark: p.dark !== false, darkOff: hostList(p.darkOff), afSounds: p.afSounds !== false, lockAfter: lockPick(p.lockAfter) };
+      this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]);
       if (p.autofill && typeof p.autofill === 'object') this.details.set(p.autofill);
       setSearch(this.prefs.search, this.prefs.aiBox);
       this.paintDarkAll();
