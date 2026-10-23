@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 77 - Autofill, the one to build</title>
+<!-- Sheet 77 (2026-10-23), everything he decided in the interview after sheet 76:
+       - the light that fills (sheet 76 A) appears right beside the box: a fade and grow with a tiny drift, about a tenth
+         of a second, quick as a drop-down and never a jolt; several emails flick with the scroll wheel or the arrow keys;
+         on a long form one click fills every box, a soft shine running down;
+       - the key in the address bar IS the lock: when your PIN is needed it calls you, a short "pay attention" look and
+         sound (an original, in the spirit of Navi's "Hey, listen", never Nintendo's own); each digit fills the key with
+         light (nothing anyone could count); the sixth blooms it open with a soft, warm unlock sound, never sharp;
+       - the PIN keeps working after restarts (the unlock lives in the Mac's own locked keychain); the master password
+         only after 5 wrong PINs or on a new computer;
+       - a new login: the key glows; "Save" only shows on hover; clicking shows exactly what it will keep, editable;
+       - one switch in Sound settings: Autofill sounds; your details sync between your two machines only.
+     All live: click the boxes, roll the wheel on the light, Tab, type on the number pad. Sounds play only after a click
+     or key of yours. The shop is made up. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<link rel="stylesheet" href="../../src/Shell/pages/settings.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 26px;max-width:960px;line-height:1.55}
+  section{margin:0 0 46px}
+  .dh{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+  .dh h2{font:400 15px var(--label);letter-spacing:2px;color:var(--gold);margin:0}
+  .dnote{font-size:13px;color:#b9a684;max-width:900px;line-height:1.5;margin:0 0 10px}
+  .dnote kbd{font:400 9px var(--label);letter-spacing:1px;border:2px solid #4a3522;border-radius:4px;padding:1px 5px;color:#e8dcc4}
+  .timing{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .timing span{font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;background:#21170f;border:2px solid #3a2a1a;border-radius:5px;padding:4px 7px}
+  .frame{position:relative;width:900px;border-radius:12px;overflow:hidden;border:3px solid var(--outline);background:var(--wood2)}
+  .frame img.realband{display:block;image-rendering:pixelated}
+  .overbar{position:absolute;left:0;top:0;width:900px;height:58px}
+  .pagewrap{background:#2a1c10;padding:0 12px 12px}
+  .site{position:relative;background:#f6f7f9;border-radius:6px;height:320px;padding:22px 0 0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#1d2330;overflow:hidden;outline:none}
+  .brand{font:800 14px system-ui;letter-spacing:3px;color:#24426b;text-align:center;margin-bottom:12px}
+  .site h4{margin:0 auto 10px;width:300px;font:700 20px system-ui}
+  .site label{display:block;width:300px;margin:0 auto 4px;font:600 12px system-ui;color:#4a5466}
+  .box{position:relative;width:300px;height:32px;margin:0 auto 10px}
+  .box input{width:100%;height:100%;box-sizing:border-box;border:1.5px solid #c9ced8;border-radius:6px;background:#fff;padding:6px 10px;font:500 14px system-ui;color:#1d2330;outline:none}
+  .box input:focus{border-color:#3b6fd8;box-shadow:0 0 0 3px rgba(59,111,216,.18)}
+  .box.shine input{animation:shine .45s ease-out}
+  @keyframes shine{0%{background:linear-gradient(100deg,#fff 0%,#fff 30%,#fff1bd 45%,#fff 60%) -300px 0/600px 100% no-repeat}100%{background:linear-gradient(100deg,#fff 0%,#fff 30%,#fff1bd 45%,#fff 60%) 300px 0/600px 100% no-repeat}}
+  .site .btn{width:300px;margin:4px auto 0;box-sizing:border-box;border-radius:6px;background:#24426b;color:#fff;text-align:center;padding:8px;font:700 14px system-ui;cursor:pointer}
+  svg.px{display:block;image-rendering:pixelated;shape-rendering:crispEdges}
+  .ctl{display:flex;gap:10px;margin:10px 0 0;align-items:center;flex-wrap:wrap}
+  .ctl button{font:400 10px var(--label);letter-spacing:1px;color:#e8dcc4;background:#2b1d12;border:2px solid #4a3522;border-radius:6px;padding:7px 10px;cursor:pointer}
+  .ctl button:hover{border-color:var(--gold-deep);color:var(--gold-lit)}
+
+  /* ---- the light: appears in place (fade + grow + a 6 px drift), 110 ms, ease-out; leaves in 90 ms ---- */
+  .light{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;z-index:4;cursor:pointer;opacity:0;transform:translate(-6px,0) scale(.7);
+    transition:opacity .11s cubic-bezier(.2,.8,.3,1),transform .11s cubic-bezier(.2,.8,.3,1)}
+  .light.on{opacity:1;transform:none}
+  .light.off{transition-duration:.09s}
+  .light .orb{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#fffbe6 0 18%,rgba(255,232,150,.9) 30%,rgba(255,200,90,.35) 55%,transparent 70%);animation:float 1.8s ease-in-out infinite}
+  .light .orb::before,.light .orb::after{content:"";position:absolute;top:6px;width:11px;height:9px;border-radius:50%;background:rgba(255,248,220,.6);animation:wing .18s ease-in-out infinite alternate}
+  .light .orb::before{left:-5px}.light .orb::after{right:-5px}
+  @keyframes wing{to{transform:scaleY(.4)}}
+  @keyframes float{50%{transform:translateY(-3px)}}
+  .light .item{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .light .tag{position:absolute;left:30px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#24160d;border:3px solid var(--outline);border-radius:6px;padding:5px 9px;
+    font:700 12.5px var(--body);color:#ffe28c;box-shadow:inset 0 2px 0 rgba(255,224,150,.15);overflow:hidden}
+  .light .tag .v{display:block;transition:opacity .1s,transform .1s}
+  .light .tag .v.swap{opacity:0;transform:translateY(-4px)}
+  .light .tag small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a;margin-top:2px}
+  .light .tag .n{color:#8a7a62;margin-left:6px}
+  .light.give .orb{animation:give .2s ease-out}
+  @keyframes give{50%{transform:scale(1.35)}}
+
+  /* ---- the key in the address bar, Samara's own art, at its place in the slot ---- */
+  .barkey{position:absolute;left:624px;top:17px;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;cursor:pointer}
+  .barkey svg{transition:filter .18s}
+  .barkey .glow{position:absolute;inset:-6px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,110,var(--g,0)) 0,rgba(255,196,60,calc(var(--g,0) * .45)) 40%,transparent 70%);transition:--g .2s;pointer-events:none}
+  .barkey.call{animation:call .9s ease-in-out 2}
+  @keyframes call{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-8deg)}40%{transform:none}55%{transform:translateY(-2px) rotate(6deg)}70%{transform:none}}
+  .barkey.bloom .glow{animation:bloom .6s ease-out}
+  @keyframes bloom{0%{transform:scale(1)}40%{transform:scale(2.1);opacity:1}100%{transform:scale(1.2)}}
+  .bartext{position:absolute;left:182px;top:12px;height:34px;width:420px;box-sizing:border-box;display:flex;align-items:center;background:rgb(11,7,24);padding:0 8px;
+    font:700 12.5px var(--body);color:#ffe28c;opacity:0;transition:opacity .15s;pointer-events:none}
+  .bartext.on{opacity:1}
+  .bartext .lbl{font:400 8px var(--label);letter-spacing:1.5px;color:#ffe28c}
+  .savehint{position:absolute;left:560px;top:17px;height:24px;line-height:24px;padding:0 8px;border-radius:5px;background:#24160d;border:2px solid var(--outline);
+    font:700 11.5px var(--body);color:#ffe28c;opacity:0;transform:translateX(6px);transition:opacity .12s,transform .12s;pointer-events:none}
+  .barkey:hover + .savehint,.savehint.on{opacity:1;transform:none}
+
+  /* the save card: Samara's own ask, under the key, saying exactly what it keeps */
+  .bandchip.save{left:auto;right:240px;top:56px;width:300px;display:block}
+  .bandchip.save::before{left:auto;right:30px}
+  .bandchip.save .srow{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px;margin-top:8px;font:700 12px var(--body);color:#4e3d28}
+  .bandchip.save input{box-sizing:border-box;width:100%;padding:6px 8px;border-radius:6px;border:2px solid #6b5132;background:#fffaf0;font:600 13px var(--body);color:#271c10}
+  .bandchip.save .keys{margin-top:10px}
+
+  /* sounds */
+  .sounds{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 30px}
+  .sounds button{display:flex;align-items:center;gap:9px;background:#21170f;border:2px solid #3a2a1a;border-radius:8px;padding:10px 14px;color:#e8dcc4;cursor:pointer;font:600 13px var(--body)}
+  .sounds button:hover{border-color:var(--gold-deep)}
+  .sounds button b{font:400 9px var(--label);letter-spacing:1px;color:var(--gold)}
+  .setwrap{max-width:640px}
+</style>
+</head>
+<body>
+<h1>SHEET 77 - AUTOFILL, THE ONE TO BUILD</h1>
+<p class="lead">Everything you decided, in one place, all live. The light fills your boxes; the key in the address bar is the lock. Hear the three sounds first, then try each moment.</p>
+
+<h2 style="font:400 13px var(--label);letter-spacing:2px;color:var(--gold);margin:0 0 10px">THE THREE SOUNDS · ONE SWITCH IN SOUND SETTINGS</h2>
+<div class="sounds">
+  <button data-snd="call"><b>THE CALL</b> "your PIN, please": two soft rising notes</button>
+  <button data-snd="unlock"><b>UNLOCK</b> warm, rounded, a soft shimmer</button>
+  <button data-snd="fill"><b>FILL</b> a tiny soft blip</button>
+</div>
+
+<section id="s1">
+  <div class="dh"><h2>1 · THE LIGHT BRINGS YOUR EMAIL</h2></div>
+  <p class="dnote">Click the Email box. The light appears beside it holding your email. Roll the scroll wheel on it, or press <kbd>↑</kbd> <kbd>↓</kbd>, to flick between your emails. Click it or press <kbd>TAB</kbd>.</p>
+  <div class="timing"><span>APPEARS 110 MS</span><span>FLICK 100 MS</span><span>FILL SHINE 450 MS</span><span>LEAVES 90 MS</span></div>
+  <div class="frame"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="1" tabindex="-1"></div></div></div>
+  <div class="ctl"><button data-reset="1">Start again</button></div>
+</section>
+
+<section id="s2">
+  <div class="dh"><h2>2 · ONE CLICK, WHOLE FORM</h2></div>
+  <p class="dnote">On a form, the light fills every box it knows at once, a soft shine running down. Change anything after.</p>
+  <div class="timing"><span>EACH BOX 60 MS APART</span><span>SHINE 450 MS</span></div>
+  <div class="frame"><img class="realband" src="sheet-72/band-checkout.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="2" tabindex="-1"></div></div></div>
+  <div class="ctl"><button data-reset="2">Start again</button></div>
+</section>
+
+<section id="s3">
+  <div class="dh"><h2>3 · THE KEY NEEDS YOUR PIN</h2></div>
+  <p class="dnote">Bitwarden is locked. Click the Password box: the key in the address bar calls you (a small nod, a glow, two soft notes) and the bar says what it wants. Type your PIN on the number pad, no need to click anything: each of your 4 digits fills the key with more light. The fourth blooms it open, the warm unlock sound plays, and the light brings your password. (Any 4 digits work here; 0000 shows a wrong try.)</p>
+  <div class="timing"><span>CALL 900 MS, TWICE</span><span>EACH DIGIT +1/4 LIGHT, 180 MS</span><span>BLOOM 600 MS</span></div>
+  <div class="frame"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="3" tabindex="-1"></div></div></div>
+  <div class="ctl"><button data-reset="3">Start again</button></div>
+</section>
+
+<section id="s4">
+  <div class="dh"><h2>4 · A NEW LOGIN</h2></div>
+  <p class="dnote">You signed in with a new password. The key glows warm. Point at it and "Save" appears; click it and Samara shows exactly what it will keep, so you can fix anything first. Ignore it and the glow fades.</p>
+  <div class="frame"><img class="realband" src="sheet-72/band-account.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="4" tabindex="-1"></div></div></div>
+  <div class="ctl"><button data-reset="4">Start again</button></div>
+</section>
+
+<section>
+  <div class="dh"><h2>5 · SETTINGS</h2></div>
+  <div class="setwrap">
+    <div class="card"><i class="caps"></i><h3>AUTOFILL</h3>
+      <div class="row"><div class="t"><b>Your details</b><small>Name, phone, address, and your emails. Kept on your two computers only.</small></div><div class="choice"><button type="button">Edit</button></div></div>
+      <div class="row"><div class="t"><b>Bitwarden PIN</b><small>4 digits. Your master password only after 5 wrong tries or on a new computer.</small></div><div class="choice"><button type="button">Set PIN</button></div></div>
+    </div>
+    <div class="card" style="margin-top:14px"><i class="caps"></i><h3>SOUND</h3>
+      <div class="row"><div class="t"><b>Autofill sounds</b><small>The call, the unlock and the fill.</small></div><div class="choice"><button type="button" class="on">On</button><button type="button">Off</button></div></div>
+    </div>
+  </div>
+</section>
+
+<script>
+const PAL = { O:'#120A05', y:'#FFC43C', Y:'#FFE9A8', w:'#F3E2B8', W:'#FFF8E8', r:'#c0392b', g:'#bfae8a', G:'#e9dcc0' };
+const art = (rows, s = 2) => { const h = rows.length, w = Math.max(...rows.map((r) => r.length)); let r = ''; rows.forEach((row, y) => [...row].forEach((c, x) => { if (PAL[c]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>`; })); return `<svg class="px" width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}">${r}</svg>`; };
+const LETTER = ['OOOOOOO','OWwwwWO','OOwwwOO','OwOrOwO','OwwwwwO','OOOOOOO'];
+const KEYITEM = ['.OOO.','OyYyO','OyOyO','.OyO.','.OyO.','.OyyO','.OyO.','.OyyO','..O..'];
+const SCROLL = ['.OOOOOO.','OwWwwwwO','.OwrrwO.','.OwwwwO.','.OwrrwO.','OwWwwwwO','.OOOOOO.'];
+// the address bar key: Samara's own glyph, lit from dim to gold
+const BARKEY = (lit) => { const c = lit ? 'y' : 'g', h = lit ? 'Y' : 'G'; return art(['.OOO....',`O${h}${c}${c}O...`,`O${c}O${c}OOOO`,`O${c}${c}${c}${c}${c}${c}O`,`.OOOO${c}O${c}O`,'.....O.O.'].map((r) => r), 2); };
+
+// ---- sounds: soft, made here, only after a click or key of his
+let ac = null;
+const ctx = () => (ac ??= new AudioContext());
+function tone(f, t, d, v, type = 'sine', glide = 0) { try { const a = ctx(), o = a.createOscillator(), g = a.createGain(), lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+  o.type = type; o.frequency.setValueAtTime(f, a.currentTime + t); if (glide) o.frequency.exponentialRampToValueAtTime(f * glide, a.currentTime + t + d * 0.6);
+  g.gain.setValueAtTime(0, a.currentTime + t); g.gain.linearRampToValueAtTime(v, a.currentTime + t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + t + d);
+  o.connect(lp).connect(g).connect(a.destination); o.start(a.currentTime + t); o.stop(a.currentTime + t + d + 0.05); } catch { /* quiet */ } }
+const SND = {
+  // "your PIN, please": two soft rising notes, a gentle lift, like a companion tugging your sleeve
+  call: () => { tone(880, 0, 0.22, 0.05, 'triangle', 1.06); tone(1318.5, 0.13, 0.32, 0.045, 'triangle', 1.02); },
+  // unlock: warm low pair, rounded, and a faint shimmer above it
+  unlock: () => { tone(261.6, 0, 0.55, 0.06, 'sine'); tone(392, 0.05, 0.6, 0.045, 'sine'); [1046.5, 1318.5, 1568].forEach((f, i) => tone(f, 0.12 + i * 0.05, 0.4, 0.012, 'sine')); },
+  fill: () => tone(1046.5, 0, 0.12, 0.025, 'sine', 1.25),
+  wrong: () => { tone(330, 0, 0.25, 0.04, 'triangle'); tone(294, 0.1, 0.32, 0.04, 'triangle'); },
+};
+document.querySelectorAll('[data-snd]').forEach((b) => b.addEventListener('click', () => SND[b.dataset.snd]()));
+
+const EMAILS = ['alex@example.com', 'alex.work@example.com', 'alex.games@example.com'];
+const ME = { name: 'Alex Example', phone: '555-0142', street: '12 Harbour St', city: 'Halifax' };
+const shine = (box) => { box.classList.remove('shine'); void box.offsetWidth; box.classList.add('shine'); };
+
+function makeLight(frame) {
+  const l = document.createElement('div'); l.className = 'light'; l.innerHTML = '<div class="orb"></div><span class="item"></span><div class="tag"><span class="v"></span></div>'; frame.append(l); return l;
+}
+// frame coords of the spot just right of a box: band 58 tall, page padded 12
+const spot = (box) => [box.offsetLeft + box.offsetWidth + 12 + 24, 58 + box.offsetTop + box.offsetHeight / 2];
+const place = (l, p) => { l.style.left = p[0] + 'px'; l.style.top = p[1] + 'px'; };
+const show = (l) => { l.classList.remove('off'); requestAnimationFrame(() => l.classList.add('on')); };
+const hide = (l) => { l.classList.add('off'); l.classList.remove('on'); };
+
+const SCENES = {
+  // 1 · the light brings your email; wheel or arrows flick; click or Tab fills
+  1(site, frame) {
+    site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="box" data-f="email"><input></div><label>Password</label><div class="box" data-f="pw"><input type="password"></div><div class="btn">Continue</div>`;
+    const l = makeLight(frame), box = site.querySelector('[data-f="email"]'), inp = box.querySelector('input'); let n = 0;
+    const label = (anim) => { const v = l.querySelector('.v'); const put = () => { v.innerHTML = `${EMAILS[n]}<span class="n">${n + 1}/${EMAILS.length}</span><small>CLICK OR TAB · ROLL FOR MORE</small>`; };
+      if (!anim) return put(); v.classList.add('swap'); setTimeout(() => { put(); v.classList.remove('swap'); }, 100); };
+    const flick = (d) => { n = (n + d + EMAILS.length) % EMAILS.length; label(true); };
+    const give = () => { inp.value = EMAILS[n]; shine(box); SND.fill(); l.classList.add('give'); setTimeout(() => { hide(l); l.classList.remove('give'); }, 140); };
+    inp.addEventListener('focus', () => { if (inp.value) return; l.querySelector('.item').innerHTML = art(LETTER); label(false); place(l, spot(box)); show(l); });
+    inp.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== inp) hide(l); }, 120));
+    inp.addEventListener('input', () => hide(l));
+    inp.addEventListener('keydown', (e) => { if (!l.classList.contains('on')) return; if (e.key === 'Tab') { e.preventDefault(); give(); } if (e.key === 'ArrowDown') { e.preventDefault(); flick(1); } if (e.key === 'ArrowUp') { e.preventDefault(); flick(-1); } });
+    l.addEventListener('wheel', (e) => { e.preventDefault(); flick(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+    l.addEventListener('mousedown', (e) => { e.preventDefault(); give(); });
+    return { demo: () => { l.querySelector('.item').innerHTML = art(LETTER); label(false); place(l, spot(box)); l.classList.add('on'); } };
+  },
+  // 2 · one click fills the whole form
+  2(site, frame) {
+    site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Shipping</h4><label>Full name</label><div class="box" data-f="name"><input></div><label>Email</label><div class="box" data-f="email"><input></div><label>Phone</label><div class="box" data-f="phone"><input></div><label>Street</label><div class="box" data-f="street"><input></div>`;
+    const l = makeLight(frame), first = site.querySelector('[data-f="name"]');
+    const vals = { name: ME.name, email: EMAILS[0], phone: ME.phone, street: ME.street };
+    const open = () => { l.querySelector('.item').innerHTML = art(SCROLL); l.querySelector('.v').innerHTML = `${ME.name}<small>CLICK OR TAB · FILLS THE WHOLE FORM</small>`; place(l, spot(first)); show(l); };
+    const give = () => { hide(l); [...site.querySelectorAll('.box')].forEach((b, i) => setTimeout(() => { b.querySelector('input').value = vals[b.dataset.f]; shine(b); }, i * 60)); SND.fill(); };
+    first.querySelector('input').addEventListener('focus', () => { if (!first.querySelector('input').value) open(); });
+    first.querySelector('input').addEventListener('keydown', (e) => { if (e.key === 'Tab' && l.classList.contains('on')) { e.preventDefault(); give(); } });
+    l.addEventListener('mousedown', (e) => { e.preventDefault(); give(); });
+    return { demo: () => { l.querySelector('.item').innerHTML = art(SCROLL); l.querySelector('.v').innerHTML = `${ME.name}<small>CLICK OR TAB · FILLS THE WHOLE FORM</small>`; place(l, spot(first)); l.classList.add('on'); } };
+  },
+  // 3 · the key needs your PIN
+  3(site, frame) {
+    site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="box" data-f="email"><input value="${EMAILS[0]}"></div><label>Password</label><div class="box" data-f="pw"><input type="password"></div><div class="btn">Continue</div>`;
+    const bar = frame.querySelector('.overbar');
+    bar.innerHTML = `<div class="bartext"><span class="lbl">YOUR PIN, PLEASE · TYPE IT ON YOUR KEYBOARD</span></div><div class="barkey"><span class="glow"></span>${BARKEY(false)}</div>`;
+    const key = bar.querySelector('.barkey'), glow = key.querySelector('.glow'), text = bar.querySelector('.bartext'), pw = site.querySelector('[data-f="pw"]'), inp = pw.querySelector('input');
+    let pin = '', waiting = false;
+    const level = (n) => { glow.style.background = `radial-gradient(circle,rgba(255,214,110,${n / 4}) 0,rgba(255,196,60,${n / 8}) 40%,transparent 70%)`; key.innerHTML = `<span class="glow" style="${glow.getAttribute('style') ?? ''}"></span>${BARKEY(n >= 2)}`; };
+    const ask = () => { if (waiting || inp.value) return; waiting = true; pin = ''; text.classList.add('on'); key.classList.remove('call'); void key.offsetWidth; key.classList.add('call'); SND.call(); level(0); site.focus(); };
+    inp.addEventListener('focus', ask);
+    site.addEventListener('keydown', (e) => {
+      if (!waiting) return;
+      if (/^[0-9]$/.test(e.key) && pin.length < 4) { e.preventDefault(); pin += e.key; level(pin.length);
+        if (pin.length === 4) setTimeout(() => {
+          if (pin === '0000') { SND.wrong(); key.classList.remove('call'); void key.offsetWidth; key.classList.add('call'); pin = ''; level(0); return; }
+          waiting = false; key.classList.add('bloom'); SND.unlock(); text.classList.remove('on');
+          setTimeout(() => { const l = makeLight(frame); l.querySelector('.item').innerHTML = art(KEYITEM); l.querySelector('.tag').style.display = 'none'; place(l, spot(pw)); show(l);
+            setTimeout(() => { inp.value = 'opened!opened'; shine(pw); SND.fill(); hide(l); }, 260); }, 420);
+        }, 180); }
+      else if (e.key === 'Backspace') { e.preventDefault(); pin = pin.slice(0, -1); level(pin.length); }
+    });
+    return { demo: () => { text.classList.add('on'); level(3); } };
+  },
+  // 4 · a new login: the key glows; Save on hover; click shows what it keeps
+  4(site, frame) {
+    site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Welcome, Alex</h4><label style="font-weight:500">You're signed in.</label>`;
+    const bar = frame.querySelector('.overbar');
+    bar.innerHTML = `<div class="barkey"><span class="glow" style="background:radial-gradient(circle,rgba(255,214,110,.75) 0,rgba(255,196,60,.35) 40%,transparent 70%)"></span>${BARKEY(true)}</div><div class="savehint">Save this login</div>`;
+    const key = bar.querySelector('.barkey');
+    key.addEventListener('click', () => {
+      frame.querySelector('.bandchip')?.remove();
+      frame.insertAdjacentHTML('beforeend', `<div class="bandchip save"><div class="q">Keep this login in Bitwarden?</div>
+        <div class="srow"><span>Site</span><input value="northwind.example"></div><div class="srow"><span>Username</span><input value="${EMAILS[0]}"></div><div class="srow"><span>Password</span><input type="password" value="opened!opened"></div>
+        <div class="keys"><button class="key primary sm" type="button">Save<span class="k">A</span></button><button class="key sm" type="button">Not now<span class="k">Z</span></button></div></div>`);
+      frame.querySelectorAll('.bandchip button').forEach((b) => b.addEventListener('click', () => { frame.querySelector('.bandchip')?.remove(); bar.innerHTML = ''; if (b.classList.contains('primary')) SND.unlock(); }));
+    });
+    return { demo: () => key.click() };
+  },
+};
+for (const site of document.querySelectorAll('.site')) {
+  const frame = site.closest('.frame'), n = site.dataset.s;
+  const run = () => { frame.querySelectorAll('.light,.bandchip').forEach((x) => x.remove()); frame.querySelector('.overbar').innerHTML = ''; return SCENES[n](site, frame); };
+  const s = run();
+  document.querySelector(`[data-reset="${n}"]`).addEventListener('click', () => run());
+  if (location.hash === '#shots') setTimeout(() => s.demo(), 300);
+}
+</script>
+</body>
+</html>
