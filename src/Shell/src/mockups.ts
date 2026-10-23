@@ -313,7 +313,10 @@ export class MockStore {
     if (!v) return 'That version is not in the history.';
     if (stage === 'chat' && !o.said?.trim()) return 'An approval from the chat needs his words.';
     if (stage === 'ok' || stage === 'chat') for (const x of this.list) if (x.sheet === v.sheet && x.id !== id && (x.stage === 'ok' || x.stage === 'chat')) { delete x.stage; delete x.said; delete x.stageAt; delete x.by; }
+    // Built keeps the words he approved it with: that is where it came from.
+    const keepSaid = stage === 'built' ? v.said : undefined;
     delete v.stage; delete v.note; delete v.said; delete v.stageAt; delete v.by;
+    if (keepSaid) v.said = keepSaid;
     if (stage) {
       v.stage = stage; v.stageAt = Date.now(); v.by = o.by === 'claude' ? 'claude' : 'you';
       if (stage === 'fix' && o.note?.trim()) v.note = o.note.trim().slice(0, 300);
