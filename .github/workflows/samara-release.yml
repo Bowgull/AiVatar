@@ -1,0 +1,28 @@
+# Samara's shared updater (his plan, 2026-10-23): a tag "samara-vX.Y.Z" builds, stamps and publishes one release that
+# every Samara checks by itself. The tag's message becomes the "what's new" lines on his UPDATE key.
+name: Samara release
+on:
+  push:
+    tags: ['samara-v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: Pack and stamp
+        env:
+          SAMARA_RELEASE_KEY: ${{ secrets.SAMARA_RELEASE_KEY }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          git tag -l --format='%(contents)' "$TAG" > notes.txt
+          node tools/release/samara-release.mjs "${TAG#samara-v}" out notes.txt
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz --title "Samara ${TAG#samara-v}" --notes-file notes.txt
