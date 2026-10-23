@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 75 - The light and its PIN pad</title>
+<!-- Sheet 75 (2026-10-23, his asks after sheet 74: "when entering a pin doesn't it usually come up as a pin pad?",
+     "2 seems good so far" (the companion light), "let's keep thinking creatively"). The light is the one thing that
+     autofill is in Samara: it carries your papers and your keys, it sleeps when Bitwarden locks, and it brings a PIN
+     pad of Samara's own. Three pads, each laid out like a real number pad (7 8 9 on top) so the key you press on your
+     keyboard lights up on screen; each can be clicked too. Live: click a box; press Lock, then a box; type on the
+     number pad. Sounds are soft and only after a key. The shop is made up. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;overflow:auto;height:auto;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1000px;line-height:1.55}
+  h3{font:400 13px var(--label);letter-spacing:2px;color:var(--gold);margin:0 0 10px}
+  .moods{display:flex;gap:22px;margin:0 0 34px;flex-wrap:wrap}
+  .mood{width:182px;background:#21170f;border:2px solid #3a2a1a;border-radius:8px;padding:14px;text-align:center}
+  .mood .stage{height:70px;position:relative}
+  .mood b{display:block;font:400 10px var(--label);letter-spacing:1.5px;color:var(--gold);margin-top:6px}
+  .mood p{font-size:12.5px;color:#b9a684;line-height:1.45;margin:4px 0 0}
+  section{margin:0 0 50px}
+  .dh{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+  .dh h2{font:400 15px var(--label);letter-spacing:2px;color:var(--gold);margin:0}
+  .dh span{font-size:13px;color:#b9a684}
+  .dnote{font-size:13px;color:#b9a684;max-width:900px;line-height:1.5;margin:0 0 12px}
+  .frame{position:relative;width:900px;border-radius:12px;overflow:hidden;border:3px solid var(--outline);background:var(--wood2)}
+  .frame img.band{display:block;image-rendering:pixelated}
+  .pagewrap{background:#2a1c10;padding:0 12px 12px}
+  .site{position:relative;background:#f6f7f9;border-radius:6px;height:400px;padding:22px 0 0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;color:#1d2330;overflow:hidden;outline:none}
+  .brand{font:800 14px system-ui;letter-spacing:3px;color:#24426b;text-align:center;margin-bottom:14px}
+  .site h4{margin:0 0 12px 140px;width:300px;font:700 20px system-ui}
+  .site label{display:block;width:300px;margin:0 0 4px 140px;font:600 12px system-ui;color:#4a5466}
+  .box{position:relative;width:300px;height:34px;margin:0 0 12px 140px}
+  .box input{width:100%;height:100%;box-sizing:border-box;border:1.5px solid #c9ced8;border-radius:6px;background:#fff;padding:7px 10px;font:500 14px system-ui;color:#1d2330;outline:none}
+  .box input:focus,.box.on input{border-color:#3b6fd8;box-shadow:0 0 0 3px rgba(59,111,216,.18)}
+  .box.shine input{animation:shine .7s ease-out}
+  @keyframes shine{0%{background:linear-gradient(100deg,#fff 0%,#fff 30%,#fff3c4 45%,#fff 60%) -300px 0/600px 100% no-repeat}100%{background:linear-gradient(100deg,#fff 0%,#fff 30%,#fff3c4 45%,#fff 60%) 300px 0/600px 100% no-repeat}}
+  .site .btn{width:300px;margin:4px 0 0 140px;box-sizing:border-box;border-radius:6px;background:#24426b;color:#fff;text-align:center;padding:9px;font:700 14px system-ui}
+  svg.px{display:block;image-rendering:pixelated;shape-rendering:crispEdges}
+  .ctl{display:flex;gap:10px;margin:10px 0 0;align-items:center}
+  .ctl button{font:400 10px var(--label);letter-spacing:1px;color:#e8dcc4;background:#2b1d12;border:2px solid #4a3522;border-radius:6px;padding:7px 10px;cursor:pointer}
+  .ctl button:hover{border-color:var(--gold-deep);color:var(--gold-lit)}
+  .ctl span{font:400 9px var(--label);letter-spacing:1px;color:#8a7a62}
+
+  /* ---- the light: gold and awake when Bitwarden is open, a dim blue sleeper when it is locked ---- */
+  .fairy{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;cursor:pointer;z-index:4;
+    background:radial-gradient(circle,#fffbe6 0 18%,rgba(255,232,150,.9) 30%,rgba(255,200,90,.35) 55%,transparent 70%);
+    transition:left .7s cubic-bezier(.3,.8,.3,1),top .7s cubic-bezier(.3,.8,.3,1),opacity .3s,filter .5s;animation:float 1.6s ease-in-out infinite}
+  .fairy::before,.fairy::after{content:"";position:absolute;top:6px;width:12px;height:10px;border-radius:50%;background:rgba(255,248,220,.6);animation:wing .18s ease-in-out infinite alternate}
+  .fairy::before{left:-6px}.fairy::after{right:-6px}
+  @keyframes wing{to{transform:scaleY(.4)}}
+  @keyframes float{50%{transform:translateY(-4px)}}
+  .fairy.asleep{filter:hue-rotate(185deg) saturate(.6) brightness(.85);animation:doze 3s ease-in-out infinite}
+  .fairy.asleep::before,.fairy.asleep::after{animation:none;transform:scaleY(.5)}
+  @keyframes doze{50%{transform:translateY(3px)}}
+  .fairy .zz{position:absolute;left:24px;top:-12px;font:400 9px var(--label);color:#9cc8ff;animation:zz 2s ease-in-out infinite;display:none}
+  .fairy.asleep .zz{display:block}
+  @keyframes zz{0%{opacity:0;transform:translate(0,4px)}50%{opacity:1}100%{opacity:0;transform:translate(6px,-8px)}}
+  .fairy .item{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .fairy .say{position:absolute;left:36px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#24160d;border:3px solid var(--outline);border-radius:6px;
+    padding:5px 9px;font:700 12.5px var(--body);color:#ffe28c;box-shadow:inset 0 2px 0 rgba(255,224,150,.15);opacity:0;transition:opacity .2s;pointer-events:none}
+  .fairy.talk .say,.fairy:hover .say{opacity:1}
+  .fairy .say small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a;margin-top:2px}
+  .sparks{position:absolute;pointer-events:none;z-index:6}
+  .sparks i{position:absolute;width:4px;height:4px;background:#ffe28c;animation:spark .6s ease-out forwards}
+  @keyframes spark{to{transform:translate(var(--x),var(--y));opacity:0}}
+
+  /* the PIN pad, carried by the light: it opens beside the box, laid out like a number pad */
+  .pad{position:absolute;z-index:5;animation:open .28s cubic-bezier(.2,.9,.3,1.25);transform-origin:left center}
+  @keyframes open{from{transform:scale(.3);opacity:0}}
+  .pad .dots{display:flex;justify-content:center;gap:6px;margin:0 0 10px}
+  .pad .dots i{width:9px;height:9px;transform:rotate(45deg);box-sizing:border-box;transition:background .1s}
+  .pad .grid{display:grid;grid-template-columns:repeat(3,auto);gap:6px;justify-content:center}
+  .pad .k{cursor:pointer;user-select:none;display:grid;place-items:center;transition:transform .06s,filter .06s,box-shadow .1s}
+  .pad .k.hit{transform:translateY(2px)}
+  .pad .k.zero{grid-column:span 2}
+  .pad.wrong{animation:shake .3s}
+  @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  /* A · the wooden keys: Samara's own wood, gold Silkscreen digits, a key pressed lights from inside */
+  .pad.wood{padding:12px;background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+    border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;box-shadow:0 14px 30px rgba(0,0,0,.6)}
+  .pad.wood .t{font:700 12px var(--body);color:var(--gold);text-shadow:1px 1px 0 #000;text-align:center;margin:0 0 8px}
+  .pad.wood .dots i{border:2px solid #8a6d33}
+  .pad.wood .dots i.f{background:#ffc43c;border-color:#ffe096;box-shadow:0 0 8px rgba(255,196,60,.8)}
+  .pad.wood .k{width:42px;height:38px;border-radius:6px;border:3px solid var(--outline);background:linear-gradient(180deg,#6a4426,#3f2715);
+    box-shadow:inset 0 3px 0 rgba(255,224,150,.18),0 3px 0 #120a05;font:400 16px var(--label);color:#ffe096;text-shadow:2px 2px 0 #000}
+  .pad.wood .k.zero{width:auto}
+  .pad.wood .k.hit{background:linear-gradient(180deg,#8a5a2a,#5a3a1e);box-shadow:inset 0 0 12px rgba(255,196,60,.7),0 1px 0 #120a05;color:#fff6cf}
+
+  /* B · the padlock: six dials that roll to each digit, like a travel chest's lock */
+  .pad.dial{padding:14px 16px 12px;background:linear-gradient(180deg,#d9a94a,#a8741f);border:4px solid #3a2208;border-radius:12px 12px 16px 16px;
+    box-shadow:inset 0 3px 0 #ffe7a8,inset 0 -4px 0 #7a4f0c,0 14px 30px rgba(0,0,0,.5)}
+  .pad.dial::before{content:"";position:absolute;left:50%;top:-34px;width:60px;height:40px;margin-left:-30px;border:8px solid #8c9aa2;border-bottom:none;border-radius:34px 34px 0 0;
+    box-shadow:inset 0 2px 0 #dfe8ec;transition:transform .35s}
+  .pad.dial.open::before{transform:translateY(-12px)}
+  .pad.dial .wheels{display:flex;gap:5px}
+  .pad.dial .wheel{width:30px;height:48px;overflow:hidden;border-radius:4px;border:3px solid #3a2208;background:#1c1208;position:relative;box-shadow:inset 0 6px 6px rgba(0,0,0,.7),inset 0 -6px 6px rgba(0,0,0,.7)}
+  .pad.dial .strip{position:absolute;left:0;right:0;top:0;transition:transform .35s cubic-bezier(.3,1.4,.4,1)}
+  .pad.dial .strip span{display:block;height:42px;line-height:42px;text-align:center;font:400 16px var(--label);color:#ffe096}
+  .pad.dial .wheel.f{border-color:#ffe096}
+  .pad.dial .strip span.mk{font:700 18px system-ui;color:#ffc43c;text-shadow:0 0 8px rgba(255,196,60,.8)}
+  .pad.dial .grid{margin-top:10px;gap:4px}
+  .pad.dial .k{width:30px;height:22px;border-radius:4px;border:2px solid #3a2208;background:#f0cf7c;font:400 10px var(--label);color:#3a2208}
+  .pad.dial .k.zero{width:auto}
+  .pad.dial .k.hit{background:#fff1c2}
+
+  /* C · the stones: nine shrine stones in the number pad's places, a rune and a note each */
+  .pad.stone{padding:14px;background:linear-gradient(180deg,#3a3f44,#24282b);border:3px solid #0b0c0d;border-radius:8px;box-shadow:inset 0 0 0 1px #5a646a,0 14px 30px rgba(0,0,0,.6)}
+  .pad.stone .t{font:700 11px var(--display);letter-spacing:3px;color:#bfe9e4;text-align:center;margin:0 0 8px;text-shadow:0 0 8px rgba(159,240,230,.45)}
+  .pad.stone .dots i{border:1.5px solid #5d8a86}
+  .pad.stone .dots i.f{background:#9FF0E6;box-shadow:0 0 8px #9FF0E6}
+  .pad.stone .k{width:44px;height:40px;border-radius:5px;background:linear-gradient(180deg,#5a6268,#3d4448);border:2px solid #15181a;box-shadow:inset 0 2px 0 #7d878d,0 3px 0 #0b0c0d;position:relative}
+  .pad.stone .k svg{opacity:.55;transition:opacity .1s,filter .1s}
+  .pad.stone .k b{position:absolute;right:4px;bottom:2px;font:400 8px var(--label);color:#8b979c}
+  .pad.stone .k.hit svg{opacity:1;filter:drop-shadow(0 0 4px #9FF0E6) drop-shadow(0 0 8px #9FF0E6)}
+  .pad.stone .k.zero{width:auto}
+</style>
+</head>
+<body>
+<h1>SHEET 75 - THE LIGHT AND ITS PIN PAD</h1>
+<p class="lead">You liked the companion light, so here it's the whole of autofill: it carries your papers and keys, it shows Bitwarden's state by how it looks, and when Bitwarden is locked it brings a PIN pad of Samara's own. Each pad is laid out like your real number pad, so the key you press lights on screen; you can click it too. Try it: click a box; press "Lock Bitwarden", then click the password box; type on the number pad (000000 shows a wrong try).</p>
+
+<h3>HOW THE LIGHT LOOKS</h3>
+<div class="moods">
+  <div class="mood"><div class="stage" data-m="gold"></div><b>AWAKE</b><p>Bitwarden is open. Warm gold, wings going.</p></div>
+  <div class="mood"><div class="stage" data-m="carry"></div><b>CARRYING</b><p>It holds what fits this box: a letter, a key.</p></div>
+  <div class="mood"><div class="stage" data-m="asleep"></div><b>ASLEEP</b><p>Bitwarden has locked. Dim blue, dozing. A PIN wakes it.</p></div>
+  <div class="mood"><div class="stage" data-m="none"></div><b>NOTHING FITS</b><p>No light at all. It never shows up just to say no.</p></div>
+</div>
+
+<section>
+  <div class="dh"><h2>A · THE WOODEN KEYS</h2><span>Samara's own wood and gold, the ⋯ menu's frame</span></div>
+  <p class="dnote">The light opens a small number pad of carved wood keys beside the box. Press a key on your keyboard and the same key sinks and glows from inside. Gold diamonds fill as you go.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-pad="wood" tabindex="0"></div></div></div>
+  <div class="ctl" data-for="wood"><button data-act="lock">Lock Bitwarden</button><button data-act="reset">Start again</button><span></span></div>
+</section>
+
+<section>
+  <div class="dh"><h2>B · THE TRAVEL LOCK</h2><span>a chest padlock with six rolling dials</span></div>
+  <p class="dnote">A brass padlock: each digit rolls a dial into place with a click (it lands on a mark, never your digit, so nobody behind you reads your PIN). On the sixth, the shackle springs open and your key drops into the box.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-pad="dial" tabindex="0"></div></div></div>
+  <div class="ctl" data-for="dial"><button data-act="lock">Lock Bitwarden</button><button data-act="reset">Start again</button><span></span></div>
+</section>
+
+<section>
+  <div class="dh"><h2>C · THE SHRINE STONES</h2><span>Breath of the Wild's shrines, Moria's moonlit lines</span></div>
+  <p class="dnote">Nine carved stones in the number pad's places, each with its own rune and note. Press a key and its stone wakes in moonlight and sings; your PIN becomes a little tune your hand knows.</p>
+  <div class="frame"><img class="band" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="pagewrap"><div class="site" data-pad="stone" tabindex="0"></div></div></div>
+  <div class="ctl" data-for="stone"><button data-act="lock">Lock Bitwarden</button><button data-act="reset">Start again</button><span></span></div>
+</section>
+
+<script>
+const PAL = { O:'#120A05', y:'#FFC43C', Y:'#FFE9A8', d:'#C98C14', w:'#F3E2B8', W:'#FFF8E8', r:'#c0392b', R:'#ff7a6a', t:'#9FF0E6' };
+const art = (rows, s = 2) => { const h = rows.length, w = Math.max(...rows.map((r) => r.length)); let r = ''; rows.forEach((row, y) => [...row].forEach((c, x) => { if (PAL[c]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>`; })); return `<svg class="px" width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}">${r}</svg>`; };
+const KEY = ['.OOO.','OyYyO','OyOyO','.OyO.','.OyO.','.OyyO','.OyO.','.OyyO','..O..'];
+const LETTER = ['OOOOOOO','OWwwwWO','OOwwwOO','OwOrOwO','OwwwwwO','OOOOOOO'];
+// nine runes for the stones (and 0), thin moonlit lines
+const RUNES = [['.t.','ttt','.t.','.t.'],['t.t','.t.','t.t','...'],['tt.','t.t','tt.','t..'],['.t.','t.t','.t.','...'],['ttt','.t.','.t.','ttt'],['t..','tt.','t.t','t..'],['.tt','t..','.t.','..t'],['t.t','ttt','t.t','...'],['ttt','t.t','ttt','.t.'],['.t.','t.t','t.t','.t.']];
+const ME = { email: 'alex@example.com' };
+
+let ac = null;
+const note = (f, t = 0, d = 0.28, v = 0.06, type = 'triangle') => { try { ac ??= new AudioContext(); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0, ac.currentTime + t); g.gain.linearRampToValueAtTime(v, ac.currentTime + t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + d);
+  o.connect(g).connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + d + 0.05); } catch { /* quiet */ } };
+const SCALE = [392, 440, 523.3, 587.3, 659.3, 784, 880, 1046.5, 1174.7, 1318.5];
+const click = () => { note(1800, 0, 0.03, 0.03, 'square'); note(900, 0.015, 0.04, 0.025, 'square'); };
+const chord = () => [523.3, 659.3, 784, 1046.5].forEach((f, i) => note(f, i * 0.07, 0.6, 0.05));
+const sad = () => { note(220, 0, 0.3, 0.05); note(207.7, 0.12, 0.4, 0.05); };
+const sparkle = (site, x, y) => { const s = document.createElement('div'); s.className = 'sparks'; s.style.left = x + 'px'; s.style.top = y + 'px';
+  for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2, r = 18 + Math.random() * 14, e = document.createElement('i'); e.style.setProperty('--x', Math.cos(a) * r + 'px'); e.style.setProperty('--y', Math.sin(a) * r + 'px'); s.append(e); }
+  site.append(s); setTimeout(() => s.remove(), 700); };
+
+// the four looks of the light, at the top
+for (const st of document.querySelectorAll('.stage')) {
+  const m = st.dataset.m; if (m === 'none') { st.innerHTML = '<div style="height:70px;display:grid;place-items:center;font:400 9px var(--label);color:#5a4a34;letter-spacing:1px">·  ·  ·</div>'; continue; }
+  st.innerHTML = `<div class="fairy ${m === 'asleep' ? 'asleep' : ''}" style="left:50%;top:38px"><span class="zz">z</span>${m === 'carry' ? `<span class="item">${art(LETTER, 2)}</span>` : ''}</div>`;
+}
+
+const LAYOUT = [7, 8, 9, 4, 5, 6, 1, 2, 3, 0];
+function padHTML(kind) {
+  const keys = LAYOUT.map((d) => {
+    const inner = kind === 'stone' ? `${art(RUNES[d], 5)}<b>${d}</b>` : d;
+    return `<div class="k${d === 0 ? ' zero' : ''}" data-d="${d}">${inner}</div>`; }).join('');
+  if (kind === 'wood') return `<div class="pad wood"><div class="t">Your PIN</div><div class="dots">${'<i></i>'.repeat(6)}</div><div class="grid">${keys}</div></div>`;
+  if (kind === 'dial') return `<div class="pad dial"><div class="wheels">${[0,1,2,3,4,5].map(() => `<div class="wheel"><div class="strip">${'<span>·</span>' + [0,1,2,3,4,5,6,7,8,9].map((d) => `<span class="mk">◆</span>`).join('')}</div></div>`).join('')}</div><div class="grid">${keys}</div></div>`;
+  return `<div class="pad stone"><div class="t">SPEAK THE WORD</div><div class="dots">${'<i></i>'.repeat(6)}</div><div class="grid">${keys}</div></div>`;
+}
+
+for (const site of document.querySelectorAll('.site')) {
+  const kind = site.dataset.pad, ctl = document.querySelector(`.ctl[data-for="${kind}"]`);
+  const S = { locked: false, at: null, pin: '' };
+  function build() {
+    site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="box" data-f="email"><input></div><label>Password</label><div class="box" data-f="pw"><input type="password"></div><div class="btn">Continue</div>
+      <div class="fairy" style="left:620px;top:-20px;opacity:0"><span class="zz">z</span><span class="item"></span><div class="say"></div></div>`;
+    S.at = null; S.pin = ''; mood();
+    for (const box of site.querySelectorAll('.box')) box.querySelector('input').addEventListener('focus', () => { if (!box.querySelector('input').value) go(box); });
+    site.querySelector('.fairy').addEventListener('mousedown', (e) => { e.preventDefault(); give(); });
+  }
+  const fairy = () => site.querySelector('.fairy');
+  function mood() { fairy().classList.toggle('asleep', S.locked); ctl.querySelector('span').textContent = S.locked ? 'BITWARDEN IS LOCKED: THE LIGHT IS ASLEEP' : 'BITWARDEN IS OPEN'; }
+  function go(box) {
+    S.at = box; site.querySelector('.pad')?.remove(); site.querySelectorAll('.box').forEach((b) => b.classList.toggle('on', b === box));
+    const f = fairy(), pw = box.dataset.f === 'pw';
+    f.style.opacity = '1'; f.style.left = (box.offsetLeft + box.offsetWidth + 24) + 'px'; f.style.top = (box.offsetTop + 17) + 'px';
+    f.querySelector('.item').innerHTML = S.locked ? '' : art(pw ? KEY : LETTER, 2);
+    f.querySelector('.say').innerHTML = S.locked ? `Locked. Wake me with your PIN<small>TOUCH ME, OR START TYPING</small>` : pw ? `Your key for northwind<small>TOUCH ME, OR TAB</small>` : `${ME.email}<small>TOUCH ME, OR TAB</small>`;
+    f.classList.add('talk');
+  }
+  function give() {
+    const box = S.at; if (!box) return;
+    if (S.locked) { openPad(); return; }
+    const inp = box.querySelector('input'); inp.value = box.dataset.f === 'pw' ? 'opened!opened' : ME.email; box.classList.remove('shine'); void box.offsetWidth; box.classList.add('shine');
+    sparkle(site, box.offsetLeft + box.offsetWidth + 24, box.offsetTop + 17); note(1046.5, 0, 0.2, 0.04); note(1318.5, 0.08, 0.3, 0.035);
+    const pw = site.querySelector('[data-f="pw"]');
+    if (box !== pw && !pw.querySelector('input').value) setTimeout(() => go(pw), 350);
+    else { S.at = null; const f = fairy(); f.classList.remove('talk'); f.style.left = '620px'; f.style.top = '-20px'; f.style.opacity = '0'; site.querySelectorAll('.box').forEach((b) => b.classList.remove('on')); }
+  }
+  function openPad() {
+    if (site.querySelector('.pad')) return;
+    const box = S.at; fairy().classList.remove('talk');
+    site.insertAdjacentHTML('beforeend', padHTML(kind));
+    const pad = site.querySelector('.pad');
+    pad.style.left = (box.offsetLeft + box.offsetWidth + 48) + 'px'; pad.style.top = Math.max(8, box.offsetTop - 90) + 'px';
+    pad.querySelectorAll('.k').forEach((k) => k.addEventListener('mousedown', (e) => { e.preventDefault(); press(k.dataset.d); }));
+    S.pin = ''; draw(); site.focus();
+  }
+  function draw() {
+    const pad = site.querySelector('.pad'); if (!pad) return;
+    pad.querySelectorAll('.dots i').forEach((d, i) => d.classList.toggle('f', i < S.pin.length));
+    pad.querySelectorAll('.wheel').forEach((w, i) => { const d = S.pin[i]; w.classList.toggle('f', d !== undefined); w.querySelector('.strip').style.transform = `translateY(${d === undefined ? 0 : -(+d + 1) * 42}px)`; });
+  }
+  function press(d) {
+    const pad = site.querySelector('.pad'); if (!pad || S.pin.length >= 6) return;
+    const k = pad.querySelector(`.k[data-d="${d}"]`); k.classList.add('hit'); setTimeout(() => k.classList.remove('hit'), 160);
+    S.pin += d; draw(); kind === 'dial' ? click() : note(SCALE[+d], 0, kind === 'stone' ? 0.5 : 0.25);
+    if (S.pin.length === 6) setTimeout(() => {
+      if (S.pin === '000000') { pad.classList.add('wrong'); sad(); setTimeout(() => { pad.classList.remove('wrong'); S.pin = ''; draw(); }, 400); return; }
+      if (kind === 'dial') pad.classList.add('open');
+      chord(); S.locked = false; mood();
+      setTimeout(() => { pad.remove(); give(); }, kind === 'dial' ? 450 : 250);
+    }, 180);
+  }
+  site.addEventListener('keydown', (e) => {
+    if (site.querySelector('.pad')) { if (/^[0-9]$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') { S.pin = S.pin.slice(0, -1); draw(); } else if (e.key === 'Escape') site.querySelector('.pad').remove(); e.preventDefault(); return; }
+    if (S.at && S.locked && /^[0-9]$/.test(e.key)) { e.preventDefault(); openPad(); press(e.key); return; }
+    if (S.at && e.key === 'Tab' && !S.at.querySelector('input').value) { e.preventDefault(); give(); }
+  });
+  ctl.addEventListener('click', (e) => { const a = e.target.closest('button')?.dataset.act; if (a === 'lock') { S.locked = true; mood(); if (S.at) go(S.at); } if (a === 'reset') { S.locked = false; build(); } });
+  build();
+  // For pictures: #shots shows each pad part-way through a PIN
+  if (location.hash === '#shots') setTimeout(() => { S.locked = true; mood(); go(site.querySelector('[data-f="pw"]')); setTimeout(() => { openPad(); for (const d of '7351') press(d); }, 900); }, 200);
+}
+</script>
+</body>
+</html>
