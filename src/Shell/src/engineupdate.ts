@@ -14,11 +14,14 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { writeFileAtomic } from './atomic.ts';
-import { readFuses, samaraFuses, setFuses } from './fusewire.ts';
+import { FUSE, readFuses, samaraFuses, setFuses, wireMap } from './fusewire.ts';
 
 /** His tick boxes on an engine update (2026-10-14): the login lock, and closing the back doors. On by default. */
 export interface Choices { lock: boolean; closeBackdoors: boolean }
-export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean }
+/** `fixed`: castLabs would only sign this engine as it came, so his tick boxes are not offered (2026-10-23). */
+export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean; fixed?: boolean }
+/** What came of a video signing: signed, refused because of the switches, or failed for another reason. */
+type Signed = 'ok' | 'denied' | 'failed';
 /** "44.5.1+wvcus" -> "44.5.1". */
 export const plain = (v: string): string => String(v ?? '').replace(/\+.*$/, '');
 export interface UpdateOptions {
@@ -207,10 +210,23 @@ export class EngineUpdates {
       if (!asset || !sha) throw new Error(`castLabs ${v} has no Windows download with a published fingerprint`);
       console.log(`shell: castLabs engine ${v} is out (running ${cur}); getting it ready`);
       if (!existsSync(path.join(this.engines, 'castlabs-' + v, 'electron.exe'))) await this.fetchZip(asset.browser_download_url, sha, 'castlabs-' + v);
-      const choices: Choices = { lock: true, closeBackdoors: true };
-      if (!(await this.switchesAndSign(v, choices))) return;
+      let choices: Choices = { lock: true, closeBackdoors: true };
+      let fixed = false;
+      let signed = await this.switchesAndSign(v, choices);
+      // castLabs signs only an engine exactly as they released it (proved on the Mac, 2026-10-23: switches flipped ->
+      // "Binary signature denied"; untouched -> signed). Then it goes as it came, paid video kept, switches off. Never
+      // when the logins here are already locked: an engine without the lock cannot read them, and they would be lost.
+      if (signed === 'denied') {
+        if (EngineUpdates.runningFuses()[FUSE.EnableCookieEncryption] === '1') {
+          console.log(`shell: castLabs ${v} would only be signed without the login lock, and the logins here are locked; not offered`);
+          return;
+        }
+        choices = { lock: false, closeBackdoors: false }; fixed = true;
+        signed = await this.switchesAndSign(v, choices);
+      }
+      if (signed !== 'ok') return;
       if (!(await this.test(v))) return;
-      this.set({ version: v, since: Date.now(), castlabs: true, choices, major: v.split('.')[0] !== cur.split('.')[0] });
+      this.set({ version: v, since: Date.now(), castlabs: true, choices, major: v.split('.')[0] !== cur.split('.')[0], ...(fixed ? { fixed } : {}) });
       console.log(`shell: castLabs engine ${v} is ready; the update key is showing`);
     } catch (e) {
       console.log('shell: engine update check: ' + (e as Error).message);
@@ -218,8 +234,12 @@ export class EngineUpdates {
   }
   /** Set the engine's switches to his choices and re-sign it for paid video (the switches live in electron.exe, which
    *  the video signature covers). False: it could not be signed; the reason is logged and he is told. */
-  async switchesAndSign(v: string, c: Choices, dir = path.join(this.engines, 'castlabs-' + plain(v))): Promise<boolean> {
-    console.log(`shell: engine ${v} switches: ${setFuses(path.join(dir, 'electron.exe'), samaraFuses(c))}`);
+  async switchesAndSign(v: string, c: Choices, dir = path.join(this.engines, 'castlabs-' + plain(v))): Promise<Signed> {
+    // The switches as castLabs shipped them, kept the first time, so an engine can always be put back exactly as it came.
+    const exe = path.join(dir, 'electron.exe'), stockFile = path.join(dir, 'stock-fuses.txt');
+    if (!existsSync(stockFile)) writeFileSync(stockFile, readFuses(exe));
+    const stock = !c.lock && !c.closeBackdoors;
+    console.log(`shell: engine ${v} switches: ${setFuses(exe, stock ? wireMap(readFileSync(stockFile, 'utf8').trim()) : samaraFuses(c))}${stock ? ' (as castLabs shipped it)' : ''}`);
     const sig = path.join(dir, 'electron.exe.sig');
     const before = existsSync(sig) ? statSync(sig).mtimeMs : 0;
     const out = await new Promise<{ code: number | null; text: string }>((res) => {
@@ -231,10 +251,11 @@ export class EngineUpdates {
       t.on('error', (e) => { clearTimeout(kill); res({ code: null, text: e.message }); });
       t.on('exit', (code) => { clearTimeout(kill); res({ code, text }); });
     });
-    if (out.code === 0 && existsSync(sig) && statSync(sig).mtimeMs > before) return true;
+    if (out.code === 0 && existsSync(sig) && statSync(sig).mtimeMs > before) return 'ok';
     console.log(`shell: engine ${v} could not be re-signed for video (exit ${out.code}): ${out.text.split(/\r?\n/).filter(Boolean).slice(-4).join(' | ').slice(0, 600)}`);
+    if (/signature denied/i.test(out.text)) return 'denied';
     this.o.signinNeeded?.(/auth|login|token|credential|expired|unauthori/i.test(out.text));
-    return false;
+    return 'failed';
   }
   /** What the switches are on the engine running now ("0100..."), or '' (for the one-time login re-lock). */
   static runningFuses(): string { try { return readFuses(process.execPath); } catch { return ''; } }
@@ -329,10 +350,10 @@ export class EngineUpdates {
     if (!r || !existsSync(this.exeOf(r.version))) return { ok: false, why: 'The update is not ready any more.' };
     if (this.o.quietNow()) return { ok: false, why: 'Not during a call or a game.' };
     // He changed a tick box: the switches are set again his way and the engine re-signed (about a minute).
-    if (r.castlabs && r.choices && choices) {
+    if (r.castlabs && r.choices && choices && !r.fixed) {
       const want: Choices = { lock: choices.lock !== false, closeBackdoors: choices.closeBackdoors !== false };
       if (want.lock !== r.choices.lock || want.closeBackdoors !== r.choices.closeBackdoors) {
-        if (!(await this.switchesAndSign(r.version, want))) return { ok: false, why: 'Your choices could not be put in just now. Try again in a minute.' };
+        if ((await this.switchesAndSign(r.version, want)) !== 'ok') return { ok: false, why: 'Your choices could not be put in just now. Try again in a minute.' };
         this.set({ ...r, choices: want });
       }
     }
