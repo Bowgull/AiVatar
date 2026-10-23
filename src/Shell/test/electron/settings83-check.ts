@@ -43,10 +43,11 @@ app.whenReady().then(async () => {
   // the help line waits half a second
   await go('look');
   await js(`document.querySelector('[data-cyc=dark]').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))`);
-  await wait(200);
-  check('no help line yet after 0.2 s', (await js(`document.getElementById('help').textContent`)) === '');
-  await wait(450);
-  check('help line after half a second', (await js(`document.getElementById('help').textContent`)).startsWith('Websites shown dark'));
+  await wait(1200);
+  check('no label yet after 1.2 s', !(await js(`document.querySelector('.tip').classList.contains('on')`)));
+  await wait(1000);
+  check('the label by the mouse after 2 s', (await js(`document.querySelector('.tip.on')?.textContent ?? ''`)).startsWith('Websites shown dark'));
+  check('no frame at the bottom', !(await js(`!!document.getElementById('help')`)));
   await shot('look-help');
 
   for (const s of ['search', 'autofill', 'privacy', 'sounds', 'about']) { await go(s); await wait(150); await shot(s); }
@@ -66,6 +67,12 @@ app.whenReady().then(async () => {
   check('and it is kept at once', (await js(`__sent()`)).includes('"postal":"M5H 2N2"'));
   await shot('details-picked');
   await js(`(() => { for (const [k, v] of [['given', 'Mary Ann'], ['family', 'van der Berg']]) { const i = document.getElementById('af-' + k); i.value = v; i.dispatchEvent(new Event('change')); } })()`);
+  await js(`(() => { const i = document.getElementById('af-em0'); i.value = 'you@example.com'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); })()`);
+  check('a second email row appears under the first', (await js(`document.querySelectorAll('[data-em]').length`)) === 2);
+  await js(`(() => { const i = document.getElementById('af-phone'); i.value = '416-555-0142'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); })()`);
+  check('the phone is tidied as typed', (await js(`document.getElementById('af-phone').value`)) === '(416) 555-0142');
+  check('...with its tick', !(await js(`document.querySelector('[data-ok=phone]').hidden`)));
+  await shot('details-v4');
   check('first and last name are two boxes, kept as typed', (await js(`__sent()`)).includes('"given":"Mary Ann","family":"van der Berg"'));
 
   // PIN

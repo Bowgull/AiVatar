@@ -23,6 +23,11 @@ test('his details: short plain text, real-looking emails, at most five', () => {
   assert.equal(detailFor(d, 'family'), 'Example');
   assert.equal(detailFor(d, 'email', 1), 'c@d.io');
 });
+test('his phone is tidied, other countries kept as typed (sheet 83 v4)', () => {
+  assert.equal(cleanDetails({ phone: '416-555-0142' }).phone, '(416) 555-0142');
+  assert.equal(cleanDetails({ phone: '1 416 555 0142' }).phone, '+1 (416) 555-0142');
+  assert.equal(cleanDetails({ phone: '+44 20 7946 0958' }).phone, '+44 20 7946 0958');
+});
 test('first and last name kept apart, as he typed them (sheet 83 v3)', () => {
   const d = cleanDetails({ given: 'Mary Ann', family: 'van der Berg', name: 'ignored' });
   assert.equal(detailFor(d, 'given'), 'Mary Ann');

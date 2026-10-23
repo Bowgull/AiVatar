@@ -5,7 +5,8 @@
 <!-- The browser's Settings, as its own tab. Sheet 83 v2 (his "B but its a hover time yes?", 2026-10-23): chapters down the
      left, each row a name and its value with nothing under it, ‹ › to change a value, a › row opens one level in, and one
      help line for the row the glove has rested on for half a second. Dark ink cards on recessed wood, gold arrow caps,
-     the white glove (sheet of 2026-10-12). Everything drawn with textContent; the only doors are window.settings. -->
+     the white glove (sheet of 2026-10-12). v4 (his "yes i approve build v4"): the help is a small label by the mouse after
+     it rests on a row for 2 seconds, no frame; one row per email; the phone tidied as he types. Everything drawn with textContent; the only doors are window.settings. -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; form-action 'none'; base-uri 'none'">
 <title>Settings</title>
@@ -91,8 +92,8 @@
       <div class="card"><i class="caps"></i>
         <div class="fld"><label for="af-given">First name</label><input id="af-given" type="text" spellcheck="false" maxlength="60" autocomplete="off"></div>
         <div class="fld"><label for="af-family">Last name</label><input id="af-family" type="text" spellcheck="false" maxlength="60" autocomplete="off"></div>
-        <div class="fld"><label for="af-emails">Emails</label><input id="af-emails" type="text" spellcheck="false" maxlength="600" autocomplete="off"></div>
-        <div class="fld"><label for="af-phone">Phone</label><input id="af-phone" type="text" spellcheck="false" maxlength="40" autocomplete="off"></div>
+        <div id="emails"></div>
+        <div class="fld"><label for="af-phone">Phone</label><input id="af-phone" type="text" spellcheck="false" maxlength="40" autocomplete="off"><i class="ok" data-ok="phone"></i></div>
         <div class="fld" id="addrrow"><label for="af-street">Address</label><div class="grow"><input id="af-street" type="text" spellcheck="false" maxlength="200" autocomplete="off"><div class="sug" id="sug" hidden></div></div><i class="ok" data-ok="street"></i></div>
         <div class="fld"><label for="af-city">City</label><input id="af-city" type="text" spellcheck="false" maxlength="100" autocomplete="off"><i class="ok" data-ok="city"></i></div>
         <div class="fld"><label for="af-region">Province</label><input id="af-region" type="text" spellcheck="false" maxlength="100" autocomplete="off"><i class="ok" data-ok="region"></i></div>
@@ -151,7 +152,6 @@
       <div class="card"><i class="caps"></i><div class="list" id="marklist"></div></div>
     </section>
 
-    <div class="help" id="help"></div>
   </main>
 </div>
 <script src="settings.js" type="module"></script>

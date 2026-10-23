@@ -29,13 +29,21 @@ export type FieldKind = 'email' | 'username' | 'password' | 'newpassword' | 'nam
 export const DETAIL_KINDS: FieldKind[] = ['email', 'name', 'given', 'family', 'tel', 'street', 'city', 'region', 'postal', 'country'];
 
 const clip = (v: unknown, n: number) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+/** His phone, tidied (sheet 83 v4): 10 numbers read (416) 555-0142, 11 starting with 1 get +1 in front; anything else
+ *  (another country's number) is kept as he typed it. */
+export function tidyPhone(v: string): string {
+  const d = v.replace(/\D/g, '');
+  const n = d.length === 11 && d[0] === '1' ? d.slice(1) : d;
+  if (n.length !== 10) return v.trim();
+  return `${d.length === 11 ? '+1 ' : ''}(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
+}
 /** His details as they may be kept: plain short text only, at most five emails that look like emails. */
 export function cleanDetails(d: unknown): Details {
   const o = (d && typeof d === 'object' ? d : {}) as Record<string, unknown>;
   const emails = (Array.isArray(o.emails) ? o.emails : []).map((e) => clip(e, 200)).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
   let given = clip(o.given, 60), family = clip(o.family, 60);
   if (!given && !family) { const [g = '', ...rest] = clip(o.name, 120).split(/\s+/); given = g; family = rest.join(' '); }
-  return { name: [given, family].filter(Boolean).join(' '), given, family, emails: [...new Set(emails)].slice(0, 5), phone: clip(o.phone, 40), street: clip(o.street, 200), city: clip(o.city, 100),
+  return { name: [given, family].filter(Boolean).join(' '), given, family, emails: [...new Set(emails)].slice(0, 5), phone: tidyPhone(clip(o.phone, 40)), street: clip(o.street, 200), city: clip(o.city, 100),
     region: clip(o.region, 100), postal: clip(o.postal, 20), country: clip(o.country, 80) };
 }
 /** The value his details give a kind of box ('' when none). */
@@ -202,6 +210,14 @@ export function fillDetailsScript(values: Partial<Record<FieldKind, string>>, wh
     el.value = o.value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   };
+  // His phone the way each box wants it (sheet 83 v4): numbers only where the box is short or its pattern has no room
+  // for dashes or spaces; else as he keeps it, (416) 555-0142.
+  const telFor = (el, v) => {
+    const d = String(v).replace(/\\D/g, ''), pat = el.getAttribute('pattern') || '';
+    const bare = (el.maxLength > 0 && el.maxLength <= 11) || (pat && !/[-\\s().]/.test(pat.replace(/\\\\[ds]/g, '')));
+    if (!bare) return v;
+    return el.maxLength === 10 && d.length === 11 ? d.slice(1) : d;
+  };
   const here = document.activeElement;
   if (!here || here.tagName !== 'INPUT' || typeof kind !== 'function') return 0;
   const boxes = ${whole} ? [...(here.form || document).querySelectorAll('input, select')] : [here];
@@ -210,9 +226,9 @@ export function fillDetailsScript(values: Partial<Record<FieldKind, string>>, wh
     const k = kind(b);
     if (!k || !V[k] || b.disabled) continue;
     if (b.tagName === 'SELECT') { if (pick(b, k, V[k])) did++; continue; }
-    if (!b.value && !b.readOnly) { set(b, V[k]); did++; }
+    if (!b.value && !b.readOnly) { set(b, k === 'tel' ? telFor(b, V[k]) : V[k]); did++; }
   }
-  if (here.value === '' && V[kind(here)]) { set(here, V[kind(here)]); did++; }
+  if (here.value === '' && V[kind(here)]) { set(here, kind(here) === 'tel' ? telFor(here, V.tel) : V[kind(here)]); did++; }
   return did;
 })()`;
 }

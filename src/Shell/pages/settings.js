@@ -36,15 +36,28 @@ for (const a of document.querySelectorAll('.side a')) a.addEventListener('click'
 for (const b of document.querySelectorAll('[data-back]')) b.addEventListener('click', () => show(b.closest('section').dataset.up));
 S?.onSection?.((s) => show(String(s)));
 
-// ---- the help line: the row the glove has rested on for half a second (his ask: sweeping past rows shows nothing)
-let helpFor = null, helpWait = 0;
-const helpNow = (t) => { $('#help').textContent = t; };
+// ---- the label (sheet 83 v4, his pick): once the glove has rested on one row for 2 seconds, a small label by the mouse
+// says what it does; another row, leaving it, a click or a scroll hides it at once.
+let helpFor = null, helpWait = 0, mx = 0, my = 0;
+const tip = Object.assign(document.createElement('div'), { className: 'tip', role: 'tooltip' });
+document.body.append(tip);
+const helpNow = (t) => {
+  if (!t) { tip.classList.remove('on'); return; }
+  tip.textContent = t;
+  tip.style.left = Math.max(8, Math.min(mx + 14, innerWidth - tip.offsetWidth - 12)) + 'px';
+  tip.style.top = Math.max(8, my - tip.offsetHeight - 12) + 'px';
+  tip.classList.add('on');
+};
+document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
 document.addEventListener('mouseover', (e) => {
   const r = e.target.closest('[data-help]');
   if (r === helpFor) return;
   helpFor = r; clearTimeout(helpWait); helpNow('');
-  if (r?.dataset.help) helpWait = setTimeout(() => { if (helpFor === r) helpNow(r.dataset.help); }, 500);
+  // Where the mouse is (or, if it has not moved since the page opened, by the row's name).
+  if (r?.dataset.help) helpWait = setTimeout(() => { if (helpFor !== r) return; if (!mx && !my) { const b = r.getBoundingClientRect(); mx = b.left + 60; my = b.top + 8; } helpNow(r.dataset.help); }, 2000);
 });
+for (const ev of ['mousedown', 'wheel', 'keydown']) document.addEventListener(ev, () => { clearTimeout(helpWait); helpNow(''); }, true);
+document.addEventListener('mouseleave', () => { helpFor = null; clearTimeout(helpWait); helpNow(''); });
 
 // ---- ‹ value ›: the word is what it is set to; either arrow moves it, and so does a click on the row
 const ONOFF = [[true, 'On'], [false, 'Off']];
@@ -95,15 +108,42 @@ $('#homein').addEventListener('blur', () => homeDone(true));
 
 // ---- your details: kept the moment a box is left; the address box looks his address up (OpenStreetMap)
 const AF = ['given', 'family', 'phone', 'street', 'city', 'region', 'postal', 'country'];
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// v4: one row per email, the main one first, an empty row under the last to add another.
+function emailRows(list) {
+  const box = $('#emails');
+  box.replaceChildren();
+  [...list, ''].slice(0, 5).forEach((v, i) => {
+    const row = Object.assign(document.createElement('div'), { className: 'fld' + (i ? ' sub' : '') });
+    const lab = Object.assign(document.createElement('label'), { textContent: 'Emails', htmlFor: 'af-em' + i });
+    const inp = Object.assign(document.createElement('input'), { id: 'af-em' + i, type: 'text', spellcheck: false, maxLength: 200, autocomplete: 'off', value: v });
+    inp.dataset.em = String(i);
+    const ok = Object.assign(document.createElement('i'), { className: 'ok' }); ok.append(TICK()); ok.hidden = !EMAIL.test(v.trim());
+    inp.addEventListener('input', () => { ok.hidden = !EMAIL.test(inp.value.trim()); if (i === box.children.length - 1 && inp.value && box.children.length < 5) { emailRows(emails()); $('#af-em' + i).focus(); } });
+    inp.addEventListener('change', () => { saveDetails(); if (!inp.value) emailRows(emails()); });
+    row.append(lab, inp, ok);
+    box.append(row);
+  });
+}
+const emails = () => [...document.querySelectorAll('[data-em]')].map((i) => i.value.trim()).filter(Boolean);
+// v4: the phone tidied as he types, (416) 555-0142; a tick once it is a whole number.
+function tidyPhone(v) {
+  const d = v.replace(/\D/g, ''), n = d.length === 11 && d[0] === '1' ? d.slice(1) : d;
+  if (/[^\d\s()+.-]/.test(v) || d.length > 11 || (d.length === 11 && d[0] !== '1') || v.trim().startsWith('+') && d[0] !== '1') return v;
+  if (n.length <= 3) return n;
+  if (n.length <= 6) return `(${n.slice(0, 3)}) ${n.slice(3)}`;
+  return `${d.length === 11 ? '+1 ' : ''}(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6, 10)}`;
+}
+$('#af-phone').addEventListener('input', () => { const p = $('#af-phone'); const t = tidyPhone(p.value); if (t !== p.value) p.value = t; ticks(); });
 const picked = {};   // what the lookup filled in this time (those boxes get the tick while they are unchanged)
 function fillDetails() {
   const d = data?.autofill?.details ?? {};
   for (const k of AF) $('#af-' + k).value = d[k] ?? '';
-  $('#af-emails').value = (d.emails ?? []).join(', ');
+  emailRows(d.emails ?? []);
   ticks();
 }
 function saveDetails() {
-  const v = { emails: $('#af-emails').value.split(/[,\s]+/).filter(Boolean) };
+  const v = { emails: emails() };
   for (const k of AF) v[k] = $('#af-' + k).value;
   S?.set('afDetails', v);
 }
@@ -112,10 +152,10 @@ const POSTAL = /^([A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d|\d{5}(-\d{4})?)$/;
 function ticks() {
   for (const t of document.querySelectorAll('[data-ok]')) {
     const k = t.dataset.ok, v = $('#af-' + k).value.trim();
-    t.hidden = !v || !(picked[k] === v || (k === 'postal' && POSTAL.test(v)));
+    t.hidden = !v || !(picked[k] === v || (k === 'postal' && POSTAL.test(v)) || (k === 'phone' && v.replace(/\D/g, '').length >= 10));
   }
 }
-for (const k of ['emails', ...AF]) {
+for (const k of AF) {
   const i = $('#af-' + k);
   if (!i) continue;
   i.addEventListener('change', () => { if (k === 'postal' && POSTAL.test(i.value.trim())) i.value = i.value.trim().toUpperCase().replace(/^([A-Z]\d[A-Z]) ?(\d[A-Z]\d)$/, '$1 $2'); saveDetails(); ticks(); });
