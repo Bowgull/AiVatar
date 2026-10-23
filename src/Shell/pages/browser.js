@@ -948,7 +948,8 @@ window.aang?.onBrowserDevAsk?.((a) => {
   if (devId !== a.id) devPick = null;
   devId = a.id;
   const list = Array.isArray(a.devices) ? a.devices : [];
-  if (!list.some((d) => d.id === devPick)) devPick = list.length === 1 ? String(list[0].id) : null;
+  // The one he allowed last time comes up already picked (a new device beside it still needs his click).
+  if (!list.some((d) => d.id === devPick)) devPick = list.length === 1 ? String(list[0].id) : (list.some((d) => d.id === a.picked) ? String(a.picked) : null);
   el('devm').textContent = list.length ? `${a.host || 'This site'} wants to talk to one device. Pick it.` : `${a.host || 'This site'} wants a keyboard or mouse. None that it can use is plugged in.`;
   const box = el('devlist');
   box.replaceChildren();

@@ -35,7 +35,8 @@ const BAND_REC = `(() => { window.__fr = []; const k = document.getElementById('
   requestAnimationFrame(f); return true; })()`;
 const TRAY_REC = `(() => { window.__fr = []; const d = document.querySelector('.drawer'), h = document.querySelector('.railhandle');
   const x = (e) => { const m = new DOMMatrix(getComputedStyle(e).transform); return Math.round(m.m41); };
-  const f = (t) => { window.__fr.push([Math.round(performance.timeOrigin + t), x(d), getComputedStyle(h).display !== 'none' ? x(h) : null, document.body.classList.contains('out') ? 1 : 0]); requestAnimationFrame(f); };
+  const sx = () => { const m = new DOMMatrix(getComputedStyle(h, '::after').transform); return Math.round(m.a * 100) / 100; };
+  const f = (t) => { window.__fr.push([Math.round(performance.timeOrigin + t), x(d), getComputedStyle(h).display !== 'none' ? x(h) : null, document.body.classList.contains('out') ? 1 : 0, sx()]); requestAnimationFrame(f); };
   requestAnimationFrame(f); return true; })()`;
 
 app.whenReady().then(async () => {
@@ -109,6 +110,8 @@ app.whenReady().then(async () => {
         listFirstMove: moving[0] ? moving[0] - from : null, listLastMove: moving.length ? moving[moving.length - 1]! - from : null,
         slideFrames: moving.length, worstListFrameMs: worst(tf), worstBandFrameMs: worst(bf),
         listX: tf.map((f) => f[1]).filter((v, i, a) => i === 0 || v !== a[i - 1]),
+        // The arrow: 1 = pointing out, -1 = turned to point back; a smooth run between them is the card turn.
+        arrow: tf.map((f) => f[4]).filter((v, i, a) => i === 0 || v !== a[i - 1]),
         // The band's arrow back on, and the list layer hidden (close) or shown (open), from the start.
         bandArrowBack: (() => { const off = bf.findIndex(([, v]) => v === 0); const on = off >= 0 ? bf.slice(off).find(([, v]) => v === 1) : undefined; return on ? (on[0] as number) - from : null; })(),
         layer: vis.filter(([t]) => t >= from && t <= to).map(([t, on]) => `${on ? 'shown' : 'hidden'} ${t - from}`),

@@ -83,12 +83,22 @@ app.whenReady().then(async () => {
   for (let i = 0; i < 30 && !title().startsWith('got:'); i++) await wait(100);
   check('the page gets the device he picked', title().startsWith('got:'), title());
   check('the ask goes away', await frame().executeJavaScript(`document.getElementById('devchip').hidden`, true) === true);
-  // 3) Asked again on the same site: it connects with no ask.
+  // 3) Asked again on the same site: with only that device matching, it connects with no ask; with others plugged in
+  // too (his dongle AND his keyboard's cable), it asks again with the one he allowed already picked.
   await tab()!.executeJavaScript(`document.title = 'idle'`, true);
+  const firstName = title();
   await click(tab()!, 120, 50);
-  for (let i = 0; i < 30 && !title().startsWith('got:'); i++) await wait(100);
-  const asked = await frame().executeJavaScript(`!document.getElementById('devchip').hidden`, true);
-  check('next time on this site: connected with no ask', title().startsWith('got:') && !asked, title());
+  let asked = false;
+  for (let i = 0; i < 30 && !title().startsWith('got:') && !asked; i++) { await wait(100); asked = await frame().executeJavaScript(`!document.getElementById('devchip').hidden`, true); }
+  if (rows > 1) {
+    const pre = await frame().executeJavaScript(`[...document.querySelectorAll('#devlist .dev')].findIndex((x) => x.getAttribute('aria-pressed') === 'true')`, true);
+    check('several devices: it asks again, the allowed one already picked', asked && pre === 0, `picked row ${pre}`);
+    await shot('1b-ask-again');
+    const y = await center(frame(), '#devyes'); if (y) await click(frame(), ...y);
+    for (let i = 0; i < 30 && !title().startsWith('got:'); i++) await wait(100);
+    check('Connect gives the same device', title() !== 'idle', title());
+  } else check('one device: next time it connects with no ask', title().startsWith('got:') && !asked, title());
+  void firstName;
   // 4) The shield lists it; Forget takes it back.
   const lock = await center(frame(), '#lock'); if (lock) await click(frame(), ...lock);
   await wait(400);
