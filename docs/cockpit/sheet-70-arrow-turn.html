@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 70 - The tab list arrow, turning</title>
+<!-- Sheet 70 (2026-10-22, his report: "the arrow flip doesn't really give smooth motion principles; it disappears kinda
+     quick and the flip is not really seen or useful"). Today the handle's picture is swapped for the backwards one the
+     instant the list starts to slide (handle3.png -> handle3-back.png), and on closing the list speeds up into the edge
+     and is gone. Here: the real handle and wood, the arrow lifted off the handle (handle3-arrow.png) so it can move on
+     its own, three ways for it to turn, each shown at real speed and four times slower. Drawn on canvas at 2x, pixels
+     crisp; the slide uses Samara's own curve and time (220 ms out). -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important}
+  body{margin:0;color:#e8dcc4;font-family:var(--body);padding:28px 34px 50px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 24px;max-width:1240px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:repeat(4,300px);gap:22px 26px}
+  .opt h2{font:400 11px var(--label);color:#c9b48c;letter-spacing:1.5px;margin:0 0 8px;height:22px;display:flex;align-items:center}
+  .opt p{font-size:13px;color:#b9a684;line-height:1.45;margin:8px 2px 0}
+  canvas{display:block;image-rendering:pixelated;border-radius:8px;box-shadow:0 4px 0 rgba(0,0,0,.5)}
+  .speed{font:400 10px var(--label);color:#8f7a55;letter-spacing:1px;margin:14px 0 6px}
+  .pick{display:inline-block;border:3px solid #78c88a;border-radius:8px;padding:1px 7px;font:700 11px var(--body);color:#78c88a;margin-left:6px}
+</style>
+</head>
+<body>
+<h1>SHEET 70 - THE TAB LIST ARROW, TURNING</h1>
+<p class="lead">Today the arrow is swapped for the backwards one the instant the list starts moving, so you never see it turn, and on closing the list speeds up into the edge and is simply gone. Below, the real handle and wood, with the arrow free to move on its own. Each option plays at real speed, then four times slower underneath so you can see what it does. The list opens, waits, closes, waits, over and over.</p>
+
+<div class="grid">
+  <div class="opt"><h2>TODAY</h2><canvas data-kind="today"></canvas><div class="speed">4X SLOWER</div><canvas data-kind="today" data-slow="4"></canvas>
+    <p>The picture swaps at once; closing speeds up and stops dead.</p></div>
+  <div class="opt"><h2>A. TURNS WITH THE SLIDE <span class="pick">MY PICK</span></h2><canvas data-kind="flipslide"></canvas><div class="speed">4X SLOWER</div><canvas data-kind="flipslide" data-slow="4"></canvas>
+    <p>The arrow turns over like a card through the whole slide, and faces back just as the list lands. Closing eases in to rest while it turns back. Crisp the whole way.</p></div>
+  <div class="opt"><h2>B. SPINS</h2><canvas data-kind="spin"></canvas><div class="speed">4X SLOWER</div><canvas data-kind="spin" data-slow="4"></canvas>
+    <p>The arrow spins round instead. Halfway round, pixel art turned at a slant goes rough (see the slow one), so not my pick.</p></div>
+  <div class="opt"><h2>C. RIDES, THEN TURNS</h2><canvas data-kind="late"></canvas><div class="speed">4X SLOWER</div><canvas data-kind="late" data-slow="4"></canvas>
+    <p>It rides out still pointing out, then turns over once the list lands, with a small overshoot, like a menu card settling.</p></div>
+</div>
+
+<script>
+// The real art, drawn at 2x (one art pixel = 2 screen pixels). Handle 16x64, the arrow alone 16x64, the list's wood tray.
+const A = '../../src/Shell/pages/art/browser/';
+const load = (n) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = A + n; });
+const S = 2, W = 300, H = 170, RAIL = 120;            // the list, shortened to fit: 120 art... px wide on screen
+// Samara's own curves: out cubic-bezier(.32,.72,0,1) 220 ms; today's close cubic-bezier(.4,0,1,1) 220 ms.
+function bez(x1, y1, x2, y2) { return (t) => { let a = 0, b = 1, m = t; for (let i = 0; i < 24; i++) { m = (a + b) / 2; const u = 1 - m, x = 3*u*u*m*x1 + 3*u*m*m*x2 + m*m*m; if (x < t) a = m; else b = m; } const u = 1 - m; return 3*u*u*m*y1 + 3*u*m*m*y2 + m*m*m; }; }
+const OUT = bez(.32, .72, 0, 1), IN_TODAY = bez(.4, 0, 1, 1), SETTLE = bez(.32, .72, 0, 1);
+const back = (t, s = 1.6) => 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2);   // a small overshoot
+
+Promise.all([load('handle3.png'), load('handle3-back.png'), load('handle3-arrow.png'), load('tray.png'), load('band.png')]).then(([hand, handBack, arrow, tray, band]) => {
+  // The handle without its arrow: the arrow's pixels painted in the socket's own colour.
+  const bare = document.createElement('canvas'); bare.width = 16; bare.height = 64;
+  const bx = bare.getContext('2d'); bx.drawImage(hand, 0, 0);
+  const ar = document.createElement('canvas'); ar.width = 16; ar.height = 64; const ax = ar.getContext('2d'); ax.drawImage(arrow, 0, 0);
+  const hp = bx.getImageData(0, 0, 16, 64), ap = ax.getImageData(0, 0, 16, 64).data;
+  // The socket colour: the darkest common colour inside the socket box, away from the arrow.
+  const counts = new Map();
+  for (let y = 22; y < 42; y++) for (let x = 4; x < 12; x++) { const i = (y * 16 + x) * 4; if (ap[i + 3]) continue; const k = hp.data.slice(i, i + 4).join(','); counts.set(k, (counts.get(k) || 0) + 1); }
+  const sock = [...counts].sort((a, b) => b[1] - a[1])[0][0].split(',').map(Number);
+  for (let i = 0; i < ap.length; i += 4) if (ap[i + 3]) { hp.data[i] = sock[0]; hp.data[i + 1] = sock[1]; hp.data[i + 2] = sock[2]; hp.data[i + 3] = 255; }
+  bx.putImageData(hp, 0, 0);
+  // The arrow's own centre (where it turns about).
+  let mx = 0, my = 0, n = 0; for (let y = 0; y < 64; y++) for (let x = 0; x < 16; x++) if (ap[(y * 16 + x) * 4 + 3]) { mx += x; my += y; n++; }
+  const cx = mx / n + .5, cy = my / n + .5;
+
+  for (const c of document.querySelectorAll('canvas[data-kind]')) {
+    c.width = W; c.height = H; c.style.width = W + 'px';
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    const kind = c.dataset.kind, slow = Number(c.dataset.slow || 1);
+    const T_OUT = 220 * slow, T_IN = (kind === 'today' ? 220 : 260) * slow, HOLD = 900 * Math.max(1, slow / 2), LOOP = T_OUT + HOLD + T_IN + HOLD;
+    const t0 = performance.now();
+    const frame = (now) => {
+      const t = (now - t0) % LOOP;
+      // p: how far out the list is (0 shut, 1 out); turn: how far over the arrow is (0 pointing out, 1 pointing back).
+      const holdK = (t - T_OUT) / (220 * slow);
+      let p, turn;
+      if (t < T_OUT) { const k = t / T_OUT; p = OUT(k); turn = kind === 'today' ? 1 : kind === 'late' ? 0 : SETTLE(k); }
+      else if (t < T_OUT + HOLD) { p = 1; turn = kind === 'late' ? (holdK < 1 ? back(Math.max(0, holdK)) : 1) : 1; }
+      else if (t < T_OUT + HOLD + T_IN) { const k = (t - T_OUT - HOLD) / T_IN; p = kind === 'today' ? 1 - IN_TODAY(k) : 1 - SETTLE(k); turn = kind === 'today' ? 0 : 1 - SETTLE(k); }
+      else { p = 0; turn = 0; }
+
+      // The page area (the recess) and the band's wood above it.
+      g.fillStyle = '#20140c'; g.fillRect(0, 0, W, H);
+      for (let x = 0; x < W; x += 64 * S) g.drawImage(band, x, 0, 64 * S, 26 * S);
+      g.fillStyle = '#f4f1ea'; g.beginPath(); g.roundRect(12, 62, W - 24, H - 74, 10); g.fill();
+      // The list: the real tray wood, sliding out from the left edge, the handle riding on its right edge.
+      const rx = Math.round(-RAIL + p * RAIL);
+      for (let y = 52; y < H; y += 128 * S) g.drawImage(tray, rx, y, RAIL, 128 * S);
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(rx + RAIL - 2, 52, 2, H - 52);
+      const hx = rx + RAIL, hy = 60;
+      if (kind === 'today') { g.drawImage(p > 0 && t < T_OUT + HOLD ? handBack : hand, hx, hy, 16 * S, 64 * S); }
+      else {
+        g.drawImage(bare, hx, hy, 16 * S, 64 * S);
+        g.save();
+        g.translate(hx + cx * S, hy + cy * S);
+        if (kind === 'spin') g.rotate(turn * Math.PI);
+        else { const sx = Math.cos(turn * Math.PI); g.scale(Math.abs(sx) < .001 ? .001 : sx, 1); }
+        g.drawImage(arrow, -cx * S, -cy * S, 16 * S, 64 * S);
+        g.restore();
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+});
+</script>
+</body>
+</html>
