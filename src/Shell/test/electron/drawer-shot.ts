@@ -36,6 +36,13 @@ app.whenReady().then(async () => {
   await wait(4000);
   b.tray(true, { x: 42, y: 62, hy: 80 });
   await wait(1200);
+  // SIZE=s|m: the smaller sizes proposed on sheet 71, put on the real list for its picture.
+  const SIZES: Record<string, string> = {
+    m: `.drawer{width:320px}.drawer .tp{font-size:13.5px;padding:8px 10px;gap:9px;margin-bottom:6px}.drawer .tp .fi{width:18px;height:18px}.drawer .th{font-size:14px;margin:12px 2px 6px}.drawer .msheet{font-size:13.5px}.drawer .mv{font-size:12.5px}`,
+    s: `.drawer{width:300px}.drawer .tp{font-size:12.5px;padding:6px 9px 6px 7px;gap:8px;margin-bottom:5px}.drawer .tp .fi{width:16px;height:16px}.drawer .tp .x{width:22px;height:22px}.drawer .tp .x::before,.drawer .tp .x::after{left:6px;top:6px}.drawer .tp .x::before{top:8px}.drawer .th{font-size:13px;margin:10px 2px 5px}.drawer .msheet{font-size:12.5px}.drawer .mv{font-size:12px;padding:4px 6px 4px 12px}`,
+  };
+  if (process.env.SIZE && SIZES[process.env.SIZE]) await b.trayV.webContents.insertCSS(SIZES[process.env.SIZE]!.replace(/;/g, ' !important;').replace(/([^;}])}/g, '$1 !important}'));
+  await wait(300);
   // SCROLL=mid: the list scrolled part way, where the broom used to sit over a tab.
   if (process.env.SCROLL) await b.trayV.webContents.executeJavaScript(`(() => { const d = document.querySelector('.drawer'); d.scrollTop = ${process.env.SCROLL === 'end' ? 'd.scrollHeight' : 'Math.round((d.scrollHeight - d.clientHeight) / 2)'}; return d.scrollTop; })()`, true).then((y: number) => console.log('SCROLLED ' + y));
   await wait(300);
