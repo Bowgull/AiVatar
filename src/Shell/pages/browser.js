@@ -106,6 +106,16 @@ function trayShut() {
 window.aang?.onBrowserTray?.((s) => {
   if (!s) return;
   if (SOLO) {
+    // Drawn once out of sight before the first real open (the Shell shows this layer for a moment): out, at almost no
+    // opacity and with no slide, then folded away again without a slide.
+    if (s.warm === true) {
+      const html = document.documentElement;
+      html.classList.add('warm'); document.body.classList.add('out');
+      // Folded back while still see-through; see-through ends only after the Shell has hidden the layer (300 ms).
+      setTimeout(() => { document.body.classList.remove('out'); }, 240);
+      setTimeout(() => { html.classList.remove('warm'); }, 500);
+      return;
+    }
     // Shown folded, then slid out on the next frames; told to close, it slides back and the Shell hides it after.
     if (s.open === true) {
       if (Number.isFinite(s.hy)) document.querySelector('.railhandle').style.top = s.hy + 'px';

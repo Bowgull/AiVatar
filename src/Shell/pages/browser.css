@@ -304,6 +304,9 @@ html.solo body.out .drawer,html.solo body.out .railhandle{transform:none !import
 html.solo body.out .railhandle{background-image:url(art/browser/handle3-back.png)}
 body.rail-out .hnd button{visibility:hidden}
 @media (prefers-reduced-motion:reduce){html.solo .drawer,html.solo .railhandle{transition:none!important}}
+/* Drawn once out of sight before the first open (browser.ts warmTray): nearly invisible, no slide either way. */
+html.solo.warm{opacity:.01}
+html.solo.warm .drawer,html.solo.warm .railhandle{transition:none!important}
 /* The drawer: the tray's own wood (the band's grain one shade darker, planks running down), brass-nailed
    frame, one faint lamp in its top corner. It lies OVER the page; the page shows as a still picture under it. */
 .drawer{position:absolute;left:0;top:0;bottom:0;width:300px;box-sizing:border-box;padding:14px 14px 14px 12px;z-index:30;

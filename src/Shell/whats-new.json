@@ -565,6 +565,11 @@
       "at": "2026-10-22T20:02:00-04:00",
       "text": "On your Mac, Samara fades aside for the pop-out instead of shrinking into the Dock.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-22T20:20:00-04:00",
+      "text": "The tab list slides out smoothly the first time too.",
+      "kind": "fix"
     }
   ]
 }

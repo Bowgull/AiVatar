@@ -479,3 +479,17 @@ page area painted the page's own last colour.
 
 Not covered here (needs the PC or his eyes): the castLabs engine and Widevine wait in macmain (stock Electron in the
 harness), the real window on his screen, and Windows.
+
+## 8. The tab list's slide and arrow on his Mac (2026-10-22)
+
+His report: "the tab open and the arrow motion is a bit glitchy". `test/electron/tray-motion-check.ts` opens the list
+by resting a real pointer on the handle and closes it as his mouse leaving does, recording every frame the band and the
+list layer draw (the band's arrow shown or not, the rail's x, when the Shell shows or hides the layer).
+
+- **The glitch was the first open of each session:** one frame took 133-401 ms (both pages stalled, neither page's JS
+  busy: the graphics card drawing the never-shown layer for the first time); the second open sometimes 266 ms; later
+  opens 18 ms per frame. Fixed by drawing the layer once, out of sight, when it is built (`warmTray`: shown for 300 ms
+  at 1% opacity with the list out, only while his mouse is elsewhere). First open now: worst frame 33 ms, 11-12 frames.
+- **Arrow hand-over is clean:** opening, the layer shows ~11 ms before the band's arrow hides; closing, the band's arrow
+  is back within 3-5 ms of the layer hiding (same frame). Slide: 18 ms frames both ways.
+- Ruled out by measurement: the page picture taken on hovering the handle (`peek`), the list page's own JS (57 ms).
