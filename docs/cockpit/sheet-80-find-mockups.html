@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 80 - Find a mockup</title>
+<!-- Sheet 80 (2026-10-23, his asks: "I don't see that in my mockups", "is there a way to sort by type? search?"). His real
+     trail has 17 sheets, and five of them are live pages from another session whose numbers collide with Samara's 75-79. So the history gets:
+     a search box (number or name, as he types), filter chips by stage with their counts, a project switch, and the open
+     mockup tabs show the stage on their own V chip (gold approved, green with a tick built, orange fix). Samara's own
+     trail styles; the data is his real trail's: only the marks he really has. Live: type, click the chips. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 24px;max-width:1080px;line-height:1.55}
+  .cols{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .col{width:340px}
+  .col h2{font:400 11px var(--label);letter-spacing:1.5px;color:#c9b48c;margin:0 0 10px}
+  .col p{font-size:13px;color:#b9a684;line-height:1.45;margin:10px 0 0}
+  /* The trail's own list, out of its sliding drawer for the sheet. */
+  .drawer.sheet,.drawer{visibility:visible !important}
+  .drawer.sheet{position:relative !important;left:auto;top:auto;bottom:auto;width:340px;height:auto;transform:none !important;border-radius:10px;overflow:visible}
+  .keys{display:grid;gap:8px;max-width:520px}
+  .keys .lg{flex:0 0 150px;display:flex}
+  .keys .mk{font-style:normal;font:800 11.5px/1 var(--body);letter-spacing:.5px;padding:4px 6px 3px;border-radius:4px;display:inline-flex;align-items:center;gap:4px}
+  .keys .mk.ok{background:#FFC43C;color:#2a1c00}.keys .mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}.keys .mk.chg{background:#e8913a;color:#2b1405}.keys .mk.park{background:#4a3f33;color:#b9a684}
+  .keys .mk.ok .chat{width:10px;height:9px;display:inline-block;background:linear-gradient(#2a1c00,#2a1c00) 1px 1px/8px 5px no-repeat,linear-gradient(#2a1c00,#2a1c00) 2px 6px/2px 2px no-repeat;opacity:.75}
+  .keys div{display:flex;gap:10px;align-items:center;font-size:13px;color:#cbb994}
+
+  /* ---- NEW: the marks on a version row (after its time) ---- */
+  .drawer .mv{position:relative}
+  .drawer .mv .mk{font-style:normal;font:800 11.5px/1 var(--body);letter-spacing:.5px;padding:4px 6px 3px;border-radius:4px;display:inline-flex;align-items:center;gap:4px}
+  .drawer .mv .mk.ok{background:#FFC43C;color:#2a1c00;box-shadow:0 0 6px rgba(255,196,60,.45)}
+  .drawer .mv .mk.ok .chat{width:10px;height:9px;display:inline-block;background:
+    linear-gradient(#2a1c00,#2a1c00) 1px 1px/8px 5px no-repeat,linear-gradient(#2a1c00,#2a1c00) 2px 6px/2px 2px no-repeat;opacity:.75}
+  .drawer .mv .mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
+  .drawer .mv .mk.chg{background:#e8913a;color:#2b1405}
+  .drawer .mv .mk.park{background:#4a3f33;color:#b9a684}
+  .drawer .mv.parked{opacity:.55}
+  .drawer .mv.parked .vv,.drawer .mv.parked .tm{text-decoration:line-through;text-decoration-color:rgba(185,166,132,.6)}
+  .drawer .mv .note{flex-basis:100%;margin:2px 0 0 26px;font:500 11.5px var(--body);color:#e8b27a;font-style:italic;text-align:left}
+  .drawer .mv{flex-wrap:wrap}
+  /* one click to approve: shows on the row he points at, when it has no approval yet */
+  .drawer .mv .apr{display:none;margin-left:6px;font:800 11.5px/1 var(--body);letter-spacing:.5px;padding:3px 6px 2px;border-radius:4px;border:1.5px solid #FFC43C;color:#ffe28c;background:rgba(255,196,60,.08);cursor:pointer}
+  .drawer .mv:hover .apr,.drawer .mv.hov .apr{display:inline-block}
+  .drawer .mv .apr:hover{background:#FFC43C;color:#2a1c00}
+  /* the sheet's row says which version is approved, in the same gold */
+  .drawer .msr .okv{flex:0 0 auto;font:800 11px/1 var(--body);letter-spacing:.4px;padding:4px 6px 3px;border-radius:4px;background:#FFC43C;color:#2a1c00}
+  .drawer .msr .okv.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
+  /* his words, when Claude marked it from the chat */
+  .said{position:absolute;left:24px;top:calc(100% + 4px);z-index:5;width:250px;padding:8px 10px;border-radius:8px;background:#24160d;border:3px solid var(--outline);
+    font:600 12.5px/1.4 var(--body);color:#ffe28c;box-shadow:0 8px 18px rgba(0,0,0,.5)}
+  .said small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a;margin-top:4px}
+  .tabmenu.sheetmenu{position:relative;left:auto;top:auto;display:block;margin-top:10px;width:250px}
+  /* ---- NEW (sheet 80): the find row at the top of the history ---- */
+  .drawer .mfind{display:flex;flex-direction:column;gap:7px;margin:2px 0 8px}
+  .drawer .msearch{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;background:#0B0718;border:2px solid #3a2a5a;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .drawer .msearch:focus-within{border-color:#ffc43c}
+  .drawer .msearch svg{flex:0 0 auto}
+  .drawer .msearch input{flex:1;min-width:0;background:none;border:none;outline:none;font:600 13px var(--body);color:#f2e3c2}
+  .drawer .msearch input::placeholder{color:#7d6f93}
+  .drawer .mchips{display:flex;flex-wrap:wrap;gap:5px}
+  .drawer .mchip{font:800 10.5px/1 var(--body);letter-spacing:.4px;padding:4px 7px 3px;border-radius:5px;border:1.5px solid #4a3a2a;background:none;color:#c9b48e;cursor:pointer}
+  .drawer .mchip b{font-weight:800;opacity:.7;margin-left:3px}
+  .drawer .mchip.on{border-color:#ffc43c;color:#2a1c00;background:#ffc43c}
+  .drawer .mchip.on.built{background:#2f7d3e;border-color:#5fbf6c;color:#e9ffe9}
+  .drawer .mchip.on.fix{background:#e8913a;border-color:#e8913a;color:#2b1405}
+  .drawer .mchip.on.park{background:#4a3f33;border-color:#6a5b4a;color:#d9c7a2}
+  .drawer .mproj2{display:flex;gap:0;border-radius:6px;overflow:hidden;border:2px solid #4a3a2a;align-self:flex-start}
+  .drawer .mproj2 button{font:800 10.5px/1 var(--body);letter-spacing:.6px;padding:5px 9px 4px;border:none;background:none;color:#c9b48e;cursor:pointer}
+  .drawer .mproj2 button.on{background:#f2e3c2;color:#2a1c00}
+  .drawer .mempty{font:500 12px var(--body);color:#a98e6a;padding:8px 4px}
+  .drawer mark{background:rgba(255,196,60,.35);color:inherit;border-radius:2px}
+  /* the open mockup tab: its own V chip wears the stage */
+  .tabcut{position:relative;width:300px;height:58px}
+  .tabcut img{display:block;width:300px;height:58px;image-rendering:auto}
+  .tabcut .v{position:absolute;left:203px;top:17px;width:24px;height:24px;border-radius:5px;display:grid;place-items:center;font:800 11px var(--body);box-sizing:border-box}
+  .tabcut .v.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
+  .tabcut .v.ok{background:#FFC43C;color:#2a1c00}
+  .tabcut .v.fix{background:#e8913a;color:#2b1405}
+  .tabcut .v i{position:absolute;right:-5px;top:-5px;width:12px;height:12px;border-radius:50%;font:900 8px/12px var(--body);text-align:center;font-style:normal;background:#e9ffe9;color:#2f7d3e;box-shadow:0 0 0 1.5px #2f7d3e}
+</style>
+</head>
+<body>
+<h1>SHEET 80 - FIND A MOCKUP</h1>
+<p class="lead">Your trail has 17 sheets, and five are live pages another Claude session served (127.0.0.1:8765) whose numbers collide with Samara's 75 to 79. So History gets a search box, a chip per stage with its count, and a project switch; and an open mockup tab shows its stage on its own V chip, so you see it without opening History. Try it: type 77 or "autofill", click the chips.</p>
+<div class="cols">
+  <div class="col"><h2>HISTORY, WITH FIND</h2><div class="drawer sheet" id="d1"></div></div>
+  <div class="col"><h2>AN OPEN MOCKUP TAB</h2>
+    <div class="tabcut"><img src="sheet-80/tabrow.png" alt=""><span class="v built">V1<i>✓</i></span></div>
+    <p>Built: the V chip turns green with a small tick.</p>
+    <div class="tabcut" style="margin-top:14px"><img src="sheet-80/tabrow.png" alt=""><span class="v ok">V1</span></div>
+    <p>Approved, not built yet: gold. Needs a fix: orange. A draft keeps today's purple.</p>
+  </div>
+  <div class="col"><h2>HOW IT BEHAVES</h2>
+    <div class="keys" style="display:block;font-size:13px;color:#cbb994;line-height:1.55">
+      <p style="margin:0 0 8px">The search matches the number or the name as you type, across everything shown, and lights up what matched.</p>
+      <p style="margin:0 0 8px">The chips show only sheets at that stage (by their THE-design version); the counts update as you search. One chip at a time; All clears it.</p>
+      <p style="margin:0 0 8px">The switch keeps Samara's sheets apart from live pages (they have no repo, so today they sit under AiVatar). It remembers your last choice.</p>
+      <p style="margin:0">The most useful view for you: <b>Approved</b> = waiting for Claude to build; <b>Fix</b> = waiting on Claude's changes.</p>
+    </div>
+  </div>
+</div>
+<script>
+// His real trail as it is (2026-10-23): AiVatar's sheets with the marks they really have, and five live pages another
+// session served on 127.0.0.1:8765 (no repo, so today they sit under AiVatar).
+const ALL = [
+  { proj: 'AIVATAR', num: '79', name: 'Approved, built and the rest', st: 'built', v: 2, vs: 2 },
+  { proj: 'AIVATAR', num: '78', name: 'The address bar key', st: 'built', v: 1, vs: 1 },
+  { proj: 'AIVATAR', num: '77', name: 'Autofill, the one to build', st: 'built', v: 4, vs: 4 },
+  { proj: 'AIVATAR', num: '76', name: 'Autofill, three ways I would build', st: '', vs: 1 },
+  { proj: 'AIVATAR', num: '75', name: 'The light and its PIN pad', st: '', vs: 2 },
+  { proj: 'AIVATAR', num: '74', name: 'Autofill, our own way', st: '', vs: 1 },
+  { proj: 'AIVATAR', num: '73', name: 'Autofill, three worlds', st: '', vs: 1 },
+  { proj: 'AIVATAR', num: '72', name: 'Autofill', st: '', vs: 2 },
+  { proj: 'AIVATAR', num: '71', name: 'Tab list size', st: 'built', v: 1, vs: 1 },
+  { proj: 'AIVATAR', num: '70', name: 'Tab list arrow turning', st: 'built', v: 1, vs: 1 },
+  { proj: 'AIVATAR', num: '69', name: 'Keyboards and devices', st: '', vs: 1 },
+  { proj: 'AIVATAR', num: '68', name: 'Showcase title cards', st: '', vs: 1 },
+  { proj: 'LIVE PAGES', num: '79', name: 'Ledger boards', st: '', vs: 1 },
+  { proj: 'LIVE PAGES', num: '78', name: 'Run voices', st: '', vs: 1 },
+  { proj: 'LIVE PAGES', num: '77', name: 'Calmer Ledger', st: '', vs: 1 },
+  { proj: 'LIVE PAGES', num: '76', name: 'Hard runs and the 5k', st: '', vs: 1 },
+  { proj: 'LIVE PAGES', num: '75', name: 'Ledger ring miss', st: '', vs: 1 },
+];
+const STAGES = [['all', 'ALL'], ['ok', 'APPROVED'], ['built', '✓ BUILT'], ['fix', 'FIX'], ['park', 'PARKED'], ['draft', 'DRAFTS']];
+const S = { q: '', st: 'all', proj: 'ALL' };
+const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const hit = (t, q) => { if (!q) return esc(t); const i = t.toLowerCase().indexOf(q.toLowerCase()); return i < 0 ? esc(t) : esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length)); };
+const stageOf = (x) => x.st === 'chat' ? 'ok' : x.st || 'draft';
+function render() {
+  const d = document.getElementById('d1');
+  const q = S.q.trim();
+  const inProj = ALL.filter((x) => S.proj === 'ALL' || x.proj === S.proj);
+  const found = inProj.filter((x) => !q || x.num.includes(q) || x.name.toLowerCase().includes(q.toLowerCase()));
+  const count = (k) => k === 'all' ? found.length : found.filter((x) => stageOf(x) === k).length;
+  const shown = found.filter((x) => S.st === 'all' || stageOf(x) === S.st);
+  const glass = '<svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="#7d6f93" d="M1 0h3v1H1zM0 1h1v3H0zM4 1h1v3H4zM1 4h3v1H1zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6z"/></svg>';
+  let h = `<div class="mlist"><div class="mlh"><b>EVERY MOCKUP, BY SHEET</b></div><div class="mfind">
+    <label class="msearch">${glass}<input id="q" type="text" placeholder="Number or name" value="${esc(S.q)}" spellcheck="false"></label>
+    <div class="mproj2">${['ALL', 'AIVATAR', 'LIVE PAGES'].map((p) => `<button type="button" data-p="${p}" class="${S.proj === p ? 'on' : ''}">${p}</button>`).join('')}</div>
+    <div class="mchips">${STAGES.map(([k, l]) => `<button type="button" data-s="${k}" class="mchip ${k} ${S.st === k ? 'on' : ''}">${l}<b>${count(k)}</b></button>`).join('')}</div></div>`;
+  let proj = '';
+  for (const x of shown) {
+    if (x.proj !== proj) { proj = x.proj; h += `<div class="mproj">${proj}</div>`; }
+    const okv = x.st === 'built' ? `<span class="okv built">✓ BUILT V${x.v}</span>` : x.st === 'ok' ? `<span class="okv">APPROVED V${x.v}</span>` : x.st === 'fix' ? '<span class="okv" style="background:#e8913a;color:#2b1405">FIX</span>' : x.st === 'park' ? '<span class="okv" style="background:#4a3f33;color:#b9a684">PARKED</span>' : `<span class="cnt">${x.vs} V</span>`;
+    h += `<button type="button" class="msr"><i class="chev"></i><span class="num">${hit(x.num, q)}</span><span class="nm">${hit(x.name, q)}</span>${okv}</button>`;
+  }
+  if (!shown.length) h += '<div class="mempty">Nothing matches.</div>';
+  d.innerHTML = h + '</div>';
+  const inp = d.querySelector('#q');
+  inp.addEventListener('input', () => { S.q = inp.value; const pos = inp.selectionStart; render(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos); });
+  d.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { S.st = b.dataset.s; render(); }));
+  d.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => { S.proj = b.dataset.p; render(); }));
+}
+render();
+if (location.hash.startsWith('#q=')) { S.q = decodeURIComponent(location.hash.slice(3)); render(); }
+if (location.hash === '#built') { S.st = 'built'; render(); }
+</script>
+</body>
+</html>
