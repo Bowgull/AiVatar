@@ -27,6 +27,8 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.
   ipcMain.on('browser:driver', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.act === 'string' && Number.isInteger(a.id)) b().driverAct(a.act.slice(0, 10), a.id); });
   ipcMain.on('browser:act', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && typeof a === 'string') b().act(a); });
+  // Option + drag anywhere on the frame moves the window (2026-10-23): only the frame, only screen numbers.
+  ipcMain.on('browser:windrag', (e, m) => { if ((top(e) && b()?.isFrame(e.sender)) && m && typeof m.phase === 'string' && Number.isFinite(m.x) && Number.isFinite(m.y)) b().winDrag(e.sender, m.phase, Math.round(m.x), Math.round(m.y)); });
   ipcMain.on('browser:go', (e, text) => { if ((top(e) && b()?.isFrame(e.sender)) && typeof text === 'string') b().go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b().answer(a.id, a.allow === true); });
   // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.

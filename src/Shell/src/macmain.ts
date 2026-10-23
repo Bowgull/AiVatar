@@ -66,7 +66,8 @@ app.whenReady().then(async () => {
   denyPermissions(session.defaultSession, []);
   // The Mac's own menu, so Cmd+C, Cmd+V, Cmd+Q and the rest work as on every Mac app.
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' },
+    // View > Enter Full Screen (Ctrl+Cmd+F), as on every Mac app (2026-10-23, his ask: "act like any other window").
+    { role: 'appMenu' }, { role: 'editMenu' }, { label: 'View', submenu: [{ role: 'togglefullscreen' }] }, { role: 'windowMenu' },
   ]));
   // His picks (2026-10-14): the lantern is lit while Samara runs; the app's own icon (the Dock when it is closed) is
   // unlit. It lights up smoothly when Samara opens and dims back down when he quits (10 pixel-art frames, ~half a

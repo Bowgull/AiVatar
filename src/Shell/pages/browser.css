@@ -1068,3 +1068,6 @@ html.tsize-s .drawer .tp .x::before{top:8px}
    at 6x, so 18 px shows it pixel for pixel. */
 .tabmenu button.toaang,.menu button.toaang{justify-content:flex-start;align-items:center}
 .toaang .aface{width:18px;height:18px;flex:none;margin:-2px 8px -2px 0;image-rendering:pixelated}
+
+/* Option + drag anywhere moves the window (2026-10-23): the hand closes while it is held. */
+html.windrag,html.windrag *{cursor:grabbing !important}
