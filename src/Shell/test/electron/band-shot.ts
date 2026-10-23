@@ -29,6 +29,7 @@ app.whenReady().then(async () => {
   await run(`(() => { const u = document.getElementById('url'); u.hidden = false; u.innerHTML = '<b>northwind.example</b>' + ${JSON.stringify(where)}; return 1; })()`);
   await run(`(() => { const l = document.getElementById('lock'); l.hidden = false; l.classList.remove('bad'); l.innerHTML = typeof SHIELD === 'string' ? SHIELD : '<span class="shieldbox"><img class="s-rest" src="art/browser/shield_rest.png" width="20" height="24" alt=""></span>'; return 1; })()`);
   await run(`(() => { document.getElementById('vkey').hidden = false; document.getElementById('edit').hidden = true; const r = document.getElementById('reload'); r.innerHTML = ${JSON.stringify(/id="reload"[^>]*>([\s\S]*?)<\/button>/.exec(readFileSync(path.join(HERE, '..', '..', 'pages', 'browser.html'), 'utf8'))![1])}; delete r.dataset.mode; for (const id of ['back','fwd']) document.getElementById(id).disabled = true; return 1; })()`);
+  if (process.env.RECT) await run(`JSON.stringify(document.getElementById('vkey').getBoundingClientRect()) + ' svg ' + JSON.stringify(document.querySelector('#vkey svg').getBoundingClientRect())`);
   console.log('step shot'); await wait(500);
   // MENU=1: the ⋯ menu open too (for the look of Samara's own drop-downs).
   if (process.env.MENU) { await run(`(() => { document.getElementById('menukey').click(); return 1; })()`); await wait(600); }

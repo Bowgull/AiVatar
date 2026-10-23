@@ -78,13 +78,40 @@
   @keyframes call{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-8deg)}40%{transform:none}55%{transform:translateY(-2px) rotate(6deg)}70%{transform:none}}
   .barkey.bloom .glow{animation:bloom .6s ease-out}
   @keyframes bloom{0%{transform:scale(1)}40%{transform:scale(2.1);opacity:1}100%{transform:scale(1.2)}}
-  .bartext{position:absolute;left:182px;top:12px;height:34px;width:420px;box-sizing:border-box;display:flex;align-items:center;background:rgb(11,7,24);padding:0 8px;
+  .bartext{position:absolute;left:182px;top:12px;height:34px;width:366px;box-sizing:border-box;display:flex;align-items:center;background:rgb(11,7,24);padding:0 8px;
     font:700 12.5px var(--body);color:#ffe28c;opacity:0;transition:opacity .15s;pointer-events:none}
   .bartext.on{opacity:1}
   .bartext .lbl{font:400 8px var(--label);letter-spacing:1.5px;color:#ffe28c}
   .savehint{position:absolute;left:560px;top:17px;height:24px;line-height:24px;padding:0 8px;border-radius:5px;background:#24160d;border:2px solid var(--outline);
     font:700 11.5px var(--body);color:#ffe28c;opacity:0;transform:translateX(6px);transition:opacity .12s,transform .12s;pointer-events:none}
   .barkey:hover + .savehint,.savehint.on{opacity:1;transform:none}
+
+
+  /* ---- the address bar's own icon, at its own place (#vkey: 26x24 at 627,24; its 7x7 glyph 14x14 at 633,29). ONE icon:
+     a padlock while Bitwarden needs you, the key when open. Nothing is added beside it but four small lights. ---- */
+  .vk{position:absolute;left:627px;top:24px;width:26px;height:24px;background:rgb(11,7,24);border-radius:6px;display:grid;place-items:center}
+  .vk svg{position:absolute;left:6px;top:5px;width:14px;height:14px;shape-rendering:crispEdges;overflow:visible}
+  .vk path{fill:#bfae8a;transition:fill .2s ease-out}
+  .vk .shackle{transition:transform .16s cubic-bezier(.2,.9,.3,1.3)}
+  .vk .halo{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,rgba(255,214,110,.75) 0,rgba(255,196,60,.28) 38%,transparent 68%);opacity:var(--o,0);transform:scale(var(--s,.8));
+    transition:opacity .22s ease-out,transform .22s ease-out}
+  .vk.lit path{fill:#ffc43c}
+  .vk.lit svg{filter:drop-shadow(0 0 3px rgba(255,196,60,.9))}
+  .vk.open .shackle{transform:translate(1px,-2px)}
+  .vk.call{animation:nod .45s ease-in-out 2}
+  @keyframes nod{30%{transform:rotate(-10deg) translateY(-1px)}65%{transform:rotate(7deg)}100%{transform:none}}
+  .vk.bloom .halo{--o:1 !important;--s:1.9 !important;transition-duration:.3s}
+  .vk .glyph{transition:opacity .15s ease-out}
+  .pinlights{position:absolute;left:556px;top:24px;height:24px;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .15s ease-out}
+  .pinlights.on{opacity:1}
+  .pinlights i{position:relative;width:8px;height:8px;border-radius:2px;background:#2a2133;box-shadow:inset 0 0 0 1.5px #4a3d5a}
+  .pinlights i::after{content:"";position:absolute;inset:-1px;border-radius:2px;background:#ffc43c;box-shadow:0 0 6px 2px rgba(255,196,60,.7);opacity:0;transform:scale(.4);
+    transition:opacity .14s ease-out,transform .14s cubic-bezier(.2,.9,.3,1.4)}
+  .pinlights i.f::after{opacity:1;transform:none}
+  .pinlights.flash i::after{box-shadow:0 0 10px 4px rgba(255,220,140,.95)}
+  .pinlights.shake{animation:shk .28s ease-in-out}
+  @keyframes shk{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 
   /* the save card: Samara's own ask, under the key, saying exactly what it keeps */
   .bandchip.save{left:auto;right:240px;top:56px;width:300px;display:block}
@@ -130,15 +157,15 @@
 
 <section id="s3">
   <div class="dh"><h2>3 · THE KEY NEEDS YOUR PIN</h2></div>
-  <p class="dnote">Bitwarden is locked. Click the Password box: the key in the address bar calls you (a small nod, a glow, two soft notes) and the bar says what it wants. Type your PIN on the number pad, no need to click anything: each of your 4 digits fills the key with more light. The fourth blooms it open, the warm unlock sound plays, and the light brings your password. (Any 4 digits work here; 0000 shows a wrong try.)</p>
-  <div class="timing"><span>CALL 900 MS, TWICE</span><span>EACH DIGIT +1/4 LIGHT, 180 MS</span><span>BLOOM 600 MS</span></div>
+  <p class="dnote">Bitwarden is locked. Click the Password box: the key in the address bar calls you (a small nod, a glow, two soft notes) and the bar says what it wants. The key's place shows a padlock, it nods and calls you (two soft notes), and the bar says what it wants. Type your 4-digit PIN on the number pad, no clicking: one small light comes on beside the padlock for each digit, and the padlock warms a little each time. On the fourth, the shackle lifts, it blooms and settles into the glowing key, the warm unlock sound plays, and the light brings your password. (Any 4 digits work here; 0000 shows a wrong try.)</p>
+  <div class="timing"><span>CALL: NOD 450 MS × 2</span><span>EACH LIGHT 140 MS, EASE-OUT</span><span>SHACKLE 160 MS</span><span>BLOOM 300 MS</span><span>LOCK TO KEY 150 MS</span></div>
   <div class="frame"><img class="realband" src="sheet-72/band-signin.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="3" tabindex="-1"></div></div></div>
   <div class="ctl"><button data-reset="3">Start again</button></div>
 </section>
 
 <section id="s4">
   <div class="dh"><h2>4 · A NEW LOGIN</h2></div>
-  <p class="dnote">You signed in with a new password. The key glows warm. Point at it and "Save" appears; click it and Samara shows exactly what it will keep, so you can fix anything first. Ignore it and the glow fades.</p>
+  <p class="dnote">You signed in with a new password. The key itself glows warm (no new icon). Point at it and "Save" appears; click it and Samara shows exactly what it will keep, so you can fix anything first. Ignore it and the glow fades.</p>
   <div class="frame"><img class="realband" src="sheet-72/band-account.png" width="900" height="58" alt=""><div class="overbar"></div><div class="pagewrap"><div class="site" data-s="4" tabindex="-1"></div></div></div>
   <div class="ctl"><button data-reset="4">Start again</button></div>
 </section>
@@ -164,6 +191,16 @@ const KEYITEM = ['.OOO.','OyYyO','OyOyO','.OyO.','.OyO.','.OyyO','.OyO.','.OyyO'
 const SCROLL = ['.OOOOOO.','OwWwwwwO','.OwrrwO.','.OwwwwO.','.OwrrwO.','OwWwwwwO','.OOOOOO.'];
 // the address bar key: Samara's own glyph, lit from dim to gold
 const BARKEY = (lit) => { const c = lit ? 'y' : 'g', h = lit ? 'Y' : 'G'; return art(['.OOO....',`O${h}${c}${c}O...`,`O${c}O${c}OOOO`,`O${c}${c}${c}${c}${c}${c}O`,`.OOOO${c}O${c}O`,'.....O.O.'].map((r) => r), 2); };
+
+
+// the slot's ONE icon, on the key's own 7x7 grid: the key (Samara's own path, browser.html #vkey) and a padlock drawn to match
+const KEYPATH = 'M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z';
+const LOCKBODY = 'M0 3h7v4H0z', LOCKHOLE = 'M3 4h1v2H3z', SHACKLE = 'M2 0h3v1H2zM1 1h1v2H1zM5 1h1v2H5z';
+function vkHTML(kind) {
+  const lock = `<svg class="glyph lockg" viewBox="0 0 7 7"><g class="shackle"><path d="${SHACKLE}"/></g><path d="${LOCKBODY}"/><path d="${LOCKHOLE}" style="fill:rgb(11,7,24)"/></svg>`;
+  const key = `<svg class="glyph keyg" viewBox="0 0 7 7" style="opacity:${kind === 'key' ? 1 : 0}"><path d="${KEYPATH}"/></svg>`;
+  return `<div class="vk"><span class="halo"></span>${kind === 'lock' ? lock : ''}${key}</div>`;
+}
 
 // ---- sounds: soft, made here, only after a click or key of his
 let ac = null;
@@ -224,35 +261,40 @@ const SCENES = {
     l.addEventListener('mousedown', (e) => { e.preventDefault(); give(); });
     return { demo: () => { l.querySelector('.item').innerHTML = art(SCROLL); l.querySelector('.v').innerHTML = `${ME.name}<small>CLICK OR TAB · FILLS THE WHOLE FORM</small>`; place(l, spot(first)); l.classList.add('on'); } };
   },
-  // 3 · the key needs your PIN
+  // 3 · the icon needs your PIN: a padlock that calls you; four lights fill as you type; the shackle lifts, it blooms
+  //     and settles into the glowing key; the light brings your password. Entrances ease out, exits ease in, 100-300 ms.
   3(site, frame) {
     site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Sign in</h4><label>Email</label><div class="box" data-f="email"><input value="${EMAILS[0]}"></div><label>Password</label><div class="box" data-f="pw"><input type="password"></div><div class="btn">Continue</div>`;
     const bar = frame.querySelector('.overbar');
-    bar.innerHTML = `<div class="bartext"><span class="lbl">YOUR PIN, PLEASE · TYPE IT ON YOUR KEYBOARD</span></div><div class="barkey"><span class="glow"></span>${BARKEY(false)}</div>`;
-    const key = bar.querySelector('.barkey'), glow = key.querySelector('.glow'), text = bar.querySelector('.bartext'), pw = site.querySelector('[data-f="pw"]'), inp = pw.querySelector('input');
+    bar.innerHTML = `<div class="bartext"><span class="lbl">YOUR PIN, PLEASE</span></div><div class="pinlights">${'<i></i>'.repeat(4)}</div>${vkHTML('lock')}`;
+    const vk = bar.querySelector('.vk'), halo = vk.querySelector('.halo'), lights = bar.querySelector('.pinlights'), text = bar.querySelector('.bartext'), pw = site.querySelector('[data-f="pw"]'), inp = pw.querySelector('input');
     let pin = '', waiting = false;
-    const level = (n) => { glow.style.background = `radial-gradient(circle,rgba(255,214,110,${n / 4}) 0,rgba(255,196,60,${n / 8}) 40%,transparent 70%)`; key.innerHTML = `<span class="glow" style="${glow.getAttribute('style') ?? ''}"></span>${BARKEY(n >= 2)}`; };
-    const ask = () => { if (waiting || inp.value) return; waiting = true; pin = ''; text.classList.add('on'); key.classList.remove('call'); void key.offsetWidth; key.classList.add('call'); SND.call(); level(0); site.focus(); };
+    const level = (n) => { lights.querySelectorAll('i').forEach((d, k) => d.classList.toggle('f', k < n)); halo.style.setProperty('--o', String(n / 4 * 0.55)); halo.style.setProperty('--s', String(0.8 + n / 4 * 0.3)); vk.classList.toggle('lit', n > 0); };
+    const ask = () => { if (waiting || inp.value) return; waiting = true; pin = ''; text.classList.add('on'); lights.classList.add('on'); vk.classList.remove('call'); void vk.offsetWidth; vk.classList.add('call'); SND.call(); level(0); site.focus(); };
     inp.addEventListener('focus', ask);
     site.addEventListener('keydown', (e) => {
       if (!waiting) return;
       if (/^[0-9]$/.test(e.key) && pin.length < 4) { e.preventDefault(); pin += e.key; level(pin.length);
         if (pin.length === 4) setTimeout(() => {
-          if (pin === '0000') { SND.wrong(); key.classList.remove('call'); void key.offsetWidth; key.classList.add('call'); pin = ''; level(0); return; }
-          waiting = false; key.classList.add('bloom'); SND.unlock(); text.classList.remove('on');
+          if (pin === '0000') { SND.wrong(); lights.classList.add('shake'); setTimeout(() => { lights.classList.remove('shake'); pin = ''; level(0); }, 300); return; }
+          waiting = false; lights.classList.add('flash'); vk.classList.add('open'); SND.unlock();
+          setTimeout(() => { vk.classList.add('bloom'); }, 140);
+          setTimeout(() => { vk.querySelector('.lockg').style.opacity = '0'; vk.querySelector('.keyg').style.opacity = '1'; text.classList.remove('on'); lights.classList.remove('on'); }, 300);
+          setTimeout(() => { vk.classList.remove('bloom'); halo.style.setProperty('--o', '.35'); }, 620);
           setTimeout(() => { const l = makeLight(frame); l.querySelector('.item').innerHTML = art(KEYITEM); l.querySelector('.tag').style.display = 'none'; place(l, spot(pw)); show(l);
-            setTimeout(() => { inp.value = 'opened!opened'; shine(pw); SND.fill(); hide(l); }, 260); }, 420);
-        }, 180); }
+            setTimeout(() => { inp.value = 'opened!opened'; shine(pw); SND.fill(); hide(l); }, 240); }, 520);
+        }, 120); }
       else if (e.key === 'Backspace') { e.preventDefault(); pin = pin.slice(0, -1); level(pin.length); }
     });
-    return { demo: () => { text.classList.add('on'); level(3); } };
+    return { demo: () => { text.classList.add('on'); lights.classList.add('on'); level(3); } };
   },
   // 4 · a new login: the key glows; Save on hover; click shows what it keeps
   4(site, frame) {
     site.innerHTML = `<div class="brand">NORTHWIND</div><h4>Welcome, Alex</h4><label style="font-weight:500">You're signed in.</label>`;
     const bar = frame.querySelector('.overbar');
-    bar.innerHTML = `<div class="barkey"><span class="glow" style="background:radial-gradient(circle,rgba(255,214,110,.75) 0,rgba(255,196,60,.35) 40%,transparent 70%)"></span>${BARKEY(true)}</div><div class="savehint">Save this login</div>`;
-    const key = bar.querySelector('.barkey');
+    bar.innerHTML = `${vkHTML('key')}<div class="savehint">Save this login</div>`;
+    const key = bar.querySelector('.vk'); key.classList.add('lit'); key.querySelector('.halo').style.setProperty('--o', '.6'); key.style.cursor = 'pointer';
+    key.addEventListener('mouseenter', () => bar.querySelector('.savehint').classList.add('on')); key.addEventListener('mouseleave', () => bar.querySelector('.savehint').classList.remove('on'));
     key.addEventListener('click', () => {
       frame.querySelector('.bandchip')?.remove();
       frame.insertAdjacentHTML('beforeend', `<div class="bandchip save"><div class="q">Keep this login in Bitwarden?</div>
@@ -269,6 +311,8 @@ for (const site of document.querySelectorAll('.site')) {
   const s = run();
   document.querySelector(`[data-reset="${n}"]`).addEventListener('click', () => run());
   if (location.hash === '#shots') setTimeout(() => s.demo(), 300);
+  // #unlock: moment 3 played through (the PIN typed), to see where it ends
+  if (location.hash === '#unlock' && n === '3') setTimeout(() => { site.querySelector('[data-f="pw"] input').dispatchEvent(new Event('focus')); for (const k of '1234') site.dispatchEvent(new KeyboardEvent('keydown', { key: k })); }, 300);
 }
 </script>
 </body>
