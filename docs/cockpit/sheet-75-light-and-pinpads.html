@@ -122,7 +122,7 @@
 </head>
 <body>
 <h1>SHEET 75 - THE LIGHT AND ITS PIN PAD</h1>
-<p class="lead">You liked the companion light, so here it's the whole of autofill: it carries your papers and keys, it shows Bitwarden's state by how it looks, and when Bitwarden is locked it brings a PIN pad of Samara's own. Each pad is laid out like your real number pad, so the key you press lights on screen; you can click it too. Try it: click a box; press "Lock Bitwarden", then click the password box; type on the number pad (000000 shows a wrong try).</p>
+<p class="lead">You liked the companion light, so here it's the whole of autofill: it carries your papers and keys, it shows Bitwarden's state by how it looks, and when Bitwarden is locked it brings a PIN pad of Samara's own. Each pad is laid out like your real number pad, so the key you press lights on screen; you can click it too. Each pad below is already open, with four of six digits in: click inside the shop and type two more on your number pad to see it open. "Start again" shows the light filling your email and key while Bitwarden is open.</p>
 
 <h3>HOW THE LIGHT LOOKS</h3>
 <div class="moods">
@@ -252,7 +252,12 @@ for (const site of document.querySelectorAll('.site')) {
   ctl.addEventListener('click', (e) => { const a = e.target.closest('button')?.dataset.act; if (a === 'lock') { S.locked = true; mood(); if (S.at) go(S.at); } if (a === 'reset') { S.locked = false; build(); } });
   build();
   // For pictures: #shots shows each pad part-way through a PIN
-  if (location.hash === '#shots') setTimeout(() => { S.locked = true; mood(); go(site.querySelector('[data-f="pw"]')); setTimeout(() => { openPad(); for (const d of '7351') press(d); }, 900); }, 200);
+  // Shown open from the start (his note: "I didn't see any number pad, it all looked the same"): Bitwarden locked, the
+  // light asleep by the password box, its pad out with four digits in. Start again plays it from the beginning.
+  const opened = () => { S.locked = true; mood(); go(site.querySelector('[data-f="pw"]')); setTimeout(() => { openPad(); for (const d of '7351') press(d); setTimeout(() => site.querySelectorAll('.k.hit').forEach((k) => k.classList.remove('hit')), 400); }, 900); };
+  setTimeout(opened, 200);
+  ctl.querySelector('[data-act="lock"]').textContent = 'Show the pad again';
+  ctl.querySelector('[data-act="lock"]').addEventListener('click', () => { build(); opened(); });
 }
 </script>
 </body>
