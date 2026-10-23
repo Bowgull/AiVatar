@@ -32,6 +32,7 @@ import { writeFileAtomic } from './atomic.ts';
 import { carriesData, personal, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
+import { svgToPng } from './svgicon.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
@@ -2486,14 +2487,17 @@ export class AangBrowser {
   // ------------------------------------------------------------------ site icons for the bookmarks
   /** Fetch one icon through his own browsing session and keep it as a small data picture. Images only, 64 KB at most. */
   private async iconData(url: string): Promise<string | null> {
+    if (url.startsWith('data:image/svg+xml')) { const m = /^data:image\/svg\+xml(;base64)?,(.*)$/s.exec(url); try { return m && url.length < 90_000 ? await svgToPng(m[1] ? Buffer.from(m[2]!, 'base64') : Buffer.from(decodeURIComponent(m[2]!))) : null; } catch { return null; } }
     if (url.startsWith('data:image/')) return url.length < 90_000 ? url : null;
     if (!isWeb(url) || this.listed(url).length) return null;
     try {
       const r = await within(this.ses.fetch(url, { signal: AbortSignal.timeout(6000) }), 7000, null);
       const type = r?.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
-      if (!r?.ok || !/^image\//.test(type) || type === 'image/svg+xml') return null;
+      if (!r?.ok || !/^image\//.test(type)) return null;
       const buf = Buffer.from(await r.arrayBuffer());
       if (!buf.length || buf.length > 64 * 1024) return null;
+      // An SVG is never kept as it is: it is drawn in a sealed page and only the picture of it is kept (svgicon.ts).
+      if (type === 'image/svg+xml') return await svgToPng(buf);
       return `data:${type};base64,${buf.toString('base64')}`;
     } catch { return null; }
   }
