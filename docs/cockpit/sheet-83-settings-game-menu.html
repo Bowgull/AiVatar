@@ -37,8 +37,8 @@
   .r{display:flex;align-items:center;gap:16px;padding:0 22px 0 52px;height:50px;border-top:2px solid rgba(255,255,255,.05);position:relative;cursor:pointer}
   .card .r:first-of-type{border-top:none}
   .r b{flex:1;font:700 15px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000}
-  .r:hover{background:rgba(255,226,140,.06)}
-  .r:hover::before{content:"";position:absolute;left:18px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .r:hover,.r.hov{background:rgba(255,226,140,.06)}
+  .r:hover::before,.r.hov::before{content:"";position:absolute;left:18px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
   .r .v{font:700 15px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;min-width:0;white-space:nowrap}
   .r:hover .v{color:#ffe28c}
   /* ‹ value ›: both arrows clickable; the word is what it is set to */
@@ -56,7 +56,15 @@
   /* B: one help line for the row the glove is on (FFX) */
   .help{margin-top:auto;min-height:44px;display:flex;align-items:center;padding:0 18px;border:6px solid transparent;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
     background:url(../../src/Shell/pages/art/browser/ink.png) 0 0/64px 64px;font:600 14px var(--body);color:#efe4cc;text-shadow:1px 1px 0 #000}
-  .noB .help{display:none}
+  .help{display:none}
+  /* v4 (his pick): no frame at the bottom. After the glove rests on a row for 2 seconds, a small label shows by the mouse. */
+  .tip{position:absolute;z-index:20;max-width:320px;padding:7px 12px;border:4px solid transparent;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
+    background:url(../../src/Shell/pages/art/browser/ink.png) 0 0/64px 64px;image-rendering:pixelated;font:600 13.5px/1.35 var(--body);color:#efe4cc;text-shadow:1px 1px 0 #000;
+    box-shadow:0 8px 18px rgba(0,0,0,.55);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .18s ease,transform .18s ease}
+  .tip.on{opacity:1;transform:none}
+  .tip span{image-rendering:auto}
+  .win{position:relative}
+  .fld.sub label{visibility:hidden}
 
   /* A detail: one level in, same card */
   .fld{display:flex;align-items:center;gap:14px;padding:0 22px 0 52px;height:48px;border-top:2px solid rgba(255,255,255,.05);position:relative}
@@ -92,10 +100,9 @@
 </head>
 <body>
 <h1 class="sh">SHEET 83 - SETTINGS, THE GAME MENU</h1>
-<p class="sl">Chapters down the left. Each row is a name and its value, nothing under it. ‹ › change a value. A row with › opens one level in. Cut: the search box, Bookmarks, "Use the page I was on", "Bring them in". Your real settings from this Mac. Everything here is live.</p>
-<div class="ab" id="ab"><button type="button" data-ab="A">A · details only by tapping</button><button type="button" data-ab="B" class="on">B · plus one help line, after your mouse rests half a second</button></div>
+<p class="sl">V4: no frame at the bottom; rest the mouse on a row for 2 seconds and a small label shows by it. Your details: one row per email, the phone tidied as you type. Chapters down the left. Each row is a name and its value, nothing under it. ‹ › change a value. A row with › opens one level in. Cut: the search box, Bookmarks, "Use the page I was on", "Bring them in". Your real settings from this Mac. Everything here is live.</p>
 
-<div class="cap">1 · START, YOUR HOME PAGE SHOWS FOR REAL (TAP IT TO CHANGE IT)</div>
+<div class="cap">1 · START. THE MOUSE RESTED 2 SECONDS ON "WHEN SAMARA OPENS"</div>
 <div class="win" data-start="start"></div>
 <div class="cap">2 · AUTOFILL › YOUR DETAILS: FIRST AND LAST NAME APART (V3). TYPE YOUR ADDRESS, PICK IT, THE REST FILLS AND IS CHECKED</div>
 <div class="win" data-start="details"></div>
@@ -122,7 +129,7 @@ const CH = [['start', 'Start'], ['look', 'Look'], ['search', 'Search'], ['autofi
 
 // His real settings on this Mac (browser-prefs.json, browser-local.json), 2026-10-23.
 const make = () => ({ home: 'search.brave.com', startup: 'My tabs', dark: 'On', tabSize: 'Medium', engine: 'Brave', ai: 'Off', ads: 'On', popups: 'On',
-  wood: 'On', afs: 'On', lockAfter: '30 min', pinLen: 6, pin: '', pin2: '', eye: false, addr: '', picked: null });
+  wood: 'On', afs: 'On', emails: ['you@example.com', 'work@example.com'], phone: '(416) 555-0142', lockAfter: '30 min', pinLen: 6, pin: '', pin2: '', eye: false, addr: '', picked: null });
 const CYCLE = { startup: ['My tabs', 'Home page'], dark: ['On', 'Off'], tabSize: ['Small', 'Medium', 'Large'], engine: ['Brave', 'DuckDuckGo', 'Google', 'Yandex'],
   ai: ['On', 'Off'], ads: ['On', 'Off'], popups: ['On', 'Off'], wood: ['On', 'Off'], afs: ['On', 'Off'], lockAfter: ['5 min', '30 min', '2 hours', 'Until I quit'] };
 // The help line (B only), one short line per row.
@@ -148,7 +155,7 @@ function mount(win) {
   const st = make();
   let ch = win.dataset.start === 'start' ? 'start' : 'autofill';
   let sub = win.dataset.start === 'details' ? 'details' : win.dataset.start === 'pin' ? 'pin' : null;
-  let editHome = win.dataset.start === 'start';
+  let editHome = false;
   let help = '';
   if (win.dataset.start === 'details') st.addr = '100 Queen';
   if (win.dataset.start === 'pin') { st.pin = '4817'; st.eye = true; }
@@ -164,7 +171,9 @@ function mount(win) {
       const sug = !p && st.addr.length >= 3 ? `<div class="sug">${LOOK.map((a, i) => `<div data-pick="${i}"${i === 0 ? ' class="hi"' : ''}>${a.line}</div>`).join('')}<small>OPENSTREETMAP</small></div>` : '';
       const f = (label, v, ok) => `<div class="fld"><label>${label}</label><input type="text" value="${esc(v)}" spellcheck="false">${ok && v ? OK : ''}</div>`;
       return `<h2><span class="back" data-back>‹ Autofill</span>Your details</h2>` + card(
-        f('First name', '') + f('Last name', '') + f('Emails', '') + f('Phone', '') +
+        f('First name', '') + f('Last name', '') +
+        [...st.emails, ''].map((e, i) => `<div class="fld${i ? ' sub' : ''}"><label>Emails</label><input type="text" data-em="${i}" value="${esc(e)}" spellcheck="false"${!e && i ? ' placeholder=""' : ''}>${/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? OK : ''}</div>`).join('') +
+        `<div class="fld"><label>Phone</label><input type="text" id="phone" value="${esc(st.phone)}" spellcheck="false">${st.phone.replace(/\D/g, '').length >= 10 ? OK : ''}</div>` +
         `<div class="fld lit"><label>Address</label><div class="grow"><input id="addr" type="text" value="${esc(p ? p.street : st.addr)}" spellcheck="false" autocomplete="off">${sug}</div>${p ? OK : ''}</div>` +
         (p ? f('City', p.city, true) + f('Province', p.region, true) + f('Postal code', p.postal, true) + f('Country', p.country, true) : ''));
     }
@@ -217,6 +226,11 @@ function mount(win) {
   win.addEventListener('input', (e) => {
     if (e.target.id === 'addr') { st.addr = e.target.value; st.picked = null; draw(); }
     if (e.target.id === 'homein') st.home = e.target.value;
+    // The phone, tidied as he types: (416) 555-0142, or +1 in front when he typed the 1.
+    if (e.target.id === 'phone') { const d = e.target.value.replace(/\D/g, ''); const n = d.length === 11 && d[0] === '1' ? d.slice(1) : d;
+      st.phone = n.length <= 3 ? n : n.length <= 6 ? `(${n.slice(0, 3)}) ${n.slice(3)}` : `${d.length === 11 ? '+1 ' : ''}(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6, 10)}`; draw(); const p = win.querySelector('#phone'); p.focus({ preventScroll: true }); p.setSelectionRange(p.value.length, p.value.length); }
+    if (e.target.dataset.em) { const i = Number(e.target.dataset.em); const v = e.target.value; if (i < st.emails.length) st.emails[i] = v; else if (v) st.emails.push(v); st.emails = st.emails.filter((x, j) => x || j === i);
+      if (i === st.emails.length - 1 || !v) { draw(); const q = win.querySelector(`[data-em="${i}"]`); q?.focus({ preventScroll: true }); q?.setSelectionRange(q.value.length, q.value.length); } }
   });
   win.addEventListener('keydown', (e) => {
     if (e.target.id === 'homein' && e.key === 'Enter') { editHome = false; draw(); }
@@ -224,21 +238,24 @@ function mount(win) {
     if (sub === 'pin' && e.key === 'Backspace') { if (st.pin2) st.pin2 = st.pin2.slice(0, -1); else st.pin = st.pin.slice(0, -1); draw(); }
   });
   win.tabIndex = -1;
-  // B: the line waits until the glove has rested on a row for half a second (his ask), so sweeping past rows shows nothing.
-  let rest = 0;
-  win.addEventListener('mouseover', (e) => { const r = e.target.closest('[data-h]'); const k = r?.dataset.h ?? ''; if (k === help) return; help = k; clearTimeout(rest);
-    const hb = win.querySelector('.help'); if (hb) hb.textContent = ''; if (k) rest = setTimeout(() => { const h2 = win.querySelector('.help'); if (h2 && help === k) h2.textContent = HELP[k] ?? ''; }, 500); });
+  // v4 (his pick): the label shows by the mouse once the glove has rested on one row for 2 seconds; moving to another row
+  // or off it hides it at once.
+  const tip = Object.assign(document.createElement('div'), { className: 'tip' }); tip.append(document.createElement('span'));
+  let rest = 0, mx = 0, my = 0;
+  const tipAt = (x, y, text) => { tip.firstChild.textContent = text; win.append(tip); tip.style.left = Math.min(x + 14, win.clientWidth - 330) + 'px'; tip.style.top = (y - 44) + 'px'; requestAnimationFrame(() => tip.classList.add('on')); };
+  win.addEventListener('mousemove', (e) => { const b = win.getBoundingClientRect(); mx = e.clientX - b.left; my = e.clientY - b.top; });
+  win.addEventListener('mouseover', (e) => { const r = e.target.closest('[data-h]'); const k = r?.dataset.h ?? ''; if (k === help) return; help = k; clearTimeout(rest); tip.classList.remove('on');
+    if (k && HELP[k]) rest = setTimeout(() => { if (help === k) tipAt(mx, my, HELP[k]); }, 2000); });
+  win.addEventListener('mouseleave', () => { help = ''; clearTimeout(rest); tip.classList.remove('on'); });
+  win._demo = () => { const r = win.querySelector('[data-h="startup"]'); if (!r) return; const a = r.getBoundingClientRect(), b = win.getBoundingClientRect(); r.classList.add("hov"); tipAt(a.left - b.left + 300, a.top - b.top + 2, HELP.startup); };
   win._draw = draw;
   draw();
 }
 const wins = [...document.querySelectorAll('.win')];
 wins.forEach(mount);
-document.getElementById('ab').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-ab]'); if (!b) return;
-  AB = b.dataset.ab;
-  for (const x of document.querySelectorAll('#ab button')) x.classList.toggle('on', x === b);
-  wins.forEach((w) => w._draw());
-});
+// The first frame shows the label as it looks after the 2-second rest.
+wins[0].querySelector('#homein')?.blur();
+setTimeout(() => wins[0]._demo(), 300);
 </script>
 </body>
 </html>
