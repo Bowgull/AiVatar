@@ -78,7 +78,9 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
  * Opens the door. `open` puts a checked drop in the trail (AangBrowser.openMockupDrop; null = not opened, e.g. not
  * committed). `why` says why mockups are off on this Mac, or null when they are on. Returns a close function.
  */
-export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promise<MockVersion | null>, why: () => string | null, port = MOCKUP_DOOR_PORT): () => void {
+/** Sheet 79: the marks in the trail, for Claude: every marked version, and one mark set on a sheet in his repo. */
+export interface DoorMarks { list(): unknown[]; set(a: { repo: string; sheet: string; v: number | null; stage: string; said: string; note: string }): string }
+export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promise<MockVersion | null>, why: () => string | null, port = MOCKUP_DOOR_PORT, marks?: DoorMarks): () => void {
   const key = randomBytes(32).toString('hex');
   const keyFile = mockupDoorKeyFile(stateDir);
   try { writeFileSync(keyFile, key, { mode: 0o600 }); chmodSync(keyFile, 0o600); } catch (e) { console.error('aang: the mockup door has no key: ' + (e as Error).message); return () => {}; }
@@ -99,6 +101,24 @@ export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promi
         const n = q.searchParams.get('n') ?? '';
         if (!/^[0-9a-f]{16,64}$/.test(n)) { res.writeHead(400).end(); return; }
         json(200, { proof: doorMac(key, 'hello', n) });
+        return;
+      }
+      // Sheet 79 (2026-10-23): what is approved, built, to fix or parked; and Claude's own mark on one version (an approval
+      // only with his words, said in the chat).
+      if (req.method === 'GET' && q.pathname === '/stages') {
+        if (!marks) { json(200, { ok: false, message: 'Marks are not on in this Samara.' }); return; }
+        json(200, { ok: true, stages: marks.list() });
+        return;
+      }
+      if (req.method === 'POST' && q.pathname === '/stage') {
+        let ask: DoorAsk & { v?: unknown; stage?: unknown; said?: unknown; note?: unknown } = {};
+        try { ask = JSON.parse(body); } catch { json(400, { ok: false, message: 'Not a request.' }); return; }
+        if (!marks) { json(200, { ok: false, message: 'Marks are not on in this Samara.' }); return; }
+        const c = checkAsk({ cwd: ask.cwd, path: ask.path });
+        if (!c.ok || !c.drop.repo || !c.drop.path) { json(200, c.ok ? { ok: false, message: 'Pass path: the sheet in your repo.' } : c); return; }
+        const why2 = marks.set({ repo: c.drop.repo, sheet: c.drop.path, v: Number.isInteger(ask.v) ? Number(ask.v) : null, stage: String(ask.stage ?? ''),
+          said: typeof ask.said === 'string' ? ask.said.slice(0, 300) : '', note: typeof ask.note === 'string' ? ask.note.slice(0, 300) : '' });
+        json(200, why2 ? { ok: false, message: why2 } : { ok: true, message: `Marked ${c.name} in Samara's Mockups trail.` });
         return;
       }
       if (req.method === 'POST' && q.pathname === '/mockup') {

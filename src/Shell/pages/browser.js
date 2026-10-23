@@ -1368,7 +1368,7 @@ function versionsMenu(t, x, y) {
   placeMenu(m, x, y);
 }
 /** A history line's own menu: open that version, or send exactly that version to Aang. */
-function versionMenu(id, x, y) {
+function versionMenu(id, x, y, it = {}) {
   closeTabMenu();
   const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
   const item = (label, go) => {
@@ -1377,9 +1377,27 @@ function versionMenu(id, x, y) {
     b.addEventListener('click', () => { closeTabMenu(); go(); });
     m.append(b);
   };
+  // Sheet 79: his marks on this version (one stage at a time; each comes off the same way).
+  const stg = (to, name) => window.aang?.browserMockup?.({ act: 'stage', id, to, ...(name ? { name } : {}) });
+  const ok = it.stage === 'ok' || it.stage === 'chat';
+  item(ok ? 'Take back the approval' : 'Approve this version', () => stg(ok ? '' : 'ok'));
+  item(it.stage === 'fix' ? 'Take off the fix' : 'Needs a fix…', () => { if (it.stage === 'fix') stg(''); else fixNote(id); });
+  item(it.stage === 'park' ? 'Unpark it' : 'Park it', () => stg(it.stage === 'park' ? '' : 'park'));
+  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   item('Open this version', () => window.aang?.browserMockup?.({ act: 'show', id }));
   if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'send', id })); aangFaceOn(m); }
   placeMenu(m, x, y);
+}
+/** Sheet 79: what to fix, typed in place under the version: Enter keeps it, Esc leaves it. */
+function fixNote(id) {
+  const row = document.querySelector(`.mv[data-id="${id}"]`);
+  if (!row) { window.aang?.browserMockup?.({ act: 'stage', id, to: 'fix' }); return; }
+  const box = Object.assign(document.createElement('input'), { type: 'text', className: 'mvnote', maxLength: 300, placeholder: 'What to fix' });
+  row.after(box);
+  box.focus();
+  const done = (keep) => { if (keep) window.aang?.browserMockup?.({ act: 'stage', id, to: 'fix', name: box.value.trim() }); box.remove(); };
+  box.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
+  box.addEventListener('blur', () => done(box.value.trim() !== ''));
 }
 const mockEls = { head: null, from: null, hist: null, tidy: null, list: null, listSig: '', branches: new Map() };
 const freshDone = new Set();
@@ -1532,9 +1550,23 @@ function mockList(mk) {
     v.append(Object.assign(document.createElement('span'), { className: 'vv', textContent: 'V' + it.v }), mockWhen(it.at));
     if (it.now) v.append(Object.assign(document.createElement('i'), { textContent: 'OPEN' }));
     else if (it.same) v.append(Object.assign(document.createElement('i'), { textContent: `SAME AS V${it.same}` }));
+    // Sheet 79: ONE chip, the stage it is at; a click on it takes it off. A draft gets the one-click Approve on hover.
+    const STAGE = { fix: ['FIX', 'chg'], ok: ['APPROVED', 'ok'], chat: ['APPROVED · CHAT', 'ok'], built: ['✓ BUILT', 'built'], park: ['PARKED', 'park'] };
+    v.classList.toggle('parked', it.stage === 'park');
+    if (STAGE[it.stage]) {
+      const chip = Object.assign(document.createElement('i'), { className: 'mk ' + STAGE[it.stage][1], textContent: STAGE[it.stage][0] });
+      chip.title = it.said ? `Your words: ${it.said}` : it.stage === 'built' ? 'In Samara' : 'Click to take it off';
+      chip.addEventListener('click', (e) => { e.stopPropagation(); if (it.stage !== 'built') window.aang?.browserMockup?.({ act: 'stage', id: it.id, to: '' }); });
+      v.append(chip);
+    } else if (!it.same) {
+      const apr = Object.assign(document.createElement('span'), { className: 'apr', textContent: 'APPROVE', role: 'button', title: 'Approve this version' });
+      apr.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'stage', id: it.id, to: 'ok' }); });
+      v.append(apr);
+    }
+    if (it.stage === 'fix' && it.note) v.append(Object.assign(document.createElement('span'), { className: 'note', textContent: it.note }));
     if (it.seen) v.title = `Opened ${it.seen + 1} times with this same picture`;
     v.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'show', id: it.id }));
-    v.addEventListener('contextmenu', (e) => { e.preventDefault(); versionMenu(it.id, e.clientX, e.clientY); });
+    v.addEventListener('contextmenu', (e) => { e.preventDefault(); versionMenu(it.id, e.clientX, e.clientY, it); });
     into.append(v);
   };
   // One sheet's row, and its versions in a fold under it.
@@ -1553,7 +1585,13 @@ function mockList(mk) {
       const rs = Object.assign(document.createElement('span'), { className: 'mrestore', textContent: 'RESTORE', role: 'button', title: 'Back into the list' });
       rs.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'restore', sheet: node.sheet }); });
       row.append(rs);
-    } else row.append(Object.assign(document.createElement('span'), { className: 'cnt', textContent: `${node.n} V` }));
+    } else {
+      // Sheet 79: the sheet's row says which version is THE design (built or approved), else how many versions.
+      const all = [...(node.items ?? []), ...(node.older ?? [])];
+      const done = all.find((x) => x.stage === 'ok' || x.stage === 'chat') ?? all.find((x) => x.stage === 'built');
+      if (done) row.append(Object.assign(document.createElement('span'), { className: 'okv' + (done.stage === 'built' ? ' built' : ''), textContent: `${done.stage === 'built' ? '✓ BUILT' : 'APPROVED'} V${done.v}` }));
+      else row.append(Object.assign(document.createElement('span'), { className: 'cnt', textContent: `${node.n} V` }));
+    }
     const [fw, fi] = foldBox(open);
     row.addEventListener('click', () => {
       const now = !mockFold.sheets.has(node.sheet);

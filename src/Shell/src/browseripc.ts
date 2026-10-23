@@ -83,7 +83,7 @@ export function wireBrowser(get: () => AangBrowser | null): void {
       id: Number.isInteger(a.id) ? a.id : undefined, open: a.open === true,
       sheet: typeof a.sheet === 'string' ? a.sheet.slice(0, 400) : undefined,
       to: Number.isInteger(a.to) ? a.to : typeof a.to === 'string' ? a.to.slice(0, 400) : null,
-      name: typeof a.name === 'string' ? a.name.slice(0, 60) : undefined,
+      name: typeof a.name === 'string' ? a.name.slice(0, 300) : undefined,
     });
   });
   ipcMain.on('browser:find', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.text === 'string') b().find(a.text, a.next === true, a.back === true); });

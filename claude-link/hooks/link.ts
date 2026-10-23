@@ -324,6 +324,40 @@ export const MOCKUP_TOOL_SCHEMA = {
     branch: { type: 'string', description: 'Optional: the branch (group) in the trail to file it in, 1-40 characters.' },
   },
 }
+/**
+ * mockup_mark (sheet 79, his interview 2026-10-23): the marks in Samara's Mockups trail, for every Claude session. No
+ * stage: the list of marked versions (what he approved, what is built, what needs a fix, what he parked); read it before
+ * building from a mockup, so the approved version wins over any older plan. With a stage: Claude's own mark on a sheet in
+ * the repo; an approval needs his own words from the chat.
+ */
+export const MARK_TOOL = 'mockup_mark'
+export const MARK_TOOL_FULL = 'mcp__aang-link__mockup_mark'
+export const MARK_TOOL_DESC = "Read or set the marks in his Mockups trail in Samara. Call with no stage to list every marked version: APPROVED (build exactly this one), " +
+  'BUILT, FIX (with his note) and PARKED (do not build). Read it before building anything from a mockup. When he says yes to a mockup in the chat, mark it: ' +
+  'stage approved, with his exact words in said. After you build an approved version into Samara, mark it stage built. ' +
+  'path: the sheet (.html in your repo); version: optional (default the newest).'
+export const MARK_TOOL_SCHEMA = {
+  type: 'object',
+  properties: {
+    path: { type: 'string', description: 'The sheet, an .html file in your repo (needed to set a mark).' },
+    version: { type: 'number', description: 'Optional: which version (default the newest).' },
+    stage: { type: 'string', enum: ['approved', 'built', 'fix', 'park', 'clear'], description: 'Leave out to list the marks.' },
+    said: { type: 'string', description: 'For approved: his own words from the chat when he said yes.' },
+    note: { type: 'string', description: 'For fix: what he wants changed.' },
+  },
+}
+/** A mockup_mark call's input, cut to sane sizes; or why not. */
+export function markArgs(input: Record<string, unknown>): { ok: true; list: true } | { ok: true; list: false; body: Record<string, unknown> } | { ok: false; error: string } {
+  const stage = typeof input.stage === 'string' ? input.stage.trim() : ''
+  if (!stage) return { ok: true, list: true }
+  if (!['approved', 'built', 'fix', 'park', 'clear'].includes(stage)) return { ok: false, error: 'stage is one of: approved, built, fix, park, clear (or leave it out to list).' }
+  const p = typeof input.path === 'string' ? input.path.trim() : ''
+  if (!p || p.length > 1000) return { ok: false, error: 'Pass path: the sheet (.html) in your repo.' }
+  const said = safeLine(input.said, 300), note = safeLine(input.note, 300)
+  if (stage === 'approved' && !said) return { ok: false, error: 'An approval needs his own words from the chat in said.' }
+  const v = Number(input.version)
+  return { ok: true, list: false, body: { path: p, stage, ...(Number.isInteger(v) && v > 0 ? { v } : {}), ...(said ? { said } : {}), ...(note ? { note } : {}) } }
+}
 export const MOCKUP_SECTION_ID = 'aang-link:mockups'
 export const MOCKUP_SECTION = `To show the user a mockup, design sheet or visual page, call show_mockup (${MOCKUP_TOOL_FULL}): it opens in his browser Samara's Mockups trail. ` +
   'Never ask permission to open local mockup pages.'

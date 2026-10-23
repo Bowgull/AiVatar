@@ -172,7 +172,13 @@ export interface MockVersion {
   id: number; sheet: string; title: string; commit: string; at: number; key: string; v: number;
   /** 2026-10-22, the tidy (mockuptidy.ts): folded into the sheet's "older" fold, and the times of duplicates merged into it. */
   old?: boolean; seen?: number[];
+  /** Sheet 79 (2026-10-23): the stage this version is at, one at a time, and who set it when. `said`: his words, when
+   *  Claude approved it from the chat. `note`: what to fix. */
+  stage?: MockStage; note?: string; said?: string; stageAt?: number; by?: 'you' | 'claude';
 }
+/** FIX (needs changes), OK (approved by his click), CHAT (approved: he said yes to Claude), BUILT (in Samara), PARK (a no). */
+export type MockStage = 'fix' | 'ok' | 'chat' | 'built' | 'park';
+export const MOCK_STAGES: MockStage[] = ['fix', 'ok', 'chat', 'built', 'park'];
 
 /** A sheet's title from its own <title>: "Sheet 47 - The Mockups trail" reads as "47 · The Mockups trail". */
 export function titleFrom(html: string, sheet: string): string {
@@ -258,7 +264,9 @@ export class MockStore {
         this.list = a.filter((x: Partial<MockVersion>) => Number.isInteger(x?.id) && typeof x?.sheet === 'string' && cleanSheet(x.sheet) && typeof x?.commit === 'string' && (COMMIT_RE.test(x.commit) || (x.commit === '' && sheetKind(x.sheet) === 'live'))
           && typeof x?.key === 'string' && Number.isFinite(x?.at) && Number.isInteger(x?.v))
           .map((x: MockVersion) => ({ id: x.id, sheet: x.sheet, title: String(x.title ?? '').slice(0, 80), commit: x.commit, at: Number(x.at), key: x.key.slice(0, 100), v: x.v,
-            ...(x.old === true ? { old: true } : {}), ...(Array.isArray(x.seen) ? { seen: x.seen.filter((n) => Number.isFinite(n)).slice(0, 50) } : {}) })).slice(-2000);
+            ...(x.old === true ? { old: true } : {}), ...(Array.isArray(x.seen) ? { seen: x.seen.filter((n) => Number.isFinite(n)).slice(0, 50) } : {}),
+            ...(MOCK_STAGES.includes(x.stage as MockStage) ? { stage: x.stage, stageAt: Number(x.stageAt) || 0, by: x.by === 'claude' ? 'claude' : 'you',
+              ...(typeof x.note === 'string' && x.note ? { note: x.note.slice(0, 300) } : {}), ...(typeof x.said === 'string' && x.said ? { said: x.said.slice(0, 300) } : {}) } : {}) })).slice(-2000);
         // The tidy's notes per sheet (2026-10-22): archived (when, why, by which), picked, decided, last opened.
         const mt = s?.meta && typeof s.meta === 'object' ? s.meta as Record<string, Record<string, unknown>> : {};
         for (const [k, v] of Object.entries(mt)) {
@@ -295,6 +303,29 @@ export class MockStore {
   private save(): void {
     try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt })); }
     catch (e) { console.error('shell: mockups: the history could not be saved: ' + (e as Error).message); }
+  }
+  /**
+   * A version's stage (sheet 79, his picks 2026-10-23): one at a time; null takes it off. Approving one version takes the
+   * approval off the sheet's other versions (only one is THE design); a built one stays built. '' when done, else why not.
+   */
+  setStage(id: number, stage: MockStage | null, o: { note?: string; said?: string; by?: 'you' | 'claude' } = {}): string {
+    const v = this.list.find((x) => x.id === id);
+    if (!v) return 'That version is not in the history.';
+    if (stage === 'chat' && !o.said?.trim()) return 'An approval from the chat needs his words.';
+    if (stage === 'ok' || stage === 'chat') for (const x of this.list) if (x.sheet === v.sheet && x.id !== id && (x.stage === 'ok' || x.stage === 'chat')) { delete x.stage; delete x.said; delete x.stageAt; delete x.by; }
+    delete v.stage; delete v.note; delete v.said; delete v.stageAt; delete v.by;
+    if (stage) {
+      v.stage = stage; v.stageAt = Date.now(); v.by = o.by === 'claude' ? 'claude' : 'you';
+      if (stage === 'fix' && o.note?.trim()) v.note = o.note.trim().slice(0, 300);
+      if (o.said?.trim()) v.said = o.said.trim().slice(0, 300);
+    }
+    this.save();
+    return '';
+  }
+  /** Every version with a stage, newest first: what Claude reads before building (and Aang to answer what was decided). */
+  stages(): { id: number; sheet: string; title: string; v: number; commit: string; stage: MockStage; note?: string; said?: string; at: number; by: 'you' | 'claude' }[] {
+    return this.list.filter((x) => x.stage).sort((a, b) => (b.stageAt ?? 0) - (a.stageAt ?? 0))
+      .map((x) => ({ id: x.id, sheet: x.sheet, title: x.title, v: x.v, commit: x.commit, stage: x.stage!, ...(x.note ? { note: x.note } : {}), ...(x.said ? { said: x.said } : {}), at: x.stageAt ?? 0, by: x.by ?? 'you' }));
   }
   /** Another repo's folder by its name, or null. */
   repoPath(name: string): string | null { return this.repos.get(name) ?? null; }
