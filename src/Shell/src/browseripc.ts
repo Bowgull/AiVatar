@@ -20,6 +20,13 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:insets', (e, r) => { if (b()?.isMainFrame(e.sender) && r) b().setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => b()?.painted(e.sender));
+  // Autofill (sheet 77): the box he is in, and a login he sent, from a tab's top page only; the light's two doors; the
+  // save card's Save, from the frame only.
+  ipcMain.on('tab:field', (e, m) => { if (top(e)) b()?.afField(e.sender, m); });
+  ipcMain.on('tab:cred', (e, m) => { if (top(e)) b()?.afCred(e.sender, m); });
+  ipcMain.on('light:pick', (e) => { if (top(e) && b()?.isLight(e.sender)) void b().afPick(); });
+  ipcMain.on('light:flick', (e, d) => { if (top(e) && b()?.isLight(e.sender) && (d === 1 || d === -1)) b().afFlick(d); });
+  ipcMain.on('browser:afsavego', (e, m) => { if (top(e) && b()?.isMainFrame(e.sender)) void b().afSaveGo(m); });
   // Nothing plays until he asks (2026-10-20): a starting page asks whether it may play by itself and whether he sees it.
   // Dark mode at the page's start (2026-10-20): the top frame only, and only for the address that frame really has.
   ipcMain.handle('tab:dark', (e) => { try { const f = e.senderFrame; if (!f || f.parent) return null; return b()?.darkAtStart(e.sender, f.url) ?? null; } catch { return null; } });

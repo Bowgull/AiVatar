@@ -11,13 +11,13 @@
 //  - Nothing fills by itself. He clicks the key; if the site has several logins, he picks one.
 //  - The page only ever receives the two values it asked for, written into the form by a script running in an
 //    isolated world the page cannot see into. Nothing is submitted for him.
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 // M6: on the Mac, the same official tool, put by the Mac setup in Aang's own folder.
-export const BW = process.platform === 'darwin'
+export const BW = process.env.AANG_TEST_BW ? process.env.AANG_TEST_BW : process.platform === 'darwin'
   ? path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'bw', 'bw')
   : path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'BitwardenCLI', 'bw.exe');
 /** How he signs in to it once, himself, on this machine. */
@@ -40,6 +40,36 @@ function bw(args: string[], env: Record<string, string> = {}, timeout = 30_000):
 export class Vault {
   private session: string | null = null;
   private timer: NodeJS.Timeout | null = null;
+  /** Autofill's PIN (sheet 77, 2026-10-23): while one is set, locking only forgets the session here (the PIN opens its
+   *  sealed copy again); without one, locking also locks Bitwarden's tool, as before. */
+  keepSealed: () => boolean = () => false;
+  /** The session, for sealing it under his PIN, and nothing else. */
+  current(): string | null { return this.session; }
+  /** A session opened with his PIN: kept only if Bitwarden's tool still takes it. */
+  async useSession(key: string): Promise<boolean> {
+    if (!/^[A-Za-z0-9+/=_-]{20,}$/.test(key) || !existsSync(BW)) return false;
+    const r = await bw(['status'], { BW_SESSION: key });
+    try { if (JSON.parse(r.out).status !== 'unlocked') return false; } catch { return false; }
+    this.session = key; this.known = 'unlocked'; this.touch();
+    void bw(['sync'], { BW_SESSION: key }, 60_000);
+    return true;
+  }
+  /** A new login, after he looked at it and said Save. The secrets go to the tool on its stdin, never its command line. */
+  async create(site: string, username: string, password: string): Promise<boolean> {
+    if (!this.session || !site || !password) return false;
+    const item = { type: 1, name: site.slice(0, 120), notes: null, favorite: false, fields: [], secureNote: null, card: null, identity: null, reprompt: 0,
+      login: { username: username.slice(0, 200), password: password.slice(0, 500), totp: null, uris: [{ match: null, uri: 'https://' + site }] } };
+    const encoded = Buffer.from(JSON.stringify(item)).toString('base64');
+    const ok = await new Promise<boolean>((resolve) => {
+      const c = spawn(BW, ['create', 'item'], { env: { ...process.env, BW_SESSION: this.session!, BW_NOINTERACTION: 'true' }, windowsHide: true });
+      const t = setTimeout(() => { try { c.kill(); } catch { /* gone */ } resolve(false); }, 30_000);
+      c.on('error', () => { clearTimeout(t); resolve(false); });
+      c.on('exit', (code) => { clearTimeout(t); resolve(code === 0); });
+      c.stdin.end(encoded);
+    });
+    if (ok) this.touch();
+    return ok;
+  }
 
   /** The last answer state() gave, for drawing a page without waiting on Bitwarden (2 seconds or more). */
   known: VaultState = 'locked';
@@ -108,16 +138,23 @@ export class Vault {
     } catch { return null; }
   }
 
-  /** 30 minutes after the last fill, it locks itself. */
+  /** 30 minutes after the last fill, it locks itself (with a PIN set, only here: the PIN opens it again). */
   private touch(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => this.lock(), LOCK_AFTER_MS);
   }
-  private forget(): void { this.session = null; if (this.timer) { clearTimeout(this.timer); this.timer = null; } }
-  lock(): void {
+  /** Locked for good: Bitwarden's own tool too, PIN or not (his Lock now, or five wrong PINs). */
+  lockHard(): void {
     const had = this.session;
     this.forget();
-    if (had) void bw(['lock'], { BW_SESSION: had });
+    this.known = 'locked';
+    // Even with no session here (forgotten after 30 minutes): the tool's own unlock must end too.
+    if (existsSync(BW)) void bw(['lock'], had ? { BW_SESSION: had } : {});
+  }
+  private forget(): void { this.session = null; if (this.timer) { clearTimeout(this.timer); this.timer = null; } }
+  lock(): void {
+    if (this.keepSealed()) { this.forget(); this.known = 'locked'; return; }
+    this.lockHard();
   }
 }
 

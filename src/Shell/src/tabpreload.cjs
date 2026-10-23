@@ -76,6 +76,74 @@ try {
   }, true);
 } catch { /* no Shell to ask: the page plays as it would anywhere */ }
 
+// Autofill (sheet 77, 2026-10-23): which box he is in, and where, so Samara can show its light beside it. Only the kind of
+// box and its place go to Samara; nothing comes back into the page from here. Top page, secure pages only.
+// The SAME fieldKind as src/autofill.ts FIELD_KIND_JS (test/autofill.test.ts keeps them equal).
+try {
+  if (window === window.top && location.protocol === 'https:') {
+    function fieldKind(el) {
+      if (!el || el.tagName !== 'INPUT' || el.disabled || el.readOnly) return null;
+      const t = (el.type || 'text').toLowerCase();
+      if (['hidden', 'submit', 'button', 'checkbox', 'radio', 'file', 'image', 'reset', 'range', 'color', 'date', 'number', 'search', 'month', 'week', 'time', 'datetime-local'].includes(t)) return null;
+      const ac = (el.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
+      const has = (w) => ac.includes(w);
+      if (has('off') && t !== 'password' && t !== 'email') return null;
+      if (t === 'password') return has('new-password') ? 'newpassword' : 'password';
+      if (has('one-time-code') || has('cc-number') || has('cc-csc')) return null;
+      if (has('username')) return 'username';
+      if (t === 'email' || has('email')) return 'email';
+      if (has('name')) return 'name';
+      if (has('given-name')) return 'given';
+      if (has('family-name')) return 'family';
+      if (t === 'tel' || has('tel')) return 'tel';
+      if (has('street-address') || has('address-line1')) return 'street';
+      if (has('address-level2')) return 'city';
+      if (has('address-level1')) return 'region';
+      if (has('postal-code')) return 'postal';
+      if (has('country') || has('country-name')) return 'country';
+      const lab = el.labels && el.labels[0] ? el.labels[0].textContent : '';
+      const s = [el.name, el.id, el.getAttribute('placeholder'), el.getAttribute('aria-label'), lab].join(' ').toLowerCase();
+      if (/e-?mail/.test(s)) return 'email';
+      if (/user ?name|login|account id|sign.?in/.test(s)) return 'username';
+      if (/first.?name|given/.test(s)) return 'given';
+      if (/last.?name|surname|family/.test(s)) return 'family';
+      if (/full.?name|your name|^\s*name\s*$/.test(s)) return 'name';
+      if (/phone|mobile|\btel\b/.test(s)) return 'tel';
+      if (/street|address.?(line)?.?1|^\s*address\s*$/.test(s)) return 'street';
+      if (/\bcity\b|town/.test(s)) return 'city';
+      if (/province|\bstate\b|region/.test(s)) return 'region';
+      if (/\bzip\b|postal|post ?code/.test(s)) return 'postal';
+      if (/country/.test(s)) return 'country';
+      return null;
+    }
+    let here = null;
+    const say = (box) => {
+      if (!box) { ipcRenderer.send('tab:field', null); return; }
+      const k = fieldKind(box), r = box.getBoundingClientRect();
+      if (!k || r.width < 30 || r.height < 12) { ipcRenderer.send('tab:field', null); return; }
+      const kinds = [...new Set([...(box.form || document).querySelectorAll('input')].map(fieldKind).filter(Boolean))].slice(0, 12);
+      ipcRenderer.send('tab:field', { kind: k, kinds, empty: box.value === '', rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) } });
+    };
+    document.addEventListener('focusin', (e) => { here = e.target instanceof HTMLInputElement && fieldKind(e.target) ? e.target : null; say(here); }, true);
+    document.addEventListener('focusout', (e) => { if (e.target === here) { here = null; setTimeout(() => { if (!here) say(null); }, 60); } }, true);
+    // Typing makes the light go; scrolling or resizing moves the box, so the light goes and comes back when he clicks.
+    document.addEventListener('input', (e) => { if (e.target === here && here.value !== '') ipcRenderer.send('tab:field', { typing: true }); }, true);
+    window.addEventListener('scroll', () => { if (here) say(null); }, { capture: true, passive: true });
+    window.addEventListener('resize', () => { if (here) say(null); }, { passive: true });
+    // A login sent: the name and password he typed, so Samara can offer to keep it (it shows him first, he decides).
+    const sent = (form) => {
+      const boxes = [...(form || document).querySelectorAll('input')];
+      const pw = boxes.find((b) => b.type === 'password' && b.value);
+      if (!pw) return;
+      const user = boxes.filter((b) => ['username', 'email'].includes(fieldKind(b)) && b.value).pop();
+      ipcRenderer.send('tab:cred', { user: user ? user.value.slice(0, 200) : '', pass: pw.value.slice(0, 500) });
+    };
+    document.addEventListener('submit', (e) => sent(e.target), true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type === 'password') sent(e.target.form); }, true);
+    document.addEventListener('click', (e) => { const b = e.target instanceof Element ? e.target.closest('button, input[type=submit], [role=button]') : null; if (b) sent(b.form || b.closest('form')); }, true);
+  }
+} catch { /* no autofill on this page */ }
+
 try {
   contextBridge.executeInMainWorld({
     func: () => {

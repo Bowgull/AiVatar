@@ -37,6 +37,7 @@ import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
+import { DETAIL_KINDS, DetailsStore, PIN_LENGTH, PinSeal, cleanDetails, detailFor, fillDetailsScript, samePin, type FieldKind } from './autofill.ts';
 import { createHmac, randomBytes } from 'node:crypto';
 import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
@@ -193,6 +194,8 @@ interface Pane {
   runeHideT?: NodeJS.Timeout | null;
   /** The pop-out still last sent to this window's band (sent once, not with every message). */
   lentSent?: string;
+  /** Autofill's light (sheet 77): its own see-through layer beside the box he clicked. */
+  lightV?: WebContentsView | null;
   curtain: WebContentsView | null;
   curtainReady: Promise<unknown>;
   veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
@@ -484,7 +487,7 @@ export class AangBrowser {
    */
   tabSize: 's' | 'm' | 'l' = 'l';
   private localFile = '';
-  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[] };
+  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[], afSounds: true };
   /** His home page, or his search engine's front page. Web pages only. */
   private get HOME(): string { return isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
   /** The Stash (Tidy and the trail menu put trails here). Kept between runs. */
@@ -520,6 +523,8 @@ export class AangBrowser {
   }
   /** 6.23: his logins from Bitwarden, filled when he clicks the key. */
   private readonly vault = new Vault();
+  private readonly details: DetailsStore;
+  private readonly pinSeal: PinSeal;
   /** The tab and site a fill was started for: a fill never lands on a page that changed since. */
   private vaultFor: { tab: number; host: string } | null = null;
   /** Does the page he is looking at have a password box? Then the key shows in the slot. */
@@ -632,6 +637,10 @@ export class AangBrowser {
     this.stashSeq = this.stash.reduce((m, s) => Math.max(m, s.id), 0);
     setSearch(this.prefs.search, this.prefs.aiBox);
     this.sitesFile = path.join(o.stateDir, 'vault-sites.json');
+    // Autofill (sheet 77): his details and his PIN's seal, both kept with the Keychain.
+    this.details = new DetailsStore(path.join(o.stateDir, 'autofill-details.json'));
+    this.pinSeal = new PinSeal(path.join(o.stateDir, 'autofill-pin.json'));
+    this.vault.keepSealed = () => this.pinSeal.has();
     try { if (existsSync(this.popupOkFile)) this.popupOk = new Set((JSON.parse(readFileSync(this.popupOkFile, 'utf8')) as unknown[]).filter((x): x is string => typeof x === 'string')); } catch { /* none */ }
     try {
       if (existsSync(this.sitesFile)) {
@@ -672,7 +681,7 @@ export class AangBrowser {
         this.sounds = p?.sounds === true;
         this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
           search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs',
-          dark: p?.dark !== false, darkOff: hostList(p?.darkOff) };
+          dark: p?.dark !== false, darkOff: hostList(p?.darkOff), afSounds: p?.afSounds !== false };
       }
     } catch { /* defaults */ }
     denyPermissions(this.ses);
@@ -1405,7 +1414,8 @@ export class AangBrowser {
       // with their real hover and snap layouts, instead of on a flat block that looked stuck on.
       // His pick (2026-10-12): Aang draws his own bold gold minimise, maximise and close on the band; Windows' were too thin.
       titleBarStyle: 'hidden',
-      webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
+      // Autofill's sounds (sheet 77) play in this, Samara's own page, while his keys are in the site's page.
+      webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, autoplayPolicy: 'no-user-gesture-required' },
     });
     // Samara (his name and his pick of icon, sheet 33 L1, 2026-10-14): the browser wears its own lantern and gets its
     // own taskbar button; Aang's other windows keep his face.
@@ -1803,6 +1813,7 @@ export class AangBrowser {
       const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
       if (!x.isMainFrame || x.isSameDocument) return;
       tab.phase = 'waiting'; tab.prog = 0.08;
+      if (this.af?.tab === tab.id) { this.af = null; this.lightHide(); }
       if (isWeb(x.url)) void this.veilUp(tab);
       this.sendTabs();
     });
@@ -1856,7 +1867,7 @@ export class AangBrowser {
     on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
     // The keys work wherever the keyboard is, page or frame.
     // Not while it is lent to the popout: Ctrl+W there must not close a tab in here.
-    on('before-input-event', (e, input) => { if (!tab.lent && this.key(input)) e.preventDefault(); });
+    on('before-input-event', (e, input) => { if (this.afKey(tab, input)) { e.preventDefault(); return; } if (!tab.lent && this.key(input)) e.preventDefault(); });
     // Back where it was: the zoom at once. The scroll (2026-10-22, measured on his Mac: it waited for every picture on
     // the page, so a busy page sat at the top for up to ~15 s and then jumped): Chromium's own saved state when there is
     // one, so the page draws where he left it, as Chrome does after a restart; otherwise as soon as the page can scroll,
@@ -1938,6 +1949,7 @@ export class AangBrowser {
       popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(), sites: this.yourSites(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
+      afSounds: this.prefs.afSounds, autofill: { details: this.details.get(), pin: this.pinSeal.has(), sounds: this.prefs.afSounds },
       versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin',
     };
   }
@@ -1953,6 +1965,10 @@ export class AangBrowser {
       case 'aiBox': this.prefs.aiBox = value === true; setSearch(this.prefs.search, this.prefs.aiBox); this.savePrefs(); break;
       case 'startup': this.prefs.startup = value === 'home' ? 'home' : 'tabs'; this.savePrefs(); break;
       case 'ads': case 'popups': case 'sounds': case 'dark': this.setPref(key, value === true); break;
+      // Autofill (sheet 77): his details, the sound switch, and his PIN (set while Bitwarden is open).
+      case 'afDetails': this.details.set(cleanDetails(value)); this.sync?.changed('prefs'); break;
+      case 'afSounds': this.prefs.afSounds = value === true; this.savePrefs(); break;
+      case 'afPin': void this.afSetPin(value); return;
       case 'tabSize': {
         this.tabSize = value === 's' || value === 'm' ? value : 'l';
         try { writeFileAtomic(this.localFile, JSON.stringify({ tabSize: this.tabSize })); } catch { /* this run only */ }
@@ -1988,6 +2004,7 @@ export class AangBrowser {
     if (act === 'import') void this.importMarks().then(() => this.pushSettings());
     else if (act === 'import-chrome' || act === 'import-safari') void this.importFrom(act === 'import-chrome' ? 'chrome' : 'safari').then(() => this.pushSettings());
     else if (act === 'lockvault') { this.vault.lock(); this.pushSettings(); }
+    else if (act === 'afforgetpin') { this.pinSeal.wipe(); this.pushSettings(); }
     else if (act === 'homehere') {
       const t = [...this.tabs].filter((x) => isWeb(x.url)).sort((a, b) => b.lastSeen - a.lastSeen)[0];
       if (t) this.setSetting('home', t.url);
@@ -2162,6 +2179,7 @@ export class AangBrowser {
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
     if (this.watching !== null) this.unwatch(false);
     if (this.veil && this.veil.tab !== id) this.veilDown(0);
+    if (this.af && this.af.tab !== id) { this.af = null; this.afPin = null; this.lightHide(); this.afBand(); }
     this.active = id;
     t.lastSeen = Date.now();
     this.place();
@@ -2561,6 +2579,231 @@ export class AangBrowser {
   }
   vaultCancel(): void { this.vaultFor = null; this.win?.webContents.send('browser:vault', null); }
 
+  // ------------------------------------------------------------------ autofill (sheet 77, his interview 2026-10-23)
+  /** The box he is in, on the page in front: what it is, its neighbours' kinds, where it is (page pixels). */
+  private af: { tab: number; kind: FieldKind; kinds: FieldKind[]; empty: boolean; rect: { x: number; y: number; w: number; h: number };
+    offer: 'details' | 'login' | null; email: number; logins: Login[]; login: number } | null = null;
+  /** The address bar asking for his PIN: the digits so far (never shown, never kept), and what to do once it opens. */
+  private afPin: { digits: string; then: 'fill' | 'save' } | null = null;
+  /** A login he just sent on a page, waiting for him to look at it (kept in memory only, five minutes at most). */
+  private afSave: { tab: number; host: string; user: string; pass: string; at: number; asked: boolean } | null = null;
+  private afBandMode: 'idle' | 'pin' | 'save' = 'idle';
+
+  /** The light's layer for this window, made once and kept hidden. */
+  private lightView(): WebContentsView | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    if (this.pane.lightV && !this.pane.lightV.webContents.isDestroyed()) return this.pane.lightV;
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.preloadPath), 'lightpreload.cjs'), backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    void v.webContents.loadURL(`${this.o.origin}/light.html`);
+    this.pane.lightV = v;
+    return v;
+  }
+  isLight(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => x.lightV && !x.lightV.webContents.isDestroyed() && x.lightV.webContents === sender);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  private lightHide(): void {
+    for (const p of this.panes) { const v = p.lightV; if (v && !v.webContents.isDestroyed() && v.getVisible()) { v.webContents.send('light:show', null); setTimeout(() => { if (!this.af || p !== this.pane) v.setVisible(false); }, 100); } }
+  }
+  /** Beside the box: right of it, half a light's height above its middle. */
+  private lightShow(m: { item: 'letter' | 'card' | 'key'; text: string; count: string }): void {
+    const a = this.af, t = a ? this.tabs.find((x) => x.id === a.tab) : undefined, v = this.lightView(), w = this.win;
+    if (!a || !t?.view || !v || !w || t.id !== this.active || this.drawerOpen) return;
+    const vb = t.view.getBounds(), z = t.view.webContents.getZoomFactor();
+    const W = 440, H = 44;
+    const x = Math.round(vb.x + (a.rect.x + a.rect.w) * z + 2), y = Math.round(vb.y + (a.rect.y + a.rect.h / 2) * z - H / 2);
+    if (y < vb.y - 4 || y + H > vb.y + vb.height + 4) return;            // the box is off the page's visible part
+    v.setBounds({ x, y, width: Math.max(60, Math.min(W, vb.x + vb.width - x)), height: H });
+    w.contentView.addChildView(v);                                          // on top of the page
+    v.setVisible(true);
+    v.webContents.send('light:show', m);
+  }
+  /** What the light offers for the box he is in, if anything; null hides it. */
+  private async afDecide(): Promise<void> {
+    const a = this.af, t = a ? this.tabs.find((x) => x.id === a.tab) : undefined;
+    if (!a || !t?.view || !a.empty) { this.lightHide(); return; }
+    const url = t.view.webContents.getURL();
+    if (!url.startsWith('https:') || this.listed(url).length) { this.lightHide(); return; }
+    let host = ''; try { host = new URL(url).hostname; } catch { return; }
+    const loginBox = a.kind === 'password' || ((a.kind === 'username' || a.kind === 'email') && a.kinds.includes('password'));
+    if (loginBox) {
+      if (this.vault.current()) {
+        const logins = await this.vault.loginsFor(url);
+        if (this.af !== a) return;
+        if (logins && logins.length) { a.offer = 'login'; a.logins = logins; a.login = 0; this.lightShow(this.afLoginLabel()); return; }
+      } else if (a.kind === 'password' && (this.siteKnown(host) || !this.sites)) {
+        // Bitwarden is locked and this site has a login: the bar calls him for his PIN (or the master password).
+        this.lightHide();
+        if (this.pinSeal.has()) { this.afPin = { digits: '', then: 'fill' }; this.afBand('call'); }
+        else { this.afBand('call'); void this.vaultKey(); }
+        return;
+      }
+    }
+    if (DETAIL_KINDS.includes(a.kind)) {
+      const d = this.details.get(), v = detailFor(d, a.kind, 0);
+      if (v || (a.kind !== 'email' && d.name)) { a.offer = 'details'; a.email = 0; this.lightShow(this.afDetailsLabel()); return; }
+    }
+    a.offer = null; this.lightHide();
+  }
+  private afLoginLabel() { const a = this.af!; const l = a.logins[a.login]!; return { item: 'key' as const, text: l.username || l.name, count: a.logins.length > 1 ? `${a.login + 1}/${a.logins.length}` : '' }; }
+  private afDetailsLabel() {
+    const a = this.af!, d = this.details.get();
+    if (a.kind === 'email') return { item: 'letter' as const, text: d.emails[a.email] ?? '', count: d.emails.length > 1 ? `${a.email + 1}/${d.emails.length}` : '' };
+    return { item: 'card' as const, text: d.name || detailFor(d, a.kind), count: '' };
+  }
+  /** The tab says which box he is in (or none, or that he is typing). */
+  afField(sender: Electron.WebContents, m: unknown): void {
+    const t = this.tabs.find((x) => x.view?.webContents === sender);
+    if (!t || t.id !== this.active) return;
+    const o = m as { kind?: unknown; kinds?: unknown; empty?: unknown; rect?: Record<string, unknown>; typing?: unknown } | null;
+    if (!o) { this.af = null; this.lightHide(); if (this.afPin) setTimeout(() => { if (!this.af && this.afPin) { this.afPin = null; this.afBand(); } }, 400); return; }
+    if (o.typing) { if (this.af) this.af.empty = false; this.lightHide(); return; }
+    const kinds = (Array.isArray(o.kinds) ? o.kinds : []).filter((k): k is FieldKind => typeof k === 'string' && /^[a-z]{3,12}$/.test(k)).slice(0, 12);
+    const kind = typeof o.kind === 'string' && /^[a-z]{3,12}$/.test(o.kind) ? o.kind as FieldKind : null;
+    const r = o.rect ?? {}, rect = { x: Number(r.x) || 0, y: Number(r.y) || 0, w: Number(r.w) || 0, h: Number(r.h) || 0 };
+    if (!kind) { this.af = null; this.lightHide(); return; }
+    this.af = { tab: t.id, kind, kinds, empty: o.empty === true, rect, offer: null, email: 0, logins: [], login: 0 };
+    void this.afDecide();
+  }
+  /** He clicked the light, or pressed Tab while it showed. */
+  async afPick(): Promise<void> {
+    const a = this.af, t = a ? this.tabs.find((x) => x.id === a.tab) : undefined, wc = t?.view?.webContents;
+    if (!a || !t || !wc || wc.isDestroyed() || !a.offer) return;
+    this.pane.lightV?.webContents.send('light:show', { give: true });
+    if (a.offer === 'login') {
+      const l = a.logins[a.login];
+      const s = l ? await this.vault.secret(l.id) : null;
+      if (!s || this.af !== a) return;
+      await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillScript(s.username, s.password) }]) as Promise<number>, 2000, 0);
+    } else {
+      const d = this.details.get(), values: Partial<Record<FieldKind, string>> = {};
+      for (const k of DETAIL_KINDS) { const v = detailFor(d, k, k === 'email' ? a.email : 0); if (v) values[k] = v; }
+      const whole = a.kind !== 'email' || a.kinds.filter((k) => DETAIL_KINDS.includes(k) && k !== 'email').length > 0;
+      await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillDetailsScript(values, whole) }]) as Promise<number>, 2000, 0);
+    }
+    this.afSound('fill');
+    a.empty = false;
+    setTimeout(() => this.lightHide(), 120);
+  }
+  /** The wheel on the light, or an arrow key in the box: his next email (or login). */
+  afFlick(d: number): void {
+    const a = this.af;
+    if (!a?.offer) return;
+    if (a.offer === 'login' && a.logins.length > 1) { a.login = (a.login + d + a.logins.length) % a.logins.length; this.pane.lightV?.webContents.send('light:show', { flick: true, ...this.afLoginLabel() }); }
+    const n = this.details.get().emails.length;
+    if (a.offer === 'details' && a.kind === 'email' && n > 1) { a.email = (a.email + d + n) % n; this.pane.lightV?.webContents.send('light:show', { flick: true, ...this.afDetailsLabel() }); }
+  }
+  /** Keys in the page, before the page sees them. True: autofill took it. */
+  afKey(tab: Tab, input: Electron.Input): boolean {
+    if (input.type !== 'keyDown' || tab.id !== this.active) return false;
+    if (this.afPin) {
+      if (/^[0-9]$/.test(input.key) && !input.meta && !input.control) { void this.afPinDigit(input.key); return true; }
+      if (input.key === 'Backspace') { this.afPin.digits = this.afPin.digits.slice(0, -1); this.afBand(); return true; }
+      if (input.key === 'Escape') { this.afPin = null; this.afBand(); return true; }
+      return false;
+    }
+    const a = this.af;
+    if (!a?.offer || !a.empty || !this.pane.lightV?.getVisible()) return false;
+    if (input.key === 'Tab' && !input.shift && !input.meta && !input.control && !input.alt) { void this.afPick(); return true; }
+    if ((input.key === 'ArrowDown' || input.key === 'ArrowUp') && !input.shift && !input.meta) {
+      const many = a.offer === 'login' ? a.logins.length > 1 : a.kind === 'email' && this.details.get().emails.length > 1;
+      if (!many) return false;
+      this.afFlick(input.key === 'ArrowDown' ? 1 : -1); return true;
+    }
+    return false;
+  }
+  private async afPinDigit(d: string): Promise<void> {
+    const p = this.afPin;
+    if (!p || p.digits.length >= PIN_LENGTH) return;
+    p.digits += d;
+    this.afBand();
+    if (p.digits.length < PIN_LENGTH) return;
+    const r = await this.pinSeal.open(p.digits);
+    p.digits = '';
+    if (r === 'gone') { this.afPin = null; this.vault.lockHard(); this.afBand('wrong'); this.note('Five wrong PINs: Bitwarden needs your master password again.'); void this.vaultKey(); return; }
+    if ('wrong' in r) { this.afBand('wrong'); return; }
+    const ok = await this.vault.useSession(r.session);
+    this.afPin = null;
+    if (!ok) { this.pinSeal.wipe(); this.afBand(); this.note('Bitwarden wants your master password again.'); void this.vaultKey(); return; }
+    this.afBand('open');
+    void this.learnSites();
+    if (p.then === 'save') { this.afSaveAsk(); return; }
+    // The PIN was his yes: the light brings the login now (or offers to pick when the site has several).
+    setTimeout(() => { void this.afDecide().then(() => { if (this.af?.offer === 'login' && this.af.logins.length === 1) void this.afPick(); }); }, 450);
+  }
+  /** His PIN, from Settings, while Bitwarden is open: typed twice, sealed with the session. */
+  private async afSetPin(value: unknown): Promise<void> {
+    const v = (value && typeof value === 'object' ? value : {}) as { pin?: unknown; again?: unknown };
+    const pin = String(v.pin ?? ''), again = String(v.again ?? '');
+    const say = (text: string, ok = false) => { this.pushSettings(); const wc = this.tabs.find((x) => x.internal === 'settings')?.view?.webContents; if (wc && !wc.isDestroyed()) wc.send('settings:afpin', { ok, text }); };
+    if (!new RegExp(`^[0-9]{${PIN_LENGTH}}$`).test(pin)) { say(`A PIN is ${PIN_LENGTH} numbers.`); return; }
+    if (!samePin(pin, again)) { say('The two did not match.'); return; }
+    const session = this.vault.current();
+    if (!session) { say('Open Bitwarden once first (use a login), then set your PIN.'); return; }
+    say((await this.pinSeal.seal(pin, session)) ? 'Your PIN is set.' : 'This computer cannot keep a PIN safely, so none was set.', true);
+  }
+  /** A login he just sent on a page: offered after the page moves on, if it is new or changed. */
+  afCred(sender: Electron.WebContents, m: unknown): void {
+    const t = this.tabs.find((x) => x.view?.webContents === sender);
+    const o = (m && typeof m === 'object' ? m : {}) as { user?: unknown; pass?: unknown };
+    if (!t || typeof o.pass !== 'string' || !o.pass) return;
+    let host = ''; try { const u = new URL(sender.getURL()); if (u.protocol !== 'https:') return; host = u.hostname.replace(/^www\./, ''); } catch { return; }
+    if (this.listed(sender.getURL()).length || bankSite(sender.getURL())) return;
+    this.afSave = { tab: t.id, host, user: String(o.user ?? '').slice(0, 200), pass: o.pass.slice(0, 500), at: Date.now(), asked: false };
+    const mine = this.afSave;
+    setTimeout(() => { void this.afSaveCheck(mine); }, 2500);
+    setTimeout(() => { if (this.afSave === mine) { this.afSave = null; this.afBand(); } }, 5 * 60_000);
+  }
+  private async afSaveCheck(s: NonNullable<typeof this.afSave>): Promise<void> {
+    if (this.afSave !== s) return;
+    const t = this.tabs.find((x) => x.id === s.tab), wc = t?.view?.webContents;
+    if (!wc || wc.isDestroyed()) { this.afSave = null; return; }
+    // Still a password box on the page: it did not work (a wrong password is never offered).
+    const still = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')", true) as Promise<boolean>, 800, false);
+    if (still) { this.afSave = null; return; }
+    if (this.vault.current()) {
+      const logins = await this.vault.loginsFor('https://' + s.host);
+      for (const l of logins ?? []) if (l.username === s.user) { const sec = await this.vault.secret(l.id); if (sec?.password === s.pass) { this.afSave = null; return; } }
+    }
+    if (this.afSave === s) this.afBand();
+  }
+  /** "Save this login" clicked: the card shows exactly what will be kept (needs Bitwarden open: the PIN first). */
+  private afSaveAsk(): void {
+    const s = this.afSave;
+    if (!s) return;
+    if (!this.vault.current()) {
+      if (this.pinSeal.has()) { this.afPin = { digits: '', then: 'save' }; this.afBand('call'); }
+      else void this.vaultKey();
+      return;
+    }
+    this.win?.webContents.send('browser:afsave', { site: s.host, user: s.user, pass: s.pass });
+  }
+  /** The card's Save: what he saw, perhaps edited. */
+  async afSaveGo(m: unknown): Promise<void> {
+    const o = (m && typeof m === 'object' ? m : {}) as { site?: unknown; user?: unknown; pass?: unknown };
+    const site = String(o.site ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (!/^[a-z0-9.-]{3,253}$/.test(site) || typeof o.pass !== 'string' || !o.pass) return;
+    const ok = await this.vault.create(site, String(o.user ?? ''), o.pass);
+    this.afSave = null;
+    this.afBand(ok ? 'open' : undefined);
+    this.note(ok ? `Kept in your Bitwarden: ${site}.` : 'Bitwarden did not keep it. Try again from the key.');
+    if (ok) void this.learnSites();
+  }
+  /** The address bar's key: what it shows now. `beat`: one moment to play (the call, opening, a wrong PIN). */
+  private afBand(beat?: 'call' | 'open' | 'wrong'): void {
+    this.afBandMode = this.afPin ? 'pin' : this.afSave ? 'save' : 'idle';
+    this.win?.webContents.send('browser:af', { mode: this.afBandMode, n: this.afPin?.digits.length ?? 0, of: PIN_LENGTH, beat: beat ?? null });
+    if (beat === 'call') this.afSound('call');
+    if (beat === 'open') this.afSound('unlock');
+    if (beat === 'wrong') this.afSound('wrong');
+  }
+  private afSound(name: 'call' | 'unlock' | 'fill' | 'wrong'): void { if (this.prefs.afSounds) this.win?.webContents.send('browser:afsound', name); }
+
   // ------------------------------------------------------------------ site icons for the bookmarks
   /** Fetch one icon through his own browsing session and keep it as a small data picture. Images only, 64 KB at most. */
   private async iconData(url: string): Promise<string | null> {
@@ -2662,7 +2905,8 @@ export class AangBrowser {
       this.saveMarks(); this.sendTabs(); this.pushSettings();
     },
     // SY (his "sync everything", 2026-10-14): the lists he made travel with the settings. Money sites never do.
-    prefs: () => ({ sounds: this.sounds, ...this.prefs, lists: {
+    // His details travel to his other machine only (his pick, 2026-10-23), with the rest of his settings.
+    prefs: () => ({ sounds: this.sounds, ...this.prefs, ...(this.details.empty() ? {} : { autofill: this.details.get() }), lists: {
       popupOk: [...this.popupOk], trusted: [...this.trusted, ...this.peerTrusted], httpOk: [...this.httpOk, ...this.peerHttp], adsPaused: [...this.paused], siteRules: this.rules.all(),
       stash: this.stash.map((x) => ({ ...x, tabs: x.tabs.filter((t) => urlKept(t.url)) })),
     } }) as Record<string, unknown>,
@@ -2671,7 +2915,8 @@ export class AangBrowser {
       this.sounds = p.sounds === true;
       this.prefs = { ads: p.ads !== false, popups: p.popups !== false, home: typeof p.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
         search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox === true, startup: p.startup === 'home' ? 'home' : 'tabs',
-        dark: p.dark !== false, darkOff: hostList(p.darkOff) };
+        dark: p.dark !== false, darkOff: hostList(p.darkOff), afSounds: p.afSounds !== false };
+      if (p.autofill && typeof p.autofill === 'object') this.details.set(p.autofill);
       setSearch(this.prefs.search, this.prefs.aiBox);
       this.paintDarkAll();
       this.takeLists(p.lists);
@@ -3858,6 +4103,9 @@ export class AangBrowser {
       case 'winmin': this.win?.minimize(); break;
       case 'winmax': if (this.win) { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); } break;
       case 'winclose': this.win?.close(); break;
+      // Autofill's save (sheet 77): the key's "Save this login" was clicked, or the card was put away.
+      case 'afsaveask': this.afSaveAsk(); break;
+      case 'afsavecancel': this.afSave = null; this.afBand(); break;
       // A double-click on the band's wood (2026-10-23, his report: nothing happened on the Mac). Windows does this itself
       // for the drag area; on the Mac Samara does what his Mac is set to (System Settings, Desktop & Dock: "Double-click a
       // window's title bar to"): fill the screen and back (the default), tuck it in the Dock, or nothing.

@@ -79,6 +79,26 @@
         <div class="row"><div class="t"><b>Stays unlocked</b><small>30 minutes after the last fill, then it locks itself. Closing the browser locks it too.</small></div></div>
         <div class="row"><div class="t"><b>Filling a login</b><small>A key shows in the address bar on sites you have a login for. Click it; that is the only way anything fills.</small></div></div>
       </div>
+      <!-- Sheet 77 (2026-10-23): his details for the light, his PIN, and how it works (behind a tap). -->
+      <div class="card"><i class="caps"></i>
+        <h3>AUTOFILL</h3>
+        <div class="row"><div class="t"><b>Your details</b><small>Offered by the light when you click a box. Kept on your two computers only.</small></div><button class="pick" type="button" id="afedit">Edit</button></div>
+        <form class="afform" id="afform" autocomplete="off" hidden>
+          <label class="field"><span>Name</span><input id="af-name" type="text" spellcheck="false" maxlength="120"></label>
+          <label class="field"><span>Emails</span><input id="af-emails" type="text" spellcheck="false" maxlength="600" placeholder="main first, then others, with commas"></label>
+          <label class="field"><span>Phone</span><input id="af-phone" type="text" spellcheck="false" maxlength="40"></label>
+          <label class="field"><span>Street</span><input id="af-street" type="text" spellcheck="false" maxlength="200"></label>
+          <label class="field"><span>City</span><input id="af-city" type="text" spellcheck="false" maxlength="100"></label>
+          <label class="field"><span>Province</span><input id="af-region" type="text" spellcheck="false" maxlength="100"></label>
+          <label class="field"><span>Postal code</span><input id="af-postal" type="text" spellcheck="false" maxlength="20"></label>
+          <label class="field"><span>Country</span><input id="af-country" type="text" spellcheck="false" maxlength="80"></label>
+          <div class="afkeys"><button class="pick" type="submit">Save</button><button class="pick" type="button" id="afcancel">Cancel</button></div>
+        </form>
+        <div class="row"><div class="t"><b>Bitwarden PIN</b><small id="afpinnote">4 numbers, instead of your master password. After 5 wrong tries, the master password again.</small></div>
+          <form class="field" id="afpinform" autocomplete="off"><input id="af-pin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN" aria-label="New PIN" style="width:70px"><input id="af-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="again" aria-label="The same PIN again" style="width:70px"><button class="pick" type="submit">Set</button></form>
+          <button class="pick" type="button" data-act="afforgetpin" id="afforget" hidden>Forget PIN</button></div>
+        <div class="row"><div class="t"><b>How autofill works</b><small id="afhow" hidden>Click a box and the light brings what fits: click it or press Tab. Roll the scroll wheel on it, or press the up and down arrows, for your other emails. On a form, one click fills every box it knows. When Bitwarden is locked, just type your PIN; the key in the address bar opens. A new login: point at the glowing key, then Save.</small></div><button class="pick" type="button" id="afhowbtn">Show</button></div>
+      </div>
     </section>
 
     <section data-sec="privacy" hidden>
@@ -122,6 +142,8 @@
         <h3>SOUNDS</h3>
         <div class="row"><div class="t"><b>Wood sounds</b><small>A soft tap for a new tab, closing one, and a finished download.</small></div>
           <div class="choice" data-key="sounds"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
+        <div class="row"><div class="t"><b>Autofill sounds</b><small>The call for your PIN, the unlock, and the fill.</small></div>
+          <div class="choice" data-key="afSounds"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
       </div>
     </section>
 

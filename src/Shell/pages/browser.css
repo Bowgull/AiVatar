@@ -1071,3 +1071,40 @@ html.tsize-s .drawer .tp .x::before{top:8px}
 
 /* Option + drag anywhere moves the window (2026-10-23): the hand closes while it is held. */
 html.windrag,html.windrag *{cursor:grabbing !important}
+
+/* ---- Sheet 77, autofill in the address bar: ONE icon (the key, or a padlock while Bitwarden needs his PIN), four small
+   lights as he types, a glow when it opens or a new login waits. Arrivals ease out (140 ms), nothing past 300 ms. ---- */
+.slot .vkey{position:relative;overflow:visible}
+.slot .vkey .lg{display:none;overflow:visible}
+.slot .vkey.locked .kg{display:none}
+.slot .vkey.locked .lg{display:block}
+.slot .vkey .lg .hole{fill:#0b0718}
+.slot .vkey.lit svg path:not(.hole){fill:var(--gold)}
+.slot .vkey.lit svg{filter:drop-shadow(0 0 3px rgba(255,196,60,.9))}
+.slot .vkey .shackle{transition:transform .16s cubic-bezier(.2,.9,.3,1.3)}
+.slot .vkey.open .shackle{transform:translate(1px,-2px)}
+.slot .vkey .halo{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,214,110,.75) 0,rgba(255,196,60,.28) 38%,transparent 68%);opacity:var(--o,0);transform:scale(var(--s,.8));
+  transition:opacity .22s ease-out,transform .22s ease-out}
+.slot .vkey.bloom .halo{opacity:1;transform:scale(1.9);transition-duration:.3s}
+.slot .vkey.call{animation:afnod .45s ease-in-out 2}
+@keyframes afnod{30%{transform:rotate(-10deg) translateY(-1px)}65%{transform:rotate(7deg)}100%{transform:none}}
+.slot .pinlights{display:flex;align-items:center;gap:8px;margin-right:2px}
+.slot .pinlights[hidden]{display:none}
+.slot .pinlights i{position:relative;width:8px;height:8px;border-radius:2px;background:#2a2133;box-shadow:inset 0 0 0 1.5px #4a3d5a}
+.slot .pinlights i::after{content:"";position:absolute;inset:-1px;border-radius:2px;background:#ffc43c;box-shadow:0 0 6px 2px rgba(255,196,60,.7);opacity:0;transform:scale(.4);
+  transition:opacity .14s ease-out,transform .14s cubic-bezier(.2,.9,.3,1.4)}
+.slot .pinlights i.f::after{opacity:1;transform:none}
+.slot .pinlights.shake{animation:afshake .28s ease-in-out}
+@keyframes afshake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.slot.afpin .url{visibility:hidden}
+.slot.afpin::after{content:"YOUR PIN, PLEASE";position:absolute;left:44px;top:50%;transform:translateY(-50%);font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;pointer-events:none}
+.slot{position:relative}
+.slot .savehint{position:absolute;right:58px;top:50%;transform:translate(6px,-50%);height:22px;line-height:22px;padding:0 8px;border-radius:5px;background:#24160d;border:2px solid var(--outline);
+  font:700 11.5px var(--body);color:#ffe28c;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s ease-out,transform .12s ease-out}
+.slot.afsave .vkey:hover + .savehint{opacity:1;transform:translate(0,-50%)}
+.bandchip.afsave{left:auto;right:150px;width:300px}
+.bandchip.afsave .srow{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px;margin-top:8px;font:700 12px var(--body);color:#4e3d28}
+.bandchip.afsave input{box-sizing:border-box;width:100%;padding:6px 8px;border-radius:6px;border:2px solid #6b5132;background:#fffaf0;font:600 13px var(--body);color:#271c10}
+.bandchip.afsave .keys{margin-top:10px}
+@media (prefers-reduced-motion:reduce){.slot .vkey.call{animation:none}.slot .pinlights.shake{animation:none}}

@@ -261,6 +261,11 @@ contextBridge.exposeInMainWorld('aang', {
   browserVaultUnlock: pw => ipcRenderer.send('browser:vaultunlock', { pw }),
   browserVaultPick: id => ipcRenderer.send('browser:vaultpick', { id }),
   onBrowserVault(fn) { const h = (_e, v) => fn(v); ipcRenderer.on('browser:vault', h); return () => ipcRenderer.removeListener('browser:vault', h); },
+  // Autofill (sheet 77): the address bar key's state, its sounds, and the save card.
+  onBrowserAf(fn) { const h = (_e, v) => fn(v); ipcRenderer.on('browser:af', h); return () => ipcRenderer.removeListener('browser:af', h); },
+  onBrowserAfSound(fn) { const h = (_e, v) => fn(v); ipcRenderer.on('browser:afsound', h); return () => ipcRenderer.removeListener('browser:afsound', h); },
+  onBrowserAfSave(fn) { const h = (_e, v) => fn(v); ipcRenderer.on('browser:afsave', h); return () => ipcRenderer.removeListener('browser:afsave', h); },
+  browserAfSaveGo: (m) => ipcRenderer.send('browser:afsavego', m),
   /** Trails: new, rename, or move a tab ({act, id?, name?, tab?, to?}). */
   browserTrail: a => ipcRenderer.send('browser:trail', a),
   // Sheet 47: the MOCKUPS trail (versions, history, broom, branches).
