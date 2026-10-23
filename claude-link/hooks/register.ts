@@ -485,14 +485,30 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
 }
 
 /**
- * mockup_mark (sheet 79, 2026-10-23): on his Mac, Samara's own signed door (the same lock as show_mockup's). On the PC the
- * brain does not carry marks yet, so the call says so instead of pretending.
+ * mockup_mark (sheet 79, 2026-10-23): on his Mac, Samara's own signed door (the same lock as show_mockup's); on the PC,
+ * the brain over the signed link (/link/mockupmark), which checks the sheet and hands the mark to Samara.
  */
 async function markMockup($: $T, L: Link, input: Record<string, unknown>): Promise<{ result: string; isError?: true }> {
   const a = markArgs(input)
   if (!a.ok) return { result: a.error, isError: true }
+  const NAME: Record<string, string> = { ok: 'APPROVED (his click)', chat: 'APPROVED (he said yes in chat)', built: 'BUILT', fix: 'FIX', park: 'PARKED' }
+  const listed = (stages: unknown[]) => {
+    const lines = stages.slice(0, 60).map((x) => { const v = x as Record<string, unknown>
+      return `${String(v.sheet)} v${String(v.v)} (commit ${String(v.commit).slice(0, 7)}): ${NAME[String(v.stage)] ?? String(v.stage)}${v.note ? ` · fix: ${String(v.note)}` : ''}${v.said ? ` · his words: "${String(v.said)}"` : ''}` })
+    return { result: lines.length ? lines.join('\n') : 'No marks yet: nothing is approved in the Mockups trail.' }
+  }
   const home = await macHome($)
-  if (!home) return { result: "Mockup marks live in Samara on his Mac for now; on the PC they are not wired yet. Ask him which version he approved.", isError: true }
+  if (!home) {
+    // On the PC: the brain checks it and hands it to Samara (src/Core/src/mockupdrop.ts markMockup).
+    if (!L.sessionId) L.sessionId = (await within($, $.session.id(), 1000)) ?? ''
+    if (!L.sessionId || !(await proven($, L))) return { result: 'Aang is not running, so the marks cannot be read. Ask him which version he approved.', isError: true }
+    const r = await call($, L, 'POST', '/link/mockupmark', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...(a.list ? { list: true } : a.body) }), 6000)
+    let j: { ok?: unknown; message?: unknown; stages?: unknown[] } = {}
+    try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
+    if (j.ok === true && a.list) return listed(Array.isArray(j.stages) ? j.stages : [])
+    const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Aang did not answer, so nothing was marked.'
+    return j.ok === true ? { result: msg } : { result: msg, isError: true }
+  }
   const key = (await within($, $.fs.read(`${home}/Library/Application Support/Aang/mockup-door.key`), 500))?.trim() || ''
   if (key.length < 32) return { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true }
   const base = 'http://127.0.0.1:47844'
@@ -512,10 +528,7 @@ async function markMockup($: $T, L: Link, input: Record<string, unknown>): Promi
     let j: { ok?: unknown; stages?: unknown[]; message?: unknown } = {}
     try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
     if (j.ok !== true) return { result: typeof j.message === 'string' ? j.message : 'Samara did not answer.', isError: true }
-    const NAME: Record<string, string> = { ok: 'APPROVED (his click)', chat: 'APPROVED (he said yes in chat)', built: 'BUILT', fix: 'FIX', park: 'PARKED' }
-    const lines = (j.stages ?? []).slice(0, 60).map((x) => { const v = x as Record<string, unknown>
-      return `${String(v.sheet)} v${String(v.v)} (commit ${String(v.commit).slice(0, 7)}): ${NAME[String(v.stage)] ?? String(v.stage)}${v.note ? ` · fix: ${String(v.note)}` : ''}${v.said ? ` · his words: "${String(v.said)}"` : ''}` })
-    return { result: lines.length ? lines.join('\n') : 'No marks yet: nothing is approved in the Mockups trail.' }
+    return listed(j.stages ?? [])
   }
   const r = await signed('POST', '/stage', JSON.stringify({ cwd: L.cwd, ...a.body }), 4000)
   let j: { ok?: unknown; message?: unknown } = {}

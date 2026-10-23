@@ -179,6 +179,11 @@ export interface MockVersion {
 /** FIX (needs changes), OK (approved by his click), CHAT (approved: he said yes to Claude), BUILT (in Samara), PARK (a no). */
 export type MockStage = 'fix' | 'ok' | 'chat' | 'built' | 'park';
 export const MOCK_STAGES: MockStage[] = ['fix', 'ok', 'chat', 'built', 'park'];
+/** One mark as it travels between his two machines: by the version's key (the same picture has the same key on both),
+ *  the newest change winning; stage null is a mark taken off. */
+export interface StageEntry { key: string; sheet: string; stage: MockStage | null; note?: string; said?: string; by: 'you' | 'claude'; at: number }
+/** The sheet without another repo's "@name/" in front, so a sheet reads the same on both machines. */
+const bareSheet = (s: string) => s.replace(/^@[^/]+\//, '');
 
 /** A sheet's title from its own <title>: "Sheet 47 - The Mockups trail" reads as "47 · The Mockups trail". */
 export function titleFrom(html: string, sheet: string): string {
@@ -238,6 +243,16 @@ export function sheetNum(sheet: string): { n: string; letter: string } | null {
   return m ? { n: m[1]!, letter: m[2]!.toLowerCase() } : null;
 }
 
+/** A travelled mark, checked: a key, a sheet path, a known stage or none, short words, a time. */
+function cleanEntry(e: unknown): StageEntry | null {
+  const o = (e && typeof e === 'object' ? e : {}) as Record<string, unknown>;
+  if (typeof o.key !== 'string' || !o.key || o.key.length > 100 || typeof o.sheet !== 'string' || !cleanSheet(o.sheet) || !Number.isFinite(o.at)) return null;
+  const stage = o.stage === null ? null : MOCK_STAGES.includes(o.stage as MockStage) ? o.stage as MockStage : undefined;
+  if (stage === undefined) return null;
+  return { key: o.key, sheet: o.sheet, stage, ...(typeof o.note === 'string' && o.note ? { note: o.note.slice(0, 300) } : {}), ...(typeof o.said === 'string' && o.said ? { said: o.said.slice(0, 300) } : {}),
+    by: o.by === 'claude' ? 'claude' : 'you', at: Number(o.at) };
+}
+
 /** The history (mockups.json): every version of every mockup, and the tree, kept apart from the tabs, so closing never loses it. */
 export class MockStore {
   list: MockVersion[] = [];
@@ -249,6 +264,8 @@ export class MockStore {
   /** 2026-10-22: what the tidy keeps about each sheet (mockuptidy.ts SheetMeta), and when it last ran. */
   meta = new Map<string, SheetMeta>();
   tidiedAt = 0;
+  /** Sheet 79 sync: every mark set or taken off, by the version's key (500 at most, newest kept). */
+  stageLog = new Map<string, StageEntry>();
   private seq = 0;
   private branchSeq = 0;
   private readonly file: string;
@@ -284,6 +301,9 @@ export class MockStore {
           this.meta.set(k, m);
         }
         if (Number.isFinite(s?.tidiedAt)) this.tidiedAt = Number(s.tidiedAt);
+        for (const e of Array.isArray(s?.stageLog) ? s.stageLog : []) { const c = cleanEntry(e); if (c) this.stageLog.set(c.key, c); }
+        // Marks set before the log existed (2026-10-23) join it, so they travel too.
+        for (const v of this.list) if (v.stage && !this.stageLog.has(v.key)) this.stageLog.set(v.key, { key: v.key, sheet: bareSheet(v.sheet), stage: v.stage, ...(v.note ? { note: v.note } : {}), ...(v.said ? { said: v.said } : {}), by: v.by ?? 'you', at: v.stageAt ?? 0 });
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
           .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true })).slice(0, 100);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};
@@ -301,7 +321,7 @@ export class MockStore {
     this.branchSeq = this.branches.reduce((m, x) => Math.max(m, x.id), 0);
   }
   private save(): void {
-    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt })); }
+    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt, stageLog: [...this.stageLog.values()] })); }
     catch (e) { console.error('shell: mockups: the history could not be saved: ' + (e as Error).message); }
   }
   /**
@@ -312,7 +332,8 @@ export class MockStore {
     const v = this.list.find((x) => x.id === id);
     if (!v) return 'That version is not in the history.';
     if (stage === 'chat' && !o.said?.trim()) return 'An approval from the chat needs his words.';
-    if (stage === 'ok' || stage === 'chat') for (const x of this.list) if (x.sheet === v.sheet && x.id !== id && (x.stage === 'ok' || x.stage === 'chat')) { delete x.stage; delete x.said; delete x.stageAt; delete x.by; }
+    const now = Date.now();
+    if (stage === 'ok' || stage === 'chat') for (const x of this.list) if (x.sheet === v.sheet && x.id !== id && (x.stage === 'ok' || x.stage === 'chat')) { delete x.stage; delete x.said; delete x.stageAt; delete x.by; this.logStage(x, now); }
     // Built keeps the words he approved it with: that is where it came from.
     const keepSaid = stage === 'built' ? v.said : undefined;
     delete v.stage; delete v.note; delete v.said; delete v.stageAt; delete v.by;
@@ -322,8 +343,30 @@ export class MockStore {
       if (stage === 'fix' && o.note?.trim()) v.note = o.note.trim().slice(0, 300);
       if (o.said?.trim()) v.said = o.said.trim().slice(0, 300);
     }
+    this.logStage(v, now);
     this.save();
     return '';
+  }
+  private logStage(v: MockVersion, at: number): void {
+    this.stageLog.set(v.key, { key: v.key, sheet: bareSheet(v.sheet), stage: v.stage ?? null, ...(v.note ? { note: v.note } : {}), ...(v.said ? { said: v.said } : {}), by: v.by ?? 'you', at });
+    if (this.stageLog.size > 500) { const old = [...this.stageLog.values()].sort((a, b) => a.at - b.at).slice(0, this.stageLog.size - 500); for (const e of old) this.stageLog.delete(e.key); }
+  }
+  /** His other machine's marks: the newer of each wins, and lands on every version here with that picture. True when changed. */
+  takeStages(list: unknown): boolean {
+    let changed = false;
+    for (const raw of Array.isArray(list) ? list.slice(0, 500) : []) {
+      const e = cleanEntry(raw);
+      if (!e || (this.stageLog.get(e.key)?.at ?? 0) >= e.at) continue;
+      this.stageLog.set(e.key, e);
+      for (const v of this.list) if (v.key === e.key && bareSheet(v.sheet) === e.sheet) { this.applyEntry(v, e); changed = true; }
+    }
+    if (changed) this.save(); else if (Array.isArray(list) && list.length) this.save();
+    return changed;
+  }
+  private applyEntry(v: MockVersion, e: StageEntry): void {
+    if ((e.stage === 'ok' || e.stage === 'chat')) for (const x of this.list) if (x.sheet === v.sheet && x !== v && (x.stage === 'ok' || x.stage === 'chat')) { delete x.stage; delete x.said; delete x.stageAt; delete x.by; }
+    delete v.stage; delete v.note; delete v.said; delete v.stageAt; delete v.by;
+    if (e.stage) { v.stage = e.stage; v.stageAt = e.at; v.by = e.by; if (e.note) v.note = e.note; if (e.said) v.said = e.said; }
   }
   /** Every version with a stage, newest first: what Claude reads before building (and Aang to answer what was decided). */
   stages(): { id: number; sheet: string; title: string; v: number; commit: string; stage: MockStage; note?: string; said?: string; at: number; by: 'you' | 'claude' }[] {
@@ -425,6 +468,8 @@ export class MockStore {
     if (m?.archived) { delete m.archived; delete m.why; delete m.by; }
     this.meta.set(sheet, { ...(m ?? {}), opened: at });
     this.list.push(r);
+    const e = this.stageLog.get(key);
+    if (e && e.sheet === bareSheet(sheet) && !mine.some((x) => x.key === key && x.stage)) this.applyEntry(r, e);
     if (this.list.length > 2000) this.list.splice(0, this.list.length - 2000);
     this.save();
     return r;
@@ -531,6 +576,26 @@ export function takeMockupFile(file: string): MockupDrop | null {
   const p = cleanPath(j?.path);
   if (!p || !/\.html?$/i.test(p)) return null;
   return { path: p, repo: null, url: null, title, branch };
+}
+
+/**
+ * Sheet 79 on the PC: Claude's mark, left as a small .mockmark file by the brain (src/Core/src/mockupdrop.ts markMockup),
+ * read once and deleted whatever it says. Checked: a sheet path, a known stage, short words, fresh and small.
+ */
+export function takeMarkFile(file: string): { repo: string; sheet: string; v: number | null; stage: string; said: string; note: string } | null {
+  let raw = '', old = false, size = 0;
+  try { const st = statSync(file); size = st.size; old = Date.now() - st.mtimeMs > 10 * 60_000; if (size <= 4096) raw = readFileSync(file, 'utf8'); } catch { return null; }
+  try { unlinkSync(file); } catch { /* taken */ }
+  if (old || size > 4096) return null;
+  let j: Record<string, unknown>;
+  try { j = JSON.parse(raw.replace(/^\uFEFF/, '')); } catch { return null; }
+  const stage = String(j.stage ?? '');
+  if (!['approved', 'built', 'fix', 'park', 'clear'].includes(stage)) return null;
+  const repo = typeof j.repo === 'string' && path.isAbsolute(j.repo) && j.repo.length <= 400 && !j.repo.startsWith('\\\\') ? path.resolve(j.repo) : '';
+  const p = repo ? cleanRel(j.path) : cleanPath(j.path);
+  if (!p || !/\.html?$/i.test(p)) return null;
+  const line = (v: unknown) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 300) : '');
+  return { repo, sheet: p, v: Number.isInteger(j.v) && Number(j.v) > 0 ? Number(j.v) : null, stage, said: line(j.said), note: line(j.note) };
 }
 
 // ------------------------------------------------------------------ Send to Aang (his pick, 2026-10-21)
