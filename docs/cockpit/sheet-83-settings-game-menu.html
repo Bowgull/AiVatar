@@ -93,7 +93,7 @@
 <body>
 <h1 class="sh">SHEET 83 - SETTINGS, THE GAME MENU</h1>
 <p class="sl">Chapters down the left. Each row is a name and its value, nothing under it. ‹ › change a value. A row with › opens one level in. Cut: the search box, Bookmarks, "Use the page I was on", "Bring them in". Your real settings from this Mac. Everything here is live.</p>
-<div class="ab" id="ab"><button type="button" data-ab="A" class="on">A · details only by tapping</button><button type="button" data-ab="B">B · plus one help line for the row you point at</button></div>
+<div class="ab" id="ab"><button type="button" data-ab="A">A · details only by tapping</button><button type="button" data-ab="B" class="on">B · plus one help line, after your mouse rests half a second</button></div>
 
 <div class="cap">1 · START, YOUR HOME PAGE SHOWS FOR REAL (TAP IT TO CHANGE IT)</div>
 <div class="win" data-start="start"></div>
@@ -142,7 +142,7 @@ const LOOK = [
 ];
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-let AB = 'A';
+let AB = 'B';
 
 function mount(win) {
   const st = make();
@@ -224,7 +224,10 @@ function mount(win) {
     if (sub === 'pin' && e.key === 'Backspace') { if (st.pin2) st.pin2 = st.pin2.slice(0, -1); else st.pin = st.pin.slice(0, -1); draw(); }
   });
   win.tabIndex = -1;
-  win.addEventListener('mouseover', (e) => { const r = e.target.closest('[data-h]'); const k = r?.dataset.h ?? ''; if (k !== help) { help = k; const hb = win.querySelector('.help'); if (hb) hb.textContent = HELP[k] ?? ''; } });
+  // B: the line waits until the glove has rested on a row for half a second (his ask), so sweeping past rows shows nothing.
+  let rest = 0;
+  win.addEventListener('mouseover', (e) => { const r = e.target.closest('[data-h]'); const k = r?.dataset.h ?? ''; if (k === help) return; help = k; clearTimeout(rest);
+    const hb = win.querySelector('.help'); if (hb) hb.textContent = ''; if (k) rest = setTimeout(() => { const h2 = win.querySelector('.help'); if (h2 && help === k) h2.textContent = HELP[k] ?? ''; }, 500); });
   win._draw = draw;
   draw();
 }
