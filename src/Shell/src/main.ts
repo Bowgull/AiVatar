@@ -1798,7 +1798,7 @@ function engineCard(r: Ready | null): UpdateCard | null {
     title: engineLabel?.version === r.version ? `Version ${engineLabel.label}: ${engineLabel.name}` : 'Engine update',
     groups: [{ name: "SAMARA'S ENGINE", items: [
       { text: "Chrome's newest security fixes.", note: 'Always included: they close known holes.' },
-      ...(r.castlabs ? [{ text: "Lock your saved logins with your computer's own lock.", key: 'lock', on: c.lock }, { text: 'Close a back door other programs could use.', key: 'closeBackdoors', on: c.closeBackdoors }] : []),
+      ...(r.castlabs && !r.fixed ? [{ text: "Lock your saved logins with your computer's own lock.", key: 'lock', on: c.lock }, { text: 'Close a back door other programs could use.', key: 'closeBackdoors', on: c.closeBackdoors }] : []),
     ] }],
     canBack: engineUpdates?.canBack() === true, overnight: updatePrefs().overnight,
   };

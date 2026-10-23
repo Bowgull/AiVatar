@@ -49,6 +49,13 @@ export function readFuses(file: string): string {
   return [...bin.subarray(pos + 2, pos + 2 + len)].map((b) => (b === ON ? '1' : b === OFF ? '0' : b === REMOVED ? 'r' : '?')).join('');
 }
 
+/** The wire text back into fuse settings, for putting an engine's switches back as they came ('r' and '?' left alone). */
+export function wireMap(wire: string): Record<number, boolean> {
+  const f: Record<number, boolean> = {};
+  [...wire].forEach((c, i) => { if (c === '1' || c === '0') f[i] = c === '1'; });
+  return f;
+}
+
 // From the Mac's update script: node fusewire.ts <file> '{"lock":true,"closeBackdoors":true}'
 if (process.argv[1] && /fusewire\.ts$/.test(process.argv[1]) && process.argv[2]) {
   const o = JSON.parse(process.argv[3] ?? '{}');
