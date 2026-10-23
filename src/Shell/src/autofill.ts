@@ -12,7 +12,7 @@
 //    machine over his own link, never anywhere else.
 import { createCipheriv, createDecipheriv, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
-import { safeStorage } from 'electron';
+import { createRequire } from 'node:module';
 import { writeFileAtomic } from './atomic.ts';
 
 export const PIN_LENGTH = 4;
@@ -52,8 +52,10 @@ export function detailFor(d: Details, kind: FieldKind, email = 0): string {
 }
 
 /** Sealed with the Keychain; null when this machine cannot (then nothing is kept). */
-const lockText = (s: string): string | null => { try { return safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(s).toString('base64') : null; } catch { return null; } };
-const openText = (b64: string): string | null => { try { return safeStorage.decryptString(Buffer.from(b64, 'base64')); } catch { return null; } };
+// The Keychain, reached only when needed (so the plain parts of this file can be tested without Electron).
+const keychain = (): Electron.SafeStorage | null => { try { return (createRequire(import.meta.url)('electron') as typeof Electron).safeStorage ?? null; } catch { return null; } };
+const lockText = (s: string): string | null => { try { const k = keychain(); return k?.isEncryptionAvailable() ? k.encryptString(s).toString('base64') : null; } catch { return null; } };
+const openText = (b64: string): string | null => { try { return keychain()?.decryptString(Buffer.from(b64, 'base64')) ?? null; } catch { return null; } };
 
 export class DetailsStore {
   private d: Details = { ...NO_DETAILS };
@@ -72,7 +74,9 @@ export class DetailsStore {
   empty(): boolean { const d = this.d; return !d.emails.length && !d.name && !d.phone && !d.street; }
 }
 
-const scrypt = (pin: string, salt: Buffer) => new Promise<Buffer>((res, rej) => scryptCb(pin, salt, 32, { N: 1 << 16, r: 8, p: 1, maxmem: 160 * 1024 * 1024 }, (e, k) => (e ? rej(e) : res(k))));
+// Modest on purpose: a 4-digit PIN is only ever 10,000 guesses, so the Keychain around it is the real lock; this keeps
+// the unlock quick on his slow Mac (~25 ms) instead of half a second.
+const scrypt = (pin: string, salt: Buffer) => new Promise<Buffer>((res, rej) => scryptCb(pin, salt, 32, { N: 1 << 12, r: 8, p: 1, maxmem: 32 * 1024 * 1024 }, (e, k) => (e ? rej(e) : res(k))));
 const pinOk = (pin: string) => new RegExp(`^[0-9]{${PIN_LENGTH}}$`).test(pin);
 
 /** Bitwarden's session key, sealed with his PIN and then the Keychain. */

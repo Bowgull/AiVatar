@@ -2584,7 +2584,7 @@ export class AangBrowser {
   private af: { tab: number; kind: FieldKind; kinds: FieldKind[]; empty: boolean; rect: { x: number; y: number; w: number; h: number };
     offer: 'details' | 'login' | null; email: number; logins: Login[]; login: number } | null = null;
   /** The address bar asking for his PIN: the digits so far (never shown, never kept), and what to do once it opens. */
-  private afPin: { digits: string; then: 'fill' | 'save' } | null = null;
+  private afPin: { digits: string; then: 'fill' | 'save'; checking?: boolean } | null = null;
   /** A login he just sent on a page, waiting for him to look at it (kept in memory only, five minutes at most). */
   private afSave: { tab: number; host: string; user: string; pass: string; at: number; asked: boolean } | null = null;
   private afBandMode: 'idle' | 'pin' | 'save' = 'idle';
@@ -2607,8 +2607,12 @@ export class AangBrowser {
     if (p) this.pane = p;
     return Boolean(p);
   }
+  /** Each showing has a number, so a fade that ends after a new showing never hides the new one. */
+  private lightSeq = 0;
   private lightHide(): void {
-    for (const p of this.panes) { const v = p.lightV; if (v && !v.webContents.isDestroyed() && v.getVisible()) { v.webContents.send('light:show', null); setTimeout(() => { if (!this.af || p !== this.pane) v.setVisible(false); }, 100); } }
+    const seq = ++this.lightSeq;
+    // The layer goes with its light (after the 90 ms fade): an invisible layer left over the page would catch his clicks.
+    for (const p of this.panes) { const v = p.lightV; if (v && !v.webContents.isDestroyed() && v.getVisible()) { v.webContents.send('light:show', null); setTimeout(() => { if (seq === this.lightSeq && !v.webContents.isDestroyed()) v.setVisible(false); }, 100); } }
   }
   /** Beside the box: right of it, half a light's height above its middle. */
   private lightShow(m: { item: 'letter' | 'card' | 'key'; text: string; count: string }): void {
@@ -2619,6 +2623,7 @@ export class AangBrowser {
     const x = Math.round(vb.x + (a.rect.x + a.rect.w) * z + 2), y = Math.round(vb.y + (a.rect.y + a.rect.h / 2) * z - H / 2);
     if (y < vb.y - 4 || y + H > vb.y + vb.height + 4) return;            // the box is off the page's visible part
     v.setBounds({ x, y, width: Math.max(60, Math.min(W, vb.x + vb.width - x)), height: H });
+    this.lightSeq++;
     w.contentView.addChildView(v);                                          // on top of the page
     v.setVisible(true);
     v.webContents.send('light:show', m);
@@ -2719,12 +2724,13 @@ export class AangBrowser {
   }
   private async afPinDigit(d: string): Promise<void> {
     const p = this.afPin;
-    if (!p || p.digits.length >= PIN_LENGTH) return;
+    if (!p || p.checking || p.digits.length >= PIN_LENGTH) return;   // keys while a PIN is being checked are dropped
     p.digits += d;
     this.afBand();
     if (p.digits.length < PIN_LENGTH) return;
+    p.checking = true;
     const r = await this.pinSeal.open(p.digits);
-    p.digits = '';
+    p.digits = ''; p.checking = false;
     if (r === 'gone') { this.afPin = null; this.vault.lockHard(); this.afBand('wrong'); this.note('Five wrong PINs: Bitwarden needs your master password again.'); void this.vaultKey(); return; }
     if ('wrong' in r) { this.afBand('wrong'); return; }
     const ok = await this.vault.useSession(r.session);

@@ -43,8 +43,10 @@ app.whenReady().then(async () => {
   const bg = async () => { const wc = any.cur()?.view?.webContents; return wc ? await wc.executeJavaScript('getComputedStyle(document.body).backgroundColor', true) : null; };
   const dark = (c: string | null) => { const m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(String(c)); return !!m && (+m[1]! + +m[2]! + +m[3]!) < 200; };
 
-  b.open(`http://127.0.0.1:${port}/a`); await wait(4000);
-  const c1 = await bg();
+  b.open(`http://127.0.0.1:${port}/a`);
+  // A busy Mac takes a while: wait (up to 20 s) for the page to come up dark, not a fixed time.
+  let c1: string | null = null;
+  for (let i = 0; i < 100; i++) { await wait(200); c1 = await bg().catch(() => null); if (dark(c1)) break; }
   check('a white page comes up dark', dark(c1), String(c1));
   check("the page's own scripts cannot see Dark Reader", (await any.cur().view.webContents.executeJavaScript('typeof window.DarkReader', true)) === 'undefined');
   if (process.env.SHOT) writeFileSync(process.env.SHOT, (await any.cur().view.webContents.capturePage()).toPNG());
