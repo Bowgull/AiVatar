@@ -55,7 +55,8 @@ app.whenReady().then(async () => {
   wireBrowser(() => b);
   console.log('stage: browser made');
   b.setSetting('afDetails', { name: 'Alex Example', emails: ['alex@example.com', 'alex.work@example.com'], phone: '555-0142', street: '12 Harbour St', city: 'Halifax', postal: 'B3H 1A1' });
-  const tab = () => b.cur().view.webContents as Electron.WebContents;
+  const shopTab = () => b.tabs.find((t: any) => t.view && !t.internal && !t.view.webContents.isDestroyed());
+  const tab = () => shopTab().view.webContents as Electron.WebContents;
   const go = async (p: string) => { await Promise.race([tab().loadURL(SHOP + p).catch(() => {}), wait(6000)]); await wait(900); };
   const val = (sel: string) => tab().executeJavaScript(`document.querySelector(${JSON.stringify(sel)}).value`) as Promise<string>;
   const focus = async (sel: string) => { tab().focus(); await tab().executeJavaScript(`document.querySelector(${JSON.stringify(sel)}).focus(); 1`); await wait(700); };
@@ -64,14 +65,19 @@ app.whenReady().then(async () => {
   const KEYS: Record<string, string> = { Down: 'ArrowDown', Up: 'ArrowUp' };
   const key = async (k: string) => {
     const input = { type: 'keyDown', key: KEYS[k] ?? k, code: '', isAutoRepeat: false, shift: false, control: false, alt: false, meta: false } as unknown as Electron.Input;
-    if (!b.afKey(b.cur(), input)) await tab().executeJavaScript(`(() => { const e = document.activeElement; if (e && 'value' in e && ${JSON.stringify(KEYS[k] ?? k)}.length === 1) e.value += ${JSON.stringify(k)}; return 1; })()`);
+    if (!b.afKey(shopTab(), input)) await tab().executeJavaScript(`(() => { const e = document.activeElement; if (e && 'value' in e && ${JSON.stringify(KEYS[k] ?? k)}.length === 1) e.value += ${JSON.stringify(k)}; return 1; })()`);
     await wait(250);
   };
   const lightOn = () => Boolean(b.pane.lightV?.getVisible());
+  // Waits for what it is waiting for (a busy Mac is slow), up to a limit.
+  const until = async (f: () => unknown, ms = 8000) => { for (let t = 0; t < ms; t += 150) { if (await f()) return true; await wait(150); } return false; };
 
   console.log('stage: open');
-  b.open(SHOP + '/signin'); await wait(2500);
-  console.log('stage: opened');
+  b.open(SHOP + '/signin');
+  // A slow Mac can take a while to make the first window: wait for the tab, not a fixed time.
+  for (let i = 0; i < 100 && !shopTab(); i++) await wait(300);
+  await wait(1500);
+  console.log('stage: opened ' + JSON.stringify(b.tabs.map((t: any) => ({ id: t.id, url: t.url, view: !!t.view, blocked: t.blocked, internal: t.internal }))) + ' panes ' + b.panes.length);
   // Box focus needs the window's focus (a page that is not focused gets no focus events): it is taken for this test's
   // ~40 seconds, off screen.
   b.win.focus(); b.win.webContents.focus();
@@ -84,11 +90,11 @@ app.whenReady().then(async () => {
   console.log('stage: focused ' + JSON.stringify({ af: b.af && { kind: b.af.kind, offer: b.af.offer, empty: b.af.empty }, light: lightOn(), active: b.active, cur: b.cur()?.id, url: tab().getURL() }));
   ok('the light shows beside an email box', lightOn());
   const lb = b.pane.lightV?.getBounds(), fb = await tab().executeJavaScript(`(() => { const r = document.querySelector('#mail').getBoundingClientRect(); return { x: r.right, y: r.top + r.height / 2 }; })()`);
-  ok('...right beside the box', lb && Math.abs(lb.x - (b.cur().view.getBounds().x + fb.x)) <= 6, JSON.stringify({ lb, fb }));
+  ok('...right beside the box', lb && Math.abs(lb.x - (shopTab().view.getBounds().x + fb.x)) <= 6, JSON.stringify({ lb, fb }));
   await key('Down'); await key('Tab');
   ok('the arrow then Tab fills the second email', (await val('#mail')) === 'alex.work@example.com', await val('#mail'));
   ok('...and the other boxes of the form too (one move)', (await val('#name')) === 'Alex Example' && (await val('#postal')) === 'B3H 1A1', `${await val('#name')} / ${await val('#postal')}`);
-  ok('the light goes once it has filled', (await wait(300), !lightOn()));
+  ok('the light goes once it has filled', await until(() => !lightOn(), 3000));
 
   // 2 · a click on the light fills the whole form
   await go('/ship');
@@ -110,7 +116,7 @@ app.whenReady().then(async () => {
   ok('a password box on a site with a login: the bar asks for the PIN', b.afPin !== null);
   await key('1'); await key('2'); await key('3');
   ok('the page never sees the PIN', (await val('#pw')) === '' && (await val('#email')) === '', `"${await val('#pw')}"`);
-  await key('4'); await wait(1600);
+  await key('4'); await until(() => b.vault.current() !== null); await until(async () => (await val('#pw')) !== '');
   ok('the fourth digit opens Bitwarden', b.vault.current() !== null);
   ok('...and the light brings the login', (await val('#email')) === 'alex@example.com' && (await val('#pw')) === 'opensesame', `${await val('#email')} / ${(await val('#pw')).length} chars`);
 
@@ -118,7 +124,7 @@ app.whenReady().then(async () => {
   b.vault.lock();
   await go('/signin');
   await focus('#pw');
-  for (let i = 0; i < 5; i++) { for (const d of '9999') await key(d); await wait(500); }
+  for (let i = 0; i < 5; i++) { for (const d of '9999') await key(d); await until(() => !b.afPin?.checking, 4000); await wait(200); }
   ok('five wrong PINs wipe the seal', !b.pinSeal.has() && !existsSync(path.join(stateDir, 'autofill-pin.json')));
   ok('...and lock the tool itself', JSON.parse(readFileSync(path.join(tmp, 'state.json'), 'utf8')).unlocked === false);
 
@@ -126,7 +132,7 @@ app.whenReady().then(async () => {
   await b.vault.unlock('correct horse');
   await go('/new');
   await tab().executeJavaScript(`document.querySelector('#u').value = 'newbie'; document.querySelector('#p').value = 'hunter2!'; document.querySelector('#go').click(); 1`);
-  await wait(3800);
+  await until(() => b.afBandMode === 'save', 15000);
   ok('a new login waits behind the key', b.afSave !== null && b.afBandMode === 'save', JSON.stringify({ host: b.afSave?.host, user: b.afSave?.user }));
   await b.afSaveGo({ site: 'shop.example', user: 'newbie', pass: 'hunter2!' }); await wait(800);
   const made = existsSync(path.join(tmp, 'created.log')) ? readFileSync(path.join(tmp, 'created.log'), 'utf8') : '';

@@ -23,7 +23,10 @@ app.whenReady().then(async () => {
   const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'tdbl-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
   wireBrowser(() => b);
-  b.open('about:blank'); await wait(2500);
+  b.open('about:blank');
+  // A busy Mac takes a while to draw the frame: wait for its band, not a fixed time.
+  for (let i = 0; i < 200; i++) { if (b.win && await b.win.webContents.executeJavaScript('!!document.getElementById("band")', true).catch(() => false)) break; await wait(150); }
+  await wait(500);
   const w: BrowserWindow = b.win; w.setBounds({ x: 80, y: 80, width: 900, height: 600 }); await wait(500);
   const dbl = (sel: string) => w.webContents.mainFrame.executeJavaScript(`document.querySelector(${JSON.stringify(sel)}).dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); 1`);
   const set = systemPreferences.getUserDefault('AppleActionOnDoubleClick', 'string') || '(not set: Zoom)';
