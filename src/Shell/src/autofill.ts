@@ -132,7 +132,7 @@ export const samePin = (a: string, b: string) => a.length === b.length && timing
 /** What kind of box an input is, from the page's own hints. The SAME function is in tabpreload.cjs (which cannot import
  *  anything); test/autofill.test.ts checks the two never drift apart. */
 export const FIELD_KIND_JS = String.raw`function fieldKind(el) {
-  if (!el || el.tagName !== 'INPUT' || el.disabled || el.readOnly) return null;
+  if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'SELECT') || el.disabled || el.readOnly) return null;
   const t = (el.type || 'text').toLowerCase();
   if (['hidden', 'submit', 'button', 'checkbox', 'radio', 'file', 'image', 'reset', 'range', 'color', 'date', 'number', 'search', 'month', 'week', 'time', 'datetime-local'].includes(t)) return null;
   const ac = (el.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
@@ -178,11 +178,38 @@ export function fillDetailsScript(values: Partial<Record<FieldKind, string>>, wh
     d.set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   ${FIELD_KIND_JS}
   const kind = fieldKind;
+  // A dropdown (country, province: 2026-10-23, his report that they never filled): the choice whose words or code mean
+  // his value (Ontario or ON, Canada or CA), picked only when nothing is chosen yet.
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+  const ABBR = { AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick', NL: 'Newfoundland and Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories', NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec', SK: 'Saskatchewan', YT: 'Yukon',
+    AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia' };
+  const names = (k, v) => {
+    const out = new Set([norm(v)]);
+    if (k === 'region') for (const [a, n] of Object.entries(ABBR)) if (norm(n) === norm(v) || norm(a) === norm(v)) { out.add(norm(a)); out.add(norm(n)); }
+    if (k === 'country') { try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); for (let i = 0; i < 26; i++) for (let j = 0; j < 26; j++) { const c = String.fromCharCode(65 + i, 65 + j); let n = ''; try { n = dn.of(c); } catch {} if (n && n !== c && (norm(n) === norm(v) || norm(c) === norm(v))) { out.add(norm(c)); out.add(norm(n)); } } } catch {} }
+    out.delete('');
+    return out;
+  };
+  const pick = (el, k, v) => {
+    // Left alone only when he changed it himself; a page's own preset choice (often United States) is not his.
+    const dflt = Math.max(0, [...el.options].findIndex((x) => x.defaultSelected));
+    if (el.selectedIndex !== dflt) return false;
+    const want = names(k, v);
+    const o = [...el.options].find((x) => !x.disabled && (want.has(norm(x.value)) || want.has(norm(x.textContent))));
+    if (!o || o.selected && o.value !== '') return false;
+    el.value = o.value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  };
   const here = document.activeElement;
   if (!here || here.tagName !== 'INPUT' || typeof kind !== 'function') return 0;
-  const boxes = ${whole} ? [...(here.form || document).querySelectorAll('input')] : [here];
+  const boxes = ${whole} ? [...(here.form || document).querySelectorAll('input, select')] : [here];
   let did = 0;
-  for (const b of boxes) { const k = kind(b); if (k && V[k] && !b.value && !b.disabled && !b.readOnly) { set(b, V[k]); did++; } }
+  for (const b of boxes) {
+    const k = kind(b);
+    if (!k || !V[k] || b.disabled) continue;
+    if (b.tagName === 'SELECT') { if (pick(b, k, V[k])) did++; continue; }
+    if (!b.value && !b.readOnly) { set(b, V[k]); did++; }
+  }
   if (here.value === '' && V[kind(here)]) { set(here, V[kind(here)]); did++; }
   return did;
 })()`;

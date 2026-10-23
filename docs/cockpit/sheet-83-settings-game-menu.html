@@ -97,7 +97,7 @@
 
 <div class="cap">1 · START, YOUR HOME PAGE SHOWS FOR REAL (TAP IT TO CHANGE IT)</div>
 <div class="win" data-start="start"></div>
-<div class="cap">2 · AUTOFILL › YOUR DETAILS: TYPE YOUR ADDRESS, PICK IT, THE REST FILLS AND IS CHECKED</div>
+<div class="cap">2 · AUTOFILL › YOUR DETAILS: FIRST AND LAST NAME APART (V3). TYPE YOUR ADDRESS, PICK IT, THE REST FILLS AND IS CHECKED</div>
 <div class="win" data-start="details"></div>
 <div class="cap">3 · AUTOFILL › PIN: PICK 4 TO 8, THE EYE SHOWS WHAT YOU TYPED</div>
 <div class="win" data-start="pin"></div>
@@ -164,7 +164,7 @@ function mount(win) {
       const sug = !p && st.addr.length >= 3 ? `<div class="sug">${LOOK.map((a, i) => `<div data-pick="${i}"${i === 0 ? ' class="hi"' : ''}>${a.line}</div>`).join('')}<small>OPENSTREETMAP</small></div>` : '';
       const f = (label, v, ok) => `<div class="fld"><label>${label}</label><input type="text" value="${esc(v)}" spellcheck="false">${ok && v ? OK : ''}</div>`;
       return `<h2><span class="back" data-back>‹ Autofill</span>Your details</h2>` + card(
-        f('Name', '') + f('Emails', '') + f('Phone', '') +
+        f('First name', '') + f('Last name', '') + f('Emails', '') + f('Phone', '') +
         `<div class="fld lit"><label>Address</label><div class="grow"><input id="addr" type="text" value="${esc(p ? p.street : st.addr)}" spellcheck="false" autocomplete="off">${sug}</div>${p ? OK : ''}</div>` +
         (p ? f('City', p.city, true) + f('Province', p.region, true) + f('Postal code', p.postal, true) + f('Country', p.country, true) : ''));
     }
