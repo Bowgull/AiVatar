@@ -24,7 +24,8 @@ export const BW = process.env.AANG_TEST_BW ? process.env.AANG_TEST_BW : process.
 export const BW_LOGIN = process.platform === 'darwin'
   ? 'in Terminal run  "$HOME/Library/Application Support/AangListener/bw/bw" login'
   : 'in PowerShell run  & "$env:LOCALAPPDATA\\Programs\\BitwardenCLI\\bw.exe" login';
-const LOCK_AFTER_MS = 30 * 60_000;
+// Locks itself after this long with no fills; he picks it in Settings (sheet 83: 5 min, 30 min, 2 hours, until he quits).
+export const LOCK_AFTER: Record<string, number | null> = { '5m': 5 * 60_000, '30m': 30 * 60_000, '2h': 2 * 3600_000, quit: null };
 
 export interface Login { id: string; name: string; username: string }
 export type VaultState = 'missing' | 'signed-out' | 'locked' | 'unlocked';
@@ -43,6 +44,8 @@ export class Vault {
   /** Autofill's PIN (sheet 77, 2026-10-23): while one is set, locking only forgets the session here (the PIN opens its
    *  sealed copy again); without one, locking also locks Bitwarden's tool, as before. */
   keepSealed: () => boolean = () => false;
+  /** How long with no fills before it locks itself; null: only when the browser closes. */
+  lockAfterMs: number | null = LOCK_AFTER['30m'];
   /** The session, for sealing it under his PIN, and nothing else. */
   current(): string | null { return this.session; }
   /** A session opened with his PIN: kept only if Bitwarden's tool still takes it. */
@@ -138,10 +141,18 @@ export class Vault {
     } catch { return null; }
   }
 
-  /** 30 minutes after the last fill, it locks itself (with a PIN set, only here: the PIN opens it again). */
+  /** A while after the last fill (his pick), it locks itself (with a PIN set, only here: the PIN opens it again). */
   private touch(): void {
     if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.lock(), LOCK_AFTER_MS);
+    this.timer = this.lockAfterMs === null ? null : setTimeout(() => this.lock(), this.lockAfterMs);
+  }
+  /** His new pick, counted from now while it is open. */
+  setLockAfter(ms: number | null): void { this.lockAfterMs = ms; if (this.session) this.touch(); }
+  /** Signed out of Bitwarden on this computer (his Sign out): signing in again is his, in Terminal. */
+  async signOut(): Promise<void> {
+    this.forget();
+    this.known = 'signed-out';
+    if (existsSync(BW)) await bw(['logout']);
   }
   /** Locked for good: Bitwarden's own tool too, PIN or not (his Lock now, or five wrong PINs). */
   lockHard(): void {

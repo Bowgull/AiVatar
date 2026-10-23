@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('settings', {
   siteRule: (site, key, value) => ipcRenderer.send('settings:siterule', { site, key, value }),
   siteClear: (site) => ipcRenderer.send('settings:siteclear', site),
   act: (act) => ipcRenderer.send('settings:act', act),
+  // Sheet 83: the address he is typing, looked up (OpenStreetMap) for him to pick.
+  lookup: (q) => ipcRenderer.invoke('settings:lookup', q),
   onData(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('settings:data', h); return () => ipcRenderer.removeListener('settings:data', h); },
   onAfPin(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('settings:afpin', h); return () => ipcRenderer.removeListener('settings:afpin', h); },
   onSection(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('settings:section', h); return () => ipcRenderer.removeListener('settings:section', h); },

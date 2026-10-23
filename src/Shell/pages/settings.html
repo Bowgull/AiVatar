@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- The browser's Settings, as its own tab (his design, 2026-10-12). Sections down the left; dark ink cards raised
-     on darker recessed wood, gold arrow caps on their corners; choices are FFX words with the white glove. Everything
-     drawn with textContent; the only doors are window.settings (settingspreload.cjs). -->
+<!-- The browser's Settings, as its own tab. Sheet 83 v2 (his "B but its a hover time yes?", 2026-10-23): chapters down the
+     left, each row a name and its value with nothing under it, ‹ › to change a value, a › row opens one level in, and one
+     help line for the row the glove has rested on for half a second. Dark ink cards on recessed wood, gold arrow caps,
+     the white glove (sheet of 2026-10-12). Everything drawn with textContent; the only doors are window.settings. -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; form-action 'none'; base-uri 'none'">
 <title>Settings</title>
@@ -13,151 +14,143 @@
 </head>
 <body>
 <div class="set">
-  <nav class="side" aria-label="Settings sections">
+  <nav class="side" aria-label="Settings chapters">
     <h1>Settings</h1>
-    <input id="find" class="find" type="search" placeholder="Search settings" aria-label="Search settings" spellcheck="false" autocomplete="off">
-    <a href="#general" data-sec="general"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v3H4V5H3v2H1z"/></svg></i>General</a>
-    <a href="#bookmarks" data-sec="bookmarks"><i><svg viewBox="0 0 9 8" width="16" height="14" shape-rendering="crispEdges"><path d="M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z"/></svg></i>Bookmarks</a>
-    <a href="#passwords" data-sec="passwords"><i><svg viewBox="0 0 11 8" width="22" height="16" shape-rendering="crispEdges"><path d="M1 0h1v1h-1zM2 0h1v1h-1zM7 0h1v1h-1zM8 0h1v1h-1zM9 0h1v1h-1zM0 1h1v1h-1zM3 1h1v1h-1zM6 1h1v1h-1zM10 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM10 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM2 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1z"/></svg></i>Passwords</a>
-    <a href="#privacy" data-sec="privacy"><i><svg viewBox="0 0 7 8" width="12" height="14" shape-rendering="crispEdges"><path d="M0 0h7v4H6v1H5v1H4v1H3V6H2V5H1V4H0z"/></svg></i>Privacy &amp; protection</a>
-    <a href="#sound" data-sec="sound"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v7H3zM2 1h1v5H2zM0 2h2v3H0zM5 1h1v1H5zM5 5h1v1H5zM6 2h1v3H6z"/></svg></i>Sound</a>
+    <a href="#start" data-sec="start"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v3H4V5H3v2H1z"/></svg></i>Start</a>
+    <a href="#look" data-sec="look"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M2 0h3v1h1v1h1v3H6v1H5v1H2V6H1V5H0V2h1V1h1zM3 2v1H2v1h1v1h1V4h1V3H4V2z"/></svg></i>Look</a>
+    <a href="#search" data-sec="search"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M1 0h3v1h1v3H4v1H1V4H0V1h1zM1 1v3h3V1zM4 5h1v1H4zM5 6h2v1H5z"/></svg></i>Search</a>
+    <a href="#autofill" data-sec="autofill"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M1 0h3v1h1v3H4v1H3v2H2V5H1V4H0V1h1zM2 1v2h1V1z"/></svg></i>Autofill</a>
+    <a href="#privacy" data-sec="privacy"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 0h7v4H6v1H5v1H4v1H3V6H2V5H1V4H0z"/></svg></i>Privacy</a>
+    <a href="#sounds" data-sec="sounds"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v7H3zM2 1h1v5H2zM0 2h2v3H0zM5 1h1v1H5zM5 5h1v1H5zM6 2h1v3H6z"/></svg></i>Sounds</a>
     <a href="#about" data-sec="about"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 2h2v4H2zM2 6h3v1H2z"/></svg></i>About</a>
   </nav>
   <main class="main">
-    <p class="nofind" id="nofind" hidden>Nothing in Settings matches that.</p>
-    <section data-sec="general">
-      <h2>General</h2>
-      <p class="lead">What opens, and where your searches go.</p>
+    <!-- Chapters. A row: data-help is its help line; data-cyc a ‹ value ›; data-go one level in. -->
+    <section data-sec="start">
+      <h2>Start</h2>
       <div class="card"><i class="caps"></i>
-        <h3>HOME PAGE</h3>
-        <div class="row"><div class="t"><b>Home page</b><small id="homenow">Every new tab opens here.</small></div>
-          <form class="field" id="homeform" autocomplete="off"><input id="homein" type="text" spellcheck="false" aria-label="Home page address" placeholder="reddit.com"><button class="pick" type="submit">Save</button></form></div>
-        <div class="row"><div class="t"><b>Use the page I was on</b><small>Makes the page in your last tab the home page.</small></div><button class="pick" type="button" data-act="homehere">Use it</button></div>
-      </div>
-      <div class="card"><i class="caps"></i>
-        <h3>SEARCH</h3>
-        <div class="row"><div class="t"><b>Search engine</b><small id="enginenote"></small></div>
-          <div class="choice" data-key="search"><button type="button" data-v="brave">Brave</button><button type="button" data-v="ddg">DuckDuckGo</button><button type="button" data-v="google">Google</button><button type="button" data-v="yandex">Yandex</button></div></div>
-        <div class="row"><div class="t"><b>AI answer box</b><small>The search engine's own AI summary at the top of results. Off: plain results only.</small></div>
-          <div class="choice" data-key="aiBox"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
-      </div>
-      <div class="card"><i class="caps"></i>
-        <h3>LOOK</h3>
-        <div class="row"><div class="t"><b>Dark mode for websites</b><small>Every site is shown dark (Dark Reader). Switch it off for one site from the shield.</small></div>
-          <div class="choice" data-key="dark"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
-        <div class="row"><div class="t"><b>Tab list size</b><small>Just this computer.</small></div>
-          <div class="choice" data-key="tabSize"><button type="button" data-v="s">Small</button><button type="button" data-v="m">Medium</button><button type="button" data-v="l">Large</button></div></div>
-      </div>
-      <div class="card"><i class="caps"></i>
-        <h3>STARTUP</h3>
-        <div class="row"><div class="t"><b>When the browser opens</b><small>My tabs: everything comes back as it was. Home page: a fresh start.</small></div>
-          <div class="choice" data-key="startup"><button type="button" data-v="tabs">My tabs</button><button type="button" data-v="home">Home page</button></div></div>
+        <div class="r" data-go="home" data-help="Every new tab opens here." id="homerow"><b>Home page</b><span class="v" id="homev"></span><i class="go"></i></div>
+        <div class="fld lit" id="homeedit" hidden><label for="homein">Home page</label><input id="homein" type="text" spellcheck="false" autocomplete="off"></div>
+        <div class="r" data-cyc="startup" data-help="My tabs: everything comes back. Home page: a fresh start."><b>When Samara opens</b></div>
       </div>
     </section>
-
-    <section data-sec="bookmarks" hidden>
-      <h2>Bookmarks</h2>
-      <p class="lead" id="markcount"></p>
+    <section data-sec="look" hidden>
+      <h2>Look</h2>
       <div class="card"><i class="caps"></i>
-        <h3>BRING THEM IN</h3>
-        <div class="row"><div class="t"><b>Bring bookmarks from Chrome</b><small>Straight from Chrome on this computer. New ones are added; ones you have are left alone.</small></div><button class="pick" type="button" data-act="import-chrome">Bring them</button></div>
-        <div class="row" data-mac hidden><div class="t"><b>Bring bookmarks from Safari</b><small>Safari asks you once to let Aang read them (Full Disk Access).</small></div><button class="pick" type="button" data-act="import-safari">Bring them</button></div>
-        <div class="row"><div class="t"><b>Bring bookmarks from a file</b><small>A file any browser's Export bookmarks made.</small></div><button class="pick" type="button" data-act="import">Choose file</button></div>
-      </div>
-      <div class="card"><i class="caps"></i>
-        <h3>YOUR BOOKMARKS</h3>
-        <div class="list" id="marklist"></div>
+        <div class="r" data-cyc="dark" data-help="Websites shown dark. Off for one site from the shield."><b>Dark websites</b></div>
+        <div class="r" data-cyc="tabSize" data-help="How big the tab list is, on this computer."><b>Tab list size</b></div>
       </div>
     </section>
-
-    <section data-sec="passwords" hidden>
-      <h2>Passwords</h2>
-      <p class="lead">Your logins live in Bitwarden. Aang never sees your master password and never fills anything by itself.</p>
+    <section data-sec="search" hidden>
+      <h2>Search</h2>
       <div class="card"><i class="caps"></i>
-        <h3>BITWARDEN</h3>
-        <div class="row"><div class="t"><b id="vaultstate">Bitwarden</b><small id="vaultnote"></small></div><button class="pick" type="button" data-act="lockvault" id="lockbtn">Lock now</button></div>
-        <div class="row"><div class="t"><b>Stays unlocked</b><small>30 minutes after the last fill, then it locks itself. Closing the browser locks it too.</small></div></div>
-        <div class="row"><div class="t"><b>Filling a login</b><small>A key shows in the address bar on sites you have a login for. Click it; that is the only way anything fills.</small></div></div>
-      </div>
-      <!-- Sheet 77 (2026-10-23): his details for the light, his PIN, and how it works (behind a tap). -->
-      <div class="card"><i class="caps"></i>
-        <h3>AUTOFILL</h3>
-        <div class="row"><div class="t"><b>Your details</b><small>Offered by the light when you click a box. Kept on your two computers only.</small></div><button class="pick" type="button" id="afedit">Edit</button></div>
-        <form class="afform" id="afform" autocomplete="off" hidden>
-          <label class="field"><span>Name</span><input id="af-name" type="text" spellcheck="false" maxlength="120"></label>
-          <label class="field"><span>Emails</span><input id="af-emails" type="text" spellcheck="false" maxlength="600" placeholder="main first, then others, with commas"></label>
-          <label class="field"><span>Phone</span><input id="af-phone" type="text" spellcheck="false" maxlength="40"></label>
-          <label class="field"><span>Street</span><input id="af-street" type="text" spellcheck="false" maxlength="200"></label>
-          <label class="field"><span>City</span><input id="af-city" type="text" spellcheck="false" maxlength="100"></label>
-          <label class="field"><span>Province</span><input id="af-region" type="text" spellcheck="false" maxlength="100"></label>
-          <label class="field"><span>Postal code</span><input id="af-postal" type="text" spellcheck="false" maxlength="20"></label>
-          <label class="field"><span>Country</span><input id="af-country" type="text" spellcheck="false" maxlength="80"></label>
-          <div class="afkeys"><button class="pick" type="submit">Save</button><button class="pick" type="button" id="afcancel">Cancel</button></div>
-        </form>
-        <div class="row"><div class="t"><b>Bitwarden PIN</b><small id="afpinnote">4 numbers, instead of your master password. After 5 wrong tries, the master password again.</small></div>
-          <form class="field" id="afpinform" autocomplete="off"><input id="af-pin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN" aria-label="New PIN" style="width:70px"><input id="af-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="again" aria-label="The same PIN again" style="width:70px"><button class="pick" type="submit">Set</button></form>
-          <button class="pick" type="button" data-act="afforgetpin" id="afforget" hidden>Forget PIN</button></div>
-        <div class="row"><div class="t"><b>How autofill works</b><small id="afhow" hidden>Click a box and the light brings what fits: click it or press Tab. Roll the scroll wheel on it, or press the up and down arrows, for your other emails. On a form, one click fills every box it knows. When Bitwarden is locked, just type your PIN; the key in the address bar opens. A new login: point at the glowing key, then Save.</small></div><button class="pick" type="button" id="afhowbtn">Show</button></div>
+        <div class="r" data-cyc="search" data-help="Where the address bar sends a search."><b>Search engine</b></div>
+        <div class="r" data-cyc="aiBox" data-help="The search engine's AI summary above the results."><b>AI answer box</b></div>
       </div>
     </section>
-
+    <section data-sec="autofill" hidden>
+      <h2>Autofill</h2>
+      <div class="card"><i class="caps"></i>
+        <div class="r" data-go="details" data-help="What the light offers when you click a box on a page."><b>Your details</b><span class="v" id="detailsv"></span><i class="go"></i></div>
+        <div class="r" data-go="pin" data-help="Opens Bitwarden instead of your master password."><b>PIN</b><span class="v" id="pinv"></span><i class="go"></i></div>
+        <div class="r" data-go="bw" data-help="Your logins. Locked until you use your PIN."><b>Bitwarden</b><span class="v" id="bwv"></span><i class="go"></i></div>
+      </div>
+    </section>
     <section data-sec="privacy" hidden>
-      <h2>Privacy &amp; protection</h2>
-      <p class="lead">What Aang blocks, and the exceptions you made.</p>
+      <h2>Privacy</h2>
       <div class="card"><i class="caps"></i>
-        <h3>BLOCKING</h3>
-        <div class="row"><div class="t"><b>Block ads and trackers</b><small>On every site, unless you let ads through on one from the shield.</small></div>
-          <div class="choice" data-key="ads"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
-        <div class="row"><div class="t"><b>Block popups</b><small>Popups you click open always open. Ones a page opens by itself are blocked; the shield glows blue so you can still get one.</small></div>
-          <div class="choice" data-key="popups"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
-        <div class="row"><div class="t"><b>Fake-site lists</b><small id="phishnote"></small></div><span class="tag">ALWAYS ON</span></div>
-        <div class="row"><div class="t"><b>Secure version first</b><small>Every site is tried on https first. Ones with no secure version ask you once.</small></div><span class="tag">ALWAYS ON</span></div>
+        <div class="r" data-cyc="ads" data-help="Ads and trackers, on every site."><b>Block ads and trackers</b></div>
+        <div class="r" data-cyc="popups" data-help="Ones a page opens by itself. Ones you click always open."><b>Block popups</b></div>
+        <div class="r" data-help="Known fake sites never load."><b>Fake-site lists</b><span class="tag2">ALWAYS ON</span></div>
+        <div class="r" data-help="Every site is tried secure first."><b>Secure version first</b><span class="tag2">ALWAYS ON</span></div>
       </div>
+      <div class="card"><i class="caps"></i>
+        <div class="r" data-go="sites" data-help="Every site you set a rule for."><b>Your sites</b><span class="v" id="sitesv"></span><i class="go"></i></div>
+        <div class="r" data-go="exc" data-help="Downloads and plain http you said yes to."><b>Exceptions</b><span class="v" id="excv"></span><i class="go"></i></div>
+        <div class="r" data-help="Stays off: acting on your accounts needs the held lever."><b>Aang acts without asking</b><span class="tag2 off">OFF</span></div>
+      </div>
+    </section>
+    <section data-sec="sounds" hidden>
+      <h2>Sounds</h2>
+      <div class="card"><i class="caps"></i>
+        <div class="r" data-cyc="sounds" data-help="A soft tap for tabs and downloads."><b>Wood sounds</b></div>
+        <div class="r" data-cyc="afSounds" data-help="The call for your PIN, the unlock, the fill."><b>Autofill sounds</b></div>
+      </div>
+    </section>
+    <section data-sec="about" hidden>
+      <h2>About</h2>
+      <div class="card"><i class="caps"></i>
+        <div class="r" id="enginerow"><b>Engine</b><span class="tag2" id="enginev"></span></div>
+        <div class="r" data-go="safe" data-help="Fake sites, ads and trackers, downloads."><b>What keeps you safe</b><i class="go"></i></div>
+      </div>
+    </section>
+
+    <!-- One level in. -->
+    <section data-sec="details" data-up="autofill" hidden>
+      <h2><span class="back" data-back>‹ Autofill</span>Your details</h2>
+      <div class="card"><i class="caps"></i>
+        <div class="fld"><label for="af-name">Name</label><input id="af-name" type="text" spellcheck="false" maxlength="120" autocomplete="off"></div>
+        <div class="fld"><label for="af-emails">Emails</label><input id="af-emails" type="text" spellcheck="false" maxlength="600" autocomplete="off"></div>
+        <div class="fld"><label for="af-phone">Phone</label><input id="af-phone" type="text" spellcheck="false" maxlength="40" autocomplete="off"></div>
+        <div class="fld" id="addrrow"><label for="af-street">Address</label><div class="grow"><input id="af-street" type="text" spellcheck="false" maxlength="200" autocomplete="off"><div class="sug" id="sug" hidden></div></div><i class="ok" data-ok="street"></i></div>
+        <div class="fld"><label for="af-city">City</label><input id="af-city" type="text" spellcheck="false" maxlength="100" autocomplete="off"><i class="ok" data-ok="city"></i></div>
+        <div class="fld"><label for="af-region">Province</label><input id="af-region" type="text" spellcheck="false" maxlength="100" autocomplete="off"><i class="ok" data-ok="region"></i></div>
+        <div class="fld"><label for="af-postal">Postal code</label><input id="af-postal" type="text" spellcheck="false" maxlength="20" autocomplete="off"><i class="ok" data-ok="postal"></i></div>
+        <div class="fld"><label for="af-country">Country</label><input id="af-country" type="text" spellcheck="false" maxlength="80" autocomplete="off"><i class="ok" data-ok="country"></i></div>
+      </div>
+    </section>
+    <section data-sec="pin" data-up="autofill" hidden>
+      <h2><span class="back" data-back>‹ Autofill</span>PIN</h2>
+      <div class="card"><i class="caps"></i>
+        <div class="r" data-help="Opens Bitwarden instead of your master password."><b>Length</b><div class="cyc"><button class="ar l" type="button" data-len="-1" aria-label="Shorter"></button><span class="v" id="pinlen"></span><button class="ar" type="button" data-len="1" aria-label="Longer"></button></div></div>
+        <div class="fld lit" id="pinrow1"><label>New PIN</label><div class="slots" id="pin1" tabindex="0" role="textbox" aria-label="New PIN"></div><button class="eye" type="button" id="eye" aria-label="Show PIN"></button></div>
+        <div class="fld" id="pinrow2"><label>Again</label><div class="slots" id="pin2" tabindex="0" role="textbox" aria-label="The same PIN again"></div></div>
+        <div class="acts"><button class="act" type="button" id="pinset">Set</button><button class="act" type="button" data-act="afforgetpin" id="pinforget" hidden>Forget PIN</button><span class="say" id="pinsay"></span></div>
+      </div>
+    </section>
+    <section data-sec="bw" data-up="autofill" hidden>
+      <h2><span class="back" data-back>‹ Autofill</span>Bitwarden</h2>
+      <div class="card"><i class="caps"></i>
+        <div class="r" data-help="Your logins. Locked until you use your PIN."><b>Bitwarden</b><span class="tag2" id="bwstate"></span></div>
+        <div class="r" data-cyc="lockAfter" data-help="With no fills for this long, it locks itself."><b>Locks itself after</b></div>
+        <div class="acts"><button class="act" type="button" data-act="lockvault" id="lockbtn">Lock now</button><button class="act" type="button" data-act="signout" id="signout">Sign out</button></div>
+      </div>
+    </section>
+    <section data-sec="sites" data-up="privacy" hidden>
+      <h2><span class="back" data-back>‹ Privacy</span>Your sites</h2>
       <!-- Sheet 37 (his pick A, 2026-10-14): every site he set a rule for, one row each, the same rules as the shield. -->
       <div class="card yoursites"><i class="caps"></i>
-        <h3>YOUR SITES</h3>
         <input class="find" id="sitefind" type="search" placeholder="Find a site" autocomplete="off" spellcheck="false">
         <div class="ysgrid ysgroups"><span class="none"></span><span class="g1">SAMARA</span><span class="none"></span><span class="g2">CAN USE</span><span class="none"></span></div>
         <div class="ysgrid yslegend"><span></span><span>CLAUDE<br>+ AANG</span><span>MY<br>LOGIN</span><span>AD<br>BLOCK</span><span>POPUP<br>BLOCK</span><span>DARK<br>MODE</span><span></span><span>CAMERA</span><span>MIC</span><span></span></div>
         <div id="yoursites"></div>
-        <div class="yskey"><span class="slot on" data-pix="camera"></span>On / allowed <span class="slot" data-pix="camera"></span>Off <span class="slot ask" data-pix="camera"></span>Asks <span class="slot block" data-pix="camera"></span>Blocked <em>Click a slot to change it.</em></div>
+        <div class="yskey"><span class="slot on" data-pix="camera"></span>On / allowed <span class="slot" data-pix="camera"></span>Off <span class="slot ask" data-pix="camera"></span>Asks <span class="slot block" data-pix="camera"></span>Blocked</div>
       </div>
+    </section>
+    <section data-sec="exc" data-up="privacy" hidden>
+      <h2><span class="back" data-back>‹ Privacy</span>Exceptions</h2>
       <div class="card"><i class="caps"></i>
-        <h3>YOUR EXCEPTIONS</h3>
-        <div class="row"><div class="t"><b>Trusted for program downloads</b><small>Sites you said yes to once. Programs from anywhere else ask first.</small></div></div>
+        <div class="r" data-help="Programs from anywhere else ask first."><b>Trusted for downloads</b></div>
         <div class="list chips" id="trusted"></div>
-        <div class="row"><div class="t"><b>Opened without a secure version</b><small>Sites you let through as plain http.</small></div></div>
+        <div class="r" data-help="Sites you let through as plain http."><b>Opened without a secure version</b></div>
         <div class="list chips" id="httpOk"></div>
       </div>
+    </section>
+    <section data-sec="safe" data-up="about" hidden>
+      <h2><span class="back" data-back>‹ About</span>What keeps you safe</h2>
       <div class="card"><i class="caps"></i>
-        <h3>AANG</h3>
-        <div class="row"><div class="t"><b>Let Aang act without asking</b><small>Stays off. That is the gate: anything that acts on your accounts needs the held lever, every time.</small></div><span class="tag off">OFF</span></div>
+        <div class="r" id="phishsafe"><b>Fake sites</b></div>
+        <div class="r" data-help="Blocked with Ghostery's lists."><b>Ads and trackers</b></div>
+        <div class="r" data-help="Programs from new sites ask first."><b>Downloads</b></div>
       </div>
+    </section>
+    <!-- Not a chapter (sheet 83 cut it): only the ⋯ menu's Bookmarks opens this, to take one off. -->
+    <section data-sec="bookmarks" hidden>
+      <h2>Bookmarks</h2>
+      <div class="card"><i class="caps"></i><div class="list" id="marklist"></div></div>
     </section>
 
-    <section data-sec="sound" hidden>
-      <h2>Sound</h2>
-      <p class="lead">The browser's little wood sounds.</p>
-      <div class="card"><i class="caps"></i>
-        <h3>SOUNDS</h3>
-        <div class="row"><div class="t"><b>Wood sounds</b><small>A soft tap for a new tab, closing one, and a finished download.</small></div>
-          <div class="choice" data-key="sounds"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
-        <div class="row"><div class="t"><b>Autofill sounds</b><small>The call for your PIN, the unlock, and the fill.</small></div>
-          <div class="choice" data-key="afSounds"><button type="button" data-v="true">On</button><button type="button" data-v="false">Off</button></div></div>
-      </div>
-    </section>
-
-    <section data-sec="about" hidden>
-      <h2>About</h2>
-      <p class="lead">Samara, Aang's browser.</p>
-      <div class="card"><i class="caps"></i>
-        <h3>WHAT KEEPS YOU SAFE</h3>
-        <div class="row"><div class="t"><b>Fake sites</b><small>Known fake and harmful sites never load; look-alikes of sites you use are stopped.</small></div></div>
-        <div class="row"><div class="t"><b>Ads and trackers</b><small>Blocked with Ghostery's lists.</small></div></div>
-        <div class="row"><div class="t"><b>Downloads</b><small>Marked so Windows Defender checks them; programs from new sites ask first.</small></div></div>
-        <div class="row"><div class="t"><b>Engine</b><small id="versions"></small></div></div>
-      </div>
-    </section>
+    <div class="help" id="help"></div>
   </main>
 </div>
 <script src="settings.js" type="module"></script>
