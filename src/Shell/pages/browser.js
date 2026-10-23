@@ -679,6 +679,10 @@ function paintTabs() {
       const fresh = buildRow(t, kid);
       if (dup) { fresh.classList.add('dup'); fresh.append(Object.assign(document.createElement('span'), { className: 'dupchip', textContent: 'X2 CLOSING' })); }
       fresh.dataset.tab = String(t.id);
+      // A sleeping tab starts waking the moment his mouse rests on it (2026-10-23), so it is ready sooner when he clicks.
+      // (and a frozen one thaws), so it is ready when he clicks.
+      if (t.id !== state.active) fresh.addEventListener('pointerenter', () => { clearTimeout(fresh._wake); fresh._wake = setTimeout(() => window.aang?.browserTab?.({ id: t.id, act: 'prewake' }), 120); });
+      if (t.id !== state.active) fresh.addEventListener('pointerleave', () => clearTimeout(fresh._wake));
       if (r) r.el.replaceWith(fresh); r = { sig, el: fresh }; rows.set(t.id, r);
     }
     // Where it sits, for dragging (2026-10-21): written every time, since a move changes these without a rebuild.

@@ -24,6 +24,7 @@
 import { BrowserWindow, Menu, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
@@ -133,6 +134,11 @@ interface Tab {
    * page area shows that colour (not near-white) until it does. Kept on this machine only; sync never carries them.
    */
   pageState?: string;
+  /** The last picture of the page as he left it (taken when his mouse heads for the tab list): shown at once when it
+   *  wakes from sleep, so it never looks blank or crashed (2026-10-23). `waking`: its sound and video wait for the page. */
+  leftShot?: string; waking?: boolean;
+  /** Frozen (2026-10-23, Edge's sleeping tabs): its timers and network stop, the page stays; it thaws instantly. */
+  frozen?: boolean;
   pageBg?: string;
   zoom: number;
   lastSeen: number;
@@ -294,7 +300,21 @@ const TRAY_SLIDE_MS = 260;
 const TRAY_W = { s: 300, m: 320, l: 340 } as const;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 // 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
-const SLEEP_AFTER_MS = 2 * 60 * 60_000;
+const SLEEP_AFTER_MS = 8 * 60 * 60_000;
+/** A tab out of sight this long is frozen (Chromium's own freezing: no timers, no work, memory the system can reuse). */
+const FREEZE_AFTER_MS = 5 * 60_000;
+/** Never a tab he looked at in the last 10 minutes, even when memory is short. */
+const SLEEP_MIN_MS = 10 * 60_000;
+/**
+ * Is the computer short on memory? On the Mac, its own pressure level (1 normal, 2 warning, 4 critical); on Windows,
+ * under 12% of memory free. A failed read counts as fine.
+ */
+function memoryShort(): Promise<boolean> {
+  if (process.platform === 'darwin') {
+    return new Promise((res) => execFile('/usr/sbin/sysctl', ['-n', 'kern.memorystatus_vm_pressure_level'], { timeout: 2000 }, (e, out) => res(!e && Number(String(out).trim()) >= 2)));
+  }
+  return Promise.resolve(os.freemem() / os.totalmem() < 0.12);
+}
 /**
  * 6.24, his interviews ("if it ever glitches and can't read my mic or my camera I'm in trouble"): the call sites run
  * with no ad blocking at all, so a filter list can never break a call. Their subdomains too.
@@ -430,7 +450,7 @@ export class AangBrowser {
     if (!t || P.drawerOpen || P.peeking) return;
     if (P.peekShot && P.peekShot.tab === t.id && Date.now() - P.peekShot.at < 700) return;
     P.peeking = true;
-    try { const shot = await this.shotOf(t); P.peekShot = shot ? { tab: t.id, url: t.url, at: Date.now(), shot } : null; }
+    try { const shot = await this.shotOf(t); P.peekShot = shot ? { tab: t.id, url: t.url, at: Date.now(), shot } : null; if (shot) t.leftShot = shot; }
     finally { P.peeking = false; }
   }
   /** The frame has painted the picture: now the live page can go. */
@@ -1512,7 +1532,7 @@ export class AangBrowser {
     });
     void w.loadURL(`${this.o.origin}/browser.html`);
     // The continuous snapshot, and putting idle tabs to sleep: once for the whole browser.
-    if (first) this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => this.sleepIdle(), 60_000),
+    if (first) this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => { void this.sleepIdle(); }, 60_000),
       setInterval(() => { void this.lookForLogin(); }, 1500));
   }
 
@@ -1653,7 +1673,7 @@ export class AangBrowser {
     this.veil = { tab: t.id, nav, at: Date.now(), up: false, dimT: null, capT: null };
     // The hover picture if it is fresh and of this page; otherwise a new one. Nothing drawn yet: the wood.
     const p = this.peekShot;
-    const shot = !t.drawn ? (from ? await this.shotOf(from) : null) : p && p.tab === t.id && Date.now() - p.at < 1500 ? p.shot : await this.shotOf(t);
+    const shot = !t.drawn ? (t.waking && t.leftShot ? t.leftShot : from ? await this.shotOf(from) : null) : p && p.tab === t.id && Date.now() - p.at < 1500 ? p.shot : await this.shotOf(t);
     await P.curtainReady;
     this.pane = P;
     if (this.veil?.nav !== nav) return;                         // the new page drew first: a plain switch
@@ -1691,6 +1711,14 @@ export class AangBrowser {
     t.drawn = true;
     if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
     if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS);
+    if (t.waking) setTimeout(() => this.wokeUp(t), VEIL_FADE_MS + 150);
+  }
+  /** A woken tab is on screen: what it held back (his video) may play now, if he is looking at it. */
+  private wokeUp(t: Tab): void {
+    if (!t.waking) return;
+    t.waking = false;
+    const wc = t.view?.webContents;
+    if (wc && !wc.isDestroyed() && this.seen(t)) { try { wc.send('tab:shown', true); } catch { /* gone */ } }
   }
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
@@ -1712,6 +1740,10 @@ export class AangBrowser {
     this.win?.contentView.addChildView(view);
     this.raiseTray();                                   // a waking tab never covers the open tab list
     tab.view = view; tab.crashed = false; tab.loading = true; tab.drawn = false;
+    // Coming back from sleep (2026-10-23, his report: a video played before the page showed, and it looked crashed): it
+    // counts as loading at once, so the curtain (with its own last picture) covers it, and nothing plays until it shows.
+    tab.phase = 'waiting'; tab.waking = true;
+    setTimeout(() => this.wokeUp(tab), 10_000);
     // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
@@ -2103,13 +2135,31 @@ export class AangBrowser {
     try { sender.startDrag({ file: d.file, icon }); } catch (e) { console.error('shell: drag failed: ' + (e as Error).message); }
   }
 
+  /**
+   * Freeze or thaw a tab's page through Chromium's own developer channel (Page.setWebLifecycleState, tested in this engine
+   * 2026-10-23: timers stop, and stay stopped after the channel is let go; thawing picks up where it left off). Never a
+   * page Claude's driver holds that channel on.
+   */
+  private async freeze(t: Tab, on: boolean): Promise<void> {
+    const wc = t.view?.webContents;
+    if (!wc || wc.isDestroyed() || Boolean(t.frozen) === on) return;
+    const dbg = wc.debugger;
+    if (dbg.isAttached()) return;
+    try {
+      dbg.attach('1.3');
+      await within(dbg.sendCommand('Page.setWebLifecycleState', { state: on ? 'frozen' : 'active' }), 1500, null);
+      t.frozen = on;
+    } catch { /* this page will not: it stays as it was */ }
+    finally { try { if (dbg.isAttached()) dbg.detach(); } catch { /* gone */ } }
+  }
+  thaw(t: Tab): void { if (t.frozen) void this.freeze(t, false); }
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
   private sleep(tab: Tab): void {
     if (!tab.view) return;
     // Its page comes back where it was when it wakes (Chromium's own state, kept with the tab).
     try { const h = tab.view.webContents.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; if (s && s.length <= PAGE_STATE_MAX && !tab.mock) tab.pageState = s; } catch { /* the scroll is kept as before */ }
     this.closeView(tab);
-    tab.loading = false; tab.audible = false;
+    tab.loading = false; tab.audible = false; tab.frozen = false;
   }
   private closeView(tab: Tab): void {
     if (!tab.view) return;
@@ -2118,10 +2168,22 @@ export class AangBrowser {
     try { tab.view.webContents.close(); } catch { /* gone */ }
     tab.view = null;
   }
-  private sleepIdle(): void {
+  /**
+   * Tabs sleep the way Chrome's Memory Saver and Edge's sleeping tabs do (2026-10-23, his report: coming back to a sleeping
+   * tab, a video above all, was slow and looked broken). A tab in the background already costs almost nothing (throttled,
+   * its video paused), so it stays alive and comes back instantly. Only when the computer is short on memory do tabs
+   * sleep, the one unseen longest first, a few at a time until it is comfortable; and any tab unseen for 8 hours.
+   */
+  private async sleepIdle(): Promise<void> {
     const now = Date.now();
+    const can = (t: Tab) => t.view && !t.lent && !t.call && !t.internal && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_MIN_MS;
     let any = false;
-    for (const t of this.tabs) if (t.view && !t.lent && !t.call && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    // Frozen first: out of sight for 5 minutes and silent; a call, the pop-out and Claude's work never.
+    for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !t.audible && !this.panes.some((p) => p.active === t.id) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
+    for (const t of this.tabs) if (can(t) && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    if (await memoryShort()) {
+      for (const t of this.tabs.filter(can).sort((a, b) => a.lastSeen - b.lastSeen).slice(0, 3)) { this.sleep(t); any = true; }
+    }
     if (any) this.sendTabs();
   }
 
@@ -2178,6 +2240,7 @@ export class AangBrowser {
       return;
     }
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
+    else this.thaw(t);                                 // a frozen one thaws, instantly
     if (this.watching !== null) this.unwatch(false);
     if (this.veil && this.veil.tab !== id) this.veilDown(0);
     if (this.af && this.af.tab !== id) { this.af = null; this.afPin = null; this.lightHide(); this.afBand(); }
@@ -2235,6 +2298,8 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.id === id);
     if (!t) return;
     if (act === 'show') this.activate(id);
+    // His mouse rests on a sleeping tab: it starts loading out of sight (no sound until he looks: waking holds it).
+    else if (act === 'prewake') { if (!t.view && !t.lent && !t.internal && !t.mock) { this.wake(t); this.sendTabs(); } else this.thaw(t); }
     else if (act === 'close') this.close(id);
     else if (act === 'mute') { t.muted = !t.muted; t.view?.webContents.setAudioMuted(t.muted); this.changed(); }
     else if (act === 'reload') { if (t.view && !t.crashed) t.view.webContents.reload(); else if (t.id === this.active) this.act('reload'); }
@@ -3342,6 +3407,7 @@ export class AangBrowser {
   lend(id: number): { view: WebContentsView; url: string; title: string } | null {
     const t = this.tabs.find((x) => x.id === id);
     if (!t?.view || t.internal || t.crashed || t.blocked || t.failed || t.lent || !this.inTab(t)) return null;
+    this.thaw(t);                                      // the pop-out gets a running page
     t.lent = true;
     // A still of the picture for the tab page while it plays in the pop-out (taken before the view leaves the window).
     t.lentShot = '';
@@ -3424,7 +3490,7 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.view?.webContents === sender);
     if (!t) return { ok: true, shown: true };            // a popup he opened: his
     const at = Math.max(t.playOkAt ?? 0, this.lastGesture.get(t.id) ?? 0);
-    return { ok: Date.now() - at < PLAY_MS, shown: this.seen(t) };
+    return { ok: Date.now() - at < PLAY_MS || t.waking === true, shown: this.seen(t) && !t.waking };
   }
   /** He can see it, or it may play out of sight: a call, the pop-out, Spotify (his only music). */
   private seen(t: Tab): boolean {
@@ -4587,7 +4653,7 @@ export class AangBrowser {
           const pj = d.job(num('job'));
           const inPlan = Boolean(pj?.allowed && [...pj.allowed].some((s) => site === s || site.endsWith('.' + s)));
           if (a?.allowed !== true && !inPlan) return { ok: false, needs: 'lever', what: op === 'look' ? `read your tab on ${site}` : `drive your tab on ${site} while you watch (STOP ends it)` };
-          if (!t.view) this.wake(t);
+          if (!t.view) this.wake(t); else this.thaw(t);
           const wc = t.view?.webContents;
           if (!wc) return { ok: false, error: 'that tab could not be woken' };
           const r = d.borrow(num('job'), wc, t.id, op === 'drivetab');
