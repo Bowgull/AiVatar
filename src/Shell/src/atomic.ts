@@ -5,14 +5,36 @@
 // file it cannot parse as empty - so a kill mid-write would silently lose all of Joshua's reminders.
 // Write to a temporary file, flush it to disk, then rename over the target: a rename is atomic.
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, statSync, writeSync } from 'node:fs';
+import { mkdir, open, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
+/** Per file: the newest write asked for. A slower background write never lands over a newer one. */
+const latest = new Map<string, number>();
+let seq = 0;
+
 export function writeFileAtomic(file: string, data: string | Uint8Array): void {
+  latest.set(file, ++seq);
   mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   const fd = openSync(tmp, 'w');
   try { if (typeof data === 'string') writeSync(fd, data); else writeSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
   renameSync(tmp, file);
+}
+
+/**
+ * The same safe write, done in the background (2026-10-23, his "all websites are having a hard time loading in Samara"):
+ * waiting for the disk to confirm (fsync) froze Samara's main thread up to 1.3 s per save on the Mac's slow disk, and the
+ * tab list is saved every few seconds while he browses. For files saved often; a save on quit stays writeFileAtomic.
+ */
+export async function writeFileAtomicSoon(file: string, data: string | Uint8Array): Promise<void> {
+  const me = ++seq;
+  latest.set(file, me);
+  const tmp = `${file}.${process.pid}.${me}.tmp`;
+  await mkdir(path.dirname(file), { recursive: true });
+  const fd = await open(tmp, 'w');
+  try { await fd.writeFile(data); await fd.sync(); } finally { await fd.close(); }
+  if (latest.get(file) !== me) { await rm(tmp, { force: true }); return; }   // a newer save came meanwhile: it wins
+  await rename(tmp, file);
 }
 
 /**

@@ -12,7 +12,7 @@
 // machine comes back (it was off, or asleep), both send everything and each keeps the newer of each thing; open
 // tabs are joined rather than replaced, so tabs opened on a machine while it was apart are never lost.
 import { existsSync, readFileSync } from 'node:fs';
-import { writeFileAtomic } from './atomic.ts';
+import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { neverKeep, type Visit } from './visits.ts';
 import type { Mark } from './bookmarks.ts';
 
@@ -134,10 +134,11 @@ export class BrowserSync {
     try { if (existsSync(this.file)) { const s = JSON.parse(readFileSync(this.file, 'utf8')); this.s = { marksAt: +s.marksAt || 0, prefsAt: +s.prefsAt || 0, tabsAt: +s.tabsAt || 0, cookies: s.cookies && typeof s.cookies === 'object' ? s.cookies : {} }; } } catch { /* fresh */ }
     this.lastTabSig = tabSig(o.target.tabSnap());
     // A file written before 2026-10-14 still holds login values: rewritten without them, now.
-    if (Object.values(this.s.cookies).some((v) => v.c && typeof (v.c as SyncCookie).value === 'string')) this.save();
+    if (Object.values(this.s.cookies).some((v) => v.c && typeof (v.c as SyncCookie).value === 'string')) this.save(true);
   }
   private now() { return (this.o.now ?? Date.now)(); }
-  private save() {
+  /** `now`: the old file still holds login values, so it is scrubbed before anything else; otherwise in the background. */
+  private save(now = false) {
     // Old removals are forgotten after 30 days: by then both machines have long agreed.
     const cut = this.now() - 30 * DAY;
     for (const [k, v] of Object.entries(this.s.cookies)) if (!v.c && v.at < cut) delete this.s.cookies[k];
@@ -146,7 +147,8 @@ export class BrowserSync {
     // live values are always read fresh from the browser's own cookie store when the machines catch up.
     const cookies: Record<string, { at: number; c: SyncCookie | null }> = {};
     for (const [k, v] of Object.entries(this.s.cookies)) cookies[k] = { at: v.at, c: v.c ? ({} as SyncCookie) : null };
-    try { writeFileAtomic(this.file, JSON.stringify({ ...this.s, cookies })); } catch { /* next change */ }
+    const text = JSON.stringify({ ...this.s, cookies });
+    if (now) { try { writeFileAtomic(this.file, text); } catch { /* next change */ } } else void writeFileAtomicSoon(this.file, text).catch(() => { /* next change */ });
   }
   private log(s: string) { this.o.log?.(s); }
   private send(m: SyncMsg) { if (this.connected) this.o.send(m); }

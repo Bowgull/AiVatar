@@ -2,7 +2,7 @@
 // One small JSON file in the Shell's own state folder, written atomically and at most every few seconds.
 // Plain functions over a list, so they can be tested without Electron.
 import { existsSync, readFileSync } from 'node:fs';
-import { writeFileAtomic } from './atomic.ts';
+import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 
 export interface Visit { url: string; title: string; at: number }
 
@@ -133,7 +133,7 @@ export class Visits {
   /** Written a few seconds after the last change (a page load names itself in bursts); right away for a removal. */
   save(now = false): void {
     if (this.timer) clearTimeout(this.timer);
-    const write = () => { this.timer = null; try { writeFileAtomic(this.file, JSON.stringify(this.list)); } catch (e) { console.error('shell: history not saved: ' + (e as Error).message); } };
+    const write = () => { this.timer = null; writeFileAtomicSoon(this.file, JSON.stringify(this.list)).catch((e) => console.error('shell: history not saved: ' + (e as Error).message)); };
     if (now) write(); else this.timer = setTimeout(write, 4000);
   }
   flush(): void { if (this.timer) { clearTimeout(this.timer); this.timer = null; try { writeFileAtomic(this.file, JSON.stringify(this.list)); } catch { /* best effort */ } } }

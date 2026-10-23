@@ -28,7 +28,7 @@ import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
-import { writeFileAtomic } from './atomic.ts';
+import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { carriesData, personal, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
@@ -2533,7 +2533,7 @@ export class AangBrowser {
     if (!d) return;
     this.icons.set(host, d);
     if (this.icons.size > 400) this.icons.delete(this.icons.keys().next().value!);
-    try { writeFileAtomic(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))); } catch { /* best effort */ }
+    void writeFileAtomicSoon(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))).catch(() => { /* best effort */ });
     this.sendTabs();
   }
   /** Bookmarks of sites he has not visited yet: ask the site for its icon (its page's icon link, else /favicon.ico). */
@@ -2559,7 +2559,7 @@ export class AangBrowser {
         if (!d) d = await this.iconData(u.origin + '/favicon.ico');
         if (d) { this.icons.set(u.hostname, d); this.sendTabs(); }
       }
-      try { writeFileAtomic(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))); } catch { /* best effort */ }
+      void writeFileAtomicSoon(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))).catch(() => { /* best effort */ });
     } finally { this.iconsBusy = false; }
   }
   // ------------------------------------------------------------------ M6 one browser on both machines (bsync.ts)
@@ -3931,7 +3931,10 @@ export class AangBrowser {
     const body = JSON.stringify(data);
     if (!all && body === this.lastSnap) return;
     this.lastSnap = body;
-    try { writeFileAtomic(this.file, JSON.stringify({ ...data, at: new Date().toISOString() })); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
+    // In the background while he browses; on closing, written before anything else happens.
+    const text = JSON.stringify({ ...data, at: new Date().toISOString() });
+    const fail = (e: unknown) => console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message);
+    if (all) { try { writeFileAtomic(this.file, text); } catch (e) { fail(e); } } else writeFileAtomicSoon(this.file, text).catch(fail);
     this.sync?.changed('tabs');
   }
 
