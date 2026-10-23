@@ -1773,7 +1773,7 @@ export class AangBrowser {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
       this.sendTabs();
       // Keep it for the site's bookmark, so the shelf shows it even before he visits again.
-      try { const host = new URL(wc.getURL()).hostname; if (tab.favicon && !this.icons.has(host)) void this.keepIcon(host, tab.favicon); } catch { /* none */ }
+      try { const u = new URL(wc.getURL()); if (tab.favicon && !this.icons.has(u.hostname)) void this.keepIcon(u.hostname, [...icons, u.origin + '/favicon.ico']); } catch { /* none */ }
     });
     on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
     on('did-stop-loading', () => {
@@ -2497,8 +2497,14 @@ export class AangBrowser {
       return `data:${type};base64,${buf.toString('base64')}`;
     } catch { return null; }
   }
-  private async keepIcon(host: string, url: string): Promise<void> {
-    const d = await this.iconData(url);
+  /**
+   * The first of these that is a picture Samara keeps: the page's icons in its own order, then the site's /favicon.ico
+   * (2026-10-22, his Epomaker bookmark showed only a "K": the page offered just an SVG icon, which is never kept, and
+   * nothing else was tried).
+   */
+  private async keepIcon(host: string, urls: string[]): Promise<void> {
+    let d: string | null = null;
+    for (const u of [...new Set(urls)].slice(0, 6)) { d = await this.iconData(u); if (d) break; }
     if (!d) return;
     this.icons.set(host, d);
     if (this.icons.size > 400) this.icons.delete(this.icons.keys().next().value!);

@@ -580,6 +580,11 @@
       "at": "2026-10-22T20:46:00-04:00",
       "text": "The tab list arrow turns over as the list slides; closing eases in.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T21:00:00-04:00",
+      "text": "Bookmarks get the site's real icon more often, not just a letter.",
+      "kind": "fix"
     }
   ]
 }
