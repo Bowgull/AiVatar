@@ -673,7 +673,7 @@ function paintTabs() {
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
     const dup = Boolean(state.tidy?.dup?.includes(t.id));
-    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.phase, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup, t.mock?.v ?? null]);
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.phase, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup, t.mock?.v ?? null, t.mock?.stage ?? null, t.mock?.unseen === true]);
     let r = rows.get(t.id);
     if (!r || r.sig !== sig) {
       const fresh = buildRow(t, kid);
@@ -801,6 +801,15 @@ function tabMenu(t, x, y) {
   const trails = (Array.isArray(state.trails) ? state.trails : []).filter((tr) => !tr.mock);
   if (t.mock) {
     // Sheet 47: a mockup stays in MOCKUPS. Its versions, and where it sits in the tree (his ask, 2026-10-21).
+    // Sheet 81: mark the version this tab shows (each one comes off the same way). Parked, it goes to History.
+    if (t.mock.vid != null) {
+      const stg = (to) => window.aang?.browserMockup?.({ act: 'stage', id: t.mock.vid, to });
+      const ok = t.mock.stage === 'ok' || t.mock.stage === 'chat';
+      if (t.mock.stage !== 'built') item(ok ? 'Take back the approval' : 'Approve this version', () => stg(ok ? '' : 'ok'));
+      item(t.mock.stage === 'fix' ? 'Take off the fix' : 'Needs a fix…', () => { if (t.mock.stage === 'fix') stg(''); else fixNote(t.mock.vid, rows.get(t.id)?.el); });
+      item('Park it (to History)', () => stg('park'));
+      sep();
+    }
     const vs = expander(m, 'Versions');
     for (const v of t.mock.versions ?? []) vs(versionLabel(v), () => window.aang?.browserMockup?.({ act: 'show', id: v.id }), v.now ? 'NOW' : '');
     const bs = expander(m, 'Move to branch');
@@ -892,7 +901,10 @@ function buildRow(t, kid) {
     }
     // Sheet 47: a mockup wears its version (V3); a click lists the sheet's other versions.
     if (t.mock && t.mock.v) {
-      const v = Object.assign(document.createElement('button'), { type: 'button', className: 'ver', textContent: 'V' + t.mock.v, title: 'Versions of this mockup' });
+      // Sheet 81: the V chip wears the version's stage (gold approved, green with a tick built, orange fix).
+      const st = { ok: 'ok', chat: 'ok', built: 'built', fix: 'fix' }[t.mock.stage] ?? '';
+      const v = Object.assign(document.createElement('button'), { type: 'button', className: 'ver' + (st ? ' st-' + st : ''), textContent: 'V' + t.mock.v,
+        title: t.mock.stage === 'built' ? 'Built' : st === 'ok' ? 'Approved' + (t.mock.said ? `: "${t.mock.said}"` : '') : st === 'fix' ? 'Needs a fix' : 'Versions of this mockup' });
       v.addEventListener('click', (e) => { e.stopPropagation(); versionsMenu(t, e.clientX, e.clientY); });
       row.append(v);
     }
@@ -1389,8 +1401,8 @@ function versionMenu(id, x, y, it = {}) {
   placeMenu(m, x, y);
 }
 /** Sheet 79: what to fix, typed in place under the version: Enter keeps it, Esc leaves it. */
-function fixNote(id) {
-  const row = document.querySelector(`.mv[data-id="${id}"]`);
+function fixNote(id, at) {
+  const row = at ?? document.querySelector(`.mv[data-id="${id}"]`);
   if (!row) { window.aang?.browserMockup?.({ act: 'stage', id, to: 'fix' }); return; }
   const box = Object.assign(document.createElement('input'), { type: 'text', className: 'mvnote', maxLength: 300, placeholder: 'What to fix' });
   row.after(box);
@@ -1460,10 +1472,13 @@ function mockNodes(g, rowFor) {
   out.push(h);
   out.push(mockEls.from ?? (mockEls.from = Object.assign(document.createElement('div'), { className: 'mfrom', textContent: 'FROM CLAUDE' })));
   if (tr.collapsed) return out;
-  const tabs = g.tabs, open = new Set(tabs.map((t) => t.mock?.sheet));
+  // Newest on top (his ask, 2026-10-23): the latest arrival first, in each branch.
+  const tabs = [...g.tabs].sort((a, b) => (Number(b.mock?.at) || 0) - (Number(a.mock?.at) || 0)), open = new Set(tabs.map((t) => t.mock?.sheet));
   // Its place in the tree rides on the row for dragging (2026-10-21): the parent sheet, the branch, and how many children.
   const row = (t, kid) => {
     const r = rowFor(t, kid); r.dataset.mock = t.mock?.sheet ?? '';
+    // Arrived and not looked at yet (his ask, 2026-10-23): a soft steady glow until he opens it.
+    r.classList.toggle('unseen', t.mock?.unseen === true);
     r.dataset.psheet = kid ? t.mock?.parent ?? '' : '';
     r.dataset.mbranch = t.mock?.branch == null ? '' : String(t.mock.branch);
     r.dataset.kids = String(Number(t.mock?.kids) || 0);
