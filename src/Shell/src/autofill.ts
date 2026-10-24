@@ -220,7 +220,21 @@ export function fillDetailsScript(values: Partial<Record<FieldKind, string>>, wh
   };
   const here = document.activeElement;
   if (!here || here.tagName !== 'INPUT' || typeof kind !== 'function') return 0;
-  const boxes = ${whole} ? [...(here.form || document).querySelectorAll('input, select')] : [here];
+  // Only boxes he can see (security check 2026-10-24, finding 2): a page could hide extra boxes (see-through, tiny, or
+  // off the page) next to the one he is in, and one fill would hand it everything.
+  const seen = (el) => {
+    if (el === here) return true;
+    const r = el.getBoundingClientRect();
+    if (r.width < 12 || r.height < 10) return false;               // a box too small to see or type in (padding included)
+    const w = Math.max(document.documentElement.scrollWidth, innerWidth), h = Math.max(document.documentElement.scrollHeight, innerHeight);
+    if (r.right + scrollX <= 0 || r.bottom + scrollY <= 0 || r.left + scrollX >= w || r.top + scrollY >= h) return false;
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const s = getComputedStyle(n);
+      if (s.display === 'none' || s.visibility === 'hidden' || s.visibility === 'collapse' || Number(s.opacity) < 0.1) return false;
+    }
+    return true;
+  };
+  const boxes = ${whole} ? [...(here.form || document).querySelectorAll('input, select')].filter(seen) : [here];
   let did = 0;
   for (const b of boxes) {
     const k = kind(b);

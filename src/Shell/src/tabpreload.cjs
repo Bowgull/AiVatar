@@ -141,9 +141,12 @@ try {
       const user = boxes.filter((b) => ['username', 'email'].includes(fieldKind(b)) && b.value).pop();
       ipcRenderer.send('tab:cred', { user: user ? user.value.slice(0, 200) : '', pass: pw.value.slice(0, 500) });
     };
-    document.addEventListener('submit', (e) => sent(e.target), true);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type === 'password') sent(e.target.form); }, true);
-    document.addEventListener('click', (e) => { const b = e.target instanceof Element ? e.target.closest('button, input[type=submit], [role=button]') : null; if (b) sent(b.form || b.closest('form')); }, true);
+    // Only his own press or click (security check 2026-10-24, finding 4): events a page's script makes are ignored, so a
+    // page cannot fake "a login was sent". A submit counts when he has just clicked or typed on the page.
+    const his = (e) => e.isTrusted && (!navigator.userActivation || navigator.userActivation.isActive);
+    document.addEventListener('submit', (e) => { if (his(e)) sent(e.target); }, true);
+    document.addEventListener('keydown', (e) => { if (e.isTrusted && e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type === 'password') sent(e.target.form); }, true);
+    document.addEventListener('click', (e) => { if (!e.isTrusted) return; const b = e.target instanceof Element ? e.target.closest('button, input[type=submit], [role=button]') : null; if (b) sent(b.form || b.closest('form')); }, true);
   }
 } catch { /* no autofill on this page */ }
 

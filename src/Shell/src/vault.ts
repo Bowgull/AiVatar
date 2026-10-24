@@ -103,11 +103,18 @@ export class Vault {
   /** The logins saved for this site: names and usernames only. Passwords stay here until he picks one. */
   async loginsFor(url: string): Promise<Login[] | null> {
     if (!this.session) return null;
+    let here = '';
+    try { here = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch { return null; }
     const r = await bw(['list', 'items', '--url', url], { BW_SESSION: this.session });
     if (!r.ok) return null;
     try {
-      const items = JSON.parse(r.out) as { id: string; name: string; type: number; login?: { username?: string } }[];
-      return items.filter((i) => i.type === 1 && typeof i.id === 'string').slice(0, 20)
+      const items = JSON.parse(r.out) as { id: string; name: string; type: number; login?: { username?: string; uris?: { uri?: string }[] } }[];
+      // Bitwarden matches a whole domain (a login for example.com also answers forum.example.com); here a login is only
+      // for the exact site it was saved for, with or without www (security check 2026-10-24, finding 3).
+      const exact = (i: (typeof items)[number]) => (i.login?.uris ?? []).some((u) => {
+        try { return new URL(/^[a-z]+:\/\//i.test(u.uri ?? '') ? u.uri! : 'https://' + u.uri).hostname.toLowerCase().replace(/^www\./, '') === here; } catch { return false; }
+      });
+      return items.filter((i) => i.type === 1 && typeof i.id === 'string' && exact(i)).slice(0, 20)
         .map((i) => ({ id: i.id, name: String(i.name ?? '').slice(0, 80), username: String(i.login?.username ?? '').slice(0, 120) }));
     } catch { return null; }
   }
@@ -130,13 +137,14 @@ export class Vault {
   }
 
   /** One login's username and password, for one fill. */
-  async secret(id: string): Promise<{ username: string; password: string } | null> {
+  /** `keepOpen`: a fill he asked for counts as use (the lock timer starts again); Samara's own checks do not (finding 4). */
+  async secret(id: string, keepOpen = true): Promise<{ username: string; password: string } | null> {
     if (!this.session || !/^[0-9a-f-]{36}$/i.test(id)) return null;
     const r = await bw(['get', 'item', id], { BW_SESSION: this.session });
     if (!r.ok) return null;
     try {
       const i = JSON.parse(r.out);
-      this.touch();
+      if (keepOpen) this.touch();
       return { username: String(i.login?.username ?? ''), password: String(i.login?.password ?? '') };
     } catch { return null; }
   }
