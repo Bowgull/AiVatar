@@ -377,6 +377,14 @@ function hexOf(c: unknown): string | undefined {
   return m ? '#' + m.slice(1, 4).map((x) => Math.min(255, Number(x)).toString(16).padStart(2, '0')).join('') : undefined;
 }
 /** The soft fade between pages (his pick, option 5): fade length, when a slow site dims, when a page counts as instant. */
+/**
+ * A quick question to a page's own world, asked now even while it is still loading (2026-10-24, speed check): the
+ * webContents form waits for the page to finish, so the password look every 1.5 s piled up on a page that keeps loading
+ * (Twitch), each one a listener left waiting (the "11 did-stop-loading listeners" warning in the log).
+ */
+const askPage = <T>(wc: Electron.WebContents, code: string): Promise<T | null> => {
+  try { const f = wc.mainFrame; if (!f || f.isDestroyed()) return Promise.resolve(null); return f.executeJavaScript(code) as Promise<T>; } catch { return Promise.resolve(null); }
+};
 const VEIL_FADE_MS = 250, VEIL_DIM_MS = 1500, VEIL_INSTANT_MS = 300, VEIL_MAX_MS = 8000;
 /** A woken page's picture fades out a little slower: one soft change instead of a page rebuilding (2026-10-23). */
 const WAKE_FADE_MS = 350;
@@ -773,7 +781,8 @@ export class AangBrowser {
     });
     // A web page never reaches this computer or the home network (2026-10-14): on before the ad lists load.
     guardRequests(this.ses, netGuard, null);
-    void blockAds(this.ses, o.stateDir, { cosmetic: true, guard: netGuard }).then((b) => { this.ads = b; if (b) { b.pauseMany([...this.paused, ...CALL_SITES], true); if (!this.prefs.ads) b.stop(); } });
+    // His paused sites and the call sites go in with the lists, built into the kept engine (speed check 2026-10-24).
+    void blockAds(this.ses, o.stateDir, { cosmetic: true, guard: netGuard, paused: [...this.paused, ...CALL_SITES] }).then((b) => { this.ads = b; if (b && !this.prefs.ads) b.stop(); });
     this.callFile = path.join(o.stateDir, 'in-call.json');
     try { unlinkSync(this.callFile); } catch { /* none left over */ }
   }
@@ -1751,6 +1760,7 @@ export class AangBrowser {
     await P.curtainReady;
     this.pane = P;
     if (this.veil?.nav !== nav) return;                         // the new page drew first: a plain switch
+    if (!v.webContents || v.webContents.isDestroyed()) { if (this.veil?.nav === nav) this.veil = null; return; }   // the window closed meanwhile
     const ok = await within(v.webContents.executeJavaScript(`curtainShow(${JSON.stringify(shot)})`), 400, false);
     this.pane = P;
     const vl = this.veil;
@@ -2670,7 +2680,7 @@ export class AangBrowser {
     if (kind === 'words') { this.onSendToAang?.({ ...base, text: p.selectionText, title: t.title }); return; }
     if (kind === 'link') { this.onSendToAang?.({ ...base, url: p.linkURL, title: p.linkText || '', site: hostOf(p.linkURL) || site, icon: this.faviconFor(p.linkURL) || base.icon }); return; }
     if (kind === 'page') {
-      const text = await within(wc.executeJavaScript('String(document.body ? document.body.innerText : "").slice(0, 6000)') as Promise<string>, 1500, '');
+      const text = await within(askPage<string>(wc, 'String(document.body ? document.body.innerText : "").slice(0, 6000)'), 1500, '');
       this.onSendToAang?.({ ...base, title: wc.getTitle() || t.title, text: typeof text === 'string' ? text : '' });
       return;
     }
@@ -2703,7 +2713,7 @@ export class AangBrowser {
     const wc = t?.view?.webContents;
     let has = false;
     if (wc && !t!.crashed && !t!.blocked && !t!.failed && !t!.lent && t!.url.startsWith('https:')) {
-      has = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')") as Promise<boolean>, 800, false) === true;
+      has = await within(askPage<boolean>(wc, "!!document.querySelector('input[type=password]')"), 800, false) === true;
     }
     // His pick: the key shows only where Bitwarden has a login for this site. Until the vault has been opened once
     // there is no list yet, so it shows on any login page, plain, so he can open it the first time.
@@ -2987,7 +2997,7 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.id === s.tab), wc = t?.view?.webContents;
     if (!wc || wc.isDestroyed()) { this.afSave = null; return; }
     // Still a password box on the page: it did not work (a wrong password is never offered).
-    const still = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')") as Promise<boolean>, 800, false);
+    const still = await within(askPage<boolean>(wc, "!!document.querySelector('input[type=password]')"), 800, false);
     if (still) { this.afSave = null; return; }
     if (this.vault.current()) {
       const logins = await this.vault.loginsFor('https://' + s.host);
@@ -3668,7 +3678,7 @@ export class AangBrowser {
    *  itself, against his "nothing plays until I click". */
   pauseMedia(id: number): void {
     const wc = this.tabs.find((x) => x.id === id)?.view?.webContents;
-    if (wc) void within(wc.executeJavaScript("document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true"), 800, null);
+    if (wc) void within(askPage(wc, "document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true"), 800, null);
   }
 
   // ------------------------------------------------------------------ trails and the done shelf (sheet 3 section 3)
@@ -4538,7 +4548,7 @@ export class AangBrowser {
       if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
       if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
       const wc = t.view.webContents;
-      const got = await within(wc.executeJavaScript(PAGE_LOOK_JS) as Promise<[number, string]>, 800, null);
+      const got = await within(askPage<[number, string]>(wc, PAGE_LOOK_JS), 800, null);
       if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
       try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
     }));

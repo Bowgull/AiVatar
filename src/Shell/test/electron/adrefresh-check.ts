@@ -70,6 +70,21 @@ app.whenReady().then(async () => {
   const pausedOk = !(await blocks(ses2, AD, '', PAGE));
   console.log = log;
   console.log(`day-old start ${startMs} ms; blocks before refresh ${before}; refreshed ${swapped}; blocks after ${after}; paused site left alone ${pausedOk}`);
-  const ok = Boolean(a && b) && startMs < 1500 && !control && before && after && pausedOk;
+  // 4) 2026-10-24 (speed check): paused sites built into the kept engine. A start told its paused site up front lets it
+  // through and still blocks elsewhere; the next start with the same paused sites loads the kept engine at once.
+  b?.stop();
+  const ses3 = session.fromPartition('adr3');
+  const c = await blockAds(ses3, dir, { cosmetic: true, paused: ['localhost'] });
+  await new Promise((r) => setTimeout(r, 6500));                 // its engine kept
+  const builtIn = !(await blocks(ses3, AD, '', PAGE)) && await blocks(ses3, AD);
+  c?.stop();
+  const ses4 = session.fromPartition('adr4');
+  t = performance.now();
+  const d = await blockAds(ses4, dir, { cosmetic: true, paused: ['localhost'] });
+  const keptMs = Math.round(performance.now() - t);
+  const keptOk = !(await blocks(ses4, AD, '', PAGE)) && await blocks(ses4, AD);
+  console.log(`paused site built in: ${builtIn}; next start with it ${keptMs} ms, still right: ${keptOk}`);
+  d?.stop();
+  const ok = Boolean(a && b && c && d) && startMs < 1500 && !control && before && after && pausedOk && builtIn && keptOk && keptMs < 1500;
   console.log(ok ? 'ALL PASS' : 'FAILED'); app.exit(ok ? 0 : 1);
 });

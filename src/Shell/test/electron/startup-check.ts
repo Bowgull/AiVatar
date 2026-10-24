@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 import inspector from 'node:inspector';
 
+// Node's warnings (a listener leak) with where they came from.
+process.on('warning', (w) => console.log('WARNING ' + String(w.stack ?? w).split('\n').slice(0, 9).join(' | ')));
 process.on('uncaughtException', (e) => { console.log('HARNESS NOTE ' + String((e as Error)?.message ?? e).split('\n')[0]); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 3).join(' | ')); });
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 120_000).unref();
@@ -128,6 +130,8 @@ app.whenReady().then(async () => {
     const p: any = await new Promise((r) => prof.post('Profiler.stop', (_e, x: any) => r(x.profile)));
     const self = new Map<string, number>(); const dt = p.timeDeltas as number[]; const byId = new Map<number, any>(p.nodes.map((n: any) => [n.id, n]));
     p.samples.forEach((id: number, i: number) => { const n = byId.get(id); const f = n.callFrame; const k = `${f.functionName || '(anon)'} ${String(f.url).split('/').slice(-2).join('/')}:${f.lineNumber + 1}`; self.set(k, (self.get(k) ?? 0) + (dt[i] ?? 0) / 1000); });
+    // PROFILE_OUT=<file>: the whole profile too, for a closer look (Chrome DevTools opens it).
+    if (process.env.PROFILE_OUT) writeFileSync(process.env.PROFILE_OUT, JSON.stringify(p));
     console.log('PROFILE ' + JSON.stringify([...self].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, ms]) => `${Math.round(ms)}ms ${k}`)));
   }
   const fw = w.webContents;
