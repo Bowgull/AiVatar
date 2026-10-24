@@ -34,7 +34,8 @@ app.whenReady().then(async () => {
   await wait(800);
   await b.peek();
   b.newTab('https://en.wikipedia.org/wiki/Video'); await wait(6000);
-  b.sleep(b.tabs.find((t: any) => t.id === vid)); b.sendTabs();
+  await b.rest(b.tabs.find((t: any) => t.id === vid)); b.sendTabs();
+  console.log('spot kept: ' + b.tabs.find((t: any) => t.id === vid).videoAt + ' s; picture kept: ' + Boolean(b.tabs.find((t: any) => t.id === vid).leftShot));
   await wait(1500);
   const frames: { ms: number; png: string; note: string }[] = [];
   let painted = 0;
@@ -43,18 +44,21 @@ app.whenReady().then(async () => {
   b.lastGesture.set(vid, Date.now());
   b.activate(vid);
   const t = b.tabs.find((x: any) => x.id === vid);
+  let upAt = 0, downAt = 0; const iv = setInterval(() => { const ms = Date.now() - t0; if (!upAt && b.veil?.up) upAt = ms; if (upAt && !downAt && !b.veil) downAt = ms; }, 15);
   for (let i = 0; i < 24; i++) {
     const ms = Date.now() - t0;
-    const curtainUp = b.curtain && !b.curtain.webContents.isDestroyed() && b.curtain.getVisible?.() !== false && b.veil?.up;
+    const curtainUp = b.curtain && !b.curtain.webContents.isDestroyed() && b.veil?.up;
     let img = null, what = '';
     try {
       if (curtainUp) { img = await b.curtain.webContents.capturePage(); what = 'curtain (old picture)'; }
       else if (t.view && t.view.getVisible()) { img = await t.view.webContents.capturePage(); what = 'page'; }
+      else if (b.tabs.find((x: any) => x.id !== vid && x.view?.getVisible())) { img = await b.tabs.find((x: any) => x.id !== vid && x.view?.getVisible()).view.webContents.capturePage(); what = 'the tab he left (held)'; }
       else { img = await b.win.webContents.capturePage(); what = 'frame only'; }
     } catch { what = 'no picture'; }
     let vs = '';
     try { vs = await t.view.webContents.executeJavaScript(`(() => { const v = document.querySelector('video'); return v ? (v.paused ? 'paused ' : 'PLAYING ') + v.currentTime.toFixed(1) + 's rs' + v.readyState : 'no video yet'; })()`); } catch { vs = '-'; }
-    const note = `${(ms / 1000).toFixed(2)}s · ${what} · ${vs}${painted && ms >= painted ? ' · drawn' : ''}`;
+    let snd = ''; try { snd = t.view.webContents.isAudioMuted() ? ' · muted' : ''; } catch { /* none */ }
+    const note = `${(ms / 1000).toFixed(2)}s · ${what} · ${vs}${snd}${painted && ms >= painted ? ' · drawn' : ''}`;
     console.log(note);
     if (img && !img.isEmpty()) frames.push({ ms, png: img.resize({ width: 480 }).toDataURL(), note });
     await wait(250);
@@ -68,6 +72,7 @@ app.whenReady().then(async () => {
   const h = await w.webContents.executeJavaScript('document.body.scrollHeight');
   w.setContentSize(1500, Math.min(h, 4000)); await wait(500);
   writeFileSync(path.join(OUT, 'wake-film.png'), (await w.webContents.capturePage()).toPNG());
-  console.log(`first draw at ${painted} ms`);
+  clearInterval(iv);
+  console.log(`first draw at ${painted} ms; old picture up at ${upAt} ms, down at ${downAt} ms`);
   app.exit(0);
 });

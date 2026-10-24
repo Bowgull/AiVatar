@@ -51,11 +51,13 @@ try {
 try {
   // Asked without waiting (2026-10-20): a page must never stall on the answer (a waiting question held pages up for
   // seconds). Until it comes, nothing starts by itself; what the answer allows then starts at once.
-  let ok = false, known = false, shown = true;
+  // hold (2026-10-23, filmed): a tab woken from sleep. Nothing plays, sound or not, until he clicks in the page itself.
+  let ok = false, known = false, shown = true, hold = false;
   const held = new Set(), early = new Set();
   const playAll = (set) => { for (const m of set) { try { m.play().catch(() => {}); } catch { /* gone */ } } set.clear(); };
   ipcRenderer.invoke('tab:mayplay').then((a) => {
-    ok = !a || a.ok !== false; shown = !a || a.shown !== false; known = true;
+    ok = !a || a.ok !== false; shown = !a || a.shown !== false; hold = Boolean(a && a.hold); known = true;
+    if (hold) { early.clear(); return; }
     if (ok && shown) playAll(early); else if (ok) { for (const m of early) held.add(m); early.clear(); } else early.clear();
   }, () => { ok = true; known = true; playAll(early); });   // no Shell to ask (a test): the page plays as anywhere
   ipcRenderer.on('tab:shown', (_e, v) => {
@@ -67,8 +69,9 @@ try {
     const m = e.target;
     if (!(m instanceof HTMLMediaElement)) return;
     const ua = navigator.userActivation;
-    if (ua && ua.isActive) return;                                  // he just clicked or pressed a key: his
-    if (!known && !m.muted) { early.add(m); try { m.pause(); } catch { /* gone */ } return; }
+    if (ua && ua.isActive) { hold = false; return; }                // he just clicked or pressed a key: his
+    if (hold) { try { m.pause(); } catch { /* gone */ } return; }
+    if (!known) { if (!m.muted) early.add(m); try { m.pause(); } catch { /* gone */ } return; }
     const his = !m.muted && (ok || (ua && ua.hasBeenActive));       // sound he asked for on this page
     if (his && shown) return;
     if (his) held.add(m);                                           // opened behind: plays when he goes to it
