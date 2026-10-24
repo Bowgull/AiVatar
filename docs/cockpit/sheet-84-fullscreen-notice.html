@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 84 - Full screen notice</title>
+<!-- Sheet 84 (2026-10-24), from the security check (finding 6): when a page goes full screen, Samara's band is gone, so a
+     page could draw a fake band, address bar or PIN ask. Chrome shows "Press Esc to exit full screen"; Samara says it in
+     its own notice (the parchment toast, browser.css .toast), with the real site name, top centre, for 4 seconds; it
+     comes back while the mouse rests on the top edge. Live: press Replay. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 70px}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1080px;line-height:1.55}
+  .row{display:flex;gap:26px;flex-wrap:wrap}
+  .cap{font:400 11px var(--label);letter-spacing:1.5px;color:#c9b48c;margin:0 0 8px}
+  /* A whole screen, full screen: the page only, no band. */
+  .screen{position:relative;width:560px;height:315px;border-radius:8px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:radial-gradient(ellipse 60% 55% at 50% 45%,#2b3a55,#0d1220 70%)}
+  .screen .play{position:absolute;left:50%;top:50%;width:0;height:0;margin:-18px 0 0 -10px;border-left:30px solid rgba(255,255,255,.35);border-top:18px solid transparent;border-bottom:18px solid transparent}
+  .screen .edge{position:absolute;left:0;right:0;top:0;height:6px;background:rgba(255,226,140,.0)}
+  .screen .edge.lit{background:linear-gradient(rgba(255,226,140,.35),rgba(255,226,140,0))}
+  /* NEW: the notice. Samara's own toast, centred at the top of the screen. */
+  .fsn{position:absolute;left:50%;top:14px;transform:translate(-50%,0);display:flex;align-items:center;gap:8px;white-space:nowrap;
+    padding:8px 14px;border-radius:8px;font:600 13px var(--body);color:var(--ink-text);
+    background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.45);
+    transition:opacity .35s ease,transform .35s ease}
+  .fsn b{font-weight:800}
+  .fsn kbd{font:800 11px/1 var(--body);letter-spacing:.5px;padding:4px 6px 3px;border-radius:4px;background:#3a2a1a;color:#ffe28c;border:2px solid var(--outline);box-shadow:0 2px 0 rgba(0,0,0,.45)}
+  .fsn.gone{opacity:0;transform:translate(-50%,-10px)}
+  .mouse{position:absolute;width:14px;height:20px;background:#fff;clip-path:polygon(0 0,0 85%,30% 65%,48% 100%,62% 94%,45% 60%,85% 60%);filter:drop-shadow(1px 1px 0 #000)}
+  button.replay{margin:18px 0 0;background:none;border:none;font:700 14px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:4px 6px}
+  button.replay:hover{color:#ffe28c}
+</style>
+</head>
+<body>
+<h1>SHEET 84 - FULL SCREEN NOTICE</h1>
+<p class="lead">When a page goes full screen, Samara's band goes away, so a page could draw a fake one. Samara says who is full screen and how to leave, in its own notice, for 4 seconds. Rest the mouse on the top edge and it comes back.</p>
+<div class="row">
+  <div><p class="cap">1 · THE MOMENT IT GOES FULL SCREEN</p>
+    <div class="screen" id="s1"><i class="play"></i><div class="fsn" id="n1"><span><b>twitch.tv</b> is full screen</span><kbd>ESC</kbd><span>to leave</span></div></div></div>
+  <div><p class="cap">2 · FOUR SECONDS LATER</p>
+    <div class="screen"><i class="play"></i><div class="fsn gone"><span><b>twitch.tv</b> is full screen</span><kbd>ESC</kbd><span>to leave</span></div></div></div>
+  <div><p class="cap">3 · MOUSE RESTS ON THE TOP EDGE</p>
+    <div class="screen"><i class="play"></i><i class="edge lit"></i><div class="fsn"><span><b>twitch.tv</b> is full screen</span><kbd>ESC</kbd><span>to leave</span></div><i class="mouse" style="left:300px;top:2px"></i></div></div>
+</div>
+<button class="replay" type="button" id="replay">Replay frame 1</button>
+<script>
+const n1 = document.getElementById('n1');
+const play = () => { n1.classList.remove('gone'); clearTimeout(play.t); play.t = setTimeout(() => n1.classList.add('gone'), 4000); };
+document.getElementById('replay').addEventListener('click', play);
+play();
+</script>
+</body>
+</html>
