@@ -43,6 +43,8 @@ const RISKY = new Set([
   // Added 2026-10-14 (code audit M6): more Windows runners, and the Mac's own.
   'msc', 'appinstaller', 'cab', 'settingcontent-ms', 'library-ms', 'search-ms', 'searchconnector-ms', 'diagcab', 'gadget', 'ws', 'wsc', 'xbap', 'website',
   'app', 'pkg', 'mpkg', 'dmg', 'command', 'tool', 'workflow', 'scpt', 'scptd', 'applescript', 'terminal', 'webloc', 'inetloc', 'sh', 'zsh', 'py', 'pl', 'rb',
+  // Security check 2026-10-24 (finding 8): a zip can carry an app or a program inside it, and opening it unpacks it.
+  'zip',
 ]);
 export function isRisky(filename: string): boolean {
   const m = String(filename ?? '').toLowerCase().match(/\.([a-z0-9-]+)$/);

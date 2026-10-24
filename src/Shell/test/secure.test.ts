@@ -19,7 +19,9 @@ test('his own network, secure pages, odd ports and sites he allowed are left alo
 
 test('programs and scripts are risky, documents and pictures are not', () => {
   for (const f of ['setup.exe', 'Installer.MSI', 'run.bat', 'x.ps1', 'game.iso', 'a.tar.js']) assert.equal(isRisky(f), true, f);
-  for (const f of ['resume.pdf', 'photo.jpg', 'notes.txt', 'music.zip', 'exe', 'readme']) assert.equal(isRisky(f), false, f);
+  for (const f of ['resume.pdf', 'photo.jpg', 'notes.txt', 'exe', 'readme']) assert.equal(isRisky(f), false, f);
+  // 2026-10-24 (security check, finding 8): a zip can carry an app or a program, so it asks like one.
+  assert.equal(isRisky('music.zip'), true);
 });
 
 test('failed pages say what happened in plain words', () => {

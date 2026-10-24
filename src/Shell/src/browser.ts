@@ -30,7 +30,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
-import { carriesData, personal, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
+import { carriesData, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
 import { svgToPng } from './svgicon.ts';
@@ -1021,16 +1021,24 @@ export class AangBrowser {
       if (isRisky(base)) {
         let site = '';
         try { site = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-        if (!site || !this.trusted.has(site)) {
+        // Where the file itself came from too (security check 2026-10-24, finding 8): an ad or a redirect on a site he
+        // trusts could hand him a program from anywhere. A file from another site than the page asks, unless he trusts it.
+        let fileSite = '';
+        try { fileSite = new URL(item.getURLChain?.().slice(-1)[0] || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+        const sameSite = (a: string, b: string) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
+        const fileOk = !fileSite || sameSite(fileSite, site) || this.trusted.has(fileSite);
+        if (!site || !this.trusted.has(site) || !fileOk) {
           item.pause();
           const other = this.peerTrusted.has(site);
-          const text = other ? `It is a program. Your other computer trusts ${site}, but this one hasn't yet. Only say yes if you meant to get it.`
+          const text = this.trusted.has(site) && !fileOk ? `It is a program, and it comes from ${fileSite}, not ${site}. Only say yes if you meant to get it.`
+            : other ? `It is a program. Your other computer trusts ${site}, but this one hasn't yet. Only say yes if you meant to get it.`
             : `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`;
           this.ask({ host: site, what: `Download ${base}?`, text, yes: 'Download, trust this site', no: 'No' }, (allow) => {
             if (item.getState() !== 'progressing') return;
             if (!allow) { item.cancel(); return; }
             if (site) {
               this.trusted.add(site); this.peerTrusted.delete(site);
+              if (fileSite && !sameSite(fileSite, site)) { this.trusted.add(fileSite); this.peerTrusted.delete(fileSite); }
               try { writeFileAtomic(this.trustedFile, JSON.stringify([...this.trusted])); writeFileAtomic(this.trustedFile.replace(/\.json$/, '-other.json'), JSON.stringify([...this.peerTrusted])); } catch { /* best effort */ }
               this.sync?.changed('prefs');
             }
@@ -1853,13 +1861,30 @@ export class AangBrowser {
         this.sendTabs();
         return { action: 'deny' };
       }
+      // A new TAB a page opens (window.open with no size, a link in a new tab) needs his click too (security check
+      // 2026-10-24, finding 7): before, only new windows were checked, so a page could open tabs by itself.
+      if (this.listed(u).length) return { action: 'deny' };
+      const his = Date.now() - (this.lastGesture.get(tab.id) ?? 0) < GESTURE_MS;
+      let site = '';
+      try { site = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
+      if (this.prefs.popups && !his && !this.popupOk.has(site)) {
+        console.log('shell: browser: a tab the page opened by itself was blocked');
+        tab.blockedPopup = { url: u, site };
+        this.sendTabs();
+        return { action: 'deny' };
+      }
       this.newTab(u, tab.id, disposition !== 'background-tab');
       return { action: 'deny' };
     });
     on('did-create-window', (pw) => this.popupWindow(pw));
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
+    // A page on the internet never sends him to this computer or the home network (security check 2026-10-24, finding 9:
+    // a page could quietly post a form to his router's settings). He can still type such an address himself.
+    const inward = (u: string) => { try { return privateHost(new URL(u).hostname) && !privateHost(new URL(wc.getURL()).hostname) && /^https?:$/.test(new URL(wc.getURL()).protocol); } catch { return false; } };
+    const refuseInward = (e: Electron.Event, u: string) => { e.preventDefault(); let h = ''; try { h = new URL(u).host; } catch { /* none */ } this.note(`A website tried to open ${h || 'an address'} on your home network. Type it in yourself if you meant to go there.`); };
     on('will-navigate', (e, u) => {
       if (!isWeb(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
+      if (inward(u)) { refuseInward(e, u); return; }
       if (this.toPaid(u)) { e.preventDefault(); return; }
       const l = this.stopFor(u);
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
@@ -1868,6 +1893,7 @@ export class AangBrowser {
     });
     on('will-redirect', (e, u, _inPage, isMain) => {
       if (!isMain) return;
+      if (isWeb(u) && inward(u)) { refuseInward(e, u); return; }
       if (isWeb(u) && this.toPaid(u)) { e.preventDefault(); return; }
       if (!isWeb(u) && appOf(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
       const l = isWeb(u) ? this.stopFor(u) : ['NOT A WEB PAGE'];
@@ -2458,7 +2484,10 @@ export class AangBrowser {
     };
     pwc.on('will-navigate', stop);
     pwc.on('will-redirect', (e, u, _inPage, isMain) => { if (isMain) stop(e, u); });
-    pwc.setWindowOpenHandler(({ url: u }) => { if (isWeb(u) && !this.listed(u).length) this.newTab(u, this.active, true); return { action: 'deny' }; });
+    // What a popup opens becomes a tab only on his click in the popup (finding 7).
+    let pClick = 0;
+    pwc.on('input-event', (_e, i) => { if (i.type === 'mouseDown' || i.type === 'keyDown') pClick = Date.now(); });
+    pwc.setWindowOpenHandler(({ url: u }) => { if (isWeb(u) && !this.listed(u).length && (!this.prefs.popups || Date.now() - pClick < GESTURE_MS)) this.newTab(u, this.active, true); return { action: 'deny' }; });
     pwc.on('will-attach-webview', (e) => e.preventDefault());
   }
 
