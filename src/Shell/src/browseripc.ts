@@ -24,7 +24,7 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   // save card's Save, from the frame only.
   ipcMain.on('tab:field', (e, m) => { if (top(e)) b()?.afField(e.sender, m); });
   ipcMain.on('tab:cred', (e, m) => { if (top(e)) b()?.afCred(e.sender, m); });
-  ipcMain.on('light:pick', (e) => { if (top(e) && b()?.isLight(e.sender)) void b().afPick(); });
+  ipcMain.on('light:pick', (e) => { if (top(e) && b()?.isLight(e.sender)) void b().afPick(false); });
   ipcMain.on('light:flick', (e, d) => { if (top(e) && b()?.isLight(e.sender) && (d === 1 || d === -1)) b().afFlick(d); });
   ipcMain.on('browser:afsavego', (e, m) => { if (top(e) && b()?.isMainFrame(e.sender)) void b().afSaveGo(m); });
   // Nothing plays until he asks (2026-10-20): a starting page asks whether it may play by itself and whether he sees it.

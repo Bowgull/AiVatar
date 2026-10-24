@@ -2683,12 +2683,12 @@ export class AangBrowser {
     if (has !== this.hasLogin || known !== this.loginKnown) { this.hasLogin = has; this.loginKnown = known; this.sendTabs(); }
   }
   private loginKnown = false;
-  /** The site and its parent domains, scrambled with this PC's own key, against the list. */
+  /** The site itself (with or without www), scrambled with this PC's own key, against the list. Not its parent domains:
+   *  a login for example.com is not for forum.example.com (finding 3). */
   private siteKnown(host: string): boolean {
     if (!this.sites || !host) return false;
-    const parts = host.toLowerCase().split('.');
-    for (let i = 0; i < parts.length - 1; i++) if (this.sites.has(scramble(this.siteKey, parts.slice(i).join('.')))) return true;
-    return false;
+    const h = host.toLowerCase().replace(/^www\./, '');
+    return this.sites.has(scramble(this.siteKey, h)) || this.sites.has(scramble(this.siteKey, 'www.' + h));
   }
   /** After an unlock: which sites have logins, kept only as scrambled names. */
   private async learnSites(): Promise<void> {
@@ -2852,8 +2852,10 @@ export class AangBrowser {
     this.af = { tab: t.id, kind, kinds, empty: o.empty === true, rect, offer: null, email: 0, logins: [], login: 0 };
     void this.afDecide();
   }
-  /** He clicked the light, or pressed Tab while it showed. */
-  async afPick(): Promise<void> {
+  /** Keys taken for his PIN whose release has not come yet (finding 1). */
+  private afTaken = new Set<string>();
+  /** He clicked the light, or pressed Tab while it showed (`one`: Tab fills only the box he is in, finding 2). */
+  async afPick(one = false): Promise<void> {
     const a = this.af, t = a ? this.tabs.find((x) => x.id === a.tab) : undefined, wc = t?.view?.webContents;
     if (!a || !t || !wc || wc.isDestroyed() || !a.offer) return;
     this.pane.lightV?.webContents.send('light:show', { give: true });
@@ -2865,7 +2867,9 @@ export class AangBrowser {
     } else {
       const d = this.details.get(), values: Partial<Record<FieldKind, string>> = {};
       for (const k of DETAIL_KINDS) { const v = detailFor(d, k, k === 'email' ? a.email : 0); if (v) values[k] = v; }
-      const whole = a.kind !== 'email' || a.kinds.filter((k) => DETAIL_KINDS.includes(k) && k !== 'email').length > 0;
+      // Tab fills the box he is in; his click on the light fills the form, and the fill itself finds the form's boxes
+      // (never the page's own list of them) and skips any he cannot see (finding 2).
+      const whole = !one;
       await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillDetailsScript(values, whole) }]) as Promise<number>, 2000, 0);
     }
     this.afSound('fill');
@@ -2882,16 +2886,21 @@ export class AangBrowser {
   }
   /** Keys in the page, before the page sees them. True: autofill took it. */
   afKey(tab: Tab, input: Electron.Input): boolean {
+    // Security check 2026-10-24 (finding 1): a key taken for his PIN is taken whole. Stopping only the press let the page
+    // hear each release, and read the PIN from it; the release of the last number comes after the PIN is done, so the
+    // keys taken are remembered until they come up.
+    if (input.type === 'keyUp') { if (this.afTaken.delete(input.code || input.key)) return true; return false; }
     if (input.type !== 'keyDown' || tab.id !== this.active) return false;
     if (this.afPin) {
-      if (/^[0-9]$/.test(input.key) && !input.meta && !input.control) { void this.afPinDigit(input.key); return true; }
-      if (input.key === 'Backspace') { this.afPin.digits = this.afPin.digits.slice(0, -1); this.afBand(); return true; }
-      if (input.key === 'Escape') { this.afPin = null; this.afBand(); return true; }
+      const take = () => { this.afTaken.add(input.code || input.key); return true; };
+      if (/^[0-9]$/.test(input.key) && !input.meta && !input.control) { void this.afPinDigit(input.key); return take(); }
+      if (input.key === 'Backspace') { this.afPin.digits = this.afPin.digits.slice(0, -1); this.afBand(); return take(); }
+      if (input.key === 'Escape') { this.afPin = null; this.afBand(); return take(); }
       return false;
     }
     const a = this.af;
     if (!a?.offer || !a.empty || !this.pane.lightV?.getVisible()) return false;
-    if (input.key === 'Tab' && !input.shift && !input.meta && !input.control && !input.alt) { void this.afPick(); return true; }
+    if (input.key === 'Tab' && !input.shift && !input.meta && !input.control && !input.alt) { void this.afPick(true); return true; }
     if ((input.key === 'ArrowDown' || input.key === 'ArrowUp') && !input.shift && !input.meta) {
       const many = a.offer === 'login' ? a.logins.length > 1 : a.kind === 'email' && this.details.get().emails.length > 1;
       if (!many) return false;
@@ -2917,8 +2926,9 @@ export class AangBrowser {
     this.afBand('open');
     void this.learnSites();
     if (p.then === 'save') { this.afSaveAsk(); return; }
-    // The PIN was his yes: the light brings the login now (or offers to pick when the site has several).
-    setTimeout(() => { void this.afDecide().then(() => { if (this.af?.offer === 'login' && this.af.logins.length === 1) void this.afPick(); }); }, 450);
+    // Open now: the light offers the login, and his click on it fills (finding 3: the PIN alone filled at once, even on a
+    // page that had only put a password box in front of him).
+    setTimeout(() => { void this.afDecide(); }, 450);
   }
   /** His PIN, from Settings, while Bitwarden is open: typed twice, sealed with the session. */
   private async afSetPin(value: unknown): Promise<void> {
@@ -2952,7 +2962,7 @@ export class AangBrowser {
     if (still) { this.afSave = null; return; }
     if (this.vault.current()) {
       const logins = await this.vault.loginsFor('https://' + s.host);
-      for (const l of logins ?? []) if (l.username === s.user) { const sec = await this.vault.secret(l.id); if (sec?.password === s.pass) { this.afSave = null; return; } }
+      for (const l of logins ?? []) if (l.username === s.user) { const sec = await this.vault.secret(l.id, false); if (sec?.password === s.pass) { this.afSave = null; return; } }
     }
     if (this.afSave === s) this.afBand();
   }
