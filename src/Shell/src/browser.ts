@@ -313,11 +313,34 @@ const FREEZE_AFTER_MS = 5 * 60_000;
 const VIDEO_AT_JS = `(() => { const v = [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
   return v && Number.isFinite(v.duration) && v.duration > 0 && v.currentTime > 1 ? Math.floor(v.currentTime) : null; })()`;
 /** On waking: the main video goes to his spot and stays paused until he presses play himself (his pick, 2026-10-23). */
+// 2026-10-23 (filmed): YouTube sets its player up again after the first draw and starts from 0, so for 8 seconds, while
+// it stays paused, it is put back at his spot each time it wanders off; his own press on play ends that at once.
 const VIDEO_BACK_JS = (at: number) => `(async () => {
-  for (let i = 0; i < 80; i++) {
-    const v = [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
-    if (v && v.readyState >= 1) { v.pause(); if (Math.abs(v.currentTime - ${at}) > 2) v.currentTime = ${at}; v.pause(); return true; }
-    await new Promise((r) => setTimeout(r, 150));
+  const big = () => [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
+  let done = false;
+  for (let i = 0; i < 160; i++) {
+    const v = big();
+    if (v && v.readyState >= 1 && v.paused && Math.abs(v.currentTime - ${at}) > 0.5) { v.currentTime = ${at}; done = true; }
+    else if (v && !v.paused && navigator.userActivation && navigator.userActivation.isActive) return done;
+    await new Promise((r) => setTimeout(r, i < 80 ? 50 : 100));
+  }
+  return done;
+})()`;
+/**
+ * A woken page is settled: fully loaded, and its layout has held still for half a second (YouTube draws a small player,
+ * then the sidebar, then moves everything). The old picture stays over it until then, so he never watches it rebuild.
+ * At most 3.5 seconds after it first drew.
+ */
+const SETTLED_JS = `(async () => {
+  const sig = () => { const v = [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
+    const r = v ? v.getBoundingClientRect() : null; const b = document.body;
+    return [document.readyState, b ? b.scrollHeight : 0, b ? b.querySelectorAll('img,video,iframe').length : 0, r ? [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)].join(',') : ''].join('|'); };
+  const t0 = Date.now(); let last = sig(), since = Date.now();
+  while (Date.now() - t0 < 3500) {
+    await new Promise((r) => setTimeout(r, 100));
+    const s = sig();
+    if (s !== last) { last = s; since = Date.now(); continue; }
+    if (document.readyState === 'complete' && Date.now() - since >= 500) return true;
   }
   return false;
 })()`;
@@ -355,6 +378,8 @@ function hexOf(c: unknown): string | undefined {
 }
 /** The soft fade between pages (his pick, option 5): fade length, when a slow site dims, when a page counts as instant. */
 const VEIL_FADE_MS = 250, VEIL_DIM_MS = 1500, VEIL_INSTANT_MS = 300, VEIL_MAX_MS = 8000;
+/** A woken page's picture fades out a little slower: one soft change instead of a page rebuilding (2026-10-23). */
+const WAKE_FADE_MS = 350;
 
 /** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
 function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -1731,15 +1756,22 @@ export class AangBrowser {
     if (!t || !this.inTab(t)) return;
     t.drawn = true;
     if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
-    if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS);
-    if (t.waking) setTimeout(() => this.wokeUp(t), VEIL_FADE_MS + 150);
     if (t.waking && typeof t.videoAt === 'number') { const at = t.videoAt; t.videoAt = undefined; void sender.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_BACK_JS(at) }]).catch(() => {}); }
+    if (!t.waking) { if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS); return; }
+    // Woken from sleep (2026-10-23, filmed): its last picture stays until the page has stopped moving, then one soft fade.
+    const P = this.pane;
+    void within(sender.executeJavaScriptInIsolatedWorld(1004, [{ code: SETTLED_JS }]) as Promise<boolean>, 4000, false).then(() => {
+      this.pane = P;
+      if (this.veil?.tab === t.id) this.veilDown(WAKE_FADE_MS);
+      setTimeout(() => this.wokeUp(t), WAKE_FADE_MS + 150);
+    });
   }
   /** A woken tab is on screen: what it held back (his video) may play now, if he is looking at it. */
   private wokeUp(t: Tab): void {
     if (!t.waking) return;
     t.waking = false;
     const wc = t.view?.webContents;
+    if (wc && !wc.isDestroyed()) wc.setAudioMuted(t.muted);
     if (wc && !wc.isDestroyed() && this.seen(t)) { try { wc.send('tab:shown', true); } catch { /* gone */ } }   // only what he started plays
   }
 
@@ -1765,7 +1797,8 @@ export class AangBrowser {
     // Coming back from sleep (2026-10-23, his report: a video played before the page showed, and it looked crashed): it
     // counts as loading at once, so the curtain (with its own last picture) covers it, and nothing plays until it shows.
     tab.phase = 'waiting'; tab.waking = tab.slept === true; tab.slept = false;
-    if (tab.waking) setTimeout(() => this.wokeUp(tab), 10_000);
+    // Silent while it wakes: a player that sets itself up again can start for a moment before it is paused (filmed).
+    if (tab.waking) { wc.setAudioMuted(true); setTimeout(() => this.wokeUp(tab), 10_000); }
     // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
@@ -1860,7 +1893,9 @@ export class AangBrowser {
     on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
     on('did-stop-loading', () => {
       tab.loading = false; tab.phase = 'idle'; tab.prog = 1; tab.pending = null; tab.drawn = true;
-      if (this.veil?.tab === tab.id) this.veilDown(VEIL_FADE_MS);
+      // A woken page "finishes" while it is still rearranging itself (YouTube, filmed 2026-10-23): its picture stays until
+      // it has held still (painted()).
+      if (this.veil?.tab === tab.id && !tab.waking) this.veilDown(VEIL_FADE_MS);
       this.sendTabs();
     });
     // The loading steps (2026-10-12): the click, the site answering, the page read, the page drawn (painted()).
@@ -2199,6 +2234,13 @@ export class AangBrowser {
     finally { try { if (dbg.isAttached()) dbg.detach(); } catch { /* gone */ } }
   }
   thaw(t: Tab): void { if (t.frozen) void this.freeze(t, false); }
+  /** Before a tab sleeps: his spot in its video (a frozen page told it as it froze), and its picture if none is kept. */
+  async rest(t: Tab): Promise<void> {
+    if (!t.view) return;
+    if (!t.frozen) { const at = await within(t.view.webContents.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_AT_JS }]) as Promise<number | null>, 800, null); if (typeof at === 'number') t.videoAt = at; }
+    if (!t.leftShot) { const shot = await this.shotOf(t); if (shot) t.leftShot = shot; }
+    this.sleep(t);
+  }
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
   private sleep(tab: Tab): void {
     if (!tab.view) return;
@@ -2226,10 +2268,7 @@ export class AangBrowser {
     let any = false;
     // Frozen first: out of sight for 5 minutes and silent; a call, the pop-out and Claude's work never.
     for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !t.audible && !this.panes.some((p) => p.active === t.id) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
-    const rest = async (t: Tab) => {
-      if (!t.frozen && t.view) { const at = await within(t.view.webContents.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_AT_JS }]) as Promise<number | null>, 800, null); if (typeof at === 'number') t.videoAt = at; }
-      this.sleep(t); any = true;
-    };
+    const rest = async (t: Tab) => { await this.rest(t); any = true; };
     for (const t of this.tabs) if (can(t) && now - t.lastSeen > SLEEP_AFTER_MS) await rest(t);
     if (await memoryShort()) {
       for (const t of this.tabs.filter(can).sort((a, b) => a.lastSeen - b.lastSeen).slice(0, 3)) await rest(t);
@@ -3540,13 +3579,14 @@ export class AangBrowser {
    * Nothing plays until he asks (his rule, 2026-10-20). Asked by each page as it starts (tabpreload.cjs): may it start
    * sound by itself (he asked for it a moment ago: an address, a bookmark, a link he clicked), and can he see it.
    */
-  mayPlay(sender: Electron.WebContents): { ok: boolean; shown: boolean } {
+  mayPlay(sender: Electron.WebContents): { ok: boolean; shown: boolean; hold?: boolean } {
     const t = this.tabs.find((x) => x.view?.webContents === sender);
     if (!t) return { ok: true, shown: true };            // a popup he opened: his
     const at = Math.max(t.playOkAt ?? 0, this.lastGesture.get(t.id) ?? 0);
     // A woken tab plays nothing by itself (his pick, 2026-10-23): it comes back paused at his spot; his own click on play
     // in the page plays it.
-    return { ok: !t.waking && Date.now() - at < PLAY_MS, shown: this.seen(t) && !t.waking };
+    // hold: nothing on a woken page plays until he clicks in the page itself (clicking its tab does not count).
+    return { ok: !t.waking && Date.now() - at < PLAY_MS, shown: this.seen(t) && !t.waking, hold: Boolean(t.waking) };
   }
   /** He can see it, or it may play out of sight: a call, the pop-out, Spotify (his only music). */
   private seen(t: Tab): boolean {
