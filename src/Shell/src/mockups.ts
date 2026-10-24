@@ -13,6 +13,8 @@
 // git is run with an argument list, never through a shell, and it only ever reads.
 import { createServer, type Server } from 'node:http';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import os from 'node:os';
 import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
@@ -86,11 +88,20 @@ const TYPES: Record<string, string> = {
 };
 export const typeOf = (p: string): string => TYPES[path.posix.extname(p).slice(1).toLowerCase()] ?? 'application/octet-stream';
 
+/**
+ * Security check 2026-10-24 (finding 10): a repo can carry its own git settings that run a program (fsmonitor, hooks,
+ * filters) when git looks at the working files. Mockups come from any repo a Claude session works in, so git is only
+ * asked about what is committed, with those settings switched off and no system-wide settings read.
+ */
+export const GIT_SAFE = ['-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${os.devNull}`, '-c', 'core.untrackedCache=false', '-c', 'protocol.allow=never'];
+export const gitEnv = () => ({ ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' });
+/** The id git gives a file's bytes: worked out here, so git never reads the working file. */
+export const blobId = (bytes: Buffer) => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
 /** git, read-only, with an argument list (never a shell). Null when it fails or there is no git. */
 export function git(repo: string, args: string[], binary = false): Promise<string | Buffer | null> {
   return new Promise((done) => {
     try {
-      execFile('git', ['-C', repo, ...args], { windowsHide: true, timeout: 15_000, maxBuffer: 64 * 1024 * 1024, encoding: binary ? 'buffer' : 'utf8' },
+      execFile('git', ['-C', repo, ...GIT_SAFE, ...args], { windowsHide: true, timeout: 15_000, maxBuffer: 64 * 1024 * 1024, encoding: binary ? 'buffer' : 'utf8', env: gitEnv() },
         (err, out) => done(err ? null : (binary ? out as unknown as Buffer : String(out).trim())));
     } catch { done(null); }
   });
@@ -213,7 +224,8 @@ export async function resolveVersion(repo: string, sheet: string): Promise<{ com
   const dir = helperOf(sheet);
   const tree = dir && (await gitText(repo, ['cat-file', '-t', `${commit}:${dir}`])) === 'tree' ? await gitText(repo, ['rev-parse', '--verify', `${commit}:${dir}`]) : null;
   // Not committed yet: still HEAD's version (an old version must open the same way later), and the log says so.
-  const dirty = await gitText(repo, ['status', '--porcelain', '--', sheet, ...(dir ? [dir] : [])]);
+  let dirty = false;
+  try { dirty = blobId(readFileSync(path.join(repo, sheet))) !== blob; } catch { /* gone from the folder: shown as committed */ }
   if (dirty) console.log(`shell: mockups: ${sheet} has changes that are not committed; showing it as it is at ${commit.slice(0, 12)}`);
   const html = await git(repo, ['cat-file', 'blob', `${commit}:${sheet}`]);
   return { commit, key: blob + (tree ? ':' + tree : ''), title: titleFrom(typeof html === 'string' ? html : '', sheet) };
