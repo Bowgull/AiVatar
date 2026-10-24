@@ -72,8 +72,15 @@ export function guardRequests(session: Session, guard: RequestGuard, blocker: Bl
  * page's own scripts and frames, so until then a paused site (and the call sites kept open for Zoom and Teams) was
  * still blocked.
  */
+const rulesFor = (hosts: Iterable<string>) => [...new Set([...hosts].map((x) => String(x).toLowerCase().replace(/^www\./, '')).filter((h) => /^[a-z0-9.-]+$/.test(h)))].sort().map((h) => `@@*$domain=${h}`);
+/**
+ * The lists with his paused sites' rules written in (2026-10-24, speed check): adding them to a ready engine rebuilds its
+ * whole index, about 0.7 s on his Mac on every start, just before the window shows. Built in, the kept engine already
+ * has them; only a change he makes later is added the slow way (and the next start builds it in again, in the worker).
+ */
+const withPauses = (text: string, hosts: Iterable<string>) => { const r = rulesFor(hosts); return r.length ? text + '\n' + r.join('\n') + '\n' : text; };
 function pauseRules(blocker: { updateFromDiff(d: { added?: string[]; removed?: string[] }): unknown }, hosts: string[], on: boolean): void {
-  const rules = hosts.map((x) => String(x).toLowerCase().replace(/^www\./, '')).filter((h) => /^[a-z0-9.-]+$/.test(h)).map((h) => `@@*$domain=${h}`);
+  const rules = rulesFor(hosts);
   if (!rules.length) return;
   try { blocker.updateFromDiff(on ? { added: rules } : { removed: rules }); } catch (e) { console.error('shell: ad pause failed: ' + (e as Error).message); }
 }
@@ -105,7 +112,7 @@ function buildAway(text: string, cosmetic: boolean): Promise<Uint8Array> {
   });
 }
 
-export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean; guard?: RequestGuard } = {}): Promise<AdBlock | null> {
+export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean; guard?: RequestGuard; paused?: string[] } = {}): Promise<AdBlock | null> {
   const cacheDir = path.join(stateDir, 'adblock');
   try { mkdirSync(cacheDir, { recursive: true }); } catch { /* checked on write */ }
   const cache = path.join(cacheDir, 'lists.txt'), whenFile = path.join(cacheDir, 'when.json');
@@ -141,19 +148,19 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
     const engine = path.join(cacheDir, cosmetic ? 'engine-cosmetic.bin' : 'engine.bin');
     const keyOf = (t: string) => createHash('sha256').update(cosmetic ? 'cosmetic|' : 'plain|').update(t).digest('hex');
     const keepEngine = (bytes: Uint8Array, key: string) => { try { writeFileAtomic(engine, bytes); writeFileAtomic(engine + '.key', key); } catch (e) { reportWriteFailure(engine, e); } };
-    let key = keyOf(text);
+    const paused = new Set<string>(opts.paused ?? []);
+    let key = keyOf(withPauses(text, paused));
     let blocker: Blocker | null = null;
     try { if (readFileSync(engine + '.key', 'utf8') === key) blocker = ElectronBlocker.deserialize(new Uint8Array(readFileSync(engine))); } catch { blocker = null; }
     if (!blocker) {
-      // No kept engine for these lists: built away from the main process, loaded from its bytes.
+      // No kept engine for these lists (and paused sites): built away from the main process, loaded from its bytes.
       let bytes: Uint8Array | null = null;
-      try { bytes = await buildAway(text, cosmetic); } catch (e) { console.error('shell: ad lists built here instead: ' + (e as Error).message); }
-      blocker = bytes ? ElectronBlocker.deserialize(bytes) : ElectronBlocker.parse(text, { loadCosmeticFilters: cosmetic });
+      try { bytes = await buildAway(withPauses(text, paused), cosmetic); } catch (e) { console.error('shell: ad lists built here instead: ' + (e as Error).message); }
+      blocker = bytes ? ElectronBlocker.deserialize(bytes) : ElectronBlocker.parse(withPauses(text, paused), { loadCosmeticFilters: cosmetic });
       const b = bytes ?? blocker.serialize(), k = key;
       setTimeout(() => keepEngine(b, k), 5000).unref?.();
     }
     let on = true;
-    const paused = new Set<string>();
     blocker.enableBlockingInSession(session);
     // A session has one "before a request" hook; the network guard goes first, then the blocker (2026-10-14).
     if (opts.guard) guardRequests(session, opts.guard, blocker);
@@ -170,11 +177,14 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
         const f = await fetchLists();
         if (!f.got || f.got < got || !f.text.trim()) return;      // never swap in fewer lists than are blocking now
         keep(f.text, f.got);
-        const k = keyOf(f.text);
+        const now = [...paused];
+        const k = keyOf(withPauses(f.text, now));
         if (k === key) return;
-        const bytes = await buildAway(f.text, cosmetic);
+        const bytes = await buildAway(withPauses(f.text, now), cosmetic);
         const next = ElectronBlocker.deserialize(bytes);
-        pauseRules(next, [...paused], true);
+        // Sites paused or let go while it was building: told to the new engine the slow way.
+        const added = [...paused].filter((h) => !now.includes(h)), gone = now.filter((h) => !paused.has(h));
+        pauseRules(next, added, true); pauseRules(next, gone, false);
         if (on) { try { blocker!.disableBlockingInSession(session); } catch { /* fine */ } next.enableBlockingInSession(session); if (opts.guard) guardRequests(session, opts.guard, next); }
         blocker = next; key = k; ab.lists = f.got;
         keepEngine(bytes, k);
