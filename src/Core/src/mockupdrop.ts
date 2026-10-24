@@ -17,7 +17,8 @@
 //   - the title is cut to 80 characters, the branch name is 1 to 40 or dropped.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import os from 'node:os';
 import path from 'node:path';
 
 export interface MockupAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }
@@ -65,10 +66,15 @@ export function repoOf(dir: string): string | null {
   return null;
 }
 
+// Security check 2026-10-24 (finding 10): a repo's own git settings (fsmonitor, hooks, filters) can run a program when
+// git looks at working files. Only what is committed is asked about, with those settings off (as in Shell mockups.ts).
+const GIT_SAFE = ['-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${os.devNull}`, '-c', 'core.untrackedCache=false', '-c', 'protocol.allow=never'];
+/** The id git gives a file's bytes, worked out here; Windows line endings counted both ways. */
+const blobIds = (bytes: Buffer) => { const id = (b: Buffer) => createHash('sha1').update(`blob ${b.length}\0`).update(b).digest('hex'); return [id(bytes), id(Buffer.from(bytes.toString('latin1').replace(/\r\n/g, '\n'), 'latin1'))]; };
 /** git, read-only, with an argument list (never a shell). */
 function git(repo: string, args: string[]): Promise<{ ok: boolean; out: string }> {
   return new Promise((done) => {
-    try { execFile('git', ['-C', repo, ...args], { windowsHide: true, timeout: 10_000 }, (e, out) => done({ ok: !e, out: String(out ?? '').trim() })); }
+    try { execFile('git', ['-C', repo, ...GIT_SAFE, ...args], { windowsHide: true, timeout: 10_000, env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' } }, (e, out) => done({ ok: !e, out: String(out ?? '').trim() })); }
     catch { done({ ok: false, out: '' }); }
   });
 }
@@ -111,7 +117,9 @@ export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HO
     if (isHome && !MOCK_DIRS.some((d) => rel.startsWith(d))) return { ok: false, message: 'In AangApp, mockups live under docs/, src/Shell/pages/ or assets/.' };
     const there = await git(root, ['cat-file', '-e', `HEAD:${rel}`]);
     if (!there.ok) return { ok: false, message: `${rel} is not committed yet. The Mockups trail shows each version as committed (that is how he gets V1, V2...): commit it, then call show_mockup again.` };
-    const dirty = (await git(root, ['status', '--porcelain', '--', rel])).out;
+    const head = (await git(root, ['rev-parse', '--verify', `HEAD:${rel}`])).out;
+    let dirty = false;
+    try { dirty = !blobIds(readFileSync(file)).includes(head); } catch { /* read above: there */ }
     body = isHome ? { path: rel } : { repo: root, path: rel };
     const r = write(stateDir, body, title, branch);
     if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
