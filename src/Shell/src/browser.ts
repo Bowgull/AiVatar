@@ -1691,6 +1691,26 @@ export class AangBrowser {
     w.contentView.addChildView(v);
     this.curtain = v;
     this.curtainReady = v.webContents.loadURL(`${this.o.origin}/curtain.html`).catch(() => {});
+    // The picture never stands between him and the page (2026-10-23, his "I can't click on any video buttons"): it could
+    // sit over a page for seconds after a load, taking his clicks. A press on it takes it away at once and the press,
+    // and its release, go to the page underneath, at the same spot.
+    const P = this.pane;
+    let through: Tab | null = null;
+    v.webContents.on('input-event', (_e, i) => {
+      const m = i as Electron.MouseInputEvent;
+      if (i.type === 'mouseDown') {
+        this.pane = P;
+        const t = this.tabs.find((x) => x.id === P.veil?.tab) ?? this.cur();
+        if (P.veil) this.veilDown(0);
+        v.setVisible(false);
+        if (t?.waking) this.wokeUp(t);
+        through = t?.view && !t.view.webContents.isDestroyed() ? t : null;
+      }
+      if (through && (i.type === 'mouseDown' || i.type === 'mouseUp') && through.view && !through.view.webContents.isDestroyed()) {
+        through.view.webContents.sendInputEvent({ type: i.type, x: m.x, y: m.y, button: m.button ?? 'left', clickCount: m.clickCount ?? 1 });
+        if (i.type === 'mouseUp') through = null;
+      }
+    });
     return v;
   }
   /**
