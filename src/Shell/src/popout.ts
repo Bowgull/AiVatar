@@ -140,13 +140,16 @@ export class Popout {
     }, 150);
     // What the video is doing, twice a second, for the controls. Numbers only; the page's own words never travel.
     // At once on opening (the controls were blank for half a second), never while hidden, and slower while paused.
-    let paused = false, beat = 0;
+    // Security check 2026-10-24 (finding 5): the twice-a-second look runs WITHOUT "he clicked" (it was handing the page a
+    // fresh click every half second: pop-ups, fullscreen, sound whenever it liked). Only pinning the player needs it
+    // (a page goes fullscreen only on a click), and that happens on opening and at most once every 15 seconds after.
+    let paused = false, beat = 0, pinnedAt = 0;
     const tick = () => {
       if (!this.window?.isVisible() || (paused && ++beat % 4)) return;
-      void within(wc.executeJavaScript(STATE_JS, true), 600, null).then((s) => {
+      void within(wc.executeJavaScript(STATE_JS, false), 600, null).then((s) => {
         if (s && typeof s === 'object') { paused = (s as { paused?: unknown }).paused === true; this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>)); }
         // The next video (autoplay) can be a new player: pin it again, so it stays the bare picture.
-        else void within(wc.executeJavaScript(FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, true), 1500, null); });
+        else if (Date.now() - pinnedAt > 15_000) { pinnedAt = Date.now(); void within(wc.executeJavaScript(FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, false), 1500, null); }); }
       });
     };
     const poll = setInterval(tick, 500);
@@ -156,7 +159,7 @@ export class Popout {
     // Twitch's ad breaks (his catch, 2026-10-21): with its ads blocked, Twitch shows "we'll be right back" and stitches the
     // stream back afterwards with the sound out of step with the picture. The tab watches for the break ending and
     // jumps the player back to the live edge, which brings sound and picture together again. Twitch tabs only.
-    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void within(wc.executeJavaScript(TWITCH_RESYNC_JS, true), 600, null); } catch { /* not a page */ } };
+    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void within(wc.executeJavaScript(TWITCH_RESYNC_JS, false), 600, null); } catch { /* not a page */ } };
     resync();
     wc.on('did-navigate-in-page', resync);
     wc.on('did-finish-load', resync);
@@ -172,7 +175,7 @@ export class Popout {
       if (!this.window?.isVisible()) { setTimeout(focus, 150); return; }
       void within(wc.executeJavaScript(FOCUS_JS, true), 1500, false).then((ok) => {
         if (!ok && ++tries < 10) { setTimeout(focus, 500); return; }
-        if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, true), 1500, null);
+        if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, false), 1500, null);
       });
     };
     w.show();
