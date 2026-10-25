@@ -288,7 +288,17 @@ const DEFAULT_HOME = 'https://search.brave.com/';
 /** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
 /** A web address's site, without www. Empty when it is not one. */
 const hostOf = (u: string): string => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-const CHROME_UA = (v: string) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
+/**
+ * Chrome's own name, for the computer Samara really runs on (2026-10-25, his report: Shadow's "are you a bot" box
+ * reloaded forever on the Mac). It said "Windows" everywhere, while the page's other clues (navigator.platform, the
+ * client hints) said macOS; Cloudflare's check refuses a browser whose clues disagree. The version is given the way
+ * Chrome gives it now (152.0.0.0), the same as the client hints.
+ */
+const CHROME_UA = (v: string) => {
+  const major = String(v).split('.')[0] + '.0.0.0';
+  const os = process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' : process.platform === 'linux' ? 'X11; Linux x86_64' : 'Windows NT 10.0; Win64; x64';
+  return `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major} Safari/537.36`;
+};
 /**
  * Google's sign-in pages get the browser's HONEST name (Electron's own, untouched). Measured by two other Electron
  * browsers in 2026 (Orca: a Chrome disguise was refused 12 of 12 times, the honest name 0 of 12; Ostia the same) and
