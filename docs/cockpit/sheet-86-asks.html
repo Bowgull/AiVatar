@@ -8,7 +8,10 @@
      key buttons), sheet 64's tag that carries the kind's colour with a pixel icon, the carved letter for a site with no
      icon (.bm-letter), Samara's pixel icons (pixicons.js), the shield art, and Samara's own motion (the download tray's
      220 ms spring drop, the gold pulse, the blue pop-up glow). His picks: all four kinds plus the fake-site stop; every
-     ask says who, what, why; from the shield, no Aang on the Mac; "go big" on motion and principles. -->
+     ask says who, what, why; from the shield, no Aang on the Mac; "go big" on motion and principles.
+     v2 (his notes on v1): a caught pop-up only glows and breathes briefly, and the ask comes only when he clicks the shield,
+     with "Allow pop-ups here"; "a program" -> Installer; the globe was wrong for opening an app: a pixel icon of its own
+     (a window with an arrow stepping out); the fake-site stop was "half-assed" on black: now a scene. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
@@ -32,7 +35,11 @@
     display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;image-rendering:auto}
   .slotbar .sh{width:20px;height:24px;background:url(../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none;position:relative}
   .slotbar .sh.gold{filter:drop-shadow(0 0 4px rgba(255,196,60,.9))}
-  .slotbar .sh.pop{background-image:url(../../src/Shell/pages/art/browser/shield_popup.png);animation:popglow 1.6s ease-in-out infinite}
+  .slotbar .sh.pop{background-image:url(../../src/Shell/pages/art/browser/shield_popup.png)}
+  /* caught: three breaths of the shield's own blue glow, then a faint glow that stays until he looks */
+  .slotbar .sh.pop.caught{animation:popglow 1.2s ease-in-out 3, popfaint .4s ease-out 3.6s forwards}
+  .slotbar .sh.pop.rest{filter:drop-shadow(0 0 2px rgba(140,195,255,.6))}
+  @keyframes popfaint{to{filter:drop-shadow(0 0 2px rgba(140,195,255,.6))}}
   .slotbar .sh.bad{background-image:url(../../src/Shell/pages/art/browser/shield_bad.png)}
   .slotbar .sh.swell{animation:swell .14s ease-out}
   @keyframes swell{50%{transform:scale(1.18)}}
@@ -84,7 +91,18 @@
   @keyframes rollup{from{clip-path:inset(0 0 0 0);opacity:1}to{clip-path:inset(0 0 100% 0);transform:translateY(-6px);opacity:0}}
 
   /* the fake-site stop: Samara's own red plate, full page, the words fixed */
-  .win .plate{margin:22px auto 0;max-width:470px;padding:16px 20px}
+  /* the stop, as a place: the page is boarded up. Samara's dark wood lit red from behind, two planks nailed across,
+     the red shield large in pixels, the plate hung in front. */
+  .page.stop{background:radial-gradient(ellipse 70% 60% at 50% 40%,rgba(255,90,74,.28),rgba(0,0,0,0) 70%),
+    linear-gradient(rgba(10,4,2,.55),rgba(10,4,2,.7)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .plank{position:absolute;left:-20px;right:-20px;height:30px;border:3px solid #120A05;image-rendering:pixelated;
+    background:linear-gradient(rgba(255,170,90,.12),rgba(0,0,0,.25)),url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;box-shadow:0 5px 0 rgba(0,0,0,.45)}
+  .plank::before,.plank::after{content:"";position:absolute;top:9px;width:6px;height:6px;background:#2a2a2a;box-shadow:inset 1px 1px 0 #8a8a8a}
+  .plank::before{left:60px}.plank::after{right:60px}
+  .plank.p1{top:58px;transform:rotate(-9deg)}.plank.p2{top:58px;transform:rotate(9deg)}
+  .bigshield{position:absolute;left:50%;top:18px;width:60px;height:72px;margin-left:-30px;background:url(../../src/Shell/pages/art/browser/shield_bad.png) center/contain no-repeat;image-rendering:pixelated;
+    filter:drop-shadow(0 0 10px rgba(255,90,74,.7)) drop-shadow(0 4px 0 rgba(0,0,0,.5))}
+  .win .plate{position:relative;margin:104px auto 0;max-width:470px;padding:16px 20px;box-shadow:0 6px 0 rgba(0,0,0,.5),0 16px 30px rgba(0,0,0,.6)}
   .win .plate h3{font-size:19px;margin:8px 0 4px}
   .win .plate p{font-size:13px;margin:0 0 6px}
 
@@ -114,7 +132,7 @@
         <div class="keys"><button class="key primary sm" type="button">Open it<span class="k">A</span></button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
   <div><p class="cap">Made clear <button class="replay" type="button" data-play="a1">Replay</button></p><p class="sub">Drops from the shield. The tag says what kind of ask it is; the two faces say from where to where; one line says why.</p>
     <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh gold" id="a1s"></i>auth.eu.shadow.tech</div></div><div class="page"></div>
-      <div class="bandchip kind k-app in" id="a1"><span class="tag" data-ic="globe">Open an app</span>
+      <div class="bandchip kind k-app in" id="a1"><span class="tag" data-px="app">Open an app</span>
         <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">S</i></span><span class="to" data-ar></span><span class="face"><i class="bm-letter">S</i></span></span>Go back to Shadow PC?</div>
         <p class="m"><b>You're signed in.</b> Shadow's website is handing you back to its app on your Mac.</p>
         <div class="keys"><button class="key primary sm" type="button">Open Shadow PC<span class="k">A</span></button><button class="key sm" type="button">Stay here<span class="k">Z</span></button></div></div></div></div>
@@ -128,17 +146,24 @@
         <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">T</i></span></span>Use your camera and microphone?</div>
         <p class="m"><b>Teams</b> wants them for this call. They stop when you leave the call.</p>
         <div class="keys"><button class="key primary sm" type="button">Allow for this call<span class="k">A</span></button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
-  <div><p class="cap">A program from another site <button class="replay" type="button" data-play="p1">Replay</button></p><p class="sub">Orange: it can run on your Mac. Yes takes a second to arm, so a stray click or A can't take it.</p>
+  <div><p class="cap">An installer from another site <button class="replay" type="button" data-play="p1">Replay</button></p><p class="sub">Orange: an app installer can change your Mac. Yes takes a second to arm, so a stray click or A can't take it.</p>
     <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh gold"></i>github.com</div></div><div class="page"></div>
-      <div class="bandchip kind k-prog in" id="p1"><span class="tag"><img src="../../src/Shell/pages/art/browser/file_exe.png" width="15" height="15" alt="" style="image-rendering:pixelated">A program</span>
+      <div class="bandchip kind k-prog in" id="p1"><span class="tag"><img src="../../src/Shell/pages/art/browser/file_exe.png" width="15" height="15" alt="" style="image-rendering:pixelated">Installer</span>
         <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">G</i></span><span class="to" data-ar></span><span class="face"><img src="../../src/Shell/pages/art/browser/file_exe.png" width="20" height="20" alt="" style="image-rendering:pixelated"></span></span>Download Tool.dmg?</div>
         <p class="m">It comes from <b>objects.githubusercontent.com</b>, not github.com. Only if you meant to get it.</p>
         <div class="keys"><button class="key warn sm arming" type="button" id="p1y">Download<span class="k">A</span></button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
-  <div><p class="cap">A pop-up was blocked <button class="replay" type="button" data-play="u1">Replay</button></p><p class="sub">Blue, the shield's own pop-up glow. A small tag peeks out for four seconds, then goes back in; the shield keeps glowing.</p>
-    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh pop"></i>accounts.example-shop.com</div></div><div class="page"></div>
-      <div class="peek in" id="u1"><span class="tag k-pop" data-ic="popup">Pop-up</span>Blocked a window this page opened<button class="key primary sm" type="button" style="margin-left:4px">Open it<span class="k">A</span></button></div></div></div>
-  <div><p class="cap">A fake site: the full stop</p><p class="sub">The only one that takes the whole page. Samara's red plate, with the real list name, and nothing wrong said about app links any more.</p>
-    <div class="win tall" style="height:390px"><div class="bandbar"><div class="slotbar"><i class="sh bad"></i>paypa1-account-check.com</div></div><div class="page dark">
+  <div><p class="cap">A pop-up was caught <button class="replay" type="button" data-play="u0">Replay</button></p><p class="sub">The shield glows blue and breathes three times, then rests, still faintly blue. Nothing drops down by itself.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh pop caught" id="u0"></i>accounts.example-shop.com</div></div><div class="page"></div></div></div>
+  <div><p class="cap">...and when you click the shield</p><p class="sub">Then it asks: open the window it caught, or let this site open pop-ups from now on.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh pop rest"></i>accounts.example-shop.com</div></div><div class="page"></div>
+      <div class="bandchip kind k-pop in"><span class="tag" data-ic="popup">Pop-up</span>
+        <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">A</i></span></span>This page tried to open a window.</div>
+        <p class="m">Pop-ups you didn't click are stopped. Open this one, or let <b>accounts.example-shop.com</b> open them.</p>
+        <div class="keys"><button class="key primary sm" type="button">Open it<span class="k">A</span></button><button class="key sm" type="button">Allow pop-ups here</button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
+  <div><p class="cap">A fake site: the full stop</p><p class="sub">The only one that takes the whole page: the page is boarded up, lit red from behind, the red shield large, the plate hung in front.</p>
+    <div class="win tall" style="height:400px"><div class="bandbar"><div class="slotbar"><i class="sh bad"></i>paypa1-account-check.com</div></div><div class="page stop">
+      <i class="plank p1"></i><i class="plank p2"></i>
+      <div class="bigshield"></div>
       <div class="plate"><span class="plq">STOPPED · FAKE SITE</span><h3>This page copies a real login</h3><p>paypa1-account-check.com is on a list of fake login pages. Nothing on it was loaded.</p>
         <div class="lists"><span>PHISHING LIST</span></div>
         <div class="keys" style="margin-top:10px"><button class="key primary sm" type="button">Go back<span class="k">A</span></button><button class="key sm" type="button">Go in anyway (hold)<span class="k">Z</span></button></div></div></div></div></div>
@@ -161,13 +186,18 @@
 import { pixIcon } from '../../src/Shell/pages/pixicons.js';
 // The pixel icons in the tags, and the small arrow between the faces (Samara's own glyphs, drawn at 2x).
 for (const t of document.querySelectorAll('[data-ic]')) { const s = pixIcon(t.dataset.ic, 1.5); if (s) t.prepend(s); }
+// Opening an app: a window with an arrow stepping out of it, in the style of Samara's pixel icons.
+const APP = ['ooooooooo...', 'oyyyyyyyo...', 'ossssssso....', 'ohhhhhhho.o..', 'ohhhhhooooBo.', 'ohhhhhoBBBBBo', 'ohhhhhooooBo.', 'ohhhhhhho.o..', 'ooooooooo....'];
+const PAL = { o: '#9C4A16', y: '#FFCB3A', s: '#F0901E', h: '#FFF2A0', B: '#8ED2FF' };
+const px = (rows, sc) => `<svg width="${12 * sc}" height="${rows.length * sc}" viewBox="0 0 12 ${rows.length}" shape-rendering="crispEdges">${rows.map((r, y) => [...r].map((c, x) => PAL[c] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>` : '').join('')).join('')}</svg>`;
+for (const t of document.querySelectorAll('[data-px="app"]')) t.insertAdjacentHTML('afterbegin', px(APP, 1.5));
 const ARROW = '<svg width="12" height="12" viewBox="0 0 6 6" shape-rendering="crispEdges"><path fill="#6b5132" d="M0 2h3V0h1v1h1v1h1v2H5v1H4v1H3V4H0z"/></svg>';
 for (const a of document.querySelectorAll('[data-ar]')) a.innerHTML = ARROW;
 // The program's yes arms after a second.
 const arm = () => { const y = document.getElementById('p1y'); y.classList.remove('armed'); y.classList.add('arming'); void y.offsetWidth; setTimeout(() => y.classList.add('armed'), 1000); };
 arm();
 // Replay: unroll again (and pulse the shield for the made-clear one).
-const replay = (id) => { const e = document.getElementById(id); e.classList.remove('in', 'life'); void e.offsetWidth; e.classList.add('in'); if (id === 'u1') e.classList.add('life'); if (id === 'p1') arm();
+const replay = (id) => { const e = document.getElementById(id); if (id === 'u0') { e.classList.remove('caught'); void e.offsetWidth; e.classList.add('caught'); return; } e.classList.remove('in'); void e.offsetWidth; e.classList.add('in'); if (id === 'p1') arm();
   if (id === 'a1') { const s = document.getElementById('a1s'); s.classList.remove('swell'); void s.offsetWidth; s.classList.add('swell'); } };
 for (const b of document.querySelectorAll('[data-play]')) b.addEventListener('click', () => replay(b.dataset.play));
 // The storyboard: the made-clear ask, frozen at 0, 60, 120, 170 and 220 ms of its drop.
