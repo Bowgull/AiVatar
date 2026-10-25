@@ -53,7 +53,10 @@
   .pv.only{width:auto;padding:0 10px}
   .c .slotbar{left:110px}
   .c.big .slotbar{left:62px}
-  .slotbar .mk{display:grid;place-items:center;margin-right:2px}
+  /* v4 (his "a bit more separate"): the mask is its own sign, not part of the shield: room on both sides and a carved
+     notch between them, the way the address bar's other keys are set apart. */
+  .slotbar .mk{display:grid;place-items:center;margin:0 4px 0 2px;padding-right:10px;position:relative}
+  .slotbar .mk::after{content:"";position:absolute;right:0;top:50%;width:2px;height:18px;margin-top:-9px;background:#05030c;box-shadow:1px 0 0 rgba(255,255,255,.08)}
   .maskbig{padding:24px;border-radius:10px;border:3px solid #120A05;background:linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;display:inline-block}
 </style>
 </head>
