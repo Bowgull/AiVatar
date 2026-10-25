@@ -8,6 +8,7 @@
 //  7 every window: a page's ad opened on any click is stopped; the link he clicked still opens
 //  8 closing the window locks it
 //  9 five wrong PINs: a new one needs his Mac password
+// 10 the secret window searches with Yandex
 // Run: TEST_CERT_DIR=<dir with test-key.pem, test-cert.pem> npx electron test/electron/secret-check.ts
 import { app, BrowserWindow } from 'electron';
 import https from 'node:https';
@@ -150,6 +151,12 @@ app.whenReady().then(async () => {
   for (let i = 0; i < 5; i++) await s.secretPinAct({ act: 'try', pin: '0000' });
   await s.secretPinAct({ act: 'set', pin: '5555' });
   check('9 a forgotten PIN cannot be replaced without his Mac password', s.locked === true && !s.secretPin.has(), `locked ${s.locked}, sealed ${s.secretPin.has()}`);
+  // 10: the secret window searches with Yandex; normal Samara keeps its own engine
+  s.go('pixel art masks');
+  b.go('pixel art masks');
+  await wait(400);
+  const sUrl = s.tabs.map((x: any) => String(x.pending || x.url)).join(' '), bUrl = String(b.cur()?.pending || b.cur()?.url);
+  check('10 the secret window searches with Yandex, normal Samara with its own', sUrl.includes('yandex.com/search/?text=pixel') && bUrl.includes('search.brave.com/search'), `${sUrl} | ${bUrl}`);
   console.log(bad ? `${bad} FAILED` : 'ALL PASS');
   srv.close(); app.exit(bad ? 1 : 0);
 });
