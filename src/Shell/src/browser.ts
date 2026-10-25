@@ -1875,6 +1875,9 @@ export class AangBrowser {
       try { this.onLastClosed?.(); } catch { /* the browser is closed either way */ }
     });
     w.once('ready-to-show', () => { if (this.o.secret) fadeIn(w); else bringFront(w); });
+    // Anything that needs the Mac's Keychain waits until the window is up (2026-10-25: a Keychain box at start left
+    // Samara with no window and a dead Dock icon until he answered it). Then the box, if any, comes up over the window.
+    if (first) w.once('show', () => setTimeout(() => this.details.open(), 1200));
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
     w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.pane = was; }, 3000));
