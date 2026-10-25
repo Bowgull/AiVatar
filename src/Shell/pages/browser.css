@@ -1215,3 +1215,5 @@ html.secret .slot .smask{cursor:pointer}
 .band .slot{padding-top:3px;padding-bottom:3px}
 .band .rnd{width:29px;height:29px}
 .winkeys{top:12px;height:calc(100% - 12px)}
+/* Sheet 87: a secret tab never leaves the secret window, so no pop-out and no Send to PC keys on its rows. */
+html.secret .drawer .tp .pip{display:none}

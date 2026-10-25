@@ -140,9 +140,11 @@ window.aang?.onBrowserTray?.((s) => {
   if (s.open === false && drawerOpen) trayShut();
 });
 if (SOLO) {
-  // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open).
+  // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open). His pick
+  // (2026-10-25, "it goes away a little too fast, I can't really work inside it"): just over half a second, so slipping
+  // out past its edge and back in never loses it.
   let leaveT = 0;
-  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input, .bm-key input') && !document.getElementById('tabmenu')) closeDrawer(true); }, 350); });
+  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input, .bm-key input') && !document.getElementById('tabmenu')) closeDrawer(true); }, 650); });
   document.documentElement.addEventListener('mouseenter', () => clearTimeout(leaveT));
   drawerOpen = true;
   document.body.classList.add('drawer-open');

@@ -1608,6 +1608,22 @@ export class AangBrowser {
     this.sendTabs();
   }
   // ------------------------------------------------------------------ sheet 87, the secret window
+  /**
+   * Fill the screen, or back to a size easy to drag and resize (2026-10-25, his ask: "like Windows, double-click when
+   * it's full screen and it goes back to a smaller size"). A window he dragged or sized to fill the screen counts as
+   * filled too (the Mac only calls it zoomed when its own button did it), and comes back to the size it had, or, when
+   * that was the whole screen too, three quarters of it in the middle. The Mac glides it there.
+   */
+  private fillOrShrink(w: BrowserWindow): void {
+    if (w.isDestroyed()) return;
+    const area = screen.getDisplayMatching(w.getBounds()).workArea, b = w.getBounds();
+    const fills = (r: Electron.Rectangle) => r.width >= area.width - 16 && r.height >= area.height - 16;
+    if (!w.isMaximized() && !fills(b)) { w.maximize(); return; }
+    if (w.isMaximized()) w.unmaximize();
+    const was = w.getNormalBounds();
+    const to = fills(was) ? { width: Math.round(area.width * 0.75), height: Math.round(area.height * 0.8) } : { width: was.width, height: was.height };
+    w.setBounds({ x: Math.round(area.x + (area.width - to.width) / 2), y: Math.round(area.y + (area.height - to.height) / 2), ...to }, true);
+  }
   /** Sheet 87: the fake-site lists, for the secret window to share. */
   get phishCheck(): PhishCheck { return this.phish; }
   /** Sheet 87: is this the secret window (main routes messages by it). */
@@ -4758,7 +4774,7 @@ export class AangBrowser {
         this.sendTabs();
       } break;
       case 'winmin': this.win?.minimize(); break;
-      case 'winmax': if (this.win) { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); } break;
+      case 'winmax': if (this.win) this.fillOrShrink(this.win); break;
       case 'winclose': this.win?.close(); break;
       // Autofill's save (sheet 77): the key's "Save this login" was clicked, or the card was put away.
       case 'afsaveask': this.afSaveAsk(); break;
@@ -4772,7 +4788,7 @@ export class AangBrowser {
         const set = systemPreferences.getUserDefault('AppleActionOnDoubleClick', 'string');
         const tuck = set === 'Minimize' || (!set && systemPreferences.getUserDefault('AppleMiniaturizeOnDoubleClick', 'boolean'));
         if (tuck) this.win.minimize();
-        else if (set !== 'None') { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); }
+        else if (set !== 'None') this.fillOrShrink(this.win);
       } break;
       case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('This page is your home page now.'); this.sendTabs(); } break; }
       case 'star': this.toggleMark(); break;
