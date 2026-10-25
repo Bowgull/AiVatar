@@ -49,21 +49,21 @@
   .c .stars{position:absolute;inset:0;pointer-events:none}
   .c .stars i{position:absolute;width:2px;height:2px;background:#FFF7BE;box-shadow:0 0 3px #FFF7BE}
   .c .pv{color:#CFE4FF}
-  .win.big{width:900px;height:420px}
+  .win.big{width:600px;height:300px}
   .pv.only{width:auto;padding:0 10px}
   .c .slotbar{left:110px}
-  .c.big .slotbar{left:110px}
+  .c.big .slotbar{left:62px}
+  .slotbar .mk{display:grid;place-items:center;margin-right:2px}
   .maskbig{padding:24px;border-radius:10px;border:3px solid #120A05;background:linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;display:inline-block}
 </style>
 </head>
 <body>
 <h1>SHEET 87 - THE PRIVATE WINDOW</h1>
-<p class="lead">Night wood (your pick). ⇧⌘N opens it; nothing you do in it is kept, and it keeps its own logins locked away from your normal ones. The only sign besides the night is the mask, carved by the address.</p>
+<p class="lead">Night wood (your pick). The only other sign is a mask in the address bar, the same size as the shield: Samara's own masquerade, drawn with the masks you sent as inspiration.</p>
 <div class="row">
-  <div><p class="cap">Night wood, the mask only</p>
-    <div class="win c big"><div class="bandbar"><div class="stars" data-stars></div></div><div class="pv only" data-mask></div><div class="slotbar"><i class="sh"></i>search.brave.com</div><div class="page"><div class="shade"></div></div></div></div>
-  <div><p class="cap">The mask, large</p><p class="sub">Samara's pixel-icon way: a coloured outline (no black), three tones, light from the top left. Drawn as one half and mirrored, so both sides match.</p>
-    <div class="maskbig" data-maskbig></div></div>
+  <div><p class="cap">Samara's masquerade</p>
+    <div class="win c big"><div class="bandbar"><div class="stars" data-stars></div></div><div class="slotbar inmask"><span class="mk" data-mask="a"></span><i class="sh"></i>search.brave.com</div><div class="page"><div class="shade"></div></div></div>
+    <p class="sub" style="margin-top:10px">8 times bigger:</p><div class="maskbig" data-maskbig="a"></div></div>
 </div>
 <p class="cap" style="margin-top:34px;opacity:.6">Not picked</p>
 <div class="row" style="opacity:.45">
@@ -77,12 +77,24 @@
 <script>
 // The mask, in the style of Samara's pixel icons (coloured outline, two or three tones, light from the top left).
 // The mask: one half, mirrored. o outline (deep night violet, never black), L lit, l face, s shade, . clear (the eyes).
-const HALF = ['oo............', 'oLoo..........', 'oLLLoooo......', '.oLLLLLLoooooo', '.oLLl...lLLLLL', '.oll.....lllll', '..ol.....lllll', '..osl...llllso', '...ossllllsso.', '....ooooooo...'];
-const MASK = HALF.map((r) => r + [...r].reverse().join(''));
-const COL = { o: '#241a3d', L: '#e2d4ff', l: '#a88cf0', s: '#5c46a8' };
+// v4, after the masks he sent: two, each the shield's height (one art pixel = one screen pixel, like the shield), drawn
+// as one half and mirrored. A: the purple masquerade (swept-up tips, purple over dark navy, a point over the nose,
+// almond eyes slanting in). B: the kitsune fox mask (white, ears, red markings).
+const mirror = (half) => half.map((r) => r + [...r].reverse().join(''));
+const MASKS = {
+  // v5 (his "use them as inspiration ... I like the masquerade concept"): Samara's own masquerade. Swept-up outer tips, a
+  // peak at the middle of the top with a small gold gem, almond eyes outlined and slanting in, violet over deep navy, and
+  // a point down over the nose.
+  a: { rows: mirror(['o...........', 'oo..........', 'oLo.......oo', 'oLLoo....oLG', 'oLPPPoooooPP', 'oPPPPPPPPPPP', 'oPPPoooooPPP', 'oPPo.....oPP', '.oPo......oP', '.onno.....on', '..onnooooonn', '...onnnnnnnn', '....oonnnnnn', '......oooonn', '.........ooo']),
+       col: { o: '#6a3fb0', L: '#f0b4ff', P: '#c04ee0', p: '#8e2fb0', n: '#4a46a0', G: '#FFC43C' } },   // a coloured outline, never black (Samara's icon rule): on the night wood a dark one vanished
+  b: { rows: mirror(['..o.....', '..oo....', '..oEo...', '..oEEo..', '..oEEWoo', '.oWEWWWW', '.oWWWWWW', '.oWWWWWR', '.oWWWWRR', '.oWKKWWW', '.oWWKKWW', '.oRWWWWW', '.oWRRWWW', '.owWWWWK', '..owWWKW', '..owwWWW', '...owwwW', '....oooo']),
+       col: { o: '#2a1a10', E: '#3a2418', W: '#fff6ea', w: '#d9cfc2', R: '#e0602a', K: '#2a1a10' } },
+};
+let MASK = MASKS.a.rows, COL = MASKS.a.col;
+const draw = (k, sc) => { MASK = MASKS[k].rows; COL = MASKS[k].col; return svg(MASK, sc); };
 const svg = (rows, s) => `<svg width="${rows[0].length * s}" height="${rows.length * s}" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges">${rows.map((r, y) => [...r].map((c, x) => COL[c] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${COL[c]}"/>` : '').join('')).join('')}</svg>`;
-for (const p of document.querySelectorAll('[data-mask]')) p.insertAdjacentHTML('afterbegin', svg(MASK, 2));
-for (const p of document.querySelectorAll('[data-maskbig]')) p.innerHTML = svg(MASK, 12);
+for (const p of document.querySelectorAll('[data-mask]')) p.insertAdjacentHTML('afterbegin', draw(p.dataset.mask || 'a', 1));
+for (const p of document.querySelectorAll('[data-maskbig]')) p.innerHTML = draw(p.dataset.maskbig || 'a', 8);
 // A few stars for the night wood, always in the same places.
 for (const s of document.querySelectorAll('[data-stars]')) for (const [x, y] of [[40, 8], [96, 40], [210, 6], [330, 46], [470, 10], [560, 36], [120, 22], [520, 50]]) s.insertAdjacentHTML('beforeend', `<i style="left:${x}px;top:${y}px"></i>`);
 </script>

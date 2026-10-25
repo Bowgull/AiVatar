@@ -271,8 +271,11 @@ for (let i = 1; i < pts.length; i++) {
   face = !face;
 }
 // The padlock at the bottom of the sag: brass, a dark keyhole.
-const LOCK = ['...ooooo...', '..oMMMMMo..', '..oo...oo..', '..oo...oo..', 'ooooooooooo', 'oAAAAAAAAAo', 'oAaaaaaaaAo', 'oAaaakaaaAo', 'oAaaakaaaAo', 'oAaaaaaaaAo', 'oAAAAAAAAAo', 'ooooooooooo'];
-stamp(LOCK, CX - 5, LOW - 4, { o: '#2a1a10', M: '#8a8f9c', A: '#FFD24A', a: '#E8A91C', k: '#2a1a10' });
+// v3 (his "the lock doesn't look right"): a real padlock: a steel shackle, round over the top, through the chain's
+// lowest link; a brass body lit from the top left; a keyhole (round, then the slot) on the centre line.
+const LOCK = ['.....ooooo.....', '....oLMMMDo....', '...oLo...oDo...', '...oMo...oDo...', '...oMo...oDo...', '...oMo...oDo...', 'ooooooooooooooo', 'oHHHHHHHHHHHHAo',
+  'oHAAAAAAAAAAAao', 'oHAAAAkkkAAAAao', 'oHAAAAkkkAAAAao', 'oHAAAAAkAAAAAao', 'oHAAAAAkAAAAAao', 'oHAAAAAAAAAAAao', 'oAaaaaaaaaaaaao', 'ooooooooooooooo'];
+stamp(LOCK, CX - 7, LOW - 4, { o: '#2a1a10', L: '#c9cdd6', M: '#8a8f9c', D: '#4a4e5a', H: '#FFE28C', A: '#FFC43C', a: '#C98C14', k: '#2a1a10' });
 // ---- The crest: Samara's red shield (shield_bad.png, pixel for pixel), the arrow replaced by Claude's little red skull.
 const SHIELD = ['....aaaaaaaaaaaa....', '..aabbbbbbbbbbbbaa..', '.abbcdccdccdccdcbba.', 'abdcaaaaaaaaaaaacdba', 'abcaddddabbaddddacba', 'abcaddddabbaddddacba', 'abdaddddabbaddddadba',
   'abcaddddabbaddddacba', 'abcadddacbbcadddacba', 'abdadddacbbcadddadba', 'abcaddddabbaddddacba', 'abcadddddccdddddacba', 'abdadddddaadddddadba', 'accaddddddddddddacca', '.accaddddddddddacca.',
@@ -285,7 +288,10 @@ function crest(canvas) {
     let k = ch; if (y >= 4 && y <= 12 && x >= 4 && x <= 15 && (ch === 'b' || ch === 'c' || ch === 'a')) k = 'd';
     if (P[k]) { g.fillStyle = P[k]; g.fillRect(x, y, 1, 1); } }));
   const S = { O: '#2a1a10', H: '#f39e98', F: '#e8443a', S: '#a6332a' };
-  SKULL.forEach((r, y) => [...r].forEach((ch, x) => { if (S[ch]) { g.fillStyle = S[ch]; g.fillRect(x + 4, y + 4, 1, 1); } }));
+  // v3 (his "the skull is off centre"): the shield is 20 wide, the skull 11, so it could only sit half a pixel off. One
+  // middle column doubled makes it 12 wide: exactly centred.
+  const SK = SKULL.map((r) => r.slice(0, 6) + r.slice(5));
+  SK.forEach((r, y) => [...r].forEach((ch, x) => { if (S[ch]) { g.fillStyle = S[ch]; g.fillRect(x + 4, y + 4, 1, 1); } }));
 }
 crest(document.getElementById('crest')); crest(document.getElementById('crestbig'));
 // The program's yes arms after a second.
