@@ -627,7 +627,9 @@ export class AangBrowser {
   private localFile = '';
   prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[], afSounds: true, lockAfter: '30m' };
   /** His home page, or his search engine's front page. Web pages only. */
-  private get HOME(): string { return isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
+  private get HOME(): string { return this.o.secret ? engineHome(this.engine) : isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
+  /** Sheet 87 (his ask, 2026-10-25): the secret window searches with Yandex, and its new tabs start there; normal Samara keeps his pick. */
+  private get engine(): Engine | undefined { return this.o.secret ? 'yandex' : undefined; }
   /** The Stash (Tidy and the trail menu put trails here). Kept between runs. */
   private stash: Stashed[] = [];
   private stashSeq = 0;
@@ -2576,7 +2578,7 @@ export class AangBrowser {
   newTab(address: string, opener: number | null = null, focus = true): number | null {
     const w = this.win;
     if (!w || w.isDestroyed()) return null;
-    const url = isWeb(address) ? address : addressFor(address);
+    const url = isWeb(address) ? address : addressFor(address, this.engine);
     if (!url) return null;
     if (this.toPaid(url)) return null;
     // "You don't have to start a trail. A link you open from a page joins that page's trail" (sheet 3). A loose
@@ -2899,7 +2901,7 @@ export class AangBrowser {
       case 'copy': wc.copy(); break;
       case 'paste': wc.paste(); break;
       case 'selectall': wc.selectAll(); break;
-      case 'search': { const q = p.selectionText.replace(/\s+/g, ' ').trim().slice(0, 400); if (q) this.newTab(searchFor(q), t.id, true); break; }
+      case 'search': { const q = p.selectionText.replace(/\s+/g, ' ').trim().slice(0, 400); if (q) this.newTab(searchFor(q, this.engine), t.id, true); break; }
       case 'back': if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
       case 'reload': wc.reload(); break;
       case 'learn': if (p.misspelledWord) wc.session.addWordToSpellCheckerDictionary(p.misspelledWord); break;
@@ -3853,7 +3855,7 @@ export class AangBrowser {
     if (this.locked) return [];               // sheet 87, his pick: the secret history suggests only after the PIN
     const q = String(text ?? '').trim().toLowerCase().slice(0, 200);
     if (!q) return [];
-    const typed = addressFor(q);
+    const typed = addressFor(q, this.engine);
     const out: { kind: string; title: string; url: string; id?: number }[] = [];
     if (typed) out.push({ kind: typed.startsWith('https://search.brave.com') || typed.includes('/search?') || typed.includes('duckduckgo.com/?q=') || typed.includes('yandex.com/search') ? 'search' : 'go', title: String(text).trim().slice(0, 200), url: typed });
     const hit = (title: string, url: string) => title.toLowerCase().includes(q) || url.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').includes(q);
@@ -4579,7 +4581,7 @@ export class AangBrowser {
   private cur(): Tab | undefined { return this.tabs.find((x) => x.id === this.active); }
 
   go(address: string): void {
-    const url = addressFor(address);
+    const url = addressFor(address, this.engine);
     const t = this.cur();
     if (!url) return;
     if (this.toPaid(url)) return;
