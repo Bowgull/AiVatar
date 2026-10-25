@@ -72,18 +72,27 @@ const openText = (b64: string): string | null => { try { return keychain()?.decr
 export class DetailsStore {
   private d: Details = { ...NO_DETAILS };
   private readonly file: string;
-  constructor(file: string) {
-    this.file = file;
-    try { const j = JSON.parse(readFileSync(file, 'utf8')); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; if (t) this.d = cleanDetails(JSON.parse(t)); } catch { /* none yet */ }
+  private opened = false;
+  constructor(file: string) { this.file = file; }
+  /**
+   * His details are unlocked with the Keychain the first time they are needed, never while Samara starts (2026-10-25,
+   * his report: Samara sat open with no window for 3 minutes; this read waited on the Mac's Keychain box before the window
+   * could draw). Samara calls it a moment after its window shows, so the box comes up over the window.
+   */
+  open(): void {
+    if (this.opened) return;
+    this.opened = true;
+    try { const j = JSON.parse(readFileSync(this.file, 'utf8')); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; if (t) this.d = cleanDetails(JSON.parse(t)); } catch { /* none yet */ }
   }
-  get(): Details { return { ...this.d, emails: [...this.d.emails] }; }
+  get(): Details { this.open(); return { ...this.d, emails: [...this.d.emails] }; }
   set(d: unknown): Details {
+    this.opened = true;
     this.d = cleanDetails(d);
     const sealed = lockText(JSON.stringify(this.d));
     if (sealed) { try { writeFileAtomic(this.file, JSON.stringify({ v: 1, sealed })); } catch (e) { console.error('shell: your details were not saved: ' + (e as Error).message); } }
     return this.get();
   }
-  empty(): boolean { const d = this.d; return !d.emails.length && !d.given && !d.family && !d.phone && !d.street; }
+  empty(): boolean { this.open(); const d = this.d; return !d.emails.length && !d.given && !d.family && !d.phone && !d.street; }
 }
 
 // Modest on purpose: a 4-digit PIN is only ever 10,000 guesses, so the Keychain around it is the real lock; this keeps
