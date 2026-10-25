@@ -16,16 +16,39 @@ app.on('window-all-closed', () => {});
 BrowserWindow.prototype.show = function (this: BrowserWindow) { this.setOpacity(0); this.showInactive(); };
 BrowserWindow.prototype.focus = function () {};
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-// The night, set on elements (Samara's pages allow no added style sheets), and Samara's masquerade (sheet 87).
-const NIGHT = `(() => {
-  const night = 'linear-gradient(rgba(10,20,60,.6),rgba(10,20,60,.6))';
-  const tint = (sel) => document.querySelectorAll(sel).forEach((e) => { const cs = getComputedStyle(e); if (!cs.backgroundImage || cs.backgroundImage === 'none') return;
-    e.style.setProperty('background-image', night + ',' + cs.backgroundImage, 'important');
-    e.style.setProperty('background-size', 'auto,' + cs.backgroundSize, 'important'); e.style.setProperty('background-position', '0 0,' + cs.backgroundPosition, 'important');
-    e.style.setProperty('background-repeat', 'repeat,' + cs.backgroundRepeat, 'important'); });
-  ['.bw', '.band', '.drawer', '.tabpanel', '.body3'].forEach(tint);
-  document.querySelectorAll('.pg3').forEach((e) => e.style.setProperty('background', '#0e0e10', 'important'));
-  return 1; })()`;
+// v10 (his "the full night style, not the brown bar at the top"): the secret window's whole skin, written as the styles
+// it would ship with (html.secret in browser.css): moonlit navy wood everywhere, silver for what was gold, no brown left.
+const SECRET_CSS = `
+html.secret{--night:linear-gradient(rgba(10,20,60,.62),rgba(10,20,60,.62))}
+html.secret .band{background:var(--night),url(art/browser/band.png) repeat-x 0 14px/128px 58px !important}
+html.secret .band::before{background:var(--night),url(art/browser/band.png) repeat-x 0 -8px/128px 58px !important;filter:none !important;
+  box-shadow:inset 0 2px 0 rgba(180,200,255,.18),inset 0 -2px 0 rgba(0,0,0,.5) !important}
+html.secret:not(.solo) .bw::after{background:var(--night),url(art/browser/band.png) repeat-x 0 -20px/128px 58px !important}
+html.secret .bw{background:linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(art/browser/tray.png) 0 0/128px 256px !important}
+html.secret .body3{background:none !important}
+html.secret .pg3{background:#0e0e10 !important}
+html.secret .rnd{background:linear-gradient(180deg,#2c3a78,#18204a) !important;color:#dce6ff !important;box-shadow:0 3px 0 #05030c,inset 0 2px 0 rgba(160,190,255,.4) !important}
+html.secret .rnd svg *{stroke:#dce6ff;fill:#dce6ff}
+html.secret .wk svg path{fill:#cfe0ff !important}
+html.secret .drawer{background-image:var(--night),url(art/browser/tray.png) !important}
+html.secret .drawer .tabpanel{background:radial-gradient(120% 40% at 50% 0%,rgba(170,200,255,.10),transparent 60%),linear-gradient(rgba(4,8,30,.55),rgba(4,8,30,.6)),url(art/browser/tray.png) 0 0/128px 256px !important;
+  box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a !important}
+html.secret .drawer .shelf-bk{box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a !important}
+html.secret .drawer .tabpanel::after,html.secret .shelf-bk::after{filter:grayscale(1) brightness(1.2) sepia(.25) hue-rotate(185deg)}
+html.secret .drawer .ptitle{color:#d6e2ff !important}
+html.secret .drawer .ptitle::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(170,200,255,.22) 2px 4px) !important}
+html.secret .drawer .tp{color:#e4eaff !important;background:linear-gradient(180deg,#323c6e 0,#252d58 45%,#1d2448 100%) !important;
+  box-shadow:0 4px 0 #05030c,inset 0 3px 0 rgba(180,200,255,.22),inset 0 -2px 0 rgba(0,0,0,.35) !important}
+html.secret .drawer .tp.on{background:linear-gradient(180deg,#e6edff,#aebce4) !important;color:#141a38 !important;text-shadow:0 1px 0 rgba(255,255,255,.55) !important}
+html.secret .drawer .tp .fi.letter,html.secret .drawer .tp .w{color:#cfe0ff !important}
+html.secret .tp.kid::before{border-color:rgba(170,200,255,.35) !important}
+html.secret .drawer .newtab{color:#e4eaff !important}
+html.secret .drawer .th{color:#dce6ff !important}
+html.secret .drawer .th .n{color:#9fb0d8 !important}
+html.secret .drawer .th::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(170,200,255,.22) 2px 5px) !important}
+html.secret .bm-add{border-color:rgba(190,210,255,.45) !important;color:#dce6ff !important}
+html.secret .drawer,html.secret .drawer *{scrollbar-color:#3a4880 transparent !important}
+`;
 const HALF = ['o........', 'oLo......', 'oLLo...oo', 'oLPPoooPG', 'oPPPPPPPP', 'oPPooooPP', 'oPo....oP', '.ono...on', '..onoooon', '...oonnnn', '.....ooon', '.......oo'];
 const COL: Record<string, string> = { o: '#6a3fb0', L: '#f0b4ff', P: '#c04ee0', n: '#4a46a0', G: '#FFC43C' };
 const MASK = HALF.map((r) => r + [...r].reverse().join(''));
@@ -49,11 +72,13 @@ app.whenReady().then(async () => {
   b.tray(true, { x: 42, y: 62, hy: 80 }); await wait(1500); b.tray(true, { x: 42, y: 62, hy: 80 }); await wait(2500);
   const out = process.argv[process.argv.length - 1];
   const fw = b.win.webContents, tw = b.trayV.webContents;
-  await fw.executeJavaScript(NIGHT);
+  await fw.insertCSS(SECRET_CSS); await fw.executeJavaScript(`document.documentElement.classList.add('secret'); 1`);
   await fw.executeJavaScript(`(() => { const slot = document.getElementById('slot'); const m = document.createElement('span'); m.innerHTML = ${JSON.stringify(maskSvg)};
     Object.assign(m.style, { display: 'grid', placeItems: 'center', paddingRight: '9px', marginRight: '1px', position: 'relative', flex: 'none' });
     const n = document.createElement('i'); Object.assign(n.style, { position: 'absolute', right: '0', top: '50%', width: '2px', height: '16px', marginTop: '-8px', background: '#05030c' }); m.append(n); slot.prepend(m); return 1; })()`);
-  await tw.executeJavaScript(NIGHT);
+  await tw.insertCSS(SECRET_CSS); await tw.executeJavaScript(`document.documentElement.classList.add('secret'); 1`);
+  // the mask by his tabs: before the TABS title
+  await tw.executeJavaScript(`(() => { const t = document.querySelector('.tabpanel .ptitle'); const m = document.createElement('span'); m.innerHTML = ${JSON.stringify(maskSvg)}; m.style.display = 'grid'; t.prepend(m); return 1; })()`);
   // v9 (his "its own space its own set of bookmarks its own private history"): the secret list has its own Bookmarks
   // (empty at first), its Tabs, and a History panel under them.
   // The secret history: a third panel in the Tabs panel's own frame, the newest first, when on the right.
@@ -63,12 +88,14 @@ app.whenReady().then(async () => {
     for (const [l, n, w] of [['R', 'Reddit - Popular', '2m'], ['G', 'Inbox - Gmail', '1h'], ['T', 'sweetdreams - Twitch', 'Yesterday']]) {
       const r = document.createElement('div'); r.className = 'tp sleep'; r.innerHTML = '<span class="fi letter"></span><span class="t"></span><span class="w"></span>';
       r.querySelector('.fi').textContent = l; r.querySelector('.t').textContent = n; const ws = r.querySelector('.w'); ws.textContent = w;
-      Object.assign(ws.style, { font: '600 11px Figtree, sans-serif', color: '#b9a684', marginLeft: '6px', flex: 'none' }); p.append(r); }
+      Object.assign(ws.style, { font: '600 11px Figtree, sans-serif', marginLeft: '6px', flex: 'none' }); p.append(r); }
     src.after(p); return 1; })()`);
   await wait(600);
   writeFileSync(`${out}-list.png`, (await tw.capturePage()).toPNG());
+  writeFileSync(`${out}-frame.png`, (await fw.capturePage()).toPNG());
   // ⇧⌘N: a blank night page, nothing of his in the address.
   await fw.executeJavaScript(`(() => { for (const id of ['url', 'lock']) document.getElementById(id)?.style.setProperty('visibility', 'hidden', 'important'); return 1; })()`);
+  await wait(600);
   writeFileSync(`${out}-blank.png`, (await fw.capturePage()).toPNG());
   console.log('TRAY ' + JSON.stringify(b.trayV.getBounds()) + ' FRAME ' + JSON.stringify(b.win.getContentBounds()));
   app.exit(0);
