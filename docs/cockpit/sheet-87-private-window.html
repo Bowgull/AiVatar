@@ -28,7 +28,9 @@
      v10 (his "the mask icon near my tabs", "the full night style not the brown bar at the top", "the entire way tabs
      function now nothing should be different"): the whole skin at night (moonlit navy wood, silver for gold, no brown),
      drawn by real styles on Samara itself (html.secret, in test/electron/private-drawer-shot.ts until it is built); the
-     mask by the TABS title; trails and children exactly as in normal Samara. -->
+     mask by the TABS title; trails and children exactly as in normal Samara.
+     v11 (his "a way to change the secret PIN inside the secret window's own PIN box, not in normal Settings"): a small
+     Change PIN key in the box, then YOUR PIN, NEW PIN, AGAIN; the same words when he picks his first one. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
   html,body{background:#17110c;margin:0}
@@ -55,6 +57,12 @@
   .pinask .lights{display:flex;gap:10px}
   .pinask .lights i{width:12px;height:12px;border-radius:3px;background:#2a2133;box-shadow:inset 0 0 0 2px #4a3d5a}
   .pinask .lights i.f{background:#ffc43c;box-shadow:0 0 8px 2px rgba(255,196,60,.7)}
+  .night{display:flex;gap:26px;flex-wrap:wrap;padding:30px 30px 26px;border-radius:12px;background:#0e0e10;box-shadow:0 12px 26px rgba(0,0,0,.55);width:1040px}
+  .night .one{display:flex;flex-direction:column;align-items:center;gap:14px;width:236px}
+  .night .pinask{position:relative;left:auto;top:auto;transform:none;box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #120A05,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a,0 16px 28px rgba(0,0,0,.6)}
+  .night .pinask::after{filter:grayscale(1) brightness(1.2) sepia(.25) hue-rotate(185deg)}
+  .night .cap{font:500 12.5px var(--body);color:#b9c4e0;text-align:center;line-height:1.4}
+  .pinask .word{font:400 10px var(--label);letter-spacing:1.5px;color:#d6e2ff;margin:-8px 0 -6px}
   .steps{margin:8px 0 0;padding:0 0 0 18px;color:#cdbb9a;font-size:13.5px;line-height:1.7;max-width:900px}
 </style>
 </head>
@@ -83,7 +91,21 @@
   <li>Tabs work the same as everywhere in Samara: trails, dragging, and a link opened in a new tab sits under the tab it came from.</li>
 </ul>
 
-<h2>4 · THE MASK, 8 TIMES BIGGER</h2>
+<h2>5 · CHANGING YOUR PIN, IN THE PIN BOX ITSELF</h2>
+<p class="sub">Only the secret window's own box has it; normal Settings never shows it.</p>
+<div class="night">
+  <div class="one"><div class="pinask"><div data-mask="3"></div><div class="lights"><i></i><i></i><i></i><i></i></div><button class="key sm" type="button">Change PIN</button></div>
+    <p class="cap">The box as always, with one small key under the lights.</p></div>
+  <div class="one"><div class="pinask"><div data-mask="3"></div><p class="word">YOUR PIN</p><div class="lights"><i class="f"></i><i class="f"></i><i></i><i></i></div></div>
+    <p class="cap">Your PIN now, so nobody else can change it.</p></div>
+  <div class="one"><div class="pinask"><div data-mask="3"></div><p class="word">NEW PIN</p><div class="lights"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div></div>
+    <p class="cap">The new one, 4 to 8 long. A light grows as you type; Enter when done.</p></div>
+  <div class="one"><div class="pinask"><div data-mask="3"></div><p class="word">AGAIN</p><div class="lights"><i class="f"></i><i class="f"></i><i></i><i></i><i></i></div></div>
+    <p class="cap">The same again. It saves and opens your tabs. A mismatch shakes and starts the new one over.</p></div>
+</div>
+<p class="sub" style="margin-top:12px">The same small words (NEW PIN, AGAIN) show the first time you pick one, so the box is never a guess.</p>
+
+<h2>6 · THE MASK, 8 TIMES BIGGER</h2>
 <div class="maskbig" data-maskbig></div>
 
 <script>
