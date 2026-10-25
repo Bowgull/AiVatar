@@ -34,6 +34,21 @@ try {
   }
 } catch { /* the Shell paints it when the page is ready, as before */ }
 
+// Sheet 87 (the anime sites' click trick, all windows): the link he really clicked, so a new tab or window the page opens
+// on his click is let through only for that link (or the site's own page), never an ad the page opens on any click.
+// Only his own clicks (isTrusted); only the address, nothing else from the page.
+try {
+  const link = (e) => {
+    if (!e.isTrusted) return;
+    for (const n of e.composedPath()) {
+      if ((n instanceof HTMLAnchorElement || n instanceof HTMLAreaElement) && n.href) { ipcRenderer.send('tab:link', String(n.href).slice(0, 4000)); return; }
+      if (n === document.body) return;
+    }
+  };
+  addEventListener('click', link, true);
+  addEventListener('auxclick', link, true);
+} catch { /* without it a page's own new tabs need the site's own address */ }
+
 try {
   let said = false;
   const po = new PerformanceObserver((list) => {

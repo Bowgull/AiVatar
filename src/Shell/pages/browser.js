@@ -622,6 +622,7 @@ function paintUrl(u) {
   lock.dataset.u = String(u);
   urlEl.replaceChildren();
   // The browser's own pages (Settings) say their name, with no shield: they are not websites.
+  if (String(u) === 'aang:night') { lock.hidden = true; return; }      // sheet 87: the secret window's blank night page
   if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: String(u) === 'aang:things' ? 'Your things' : 'Settings' })); lock.hidden = true; return; }
   let parsed = null;
   try { parsed = new URL(u); } catch { /* not a URL */ }
@@ -1189,6 +1190,9 @@ el('failback').addEventListener('click', () => window.aang?.browserAct?.('failba
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
+  // Sheet 87: the secret window wears the night, and its list has its own History panel.
+  document.documentElement.classList.toggle('secret', s.secret === true);
+  if (s.secret) paintHist(s.history);
   // Sheet 71: the tab list's size (this machine's pick in Settings).
   const size = s.tabSize === 's' || s.tabSize === 'm' ? s.tabSize : 'l';
   if (!document.documentElement.classList.contains('tsize-' + size)) { document.documentElement.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); document.documentElement.classList.add('tsize-' + size); }
@@ -2401,4 +2405,82 @@ if (!SOLO) {
   // 2026-10-21 (his report: opening it bugged out the browser, worst over a video): its panel no longer freezes the page
   // or pictures it (no freeze, no peek): it opens in its own see-through layer above the live page (browser.ts runeView).
   startRune({ slot: el('runeslot'), band: el('band'), closeOthers: () => { closeMenu(); closeDrawer(); closeDl(); } });
+}
+
+// ---------------------------------------------------------------- sheet 87, the secret window
+/** When he was last there, as he would say it: 2m, 1h, Yesterday, then the day. */
+function agoWord(at) {
+  const m = Math.max(0, Math.round((Date.now() - at) / 60000));
+  if (m < 60) return (m || 1) + 'm';
+  if (m < 24 * 60) return Math.round(m / 60) + 'h';
+  if (m < 48 * 60) return 'Yesterday';
+  return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+/** The History panel: the newest pages first, in the tabs' own rows; a click opens one. */
+let histSig = '';
+function paintHist(list) {
+  const box = el('hist');
+  if (!box) return;
+  const rows = Array.isArray(list) ? list.slice(0, 12) : [];
+  const sig = JSON.stringify(rows.map((v) => [v.url, v.title, agoWord(v.at)]));
+  if (sig === histSig) return;
+  histSig = sig;
+  el('histpanel').hidden = !rows.length;
+  box.replaceChildren(...rows.map((v) => {
+    const r = Object.assign(document.createElement('div'), { className: 'tp sleep', title: v.url });
+    let host = '';
+    try { host = new URL(v.url).hostname.replace(/^www\./, ''); } catch { /* none */ }
+    r.append(Object.assign(document.createElement('span'), { className: 'fi letter', textContent: (host[0] || '?').toUpperCase() }),
+      Object.assign(document.createElement('span'), { className: 't', textContent: v.title || host }),
+      Object.assign(document.createElement('span'), { className: 'w', textContent: agoWord(v.at) }));
+    r.addEventListener('click', () => window.aang?.browserGo?.(v.url));
+    return r;
+  }));
+}
+
+/**
+ * The PIN box (his "I should go to open my tabs and get prompted on screen for my pin"). The digits are never shown;
+ * the lights fill as he types, as many as his PIN is long, and it tries on the last one. The first time (or after his
+ * Mac password) he picks one: 4 to 8 numbers, Enter, then the same again. Esc or a click beside it closes it.
+ */
+{
+  const spin = el('spin'), box = el('pinask'), lights = el('spinlights'), mac = el('spinmac');
+  let mode = 'off', len = 0, typed = '', first = '';
+  const paint = () => {
+    const n = mode === 'enter' ? len : mode === 'again' ? first.length : Math.min(8, Math.max(4, typed.length + (typed.length < 8 ? 1 : 0)));
+    lights.hidden = mode === 'gone';
+    mac.hidden = mode !== 'gone';
+    lights.replaceChildren(...Array.from({ length: mode === 'gone' ? 0 : n }, (_, i) => Object.assign(document.createElement('i'), { className: i < typed.length ? 'f' : '' })));
+  };
+  const shake = () => { lights.classList.remove('shake'); void lights.offsetWidth; lights.classList.add('shake'); };
+  const close = (tell) => { if (mode === 'off') return; mode = 'off'; typed = ''; first = ''; if (tell) window.aang?.browserSecretPin?.({ act: 'cancel' }); box.classList.add('out'); setTimeout(() => { if (mode === 'off') spin.hidden = true; }, 180); };
+  const digit = (d) => {
+    if (mode === 'gone' || typed.length >= 8) return;
+    typed += d; paint();
+    if (mode === 'enter' && typed.length === len) { window.aang?.browserSecretPin?.({ act: 'try', pin: typed }); }
+    else if (mode === 'again' && typed.length === first.length) {
+      if (typed === first) window.aang?.browserSecretPin?.({ act: 'set', pin: typed });
+      else { setTimeout(() => { mode = 'new'; typed = ''; first = ''; paint(); shake(); }, 120); }
+    }
+  };
+  window.aang?.onBrowserSecretPin?.((m) => {
+    const was = mode;
+    if (!m || m.mode === 'off') { close(false); return; }
+    if (m.mode === 'wrong') { setTimeout(() => { typed = ''; paint(); shake(); }, 120); return; }
+    mode = m.mode; len = Number(m.len) || 0; typed = ''; first = '';
+    box.classList.remove('out');
+    spin.hidden = false;
+    if (was === 'off') { box.style.animation = 'none'; void box.offsetWidth; box.style.animation = ''; }
+    paint();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (mode === 'off') return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') close(true);
+    else if (/^[0-9]$/.test(e.key)) digit(e.key);
+    else if (e.key === 'Backspace') { typed = typed.slice(0, -1); paint(); }
+    else if (e.key === 'Enter' && mode === 'new' && typed.length >= 4) { first = typed; typed = ''; mode = 'again'; paint(); }
+  }, true);
+  spin.addEventListener('mousedown', (e) => { if (!box.contains(e.target)) close(true); });
+  mac.addEventListener('click', () => window.aang?.browserSecretPin?.({ act: 'reset' }));
 }

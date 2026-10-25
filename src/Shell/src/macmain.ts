@@ -50,6 +50,8 @@ process.on('uncaughtException', (e) => console.error('aang: ' + e.stack));
 process.on('unhandledRejection', (e) => console.error('aang: ' + String((e as Error)?.stack ?? e)));
 
 let browser: AangBrowser | null = null;
+/** Sheet 87: the secret window, a browser of its own, made the first time he presses ⇧⌘N in Samara. */
+let secret: AangBrowser | null = null;
 const waiting: string[] = [];
 const openUrl = (u: string) => {
   try { const x = new URL(u); if (x.protocol !== 'http:' && x.protocol !== 'https:') return; } catch { return; }
@@ -82,7 +84,7 @@ app.whenReady().then(async () => {
   app.on('before-quit', (e) => { if (dimmed || !app.dock) return; e.preventDefault(); dimmed = true; play(9, 0, () => setTimeout(() => app.quit(), 30)); });
 
   // Every button, menu and page of the browser, the same wiring as on the PC.
-  wireBrowser(() => browser);
+  wireBrowser(() => browser, () => secret);
   // castLabs' engine: Widevine must be loaded before a paid page asks for it (castLabs' own rule).
   if (onCastlabs()) {
     try { const c = (await import('electron') as any).components; await Promise.race([c.whenReady(), new Promise((r) => setTimeout(r, 15_000))]); console.log('aang: widevine ' + JSON.stringify(c.status())); }
@@ -99,6 +101,25 @@ app.whenReady().then(async () => {
     settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
     mockupsAnywhere: gitHere,
   });
+  // Sheet 87 (his "go", 2026-10-25): ⇧⌘N opens the secret window. Its own folder (tabs, bookmarks, history), its own
+  // kept logins, normal Samara's settings and autofill. No door, no sync, no mockups, nothing of it in normal Samara.
+  const openSecret = (): void => {
+    if (!secret) {
+      const dir = path.join(stateDir, 'secret');
+      try { mkdirSync(dir, { recursive: true, mode: 0o700 }); } catch (e) { console.error('aang: the secret window has no folder: ' + (e as Error).message); return; }
+      secret = new AangBrowser({
+        origin: pages.origin, stateDir: dir, sharedDir: stateDir, secret: true, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
+        settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
+      });
+      secret.onSecret = openSecret;
+      // Its settings are normal Samara's: Settings opens there.
+      secret.onSettings = () => { const b = browser; if (!b) return; const had = b.hasWindow(); b.open(); setTimeout(() => b.openSettings(), had ? 0 : 1500); };
+      secret.onPaid = (u) => browser?.onPaid?.(u) ?? false;
+      app.on('before-quit', () => secret?.closeAll());
+    }
+    secret.open();
+  };
+  browser.onSecret = openSecret;
   // 6.25a: Claude sessions on this Mac drive the browser through its own door (claudedoor.ts).
   startClaudeDoor(() => browser, stateDir);
   // show_mockup from this Mac's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).

@@ -1136,3 +1136,60 @@ html.windrag,html.windrag *{cursor:grabbing !important}
 .drawer .tp.unseen,.tp.unseen{box-shadow:0 0 0 2px rgba(255,196,60,.55),0 0 12px rgba(255,196,60,.35);animation:unseen 2.8s ease-in-out infinite}
 @keyframes unseen{50%{box-shadow:0 0 0 2px rgba(255,196,60,.8),0 0 16px rgba(255,196,60,.5)}}
 @media (prefers-reduced-motion:reduce){.drawer .tp.unseen,.tp.unseen{animation:none}}
+
+/* ---- Sheet 87 (his "go", 2026-10-25): the secret window. Moonlit navy wood everywhere, silver for what was gold, no brown
+   left; the masquerade before the shield and by the TABS title; its own History panel; the PIN box over the page. ---- */
+.smask,.histpanel{display:none}
+html.secret .smask{display:grid;place-items:center;flex:none}
+html.secret .slot .smask{position:relative;padding-right:9px;margin-right:1px}
+html.secret .slot .smask::after{content:"";position:absolute;right:0;top:50%;width:2px;height:16px;margin-top:-8px;background:#05030c;box-shadow:1px 0 0 rgba(255,255,255,.08)}
+html.secret .drawer .histpanel{display:block}
+html.secret{--night:linear-gradient(rgba(10,20,60,.62),rgba(10,20,60,.62))}
+html.secret .band{background:var(--night),url(art/browser/band.png) repeat-x 0 14px/128px 58px !important}
+html.secret .band::before{background:var(--night),url(art/browser/band.png) repeat-x 0 -8px/128px 58px !important;filter:none !important;
+  box-shadow:inset 0 2px 0 rgba(180,200,255,.18),inset 0 -2px 0 rgba(0,0,0,.5) !important}
+html.secret:not(.solo) .bw::after{background:var(--night),url(art/browser/band.png) repeat-x 0 -20px/128px 58px !important}
+html.secret .bw{background:linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(art/browser/tray.png) 0 0/128px 256px !important}
+html.secret .body3{background:none !important}
+html.secret .pg3{background:#0e0e10 !important}
+html.secret .rnd{background:linear-gradient(180deg,#2c3a78,#18204a) !important;color:#dce6ff !important;box-shadow:0 3px 0 #05030c,inset 0 2px 0 rgba(160,190,255,.4) !important}
+html.secret .rnd svg *{stroke:#dce6ff;fill:#dce6ff}
+html.secret .wk svg path{fill:#cfe0ff !important}
+html.secret .drawer{background-image:var(--night),url(art/browser/tray.png) !important}
+html.secret .drawer .tabpanel{background:radial-gradient(120% 40% at 50% 0%,rgba(170,200,255,.10),transparent 60%),linear-gradient(rgba(4,8,30,.55),rgba(4,8,30,.6)),url(art/browser/tray.png) 0 0/128px 256px !important;
+  box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a !important}
+html.secret .drawer .shelf-bk{box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a !important}
+html.secret .drawer .tabpanel::after,html.secret .shelf-bk::after,html.secret .pinask::after{filter:grayscale(1) brightness(1.2) sepia(.25) hue-rotate(185deg)}
+html.secret .drawer .ptitle{color:#d6e2ff !important}
+html.secret .drawer .ptitle::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(170,200,255,.22) 2px 4px) !important}
+html.secret .drawer .tp{color:#e4eaff !important;background:linear-gradient(180deg,#323c6e 0,#252d58 45%,#1d2448 100%) !important;
+  box-shadow:0 4px 0 #05030c,inset 0 3px 0 rgba(180,200,255,.22),inset 0 -2px 0 rgba(0,0,0,.35) !important}
+html.secret .drawer .tp.on{background:linear-gradient(180deg,#e6edff,#aebce4) !important;color:#141a38 !important;text-shadow:0 1px 0 rgba(255,255,255,.55) !important}
+html.secret .drawer .tp .fi.letter,html.secret .drawer .tp .w{color:#cfe0ff !important}
+html.secret .tp.kid::before{border-color:rgba(170,200,255,.35) !important}
+html.secret .drawer .newtab{color:#e4eaff !important}
+html.secret .drawer .th{color:#dce6ff !important}
+html.secret .drawer .th .n{color:#9fb0d8 !important}
+html.secret .drawer .th::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(170,200,255,.22) 2px 5px) !important}
+html.secret .bm-add{border-color:rgba(190,210,255,.45) !important;color:#dce6ff !important}
+html.secret .drawer,html.secret .drawer *{scrollbar-color:#3a4880 transparent !important}
+/* The History panel's rows: the tabs' own rows, with when on the right. */
+.histpanel .tp .w{font:600 11px var(--body);margin-left:auto;flex:none;padding-left:6px}
+.histpanel .tp .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The PIN box: centred on the page, the page itself put away under it. */
+.spin{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(4,4,12,.62)}
+.spin[hidden]{display:none}
+.pinask{position:relative;padding:22px 34px 24px;display:flex;flex-direction:column;align-items:center;gap:18px;border:3px solid var(--outline);border-radius:10px;image-rendering:pixelated;
+  background:radial-gradient(120% 70% at 50% 0%,rgba(255,200,120,.13),transparent 60%),radial-gradient(130% 130% at 50% 50%,transparent 55%,rgba(8,4,14,.55)),url(art/browser/velvet.png) 0 0/96px 96px;
+  box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px var(--outline),inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a,0 16px 28px rgba(0,0,0,.6);
+  animation:spinin .22s cubic-bezier(.3,1.5,.5,1)}
+.pinask::after{content:"";position:absolute;inset:-6px;pointer-events:none;image-rendering:pixelated;
+  background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+.pinask .lights{display:flex;gap:10px;min-height:12px}
+.pinask .lights i{width:12px;height:12px;border-radius:3px;background:#2a2133;box-shadow:inset 0 0 0 2px #4a3d5a;transition:background .12s,box-shadow .12s}
+.pinask .lights i.f{background:#ffc43c;box-shadow:0 0 8px 2px rgba(255,196,60,.7)}
+.pinask .lights.shake{animation:afshake .28s ease-in-out}
+.pinask.out{animation:spinout .18s ease-in forwards}
+@keyframes spinin{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes spinout{to{transform:translateY(10px) scale(.96);opacity:0}}
+@media (prefers-reduced-motion:reduce){.pinask,.pinask.out{animation:none}.pinask .lights.shake{animation:none}}

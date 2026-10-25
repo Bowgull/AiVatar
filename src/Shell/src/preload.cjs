@@ -224,6 +224,9 @@ contextBridge.exposeInMainWorld('aang', {
   browserWinDrag: m => ipcRenderer.send('browser:windrag', m),
   /** The tab list in its own layer above the live page (2026-10-13): open (with where it goes) or close. */
   browserTray: a => ipcRenderer.send('browser:tray', a),
+  // Sheet 87: the secret window's PIN box (try, set, reset with the Mac password, cancel) and what Samara says back.
+  browserSecretPin: a => ipcRenderer.send('browser:secretpin', a),
+  onBrowserSecretPin(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:secretpin', h); return () => ipcRenderer.removeListener('browser:secretpin', h); },
   // His ask (2026-10-20): a bookmark's own right-click menu. The address says which one; the Shell checks the rest.
   browserMarkOp: a => ipcRenderer.send('browser:markop', a),
   onBrowserTray(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tray', h); return () => ipcRenderer.removeListener('browser:tray', h); },
