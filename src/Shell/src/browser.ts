@@ -347,7 +347,12 @@ const CHROME_UA = (v: string) => {
  * Claiming Chrome while not having all of Chrome's own parts reads as a bot to Cloudflare's check; Electron's honest
  * name is a browser it knows. Google's sign-in, Shadow, and the Cloudflare check itself.
  */
-const HONEST_SITES = /^https:\/\/(accounts\.(google|youtube)\.com|([a-z0-9-]+\.)*shadow\.tech|challenges\.cloudflare\.com)(\/|$)/i;
+// Netflix too (2026-10-25, his "why is Netflix opening in another window"): Samara's video signature checked valid
+// (streaming, 1361 days), so the E100 of 2026-10-14 points at the name: castLabs' own tracker (electron-releases #199)
+// has a custom name breaking Netflix's DRM and the untouched name playing; castLabs' player, which plays it here, sends its own.
+const HONEST_SITES = /^https:\/\/(accounts\.(google|youtube)\.com|([a-z0-9-]+\.)*shadow\.tech|challenges\.cloudflare\.com|([a-z0-9-]+\.)*netflix\.com)(:\d+)?(\/|$)/i;
+/** Netflix's own error codes on its player page: the playback was refused here (E100, M7xxx-xxxx, F7xxx). */
+const NETFLIX_REFUSED = /\b(E100|tvq-pb-101|M7\d{3}-\d{4}|F7\d{3}(-\d{1,4})?)\b/;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
 const GESTURE_MS = 1000;
 /**
@@ -880,7 +885,8 @@ export class AangBrowser {
     const ses = this.ses;
     // Plain Chrome, everywhere in his browsing session, except Google's sign-in pages (above).
     ses.setUserAgent(CHROME_UA(process.versions.chrome));
-    ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*', 'https://*.shadow.tech/*', 'https://challenges.cloudflare.com/*'] },
+    ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*', 'https://*.shadow.tech/*', 'https://challenges.cloudflare.com/*',
+      'https://netflix.com/*', 'https://*.netflix.com/*', 'https://*.nflxvideo.net/*', 'https://*.nflxext.com/*', 'https://*.nflxso.net/*'] },
       (d, cb) => cb({ requestHeaders: { ...d.requestHeaders, 'User-Agent': this.honestUA } }));
     denyPermissions(ses);
     this.permissions();
@@ -2284,6 +2290,7 @@ export class AangBrowser {
     });
     on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
+      if (/^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) this.watchPlays(tab, u);
       tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
@@ -2292,7 +2299,7 @@ export class AangBrowser {
     on('did-navigate-in-page', (_e, u, main) => {
       // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
       // video plays in its own window, the show goes there and this tab steps back to where it was.
-      if (main && /^https:\/\/(www\.)?netflix\.com\/watch\//i.test(u) && this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; }
+      if (main && /^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) { if (this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; } this.watchPlays(tab, u); }
       tab.url = u; if (main && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, wc.getTitle()); this.changed();
     });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
@@ -3428,6 +3435,25 @@ export class AangBrowser {
   }
   /** Set by main: open a paid service in the paid-video window. True if it opened. */
   onPaid: ((url: string) => boolean) | null = null;
+  /** Netflix refused to play in a tab here: main opens it in the paid-video window instead (true when it did). */
+  onPaidFallback: ((url: string) => boolean) | null = null;
+  /**
+   * Netflix plays in the tab now (2026-10-25); if it still answers with one of its error codes, the show goes to the
+   * paid-video window by itself and the tab steps back, so he is never left on an error page.
+   */
+  private watchPlays(tab: Tab, url: string): void {
+    if (!this.onPaidFallback) return;
+    for (const after of [10_000, 25_000]) setTimeout(() => {
+      const wc = tab.view?.webContents;
+      if (!wc || wc.isDestroyed() || wc.getURL() !== url) return;
+      void askPage<string>(wc, `(document.body && document.body.innerText || '').slice(0, 5000)`).then((text) => {
+        if (!text || !NETFLIX_REFUSED.test(text) || wc.isDestroyed() || wc.getURL() !== url) return;
+        if (!this.onPaidFallback?.(url)) return;
+        this.note('Netflix would not play in this tab, so it opened in the video window.');
+        if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+      });
+    }, after);
+  }
   /**
    * Paid video (2026-10-13, his ask): this browser has no Widevine, so Netflix, Crave, Disney+, Prime and Crunchyroll
    * open in the paid-video window instead, by themselves. Caught BEFORE a load starts (a link, an address he typed,

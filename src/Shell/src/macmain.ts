@@ -120,6 +120,7 @@ app.whenReady().then(async () => {
       // Its settings are normal Samara's: Settings opens there.
       secret.onSettings = () => { const b = browser; if (!b) return; const had = b.hasWindow(); b.open(); setTimeout(() => b.openSettings(), had ? 0 : 1500); };
       secret.onPaid = (u) => browser?.onPaid?.(u) ?? false;
+      secret.onPaidFallback = (u) => browser?.onPaidFallback?.(u) ?? false;
       app.on('before-quit', () => secret?.closeAll());
     }
     secret.open();
@@ -175,12 +176,20 @@ app.whenReady().then(async () => {
   const drm = new DrmRuntime({ shellDir: path.join(HERE, '..'), stateDir });
   // One engine (his yes, 2026-10-13): Aang.app is built on castLabs' engine, so paid video plays right in the tab;
   // only an Aang.app on the stock engine still sends it to the separate window.
-  // Netflix is the exception on this Mac (his report, 2026-10-14: error E100 in Samara's own tab, while it plays on the
-  // PC and Widevine itself works here): it goes to the paid-video window, castLabs' own untouched app.
+  // Netflix was the exception on this Mac (his report, 2026-10-14: error E100 in Samara's own tab). 2026-10-25: the
+  // video signature checks valid, and Netflix now gets Samara's honest name; it plays in the tab, and the paid-video
+  // window (castLabs' own untouched app) is only its fallback.
   browser.onPaid = (url) => {
     const paid = serviceFor(url);
     if (!paid?.ready) return false;
-    if (onCastlabs() && paid.id !== 'netflix') return false;
+    // Netflix too now (2026-10-25): it plays in the tab with Samara's honest name (browser.ts HONEST_SITES), and goes
+    // to the paid-video window only if Netflix still refuses there (onPaidFallback below).
+    if (onCastlabs()) return false;
+    const why = drm.open(url, 'narrow');
+    if (why) { console.error('aang: ' + why); return false; }
+    return true;
+  };
+  browser.onPaidFallback = (url) => {
     const why = drm.open(url, 'narrow');
     if (why) { console.error('aang: ' + why); return false; }
     return true;
