@@ -23,7 +23,8 @@
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
 import { BrowserWindow, Menu, WebContentsView, app, net, powerMonitor, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { connect as netConnect } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
@@ -314,12 +315,36 @@ const OTHER_OPEN = process.platform === 'darwin' ? 'Open on PC' : 'Open on Mac';
 /** How a look-alike is named on the red plate's list chips. */
 const LOOKS_LIKE = 'LOOKS LIKE ';
 const BANK = 'YOUR BANK';
+/**
+ * Sheet 89 (his ask, 2026-10-25): Stremio in a tab. Its page plays through the engine its app runs on this Mac
+ * (127.0.0.1:11470), which the home-network guard below stopped ("Streaming server is not available"). Stremio's own
+ * page, and only it, may reach that one port.
+ */
+const STREMIO_WEB = /^https:\/\/web\.stremio\.com(\/|$)/i;
+const STREMIO_ENGINE = /^(https?|wss?):\/\/(127\.0\.0\.1|localhost):11470(\/|$)/i;
+const STREMIO_APP = '/Applications/Stremio.app/Contents/MacOS';
 /** Private Network Access for every tab (driverrules.ts reachesIn). */
 export const netGuard = (d: Electron.OnBeforeRequestListenerDetails): boolean => {
   let from = '';
   try { from = d.frame?.url || ''; } catch { /* frame gone */ }
+  if (STREMIO_ENGINE.test(d.url) && STREMIO_WEB.test(from || d.referrer || '')) return false;
   return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame');
 };
+/** Sheet 89: is Stremio's engine answering on this Mac? */
+const stremioUp = (): Promise<boolean> => new Promise((res) => {
+  const s = netConnect(11470, '127.0.0.1');
+  const done = (ok: boolean) => { s.destroy(); res(ok); };
+  s.once('connect', () => done(true)); s.once('error', () => done(false)); s.setTimeout(800, () => done(false));
+});
+/**
+ * Sheet 89 (his pick): opening Stremio starts its engine quietly when it is not running: the same small program Stremio's
+ * app starts, from the app itself, with no Stremio window. It keeps running after Samara closes, as it does for the app.
+ */
+async function startStremio(): Promise<void> {
+  if (process.platform !== 'darwin' || !existsSync(path.join(STREMIO_APP, 'server.js')) || await stremioUp()) return;
+  try { spawn(path.join(STREMIO_APP, 'node'), [path.join(STREMIO_APP, 'server.js')], { cwd: STREMIO_APP, detached: true, stdio: 'ignore' }).unref(); }
+  catch (e) { console.error('shell: Stremio\'s engine would not start: ' + (e as Error).message); }
+}
 /** Where a new tab opens until he sets his own in Settings (2026-10-12: not Google). */
 const DEFAULT_HOME = 'https://search.brave.com/';
 /** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
@@ -845,6 +870,16 @@ export class AangBrowser {
           .map((m: Mark) => ({ title: m.title.slice(0, 200), url: m.url, folder: String(m.folder ?? '').slice(0, 80) })).slice(0, 5000);
       }
     } catch { /* none yet */ }
+    // Sheet 89 (his ask): Stremio on normal Samara's shelf, once, where its app is installed (he can take it off for good).
+    if (!o.secret && existsSync(STREMIO_APP)) {
+      const mark = path.join(o.stateDir, 'stremio-shelf.json');
+      if (!existsSync(mark)) {
+        if (!this.marks.some((m) => STREMIO_WEB.test(m.url))) { this.marks.unshift({ title: 'Stremio', url: 'https://web.stremio.com/', folder: '' }); setTimeout(() => this.saveMarks(), 0); }
+        try { writeFileAtomic(mark, JSON.stringify({ at: new Date().toISOString() })); } catch { /* tries again next start */ }
+      }
+      // its own icon, the large one from its site, not the tiny favicon
+      if (!this.icons.has('web.stremio.com')) setTimeout(() => { void this.keepIcon('web.stremio.com', ['https://web.stremio.com/images/icon_196x196.png']); }, 4000);
+    }
     this.httpOkFile = path.join(sd, 'browser-http-ok.json');
     this.trustedFile = path.join(sd, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
@@ -2307,6 +2342,7 @@ export class AangBrowser {
     on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
       if (/^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) this.watchPlays(tab, u);
+      if (STREMIO_WEB.test(u)) void startStremio();
       tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
