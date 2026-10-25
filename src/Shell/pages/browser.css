@@ -347,6 +347,8 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   background:radial-gradient(90% 30% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
   box-shadow:0 14px 30px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:#6a4a2a transparent}
 .menu[hidden]{display:none}
+/* A line the menu leaves out (Mockups where they are off, Notes without Aang): .mrow's own display had been winning. */
+.menu .mrow[hidden]{display:none}
 .menu .grp+.grp{margin-top:10px;padding-top:10px;border-top:3px solid rgba(0,0,0,.45);box-shadow:0 1px 0 rgba(255,224,150,.10) inset}
 .menu .gh{font:700 12px var(--body);letter-spacing:.2px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 6px}
 .menu .mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;box-sizing:border-box;padding:7px 8px;border-radius:5px;
@@ -1193,3 +1195,18 @@ html.secret .drawer,html.secret .drawer *{scrollbar-color:#3a4880 transparent !i
 @keyframes spinin{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
 @keyframes spinout{to{transform:translateY(10px) scale(.96);opacity:0}}
 @media (prefers-reduced-motion:reduce){.pinask,.pinask.out{animation:none}.pinask .lights.shake{animation:none}}
+/* Sheet 87 v12 (his answers, 2026-10-25): the ⋯ menu and the tab handle at night too, and no tab arrow while locked:
+   only the mask, which is the key. */
+html.secret .hnd button,html.secret .railhandle{filter:saturate(.35) hue-rotate(195deg) brightness(.9)}
+html.secret .hnd button:hover{filter:saturate(.35) hue-rotate(195deg) brightness(1.1)}
+html.secret body.drawer-open .hnd button,html.secret body.tray-open .hnd button{filter:saturate(.35) hue-rotate(195deg) brightness(1.1)}
+html.secret.locked .hnd button{visibility:hidden}
+html.secret .menu{border:3px solid var(--outline);border-image:none;border-radius:10px;scrollbar-color:#3a4880 transparent;
+  background:radial-gradient(90% 30% at 12% 0%,rgba(170,200,255,.10),transparent 70%),linear-gradient(rgba(4,8,30,.6),rgba(4,8,30,.66)),url(art/browser/tray.png) 0 0/128px 256px;
+  box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px var(--outline),0 14px 30px rgba(0,0,0,.6)}
+html.secret .menu .gh{color:#d6e2ff}
+html.secret .menu .mrow{color:#e4eaff}
+html.secret .menu .mrow kbd,html.secret .menu .mrow i{color:#9fb0d8}
+html.secret .menu .grp+.grp{box-shadow:0 1px 0 rgba(170,200,255,.12) inset}
+html.secret .menu button.mrow:hover:not(:disabled){background:rgba(170,200,255,.10)}
+html.secret .slot .smask{cursor:pointer}
