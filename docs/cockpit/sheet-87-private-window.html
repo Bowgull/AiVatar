@@ -17,7 +17,8 @@
      tabs are rows in that panel. Pictures 2 to 4 are Samara itself (test/electron/private-drawer-shot.ts), plain test tabs.
      v7 (his "if i open tabs at all it triggers the password"): the whole tab list is behind the PIN, not one panel. Opening
      the list in a private window asks first; then every tab shows, the hidden ones kept from last time included. The PIN is
-     its own, 4 to 8 long, and may match the autofill one (his call). -->
+     its own, 4 to 8 long, and may match the autofill one (his call).
+     v8 (his "it ONLY opens to these tabs"): the private list has no bookmarks and none of the normal window's tabs. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
   html,body{background:#17110c;margin:0}
@@ -58,11 +59,12 @@
 <div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><div class="dim"></div>
   <div class="pinask" style="left:50%"><div data-mask="3"></div><div class="lights"><i class="f"></i><i class="f"></i><i></i><i></i></div></div></div>
 
-<h2>3 · RIGHT PIN: ALL YOUR TABS, THE HIDDEN ONES TOO</h2>
+<h2>3 · RIGHT PIN: ONLY YOUR PRIVATE TABS, THE HIDDEN ONES TOO</h2>
 <div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><img class="list" src="art/sheet87-list-open.png" alt=""></div>
 <ul class="steps">
   <li>Its own PIN, 4 to 8 long. It can be the same as your autofill PIN or different. You set it the first time, and change it in Settings.</li>
   <li>The lights fill gold as you type, and it opens on the last one. A wrong PIN shakes the lights and empties them.</li>
+  <li>No bookmarks and none of your normal tabs. Only what you opened here.</li>
   <li>Hidden tabs are the ones you kept. They come back next time; everything else is gone when the window closes.</li>
   <li>The list locks again when the private window closes. Esc or a click outside closes the box.</li>
 </ul>
