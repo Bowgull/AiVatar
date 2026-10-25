@@ -5,101 +5,108 @@
 <title>Sheet 87 - The private window</title>
 <!-- Sheet 87 (2026-10-25), his ask: a private mode that saves nothing of his browsing (history, tabs, cookies), with its
      own strong pop-up blocking. His picks: ⇧⌘N opens it; it keeps its OWN logins between times, locked away from his
-     normal ones. He asked to see how it could look: three looks, each from Samara's own art (the band's wood, the
-     bookmarks shelf's plum velvet and its frame, carved plaques), with a mask drawn in Samara's pixel-icon style.
-     v2 (his notes): "nightwood! love the look"; no PRIVATE label, just the mask, and the mask "is awful": redrawn from a
-     half that is mirrored (so it is truly even), almond eyes slanting in, the nose notch, lit from the top left, on a carved
-     plaque; shown large to judge it. A and B kept below, greyed, for the record. -->
+     normal ones. v1 drew three looks; v2 his pick "nightwood! love the look", no PRIVATE label, just the mask; v3-v4 the
+     mask redrawn (Samara's own masquerade, after masks he sent as inspiration) and set apart from the shield.
+     v5 (his notes): "it's still a bit big ... squashing my search bar ... so much dead space to the left": the stand-in band
+     is gone; this is Samara's REAL band (browser.html, its own CSS), night wood laid over it, the mask redrawn smaller
+     (18 x 12, about the shield's size) before the shield. His features: no trace in Samara, strict pop-up and ad blocking
+     (the anime-site click trick fixed for ALL windows, not only this one), and a hidden stash of tabs and sites inside the
+     private window, behind his PIN, to come back to. Not wanted: the Touch ID lock, the fire button, screenshot hiding. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
-<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
-  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  html,body{background:#17110c;margin:0}
   body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
   h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
-  .lead{color:#cdbb9a;font-size:14px;margin:0 0 20px;max-width:1150px;line-height:1.5}
-  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
-  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:600px;line-height:1.45}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 6px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:32px 0 10px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:900px;line-height:1.45}
+  .frame{position:relative;width:1100px;height:300px;border-radius:12px;overflow:hidden;box-shadow:0 12px 26px rgba(0,0,0,.55)}
+  .frame iframe{border:0;width:1100px;height:300px;display:block}
   .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
-  .win{position:relative;width:600px;height:330px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);image-rendering:pixelated}
-  .bandbar{position:absolute;left:0;right:0;top:0;height:58px;border-bottom:3px solid #120a05}
-  .slotbar{position:absolute;left:150px;right:20px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
-    display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;image-rendering:auto}
-  .slotbar .sh{width:20px;height:24px;background:url(../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none}
-  .page{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#0e0e10;overflow:hidden}
-  .page .shade{position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 50% 45%,#2a2238,#0c0a12 75%)}
-  /* the private plaque: carved, with the mask */
-  .pv{position:absolute;left:14px;top:13px;height:32px;display:flex;align-items:center;gap:8px;padding:0 12px 0 8px;border-radius:8px;border:3px solid #120A05;
-    font:400 11px var(--label);letter-spacing:1.5px;color:#E9D7FF;image-rendering:auto;
-    background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
-  .pv svg{display:block}
-
-  /* A · velvet night: the band is the bookmarks shelf's plum velvet in its own frame; the window's wood goes dark plum */
-  .a .bandbar{background:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;border-bottom:none;
-    border-style:solid;border-width:0 0 8px;border-image:url(../../src/Shell/pages/art/browser/velvetframe.png) 4 repeat;height:50px}
-  .a{background:linear-gradient(180deg,rgba(30,10,45,.65),rgba(20,6,30,.7)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
-  .a .pv{background:linear-gradient(rgba(10,0,20,.55),rgba(10,0,20,.55)),url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px}
-
-  /* B · Samara's wood, unchanged, with the mask plaque by the address */
-  .b{background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
-  .b .bandbar{background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px}
-
-  /* C · night wood: the same wood after dark, moonlit, a few pixel stars in the band */
-  .c{background:linear-gradient(180deg,rgba(6,10,30,.72),rgba(4,6,20,.78)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
-  .c .bandbar{background:linear-gradient(rgba(10,20,60,.62),rgba(10,20,60,.62)),url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px}
-  .c .stars{position:absolute;inset:0;pointer-events:none}
-  .c .stars i{position:absolute;width:2px;height:2px;background:#FFF7BE;box-shadow:0 0 3px #FFF7BE}
-  .c .pv{color:#CFE4FF}
-  .win.big{width:600px;height:300px}
-  .pv.only{width:auto;padding:0 10px}
-  .c .slotbar{left:110px}
-  .c.big .slotbar{left:62px}
-  /* v4 (his "a bit more separate"): the mask is its own sign, not part of the shield: room on both sides and a carved
-     notch between them, the way the address bar's other keys are set apart. */
-  .slotbar .mk{display:grid;place-items:center;margin:0 4px 0 2px;padding-right:10px;position:relative}
-  .slotbar .mk::after{content:"";position:absolute;right:0;top:50%;width:2px;height:18px;margin-top:-9px;background:#05030c;box-shadow:1px 0 0 rgba(255,255,255,.08)}
-  .maskbig{padding:24px;border-radius:10px;border:3px solid #120A05;background:linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;display:inline-block}
+  /* The hidden stash: the bookmarks shelf's own velvet in its frame, hanging from the mask like every ask hangs from the band. */
+  .stash{position:absolute;left:150px;top:52px;z-index:5;width:420px;padding:10px 12px 12px;border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/velvetframe.png) 4 repeat;
+    background:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated;box-shadow:0 8px 0 rgba(0,0,0,.45),0 16px 28px rgba(0,0,0,.55)}
+  .stash > *{image-rendering:auto}
+  .stash .hd{display:flex;align-items:center;gap:8px;font:800 14px var(--body);color:#f0e4ff;margin:0 2px 8px}
+  .stash .it{display:flex;align-items:center;gap:10px;padding:7px 9px;margin:0 0 5px;border-radius:7px;border:2px solid #120A05;color:#efe4cc;font:700 13px var(--body);
+    background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
+  .stash .it small{display:block;font:500 11.5px var(--body);color:#b8a8d6}
+  .stash .it .t{flex:1;min-width:0}
+  .stash .tile{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;border:2px solid #120A05;background:#0B0718;flex:none}
+  .stash .tile i{font:400 13px var(--label);color:#FFE096;font-style:normal;text-shadow:1px 1px 0 #000}
+  .stash .keys{display:flex;gap:8px;margin-top:8px}
+  .stash .pin{display:flex;gap:8px;align-items:center;margin:4px 2px 2px;font:600 13px var(--body);color:#e0d2f5}
+  .stash .pin span{width:16px;height:16px;border-radius:4px;border:2px solid #120A05;background:#0B0718;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .stash .pin span.on{background:#c04ee0;box-shadow:0 0 6px rgba(192,78,224,.8)}
+  .maskbig{padding:20px 26px;border-radius:10px;border:3px solid #120A05;background:linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;display:inline-block}
 </style>
 </head>
 <body>
 <h1>SHEET 87 - THE PRIVATE WINDOW</h1>
-<p class="lead">Night wood (your pick). The only other sign is a mask in the address bar, the same size as the shield: Samara's own masquerade, drawn with the masks you sent as inspiration.</p>
+<p class="lead">Samara's real top bar, at night. The mask sits before the shield at about the shield's size. Nothing you do here is kept in Samara, pop-ups and ads are blocked hard, and your hidden stash lives behind the mask.</p>
+
+<h2>1 · THE PRIVATE WINDOW</h2>
+<div class="frame"><iframe src="../../src/Shell/pages/browser.html" data-night data-url="search.brave.com"></iframe></div>
+
+<h2>2 · THE HIDDEN STASH: CLICK THE MASK</h2>
+<p class="sub">Only a private window can open it, and only with your PIN. Your normal windows never see it.</p>
 <div class="row">
-  <div><p class="cap">Samara's masquerade</p>
-    <div class="win c big"><div class="bandbar"><div class="stars" data-stars></div></div><div class="slotbar inmask"><span class="mk" data-mask="a"></span><i class="sh"></i>search.brave.com</div><div class="page"><div class="shade"></div></div></div>
-    <p class="sub" style="margin-top:10px">8 times bigger:</p><div class="maskbig" data-maskbig="a"></div></div>
+  <div><p class="sub" style="margin:0 0 6px">Locked: your PIN, the same four-to-eight lights as for Bitwarden.</p>
+    <div class="frame" style="width:600px"><iframe src="../../src/Shell/pages/browser.html" data-night data-url="search.brave.com" style="width:600px"></iframe>
+      <div class="stash" style="left:58px;width:300px"><div class="hd" data-maskhd>Your stash</div><div class="pin"><span class="on"></span><span class="on"></span><span></span><span></span>PIN</div></div></div></div>
+  <div><p class="sub" style="margin:0 0 6px">Open: what you kept. Click one to open it here; the gold key keeps the page you're on.</p>
+    <div class="frame" style="width:600px;height:330px"><iframe src="../../src/Shell/pages/browser.html" data-night data-url="twitch.tv/sweetdreams" style="width:600px;height:330px"></iframe>
+      <div class="stash" style="left:58px;width:420px"><div class="hd" data-maskhd>Your stash</div>
+        <div class="it"><span class="tile"><i>T</i></span><span class="t">sweetdreams<small>twitch.tv</small></span></div>
+        <div class="it"><span class="tile"><i>Y</i></span><span class="t">Loba is Finally Meta after 6 years...<small>youtube.com · at 4:12</small></span></div>
+        <div class="it"><span class="tile"><i>P</i></span><span class="t">Prime Video<small>primevideo.com</small></span></div>
+        <div class="keys"><button class="key primary sm" type="button">Keep this page<span class="k">A</span></button><button class="key sm" type="button">Lock<span class="k">Z</span></button></div></div></div></div>
 </div>
-<p class="cap" style="margin-top:34px;opacity:.6">Not picked</p>
-<div class="row" style="opacity:.45">
-  <div><p class="cap">A · Velvet night</p><p class="sub">The plum velvet from your bookmarks shelf becomes the band, in its own frame; the wood around the page goes dark plum. Unmistakable.</p>
-    <div class="win a"><div class="bandbar"></div><div class="pv" data-mask>PRIVATE</div><div class="slotbar"><i class="sh"></i>search.brave.com</div><div class="page"><div class="shade"></div></div></div></div>
-  <div><p class="cap">B · Same wood, the mask plaque</p><p class="sub">Looks like normal Samara; the carved mask plaque by the address is the only sign. Quiet, but easy to forget.</p>
-    <div class="win b"><div class="bandbar"></div><div class="pv" data-mask>PRIVATE</div><div class="slotbar"><i class="sh"></i>search.brave.com</div><div class="page"><div class="shade"></div></div></div></div>
-  <div><p class="cap">C · Night wood</p><p class="sub">Samara's own wood after dark: moonlit blue, a few pixel stars in the band. Clearly different, still the same home.</p>
-    <div class="win c"><div class="bandbar"><div class="stars" data-stars></div></div><div class="pv" data-mask>PRIVATE</div><div class="slotbar"><i class="sh"></i>search.brave.com</div><div class="page"><div class="shade"></div></div></div></div>
-</div>
+
+<h2>3 · THE MASK, 8 TIMES BIGGER</h2>
+<div class="maskbig" data-maskbig></div>
+
 <script>
-// The mask, in the style of Samara's pixel icons (coloured outline, two or three tones, light from the top left).
-// The mask: one half, mirrored. o outline (deep night violet, never black), L lit, l face, s shade, . clear (the eyes).
-// v4, after the masks he sent: two, each the shield's height (one art pixel = one screen pixel, like the shield), drawn
-// as one half and mirrored. A: the purple masquerade (swept-up tips, purple over dark navy, a point over the nose,
-// almond eyes slanting in). B: the kitsune fox mask (white, ears, red markings).
-const mirror = (half) => half.map((r) => r + [...r].reverse().join(''));
-const MASKS = {
-  // v5 (his "use them as inspiration ... I like the masquerade concept"): Samara's own masquerade. Swept-up outer tips, a
-  // peak at the middle of the top with a small gold gem, almond eyes outlined and slanting in, violet over deep navy, and
-  // a point down over the nose.
-  a: { rows: mirror(['o...........', 'oo..........', 'oLo.......oo', 'oLLoo....oLG', 'oLPPPoooooPP', 'oPPPPPPPPPPP', 'oPPPoooooPPP', 'oPPo.....oPP', '.oPo......oP', '.onno.....on', '..onnooooonn', '...onnnnnnnn', '....oonnnnnn', '......oooonn', '.........ooo']),
-       col: { o: '#6a3fb0', L: '#f0b4ff', P: '#c04ee0', p: '#8e2fb0', n: '#4a46a0', G: '#FFC43C' } },   // a coloured outline, never black (Samara's icon rule): on the night wood a dark one vanished
-  b: { rows: mirror(['..o.....', '..oo....', '..oEo...', '..oEEo..', '..oEEWoo', '.oWEWWWW', '.oWWWWWW', '.oWWWWWR', '.oWWWWRR', '.oWKKWWW', '.oWWKKWW', '.oRWWWWW', '.oWRRWWW', '.owWWWWK', '..owWWKW', '..owwWWW', '...owwwW', '....oooo']),
-       col: { o: '#2a1a10', E: '#3a2418', W: '#fff6ea', w: '#d9cfc2', R: '#e0602a', K: '#2a1a10' } },
-};
-let MASK = MASKS.a.rows, COL = MASKS.a.col;
-const draw = (k, sc) => { MASK = MASKS[k].rows; COL = MASKS[k].col; return svg(MASK, sc); };
-const svg = (rows, s) => `<svg width="${rows[0].length * s}" height="${rows.length * s}" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges">${rows.map((r, y) => [...r].map((c, x) => COL[c] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${COL[c]}"/>` : '').join('')).join('')}</svg>`;
-for (const p of document.querySelectorAll('[data-mask]')) p.insertAdjacentHTML('afterbegin', draw(p.dataset.mask || 'a', 1));
-for (const p of document.querySelectorAll('[data-maskbig]')) p.innerHTML = draw(p.dataset.maskbig || 'a', 8);
-// A few stars for the night wood, always in the same places.
-for (const s of document.querySelectorAll('[data-stars]')) for (const [x, y] of [[40, 8], [96, 40], [210, 6], [330, 46], [470, 10], [560, 36], [120, 22], [520, 50]]) s.insertAdjacentHTML('beforeend', `<i style="left:${x}px;top:${y}px"></i>`);
+// Samara's own masquerade, smaller (v5): 18 x 12 art pixels, one half mirrored. Swept tips, the crowned peak with the gold
+// gem, two eyes slanting in, the point over the nose. A coloured outline (Samara's icon rule).
+const half = ['o........', 'oLo......', 'oLLo...oo', 'oLPPoooPG', 'oPPPPPPPP', 'oPPooooPP', 'oPo....oP', '.ono...on', '..onoooon', '...oonnnn', '.....ooon', '.......oo'];
+const MASK = half.map((r) => r + [...r].reverse().join(''));
+const COL = { o: '#6a3fb0', L: '#f0b4ff', P: '#c04ee0', n: '#4a46a0', G: '#FFC43C' };
+const svg = (s) => `<svg width="${18 * s}" height="${MASK.length * s}" viewBox="0 0 18 ${MASK.length}" shape-rendering="crispEdges" style="display:block">${MASK.map((r, y) => [...r].map((c, x) => COL[c] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${COL[c]}"/>` : '').join('')).join('')}</svg>`;
+document.querySelector('[data-maskbig]').innerHTML = svg(8);
+for (const h of document.querySelectorAll('[data-maskhd]')) h.insertAdjacentHTML('afterbegin', svg(1));
+// Night wood, laid over Samara's real band and frame (the page area is the website's own, untouched), and the mask put in
+// before the shield, set apart by a carved notch.
+for (const f of document.querySelectorAll('iframe[data-night]')) f.addEventListener('load', () => {
+  const d = f.contentDocument; if (!d) return;
+  // Samara's page allows no added style sheets (its own safety rule), so the night is set on the elements themselves.
+  const set = (sel, props) => d.querySelectorAll(sel).forEach((e) => { for (const [k, v] of Object.entries(props)) e.style.setProperty(k, v, 'important'); });
+  set('.bw', { background: 'linear-gradient(rgba(6,10,30,.72),rgba(4,6,20,.78)),url(art/browser/tray.png) 0 0/128px 256px' });
+  set('.band', { background: 'linear-gradient(rgba(10,20,60,.62),rgba(10,20,60,.62)),url(art/browser/band.png) repeat-x 0 0/128px 58px' });
+  set('.body3', { background: 'none' });
+  set('.pg3', { background: '#0e0e10' });
+  // the lip over the band and the strip along the bottom are drawn by Samara's own pseudo-elements: night strips laid over them
+  const strip = (parent, css) => { const e = d.createElement('div'); Object.assign(e.style, { position: 'absolute', left: '0', right: '0', pointerEvents: 'none', zIndex: '3', imageRendering: 'pixelated' }, css); parent?.append(e); };
+  const NIGHT = 'linear-gradient(rgba(10,20,60,.62),rgba(10,20,60,.62))';
+  strip(d.getElementById('band'), { top: '0', height: '14px', background: `${NIGHT},url(art/browser/band.png) repeat-x 0 -8px/128px 58px`, boxShadow: 'inset 0 2px 0 rgba(180,200,255,.18),inset 0 -2px 0 rgba(0,0,0,.5)' });
+  const bw = d.querySelector('.bw'); if (bw) bw.style.setProperty('position', 'relative');
+  strip(bw, { bottom: '0', height: '12px', background: `${NIGHT},url(art/browser/band.png) repeat-x 0 -20px/128px 58px`, borderTop: '3px solid #120A05' });
+  const slot = d.getElementById('slot'), url = d.getElementById('url');
+  if (url) url.innerHTML = `<b>${f.dataset.url}</b>`;
+  const m = d.createElement('span'); m.innerHTML = svg(1);
+  Object.assign(m.style, { display: 'grid', placeItems: 'center', paddingRight: '9px', marginRight: '1px', position: 'relative', flex: 'none' });
+  const notch = d.createElement('i');
+  Object.assign(notch.style, { position: 'absolute', right: '0', top: '50%', width: '2px', height: '16px', marginTop: '-8px', background: '#05030c', boxShadow: '1px 0 0 rgba(255,255,255,.08)' });
+  m.append(notch); slot?.prepend(m);
+  // the shield, as Samara draws it on a normal site (filled in by the running app; drawn here by hand)
+  const lock = d.getElementById('lock'); if (lock) lock.innerHTML = '<img src="art/browser/shield_rest.png" width="20" height="23" alt="" style="image-rendering:pixelated;display:block">';
+  const band = d.getElementById('band');
+  if (band) { const s = d.createElement('div'); s.className = 'stars'; Object.assign(s.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '0' });
+    if (slot) { slot.style.setProperty('position', 'relative'); slot.style.setProperty('z-index', '1'); }   // stars on the wood only, never in the address
+    for (const [x, y] of [[60, 6], [300, 44], [520, 5], [760, 46], [960, 8], [180, 50], [880, 30]]) { const i = d.createElement('i');
+      Object.assign(i.style, { position: 'absolute', left: x + 'px', top: y + 'px', width: '2px', height: '2px', background: '#FFF7BE', boxShadow: '0 0 3px #FFF7BE' }); s.append(i); }
+    band.append(s); }
+});
 </script>
 </body>
 </html>
