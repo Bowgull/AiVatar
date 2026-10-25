@@ -11,7 +11,11 @@
      ask says who, what, why; from the shield, no Aang on the Mac; "go big" on motion and principles.
      v2 (his notes on v1): a caught pop-up only glows and breathes briefly, and the ask comes only when he clicks the shield,
      with "Allow pop-ups here"; "a program" -> Installer; the globe was wrong for opening an app: a pixel icon of its own
-     (a window with an arrow stepping out); the fake-site stop was "half-assed" on black: now a scene. -->
+     (a window with an arrow stepping out); the fake-site stop was "half-assed" on black: now a scene.
+     v3 (his notes on v2): the red shield gets the little red skull (Claude's "failed" mark from sheet 45e, his pick, in its
+     own colours) in place of the arrow; the plank X was off centre and made no sense; "chains or barbed wire or make the
+     wood look beaten": the stop is drawn as one pixel scene at 4x (beaten planks crossed exactly behind the plate, a chain
+     sagging to a padlock under it, barbed wire across the top, the shield-and-skull crest on the plate), all centred. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
@@ -106,6 +110,18 @@
   .win .plate h3{font-size:19px;margin:8px 0 4px}
   .win .plate p{font-size:13px;margin:0 0 6px}
 
+  /* The full stop, one pixel scene (art pixels drawn on a canvas, shown at exactly 4x). */
+  .stopwin{width:1012px;height:568px}
+  .page.stop2{left:6px;right:6px;top:62px;bottom:6px;background:radial-gradient(ellipse 46% 52% at 50% 52%,rgba(255,90,74,.30),rgba(0,0,0,0) 72%),
+    linear-gradient(rgba(10,4,2,.6),rgba(10,4,2,.72)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  #scene{position:absolute;left:0;top:0;width:1000px;height:488px;image-rendering:pixelated}
+  .plate.stopplate{position:absolute;left:50%;top:50%;width:430px;margin:0;transform:translate(-50%,-46%);text-align:center;padding:42px 26px 18px;
+    box-shadow:0 6px 0 rgba(0,0,0,.55),0 18px 34px rgba(0,0,0,.65)}
+  .plate.stopplate h3{font-size:22px;margin:10px 0 6px}
+  .plate.stopplate p{font-size:13.5px;margin:0 0 8px}
+  .plate.stopplate .lists,.plate.stopplate .keys{justify-content:center}
+  .plate.stopplate .keys{margin-top:12px}
+  #crest{position:absolute;left:50%;top:50%;width:80px;height:92px;margin-left:-40px;transform:translateY(calc(-46% - 178px));image-rendering:pixelated;filter:drop-shadow(0 4px 0 rgba(0,0,0,.5))}
   /* Storyboard: the same drop frozen at moments (no script; each copy is the animation stopped at its time). */
   .story{display:flex;gap:14px;flex-wrap:wrap}
   .story .f{width:252px}
@@ -138,6 +154,18 @@
         <div class="keys"><button class="key primary sm" type="button">Open Shadow PC<span class="k">A</span></button><button class="key sm" type="button">Stay here<span class="k">Z</span></button></div></div></div></div>
 </div>
 
+<h2>1B · THE FULL STOP: A FAKE SITE, SEALED OFF</h2>
+<p class="sub" style="max-width:1000px">One pixel scene at 4x, everything on one centre line: beaten planks nailed in an X behind the plate, a chain sagging under it to a padlock, barbed wire across the top, and the red shield with the little red skull as the plate's crest. The words stay the calm part.</p>
+<div class="win stopwin"><div class="bandbar"><div class="slotbar"><i class="sh bad"></i>paypa1-account-check.com</div></div>
+  <div class="page stop2"><canvas id="scene" width="250" height="122"></canvas>
+    <div class="plate stopplate"><span class="plq">STOPPED · FAKE SITE</span><h3>This page copies a real login</h3>
+      <p>paypa1-account-check.com is on a list of fake login pages. Nothing on it was loaded, and nothing was sent.</p>
+      <div class="lists"><span>PHISHING LIST</span></div>
+      <div class="keys"><button class="key primary sm" type="button">Go back<span class="k">A</span></button><button class="key sm" type="button">Go in anyway (hold)<span class="k">Z</span></button></div></div>
+    <canvas id="crest" width="20" height="23"></canvas></div></div>
+<p class="sub" style="margin-top:12px">The crest, close: Samara's red shield, the arrow swapped for the skull, the shield's inside darkened so a red skull reads on a red shield.</p>
+<canvas id="crestbig" width="20" height="23" style="width:160px;height:184px;image-rendering:pixelated"></canvas>
+
 <h2>2 · THE FAMILY: SAME PARCHMENT, ITS KIND'S COLOUR, LOUDER ONLY WHEN IT MATTERS</h2>
 <div class="row">
   <div><p class="cap">Camera and microphone</p><p class="sub">A call wants your camera. Green: something you use, nothing leaves without you.</p>
@@ -160,13 +188,7 @@
         <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">A</i></span></span>This page tried to open a window.</div>
         <p class="m">Pop-ups you didn't click are stopped. Open this one, or let <b>accounts.example-shop.com</b> open them.</p>
         <div class="keys"><button class="key primary sm" type="button">Open it<span class="k">A</span></button><button class="key sm" type="button">Allow pop-ups here</button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
-  <div><p class="cap">A fake site: the full stop</p><p class="sub">The only one that takes the whole page: the page is boarded up, lit red from behind, the red shield large, the plate hung in front.</p>
-    <div class="win tall" style="height:400px"><div class="bandbar"><div class="slotbar"><i class="sh bad"></i>paypa1-account-check.com</div></div><div class="page stop">
-      <i class="plank p1"></i><i class="plank p2"></i>
-      <div class="bigshield"></div>
-      <div class="plate"><span class="plq">STOPPED · FAKE SITE</span><h3>This page copies a real login</h3><p>paypa1-account-check.com is on a list of fake login pages. Nothing on it was loaded.</p>
-        <div class="lists"><span>PHISHING LIST</span></div>
-        <div class="keys" style="margin-top:10px"><button class="key primary sm" type="button">Go back<span class="k">A</span></button><button class="key sm" type="button">Go in anyway (hold)<span class="k">Z</span></button></div></div></div></div></div>
+  <div><p class="cap">A fake site: the full stop</p><p class="sub">The only one that takes the whole page. Drawn large in section 1b below.</p></div>
 </div>
 
 <h2>3 · THE MOTION, FRAME BY FRAME (SAMARA'S OWN SPRING, 220 MS IN, 160 MS OUT)</h2>
@@ -193,6 +215,79 @@ const px = (rows, sc) => `<svg width="${12 * sc}" height="${rows.length * sc}" v
 for (const t of document.querySelectorAll('[data-px="app"]')) t.insertAdjacentHTML('afterbegin', px(APP, 1.5));
 const ARROW = '<svg width="12" height="12" viewBox="0 0 6 6" shape-rendering="crispEdges"><path fill="#6b5132" d="M0 2h3V0h1v1h1v1h1v2H5v1H4v1H3V4H0z"/></svg>';
 for (const a of document.querySelectorAll('[data-ar]')) a.innerHTML = ARROW;
+// ---- The full stop, drawn as pixel art. A seeded random, so it is the same picture every time.
+let seed = 86; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+const sc = document.getElementById('scene').getContext('2d');
+const W = 250, H = 122, put = (x, y, c) => { if (c) { sc.fillStyle = c; sc.fillRect(Math.round(x), Math.round(y), 1, 1); } };
+// Beaten planks: two, crossed exactly on the centre line, the plate's middle. Grain along the plank, cracks, chips, nails.
+const WOOD = { line: '#1a0f08', dark: '#3b2414', mid: '#5c3a20', lite: '#7d5230', hi: '#a06c3e' };
+const CX = 125, CY = 63, HALF = 9;
+function plank(angle, nails) {
+  const ca = Math.cos(angle), sa = Math.sin(angle);
+  const cracks = Array.from({ length: 5 }, () => ({ u: (rnd() - 0.5) * 260, d: (rnd() - 0.5) * 10, len: 8 + rnd() * 18, dir: rnd() < 0.5 ? -1 : 1 }));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = x + 0.5 - CX, dy = y + 0.5 - CY, u = dx * ca + dy * sa, d = -dx * sa + dy * ca;
+    if (Math.abs(d) > HALF) continue;
+    const edge = Math.abs(d) > HALF - 1;
+    // chipped edges: bites out of the sides here and there
+    const bite = Math.sin(u * 0.37 + angle * 9) + Math.sin(u * 0.11) > 1.35 && Math.abs(d) > HALF - 3;
+    if (bite) { if (Math.abs(d) > HALF - 2) continue; put(x, y, WOOD.line); continue; }
+    if (edge) { put(x, y, WOOD.line); continue; }
+    const g = Math.floor(d + 20) % 4, knot = Math.hypot(u - 40 * Math.sign(angle), d - 2) < 2.2;
+    let c = g === 0 ? WOOD.dark : g === 2 ? WOOD.lite : WOOD.mid;
+    if (d < -HALF + 2.5) c = WOOD.hi;                         // lit along the top edge
+    if (knot) c = WOOD.dark;
+    put(x, y, c);
+  }
+  // cracks: short jagged dark runs along the grain
+  for (const k of cracks) { let d = k.d; for (let i = 0; i < k.len; i++) { const u = k.u + i * k.dir; d += (rnd() - 0.5) * 1.4; d = Math.max(-HALF + 2, Math.min(HALF - 2, d));
+    put(CX + u * ca - d * sa, CY + u * sa + d * ca, WOOD.line); } }
+  for (const u of nails) { const x = CX + u * ca, y = CY + u * sa; put(x, y, '#2b2b30'); put(x + 1, y, '#2b2b30'); put(x, y + 1, '#2b2b30'); put(x + 1, y + 1, '#16161a'); put(x, y, '#c9cdd6'); }
+}
+plank(Math.atan2(48, 125), [-118, -70, 70, 118]);
+plank(-Math.atan2(48, 125), [-118, -70, 70, 118]);
+// Barbed wire across the top: a sagging strand, a barb every 12 pixels.
+const STEEL = { o: '#1c1c22', d: '#4a4e5a', m: '#8a8f9c', l: '#c9cdd6' };
+for (let x = 0; x < W; x++) { const y = 9 + Math.round(5 * (1 - ((x - CX) / CX) ** 2)); put(x, y, STEEL.m); put(x, y + 1, STEEL.o); if (x % 2 === 0) put(x, y, STEEL.l);
+  if (x % 12 === 6) { for (const [a, b] of [[-1, -1], [1, 1], [-1, 1], [1, -1], [-2, -2], [2, 2], [-2, 2], [2, -2]]) put(x + a, y + b, Math.abs(a) === 2 ? STEEL.d : STEEL.m); } }
+// The chain: from high on each side, sagging to a padlock under the plate. Links alternate face-on and edge-on.
+const LINK_FACE = ['.oooo.', 'olllmo', 'o....o', 'omddmo', '.oooo.'], LINK_EDGE = ['oo', 'lm', 'mm', 'md', 'oo'];
+const SC = { o: STEEL.o, l: STEEL.l, m: STEEL.m, d: STEEL.d };
+const stamp = (map, x, y, pal) => map.forEach((r, j) => [...r].forEach((ch, i) => { if (pal[ch]) put(x + i, y + j, pal[ch]); }));
+const LOW = 108, TOP = 26;
+const cy = (x) => TOP + (LOW - TOP) * (1 - ((x - CX) / (CX - 6)) ** 2);
+// Links follow the curve by its length (not its width), so the steep ends stay a joined chain; on steep parts the links
+// stand upright.
+const LINK_FACE_V = ['.ooo.', 'olmdo', 'ol.do', 'ol.do', 'olmdo', '.ooo.'], LINK_EDGE_H = ['olmmmo', 'oommmo'];
+let face = true, x = 4, gone = 0;
+const pts = []; for (let t = 4; t <= W - 5; t += 0.25) pts.push([t, cy(t)]);
+for (let i = 1; i < pts.length; i++) {
+  gone += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  if (gone < (face ? 4.5 : 3)) continue;
+  gone = 0;
+  const [px, py] = pts[i], steep = Math.abs(cy(px + 1) - cy(px - 1)) > 2;
+  const map = face ? (steep ? LINK_FACE_V : LINK_FACE) : (steep ? LINK_EDGE : LINK_EDGE_H);
+  stamp(map, Math.round(px - map[0].length / 2), Math.round(py - map.length / 2), SC);
+  face = !face;
+}
+// The padlock at the bottom of the sag: brass, a dark keyhole.
+const LOCK = ['...ooooo...', '..oMMMMMo..', '..oo...oo..', '..oo...oo..', 'ooooooooooo', 'oAAAAAAAAAo', 'oAaaaaaaaAo', 'oAaaakaaaAo', 'oAaaakaaaAo', 'oAaaaaaaaAo', 'oAAAAAAAAAo', 'ooooooooooo'];
+stamp(LOCK, CX - 5, LOW - 4, { o: '#2a1a10', M: '#8a8f9c', A: '#FFD24A', a: '#E8A91C', k: '#2a1a10' });
+// ---- The crest: Samara's red shield (shield_bad.png, pixel for pixel), the arrow replaced by Claude's little red skull.
+const SHIELD = ['....aaaaaaaaaaaa....', '..aabbbbbbbbbbbbaa..', '.abbcdccdccdccdcbba.', 'abdcaaaaaaaaaaaacdba', 'abcaddddabbaddddacba', 'abcaddddabbaddddacba', 'abdaddddabbaddddadba',
+  'abcaddddabbaddddacba', 'abcadddacbbcadddacba', 'abdadddacbbcadddadba', 'abcaddddabbaddddacba', 'abcadddddccdddddacba', 'abdadddddaadddddadba', 'accaddddddddddddacca', '.accaddddddddddacca.',
+  '.acdaddddddddddadca.', '..accaddddddddacca..', '...accaddddddacca...', '....acdaddddadca....', '.....accaaaacca.....', '......accddcca......', '.......acccca.......', '........aaaa........'];
+const SKULL = ['..OOOOOOO..', '.OHHHHFFFO.', 'OHHFFFFFFSO', 'OHOOFFFOOSO', 'OFOOFFFOOSO', 'OFFFFOFFFSO', '.OFFFFFFSO.', '..OFOFOFO..', '..OOOOOOO..'];
+function crest(canvas) {
+  const g = canvas.getContext('2d'); const P = { a: '#280806', b: '#ffa096', c: '#e65040', d: '#3a0c08' };
+  SHIELD.forEach((r, y) => [...r].forEach((ch, x) => {
+    // inside the shield (where the arrow was too): darkened so the red skull reads
+    let k = ch; if (y >= 4 && y <= 12 && x >= 4 && x <= 15 && (ch === 'b' || ch === 'c' || ch === 'a')) k = 'd';
+    if (P[k]) { g.fillStyle = P[k]; g.fillRect(x, y, 1, 1); } }));
+  const S = { O: '#2a1a10', H: '#f39e98', F: '#e8443a', S: '#a6332a' };
+  SKULL.forEach((r, y) => [...r].forEach((ch, x) => { if (S[ch]) { g.fillStyle = S[ch]; g.fillRect(x + 4, y + 4, 1, 1); } }));
+}
+crest(document.getElementById('crest')); crest(document.getElementById('crestbig'));
 // The program's yes arms after a second.
 const arm = () => { const y = document.getElementById('p1y'); y.classList.remove('armed'); y.classList.add('arming'); void y.offsetWidth; setTimeout(() => y.classList.add('armed'), 1000); };
 arm();
