@@ -1141,11 +1141,10 @@ html.windrag,html.windrag *{cursor:grabbing !important}
 
 /* ---- Sheet 87 (his "go", 2026-10-25): the secret window. Moonlit navy wood everywhere, silver for what was gold, no brown
    left; the masquerade before the shield and by the TABS title; its own History panel; the PIN box over the page. ---- */
-.smask,.histpanel{display:none}
+.smask{display:none}
 html.secret .smask{display:grid;place-items:center;flex:none}
 html.secret .slot .smask{position:relative;padding-right:9px;margin-right:1px}
 html.secret .slot .smask::after{content:"";position:absolute;right:0;top:50%;width:2px;height:16px;margin-top:-8px;background:#05030c;box-shadow:1px 0 0 rgba(255,255,255,.08)}
-html.secret .drawer .histpanel{display:block}
 html.secret{--night:linear-gradient(rgba(10,20,60,.62),rgba(10,20,60,.62))}
 html.secret .band{background:var(--night),url(art/browser/band.png) repeat-x 0 14px/128px 58px !important}
 html.secret .band::before{background:var(--night),url(art/browser/band.png) repeat-x 0 -8px/128px 58px !important;filter:none !important;
@@ -1167,13 +1166,9 @@ html.secret .pinask::after{filter:grayscale(1) brightness(1.2) sepia(.25) hue-ro
 html.secret .drawer .tp{color:#F6ECF6 !important;background:linear-gradient(180deg,#6a5078 0,#56405f 45%,#46344f 100%) !important;
   box-shadow:0 4px 0 #05030c,inset 0 3px 0 rgba(255,214,240,.24),inset 0 -2px 0 rgba(0,0,0,.35) !important}
 html.secret .drawer .tp.on{background:linear-gradient(180deg,#F4F7FF,#BCC9EC) !important;color:#141a38 !important;text-shadow:0 1px 0 rgba(255,255,255,.55) !important}
-html.secret .drawer .tp .w{color:#e6d4b4 !important}
 html.secret .tp.kid::before{border-color:rgba(200,180,230,.35) !important}
 html.secret .drawer .newtab{background:linear-gradient(180deg,#141a3a,#0c1028) !important;color:#FFE096 !important;box-shadow:inset 0 2px 0 rgba(140,170,255,.18),0 3px 0 #02020a !important}
 html.secret .drawer,html.secret .drawer *{scrollbar-color:#3a4880 transparent !important}
-/* The History panel's rows: the tabs' own rows, with when on the right. */
-.histpanel .tp .w{font:600 11px var(--body);margin-left:auto;flex:none;padding-left:6px}
-.histpanel .tp .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The PIN box: centred on the page, the page itself put away under it. */
 .spin{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(4,4,12,.62)}
 .spin[hidden]{display:none}
@@ -1208,3 +1203,15 @@ html.secret .menu .mrow kbd,html.secret .menu .mrow i{color:#9fb0d8}
 html.secret .menu .grp+.grp{box-shadow:0 1px 0 rgba(170,200,255,.12) inset}
 html.secret .menu button.mrow:hover:not(:disabled){background:rgba(170,200,255,.10)}
 html.secret .slot .smask{cursor:pointer}
+
+/* ---- Sheet 88 (his picks B and C, 2026-10-25). B: the bar sits calm in the middle at 760 wide, showing just the site's
+   name; clicked (or ⌘L) it slides out to the full width for the whole address and the suggestions. C: a slimmer band,
+   so the page starts 12 px higher (the lip stays). ---- */
+.band .slot{max-width:760px;box-sizing:border-box;margin:0 auto;transition:max-width .24s cubic-bezier(.2,.8,.2,1)}
+.band .slot.editing{max-width:1600px}
+.slot .url{text-align:center}
+@media (prefers-reduced-motion:reduce){.band .slot{transition:none}}
+.band{height:60px}
+.band .slot{padding-top:3px;padding-bottom:3px}
+.band .rnd{width:29px;height:29px}
+.winkeys{top:12px;height:calc(100% - 12px)}

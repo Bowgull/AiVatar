@@ -34,3 +34,33 @@ export const searchFor = (q: string, pick?: Engine): string => {
 };
 /** Where a search engine's own front page is, for the default home page. */
 export const engineHome = (pick?: Engine): string => (pick ?? current) === 'yandex' ? 'https://yandex.com/' : (pick ?? current) === 'ddg' ? 'https://duckduckgo.com/' : (pick ?? current) === 'google' ? 'https://www.google.com/' : 'https://search.brave.com/';
+
+/**
+ * Sheet 88 (his ask, 2026-10-25: "it starts giving me what it thinks I want"): where his engine's own guesses come from
+ * for what he has typed so far (each engine's public suggestion address, the one Firefox and Chrome use), or null for
+ * nothing worth asking about. `pick`: a window's own engine (the secret window's Yandex), else his.
+ */
+export function guessesUrl(typed: string, pick?: Engine): string | null {
+  const q = String(typed ?? '').trim();
+  if (!q || q.length > 200 || /^[a-z][a-z0-9+.-]*:\/\//i.test(q)) return null;
+  const s = encodeURIComponent(q);
+  const e = pick ?? current;
+  if (e === 'yandex') return `https://suggest.yandex.com/suggest-ff.cgi?part=${s}&uil=en`;
+  if (e === 'ddg') return `https://duckduckgo.com/ac/?q=${s}&type=list`;
+  if (e === 'google') return `https://suggestqueries.google.com/complete/search?client=firefox&q=${s}`;
+  return `https://search.brave.com/api/suggest?q=${s}`;
+}
+/** An engine's answer (["what he typed", ["guess", ...]]) as at most `max` plain guesses, never what he typed itself. */
+export function parseGuesses(body: unknown, typed: string, max = 4): string[] {
+  const list = Array.isArray(body) && Array.isArray(body[1]) ? body[1] : [];
+  const mine = String(typed ?? '').trim().toLowerCase();
+  const out: string[] = [];
+  for (const g of list) {
+    if (typeof g !== 'string') continue;
+    const t = g.replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!t || t.toLowerCase() === mine || out.some((x) => x.toLowerCase() === t.toLowerCase())) continue;
+    out.push(t);
+    if (out.length >= max) break;
+  }
+  return out;
+}

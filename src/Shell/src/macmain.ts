@@ -52,6 +52,8 @@ process.on('unhandledRejection', (e) => console.error('aang: ' + String((e as Er
 let browser: AangBrowser | null = null;
 /** Sheet 87: the secret window, a browser of its own, made the first time he presses ⇧⌘N in Samara. */
 let secret: AangBrowser | null = null;
+/** Sheet 87: the menu's hidden ⇧⌘N, set once the browser is up. */
+let openSecretRef: (() => void) | null = null;
 const waiting: string[] = [];
 const openUrl = (u: string) => {
   try { const x = new URL(u); if (x.protocol !== 'http:' && x.protocol !== 'https:') return; } catch { return; }
@@ -69,7 +71,10 @@ app.whenReady().then(async () => {
   // The Mac's own menu, so Cmd+C, Cmd+V, Cmd+Q and the rest work as on every Mac app.
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     // View > Enter Full Screen (Ctrl+Cmd+F), as on every Mac app (2026-10-23, his ask: "act like any other window").
-    { role: 'appMenu' }, { role: 'editMenu' }, { label: 'View', submenu: [{ role: 'togglefullscreen' }] }, { role: 'windowMenu' },
+    { role: 'appMenu' }, { role: 'editMenu' },
+    // Sheet 87: ⇧⌘N opens the secret window whatever has the keyboard (the band too). Hidden: no sign of it in the menus.
+    { label: 'View', submenu: [{ role: 'togglefullscreen' }, { label: 'New secret window', accelerator: 'Shift+Command+N', visible: false, acceleratorWorksWhenHidden: true, click: () => openSecretRef?.() }] },
+    { role: 'windowMenu' },
   ]));
   // His picks (2026-10-14): the lantern is lit while Samara runs; the app's own icon (the Dock when it is closed) is
   // unlit. It lights up smoothly when Samara opens and dims back down when he quits (10 pixel-art frames, ~half a
@@ -108,7 +113,7 @@ app.whenReady().then(async () => {
       const dir = path.join(stateDir, 'secret');
       try { mkdirSync(dir, { recursive: true, mode: 0o700 }); } catch (e) { console.error('aang: the secret window has no folder: ' + (e as Error).message); return; }
       secret = new AangBrowser({
-        origin: pages.origin, stateDir: dir, sharedDir: stateDir, secret: true, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
+        origin: pages.origin, stateDir: dir, sharedDir: stateDir, secret: true, phish: browser!.phishCheck, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
         settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
       });
       secret.onSecret = openSecret;
@@ -120,6 +125,7 @@ app.whenReady().then(async () => {
     secret.open();
   };
   browser.onSecret = openSecret;
+  openSecretRef = openSecret;
   // 6.25a: Claude sessions on this Mac drive the browser through its own door (claudedoor.ts).
   startClaudeDoor(() => browser, stateDir);
   // show_mockup from this Mac's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).
