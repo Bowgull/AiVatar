@@ -27,7 +27,7 @@ import { execFile } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
-import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
+import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { carriesData, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
@@ -114,7 +114,9 @@ export interface BrowserOptions { origin: string; preloadPath: string; stateDir:
    *  folder and its own kept session), its tab list behind its own PIN. Normal Samara shows no sign of it. */
   secret?: boolean;
   /** Sheet 87: where the settings, autofill and site rules it shares with normal Samara live (normal Samara's folder). */
-  sharedDir?: string }
+  sharedDir?: string;
+  /** Sheet 87 (his "really glitchy"): normal Samara's fake-site lists, shared, so the secret window never loads its own. */
+  phish?: PhishCheck }
 
 interface Tab {
   id: number;
@@ -273,6 +275,25 @@ export function bringFront(w: BrowserWindow): void {
   w.setAlwaysOnTop(true); w.show(); w.moveTop(); w.focus();
   setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 400);
 }
+/**
+ * Sheet 87 (his "no smooth motion is applied to this whatsoever"): the secret window fades in over a fifth of a second,
+ * easing out, instead of popping up.
+ */
+function fadeIn(w: BrowserWindow): void {
+  if (!w || w.isDestroyed()) return;
+  w.setOpacity(0);
+  bringFront(w);
+  const start = Date.now(), FADE_MS = 200;
+  const step = () => {
+    if (w.isDestroyed()) return;
+    const k = Math.min(1, (Date.now() - start) / FADE_MS);
+    w.setOpacity(1 - Math.pow(1 - k, 3));
+    if (k < 1) setTimeout(step, 16);
+  };
+  step();
+}
+/** His pick (2026-10-25): Yandex's results, which open in new tabs, open in the same tab in Samara. */
+const YANDEX = /(^|\.)(yandex\.(com|ru|by|kz|ua|com\.tr)|ya\.ru)$/i;
 /** Never handed to another app, whatever claims them: they reach files, run code, or are the browser's own. */
 const NEVER_HANDED = new Set(['file', 'javascript', 'vbscript', 'data', 'blob', 'about', 'chrome', 'devtools', 'view-source', 'filesystem', 'jar', 'smb', 'afp', 'nfs', 'ftp', 'ms-msdt', 'search-ms', 'ms-officecmd', 'ms-settings']);
 /**
@@ -843,8 +864,8 @@ export class AangBrowser {
     // Sheet 87: the secret window blocks pop-ups and ads hard, always, whatever normal Samara's switches say.
     if (o.secret) { this.prefs.ads = true; this.prefs.popups = true; }
     this.colorScheme();
-    this.phish = new PhishCheck(sd);
-    void this.phish.start();
+    this.phish = o.phish ?? new PhishCheck(sd);
+    if (!o.phish) void this.phish.start();
     try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
     this.arm();
     // Sheet 87: the secret window's kept session gets everything the throwaway one has.
@@ -1581,16 +1602,8 @@ export class AangBrowser {
     this.sendTabs();
   }
   // ------------------------------------------------------------------ sheet 87, the secret window
-  /** Sheet 87: the History panel: the newest pages first, one row a page, when he was last there. */
-  private recentVisits(): { url: string; title: string; at: number }[] {
-    const seen = new Set<string>(), out: { url: string; title: string; at: number }[] = [];
-    for (let i = this.visits.list.length - 1; i >= 0 && out.length < 12; i--) {
-      const v = this.visits.list[i]!;
-      if (seen.has(v.url)) continue;
-      seen.add(v.url); out.push({ url: v.url, title: v.title || v.url, at: v.at });
-    }
-    return out;
-  }
+  /** Sheet 87: the fake-site lists, for the secret window to share. */
+  get phishCheck(): PhishCheck { return this.phish; }
   /** Sheet 87: is this the secret window (main routes messages by it). */
   get isSecret(): boolean { return this.o.secret === true; }
   /** One of this browser's own pages or tabs (sheet 87: normal Samara and the secret window share the app's messages). */
@@ -1666,11 +1679,11 @@ export class AangBrowser {
     this.ses = this.keptSes;
     const was = this.active;
     // The cover he did not use goes; a page he went to from it stays, like any page opened before the PIN.
-    const away = this.away;
+    const away = this.away, coverId = this.coverId;
     this.away = null; this.coverId = null;
     // His pick: the cover starts fresh every time, so whatever was done on it goes; pages opened before his first PIN
-    // (a fresh ⇧⌘N, nothing put away) join his tabs.
-    const cover = away ? before : [];
+    // (a fresh ⇧⌘N, nothing put away) join his tabs, all but the Brave Search page it opened on, if he left it as it was.
+    const cover = away ? before : before.filter((t) => t.id === coverId && t.url === SECRET_COVER);
     if (away) {
       // Put away by the mask: everything back exactly as it was, asleep, so nothing plays until he presses play.
       this.tabs = [...away.tabs, ...before]; this.trails = away.trails; this.restored = true;
@@ -1711,9 +1724,8 @@ export class AangBrowser {
     for (const p of this.panes) p.active = null;
     this.shut();
     void this.ses.clearStorageData().catch(() => { /* nothing kept there anyway */ });
-    if (this.alive(this.pane)) {
-      if (cover) { const id = this.newTab(SECRET_COVER); this.coverId = id; } else this.night();
-    }
+    if (this.alive(this.pane)) this.coverId = cover ? this.newTab(SECRET_COVER) : null;
+    if (!cover && this.alive(this.pane)) this.night();
     this.changed();
   }
   /**
@@ -1862,7 +1874,7 @@ export class AangBrowser {
       this.timers.forEach(clearInterval); this.timers = [];
       try { this.onLastClosed?.(); } catch { /* the browser is closed either way */ }
     });
-    w.once('ready-to-show', () => bringFront(w));
+    w.once('ready-to-show', () => { if (this.o.secret) fadeIn(w); else bringFront(w); });
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
     w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.pane = was; }, 3000));
@@ -1878,7 +1890,8 @@ export class AangBrowser {
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
       if (!first) { this.newTab(url ?? this.HOME); return; }
       // Sheet 87: the secret window opens on its blank night page, locked; its tabs come back with its PIN.
-      if (this.o.secret) { this.shut(); this.night(); return; }
+      // His pick (2026-10-25): it opens on Brave Search, logged out; its address bar searches with Yandex.
+      if (this.o.secret) { this.shut(); this.coverId = this.newTab(SECRET_COVER); return; }
       // A mockup that opened the window (sheet 47) is its first tab: no home page under it.
       if (this.prefs.startup === 'home' || !this.restore()) { this.restored = true; if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
@@ -2164,6 +2177,13 @@ export class AangBrowser {
         this.sendTabs();
         return { action: 'deny' };
       }
+      // His pick (2026-10-25): a plain click on a Yandex result opens it here, like Brave; Cmd-click still opens it behind.
+      if (disposition === 'foreground-tab' && YANDEX.test(hostOf(wc.getURL()))) {
+        const l = this.lastLink.get(tab.id);
+        let same = false;
+        try { same = Boolean(l && Date.now() - l.at < GESTURE_MS && new URL(u).href === l.url); } catch { /* not an address */ }
+        if (same && !this.listed(u).length) { tab.playOkAt = Date.now(); void wc.loadURL(this.secured(tab, u)).catch(() => {}); return { action: 'deny' }; }
+      }
       // A new TAB a page opens (window.open with no size, a link in a new tab) needs his click too (security check
       // 2026-10-24, finding 7): before, only new windows were checked, so a page could open tabs by itself.
       if (this.listed(u).length) return { action: 'deny' };
@@ -2261,7 +2281,7 @@ export class AangBrowser {
     });
     on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
-      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock && !this.covered) this.visits.add(u, '');
+      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
       this.changed();
@@ -2270,7 +2290,7 @@ export class AangBrowser {
       // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
       // video plays in its own window, the show goes there and this tab steps back to where it was.
       if (main && /^https:\/\/(www\.)?netflix\.com\/watch\//i.test(u) && this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; }
-      tab.url = u; if (main && !tab.mock && !this.covered) this.visits.add(u, wc.getTitle()); this.changed();
+      tab.url = u; if (main && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, wc.getTitle()); this.changed();
     });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
@@ -3905,13 +3925,26 @@ export class AangBrowser {
    * bookmarks, then tabs he closed lately. The first row is always what he typed, so Enter never surprises him.
    */
   private preconnected = '';
+  /**
+   * Sheet 88 (his picks): his search engine's guesses for what he has typed, in both windows (the secret one asks Yandex,
+   * before its PIN too). Only the words go, from Samara's own session with no cookies; a slow or odd answer is no guesses.
+   */
+  async guesses(text: string): Promise<string[]> {
+    const url = guessesUrl(text, this.engine);
+    if (!url) return [];
+    try {
+      const r = await within(net.fetch(url, { signal: AbortSignal.timeout(1500), credentials: 'omit' }), 1600, null);
+      if (!r || !r.ok) return [];
+      return parseGuesses(await within(r.json() as Promise<unknown>, 800, null), text);
+    } catch { return []; }
+  }
   suggest(text: string): { kind: string; title: string; url: string; id?: number }[] {
-    if (this.locked) return [];               // sheet 87, his pick: the secret history suggests only after the PIN
     const q = String(text ?? '').trim().toLowerCase().slice(0, 200);
     if (!q) return [];
     const typed = addressFor(q, this.engine);
     const out: { kind: string; title: string; url: string; id?: number }[] = [];
     if (typed) out.push({ kind: typed.startsWith('https://search.brave.com') || typed.includes('/search?') || typed.includes('duckduckgo.com/?q=') || typed.includes('yandex.com/search') ? 'search' : 'go', title: String(text).trim().slice(0, 200), url: typed });
+    if (this.locked) return out;              // sheet 87, his pick: the secret history suggests only after the PIN
     const hit = (title: string, url: string) => title.toLowerCase().includes(q) || url.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').includes(q);
     const seen = new Set(out.map((x) => x.url));
     for (const t of this.tabs) if (!t.internal && isWeb(t.url) && hit(t.title, t.url) && !seen.has(t.url)) { out.push({ kind: 'tab', title: t.title, url: t.url, id: t.id }); seen.add(t.url); }
@@ -4755,7 +4788,8 @@ export class AangBrowser {
     if (i.type !== 'keyDown') return false;
     this.lastInput = Date.now();
     const k = i.key.toLowerCase(), c = i.control || i.meta;
-    if (c && i.shift && k === 'n') { this.onSecret?.(); return true; }
+    // ⇧⌘N on the Mac is a hidden menu shortcut (macmain.ts): it works whatever has the keyboard, the band included.
+    if (c && i.shift && k === 'n' && process.platform !== 'darwin') { this.onSecret?.(); return true; }
     if (c && i.shift && k === 't') { this.act('reopen'); return true; }
     if (c && k === 't') { this.act('newtab'); return true; }
     if (c && k === 'w') { this.act('close'); return true; }
@@ -5001,7 +5035,7 @@ export class AangBrowser {
       marks: this.locked ? [] : [...this.marks.filter((m) => isBar(m.folder)), ...this.marks.filter((m) => !isBar(m.folder))].slice(0, 24).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })),
       markCount: this.locked ? 0 : this.marks.length,
       // Sheet 87: the secret window (its night look and mask), locked or not, and its History panel once open.
-      ...(this.o.secret ? { secret: true, locked: this.locked, history: this.locked ? [] : this.recentVisits() } : {}),
+      ...(this.o.secret ? { secret: true, locked: this.locked } : {}),
       hasLogin: this.hasLogin,
       loginKnown: this.loginKnown,
       maximized: Boolean(w.isMaximized()),

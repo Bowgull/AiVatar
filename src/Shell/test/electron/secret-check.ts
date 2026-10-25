@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 process.on('uncaughtException', (e) => console.log('HARNESS NOTE ' + (e as Error).message));
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 3).join(' | ')); app.exit(2); });
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 180_000).unref();
-app.commandLine.appendSwitch('host-resolver-rules', 'MAP shop.example 127.0.0.1, MAP ads.example 127.0.0.1');
+app.commandLine.appendSwitch('host-resolver-rules', 'MAP shop.example 127.0.0.1, MAP ads.example 127.0.0.1, MAP yandex.com 127.0.0.1');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -63,7 +63,7 @@ app.whenReady().then(async () => {
   const fw = s.win.webContents;
   await wait(1500);
   const secretClass = await fw.executeJavaScript(`document.documentElement.classList.contains('secret')`);
-  check('1 opens locked on the night page, in the night look', s.locked && s.cur()?.internal === 'night' && secretClass === true, `locked ${s.locked}, tab ${s.cur()?.internal}, class ${secretClass}`);
+  check('1 opens locked on Brave Search, in the night look', s.locked && String(s.cur()?.url).startsWith('https://search.brave.com') && secretClass === true, `locked ${s.locked}, tab ${s.cur()?.url}, class ${secretClass}`);
 
   // 2
   s.go(`${SHOP}/before`);
@@ -97,8 +97,8 @@ app.whenReady().then(async () => {
   const saved = existsSync(path.join(sdir, 'browser-tabs.json')) ? readFileSync(path.join(sdir, 'browser-tabs.json'), 'utf8') : '';
   const guestLogin = (await guest.cookies.get({ name: 'login' })).length;
   check('4 locking puts it all away behind Brave Search: nothing suggested, saved in its own folder',
-    s.locked && s.tabs.length === 1 && String(s.cur()?.url).startsWith('https://search.brave.com') && s.suggest('shop').length === 0 && saved.includes('/before') && saved.includes('/kept') && guestLogin === 0,
-    `${s.tabs.map((t: any) => t.url).join(' ')} | suggest ${s.suggest('shop').length} | guest login ${guestLogin}`);
+    s.locked && s.tabs.length === 1 && String(s.cur()?.url).startsWith('https://search.brave.com') && s.suggest('shop').every((x: any) => x.kind === 'search' || x.kind === 'go') && saved.includes('/before') && saved.includes('/kept') && guestLogin === 0,
+    `${s.tabs.map((t: any) => t.url).join(' ')} | suggest ${s.suggest('shop').map((x: any) => x.kind).join(',')} | guest login ${guestLogin}`);
 
   // 5
   s.win.focus(); fw.focus();
@@ -113,7 +113,7 @@ app.whenReady().then(async () => {
   const back = s.tabs.map((t: any) => String(t.url));
   const keptLogin = (await kept.cookies.get({ name: 'login' })).length;
   check('5 the right PIN brings the tabs back, logged in', !s.locked && back.some((u: string) => u.includes('/before')) && back.some((u: string) => u.includes('/kept')) && keptLogin === 1, back.join(' '));
-  const hist = s.recentVisits().map((v: any) => v.url).join(' ');
+  const hist = s.visits.list.map((v: any) => v.url).join(' ');
   check('5 its History has them, and nothing from the cover', hist.includes('/before') && hist.includes('/kept') && !hist.includes('search.brave.com'), hist);
   const opener = s.tabs.find((t: any) => String(t.url).includes('/kept'));
   const parent = s.tabs.find((t: any) => String(t.url).includes('/before'));
@@ -152,7 +152,7 @@ app.whenReady().then(async () => {
   const t = b.cur(), wc = t.view.webContents;
   for (let i = 0; i < 40 && !(await wc.mainFrame.executeJavaScript(`!!document.getElementById('b')`).catch(() => false)); i++) await wait(250);
   b.win.focus(); b.win.webContents.focus(); wc.focus(); await wait(300);
-  const click = async (x: number, y: number) => { wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 }); wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 }); await wait(1200); };
+  const click = async (x: number, y: number, to = wc) => { to.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 }); to.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 }); await wait(1200); };
   await click(600, 500);                 // the first click into a fresh window only focuses it (seen 2026-10-25)
   await click(60, 40);
   for (let i = 0; i < 20 && !t.blockedPopup; i++) await wait(150);
@@ -162,6 +162,15 @@ app.whenReady().then(async () => {
   const urls = b.tabs.map((x: any) => String(x.url));
   check('7 the link he clicked still opens, and the sneaky one riding on it does not', urls.some((u: string) => u.includes('/link')) && !urls.some((u: string) => u.includes('/sneaky')), urls.join(' '));
 
+  // 7b: a plain click on a Yandex result opens it in the same tab (his pick); the page is Yandex's (mapped here)
+  b.go(`https://yandex.com:${port}/search/?text=x`);
+  for (let i = 0; i < 40 && !String(b.cur()?.url).includes('yandex.com'); i++) await wait(150);
+  await wait(1500);
+  const y = b.cur(), yn = b.tabs.length;
+  b.win.focus(); y.view.webContents.focus(); await wait(200);
+  await click(600, 500, y.view.webContents); await click(60, 140, y.view.webContents);
+  for (let i = 0; i < 20 && !String(y.url).includes('/link'); i++) await wait(150);
+  check('7b a Yandex result opens in the same tab, not a new one', String(y.url).includes('/link') && b.tabs.length === yn, `${y.url} tabs ${yn} -> ${b.tabs.length}: ${b.tabs.map((t: any) => t.url).join(' ')}`);
   check('7 the secret window blocks ads too', Boolean(s.ads), 'its ad lists did not start');
   // 8
   s.win.close();

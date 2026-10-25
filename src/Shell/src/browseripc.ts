@@ -116,6 +116,8 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('things:go', (e, where) => { if ((top(e) && b(e)?.isThings(e.sender)) && where === 'bookmarks') b(e).act('bookmarks'); });
   ipcMain.handle('settings:lookup', (e, q) => (top(e) && b(e)?.isSettings(e.sender)) && typeof q === 'string' ? b(e).addressLookup(q.slice(0, 200)) : []);
   ipcMain.on('settings:act', (e, a) => { if ((top(e) && b(e)?.isSettings(e.sender)) && typeof a === 'string') b(e).settingsAct(a.slice(0, 20)); });
+  // Sheet 88: his engine's guesses for what he typed, for the frame's address bar only.
+  ipcMain.handle('browser:guesses', (e, text) => (top(e) && b(e)?.isFrame(e.sender)) && typeof text === 'string' ? b(e).guesses(text.slice(0, 200)) : []);
   ipcMain.handle('browser:suggest', (e, text) => (top(e) && b(e)?.isFrame(e.sender)) && typeof text === 'string' ? b(e).suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if ((top(e) && b(e)?.isFrame(e.sender))) b(e).findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.key === 'string') b(e).setPref(a.key, a.on === true); });

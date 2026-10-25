@@ -260,6 +260,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserOpenOther: id => ipcRenderer.send('browser:openother', id),
   browserHome: text => ipcRenderer.send('browser:home', text),
   browserSuggest: text => ipcRenderer.invoke('browser:suggest', text),
+  browserGuesses: text => ipcRenderer.invoke('browser:guesses', text),
   onBrowserHover(fn) { const h = (_e, u) => fn(u); ipcRenderer.on('browser:hover', h); return () => ipcRenderer.removeListener('browser:hover', h); },
   // --- 6.23 the vault: the frame's unlock box and account picker
   browserVaultUnlock: pw => ipcRenderer.send('browser:vaultunlock', { pw }),
