@@ -7,6 +7,8 @@
 //  6 normal Samara never sees any of it (its tabs file, its cookies)
 //  7 every window: a page's ad opened on any click is stopped; the link he clicked still opens
 //  8 closing the window locks it
+//  5b the mask: hide behind Brave Search, double click + PIN to come back
+//  8b opened again, his tabs come back with his PIN
 //  9 five wrong PINs: a new one needs his Mac password
 // 10 the secret window searches with Yandex
 // Run: TEST_CERT_DIR=<dir with test-key.pem, test-cert.pem> npx electron test/electron/secret-check.ts
@@ -94,8 +96,8 @@ app.whenReady().then(async () => {
   await wait(500);
   const saved = existsSync(path.join(sdir, 'browser-tabs.json')) ? readFileSync(path.join(sdir, 'browser-tabs.json'), 'utf8') : '';
   const guestLogin = (await guest.cookies.get({ name: 'login' })).length;
-  check('4 locking puts it all away: night page only, nothing suggested, saved in its own folder',
-    s.locked && s.tabs.length === 1 && s.cur()?.internal === 'night' && s.suggest('shop').length === 0 && saved.includes('/before') && saved.includes('/kept') && guestLogin === 0,
+  check('4 locking puts it all away behind Brave Search: nothing suggested, saved in its own folder',
+    s.locked && s.tabs.length === 1 && String(s.cur()?.url).startsWith('https://search.brave.com') && s.suggest('shop').length === 0 && saved.includes('/before') && saved.includes('/kept') && guestLogin === 0,
     `${s.tabs.map((t: any) => t.url).join(' ')} | suggest ${s.suggest('shop').length} | guest login ${guestLogin}`);
 
   // 5
@@ -112,10 +114,32 @@ app.whenReady().then(async () => {
   const keptLogin = (await kept.cookies.get({ name: 'login' })).length;
   check('5 the right PIN brings the tabs back, logged in', !s.locked && back.some((u: string) => u.includes('/before')) && back.some((u: string) => u.includes('/kept')) && keptLogin === 1, back.join(' '));
   const hist = s.recentVisits().map((v: any) => v.url).join(' ');
-  check('5 its History has them', hist.includes('/before') && hist.includes('/kept'), hist);
+  check('5 its History has them, and nothing from the cover', hist.includes('/before') && hist.includes('/kept') && !hist.includes('search.brave.com'), hist);
   const opener = s.tabs.find((t: any) => String(t.url).includes('/kept'));
   const parent = s.tabs.find((t: any) => String(t.url).includes('/before'));
   check('5 a tab opened from another comes back under it', opener && parent && opener.opener === parent.id && opener.trail !== null && opener.trail === parent.trail, `opener ${opener?.opener} parent ${parent?.id} trails ${opener?.trail}/${parent?.trail}`);
+
+  // 5b: the mask (his picks): a click hides it all behind a fresh Brave Search; a click there does nothing; a double
+  // click and his PIN bring back exactly what was there, every page asleep (paused), the cover thrown away.
+  const ids = s.tabs.map((t: any) => t.id).join(','), front = s.active;
+  await s.secretMask('one');
+  await wait(800);
+  check('5b a click on the mask hides it all behind Brave Search', s.locked && s.tabs.length === 1 && String(s.tabs[0].url).startsWith('https://search.brave.com') && s.away?.tabs.length >= 2,
+    s.tabs.map((t: any) => t.url).join(' '));
+  await s.secretMask('one');
+  await wait(300);
+  check('5b behind the cover, one click does nothing', s.pinOpen === false);
+  s.go('https://shop.example:' + port + '/on-the-cover');
+  await wait(800);
+  await s.secretMask('two');
+  await wait(400);
+  s.win.focus(); fw.focus();
+  await type(['1', '2', '3', '4']);
+  for (let i = 0; i < 40 && s.locked; i++) await wait(150);
+  await wait(500);
+  check('5b a double click and his PIN bring back exactly what was there, asleep, the cover gone',
+    !s.locked && s.tabs.map((t: any) => t.id).join(',') === ids && s.active === front && s.tabs.every((t: any) => t.slept === true || t.id === front) && !s.tabs.some((t: any) => String(t.url).includes('on-the-cover') || String(t.url).startsWith('https://search.brave.com')),
+    `${s.tabs.map((t: any) => t.id + ':' + t.url + ':' + t.slept).join(' ')} front ${s.active}/${front}`);
 
   // 6
   const normalFile = existsSync(path.join(dir, 'browser-tabs.json')) ? readFileSync(path.join(dir, 'browser-tabs.json'), 'utf8') : '';
@@ -143,6 +167,20 @@ app.whenReady().then(async () => {
   s.win.close();
   await wait(1500);
   check('8 closing the window locks it', s.locked === true && !s.tabs.length);
+  // 8b: opened again, his PIN brings his tabs back from its folder
+  s.open();
+  for (let i = 0; i < 100 && !s.cur()?.view; i++) await wait(150);
+  await wait(1200);
+  const fw2 = s.win.webContents;
+  s.win.focus(); fw2.focus();
+  await s.secretMask('one');
+  await wait(400);
+  for (const k of ['1', '2', '3', '4']) { fw2.sendInputEvent({ type: 'keyDown', keyCode: k }); fw2.sendInputEvent({ type: 'keyUp', keyCode: k }); await wait(60); }
+  for (let i = 0; i < 40 && s.locked; i++) await wait(150);
+  const again = s.tabs.map((t: any) => String(t.url)).join(' ');
+  check('8b opened again, a click on the mask and his PIN bring his tabs back', !s.locked && again.includes('/before') && again.includes('/kept'), again);
+  s.win.close();
+  await wait(1500);
   // 9: five wrong PINs wipe it; a new one then needs his Mac password (never just picked by whoever is there)
   s.open();
   for (let i = 0; i < 100 && !s.cur()?.view; i++) await wait(150);

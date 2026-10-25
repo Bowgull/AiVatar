@@ -1157,23 +1157,19 @@ html.secret .pg3{background:#0e0e10 !important}
 html.secret .rnd{background:linear-gradient(180deg,#2c3a78,#18204a) !important;color:#dce6ff !important;box-shadow:0 3px 0 #05030c,inset 0 2px 0 rgba(160,190,255,.4) !important}
 html.secret .rnd svg *{stroke:#dce6ff;fill:#dce6ff}
 html.secret .wk svg path{fill:#cfe0ff !important}
-html.secret .drawer{background-image:var(--night),url(art/browser/tray.png) !important}
-html.secret .drawer .tabpanel{background:radial-gradient(120% 40% at 50% 0%,rgba(170,200,255,.10),transparent 60%),linear-gradient(rgba(4,8,30,.55),rgba(4,8,30,.6)),url(art/browser/tray.png) 0 0/128px 256px !important;
-  box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a !important}
+/* Sheet 87 v13, his pick B (moonlit wood): the day list's contrast kept at night. The deepest navy behind, dark navy
+   panels, the day rows' own wood cooled to plum under the moon, a moonlit tab in front, and the gold edges as they are. */
+html.secret .drawer{background-image:linear-gradient(rgba(2,4,14,.78),rgba(2,4,14,.82)),url(art/browser/tray.png) !important}
+html.secret .drawer .tabpanel{background:radial-gradient(120% 40% at 50% 0%,rgba(140,170,255,.10),transparent 60%),linear-gradient(rgba(6,10,34,.72),rgba(6,10,34,.78)),url(art/browser/tray.png) 0 0/128px 256px !important;
+  box-shadow:inset 0 0 0 4px #24305e,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.55),0 3px 0 #02020a !important}
 html.secret .drawer .shelf-bk{box-shadow:inset 0 0 0 4px #1c2346,inset 0 0 0 5px #05030c,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #02020a !important}
-html.secret .drawer .tabpanel::after,html.secret .shelf-bk::after,html.secret .pinask::after{filter:grayscale(1) brightness(1.2) sepia(.25) hue-rotate(185deg)}
-html.secret .drawer .ptitle{color:#d6e2ff !important}
-html.secret .drawer .ptitle::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(170,200,255,.22) 2px 4px) !important}
-html.secret .drawer .tp{color:#e4eaff !important;background:linear-gradient(180deg,#323c6e 0,#252d58 45%,#1d2448 100%) !important;
-  box-shadow:0 4px 0 #05030c,inset 0 3px 0 rgba(180,200,255,.22),inset 0 -2px 0 rgba(0,0,0,.35) !important}
-html.secret .drawer .tp.on{background:linear-gradient(180deg,#e6edff,#aebce4) !important;color:#141a38 !important;text-shadow:0 1px 0 rgba(255,255,255,.55) !important}
-html.secret .drawer .tp .fi.letter,html.secret .drawer .tp .w{color:#cfe0ff !important}
-html.secret .tp.kid::before{border-color:rgba(170,200,255,.35) !important}
-html.secret .drawer .newtab{color:#e4eaff !important}
-html.secret .drawer .th{color:#dce6ff !important}
-html.secret .drawer .th .n{color:#9fb0d8 !important}
-html.secret .drawer .th::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(170,200,255,.22) 2px 5px) !important}
-html.secret .bm-add{border-color:rgba(190,210,255,.45) !important;color:#dce6ff !important}
+html.secret .pinask::after{filter:grayscale(1) brightness(1.2) sepia(.25) hue-rotate(185deg)}
+html.secret .drawer .tp{color:#F6ECF6 !important;background:linear-gradient(180deg,#6a5078 0,#56405f 45%,#46344f 100%) !important;
+  box-shadow:0 4px 0 #05030c,inset 0 3px 0 rgba(255,214,240,.24),inset 0 -2px 0 rgba(0,0,0,.35) !important}
+html.secret .drawer .tp.on{background:linear-gradient(180deg,#F4F7FF,#BCC9EC) !important;color:#141a38 !important;text-shadow:0 1px 0 rgba(255,255,255,.55) !important}
+html.secret .drawer .tp .w{color:#e6d4b4 !important}
+html.secret .tp.kid::before{border-color:rgba(200,180,230,.35) !important}
+html.secret .drawer .newtab{background:linear-gradient(180deg,#141a3a,#0c1028) !important;color:#FFE096 !important;box-shadow:inset 0 2px 0 rgba(140,170,255,.18),0 3px 0 #02020a !important}
 html.secret .drawer,html.secret .drawer *{scrollbar-color:#3a4880 transparent !important}
 /* The History panel's rows: the tabs' own rows, with when on the right. */
 .histpanel .tp .w{font:600 11px var(--body);margin-left:auto;flex:none;padding-left:6px}
@@ -1188,6 +1184,8 @@ html.secret .drawer,html.secret .drawer *{scrollbar-color:#3a4880 transparent !i
 .pinask::after{content:"";position:absolute;inset:-6px;pointer-events:none;image-rendering:pixelated;
   background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
 .pinask .lights{display:flex;gap:10px;min-height:12px}
+.pinask .word{font:400 10px var(--label);letter-spacing:1.5px;color:#d6e2ff;margin:-8px 0 -6px}
+.pinask .word[hidden],.pinask .lights[hidden]{display:none}
 .pinask .lights i{width:12px;height:12px;border-radius:3px;background:#2a2133;box-shadow:inset 0 0 0 2px #4a3d5a;transition:background .12s,box-shadow .12s}
 .pinask .lights i.f{background:#ffc43c;box-shadow:0 0 8px 2px rgba(255,196,60,.7)}
 .pinask .lights.shake{animation:afshake .28s ease-in-out}
