@@ -28,6 +28,8 @@ import { connect as netConnect } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import { CastSession, DEFAULT_PLAYER, airplayNames, findTvs } from './tv.ts';
+import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, plainMedia, seekPageJs, twitchMedia, twitchOf, youTubeId, youTubeOnTv } from './tvmedia.ts';
 import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
@@ -1659,6 +1661,102 @@ export class AangBrowser {
     const to = fills(was) ? { width: Math.round(area.width * 0.75), height: Math.round(area.height * 0.8) } : { width: was.width, height: was.height };
     w.setBounds({ x: Math.round(area.x + (area.width - to.width) / 2), y: Math.round(area.y + (area.height - to.height) / 2), ...to }, true);
   }
+  // ------------------------------------------------------------------ sheet 89, his TV
+  /** What is on his TV now: one video (Google Cast) or this window (AirPlay, as a second screen). */
+  private tv: { kind: 'video' | 'window'; tab: number; name: string; title: string; site: string; cast?: CastSession; back?: Electron.Rectangle; win?: BrowserWindow } | null = null;
+  /** The TV ask in the band: setting yeet up as a second screen (once), or what is playing there. */
+  private tvAsk: 'setup' | 'playing' | null = null;
+  private tvState(): Record<string, unknown> | null {
+    if (!this.tv && !this.tvAsk) return null;
+    return { kind: this.tv?.kind ?? null, name: this.tv?.name ?? this.tvName, title: this.tv?.title ?? '', site: this.tv?.site ?? hostOf(this.cur()?.url ?? ''), ask: this.tvAsk };
+  }
+  private tvName = 'your TV';
+  /**
+   * Just the video (his picks: Stremio, YouTube, Twitch, any plain video). The TV plays it by itself, so his TV remote
+   * works and the Mac is free; the tab's own video pauses where it was. A page that plays from inside itself has nothing
+   * to send on its own: Samara says so and offers the whole window.
+   */
+  private async tvVideo(t: Tab): Promise<void> {
+    const wc = t.view?.webContents;
+    if (!wc || wc.isDestroyed() || !isWeb(t.url)) return;
+    await this.tvOff(false);
+    const tvs = await findTvs();
+    const tv = tvs.find((x) => /yeet/i.test(x.name)) ?? tvs[0];
+    if (!tv) { this.note('Your TV is not answering for videos. Turn it on, then try again (The whole window works with it asleep).'); return; }
+    this.tvName = tv.name;
+    const v = await within(askPage<{ src: string; at: number; live: boolean; paused: boolean; poster: string; title: string }>(wc, PAGE_VIDEO_JS), 2000, null);
+    const title = (t.title || v?.title || '').slice(0, 200), site = hostOf(t.url);
+    const cast = new CastSession(tv);
+    try {
+      const yt = youTubeId(t.url);
+      if (yt) {
+        await cast.open(YOUTUBE_APP);
+        const screen = await new Promise<string>((res, rej) => {
+          const tm = setTimeout(() => rej(new Error('no screen')), 8000);
+          cast.on('app', (ns: string, d: Record<string, unknown>) => { const id = (d.data as Record<string, unknown> | undefined)?.screenId; if (ns === YOUTUBE_NS && typeof id === 'string') { clearTimeout(tm); res(id); } });
+          cast.appSend(YOUTUBE_NS, { type: 'getMdxSessionStatus' });
+        });
+        const why = await youTubeOnTv(screen, yt, v?.at ?? 0);
+        if (why) throw new Error(why);
+      } else {
+        const media = twitchOf(t.url) ? await twitchMedia(t.url, title, v?.at ?? 0) : plainMedia(v ? { ...v, title } : null);
+        if (!media) { cast.close(); this.note('This page plays its video from inside itself, so it can only go as The whole window.'); return; }
+        await cast.open(DEFAULT_PLAYER);
+        await cast.load(media);
+      }
+    } catch (e) { cast.close(); this.note(`${tv.name} could not play it: ${(e as Error).message}.`); return; }
+    void askPage(wc, PAUSE_PAGE_JS);
+    this.tv = { kind: 'video', tab: t.id, name: tv.name, title, site, cast };
+    cast.on('ended', () => { if (this.tv?.cast === cast) { this.tv = null; this.tvAsk = null; this.sendTabs(); } });
+    this.sendTabs();
+  }
+  /**
+   * The whole window (his pick: it fills the TV and the sound plays there). The Mac must use yeet as a second screen,
+   * which only he can turn on, once; Samara finds that screen by the TV's AirPlay name and moves this window onto it.
+   */
+  private async tvWindow(t: Tab): Promise<void> {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    if (this.tv?.kind === 'window') return;
+    const names = await airplayNames();
+    if (names.length) this.tvName = names.find((n) => /yeet/i.test(n)) ?? names[0]!;
+    const shown = screen.getAllDisplays().find((d) => !d.internal && names.some((n) => d.label.toLowerCase().includes(n.toLowerCase())));
+    if (!shown) { this.tvAsk = 'setup'; this.sendTabs(); return; }
+    await this.tvOff(false);
+    if (this.active !== t.id) this.activate(t.id);
+    const back = w.isFullScreen() ? null : w.getBounds();
+    if (w.isFullScreen()) w.setFullScreen(false);
+    w.setBounds(shown.bounds);
+    setTimeout(() => { if (!w.isDestroyed()) w.setFullScreen(true); }, 300);
+    this.tv = { kind: 'window', tab: t.id, name: this.tvName, title: (t.title || '').slice(0, 200), site: hostOf(t.url), ...(back ? { back } : {}), win: w };
+    this.tvAsk = null;
+    this.sendTabs();
+  }
+  /** The TV ask's keys, from the frame only (browseripc). */
+  async tvAct(act: string): Promise<void> {
+    if (act === 'open') { this.tvAsk = this.tv ? 'playing' : null; this.sendTabs(); }
+    else if (act === 'close') { this.tvAsk = null; this.sendTabs(); }
+    else if (act === 'displays') { this.tvAsk = null; this.sendTabs(); void shell.openExternal('x-apple.systempreferences:com.apple.Displays-Settings.extension'); }
+    else if (act === 'back') await this.tvOff(true);
+    else if (act === 'stop') await this.tvOff(false);
+  }
+  /** Off the TV: back into the tab where it left off (paused), or the window back to its size on the Mac. */
+  private async tvOff(bringBack: boolean): Promise<void> {
+    const tv = this.tv;
+    this.tv = null; this.tvAsk = null;
+    if (!tv) return;
+    if (tv.kind === 'video' && tv.cast) {
+      const at = bringBack ? await tv.cast.where() : 0;
+      tv.cast.stop();
+      const wc = this.tabs.find((x) => x.id === tv.tab)?.view?.webContents;
+      if (bringBack && wc && !wc.isDestroyed()) { void askPage(wc, seekPageJs(at)); this.activate(tv.tab); }
+    } else if (tv.kind === 'window' && tv.win && !tv.win.isDestroyed()) {
+      const w = tv.win;
+      const done = () => { if (!w.isDestroyed() && tv.back) w.setBounds(tv.back, true); };
+      if (w.isFullScreen()) { w.once('leave-full-screen', () => setTimeout(done, 200)); w.setFullScreen(false); } else done();
+    }
+    this.sendTabs();
+  }
   /** Sheet 87: the fake-site lists, for the secret window to share. */
   get phishCheck(): PhishCheck { return this.phish; }
   /** Sheet 87: is this the secret window (main routes messages by it). */
@@ -2829,6 +2927,8 @@ export class AangBrowser {
     else if (act === 'mute') { t.muted = !t.muted; t.view?.webContents.setAudioMuted(t.muted); this.changed(); }
     else if (act === 'reload') { if (t.view && !t.crashed) t.view.webContents.reload(); else if (t.id === this.active) this.act('reload'); }
     else if (act === 'newwindow') this.newWindowFor(id);
+    else if (act === 'tvwindow') void this.tvWindow(t);
+    else if (act === 'tvvideo') void this.tvVideo(t);
     else if (act === 'done') this.markDone(id, true);
     else if (act === 'undone') this.markDone(id, false);
   }
@@ -5117,6 +5217,8 @@ export class AangBrowser {
       markCount: this.locked ? 0 : this.marks.length,
       // Sheet 87: the secret window (its night look and mask), locked or not, and its History panel once open.
       ...(this.o.secret ? { secret: true, locked: this.locked } : {}),
+      // Sheet 89: what is on his TV, and the TV ask.
+      tv: this.tvState(),
       hasLogin: this.hasLogin,
       loginKnown: this.loginKnown,
       maximized: Boolean(w.isMaximized()),

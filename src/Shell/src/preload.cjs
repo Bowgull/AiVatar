@@ -227,6 +227,8 @@ contextBridge.exposeInMainWorld('aang', {
   // Sheet 87: the secret window's PIN box (try, set, reset with the Mac password, cancel) and what Samara says back.
   browserSecretPin: a => ipcRenderer.send('browser:secretpin', a),
   browserSecretMask: act => ipcRenderer.send('browser:secretmask', act),
+  // Sheet 89: his TV, the light and the ask's keys.
+  browserTv: act => ipcRenderer.send('browser:tv', act),
   onBrowserSecretPin(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:secretpin', h); return () => ipcRenderer.removeListener('browser:secretpin', h); },
   // His ask (2026-10-20): a bookmark's own right-click menu. The address says which one; the Shell checks the rest.
   browserMarkOp: a => ipcRenderer.send('browser:markop', a),

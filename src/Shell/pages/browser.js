@@ -26,13 +26,19 @@ function aangFaceOn(m) {
 const page = el('page');
 function report() {
   if (SOLO) return;                         // the tray layer has no page area of its own
-  const r = page.getBoundingClientRect();
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
-  // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
-  let top = r.top;
-  for (const id of ['askchip', 'sharechip', 'devchip', 'vaultchip', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
+  // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it. Sheet 89
+  // (his "badly misaligned"): the page's whole recess moves with it, so the ask hangs over the band's wood and the page
+  // keeps its rounded corners just below, instead of the page sliding down inside a cream box.
+  const r0 = page.getBoundingClientRect();
+  if (!pushed) baseMargin = parseFloat(getComputedStyle(page).marginTop) || 0;
+  const natural = r0.top - pushed;
+  let need = 0;
+  for (const id of ['askchip', 'sharechip', 'devchip', 'vaultchip', 'tvchip', 'toast']) { const x = el(id); if (x && !x.hidden) need = Math.max(need, Math.ceil(x.getBoundingClientRect().bottom + 8 - natural)); }
+  if (need !== pushed) { pushed = need; page.style.marginTop = need ? (baseMargin + need) + 'px' : ''; }
+  const r = page.getBoundingClientRect();
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
-  const ins = { left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom };
+  const ins = { left: r.left, top: r.top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom };
   // Only when the page area really moved (measured 2026-10-20): every toggle anywhere used to move the page's view,
   // 2 moves for every link he pointed at.
   const key = [ins.left, ins.top, ins.right, ins.bottom].map((v) => Math.round(v)).join(',');
@@ -40,7 +46,7 @@ function report() {
   lastInsets = key;
   window.aang?.browserInsets?.(ins);
 }
-let lastInsets = '', reportQueued = false;
+let lastInsets = '', reportQueued = false, pushed = 0, baseMargin = 0;
 const reportSoon = () => { if (reportQueued) return; reportQueued = true; requestAnimationFrame(() => { reportQueued = false; report(); }); };
 new ResizeObserver(report).observe(page);
 // The link preview floats over the page and never moves it.
@@ -173,6 +179,10 @@ function closeMenu() {
 }
 function paintMenu() {
   el('zpct').textContent = (state.zoomPct ?? 100) + '%';
+  // Sheet 89: Send to the other computer names it, and never shows in the secret window.
+  el('m-other').firstElementChild.textContent = OTHER.label;
+  el('m-other').hidden = state.secret === true;
+  el('m-tvbox').hidden = true; el('m-tv').classList.remove('open');
 }
 menukey.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
 menu.addEventListener('click', (e) => e.stopPropagation());
@@ -186,6 +196,10 @@ el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind,
 // Sheet 60 section 4: this site's notes, in the rail on the right (sitenotes.js).
 el('m-sitenotes').addEventListener('click', () => { closeMenu(); openRail(); });
 el('m-print').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('print'); });
+el('m-tv').addEventListener('click', () => { const box = el('m-tvbox'); box.hidden = !box.hidden; el('m-tv').classList.toggle('open', !box.hidden); });
+el('m-tvwin').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserTab?.({ id: state.active, act: 'tvwindow' }); });
+el('m-tvvid').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserTab?.({ id: state.active, act: 'tvvideo' }); });
+el('m-other').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserToMac?.(state.active); });
 el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('tidy'); });
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
@@ -878,6 +892,11 @@ function tabMenu(t, x, y) {
     m.append(b);
   };
   const sep = () => m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  // Sheet 89 (his ask, 2026-10-25: "we need to have some organising going on in this right click"): labelled groups,
+  // like the ⋯ menu's, and Close on its own at the bottom.
+  const gh = (text) => m.append(Object.assign(document.createElement('div'), { className: 'gh', textContent: text }));
+  const secret = state.secret === true;
+  gh('THIS TAB');
   item('Reload', () => window.aang?.browserTab?.({ id: t.id, act: 'reload' }));
   item(t.muted ? 'Unmute' : 'Mute', () => window.aang?.browserTab?.({ id: t.id, act: 'mute' }));
   sep();
@@ -902,18 +921,27 @@ function tabMenu(t, x, y) {
     // Send to Aang (his pick, 2026-10-21): only while Aang is running, like the words item on a page.
     if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendtab', id: t.id })); aangFaceOn(m); }
   } else {
-  for (const tr of trails) if (tr.id !== t.trail) item('Move to ' + tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }), { sub: true });
-  item('Move to a new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }), { sub: true });
-  if (t.trail != null) item('Take out of the trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: null }), { sub: true });
+    gh('TRAIL');
+    const move = expander(m, 'Move to a trail');
+    for (const tr of trails) if (tr.id !== t.trail) move(tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }));
+    move('A new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }));
+    if (t.trail != null) move('Out of the trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: null }));
   }
   sep();
-  item('Open in Chrome', () => {}, { soon: true });
-  item('Popout', () => window.aang?.browserPopout?.(t.id));
+  gh('SEND');
+  // A secret tab never leaves the secret window for the pop-out or the other computer (sheet 87); the TV is fine.
+  if (!secret) item('Pop out', () => window.aang?.browserPopout?.(t.id));
   // The same as dragging it out of the window (his ask, 2026-10-13).
   item('Open in new window', () => window.aang?.browserTab?.({ id: t.id, act: 'newwindow' }));
-  item(OTHER.label, () => window.aang?.browserToMac?.(t.id));
-  // His ask (2026-10-13): the page as a full tab in Aang's browser on the other machine, brought to the front there.
-  item(OTHER.open, () => window.aang?.browserOpenOther?.(t.id));
+  // Sheet 89: his TV, the whole window (AirPlay) or just the video (Chromecast).
+  const tv = expander(m, 'Send to TV');
+  tv('The whole window', () => window.aang?.browserTab?.({ id: t.id, act: 'tvwindow' }));
+  tv('Just the video', () => window.aang?.browserTab?.({ id: t.id, act: 'tvvideo' }));
+  if (!secret) {
+    item(OTHER.label, () => window.aang?.browserToMac?.(t.id));
+    // His ask (2026-10-13): the page as a full tab in Aang's browser on the other machine, brought to the front there.
+    item(OTHER.open, () => window.aang?.browserOpenOther?.(t.id));
+  }
   sep();
   item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
   document.body.append(m);
@@ -973,12 +1001,8 @@ function buildRow(t, kid) {
       const p = document.createElement('button'); p.type = 'button'; p.className = 'pip';
       p.title = 'Pops this page into its own window'; p.setAttribute('aria-label', 'Popout');
       p.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserPopout?.(t.id); });
-      // Send to the MacBook, beside it: the same keycap, on hover only (his ask, 2026-10-12). It stops here.
-      const m = document.createElement('button'); m.type = 'button'; m.className = 'pip tomac';
-      m.title = OTHER.title; m.setAttribute('aria-label', OTHER.label);
-      m.innerHTML = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h7v1H0zM0 1h1v2H0zM6 1h1v2H6zM0 3h7v1H0zM0 5h7v1H0z" fill="#2a1c00"/></svg>';
-      m.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserToMac?.(t.id); });
-      row.append(p, m);
+      // Send to the other computer is in the tab's right-click and the ⋯ menu now (sheet 89, his ask).
+      row.append(p);
     }
     if (t.audible || t.muted) {
       // Sheet 3: a real button. Press it to mute; pressed in, with a red slash, when muted.
@@ -1281,6 +1305,7 @@ window.aang?.onBrowserTabs?.((s) => {
   // Sheet 87: the secret window wears the night (its history is in the ⋯ menu, his pick).
   document.documentElement.classList.toggle('secret', s.secret === true);
   document.documentElement.classList.toggle('locked', s.secret === true && s.locked === true);
+  window.paintTv?.(s.tv);
   // Sheet 71: the tab list's size (this machine's pick in Settings).
   const size = s.tabSize === 's' || s.tabSize === 'm' ? s.tabSize : 'l';
   if (!document.documentElement.classList.contains('tsize-' + size)) { document.documentElement.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); document.documentElement.classList.add('tsize-' + size); }
@@ -2558,4 +2583,44 @@ if (!SOLO) {
   m?.addEventListener('mouseup', letGo); m?.addEventListener('mouseleave', letGo);
   m?.addEventListener('click', (e) => { e.stopPropagation(); if (held) return; clearTimeout(t); t = setTimeout(() => window.aang?.browserSecretMask?.('one'), 240); });
   m?.addEventListener('dblclick', (e) => { e.stopPropagation(); if (held) return; clearTimeout(t); window.aang?.browserSecretMask?.('two'); });
+}
+
+// ---------------------------------------------------------------- sheet 89, his TV
+{
+  const ARROW = '<svg width="12" height="12" viewBox="0 0 6 6" shape-rendering="crispEdges" aria-hidden="true"><path fill="#6b5132" d="M0 2h3V0h1v1h1v1h1v2H5v1H4v1H3V4H0z"/></svg>';
+  const tvkey = el('tvkey'), chip = el('tvchip');
+  tvkey.append(pixIcon('video', 2) ?? document.createTextNode('TV'));
+  el('tvtag').prepend(pixIcon('video', 1.5) ?? document.createTextNode(''));
+  el('tvface').append(pixIcon('video', 2) ?? document.createTextNode(''));
+  el('tvto').innerHTML = ARROW;
+  let keys = { yes: '', no: '' }, was = null;
+  window.paintTv = (tv) => {
+    // the light: only while something is on the TV; it breathes once as it starts
+    const on = Boolean(tv?.kind);
+    if (on && tvkey.hidden) { tvkey.classList.remove('live'); void tvkey.offsetWidth; tvkey.classList.add('live'); }
+    tvkey.hidden = !on;
+    // the ask: setting yeet up as a second screen, or what is playing there
+    const ask = tv?.ask ?? null;
+    if (!ask) { chip.hidden = true; was = null; return; }
+    const name = tv.name || 'your TV';
+    el('tvfrom').textContent = (tv.site || 'S').replace(/^www\./, '').charAt(0).toUpperCase();
+    if (ask === 'setup') {
+      el('tvq').textContent = `Show this window on ${name}?`;
+      el('tvm').replaceChildren('Once only: your Mac needs ', Object.assign(document.createElement('b'), { textContent: name }), ' as a second screen. Samara opens the place to turn it on.');
+      keys = { yes: 'displays', no: 'close' }; el('tvyes').firstChild.textContent = 'Open Displays'; el('tvno').firstChild.textContent = 'Not now';
+    } else {
+      el('tvq').textContent = tv.kind === 'window' ? `This window is on ${name}` : `Playing on ${name}`;
+      el('tvm').replaceChildren(Object.assign(document.createElement('b'), { textContent: tv.title || tv.site }), tv.kind === 'window' ? '' : (tv.site ? `, from ${tv.site}` : ''), '.');
+      keys = { yes: 'back', no: 'stop' }; el('tvyes').firstChild.textContent = 'Bring it back'; el('tvno').firstChild.textContent = tv.kind === 'window' ? 'Back to the Mac' : 'Stop';
+    }
+    // it hangs from the address bar, flush with its left edge, like every ask in the family
+    const band = el('band').getBoundingClientRect(), slot = el('slot').getBoundingClientRect();
+    chip.style.left = Math.round(slot.left - band.left) + 'px';
+    if (was !== ask) { chip.classList.remove('in'); void chip.offsetWidth; chip.classList.add('in'); }
+    was = ask;
+    chip.hidden = false;
+  };
+  tvkey.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserTv?.(chip.hidden ? 'open' : 'close'); });
+  el('tvyes').addEventListener('click', () => { if (keys.yes) window.aang?.browserTv?.(keys.yes); });
+  el('tvno').addEventListener('click', () => { if (keys.no) window.aang?.browserTv?.(keys.no); });
 }
