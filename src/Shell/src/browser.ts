@@ -268,9 +268,20 @@ export function bringFront(w: BrowserWindow): void {
   w.setAlwaysOnTop(true); w.show(); w.moveTop(); w.focus();
   setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 400);
 }
+/** Never handed to another app, whatever claims them: they reach files, run code, or are the browser's own. */
+const NEVER_HANDED = new Set(['file', 'javascript', 'vbscript', 'data', 'blob', 'about', 'chrome', 'devtools', 'view-source', 'filesystem', 'jar', 'smb', 'afp', 'nfs', 'ftp', 'ms-msdt', 'search-ms', 'ms-officecmd', 'ms-settings']);
+/**
+ * The app a link is for, by name; null when none. The known ones by their friendly name; any other (2026-10-25: Shadow
+ * signing in hands him back to its app with tech.shadow://, which Samara called a fake site) by the app on this
+ * computer that says it opens such links. He is still asked every time.
+ */
 export function appOf(u: string): string | null {
   const m = /^([a-z][a-z0-9+.-]*):/i.exec(String(u ?? ''));
-  return m && u.length <= 4000 ? APP_LINKS[m[1]!.toLowerCase()] ?? null : null;
+  if (!m || u.length > 4000) return null;
+  const scheme = m[1]!.toLowerCase();
+  if (APP_LINKS[scheme]) return APP_LINKS[scheme]!;
+  if (NEVER_HANDED.has(scheme) || scheme === 'http' || scheme === 'https') return null;
+  try { const name = app.getApplicationNameForProtocol(u); return name ? name.replace(/\.app$/i, '').slice(0, 60) : null; } catch { return null; }
 }
 /** The right-click item that sends a page to the other machine's browser. */
 const OTHER_OPEN = process.platform === 'darwin' ? 'Open on PC' : 'Open on Mac';
@@ -1921,7 +1932,10 @@ export class AangBrowser {
       if (isWeb(u) && inward(u)) { refuseInward(e, u); return; }
       if (isWeb(u) && this.toPaid(u)) { e.preventDefault(); return; }
       if (!isWeb(u) && appOf(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
-      const l = isWeb(u) ? this.stopFor(u) : ['NOT A WEB PAGE'];
+      // A link for something that is not a web page and that no app here opens: stopped quietly, never shown as a fake
+      // site (2026-10-25: that red plate told him Shadow's sign-in was a fake login page).
+      if (!isWeb(u)) { e.preventDefault(); let sc = ''; try { sc = new URL(u).protocol; } catch { /* odd */ } this.note(`The page tried to open a ${sc || 'non-web'} link, and no app on this computer opens those.`); return; }
+      const l = this.stopFor(u);
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);
       if (!up) return;
