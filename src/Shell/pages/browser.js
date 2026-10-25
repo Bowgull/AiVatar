@@ -1192,6 +1192,7 @@ window.aang?.onBrowserTabs?.((s) => {
   state = s;
   // Sheet 87: the secret window wears the night, and its list has its own History panel.
   document.documentElement.classList.toggle('secret', s.secret === true);
+  document.documentElement.classList.toggle('locked', s.secret === true && s.locked === true);
   if (s.secret) paintHist(s.history);
   // Sheet 71: the tab list's size (this machine's pick in Settings).
   const size = s.tabSize === 's' || s.tabSize === 'm' ? s.tabSize : 'l';
