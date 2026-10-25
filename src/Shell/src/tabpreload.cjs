@@ -161,7 +161,14 @@ try {
     const his = (e) => e.isTrusted && (!navigator.userActivation || navigator.userActivation.isActive);
     document.addEventListener('submit', (e) => { if (his(e)) sent(e.target); }, true);
     document.addEventListener('keydown', (e) => { if (e.isTrusted && e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type === 'password') sent(e.target.form); }, true);
-    document.addEventListener('click', (e) => { if (!e.isTrusted) return; const b = e.target instanceof Element ? e.target.closest('button, input[type=submit], [role=button]') : null; if (b) sent(b.form || b.closest('form')); }, true);
+    // 2026-10-25 (his report: logging in to Stremio offered nothing): a page's own login button need not be a real
+    // button (Stremio's is not, and has no form). Any click of his, outside the boxes, with a password typed counts; the
+    // Shell offers it only if the password box is gone a moment later (the login worked), so a stray click costs nothing.
+    document.addEventListener('click', (e) => {
+      if (!e.isTrusted || !(e.target instanceof Element) || e.target.closest('input, textarea, select')) return;
+      const b = e.target.closest('button, input[type=submit], [role=button]');
+      sent(b ? (b.form || b.closest('form')) : null);
+    }, true);
   }
 } catch { /* no autofill on this page */ }
 

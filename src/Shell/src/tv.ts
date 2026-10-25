@@ -158,10 +158,11 @@ export class CastSession extends EventEmitter {
     this.transport = String(a.transportId); this.sessionId = String(a.sessionId);
     this.send(this.transport, NS.conn, { type: 'CONNECT' });
   }
-  /** Load a video into the TV's player; it plays by itself (his TV remote plays and pauses it from then on). */
+  /** Load a video into the TV's player, paused where he was (his TV remote plays and pauses it from then on). */
   async load(m: CastMedia): Promise<void> {
     const st = await this.ask(this.transport, NS.media, {
-      type: 'LOAD', autoplay: true, currentTime: Math.max(0, m.at ?? 0),
+      // His rule (2026-10-25): it arrives paused and waits for him (his TV remote plays it).
+      type: 'LOAD', autoplay: false, currentTime: Math.max(0, m.at ?? 0),
       media: { contentId: m.url, contentType: m.type, streamType: m.live ? 'LIVE' : 'BUFFERED',
         metadata: { metadataType: 0, title: m.title, ...(m.poster ? { images: [{ url: m.poster }] } : {}) } },
     }, 30_000);

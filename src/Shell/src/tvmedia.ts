@@ -119,5 +119,9 @@ export async function youTubeOnTv(screenId: string, videoId: string, at: number)
   if (!sid || !gs) return 'YouTube did not open a session with your TV.';
   const body = new URLSearchParams({ count: '1', ofs: '0', req0__sc: 'setPlaylist', req0_videoId: videoId, req0_currentTime: String(Math.max(0, Math.floor(at))), req0_currentIndex: '-1', req0_audioOnly: 'false', req0_videoIds: videoId, req0_listId: '' });
   const set = await fetch(`${base}?${new URLSearchParams({ ...common, RID: '1', SID: sid, gsessionid: gs, loungeIdToken: tok })}`, { method: 'POST', headers: head, body, signal: AbortSignal.timeout(8000) }).catch(() => null);
-  return set?.ok ? null : 'YouTube did not start the video on your TV.';
+  if (!set?.ok) return 'YouTube did not start the video on your TV.';
+  // His rule (2026-10-25): it waits, paused, for him. YouTube's app always starts playing, so it is paused once it has.
+  await new Promise((r) => setTimeout(r, 2500));
+  await fetch(`${base}?${new URLSearchParams({ ...common, RID: '2', SID: sid, gsessionid: gs, loungeIdToken: tok })}`, { method: 'POST', headers: head, body: new URLSearchParams({ count: '1', ofs: '1', req0__sc: 'pause' }), signal: AbortSignal.timeout(8000) }).catch(() => null);
+  return null;
 }

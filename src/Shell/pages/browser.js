@@ -707,6 +707,15 @@ window.addEventListener('keydown', (e) => {
   else if (c && !e.shiftKey && k === 'j') send('downloads');
 });
 
+/** A mockup's name in the address bar, with Claude's mark where the shield goes (2026-10-25, his ask). */
+function paintMock(title) {
+  if (lock.dataset.u === 'mock:' + title) return;
+  lock.dataset.u = 'mock:' + title;
+  urlEl.replaceChildren(Object.assign(document.createElement('b'), { textContent: title }));
+  lock.hidden = false; lock.classList.remove('bad');
+  lock.replaceChildren(Object.assign(document.createElement('img'), { src: 'art/claude-icon.png', width: 18, height: 18, alt: '', className: 'mockmark' }));
+  lock.setAttribute('aria-label', 'A mockup from Claude');
+}
 /** The address as sheet 3 draws it: the real domain bright, the rest dimmed. */
 function paintUrl(u) {
   // Only when the address really changed (measured 2026-10-20): repainting it, and resetting the shield's three
@@ -1333,7 +1342,8 @@ window.aang?.onBrowserTabs?.((s) => {
   mockArrived(s.mockNew);
   // Where he asked to go shows at once, dimmed, until the page arrives (only for his own typed or opened addresses).
   // Watching one of Aang's pages: the slot shows his page's address, and who is driving.
-  if (edit.hidden && !finding) paintUrl(s.watching ? s.watching.url : (t?.pending || t?.url || ''));
+  // A mockup says what it is (its name in the trail), not the number address of the page server it comes from.
+  if (edit.hidden && !finding) { if (t?.mock?.title && !s.watching) paintMock(t.mock.title); else paintUrl(s.watching ? s.watching.url : (t?.pending || t?.url || '')); }
   paintWho();
   el('slot').classList.toggle('pending', Boolean(t?.pending));
   el('back').classList.toggle('dim', !s.canBack);

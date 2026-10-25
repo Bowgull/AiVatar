@@ -4624,6 +4624,8 @@ export class AangBrowser {
     const place = this.mockStore?.placeOf(sheet) ?? { branch: null, parent: null };
     return {
       sheet, branch: place.branch, parent: place.parent, kids: this.mockStore?.childrenOf(sheet).length ?? 0,
+      // Its name in the trail ("88 · The address bar"), for the address bar (2026-10-25, his ask: not the number address).
+      title: [...list].reverse().find((x) => x.key === t.mock!.key)?.title ?? list[list.length - 1]?.title ?? '',
       v: list.find((x) => x.key === t.mock!.key)?.v ?? 0,
       // Sheet 81: the stage of the version this tab shows, on its own V chip; its id, for marking it from the tab's menu.
       ...(() => { const sh = list.filter((x) => x.key === t.mock!.key); const m = sh.find((x) => x.stage); return { vid: sh[sh.length - 1]?.id ?? null, stage: m?.stage ?? null, said: m?.said ?? '' }; })(),
