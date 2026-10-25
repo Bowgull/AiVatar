@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Sheet 87 - The private window</title>
+<title>Sheet 87 - The secret window</title>
 <!-- Sheet 87 (2026-10-25), his ask: a private mode that saves nothing of his browsing (history, tabs, cookies), with its
      own strong pop-up blocking. His picks: ⇧⌘N opens it; it keeps its OWN logins between times, locked away from his
      normal ones. v1 drew three looks; v2 his pick "nightwood! love the look", no PRIVATE label, just the mask; v3-v4 the
@@ -18,7 +18,13 @@
      v7 (his "if i open tabs at all it triggers the password"): the whole tab list is behind the PIN, not one panel. Opening
      the list in a private window asks first; then every tab shows, the hidden ones kept from last time included. The PIN is
      its own, 4 to 8 long, and may match the autofill one (his call).
-     v8 (his "it ONLY opens to these tabs"): the private list has no bookmarks and none of the normal window's tabs. -->
+     v8 (his "it ONLY opens to these tabs"): the private list has no bookmarks and none of the normal window's tabs.
+     v9 (his "its own space its own set of bookmarks its own private history ... a secret adult private browser", then a full
+     interview): a secret browser inside Samara. ⇧⌘N opens a blank night page; you can browse logged out. Opening the tab
+     list asks its own PIN (4 to 8). Then its own bookmarks, tabs, history and logins, all kept; tabs come back where he left
+     them; pages opened before the PIN join them. History: a panel in the list AND address suggestions, only after the PIN.
+     Locks when the window closes, the Mac sleeps or locks, or after 15 minutes away. No sign of it in normal Samara.
+     Downloads to his normal Downloads. Not scrambled on disk (his call). Forgot the PIN: the Mac's own password box resets it. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
   html,body{background:#17110c;margin:0}
@@ -49,27 +55,33 @@
 </style>
 </head>
 <body>
-<h1>SHEET 87 - THE PRIVATE WINDOW</h1>
-<p class="lead">Samara's real top bar, at night. The mask sits before the shield at about the shield's size. Nothing you do here is kept in Samara, pop-ups and ads are blocked hard, and your tab list opens only with your PIN.</p>
+<h1>SHEET 87 - THE SECRET WINDOW</h1>
+<p class="lead">A second browser inside Samara, all its own: bookmarks, tabs, history and logins. Your tab list opens only with your PIN. Normal Samara shows no sign of it.</p>
 
-<h2>1 · THE PRIVATE WINDOW</h2>
+<h2>1 · THE SECRET WINDOW'S BAND</h2>
 <div class="frame"><iframe src="../../src/Shell/pages/browser.html" data-night data-url="search.brave.com"></iframe></div>
 
-<h2>2 · OPEN YOUR TAB LIST: YOUR PIN, ON SCREEN FIRST</h2>
-<div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><div class="dim"></div>
+<h2>2 · ⇧⌘N: A BLANK NIGHT PAGE</h2>
+<p class="sub">Nothing of yours shows. You can browse right away, logged out.</p>
+<div class="win"><img src="art/sheet87-blank.png" width="1100" height="700" alt=""></div>
+
+<h2>3 · OPEN YOUR TAB LIST: YOUR PIN, ON SCREEN</h2>
+<div class="win"><img src="art/sheet87-blank.png" width="1100" height="700" alt=""><div class="dim"></div>
   <div class="pinask" style="left:50%"><div data-mask="3"></div><div class="lights"><i class="f"></i><i class="f"></i><i></i><i></i></div></div></div>
 
-<h2>3 · RIGHT PIN: ONLY YOUR PRIVATE TABS, THE HIDDEN ONES TOO</h2>
-<div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><img class="list" src="art/sheet87-list-open.png" alt=""></div>
+<h2>4 · RIGHT PIN: YOUR SECRET SPACE</h2>
+<p class="sub">Its own bookmarks, its own tabs right where you left them, and its own history.</p>
+<div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><img class="list" src="art/sheet87-list.png" alt=""></div>
 <ul class="steps">
-  <li>Its own PIN, 4 to 8 long. It can be the same as your autofill PIN or different. You set it the first time, and change it in Settings.</li>
-  <li>The lights fill gold as you type, and it opens on the last one. A wrong PIN shakes the lights and empties them.</li>
-  <li>No bookmarks and none of your normal tabs. Only what you opened here.</li>
-  <li>Hidden tabs are the ones you kept. They come back next time; everything else is gone when the window closes.</li>
-  <li>The list locks again when the private window closes. Esc or a click outside closes the box.</li>
+  <li>Its own PIN, 4 to 8 long. It can match your autofill PIN or not. Forgot it? Your Mac password resets it.</li>
+  <li>The lights fill gold as you type and it opens on the last one. A wrong PIN shakes them empty.</li>
+  <li>After the PIN you're logged in to your secret logins, and pages you opened before join your secret tabs.</li>
+  <li>The address bar suggests from your secret history, only after the PIN.</li>
+  <li>Locks when the window closes, the Mac sleeps or locks, or after 15 minutes away.</li>
+  <li>Downloads go to your normal Downloads.</li>
 </ul>
 
-<h2>4 · THE MASK, 8 TIMES BIGGER</h2>
+<h2>5 · THE MASK, 8 TIMES BIGGER</h2>
 <div class="maskbig" data-maskbig></div>
 
 <script>

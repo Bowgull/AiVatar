@@ -54,23 +54,22 @@ app.whenReady().then(async () => {
     Object.assign(m.style, { display: 'grid', placeItems: 'center', paddingRight: '9px', marginRight: '1px', position: 'relative', flex: 'none' });
     const n = document.createElement('i'); Object.assign(n.style, { position: 'absolute', right: '0', top: '50%', width: '2px', height: '16px', marginTop: '-8px', background: '#05030c' }); m.append(n); slot.prepend(m); return 1; })()`);
   await tw.executeJavaScript(NIGHT);
-  // v8 (his "it ONLY opens to these tabs"): a private window's list has no bookmarks and none of his normal tabs.
-  await tw.executeJavaScript(`document.querySelector('.shelf-bk')?.remove(); 1`);
-  // The hidden tabs: a third panel, the Tabs panel's own frame. Locked first.
-  const panel = (open: boolean) => `(() => {
-    document.getElementById('hidpanel')?.remove();
-    const src = document.querySelector('.tabpanel'); const p = src.cloneNode(false); p.id = 'hidpanel';
-    const t = document.createElement('p'); t.className = 'ptitle'; t.textContent = 'HIDDEN'; p.append(t);
-    const lock = ${JSON.stringify(lockSvg)}, mask = ${JSON.stringify(maskSvg)};
-    const row = (icon, text, cls) => { const r = document.createElement('div'); r.className = 'tp ' + (cls || ''); r.innerHTML = icon + '<span class="t"></span>'; r.querySelector('.t').textContent = text; return r; };
-    if (!${open}) { const r = row('<span class="fi" style="display:grid;place-items:center;background:none;border:none">' + lock + '</span>', 'Locked · 3 tabs', 'sleep'); p.append(r); }
-    else for (const [l, n] of [['T', 'sweetdreams - Twitch'], ['Y', 'Loba is Finally Meta after 6 years... - YouTube'], ['P', 'Prime Video']]) p.append(row('<span class="fi letter">' + l + '</span>', n, 'sleep'));
-    src.after(p); return 1; })()`;
-  await tw.executeJavaScript(panel(false)); await wait(600);
-  writeFileSync(`${out}-frame.png`, (await fw.capturePage()).toPNG());
-  writeFileSync(`${out}-locked.png`, (await tw.capturePage()).toPNG());
-  await tw.executeJavaScript(panel(true)); await wait(600);
-  writeFileSync(`${out}-open.png`, (await tw.capturePage()).toPNG());
+  // v9 (his "its own space its own set of bookmarks its own private history"): the secret list has its own Bookmarks
+  // (empty at first), its Tabs, and a History panel under them.
+  // The secret history: a third panel in the Tabs panel's own frame, the newest first, when on the right.
+  await tw.executeJavaScript(`(() => {
+    const src = document.querySelector('.tabpanel'); const p = src.cloneNode(false);
+    const t = document.createElement('p'); t.className = 'ptitle'; t.textContent = 'HISTORY'; p.append(t);
+    for (const [l, n, w] of [['R', 'Reddit - Popular', '2m'], ['G', 'Inbox - Gmail', '1h'], ['T', 'sweetdreams - Twitch', 'Yesterday']]) {
+      const r = document.createElement('div'); r.className = 'tp sleep'; r.innerHTML = '<span class="fi letter"></span><span class="t"></span><span class="w"></span>';
+      r.querySelector('.fi').textContent = l; r.querySelector('.t').textContent = n; const ws = r.querySelector('.w'); ws.textContent = w;
+      Object.assign(ws.style, { font: '600 11px Figtree, sans-serif', color: '#b9a684', marginLeft: '6px', flex: 'none' }); p.append(r); }
+    src.after(p); return 1; })()`);
+  await wait(600);
+  writeFileSync(`${out}-list.png`, (await tw.capturePage()).toPNG());
+  // ⇧⌘N: a blank night page, nothing of his in the address.
+  await fw.executeJavaScript(`(() => { for (const id of ['url', 'lock']) document.getElementById(id)?.style.setProperty('visibility', 'hidden', 'important'); return 1; })()`);
+  writeFileSync(`${out}-blank.png`, (await fw.capturePage()).toPNG());
   console.log('TRAY ' + JSON.stringify(b.trayV.getBounds()) + ' FRAME ' + JSON.stringify(b.win.getContentBounds()));
   app.exit(0);
 });
