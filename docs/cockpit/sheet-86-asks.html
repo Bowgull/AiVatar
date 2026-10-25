@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 86 - Samara's asks, one family</title>
+<!-- Sheet 86 (2026-10-25). Sheet 85 was parked (his words: "AI slop ... doesnt follow any sort of design language"). This
+     one is built only from Samara's own pieces: the real ask (.bandchip: parchment hanging from the band, the notch, the
+     key buttons), sheet 64's tag that carries the kind's colour with a pixel icon, the carved letter for a site with no
+     icon (.bm-letter), Samara's pixel icons (pixicons.js), the shield art, and Samara's own motion (the download tray's
+     220 ms spring drop, the gold pulse, the blue pop-up glow). His picks: all four kinds plus the fake-site stop; every
+     ask says who, what, why; from the shield, no Aang on the Mac; "go big" on motion and principles. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:34px 0 12px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:600px;line-height:1.45}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  button.replay{background:none;border:none;font:700 13px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 6px;margin-left:6px}
+  button.replay:hover{color:#ffe28c}
+
+  /* A slice of Samara: the band (its own wood), the shield and the address, and the page under it. */
+  .win{position:relative;width:600px;height:300px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .win.tall{height:360px}
+  .bandbar{position:absolute;left:0;right:0;top:0;height:58px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;border-bottom:3px solid #120a05;z-index:3}
+  .slotbar{position:absolute;left:62px;right:62px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
+    display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;image-rendering:auto}
+  .slotbar .sh{width:20px;height:24px;background:url(../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none;position:relative}
+  .slotbar .sh.gold{filter:drop-shadow(0 0 4px rgba(255,196,60,.9))}
+  .slotbar .sh.pop{background-image:url(../../src/Shell/pages/art/browser/shield_popup.png);animation:popglow 1.6s ease-in-out infinite}
+  .slotbar .sh.bad{background-image:url(../../src/Shell/pages/art/browser/shield_bad.png)}
+  .slotbar .sh.swell{animation:swell .14s ease-out}
+  @keyframes swell{50%{transform:scale(1.18)}}
+  .page{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#f6f3ee;overflow:hidden}
+  .page.dark{background:#0e0e10}
+
+  /* ---- The ask: Samara's own .bandchip, hung under the shield (its notch sits right under the shield). ---- */
+  .win .bandchip{left:58px;top:55px;z-index:4}
+  .win .bandchip::before{left:12px}
+  /* sheet 64's tag 1: the kind's colour, a pixel icon, read at a glance */
+  .tag{display:inline-flex;align-items:center;gap:6px;padding:3px 9px 3px 5px;border-radius:6px;border:2px solid #120A05;font:800 12.5px var(--body);color:#fff;
+    text-shadow:0 1px 0 rgba(0,0,0,.6);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  .tag svg{display:block}
+  .k-app{--kc:#C98C14}.k-cam{--kc:#2F8F55}.k-prog{--kc:#C95E28}.k-pop{--kc:#2B78D0}
+  .tag{background:var(--kc)}
+  /* the frame takes the kind's colour too (sheet 64): the notch and a band along the top edge */
+  .bandchip.kind{box-shadow:inset 0 4px 0 var(--kc),0 6px 0 rgba(0,0,0,.45),0 14px 24px rgba(0,0,0,.45)}
+  .bandchip.kind::before{background:var(--kc)}
+  .bandchip .q2{display:flex;align-items:center;gap:10px;margin-top:8px;font:800 15px var(--body);color:#271c10}
+  /* who -> where: the site's carved letter (or its icon), and the app's */
+  .faces{display:flex;align-items:center;gap:6px;flex:none}
+  .face{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;border:2px solid #120A05;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .face .bm-letter{font-size:15px}
+  .faces .to{width:12px;height:12px;display:grid;place-items:center}
+  .bandchip .m b{color:#271c10}
+  .bandchip .keys{margin-top:12px}
+
+  /* the risky yes: armed after a beat (Firefox does the same for installs), so a stray click or A can't take it */
+  .key.arming{position:relative;overflow:hidden;filter:saturate(.35) brightness(.85);pointer-events:none}
+  .key.arming::after{content:"";position:absolute;left:0;bottom:0;height:4px;width:100%;background:#FFE28C;transform-origin:left;animation:arm 1s linear forwards}
+  @keyframes arm{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .key.armed{filter:none;pointer-events:auto}
+
+  /* ---- Motion, Samara's own: the download tray's spring (cubic-bezier .3,1.5,.5,1) over 220 ms, rolled from under the
+     shield (it unrolls, the words do not move once it has landed); away again in 160 ms. ---- */
+  .bandchip.in{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both}
+  @keyframes unroll{from{clip-path:inset(0 0 100% 0);transform:translateY(-8px)}to{clip-path:inset(0 0 0 0);transform:none}}
+  .bandchip.out{animation:rollup .16s ease-in both}
+  .slotbar .sh.yes{animation:vpulse .6s ease-out}
+
+  /* the pop-up peek: a small tag that comes out of the shield, waits four seconds, and goes back in; the shield keeps its glow */
+  .peek{position:absolute;left:58px;top:55px;z-index:4;display:flex;align-items:center;gap:8px;padding:8px 10px 9px;border-radius:0 0 10px 10px;
+    background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);border-top:none;color:var(--ink-text);
+    box-shadow:inset 0 4px 0 #2B78D0,0 6px 0 rgba(0,0,0,.45),0 14px 24px rgba(0,0,0,.45);font:700 13px var(--body);image-rendering:auto}
+  .peek::before{content:"";position:absolute;left:12px;top:-12px;width:18px;height:12px;background:#2B78D0;border-left:3px solid var(--outline);border-right:3px solid var(--outline)}
+  .peek.in{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both}
+  .peek.in.life{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both, rollup .16s ease-in 4.2s forwards}
+  @keyframes rollup{from{clip-path:inset(0 0 0 0);opacity:1}to{clip-path:inset(0 0 100% 0);transform:translateY(-6px);opacity:0}}
+
+  /* the fake-site stop: Samara's own red plate, full page, the words fixed */
+  .win .plate{margin:22px auto 0;max-width:470px;padding:16px 20px}
+  .win .plate h3{font-size:19px;margin:8px 0 4px}
+  .win .plate p{font-size:13px;margin:0 0 6px}
+
+  /* Storyboard: the same drop frozen at moments (no script; each copy is the animation stopped at its time). */
+  .story{display:flex;gap:14px;flex-wrap:wrap}
+  .story .f{width:252px}
+  /* each moment is the full-size slice, shrunk whole, so nothing in it is redrawn differently */
+  .story .shrink{width:252px;height:126px;overflow:hidden}
+  .story .shrink .win{transform:scale(.42);transform-origin:top left}
+  .story .bandchip.frz{animation:none}
+  .story .t{font:700 12px var(--body);color:#ffe28c;margin-top:6px}
+  .rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:1240px}
+  .rule{padding:12px 14px;border-radius:9px;background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);color:var(--ink-text);box-shadow:0 4px 0 rgba(0,0,0,.45)}
+  .rule b{display:block;font:800 13.5px var(--body);margin-bottom:3px}
+  .rule span{font:500 12.5px/1.45 var(--body);color:#4e3d28}
+</style>
+</head>
+<body>
+<h1>SHEET 86 - SAMARA'S ASKS, ONE FAMILY</h1>
+<p class="lead">Built from Samara's own ask: the parchment that hangs from the band. It now drops from the shield, wears its kind's colour like sheet 64's tags, shows who is asking and where you'd go, and moves the way the download tray does. Live: press Replay.</p>
+
+<h2>1 · THE SHADOW MOMENT, TODAY AND MADE CLEAR</h2>
+<div class="row">
+  <div><p class="cap">Today</p><p class="sub">What you saw: no who, no why, appears at once.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh"></i>auth.eu.shadow.tech</div></div><div class="page"></div>
+      <div class="bandchip" style="left:150px"><div class="q">Open Shadow PC?</div><p class="m">auth.eu.shadow.tech wants to hand you over to Shadow PC.</p>
+        <div class="keys"><button class="key primary sm" type="button">Open it<span class="k">A</span></button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
+  <div><p class="cap">Made clear <button class="replay" type="button" data-play="a1">Replay</button></p><p class="sub">Drops from the shield. The tag says what kind of ask it is; the two faces say from where to where; one line says why.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh gold" id="a1s"></i>auth.eu.shadow.tech</div></div><div class="page"></div>
+      <div class="bandchip kind k-app in" id="a1"><span class="tag" data-ic="globe">Open an app</span>
+        <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">S</i></span><span class="to" data-ar></span><span class="face"><i class="bm-letter">S</i></span></span>Go back to Shadow PC?</div>
+        <p class="m"><b>You're signed in.</b> Shadow's website is handing you back to its app on your Mac.</p>
+        <div class="keys"><button class="key primary sm" type="button">Open Shadow PC<span class="k">A</span></button><button class="key sm" type="button">Stay here<span class="k">Z</span></button></div></div></div></div>
+</div>
+
+<h2>2 · THE FAMILY: SAME PARCHMENT, ITS KIND'S COLOUR, LOUDER ONLY WHEN IT MATTERS</h2>
+<div class="row">
+  <div><p class="cap">Camera and microphone</p><p class="sub">A call wants your camera. Green: something you use, nothing leaves without you.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh gold"></i>teams.microsoft.com</div></div><div class="page dark"></div>
+      <div class="bandchip kind k-cam in"><span class="tag" data-ic="camera">Camera and mic</span>
+        <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">T</i></span></span>Use your camera and microphone?</div>
+        <p class="m"><b>Teams</b> wants them for this call. They stop when you leave the call.</p>
+        <div class="keys"><button class="key primary sm" type="button">Allow for this call<span class="k">A</span></button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
+  <div><p class="cap">A program from another site <button class="replay" type="button" data-play="p1">Replay</button></p><p class="sub">Orange: it can run on your Mac. Yes takes a second to arm, so a stray click or A can't take it.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh gold"></i>github.com</div></div><div class="page"></div>
+      <div class="bandchip kind k-prog in" id="p1"><span class="tag"><img src="../../src/Shell/pages/art/browser/file_exe.png" width="15" height="15" alt="" style="image-rendering:pixelated">A program</span>
+        <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">G</i></span><span class="to" data-ar></span><span class="face"><img src="../../src/Shell/pages/art/browser/file_exe.png" width="20" height="20" alt="" style="image-rendering:pixelated"></span></span>Download Tool.dmg?</div>
+        <p class="m">It comes from <b>objects.githubusercontent.com</b>, not github.com. Only if you meant to get it.</p>
+        <div class="keys"><button class="key warn sm arming" type="button" id="p1y">Download<span class="k">A</span></button><button class="key sm" type="button">No<span class="k">Z</span></button></div></div></div></div>
+  <div><p class="cap">A pop-up was blocked <button class="replay" type="button" data-play="u1">Replay</button></p><p class="sub">Blue, the shield's own pop-up glow. A small tag peeks out for four seconds, then goes back in; the shield keeps glowing.</p>
+    <div class="win"><div class="bandbar"><div class="slotbar"><i class="sh pop"></i>accounts.example-shop.com</div></div><div class="page"></div>
+      <div class="peek in" id="u1"><span class="tag k-pop" data-ic="popup">Pop-up</span>Blocked a window this page opened<button class="key primary sm" type="button" style="margin-left:4px">Open it<span class="k">A</span></button></div></div></div>
+  <div><p class="cap">A fake site: the full stop</p><p class="sub">The only one that takes the whole page. Samara's red plate, with the real list name, and nothing wrong said about app links any more.</p>
+    <div class="win tall" style="height:390px"><div class="bandbar"><div class="slotbar"><i class="sh bad"></i>paypa1-account-check.com</div></div><div class="page dark">
+      <div class="plate"><span class="plq">STOPPED · FAKE SITE</span><h3>This page copies a real login</h3><p>paypa1-account-check.com is on a list of fake login pages. Nothing on it was loaded.</p>
+        <div class="lists"><span>PHISHING LIST</span></div>
+        <div class="keys" style="margin-top:10px"><button class="key primary sm" type="button">Go back<span class="k">A</span></button><button class="key sm" type="button">Go in anyway (hold)<span class="k">Z</span></button></div></div></div></div></div>
+</div>
+
+<h2>3 · THE MOTION, FRAME BY FRAME (SAMARA'S OWN SPRING, 220 MS IN, 160 MS OUT)</h2>
+<div class="story" id="story"></div>
+
+<h2>4 · THE RULES THE FAMILY KEEPS</h2>
+<div class="rules">
+  <div class="rule"><b>It comes from the shield</b><span>The shield is what guards the page, so every ask drops from under it, and the shield glows its kind's colour while one is open.</span></div>
+  <div class="rule"><b>Loud only when it matters</b><span>Asks hang small from the shield. Only a fake site takes the whole page. Colour means the kind, never decoration.</span></div>
+  <div class="rule"><b>Buttons at once, risky ones arm</b><span>An ask follows something you just did, so the keys are there at once (A and Z always work). Only a program waits one second to arm.</span></div>
+  <div class="rule"><b>Words hold still</b><span>The parchment unrolls in 220 ms and lands. After that nothing moves while you read; no pulsing, no bounce.</span></div>
+  <div class="rule"><b>Who, what, why</b><span>The tag says what kind; the faces say from where to where; one line says why, in plain words.</span></div>
+  <div class="rule"><b>Gone the right way</b><span>Yes: the shield gives one gold pulse as it rolls back in. No or Esc: it rolls back in, nothing else. Leaving the page takes it away.</span></div>
+</div>
+
+<script type="module">
+import { pixIcon } from '../../src/Shell/pages/pixicons.js';
+// The pixel icons in the tags, and the small arrow between the faces (Samara's own glyphs, drawn at 2x).
+for (const t of document.querySelectorAll('[data-ic]')) { const s = pixIcon(t.dataset.ic, 1.5); if (s) t.prepend(s); }
+const ARROW = '<svg width="12" height="12" viewBox="0 0 6 6" shape-rendering="crispEdges"><path fill="#6b5132" d="M0 2h3V0h1v1h1v1h1v2H5v1H4v1H3V4H0z"/></svg>';
+for (const a of document.querySelectorAll('[data-ar]')) a.innerHTML = ARROW;
+// The program's yes arms after a second.
+const arm = () => { const y = document.getElementById('p1y'); y.classList.remove('armed'); y.classList.add('arming'); void y.offsetWidth; setTimeout(() => y.classList.add('armed'), 1000); };
+arm();
+// Replay: unroll again (and pulse the shield for the made-clear one).
+const replay = (id) => { const e = document.getElementById(id); e.classList.remove('in', 'life'); void e.offsetWidth; e.classList.add('in'); if (id === 'u1') e.classList.add('life'); if (id === 'p1') arm();
+  if (id === 'a1') { const s = document.getElementById('a1s'); s.classList.remove('swell'); void s.offsetWidth; s.classList.add('swell'); } };
+for (const b of document.querySelectorAll('[data-play]')) b.addEventListener('click', () => replay(b.dataset.play));
+// The storyboard: the made-clear ask, frozen at 0, 60, 120, 170 and 220 ms of its drop.
+const story = document.getElementById('story');
+const src = document.getElementById('a1');
+// Where Samara's spring (cubic-bezier .3,1.5,.5,1) has the parchment at each moment: unrolled this far, this high.
+const AT = { 0: 0.02, 60: 0.55, 120: 1.04, 170: 1.01, 220: 1 };
+for (const ms of [0, 60, 120, 170, 220]) {
+  const f = document.createElement('div'); f.className = 'f';
+  f.innerHTML = `<div class="shrink"><div class="win"><div class="bandbar"><div class="slotbar"><i class="sh gold"></i>auth.eu.shadow.tech</div></div><div class="page"></div></div></div><div class="t">${ms} ms${ms === 220 ? ' · landed, still from here' : ms === 0 ? ' · under the shield' : ''}</div>`;
+  const p = AT[ms];
+  const c = src.cloneNode(true); c.removeAttribute('id'); c.classList.remove('in'); c.classList.add('frz');
+  c.style.clipPath = `inset(0 0 ${Math.max(0, (1 - p) * 100).toFixed(1)}% 0)`; c.style.transform = `translateY(${(-8 * (1 - p)).toFixed(1)}px)`;
+  f.querySelector('.win').append(c); story.append(f);
+}
+</script>
+</body>
+</html>
