@@ -35,6 +35,15 @@ app.whenReady().then(async () => {
   const wc = b.cur().view.webContents;
   const look = await wc.mainFrame.executeJavaScript(`({ url: location.href, ua: navigator.userAgent, platform: navigator.platform, uad: navigator.userAgentData ? { brands: navigator.userAgentData.brands, platform: navigator.userAgentData.platform } : null, webdriver: navigator.webdriver, frames: [...document.querySelectorAll('iframe')].map(f => f.src.slice(0, 100)), title: document.title })`).catch((e: Error) => 'err ' + e.message);
   console.log('PAGE ' + JSON.stringify(look, null, 1));
+  // The clues bot checks compare (headless and automation give themselves away by these not agreeing).
+  const clues = await wc.mainFrame.executeJavaScript(`(async () => {
+    const q = async (n) => { try { return (await navigator.permissions.query({ name: n })).state; } catch (e) { return 'err'; } };
+    const gl = (() => { try { const c = document.createElement('canvas').getContext('webgl'); const d = c.getExtension('WEBGL_debug_renderer_info'); return [c.getParameter(d.UNMASKED_VENDOR_WEBGL), c.getParameter(d.UNMASKED_RENDERER_WEBGL)]; } catch { return null; } })();
+    return { notification: typeof Notification !== 'undefined' ? Notification.permission : 'none', permNotifications: await q('notifications'), permGeo: await q('geolocation'), permCamera: await q('camera'), permClipboard: await q('clipboard-read'), permStorage: await q('storage-access'),
+      chrome: typeof window.chrome === 'object' ? Object.keys(window.chrome) : 'none', plugins: navigator.plugins.length, mimes: navigator.mimeTypes.length, pdfViewer: navigator.pdfViewerEnabled,
+      languages: navigator.languages, cores: navigator.hardwareConcurrency, memory: navigator.deviceMemory, gl, vendor: navigator.vendor, cookies: navigator.cookieEnabled, outer: [outerWidth, outerHeight, innerWidth, innerHeight], screen: [screen.width, screen.height] };
+  })()`).catch((e: Error) => 'err ' + e.message);
+  console.log('CLUES ' + JSON.stringify(clues));
   console.log('FRAMES ' + wc.mainFrame.framesInSubtree.map((f: any) => f.url.slice(0, 100)).join(' | '));
   console.log('REQUESTS\n' + [...new Set(seen)].slice(0, 25).join('\n'));
   console.log('ERRORS\n' + [...new Set(blocked)].slice(0, 20).join('\n'));

@@ -305,7 +305,12 @@ const CHROME_UA = (v: string) => {
  * it is what Google's own 2020 rules for browsers ask: no pretending to be Chrome. Everywhere else, plain Chrome.
  * research_notes/Google sign-in in Aang browser.
  */
-const GOOGLE_AUTH = /^https:\/\/accounts\.(google|youtube)\.com(\/|$)/i;
+/**
+ * Sites that get the honest name too (2026-10-25, his report: Shadow's Cloudflare "are you a bot" box reloaded forever).
+ * Claiming Chrome while not having all of Chrome's own parts reads as a bot to Cloudflare's check; Electron's honest
+ * name is a browser it knows. Google's sign-in, Shadow, and the Cloudflare check itself.
+ */
+const HONEST_SITES = /^https:\/\/(accounts\.(google|youtube)\.com|([a-z0-9-]+\.)*shadow\.tech|challenges\.cloudflare\.com)(\/|$)/i;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
 const GESTURE_MS = 1000;
 /** His rule (2026-10-20): a page may start playing by itself only this soon after he asked for it (a slow redirect included). */
@@ -600,7 +605,7 @@ export class AangBrowser {
     wc.on('did-start-navigation', (d) => {
       const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
       if (!x.isMainFrame || x.isSameDocument) return;
-      wc.setUserAgent(GOOGLE_AUTH.test(x.url) ? this.honestUA : CHROME_UA(process.versions.chrome));
+      wc.setUserAgent(HONEST_SITES.test(x.url) ? this.honestUA : CHROME_UA(process.versions.chrome));
     });
   }
   /** 6.23: his logins from Bitwarden, filled when he clicks the key. */
@@ -737,7 +742,7 @@ export class AangBrowser {
     // Plain Chrome, everywhere in his browsing session, except Google's sign-in pages (above).
     this.honestUA = this.ses.getUserAgent();
     this.ses.setUserAgent(CHROME_UA(process.versions.chrome));
-    this.ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*'] },
+    this.ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*', 'https://*.shadow.tech/*', 'https://challenges.cloudflare.com/*'] },
       (d, cb) => cb({ requestHeaders: { ...d.requestHeaders, 'User-Agent': this.honestUA } }));
     try {
       if (existsSync(this.marksFile)) {
@@ -2494,7 +2499,7 @@ export class AangBrowser {
     const pwc = pw.webContents;
     softEdge(pw);
     this.nameFor(pwc);
-    try { if (GOOGLE_AUTH.test(pwc.getURL())) pwc.setUserAgent(this.honestUA); } catch { /* not yet */ }
+    try { if (HONEST_SITES.test(pwc.getURL())) pwc.setUserAgent(this.honestUA); } catch { /* not yet */ }
     const name = () => { try { const u = new URL(pwc.getURL()); pw.setTitle(`${u.protocol === 'https:' ? '' : 'NOT SECURE  '}${u.hostname}  -  ${pwc.getTitle()}`.slice(0, 200)); } catch { /* not yet */ } };
     pwc.on('page-title-updated', name);
     pwc.on('did-navigate', name);
