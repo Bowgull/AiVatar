@@ -1217,3 +1217,6 @@ html.secret .slot .smask{cursor:pointer}
 .winkeys{top:12px;height:calc(100% - 12px)}
 /* Sheet 87: a secret tab never leaves the secret window, so no pop-out and no Send to PC keys on its rows. */
 html.secret .drawer .tp .pip{display:none}
+/* 2026-10-25: on the Mac the band's wood is Samara's own, not the system's drag area (browser.js: a hand-made drag, and
+   the double-click that the drag area kept for itself). Windows keeps its own drag area and double-click. */
+html.mac .band{-webkit-app-region:no-drag}

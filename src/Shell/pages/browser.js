@@ -244,6 +244,8 @@ function paintStash() {
     return row;
   }));
 }
+/** What on the band is not its wood: its keys, the address, its menus and asks. */
+const BAND_KEYS = 'button, input, .slot, .winkeys, .menu, .suggest, .bandchip, .dltray, .rnd';
 // His own window buttons. Double-clicking the band still maximises (Windows does that for the drag area).
 el('wmin').addEventListener('click', () => window.aang?.browserAct?.('winmin'));
 el('wmax').addEventListener('click', () => window.aang?.browserAct?.('winmax'));
@@ -266,9 +268,31 @@ el('wclose').addEventListener('click', () => window.aang?.browserAct?.('winclose
 // On the Mac a double-click on the wood (anywhere on the band but its keys and the address) does what the Mac is set to;
 // Windows already does it for the drag area by itself.
 el('band').addEventListener('dblclick', (e) => {
-  if (window.aang?.platform !== 'darwin' || e.target.closest('button, input, .slot, .winkeys, .menu, .suggest, .bandchip')) return;
+  if (window.aang?.platform !== 'darwin' || e.target.closest(BAND_KEYS)) return;
   window.aang?.browserAct?.('titledbl');
 });
+// 2026-10-25 (his "this doesn't work"): on the Mac the band's wood was the system's drag area, which keeps every click
+// for itself, so the double-click above never arrived. The wood is Samara's own now (browser.css html.mac): pressed and
+// moved more than a few pixels it carries the window, the same way as Option + drag; a double-click toggles the size.
+if (window.aang?.platform === 'darwin') {
+  document.documentElement.classList.add('mac');
+  el('band').addEventListener('pointerdown', (e) => {
+    if (e.altKey || e.button !== 0 || e.detail > 1 || e.target.closest(BAND_KEYS)) return;
+    const t = e.target instanceof Element ? e.target : el('band'), x0 = e.screenX, y0 = e.screenY;
+    try { t.setPointerCapture(e.pointerId); } catch { /* still follows while over the band */ }
+    let moving = false;
+    const move = (m) => {
+      if (!moving && Math.hypot(m.screenX - x0, m.screenY - y0) < 4) return;
+      if (!moving) { moving = true; document.documentElement.classList.add('windrag'); window.aang?.browserWinDrag?.({ phase: 'start', x: x0, y: y0 }); }
+      window.aang?.browserWinDrag?.({ phase: 'move', x: m.screenX, y: m.screenY });
+    };
+    const end = (m) => {
+      if (moving) { window.aang?.browserWinDrag?.({ phase: 'end', x: m.screenX, y: m.screenY }); document.documentElement.classList.remove('windrag'); }
+      t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', end); t.removeEventListener('pointercancel', end);
+    };
+    t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+  });
+}
 el('vkey').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.(afMode === 'save' ? 'afsaveask' : 'vault'); });
 // ---- Sheet 77, autofill in the address bar: the padlock while Bitwarden needs his PIN, four lights as he types it (the
 // keys go to Samara, never to the page), the bloom into the key when it opens, the glow when a new login waits.
