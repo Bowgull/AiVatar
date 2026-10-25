@@ -14,7 +14,10 @@
      private window, behind his PIN, to come back to. Not wanted: the Touch ID lock, the fire button, screenshot hiding.
      v6 (his "I should go to open my tabs and get prompted on screen for my pin"): the stash no longer hangs from the mask.
      It is a third panel in Samara's REAL tab list, HIDDEN, locked; opening it asks for the PIN on screen, then the hidden
-     tabs are rows in that panel. Pictures 2 to 4 are Samara itself (test/electron/private-drawer-shot.ts), plain test tabs. -->
+     tabs are rows in that panel. Pictures 2 to 4 are Samara itself (test/electron/private-drawer-shot.ts), plain test tabs.
+     v7 (his "if i open tabs at all it triggers the password"): the whole tab list is behind the PIN, not one panel. Opening
+     the list in a private window asks first; then every tab shows, the hidden ones kept from last time included. The PIN is
+     its own, 4 to 8 long, and may match the autofill one (his call). -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
   html,body{background:#17110c;margin:0}
@@ -46,29 +49,25 @@
 </head>
 <body>
 <h1>SHEET 87 - THE PRIVATE WINDOW</h1>
-<p class="lead">Samara's real top bar, at night. The mask sits before the shield at about the shield's size. Nothing you do here is kept in Samara, pop-ups and ads are blocked hard, and your hidden tabs wait, locked, in your tab list.</p>
+<p class="lead">Samara's real top bar, at night. The mask sits before the shield at about the shield's size. Nothing you do here is kept in Samara, pop-ups and ads are blocked hard, and your tab list opens only with your PIN.</p>
 
 <h2>1 · THE PRIVATE WINDOW</h2>
 <div class="frame"><iframe src="../../src/Shell/pages/browser.html" data-night data-url="search.brave.com"></iframe></div>
 
-<h2>2 · YOUR TAB LIST: THE HIDDEN TABS, LOCKED</h2>
-<p class="sub">A third panel under your tabs. Only private windows have it.</p>
-<div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><img class="list" src="art/sheet87-list-locked.png" alt=""></div>
+<h2>2 · OPEN YOUR TAB LIST: YOUR PIN, ON SCREEN FIRST</h2>
+<div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><div class="dim"></div>
+  <div class="pinask" style="left:50%"><div data-mask="3"></div><div class="lights"><i class="f"></i><i class="f"></i><i></i><i></i></div></div></div>
 
-<h2>3 · CLICK IT: YOUR PIN, ON SCREEN</h2>
-<div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><img class="list" src="art/sheet87-list-locked.png" alt=""><div class="dim"></div>
-  <div class="pinask"><div data-mask="3"></div><div class="lights"><i class="f"></i><i class="f"></i><i></i><i></i></div></div></div>
-
-<h2>4 · OPEN: THE HIDDEN TABS, RIGHT THERE IN THE LIST</h2>
+<h2>3 · RIGHT PIN: ALL YOUR TABS, THE HIDDEN ONES TOO</h2>
 <div class="win"><img src="art/sheet87-frame.png" width="1100" height="700" alt=""><img class="list" src="art/sheet87-list-open.png" alt=""></div>
 <ul class="steps">
-  <li>The lights fill gold as you type. As many lights as your PIN is long, and it opens on the last one.</li>
-  <li>A wrong PIN: the lights shake once and empty, the same shake as Bitwarden's.</li>
-  <li>Right PIN: the box drops away, the padlock's shackle lifts, and the hidden tabs slide into the panel.</li>
-  <li>It locks again when the private window closes. Esc or a click outside closes the box.</li>
+  <li>Its own PIN, 4 to 8 long. It can be the same as your autofill PIN or different. You set it the first time, and change it in Settings.</li>
+  <li>The lights fill gold as you type, and it opens on the last one. A wrong PIN shakes the lights and empties them.</li>
+  <li>Hidden tabs are the ones you kept. They come back next time; everything else is gone when the window closes.</li>
+  <li>The list locks again when the private window closes. Esc or a click outside closes the box.</li>
 </ul>
 
-<h2>5 · THE MASK, 8 TIMES BIGGER</h2>
+<h2>4 · THE MASK, 8 TIMES BIGGER</h2>
 <div class="maskbig" data-maskbig></div>
 
 <script>
