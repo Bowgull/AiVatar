@@ -54,6 +54,8 @@ app.whenReady().then(async () => {
     Object.assign(m.style, { display: 'grid', placeItems: 'center', paddingRight: '9px', marginRight: '1px', position: 'relative', flex: 'none' });
     const n = document.createElement('i'); Object.assign(n.style, { position: 'absolute', right: '0', top: '50%', width: '2px', height: '16px', marginTop: '-8px', background: '#05030c' }); m.append(n); slot.prepend(m); return 1; })()`);
   await tw.executeJavaScript(NIGHT);
+  // v8 (his "it ONLY opens to these tabs"): a private window's list has no bookmarks and none of his normal tabs.
+  await tw.executeJavaScript(`document.querySelector('.shelf-bk')?.remove(); 1`);
   // The hidden tabs: a third panel, the Tabs panel's own frame. Locked first.
   const panel = (open: boolean) => `(() => {
     document.getElementById('hidpanel')?.remove();
