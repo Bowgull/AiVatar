@@ -336,6 +336,8 @@ const GESTURE_MS = 1000;
 const SIGN_IN = /(^|\.)(accounts\.google\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com|github\.com|discord\.com|id\.twitch\.tv|facebook\.com|x\.com|twitter\.com|steamcommunity\.com|paypal\.com|accounts\.spotify\.com|auth0\.com|okta\.com)$/i;
 /** Sheet 87, his pick: the secret window locks after 15 minutes without a key or a click in it. */
 const SECRET_IDLE_MS = 15 * 60_000;
+/** Sheet 87 v12, his pick: what the secret window shows while everything is put away (casual; its search stays Yandex). */
+const SECRET_COVER = 'https://search.brave.com/';
 /**
  * Sheet 87, his pick for a forgotten secret PIN: his Mac password, asked in the Mac's own box (Samara never sees it).
  * Yes only when the Mac says so.
@@ -567,6 +569,12 @@ export class AangBrowser {
   private locked = false;
   /** Sheet 87: the PIN box is over the page. */
   private pinOpen = false;
+  /** Sheet 87 v12: what the mask put away, as it was (every page asleep, each video's spot kept), until his PIN. */
+  private away: { tabs: Tab[]; trails: Trail[]; active: number | null } | null = null;
+  /** Sheet 87 v12: put away behind the cover: nothing done there is kept, not even in its history. */
+  private get covered(): boolean { return this.locked && this.away !== null; }
+  /** Sheet 87 v12: the Brave Search page shown while it is put away (dropped again at his PIN if he did not use it). */
+  private coverId: number | null = null;
   /** Sheet 87: where the frame asked the list to open, kept while the PIN box is up. */
   private pinAt: { x?: unknown; y?: unknown } | undefined;
   /** Sheet 87: his Mac password said yes, so a new PIN may replace the forgotten one. */
@@ -1629,15 +1637,15 @@ export class AangBrowser {
     if (!seal || !this.pinOpen) return;
     const pin = typeof a.pin === 'string' ? a.pin : '';
     // Put away without his PIN: the band's handle goes back to closed.
-    if (a.act === 'cancel') { this.pinClose(); this.win?.webContents.send('browser:tray', { open: false }); return; }
+    if (a.act === 'cancel') { this.pinReset = false; this.pinClose(); this.win?.webContents.send('browser:tray', { open: false }); return; }
     if (a.act === 'reset') { if (!seal.has() && await macPassword()) { this.pinReset = true; this.pinAsk('new'); } return; }
     if (!pinOk(pin)) return;
     if (a.act === 'set') {
-      if (seal.has() || !(this.pinReset || !existsSync(this.secretMade))) return;
+      if (!(this.pinReset || (!seal.has() && !existsSync(this.secretMade)))) return;
       if (!await seal.seal(pin, 'secret')) { this.note('Samara could not keep your PIN safely on this Mac.'); return; }
       try { writeFileAtomic(this.secretMade, JSON.stringify({ at: new Date().toISOString() })); } catch { /* the seal is what counts */ }
       this.pinReset = false;
-      await this.unlock();
+      if (this.locked) await this.unlock(); else this.pinClose();
       return;
     }
     if (a.act !== 'try' || !this.locked) return;
@@ -1656,31 +1664,77 @@ export class AangBrowser {
     // They reopen in the kept session, so from now on they are logged in.
     for (const t of before) { if (!t.lent) this.closeView(t); t.trail = null; }
     this.ses = this.keptSes;
-    this.trails = [];
     const was = this.active;
-    this.restore();
+    // The cover he did not use goes; a page he went to from it stays, like any page opened before the PIN.
+    const away = this.away;
+    this.away = null; this.coverId = null;
+    // His pick: the cover starts fresh every time, so whatever was done on it goes; pages opened before his first PIN
+    // (a fresh ⇧⌘N, nothing put away) join his tabs.
+    const cover = away ? before : [];
+    if (away) {
+      // Put away by the mask: everything back exactly as it was, asleep, so nothing plays until he presses play.
+      this.tabs = [...away.tabs, ...before]; this.trails = away.trails; this.restored = true;
+    } else { this.trails = []; this.restore(); }
     for (const [t, name] of trailOf) if (name) t.trail = this.addTrail(name);
+    for (const t of cover) this.close(t.id, false);
     // The blank night page goes once there is something else.
     for (const t of this.tabs.filter((x) => x.internal === 'night')) if (this.tabs.length > 1) this.close(t.id, false);
-    const keep = this.tabs.find((t) => t.id === was && !t.internal);
-    if (keep) this.activate(keep.id); else if (this.active !== null) this.activate(this.active);
+    const mine = before.find((t) => t.id === was && !cover.includes(t) && !t.internal && this.tabs.includes(t));
+    const back = away?.active != null ? this.tabs.find((t) => t.id === away.active) : undefined;
+    const go = mine ?? back ?? this.tabs.find((t) => t.id === this.active) ?? this.tabs[0];
+    if (go) this.activate(go.id);
     this.changed();
-    this.tray(true, this.pinAt);
+    if (this.pinAt) this.tray(true, this.pinAt);
   }
-  /** Sheet 87: everything put away (the Mac sleeping or locking, 15 minutes away). The window stays, on its night page. */
-  async lock(): Promise<void> {
+  /**
+   * Sheet 87 v12: everything put away: one click on the mask, the Mac sleeping or locking, 15 minutes away. It goes from
+   * the screen at once; every page sleeps where it is (each video's spot kept, nothing playing) and Brave Search shows,
+   * logged out. His PIN brings it all back exactly as it was, paused.
+   */
+  async lock(cover = true): Promise<void> {
     if (!this.o.secret || this.locked) return;
-    await this.snapshot(true);
-    this.visits.flush();
+    this.locked = true;
     this.tray(false);
     this.pinClose();
-    for (const t of this.tabs) if (!t.lent) this.closeView(t);
+    // Off the screen and silent first; the rest takes a moment.
+    const front = this.cur();
+    if (front?.view) front.view.setVisible(false);
+    for (const t of this.tabs) try { t.view?.webContents.setAudioMuted(true); } catch { /* gone */ }
+    this.restored = true;                       // the snapshot below still takes his tabs
+    await this.snapshot(true);
+    this.visits.flush();
+    const was = this.active;
+    await Promise.all(this.tabs.filter((t) => t.view && !t.internal && !t.lent).map((t) => this.rest(t).catch(() => this.closeView(t))));
+    for (const t of this.tabs) { if (t.view) this.closeView(t); t.muted = false; }
+    this.away = { tabs: this.tabs.filter((t) => !t.internal && t.id !== this.coverId), trails: this.trails, active: was };
     this.tabs = []; this.trails = []; this.active = null;
     for (const p of this.panes) p.active = null;
     this.shut();
     void this.ses.clearStorageData().catch(() => { /* nothing kept there anyway */ });
-    if (this.alive(this.pane)) this.night();
+    if (this.alive(this.pane)) {
+      if (cover) { const id = this.newTab(SECRET_COVER); this.coverId = id; } else this.night();
+    }
     this.changed();
+  }
+  /**
+   * Sheet 87 v12 (his picks): the mask in the band. Open: a click puts it all away behind Brave Search. Put away: a double
+   * click and his PIN bring it all back. Just opened (⇧⌘N): a click asks his PIN. Held: his Mac password, then a new PIN.
+   */
+  async secretMask(act: 'one' | 'two' | 'hold'): Promise<void> {
+    if (!this.o.secret) return;
+    this.lastInput = Date.now();
+    if (act === 'hold') {
+      this.pinClose();
+      if (!await macPassword()) return;
+      this.pinReset = true; this.pinAt = undefined;
+      this.pinAsk('new');
+      return;
+    }
+    if (!this.locked) { await this.lock(true); return; }
+    if (this.away && act !== 'two') return;            // behind the cover only a double click asks (never by accident)
+    if (this.pinOpen) { this.pinClose(); return; }
+    this.pinAt = undefined;
+    this.pinAsk();
   }
 
   private raiseTray(): void {
@@ -1796,7 +1850,7 @@ export class AangBrowser {
       if (this.menu && !this.menu.isDestroyed()) this.menu.destroy();
       this.vault.lock();                          // closing the browser locks the vault
       // Sheet 87: closing the secret window locks it; whatever was opened before its PIN is thrown away.
-      if (this.o.secret) { this.shut(); void this.ses.clearStorageData().catch(() => { /* nothing kept there */ }); }
+      if (this.o.secret) { this.away = null; this.coverId = null; this.shut(); void this.ses.clearStorageData().catch(() => { /* nothing kept there */ }); }
       this.mediaOk.clear();                       // and ends every call's camera and microphone
       this.shareHosts.clear();
       this.callNow(false);
@@ -2207,7 +2261,7 @@ export class AangBrowser {
     });
     on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
-      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock) this.visits.add(u, '');
+      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock && !this.covered) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
       this.changed();
@@ -2216,7 +2270,7 @@ export class AangBrowser {
       // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
       // video plays in its own window, the show goes there and this tab steps back to where it was.
       if (main && /^https:\/\/(www\.)?netflix\.com\/watch\//i.test(u) && this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; }
-      tab.url = u; if (main && !tab.mock) this.visits.add(u, wc.getTitle()); this.changed();
+      tab.url = u; if (main && !tab.mock && !this.covered) this.visits.add(u, wc.getTitle()); this.changed();
     });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
@@ -2272,7 +2326,7 @@ export class AangBrowser {
     tab.blocked = null;
     const to = this.secured(tab, tab.url);
     if (state && to === tab.url && !tab.mock) {
-      wc.navigationHistory.restore({ index: 0, entries: [{ url: tab.url, title: tab.title, pageState: state }] }).catch(() => { void wc.loadURL(to).catch(() => {}); });
+      wc.navigationHistory.restore({ index: 0, entries: [{ url: tab.url, title: tab.title, pageState: state }] }).catch(() => { if (!wc.isDestroyed()) void wc.loadURL(to).catch(() => {}); });
       return;
     }
     if (back > 0) {

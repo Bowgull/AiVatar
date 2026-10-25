@@ -76,6 +76,7 @@ app.whenReady().then(async () => {
   if (p2) writeFileSync(`${out}-open-page.png`, p2.png);
   console.log('TRAY ' + JSON.stringify(s.trayV.getBounds()));
   const tw = s.trayV.webContents;
+  console.log('ICON ' + JSON.stringify(s.cur()?.favicon) + ' ROW ' + await tw.executeJavaScript(`document.querySelector('.tp.on')?.outerHTML.slice(0, 400)`));
   console.log('RAIL ' + await tw.executeJavaScript(`(() => { const h = document.querySelector('.railhandle'); const c = getComputedStyle(h); const r = h.getBoundingClientRect(); return JSON.stringify({ cls: document.documentElement.className, body: document.body.className, d: c.display, v: c.visibility, o: c.opacity, t: c.transform, r: [r.x, r.y, r.width, r.height] }); })()`));
   writeFileSync(`${out}-list-now.png`, (await tw.capturePage()).toPNG());
   for (const [k, css] of Object.entries(LOOKS)) {

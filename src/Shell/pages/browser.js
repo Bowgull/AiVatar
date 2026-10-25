@@ -864,15 +864,21 @@ function buildRow(t, kid) {
     row.tabIndex = 0;
     const ph = t.phase ?? (t.loading ? 'loading' : 'idle');
     if (ph !== 'idle' && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' + (ph === 'waiting' ? ' wait' : '') }));
-    else if (ringWas.get(t.id) && ringWas.get(t.id) !== 'idle' && !t.crashed) { const b = Object.assign(document.createElement('i'), { className: 'arc burst' }); row.append(b); setTimeout(() => b.remove(), 400); }
+    else {
+    // The ring's last flash as the page lands, then the icon (2026-10-25: the flash had taken the icon's place for good,
+    // so a tab that finished loading as its row was drawn showed no icon at all).
+    const burst = ringWas.get(t.id) && ringWas.get(t.id) !== 'idle' && !t.crashed;
     // His pick (2026-10-21): every mockup comes from Claude, so it wears Claude's icon, the same one as the trail's head.
-    else if (t.mock) row.append(Object.assign(document.createElement('img'), { className: 'fi claude', alt: '', src: 'art/claude-icon.png' }));
+    if (t.mock) row.append(Object.assign(document.createElement('img'), { className: 'fi claude', alt: '', src: 'art/claude-icon.png' }));
     // His ask (2026-10-23): Samara's own pages (Settings, Things) wear Samara's lit lantern, its hand-drawn 24 px art at
     // exactly 24 px (the 16 px one was "miniature" beside the sites' icons).
     else if (t.internal) row.append(Object.assign(document.createElement('img'), { className: 'fi samara', alt: '', src: 'art/samara/samara-lit-24.png' }));
     else if (t.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = t.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.replaceWith(tileFor(t)); row.append(i); }
     // Sheet 43d: every tab has its icon slot; a site with no icon gets its first letter, carved, never an empty gap.
     else row.append(tileFor(t));
+    // The flash stands in the icon's slot for its 0.4 s, then the icon is back in the same place.
+    if (burst) { const icon = row.lastElementChild, b = Object.assign(document.createElement('i'), { className: 'arc burst' }); icon.replaceWith(b); setTimeout(() => b.replaceWith(icon), 400); }
+    }
     const title = document.createElement('span'); title.className = 't'; title.textContent = t.title || t.url;
     row.append(title);
     if (t.crashed) { const c = document.createElement('span'); c.className = 'cr'; c.textContent = 'CRASHED'; row.append(c); }
@@ -2445,12 +2451,15 @@ function paintHist(list) {
  * Mac password) he picks one: 4 to 8 numbers, Enter, then the same again. Esc or a click beside it closes it.
  */
 {
-  const spin = el('spin'), box = el('pinask'), lights = el('spinlights'), mac = el('spinmac');
+  const spin = el('spin'), box = el('pinask'), lights = el('spinlights'), mac = el('spinmac'), word = el('spinword');
   let mode = 'off', len = 0, typed = '', first = '';
   const paint = () => {
     const n = mode === 'enter' ? len : mode === 'again' ? first.length : Math.min(8, Math.max(4, typed.length + (typed.length < 8 ? 1 : 0)));
     lights.hidden = mode === 'gone';
     mac.hidden = mode !== 'gone';
+    // Sheet 87 v12: the box says which step only while he picks a PIN; his everyday PIN has no words at all.
+    word.hidden = mode !== 'new' && mode !== 'again';
+    word.textContent = mode === 'again' ? 'AGAIN' : 'NEW PIN';
     lights.replaceChildren(...Array.from({ length: mode === 'gone' ? 0 : n }, (_, i) => Object.assign(document.createElement('i'), { className: i < typed.length ? 'f' : '' })));
   };
   const shake = () => { lights.classList.remove('shake'); void lights.offsetWidth; lights.classList.add('shake'); };
@@ -2484,4 +2493,18 @@ function paintHist(list) {
   }, true);
   spin.addEventListener('mousedown', (e) => { if (!box.contains(e.target)) close(true); });
   mac.addEventListener('click', () => window.aang?.browserSecretPin?.({ act: 'reset' }));
+}
+
+// Sheet 87 v12 (his "the entire thing should work from clicking the mask"): a click on the mask puts everything away (or,
+// freshly opened, asks his PIN); behind the cover a double click asks his PIN; held, a new PIN (his Mac password first).
+// One click waits a moment so a double click is never taken as one.
+{
+  const m = el('smask');
+  let t = 0, hold = 0, held = false;
+  // Held for most of a second (his pick): a new PIN. The click that ends a hold does nothing else.
+  m?.addEventListener('mousedown', (e) => { if (e.button !== 0) return; held = false; clearTimeout(hold); hold = setTimeout(() => { held = true; clearTimeout(t); window.aang?.browserSecretMask?.('hold'); }, 900); });
+  const letGo = () => clearTimeout(hold);
+  m?.addEventListener('mouseup', letGo); m?.addEventListener('mouseleave', letGo);
+  m?.addEventListener('click', (e) => { e.stopPropagation(); if (held) return; clearTimeout(t); t = setTimeout(() => window.aang?.browserSecretMask?.('one'), 240); });
+  m?.addEventListener('dblclick', (e) => { e.stopPropagation(); if (held) return; clearTimeout(t); window.aang?.browserSecretMask?.('two'); });
 }
