@@ -1257,3 +1257,13 @@ html.secret .tabmenu button{color:#e4eaff}
 .bandchip.kind.in{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both}
 @keyframes unroll{from{clip-path:inset(0 0 100% 0);transform:translateY(-8px)}to{clip-path:inset(0 0 0 0);transform:none}}
 @media (prefers-reduced-motion:reduce){.slot .tvkey.live,.bandchip.kind.in{animation:none}}
+/* 2026-10-25 (his ask): tabs opened from links while the list is closed, counted under the tab arrow: a small carved
+   gold tag, +1, +2..., gone when he opens the list. It drops in with Samara's spring. */
+.hnd{position:relative}
+.hnd .newn{position:absolute;left:3px;top:186px;min-width:22px;box-sizing:border-box;padding:2px 4px 1px;border-radius:5px;text-align:center;pointer-events:none;
+  font:400 10px var(--label);color:#2a1c00;background:linear-gradient(180deg,#FFE28C,#FFC43C);border:2px solid var(--outline);box-shadow:0 2px 0 rgba(0,0,0,.45);
+  animation:newn .22s cubic-bezier(.3,1.5,.5,1)}
+.hnd .newn[hidden]{display:none}
+@keyframes newn{from{transform:translateY(-6px) scale(.6);opacity:0}to{transform:none;opacity:1}}
+html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:#141a38}
+@media (prefers-reduced-motion:reduce){.hnd .newn{animation:none}}
