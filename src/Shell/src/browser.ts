@@ -377,7 +377,7 @@ const CHROME_UA = (v: string) => {
 // Netflix too (2026-10-25, his "why is Netflix opening in another window"): Samara's video signature checked valid
 // (streaming, 1361 days), so the E100 of 2026-10-14 points at the name: castLabs' own tracker (electron-releases #199)
 // has a custom name breaking Netflix's DRM and the untouched name playing; castLabs' player, which plays it here, sends its own.
-const HONEST_SITES = /^https:\/\/(accounts\.(google|youtube)\.com|([a-z0-9-]+\.)*shadow\.tech|challenges\.cloudflare\.com|([a-z0-9-]+\.)*netflix\.com)(:\d+)?(\/|$)/i;
+const HONEST_SITES = /^https:\/\/(accounts\.(google|youtube)\.com|([a-z0-9-]+\.)*shadow\.tech|challenges\.cloudflare\.com|([a-z0-9-]+\.)*netflix\.com|([a-z0-9-]+\.)*yandex\.(com|ru|by|kz|com\.tr)|([a-z0-9-]+\.)*ya\.ru)(:\d+)?(\/|$)/i;
 /** Netflix's own error codes on its player page: the playback was refused here (E100, M7xxx-xxxx, F7xxx). */
 const NETFLIX_REFUSED = /\b(E100|tvq-pb-101|M7\d{3}-\d{4}|F7\d{3}(-\d{1,4})?)\b/;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
@@ -923,7 +923,9 @@ export class AangBrowser {
     // Plain Chrome, everywhere in his browsing session, except Google's sign-in pages (above).
     ses.setUserAgent(CHROME_UA(process.versions.chrome));
     ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*', 'https://*.shadow.tech/*', 'https://challenges.cloudflare.com/*',
-      'https://netflix.com/*', 'https://*.netflix.com/*', 'https://*.nflxvideo.net/*', 'https://*.nflxext.com/*', 'https://*.nflxso.net/*'] },
+      'https://netflix.com/*', 'https://*.netflix.com/*', 'https://*.nflxvideo.net/*', 'https://*.nflxext.com/*', 'https://*.nflxso.net/*',
+      // Yandex too (2026-10-25, his "why can't I search in the secret window": every search came back as Yandex's robot check)
+      'https://yandex.com/*', 'https://*.yandex.com/*', 'https://yandex.ru/*', 'https://*.yandex.ru/*', 'https://ya.ru/*', 'https://*.yandex.net/*'] },
       (d, cb) => cb({ requestHeaders: { ...d.requestHeaders, 'User-Agent': this.honestUA } }));
     denyPermissions(ses);
     this.permissions();
