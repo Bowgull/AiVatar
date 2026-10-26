@@ -448,6 +448,15 @@ function mockArrived(m) {
   if ((first && Date.now() - Number(m.at) > 15_000) || drawerOpen) return;
   breathe(true);
 }
+let newSeen = 0;
+function newTabsArrived(n) {
+  if (SOLO) return;
+  const tag = el('newn');
+  if (n > newSeen && !drawerOpen) breathe(true);
+  newSeen = n;
+  tag.hidden = n < 1;
+  tag.textContent = '+' + n;
+}
 function breathe(on) {
   const k = el('drawerkey');
   if (!on) { k.classList.remove('breathe'); return; }
@@ -1340,6 +1349,8 @@ window.aang?.onBrowserTabs?.((s) => {
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
   mockArrived(s.mockNew);
+  // New tabs opened from links while the list was closed: the arrow breathes and a small +1 sits under it (his ask).
+  newTabsArrived(Number(s.newTabs) || 0);
   // Where he asked to go shows at once, dimmed, until the page arrives (only for his own typed or opened addresses).
   // Watching one of Aang's pages: the slot shows his page's address, and who is driving.
   // A mockup says what it is (its name in the trail), not the number address of the page server it comes from.

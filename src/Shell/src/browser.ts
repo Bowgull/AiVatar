@@ -92,7 +92,7 @@ const DARK_THEME = '{brightness:100,contrast:95,sepia:5}';
 // A site that turns dark only once it has loaded (2026-10-23, his Bitwarden vault went black after logging in: its own
 // dark theme under Dark Reader's): the page's own dark marks (a "dark" class or theme on <html> or <body>, or a
 // dark-only color-scheme) are watched, and Dark Reader steps aside the moment they appear.
-export const ALREADY_DARK = "const __aangDarkMark=()=>{try{const els=[document.documentElement,document.body].filter(Boolean);for(const e of els){for(const c of e.classList)if(/dark/i.test(c)&&!/darkreader|light/i.test(c))return true;for(const n of ['data-theme','data-bs-theme','data-color-mode','data-mode','theme'])if(/dark/i.test(e.getAttribute(n)||''))return true;}return (document.querySelector('meta[name=color-scheme]')?.content||'').trim().toLowerCase()==='dark';}catch{return false;}};const __aangWatchDark=()=>{try{const mo=new MutationObserver(()=>{if(__aangDarkMark()){mo.disconnect();DarkReader.disable();}});mo.observe(document.documentElement,{attributes:true,childList:true});if(document.body)mo.observe(document.body,{attributes:true});}catch{}};const __aangAlreadyDark=()=>{try{if(__aangDarkMark())return true;const lum=(c)=>{const m=/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/.exec(c||'');if(!m||(m[4]!==undefined&&+m[4]<0.5))return null;return(0.2126*m[1]+0.7152*m[2]+0.0722*m[3])/255;};const b=document.body?lum(getComputedStyle(document.body).backgroundColor):null;const h=lum(getComputedStyle(document.documentElement).backgroundColor);const v=b??h;if(v===null)return getComputedStyle(document.documentElement).colorScheme.includes('dark');return v<0.25;}catch{return false;}};";
+export const ALREADY_DARK = "var __aangDarkMark=()=>{try{const els=[document.documentElement,document.body].filter(Boolean);for(const e of els){for(const c of e.classList)if(/dark/i.test(c)&&!/darkreader|light/i.test(c))return true;for(const n of ['data-theme','data-bs-theme','data-color-mode','data-mode','theme'])if(/dark/i.test(e.getAttribute(n)||''))return true;}return (document.querySelector('meta[name=color-scheme]')?.content||'').trim().toLowerCase()==='dark';}catch{return false;}};var __aangWatchDark=()=>{try{const mo=new MutationObserver(()=>{if(__aangDarkMark()){mo.disconnect();DarkReader.disable();}});mo.observe(document.documentElement,{attributes:true,childList:true});if(document.body)mo.observe(document.body,{attributes:true});}catch{}};var __aangAlreadyDark=()=>{try{if(__aangDarkMark())return true;const lum=(c)=>{const m=/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/.exec(c||'');if(!m||(m[4]!==undefined&&+m[4]<0.5))return null;return(0.2126*m[1]+0.7152*m[2]+0.0722*m[3])/255;};const b=document.body?lum(getComputedStyle(document.body).backgroundColor):null;const h=lum(getComputedStyle(document.documentElement).backgroundColor);const v=b??h;if(v===null)return getComputedStyle(document.documentElement).colorScheme.includes('dark');return v<0.25;}catch{return false;}};";
 let darkSrc: string | null | undefined;
 /** A synced list of site names: plain hosts only. */
 /** Bitwarden's lock time as Settings keeps it (sheet 83). */
@@ -295,8 +295,6 @@ function fadeIn(w: BrowserWindow): void {
   };
   step();
 }
-/** His pick (2026-10-25): Yandex's results, which open in new tabs, open in the same tab in Samara. */
-const YANDEX = /(^|\.)(yandex\.(com|ru|by|kz|ua|com\.tr)|ya\.ru)$/i;
 /** Never handed to another app, whatever claims them: they reach files, run code, or are the browser's own. */
 const NEVER_HANDED = new Set(['file', 'javascript', 'vbscript', 'data', 'blob', 'about', 'chrome', 'devtools', 'view-source', 'filesystem', 'jar', 'smb', 'afp', 'nfs', 'ftp', 'ms-msdt', 'search-ms', 'ms-officecmd', 'ms-settings']);
 /**
@@ -1611,6 +1609,8 @@ export class AangBrowser {
     setTimeout(() => { if (!P.trayOn && !v.webContents.isDestroyed()) v.setVisible(false); }, 300);
   }
 
+  /** Tabs opened from links since he last opened the list (the tab arrow's +1). */
+  private newSince = 0;
   /** Open the list where the frame says (beside its handle, under the band), or put it away. */
   tray(open: boolean, at?: { x?: unknown; y?: unknown }): void {
     const w = this.win;
@@ -1634,6 +1634,7 @@ export class AangBrowser {
     }
     const v = this.trayView();
     if (!v) return;
+    this.newSince = 0;
     const n = (x: unknown, d: number) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : d);
     this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y), hy: n((at as { hy?: unknown })?.hy, this.trayAt.hy ?? 80) };
     this.trayOn = true;
@@ -2337,13 +2338,6 @@ export class AangBrowser {
         this.sendTabs();
         return { action: 'deny' };
       }
-      // His pick (2026-10-25): a plain click on a Yandex result opens it here, like Brave; Cmd-click still opens it behind.
-      if (disposition === 'foreground-tab' && YANDEX.test(hostOf(wc.getURL()))) {
-        const l = this.lastLink.get(tab.id);
-        let same = false;
-        try { same = Boolean(l && Date.now() - l.at < GESTURE_MS && new URL(u).href === l.url); } catch { /* not an address */ }
-        if (same && !this.listed(u).length) { tab.playOkAt = Date.now(); void wc.loadURL(this.secured(tab, u)).catch(() => {}); return { action: 'deny' }; }
-      }
       // A new TAB a page opens (window.open with no size, a link in a new tab) needs his click too (security check
       // 2026-10-24, finding 7): before, only new windows were checked, so a page could open tabs by itself.
       if (this.listed(u).length) return { action: 'deny' };
@@ -2834,6 +2828,9 @@ export class AangBrowser {
       this.tabs.splice(at + 1, 0, tab);
     } else this.tabs.push(tab);
     tab.pending = url;
+    // 2026-10-25 (his "I just wanted to see that a new tab is being opened"): a tab opened from a link while the list is
+    // closed counts on the tab arrow (it breathes and shows +1) until he opens the list.
+    if (opener !== null && !this.trayOn) this.newSince++;
     // His own new tab, or a link he just clicked: it may play. Tabs Samara reopens never come through here.
     if (opener === null || Date.now() - (this.lastGesture.get(opener) ?? 0) < PLAY_MS) tab.playOkAt = Date.now();
     this.wake(tab);
@@ -5223,6 +5220,8 @@ export class AangBrowser {
       ...(this.o.secret ? { secret: true, locked: this.locked } : {}),
       // Sheet 89: what is on his TV, and the TV ask.
       tv: this.tvState(),
+      // New tabs from links since he last opened the list.
+      newTabs: this.newSince,
       hasLogin: this.hasLogin,
       loginKnown: this.loginKnown,
       maximized: Boolean(w.isMaximized()),

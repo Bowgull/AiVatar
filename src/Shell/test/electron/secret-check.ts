@@ -169,8 +169,8 @@ app.whenReady().then(async () => {
   const y = b.cur(), yn = b.tabs.length;
   b.win.focus(); y.view.webContents.focus(); await wait(200);
   await click(600, 500, y.view.webContents); await click(60, 140, y.view.webContents);
-  for (let i = 0; i < 20 && !String(y.url).includes('/link'); i++) await wait(150);
-  check('7b a Yandex result opens in the same tab, not a new one', String(y.url).includes('/link') && b.tabs.length === yn, `${y.url} tabs ${yn} -> ${b.tabs.length}: ${b.tabs.map((t: any) => t.url).join(' ')}`);
+  for (let i = 0; i < 20 && b.tabs.length === yn; i++) await wait(150);
+  check('7b a link a site opens in a new tab (here Yandex) opens a new tab, counted on the tab arrow', b.tabs.length === yn + 1 && b.newSince >= 1, `${y.url} tabs ${yn} -> ${b.tabs.length}, arrow +${b.newSince}`);
   check('7 the secret window blocks ads too', Boolean(s.ads), 'its ad lists did not start');
   // 8
   s.win.close();
