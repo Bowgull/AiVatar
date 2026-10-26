@@ -73,7 +73,8 @@ const scramble = (key: string, host: string) => createHmac('sha256', key).update
 import { PhishCheck } from './phish.ts';
 import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
-import { blockAds, guardRequests, type AdBlock } from './skip/ads.ts';
+import { blockAds, guardRequests, privacyHooks, type AdBlock } from './skip/ads.ts';
+import { CookieWall, cleanLink, cookieHeaders, guardPrivacy } from './privacy.ts';
 import { createRequire } from 'node:module';
 import { pageMenuItems, sendKindFor } from './sendtoaang.ts';
 
@@ -376,6 +377,8 @@ const CHROME_UA = (v: string) => {
 // (streaming, 1361 days), so the E100 of 2026-10-14 points at the name: castLabs' own tracker (electron-releases #199)
 // has a custom name breaking Netflix's DRM and the untouched name playing; castLabs' player, which plays it here, sends its own.
 const HONEST_SITES = /^https:\/\/(accounts\.(google|youtube)\.com|([a-z0-9-]+\.)*shadow\.tech|challenges\.cloudflare\.com|([a-z0-9-]+\.)*netflix\.com|([a-z0-9-]+\.)*yandex\.(com|ru|by|kz|com\.tr)|([a-z0-9-]+\.)*ya\.ru)(:\d+)?(\/|$)/i;
+/** The requests that carry the honest name (the sites above, and what their pages load: Netflix's video, Yandex's parts). */
+const HONEST_REQUESTS = /^https:\/\/(accounts\.(google|youtube)\.com|challenges\.cloudflare\.com|[a-z0-9.-]+\.shadow\.tech|(([a-z0-9-]+\.)*)(netflix\.com|nflxvideo\.net|nflxext\.com|nflxso\.net|yandex\.com|yandex\.ru|ya\.ru|yandex\.net))(:\d+)?\//i;
 /** Netflix's own error codes on its player page: the playback was refused here (E100, M7xxx-xxxx, F7xxx). */
 const NETFLIX_REFUSED = /\b(E100|tvq-pb-101|M7\d{3}-\d{4}|F7\d{3}(-\d{1,4})?)\b/;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
@@ -712,8 +715,23 @@ export class AangBrowser {
   private readonly prefsFile: string;
   /** Electron's own name for itself, kept for Google's sign-in pages. */
   private honestUA = '';
+  /** Hidden sites' cookies (privacy.ts): which pairs are let through, and the privacy log. */
+  wall!: CookieWall;
+  /** The browser hints' brand line, as this engine's pages read it (privacy.ts), once a page has told it. */
+  private brands: string | null = null;
   /** A page's own name for the browser follows where it is going: honest on Google's sign-in, Chrome elsewhere. */
   private nameFor(wc: Electron.WebContents): void {
+    // The real address never goes out around the page (2026-10-26): calls still work, but the Mac's home-network
+    // address stays in, and later a VPN cannot be gone around (WebRTC IP handling, Brave's own default).
+    try { wc.setWebRTCIPHandlingPolicy('default_public_interface_only'); } catch { /* an older runtime */ }
+    // The brand line, read once from Samara's own world in a page (a page cannot change what that world sees).
+    if (!this.brands) wc.once('dom-ready', () => {
+      if (this.brands || !/^https:/.test(wc.getURL())) return;
+      wc.executeJavaScriptInIsolatedWorld(999, [{ code: 'JSON.stringify((navigator.userAgentData && navigator.userAgentData.brands) || [])' }]).then((j: string) => {
+        const list = JSON.parse(String(j)) as { brand: string; version: string }[];
+        if (Array.isArray(list) && list.length && list.every((x) => typeof x.brand === 'string' && /^\d+$/.test(String(x.version)))) this.brands = list.map((x) => `"${x.brand.replace(/"/g, '')}";v="${x.version}"`).join(', ');
+      }).catch(() => { /* the next page tells it */ });
+    });
     wc.on('did-start-navigation', (d) => {
       const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
       if (!x.isMainFrame || x.isSameDocument) return;
@@ -907,6 +925,7 @@ export class AangBrowser {
     this.phish = o.phish ?? new PhishCheck(sd);
     if (!o.phish) void this.phish.start();
     try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
+    this.wall = new CookieWall(sd);
     this.arm();
     // Sheet 87: the secret window's kept session gets everything the throwaway one has.
     if (this.keptSes) { const guest = this.ses; this.ses = this.keptSes; this.arm(); this.ses = guest; }
@@ -920,11 +939,10 @@ export class AangBrowser {
     const ses = this.ses;
     // Plain Chrome, everywhere in his browsing session, except Google's sign-in pages (above).
     ses.setUserAgent(CHROME_UA(process.versions.chrome));
-    ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*', 'https://*.shadow.tech/*', 'https://challenges.cloudflare.com/*',
-      'https://netflix.com/*', 'https://*.netflix.com/*', 'https://*.nflxvideo.net/*', 'https://*.nflxext.com/*', 'https://*.nflxso.net/*',
-      // Yandex too (2026-10-25, his "why can't I search in the secret window": every search came back as Yandex's robot check)
-      'https://yandex.com/*', 'https://*.yandex.com/*', 'https://yandex.ru/*', 'https://*.yandex.ru/*', 'https://ya.ru/*', 'https://*.yandex.net/*'] },
-      (d, cb) => cb({ requestHeaders: { ...d.requestHeaders, 'User-Agent': this.honestUA } }));
+    // His data kept his (2026-10-26, privacy.ts): the honest name where it is needed, "do not sell my data" on every
+    // request, hidden sites' cookies left off, tracking tags taken off links.
+    guardPrivacy(ses, this.wall, (u) => HONEST_REQUESTS.test(u) ? this.honestUA : null, () => this.brands);
+    privacyHooks(ses, { clean: cleanLink, headers: cookieHeaders(this.wall) });
     denyPermissions(ses);
     this.permissions();
     this.screenShare();

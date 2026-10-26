@@ -55,14 +55,37 @@ export interface AdBlock {
  */
 /** A request the guard stops before anything else sees it (true = cancel). */
 export type RequestGuard = (d: Electron.OnBeforeRequestListenerDetails) => boolean;
-type Blocking = { onBeforeRequest: (d: Electron.OnBeforeRequestListenerDetails, cb: (r: Electron.CallbackResponse) => void) => void };
-/** The session's one before-request hook: the guard, then the ad blocker (or nothing when ads are off). */
+type Blocking = {
+  onBeforeRequest: (d: Electron.OnBeforeRequestListenerDetails, cb: (r: Electron.CallbackResponse) => void) => void;
+  onHeadersReceived?: (d: Electron.OnHeadersReceivedListenerDetails, cb: (r: Electron.HeadersReceivedResponse) => void) => void;
+};
+/** What privacy.ts adds to a session's two hooks (2026-10-26): links without tracking tags, hidden sites' cookies dropped. */
+export interface PrivacyHooks { clean?: (url: string) => string | null; headers?: (d: Electron.OnHeadersReceivedListenerDetails) => Record<string, string[]> | null }
+const privacyOf = new WeakMap<Session, PrivacyHooks>();
+export function privacyHooks(session: Session, p: PrivacyHooks): void { privacyOf.set(session, p); }
+/**
+ * The session's one before-request hook and one on-headers hook: the guard, then a page's tracking tags taken off, then
+ * the ad blocker (or nothing when ads are off). Called again each time the blocker starts, stops or is swapped, since
+ * Ghostery's own start and stop replace both hooks.
+ */
 export function guardRequests(session: Session, guard: RequestGuard, blocker: Blocking | null): void {
   session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => {
     let stop = false;
     try { stop = guard(d); } catch { stop = false; }
     if (stop) { cb({ cancel: true }); return; }
+    const p = privacyOf.get(session);
+    if (p?.clean && d.method === 'GET' && (d.resourceType === 'mainFrame' || d.resourceType === 'subFrame')) {
+      let to: string | null = null;
+      try { to = p.clean(d.url); } catch { to = null; }
+      if (to) { cb({ redirectURL: to }); return; }
+    }
     if (blocker) blocker.onBeforeRequest(d, cb); else cb({});
+  });
+  session.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (d, cb) => {
+    let mine: Record<string, string[]> | null = null;
+    try { mine = privacyOf.get(session)?.headers?.(d) ?? null; } catch { mine = null; }
+    if (!blocker?.onHeadersReceived) { cb(mine ? { responseHeaders: mine } : {}); return; }
+    blocker.onHeadersReceived(mine ? { ...d, responseHeaders: mine } : d, (r) => cb(r.responseHeaders ? r : mine ? { responseHeaders: mine } : {}));
   });
 }
 
