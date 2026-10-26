@@ -1664,6 +1664,48 @@ export class AangBrowser {
     const to = fills(was) ? { width: Math.round(area.width * 0.75), height: Math.round(area.height * 0.8) } : { width: was.width, height: was.height };
     w.setBounds({ x: Math.round(area.x + (area.width - to.width) / 2), y: Math.round(area.y + (area.height - to.height) / 2), ...to }, true);
   }
+  // ------------------------------------------------------------------ Stremio's downloads
+  /**
+   * 2026-10-25 (his ask: "stop old Stremio downloads as soon as I leave a video"): every stream he opens in Stremio starts
+   * a download in its engine, and it went on for minutes after he left it, so clicking through a few left five running
+   * at once. The downloads that start while his Stremio tab plays are Samara's; when he leaves the video or picks another,
+   * all but the one he is now watching are stopped. Ones his Stremio app started are never touched.
+   */
+  private stremioMine = new Map<number, { hashes: string[]; seen: Set<string> | null; url: string; timer?: NodeJS.Timeout }>();
+  /** Stremio's engine on this Mac (a test points it at a stand-in). */
+  stremioApi = 'http://127.0.0.1:11470';
+  private async stremioHashes(): Promise<string[]> {
+    try {
+      const r = await fetch(`${this.stremioApi}/stats.json`, { signal: AbortSignal.timeout(2000) });
+      return Object.keys(await r.json() as Record<string, unknown>).filter((h) => /^[0-9a-f]{40}$/i.test(h));
+    } catch { return []; }
+  }
+  private stremioMoved(tab: Tab, url: string): void {
+    const st = this.stremioMine.get(tab.id) ?? { hashes: [], seen: null, url: '' };
+    if (st.url === url) return;
+    st.url = url;
+    this.stremioMine.set(tab.id, st);
+    if (st.timer) clearTimeout(st.timer);
+    const playing = /#\/player\//.test(url) && url !== 'about:closed';
+    void (async () => {
+      const now = await this.stremioHashes();
+      // What was already running when this tab first came to Stremio is not its own (his Stremio app's, say).
+      if (!st.seen) st.seen = new Set(now);
+      // Leaving a video, or onto another one: what this tab started before stops now.
+      const drop = st.hashes.filter((h) => now.includes(h));
+      st.hashes = [];
+      for (const h of drop) await fetch(`${this.stremioApi}/${h}/remove`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
+      if (drop.length) console.log(`shell: Stremio: stopped ${drop.length} old download${drop.length === 1 ? '' : 's'}`);
+      if (!playing) { if (url === 'about:closed') this.stremioMine.delete(tab.id); else st.seen = new Set(await this.stremioHashes()); return; }
+      // A video: whatever is running that was not running before it (it may have started a moment before this) is its.
+      const watch = (left: number) => {
+        void this.stremioHashes().then((hs) => { if (st.url !== url) return; for (const h of hs) if (!st.seen!.has(h) && !drop.includes(h) && !st.hashes.includes(h)) st.hashes.push(h); });
+        if (left > 0) st.timer = setTimeout(() => watch(left - 1), 3000);
+      };
+      watch(8);
+    })();
+  }
+
   // ------------------------------------------------------------------ sheet 89, his TV
   /** What is on his TV now: one video (Google Cast) or this window (AirPlay, as a second screen). */
   private tv: { kind: 'video' | 'window'; tab: number; name: string; title: string; site: string; cast?: CastSession; back?: Electron.Rectangle; win?: BrowserWindow } | null = null;
@@ -2436,13 +2478,14 @@ export class AangBrowser {
     on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
       if (/^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) this.watchPlays(tab, u);
-      if (STREMIO_WEB.test(u)) void startStremio();
+      if (STREMIO_WEB.test(u)) { void startStremio(); this.stremioMoved(tab, u); }
       tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
       this.changed();
     });
     on('did-navigate-in-page', (_e, u, main) => {
+      if (main && STREMIO_WEB.test(u)) this.stremioMoved(tab, u);
       // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
       // video plays in its own window, the show goes there and this tab steps back to where it was.
       if (main && /^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) { if (this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; } this.watchPlays(tab, u); }
@@ -2890,6 +2933,7 @@ export class AangBrowser {
   close(id: number, lastClosesWindow = true): void {
     const i = this.tabs.findIndex((x) => x.id === id);
     if (i < 0) return;
+    if (STREMIO_WEB.test(this.tabs[i]!.url)) this.stremioMoved(this.tabs[i]!, 'about:closed');
     this.inTab(this.tabs[i]!);
     const at = this.paneTabs().indexOf(this.tabs[i]!);
     // A tab playing in the popout comes back first, so its page is closed here and nowhere else.
