@@ -9,7 +9,12 @@
      letters for his emails (Tab or the right arrow takes them), the light only where a saved login can fill; his
      logins managed inside Settings > Autofill > Bitwarden (see, search, copy, edit, delete, add; his PIN before any
      password shows); dragging bookmarks on the shelf. Drawn from Samara's own pieces: the asks family (sheet 86), the
-     light (sheet 77), the shelf, the pixel palettes. The cats are drawn here at 4x, pixel for pixel. -->
+     light (sheet 77), the shelf, the pixel palettes. The cats are drawn here at 4x, pixel for pixel.
+     v2 (his "that's a terrible cat, go look at examples", "something mischievous, I like the unplug train of thought"):
+     one cat, drawn the way good pixel black cats are (solid near-black, no coloured outline, the silhouette against
+     lamplight, a few dark-grey highlights, a narrowed amber eye, purple inner ears, a long curling tail): crouched to
+     pounce, batting the plug it pulled on Samara's lantern, which has gone dark. It moves: the paw bats, the plug skids,
+     the tail flicks. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
@@ -153,17 +158,13 @@
 </head>
 <body>
 <h1>SHEET 90 - THE CAT, LOGINS AND THE SHELF</h1>
-<p class="lead">When a site doesn't answer, a little black cat keeps you company: three to pick from. Then Bitwarden and your logins, made clear and in Samara's own family, and bookmarks you can drag.</p>
+<p class="lead">When a site doesn't answer, a little black cat is to blame. Then Bitwarden and your logins, made clear and in Samara's own family, and bookmarks you can drag.</p>
 
-<h2>1 · WHEN A SITE DOESN'T ANSWER: PICK A CAT</h2>
-<p class="sub">The same page for every kind of failure, only the words change (below). Try again reloads; Go back returns. Drawn at 4x, every pixel square.</p>
+<h2>1 · WHEN A SITE DOESN'T ANSWER: THE CAT PULLED THE PLUG</h2>
+<p class="sub">Up to no good: the black cat has pulled the plug on Samara's own lantern, which has gone dark, and keeps batting the plug across the floor, tail up and flicking. The same scene for every kind of failure; only the words change (below). Try again reloads; Go back returns. Drawn at 4x, every pixel square; it moves (this is it, live).</p>
 <div class="cats">
-  <div><p class="cap">A · Sitting by the pulled plug</p><div class="catpage"><canvas id="catA" width="512" height="256"></canvas><h3>This site isn't answering</h3><p><b style="color:#ffe28c">example.com</b> took too long. It may be down for now.</p>
-    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div></div>
-  <div><p class="cap">B · Asleep on the lantern</p><div class="catpage"><canvas id="catB" width="512" height="256"></canvas><h3>You're offline</h3><p>Your Mac isn't connected to the internet. The cat will wait.</p>
-    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div></div>
-  <div><p class="cap">C · Waiting at the door</p><div class="catpage"><canvas id="catC" width="512" height="256"></canvas><h3>That page isn't here</h3><p><b style="color:#ffe28c">example.com</b> answered, but this page doesn't exist.</p>
-    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div></div>
+  <div class="catpage" style="width:620px"><canvas id="catA" width="512" height="256"></canvas><h3>This site isn't answering</h3><p><b style="color:#ffe28c">example.com</b> took too long. It may be down for now.</p>
+    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div>
 </div>
 <table class="msgs">
   <tr><td><b>Didn't answer</b></td><td>This site isn't answering · <i>site</i> took too long. It may be down for now.</td></tr>
@@ -229,115 +230,72 @@ for (const t of document.querySelectorAll('#bwrow [data-ic2]')) { const x = pixI
 for (const t of document.querySelectorAll('#bwrow [data-ic3]')) { const x = pixIcon(t.dataset.ic3, 1); if (x) t.append(x); else t.textContent = '👁'; }
 for (const a of document.querySelectorAll('[data-ar]')) a.innerHTML = ARROW;
 
-// ---- The cats. Samara's night palette, a violet rim where the lamp catches the fur; drawn into 128 x 64 scenes at 4x.
-const C = { r: '#6a58a8', K: '#2e2449', s: '#1b1530', h: '#7d6cbc', y: '#FFD34A', Y: '#FFF6C0', P: '#140c00', n: '#c06a8a', m: '#3a2d5c', w: '#a89cd4', c: '#7262b0' };
-const SIT = [
-  '....r...........r.......',
-  '...rKr.........rKr......',
-  '...rKKr.......rKKr......',
-  '..rKhKKr.....rKKhKr.....',
-  '..rKKKKKrrrrrKKKKKr.....',
-  '..rKKKKKKKKKKKKKKKr.....',
-  '.rKKKKKKKKKKKKKKKKKr....',
-  '.rKKyyYKKKKKKKyyYKKr....',
-  '.rKKyPyKKKKKKKyPyKKr....',
-  '.rKKKKKKKKnKKKKKKKKr....',
-  '.rKwwKKKKmKmKKKKwwKr....',
-  '..rKKKKKKKKKKKKKKKr.....',
-  '...rrKKKKKKKKKKKrr......',
-  '....rKKKKKKKKKKKr.......',
-  '...rKKKKKKKKKKKKKr......',
-  '..rKhKKKKKKKKKKKKKr.....',
-  '..rKhKKKKKKKKKKKKKr.....',
-  '.rKhKKKKKKKKKKKKKKKr...r',
-  '.rKhKKKKKKKKKKKKKKKr..rK',
-  '.rKKKKKKKKKKKKKKKKKKr.rK',
-  '.rKKKKKKKKKKKKKKKKKKKrKr',
-  '.rKKKKKKKKKKKKKKKKKKKKr.',
-  '.rKKKsKKKKKKKKKsKKKKr...',
-  '..rKKsKKKKKKKKKsKKKr....',
-  '..rKKrKKKKKKKKKrKKr.....',
-  '...rr.rrrrrrrrr.rr......',
-];
-// A: the same cat, one front paw up at the cable
-const BAT = SIT.map((r) => r);
-BAT[13] = 'rr..rKKKKKKKKKKKr.......';
-BAT[14] = 'rKr.rKKKKKKKKKKKKr......';
-BAT[15] = 'rKKrKhKKKKKKKKKKKKr.....';
-BAT[16] = '.rKKKhKKKKKKKKKKKKr.....';
-BAT[22] = '.rKKKKKKKKKKKKKsKKKKr...';
-BAT[23] = '..rKKKKKKKKKKKKsKKKr....';
-BAT[24] = '..rKKKKKKKKKKKKrKKr.....';
-BAT[25] = '...rrrrrrrrrrrr.rr......';
-// B: curled up asleep, head on the right, eyes shut
-const CURL = [
-  '..................r..r......',
-  '......rrrrrrrr...rKrrKr.....',
-  '....rrKKKKKKKKrrrKKKKKKr....',
-  '..rrKKKKKKKKKKKKKKKKKKKKr...',
-  '.rKKKKKKKKKKKKKKKKKKKKKKKr..',
-  'rKKKKKKKKKKKKKKKKKKccKKccKr.',
-  'rKKKKKKKKKKKKKKKKKKKKKnKKKKr',
-  'rKKhKKKKKKKKKKKKKKKKKKKKKKr.',
-  '.rKKhhKKKKKKKKKKKKKKKKKKKr..',
-  '..rKKKKhhhhKKKKKKKKKKKKrr...',
-  '...rrKKKKKKKKKKKKKKKrr......',
-  '.....rrrrrrrrrrrrrrr........',
-];
-// C: from behind, looking back over its shoulder with one eye; its tail curled on the floor
-const BACK = SIT.map((r) => r);
-BACK[7] = '.rKKKKKKKKKKKKKyyYKr....';
-BACK[8] = '.rKKKKKKKKKKKKKyPyKr....';
-BACK[9] = '.rKKKKKKKKKKKKKKKKKr....';
-BACK[10] = '.rKKKKKKKKKKKKKKKwwr....';
-for (let i = 15; i <= 21; i++) BACK[i] = BACK[i].replace(/h/g, 'K');
-BACK[17] = '.rKKKKKKKKKKKKKKKKKr....'; BACK[18] = '.rKKKKKKKKKKKKKKKKKr....'; BACK[19] = '.rKKKKKKKKKKKKKKKKKKr...'; BACK[20] = '.rKKKKKKKKKKKKKKKKKKKr..'; BACK[21] = '.rKKKKKKKKKKKKKKKKKKKr..';
-BACK[22] = 'rKKKKKKKKKKKKKKKKKKKKr..'; BACK[23] = 'rKKKKKKKKKKKKKKKKKKKr...'; BACK[24] = 'rKKKKKKKKKKKKKKKKKKr....'; BACK[25] = '.rrrrrrrrrrrrrrrrrr.....';
-const S = 4;
-function scene(id, draw) { const cv = document.getElementById(id), g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(S, S); return draw((x, y, c) => { if (c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); } }, g); }
-const sprite = (put, rows, x0, y0, pal = C) => rows.forEach((r, y) => [...r].forEach((ch, x) => put(x0 + x, y0 + y, pal[ch])));
-// the floor: Samara's dark planks, lit a little from above, all the way across
-const floor = (put) => { for (let y = 52; y < 64; y++) for (let x = 0; x < 128; x++) { const seam = y === 52 || ((x + (Math.floor((y - 52) / 4) % 2) * 11) % 24 === 0 && y > 52); put(x, y, seam ? '#120A05' : y === 53 ? '#3b2414' : (x * 7 + y * 3) % 13 === 0 ? '#2a190d' : '#24160d'); } };
-const glow = (g, cx, cy, r, col) => { const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 64); };
-const line = (put, pts, col) => { for (let i = 0; i < pts.length - 1; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]; const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1); for (let k = 0; k <= n; k++) put(Math.round(x1 + (x2 - x1) * k / n), Math.round(y1 + (y2 - y1) * k / n), col); } };
-// A: a socket on the wall, its plug pulled out onto the floor, a spark; the cat batting the cable
-scene('catA', (put, g) => {
-  glow(g, 64, 44, 46, 'rgba(255,196,60,.10)');
-  floor(put);
-  const SOCK = ['oooooooo', 'oWWWWWWo', 'oWkWWkWo', 'oWkWWkWo', 'oWWWWWWo', 'oWWkkWWo', 'oWWWWWWo', 'oooooooo'];
-  sprite(put, SOCK, 26, 30, { o: '#120A05', W: '#cdbb9a', k: '#3b2414' });
-  line(put, [[34, 34], [37, 36], [40, 40], [43, 45], [47, 49], [52, 51], [58, 51]], '#120A05');
-  line(put, [[34, 33], [37, 35], [40, 39], [43, 44], [47, 48], [52, 50], [58, 50]], '#C98C14');
-  const PLUG = ['.oooo.', 'oWWWWo', 'oWWWWoss', 'oWWWWo..', 'oWWWWoss', '.oooo.'];
-  sprite(put, PLUG, 58, 46, { o: '#120A05', W: '#e8dcc4', s: '#c9cdd6' });
-  [[67, 44], [68, 43], [69, 45], [67, 41], [70, 42]].forEach(([x, y], i) => put(x, y, i % 2 ? '#FFC43C' : '#FFE28C'));
-  sprite(put, SIT, 70, 27);
-});
-// B: Samara's own lantern, gone out; the cat curled on top of it, asleep
-scene('catB', (put, g) => {
-  glow(g, 64, 40, 34, 'rgba(120,110,220,.12)');
-  floor(put);
-  const img = new Image(); img.src = '../../src/Shell/pages/art/samara/samara-lantern-32.png';
-  img.onload = () => {
-    g.save(); g.filter = 'brightness(.42) saturate(.55)'; g.drawImage(img, 48, 21, 32, 32); g.restore();
-    sprite(put, CURL, 50, 11);
-    [[80, 6, 'Z'], [86, 2, 'z'], [91, -1, 'z']].forEach(([x, y, k]) => { const z = k === 'Z' ? ['ccc', '..c', '.c.', 'c..', 'ccc'] : ['cc', '.c', 'c.', 'cc']; z.forEach((r, j) => [...r].forEach((ch, i) => ch === 'c' && put(x + i, y + j, '#a89cd4'))); });
-  };
-});
-// C: a closed wooden door, warm light under it; the cat sat before it, looking back at you
-scene('catC', (put, g) => {
-  floor(put);
-  for (let y = 8; y < 52; y++) for (let x = 44; x < 78; x++) {
-    const edge = x === 44 || x === 77 || y === 8;
-    const frame = x < 47 || x > 74 || y < 11;
-    const plank = !frame && (x - 47) % 7 === 0;
-    put(x, y, edge ? '#120A05' : frame ? '#3b2414' : plank ? '#3b2414' : (y * 3 + x) % 11 === 0 ? '#6a4a2c' : '#56371F');
+// ---- The cat (his "something mischievous ... I like the unplug train of thought"), from clean shapes on the pixel grid.
+
+// The cat from clean shapes on the pixel grid: crouched to pounce, rump and tail up, one paw out batting the plug.
+const PAL = { K: '#121016', d: '#24202c', g: '#3b3448', E: '#FFD34A', p: '#120a00', i: '#7d4fae', n: '#6a4b5a', w: '#8f879e', L: '#121016' };
+function catMask(W, H, pawUp, flick) {
+  const ell = (x, y, cx, cy, rx, ry, rot = 0) => { const c = Math.cos(rot), s = Math.sin(rot), dx = x - cx, dy = y - cy, u = dx * c + dy * s, v = -dx * s + dy * c; return (u * u) / (rx * rx) + (v * v) / (ry * ry) <= 1; };
+  const tri = (x, y, a, b, c) => { const s = (p, q, r) => (p[0] - r[0]) * (q[1] - r[1]) - (q[0] - r[0]) * (p[1] - r[1]); const d1 = s([x, y], a, b), d2 = s([x, y], b, c), d3 = s([x, y], c, a); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+  const seg = (x, y, ax, ay, bx, by, r) => { const vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy))); const qx = ax + t * vx - x, qy = ay + t * vy - y; return qx * qx + qy * qy <= r * r; };
+  const tail = flick ? [[42, 12], [45, 9], [47, 5], [48, 2], [47, 0], [45, 0.5]] : [[42, 12], [45, 9], [47, 5], [47, 2], [45, 0.5], [43, 1]];
+  const m = [];
+  for (let y = 0; y < H; y++) { m.push([]); for (let x = 0; x < W; x++) {
+    const X = x + 0.5, Y = y + 0.5;
+    const on = ell(X, Y, 29, 13.5, 11.5, 4.6, -0.2) || ell(X, Y, 19.5, 16, 5.5, 4) || ell(X, Y, 37.5, 13, 5, 4.6)
+      || ell(X, Y, 11, 14.5, 5.2, 4.8) || ell(X, Y, 6.5, 16.5, 3, 2.3)
+      || tri(X, Y, [7.5, 11], [8.5, 5], [12, 10.5]) || tri(X, Y, [12, 10.5], [15, 5.5], [16, 12])
+      || (pawUp ? (seg(X, Y, 17, 17, 10, 15, 1.25) || seg(X, Y, 10, 15, 6, 13.5, 1.2)) : (seg(X, Y, 17, 17, 10, 21, 1.25) || seg(X, Y, 10, 21, 5, 23, 1.15)))   // the batting paw: up, then down on the plug
+      || seg(X, Y, 21, 18, 21, 23, 1.3) || seg(X, Y, 21, 23, 18.5, 23, 1.1)     // the paw on the floor
+      || seg(X, Y, 36, 16, 34, 23, 1.6) || seg(X, Y, 34, 23, 32, 23, 1.1) || seg(X, Y, 41, 15, 42, 23, 1.6) || seg(X, Y, 42, 23, 40, 23, 1.1)
+      || tail.slice(1).some((p, i) => seg(X, Y, tail[i][0], tail[i][1], p[0], p[1], 1.15));
+    m[y].push(on);
+  } }
+  return m;
+}
+function drawCat(put, ox, oy, pawUp = true, flick = false) {
+  const W = 50, H = 25, m = catMask(W, H, pawUp, flick), at = (x, y) => y >= 0 && y < H && x >= 0 && x < W && m[y][x];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (m[y][x]) {
+    let c = 'K';
+    if (!at(x, y - 1)) c = 'g'; else if (!at(x, y - 2) && x > 14 && x < 44) c = 'd';
+    put(ox + x, oy + y, PAL[c]);
   }
-  for (const [x, y] of [[70, 30], [71, 30], [70, 31], [71, 31]]) put(x, y, '#FFC43C');
-  for (let x = 47; x < 75; x++) put(x, 51, '#FFE28C');
-  glow(g, 60, 54, 30, 'rgba(255,196,60,.18)');
-  sprite(put, BACK, 50, 26);
-});
+  // the face: a narrowed, up-to-something eye; the inner ears; the nose; whiskers
+  [[8, 13, 'g'], [9, 13, 'g'], [8, 14, 'E'], [9, 14, 'E'], [10, 14, 'p'], [8, 15, 'K']].forEach(([x, y, c]) => put(ox + x, oy + y, PAL[c]));
+  [[9, 8], [9, 9], [10, 9], [14, 8], [14, 9]].forEach(([x, y]) => put(ox + x, oy + y, PAL.i));
+  put(ox + 4, oy + 16, PAL.n);
+  [[2, 17], [1, 17], [0, 18], [2, 19], [1, 20]].forEach(([x, y]) => put(ox + x, oy + y, PAL.w));
+}
+const cv = document.getElementById('catA'), g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(4, 4);
+const put = (x, y, c) => { if (c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); } };
+const lantern = new Image(); lantern.src = '../../src/Shell/pages/art/samara/samara-lantern-32.png';
+const line = (pts, col) => { for (let i = 0; i < pts.length - 1; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]; const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1); for (let k = 0; k <= n; k++) put(Math.round(x1 + (x2 - x1) * k / n), Math.round(y1 + (y2 - y1) * k / n), col); } };
+function frame(t) {
+  const pawUp = t % 2 === 0, flick = t % 3 === 0;
+  // lamplight fading into the night page, and a floor that fades at both ends: no box around the scene
+  g.clearRect(0, 0, 128, 64);
+  const gr = g.createRadialGradient(60, 36, 2, 60, 36, 60); gr.addColorStop(0, 'rgba(90,60,36,.95)'); gr.addColorStop(.7, 'rgba(40,26,14,.5)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 64);
+  for (let y = 52; y < 64; y++) for (let x = 0; x < 128; x++) {
+    g.globalAlpha = Math.max(0, Math.min(1, x / 18, (127 - x) / 18, (64 - y) / 6));
+    put(x, y, y === 52 ? '#120A05' : y === 53 ? '#7a5230' : (x + (y > 57 ? 11 : 0)) % 24 === 0 ? '#3b2414' : '#5c3a20');
+  }
+  g.globalAlpha = 1;
+  // the wall socket, empty
+  const SOCK = ['oooooooo', 'oWWWWWWo', 'oWkWWkWo', 'oWkWWkWo', 'oWWWWWWo', 'oWWkkWWo', 'oWWWWWWo', 'oooooooo'];
+  SOCK.forEach((r, y) => [...r].forEach((ch, x) => put(8 + x, 36 + y, { o: '#120A05', W: '#cdbb9a', k: '#3b2414' }[ch])));
+  // Samara's lantern on the right, gone dark, its cord across the floor to the plug the cat pulled
+  if (lantern.complete) { g.save(); g.filter = 'brightness(.4) saturate(.5)'; g.drawImage(lantern, 98, 20, 32, 32); g.restore(); }
+  const px = pawUp ? 36 : 34;          // the plug skids a little each time it is batted
+  line([[112, 51], [100, 51], [80, 50], [60, 51], [px + 6, 51]], '#120A05');
+  line([[112, 50], [100, 50], [80, 49], [60, 50], [px + 6, 50]], '#C98C14');
+  const PLUG = ['.oooo.', 'oWWWWo', 'oWWWWoss', 'oWWWWo..', 'oWWWWoss', '.oooo.'];
+  PLUG.forEach((r, y) => [...r].forEach((ch, x) => put(px + x, 46 + y, { o: '#120A05', W: '#e8dcc4', s: '#c9cdd6' }[ch])));
+  drawCat(put, 40, 28, pawUp, flick);
+}
+let t = 0; frame(0);
+lantern.onload = () => frame(0);
+setInterval(() => frame(++t), 260);
+
 </script>
 </body>
 </html>
