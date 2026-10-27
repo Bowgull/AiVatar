@@ -515,6 +515,9 @@ export class Popout {
     if (!w || !w.isVisible()) return;
     this.pinned = !this.pinned;
     w.setAlwaysOnTop(this.pinned, 'screen-saver');
+    // Unpinned it stops floating, and on the Mac it fell straight behind Samara's own window, so the key looked like it
+    // hid the video (his report, 2026-10-27). It stays in front until he clicks something else.
+    if (!this.pinned) w.moveTop();
     w.setIgnoreMouseEvents(this.mouseThrough());
     // The Mac (his report, 2026-10-13: pinned was not click-through there): said again a moment later, once the click
     // on the pin button itself is over, so it holds.
