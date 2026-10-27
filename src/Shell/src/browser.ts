@@ -1741,9 +1741,14 @@ export class AangBrowser {
    */
   private async tvVideo(t: Tab): Promise<void> {
     const wc = t.view?.webContents;
-    if (!wc || wc.isDestroyed() || !isWeb(t.url)) return;
+    // Every step goes in the log (his report, 2026-10-27: "nothing" happened, and nothing said why), and no way out is
+    // silent any more.
+    const say = (s: string) => console.log(`shell: TV: ${s}`);
+    say(`just the video from ${hostOf(t.url)} (tab ${t.lent ? 'in the pop-out' : t.view ? 'live' : 'asleep'})`);
+    if (!wc || wc.isDestroyed() || !isWeb(t.url)) { say('no live page to send'); this.note('That tab has no video playing right now. Play it, then send it again.'); return; }
     await this.tvOff(false);
     const tvs = await findTvs();
+    say(`found ${tvs.map((x) => x.name).join(', ') || 'no TV'}`);
     const tv = tvs.find((x) => /yeet/i.test(x.name)) ?? tvs[0];
     if (!tv) { this.note('Your TV is not answering for videos. Turn it on, then try again (The whole window works with it asleep).'); return; }
     this.tvName = tv.name;
@@ -1753,13 +1758,16 @@ export class AangBrowser {
     try {
       const yt = youTubeId(t.url);
       if (yt) {
+        say(`YouTube video ${yt}`);
         await cast.open(YOUTUBE_APP);
+        say('YouTube opened on the TV');
         const screen = await new Promise<string>((res, rej) => {
           const tm = setTimeout(() => rej(new Error('no screen')), 8000);
           cast.on('app', (ns: string, d: Record<string, unknown>) => { const id = (d.data as Record<string, unknown> | undefined)?.screenId; if (ns === YOUTUBE_NS && typeof id === 'string') { clearTimeout(tm); res(id); } });
           cast.appSend(YOUTUBE_NS, { type: 'getMdxSessionStatus' });
         });
         const why = await youTubeOnTv(screen, yt, v?.at ?? 0);
+        say(why ?? 'video sent');
         if (why) throw new Error(why);
       } else {
         const media = twitchOf(t.url) ? await twitchMedia(t.url, title, v?.at ?? 0) : plainMedia(v ? { ...v, title } : null);
@@ -1767,7 +1775,7 @@ export class AangBrowser {
         await cast.open(DEFAULT_PLAYER);
         await cast.load(media);
       }
-    } catch (e) { cast.close(); this.note(`${tv.name} could not play it: ${(e as Error).message}.`); return; }
+    } catch (e) { cast.close(); say(`failed: ${(e as Error).message}`); this.note(`${tv.name} could not play it: ${(e as Error).message}.`); return; }
     void askPage(wc, PAUSE_PAGE_JS);
     this.tv = { kind: 'video', tab: t.id, name: tv.name, title, site, cast };
     cast.on('ended', () => { if (this.tv?.cast === cast) { this.tv = null; this.tvAsk = null; this.sendTabs(); } });
