@@ -137,7 +137,7 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   // Sheet 87: the secret window's PIN box: try his PIN, set a new one, the Mac password for a forgotten one, or cancel.
   ipcMain.on('browser:secretpin', (e, a) => {
     if (!(top(e) && b(e)?.isMainFrame(e.sender)) || !b(e).isSecret || !a || typeof a !== 'object') return;
-    if (!['try', 'set', 'reset', 'cancel'].includes(a.act)) return;
+    if (!['try', 'set', 'reset', 'cancel', 'reopen'].includes(a.act)) return;
     void b(e).secretPinAct({ act: a.act, pin: typeof a.pin === 'string' && /^\d{4,8}$/.test(a.pin) ? a.pin : '' });
   });
   // Sheet 87 v12: the mask in the band, from the frame only: one click or two.

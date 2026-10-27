@@ -2382,6 +2382,8 @@ function paintWho() {
 // (some he can leave out), whether there is a last version to go back to, and his overnight setting.
 {
   const key = el('upkey'), tray = el('uptray'), done = el('updone');
+  // His report (2026-10-27): every update looks like a new app to the Mac's Keychain, which asks once. Said before, not after.
+  el('upkc').hidden = window.aang?.platform !== 'darwin';
   let shownFor = null, cur = null;
   const DAY = 86_400_000;
   const place = (box, anchor) => { const b = el('band').getBoundingClientRect(), k = anchor.getBoundingClientRect(); box.style.right = Math.max(8, Math.round(b.right - k.right)) + 'px'; };
@@ -2552,17 +2554,19 @@ if (!SOLO) {
   let mode = 'off', len = 0, typed = '', first = '';
   const paint = () => {
     const n = mode === 'enter' ? len : mode === 'again' ? first.length : Math.min(8, Math.max(4, typed.length + (typed.length < 8 ? 1 : 0)));
-    lights.hidden = mode === 'gone';
+    lights.hidden = mode === 'gone' || mode === 'keychain';
     mac.hidden = mode !== 'gone';
+    // The Mac's Keychain said no (2026-10-27): his PIN is fine, Samara only needs to be let back in.
+    el('spinsay').hidden = el('spinreopen').hidden = mode !== 'keychain';
     // Sheet 87 v12: the box says which step only while he picks a PIN; his everyday PIN has no words at all.
     word.hidden = mode !== 'new' && mode !== 'again';
     word.textContent = mode === 'again' ? 'AGAIN' : 'NEW PIN';
-    lights.replaceChildren(...Array.from({ length: mode === 'gone' ? 0 : n }, (_, i) => Object.assign(document.createElement('i'), { className: i < typed.length ? 'f' : '' })));
+    lights.replaceChildren(...Array.from({ length: mode === 'gone' || mode === 'keychain' ? 0 : n }, (_, i) => Object.assign(document.createElement('i'), { className: i < typed.length ? 'f' : '' })));
   };
   const shake = () => { lights.classList.remove('shake'); void lights.offsetWidth; lights.classList.add('shake'); };
   const close = (tell) => { if (mode === 'off') return; mode = 'off'; typed = ''; first = ''; if (tell) window.aang?.browserSecretPin?.({ act: 'cancel' }); box.classList.add('out'); setTimeout(() => { if (mode === 'off') spin.hidden = true; }, 180); };
   const digit = (d) => {
-    if (mode === 'gone' || typed.length >= 8) return;
+    if (mode === 'gone' || mode === 'keychain' || typed.length >= 8) return;
     typed += d; paint();
     if (mode === 'enter' && typed.length === len) { window.aang?.browserSecretPin?.({ act: 'try', pin: typed }); }
     else if (mode === 'again' && typed.length === first.length) {
@@ -2590,6 +2594,7 @@ if (!SOLO) {
   }, true);
   spin.addEventListener('mousedown', (e) => { if (!box.contains(e.target)) close(true); });
   mac.addEventListener('click', () => window.aang?.browserSecretPin?.({ act: 'reset' }));
+  el('spinreopen').addEventListener('click', () => window.aang?.browserSecretPin?.({ act: 'reopen' }));
 }
 
 // Sheet 87 v12 (his "the entire thing should work from clicking the mask"): a click on the mask puts everything away (or,

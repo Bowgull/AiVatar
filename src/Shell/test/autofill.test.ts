@@ -2,9 +2,10 @@
 // that copy and src/autofill.ts FIELD_KIND_JS the same, line for line. And his details are cleaned before they are kept.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { FIELD_KIND_JS, cleanDetails, detailFor } from '../src/autofill.ts';
+import { FIELD_KIND_JS, PinSeal, cleanDetails, detailFor } from '../src/autofill.ts';
 
 const norm = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
 test('the preload reads boxes exactly as autofill does', () => {
@@ -33,4 +34,16 @@ test('first and last name kept apart, as he typed them (sheet 83 v3)', () => {
   assert.equal(detailFor(d, 'given'), 'Mary Ann');
   assert.equal(detailFor(d, 'family'), 'van der Berg');
   assert.equal(detailFor(d, 'name'), 'Mary Ann van der Berg');
+});
+
+test('a PIN the Keychain will not open is locked out, not forgotten (2026-10-27)', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pin-'));
+  const f = path.join(dir, 'secret-pin.json');
+  assert.equal(new PinSeal(f).unreadable(), false);          // no PIN at all
+  writeFileSync(f, JSON.stringify({ v: 1, sealed: 'djEwbnSQ' }));
+  const seal = new PinSeal(f);
+  assert.equal(seal.has(), false);
+  assert.equal(seal.unreadable(), true);
+  writeFileSync(f, 'not json');
+  assert.equal(seal.unreadable(), false);
 });
