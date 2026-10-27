@@ -9,7 +9,12 @@
      "use the TV and my connected accounts and have them open on the TV". Every picture is Samara itself
      (test/electron/sheet99-shot.ts) on today's band, over a stand-in Netflix page served as www.netflix.com. The TV icon
      is pixicons' "video" (10 x 10 at 2x), its screen filling a third per step. The asks are the TV's own family (sheet
-     89, .bandchip.kind k-tv); the asleep one wears the notices' red (went wrong). Not built. -->
+     89, .bandchip.kind k-tv); the asleep one wears the notices' red (went wrong). Not built.
+     v2 (his "is this the least friction best option?", then "show me"): one click. The TV icon sits in the address bar
+     on any page with a video, dim until pointed at; one click sends by the best way (the TV's own app, else just the
+     video, else the whole window), no choosing; right-click it for the other ways (Samara's own right-click menu);
+     the Mac's video pauses as the TV takes it; YouTube's "Who's watching?" is answered with his account (Prime's two
+     profiles are left to him); the link lives in Settings > TV after the first time. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
   html,body{background:#17110c;margin:0}
@@ -30,31 +35,45 @@
 </style>
 </head>
 <body>
-<h1>Sheet 99 · Send to TV, in the TV's own apps</h1>
-<p class="lead">Send to TV opens the show in the TV's own app, signed in as you. The small TV in the address bar fills up as each step finishes, so you always know it's working. Every picture is Samara itself, on today's bar (the bar redesign is still open).</p>
+<h1>Sheet 99 · Send to TV, one click</h1>
+<p class="lead">One click on the small TV in the address bar sends what you're watching to your TV, in the TV's own app, signed in as you. Samara picks the best way, pauses the video here, and answers YouTube's "Who's watching?" for you. Every picture is Samara itself, on today's bar.</p>
 
-<h2>1 · SEND TO TV, IN THE MENU</h2>
-<p class="sub">On Netflix, the first choice is the TV's own Netflix app. "Just the video" isn't offered here, because Netflix's video is locked to the page. The whole window stays as the fallback.</p>
-<img src="sheet-99/menu.png" style="width:560px">
+<h2>1 · THE TV ICON, ALWAYS ONE CLICK AWAY</h2>
+<p class="sub">It shows in the address bar on any page with a video, dim until you point at it. One click sends. No menu, no choosing: the TV's own app if the site has one, otherwise just the video, otherwise the whole window.</p>
+<div class="steps">
+  <figure><img src="sheet-99/idle.png" width="200"><figcaption><b>ON A VIDEO PAGE</b>Dim, out of the way.</figcaption></figure>
+  <figure><img src="sheet-99/hover.png" width="200"><figcaption><b>POINTED AT</b>It lights up. Click to send.</figcaption></figure>
+</div>
+<img src="sheet-99/bar-idle.png" style="width:1080px;margin-top:12px">
 
-<h2>2 · THE LOADING SIGN: THE TV ICON FILLS UP</h2>
+<h2>RIGHT-CLICK IT FOR THE OTHER WAYS</h2>
+<p class="sub">When you want something else, like the whole window, it's in Samara's own right-click menu. Choices that can't work on this site are greyed out.</p>
+<img src="sheet-99/rclick.png" style="width:720px">
+
+<h2>2 · AFTER THE CLICK: THE TV ICON FILLS UP</h2>
 <p class="sub">No words, nothing extra in the bar. The TV's screen fills a third at a time, with a bright edge where it has reached. When the show is playing, it lights up fully with its soft glow, like today.</p>
 <div class="steps">
-  <figure><img src="sheet-99/tv0.png" width="200"><figcaption><b>READY</b>Shows up while sending starts.</figcaption></figure>
+  <figure><img src="sheet-99/tv0.png" width="200"><figcaption><b>READY</b>The moment you click.</figcaption></figure>
   <figure><img src="sheet-99/tv1.png" width="200"><figcaption><b>WAKING THE TV</b>A third full.</figcaption></figure>
   <figure><img src="sheet-99/tv2.png" width="200"><figcaption><b>OPENING NETFLIX</b>Two thirds.</figcaption></figure>
   <figure><img src="sheet-99/tv3.png" width="200"><figcaption><b>PLAYING ON THE TV</b>Full picture and its glow. Click it for what's playing and Stop.</figcaption></figure>
 </div>
-<p class="sub" style="margin-top:14px">In the bar, mid-way:</p>
-<img src="sheet-99/bar.png" style="width:1080px">
+<p class="sub" style="margin-top:14px">The video here pauses as soon as the TV has it. On YouTube, Samara also answers the TV's "Who's watching?" with your account. Prime has two profiles, so you pick there.</p>
 
-<h2>3 · LINKING, ONLY THE FIRST TIME</h2>
-<p class="sub">The first time you send, the TV shows a code and Samara asks for it, hanging from the TV icon. You type it once and never again.</p>
+<h2>3 · LINKING, ONLY THE VERY FIRST TIME</h2>
+<p class="sub">The very first click, the TV shows a code and Samara asks for it, hanging from the TV icon. You type it once. After that it lives in Settings.</p>
 <img src="sheet-99/link.png" style="width:720px">
 
 <h2>4 · IF THE TV DOESN'T WAKE</h2>
 <p class="sub">Never silent. It says what happened and offers the whole window, which works with the TV asleep. It uses the notices' red for "went wrong".</p>
 <img src="sheet-99/asleep.png" style="width:720px">
+
+<h2>5 · SETTINGS &gt; TV</h2>
+<p class="sub">Where the link lives after the first time, in Settings' own game-menu look: your TV, the YouTube answer, pausing here, and unlinking.</p>
+<img src="sheet-99/settings.png" style="width:720px">
+
+<h2>THE ONE RULE CLASH</h2>
+<p class="sub">You want videos to arrive paused. YouTube can. Netflix ignores the TV's pause button from outside apps, so Netflix arrives playing.</p>
 
 <h2>WHAT EACH SITE DOES</h2>
 <table>

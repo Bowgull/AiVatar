@@ -28,7 +28,7 @@ const PAGE = `<!doctype html><title>Stranger Things | Netflix</title><body style
 const CV = `const cv = (w, h, s = 2) => { const c = document.createElement('canvas'); c.width = w * s; c.height = h * s; c.style.cssText = 'display:block;flex:none;image-rendering:pixelated'; const g = c.getContext('2d'); return [c, (x, y, col) => { g.fillStyle = col; g.fillRect(x * s, y * s, s, s); }]; };`;
 // The TV icon (pixicons' "video", 10 x 10): its screen fills a third at a time as each step is done, a lit edge where
 // the fill has reached; when the show plays it is the full picture with the play mark. Its own palette, whole pixels.
-const TV_JS = (step: number) => `(() => { ${CV}
+const TV_JS = (step: number, look: '' | 'dim' | 'hover' = '') => `(() => { ${CV}
   const K = '#2E3248', b = '#2B78D0', B = '#8ED2FF', w = '#FFFFFF', G = '#A2AAC0', off = '#161a2c';
   const map = ['kkkkkkkkkk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kkkkkkkkkk', '...kGGk...', '.kkkkkkkk.'];
   const play = ['kBBBBBBBBk', 'kbbwbbbbbk', 'kbbwwbbbbk', 'kbbwwwbbbk', 'kbbwwbbbbk', 'kbbwbbbbbk'];
@@ -39,7 +39,8 @@ const TV_JS = (step: number) => `(() => { ${CV}
     else if (ch === 'S') { if (${step} >= 3) { const p = play[y - 1][x]; P(x, y, p === 'w' ? w : p === 'B' ? B : b); } else P(x, y, x < upto - 1 ? b : x === upto - 1 && ${step} > 0 ? B : off); }
   }));
   const k = document.getElementById('tvkey'); k.hidden = false; k.replaceChildren(c); k.classList.add('ov99');
-  k.style.filter = ${step} >= 3 ? 'drop-shadow(0 0 4px rgba(190,150,255,.85))' : 'none';
+  k.style.filter = ${step} >= 3 ? 'drop-shadow(0 0 4px rgba(190,150,255,.85))' : '${look}' === 'hover' ? 'drop-shadow(0 0 6px rgba(190,150,255,1)) brightness(1.25)' : 'none';
+  k.style.opacity = '${look}' === 'dim' ? '.6' : '1';
   return 1; })()`;
 // The menu: Send to TV opens to the TV's own app first (this page is Netflix: the video is copy-protected, so "Just the
 // video" is not offered), then the whole window.
@@ -52,6 +53,19 @@ const MENU_JS = `(() => { const m = document.getElementById('menu'); m.hidden = 
   r.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); r.classList.add('hov99'); return 1; })()`;
 const HOVER = `.menu .mrow.hov99{background:none !important;color:#ffe28c !important;padding-left:34px !important}
   .menu .mrow.hov99::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}`;
+
+// Right-click on the TV icon: the other ways, in Samara's own right-click menu (.tabmenu), the glove on the first.
+const RCLICK_JS = `(() => { document.getElementById('tabmenu')?.remove();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu ov99'; m.setAttribute('role', 'menu');
+  const gh = (t) => m.append(Object.assign(document.createElement('div'), { className: 'gh', textContent: t }));
+  const item = (t, off = false) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.disabled = off; m.append(b); return b; };
+  gh('SEND TO YEET'); const first = item("In the TV's Netflix"); item('The whole window'); item('Just the video (not on Netflix)', true);
+  m.append(Object.assign(document.createElement('div'), { className: 'sep' })); item('TV settings');
+  document.body.append(m); const t = document.getElementById('tvkey').getBoundingClientRect();
+  m.style.left = Math.round(t.left - 10) + 'px'; m.style.top = Math.round(t.bottom + 6) + 'px';
+  first.classList.add('hov99m'); return 1; })()`;
+const RHOVER = `.tabmenu button.hov99m{background:none !important;color:#ffe28c !important;padding-left:34px !important;position:relative}
+  .tabmenu button.hov99m::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}`;
 // An ask from the TV, in its own colour (sheet 89's family, the real .bandchip.kind k-tv): hung under the TV icon.
 const ASK_JS = (kind: 'link' | 'asleep') => `(() => {
   document.getElementById('a99')?.remove();
@@ -100,12 +114,28 @@ app.whenReady().then(async () => {
     writeFileSync(`${out}-${name}-ov.json`, ov); console.log('SHOT ' + name + ' ' + ov);
   };
   const js = (c: string) => fw.executeJavaScript(c);
-  const hk = await fw.insertCSS(HOVER);
-  await js(MENU_JS); await wait(500); await frame('menu');
-  await js(`(() => { const m = document.getElementById('menu'); m.hidden = true; m.classList.remove('ov99'); return 1; })()`); void hk;
+  await fw.insertCSS('#tvkey[hidden]{display:grid !important}');
+  await js(TV_JS(0, 'dim')); await wait(400); await js(TV_JS(0, 'dim')); await wait(300); await frame('idle');
+  await js(TV_JS(0, 'hover')); await wait(300); await frame('hover');
+  await fw.insertCSS(RHOVER); await js(TV_JS(0)); await js(RCLICK_JS); await wait(500); await frame('rclick');
+  await js(`document.getElementById('tabmenu')?.remove(); 1`); void HOVER; void MENU_JS;
   for (const s of [0, 1, 2, 3]) { await js(TV_JS(s)); await wait(300); await frame('tv' + s); }
   await js(TV_JS(0)); await js(ASK_JS('link')); await wait(600); await frame('link');
   await js(`document.getElementById('a99')?.remove(); 1`);
   await js(TV_JS(1)); await js(ASK_JS('asleep')); await wait(600); await frame('asleep');
+  const sw = new BrowserWindow({ show: false, width: 1100, height: 700, webPreferences: { offscreen: true } });
+  await sw.loadURL(`${pages.origin}/settings.html`); await wait(800);
+  await sw.webContents.executeJavaScript(`(() => { try {
+    const nav = document.querySelector('.side a[data-sec="about"]'); const a = nav.cloneNode(true); a.dataset.sec = 'tv'; a.setAttribute('href', '#tv'); a.childNodes[a.childNodes.length - 1].textContent = 'TV'; nav.before(a);
+    for (const x of document.querySelectorAll('.side a')) x.classList.toggle('on', x.dataset.sec === 'tv');
+    for (const x of document.querySelectorAll('section[data-sec]')) x.hidden = true;
+    const sec = document.createElement('section'); sec.dataset.sec = 'tv';
+    sec.innerHTML = '<h2>TV</h2><div class="card"><i class="caps"></i>' +
+      '<div class="r"><b>Your TV</b><span class="v">yeet · linked</span></div>' +
+      '<div class="r"><b>Answer "Who&#39;s watching?"</b><span class="v">Me on YouTube</span></div>' +
+      '<div class="r"><b>Pause the video here</b><span class="v">When the TV takes it</span></div>' +
+      '<div class="r"><b>Unlink yeet</b><i class="go"></i></div></div>';
+    document.querySelector('section[data-sec="start"]').before(sec); return 1; } catch (e) { return String(e); } })()`).then((r) => console.log('SETTINGS ' + r));
+  await wait(600); writeFileSync(`${out}-settings.png`, (await sw.webContents.capturePage()).toPNG()); console.log('SHOT settings');
   srv.close(); app.exit(0);
 });
