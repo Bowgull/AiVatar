@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 96 - The whole bar, as one thing</title>
+<!-- Sheet 96 (2026-10-27). His ask: "what would you change about this or even the entire bar if you had to go big, be
+     honest, disagree with me, show me options. None of these really make sense to me, it feels off, the whole thing feels
+     disconnected, all of it." The honest read of today's bar, measured from its own files: four materials (pixel wood,
+     smooth plum CSS keys, a flat navy-black address bar, gold glyphs with no key), three pixel sizes (the wood stretched
+     to 2.2x tall, icons at 2x, the lantern at 1x), and colours that fight (plum, navy, gold, cream, red). Each piece came
+     from its own sheet. So three whole bars, each ONE material on ONE grid: every piece at 2x (one art pixel = 2 screen
+     pixels), Samara's real art at its true size (band.png 64x26, shield_rest.png, samara-lantern-16.png, the rune's own
+     maps, the bar's own glyphs), the Silkscreen pixel face for words. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1000px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:40px 0 10px}
+  .cap{font:700 13.5px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:820px;line-height:1.5}
+  .why{display:grid;grid-template-columns:repeat(4,minmax(0,220px));gap:14px;margin:14px 0 0}
+  .why div{font:500 13px/1.45 var(--body);color:#d8c8a6}
+  .why b{display:block;font:400 10px var(--label);letter-spacing:1.2px;color:#e0553e;margin-bottom:4px}
+  .stage{position:relative;width:1000px}
+  .stage canvas{display:block;image-rendering:pixelated}
+  .stage .t{position:absolute;font:400 16px var(--label);letter-spacing:0;line-height:16px;white-space:nowrap}
+  .stage .page{height:110px;background:#f6f3ee;border:4px solid #120A05;border-top:none}
+  .stage .page i{display:block;height:10px;background:#e2ddd4;margin:18px 24px 0;width:50%}
+  .pick{font:400 10px var(--label);letter-spacing:1.2px;color:#2a1c00;background:var(--gold);border:2px solid #120A05;padding:2px 6px;margin-left:8px;vertical-align:2px}
+</style>
+</head>
+<body>
+<h1>Sheet 96 · The whole bar, as one thing</h1>
+<p class="lead">You're right that it feels disconnected, and the lantern alone won't fix it. I measured today's bar from its own files. Every piece was added on a different sheet, in its own style. So it reads as parts stuck on wood, not one thing.</p>
+<div class="why">
+  <div><b>FOUR MATERIALS</b>Pixel wood, smooth purple buttons, a flat black address bar, and gold icons with no button at all.</div>
+  <div><b>THREE PIXEL SIZES</b>The wood is stretched to 2.2x tall, the icons are 2x, the lantern was 1x. Pixels that don't match look pasted on.</div>
+  <div><b>COLOURS FIGHT</b>Purple, navy, gold, cream and red all at once. Game menus use a few colours from one family.</div>
+  <div><b>NO HOME FOR THINGS</b>Keys float on the wood. Claude, downloads and updates pop in wherever there's room.</div>
+</div>
+
+<h2>A · ONE CARVED PLANK<span class="pick">MY PICK</span></h2>
+<p class="cap">The whole bar is one plank of Samara's wood. Every key is carved into it, with brass icons. The address bar is a groove cut along it.</p>
+<p class="sub">The lantern hangs in its own niche at the left, as Samara's crest, and opens the menu. Claude's rune is set into the end of the groove. One wood, one brass, one cream, every pixel the same size. Purple goes away.</p>
+<div class="stage" id="A"></div>
+
+<h2>B · INVENTORY BAR</h2>
+<p class="cap">Like Stardew's toolbar or Zelda's item buttons: a row of the same square slots, each holding one tool. The address bar is a parchment strip in the middle.</p>
+<p class="sub">The most "game" of the three. Every slot is the same, so new things (downloads, an update, Claude) just take the next slot. Busier than A.</p>
+<div class="stage" id="B"></div>
+
+<h2>C · QUIET LINE (I'D PUSH BACK ON YOU HERE)</h2>
+<p class="cap">Maybe the bar is trying too hard. A thin dark rail, a gold edge, brass icons with no buttons that light up when you point at them.</p>
+<p class="sub">Like a modern game's HUD: it stays out of the way, so the page and your mockups get more room. The lantern is small at the left. Least wood, least charm.</p>
+<div class="stage" id="C"></div>
+
+<script>
+const G = {"back": [[5, 0, 1, 1], [4, 0, 1, 1], [4, 1, 1, 1], [3, 1, 1, 1], [3, 2, 1, 1], [2, 2, 1, 1], [2, 3, 1, 1], [1, 3, 1, 1], [3, 4, 1, 1], [2, 4, 1, 1], [4, 5, 1, 1], [3, 5, 1, 1], [5, 6, 1, 1], [4, 6, 1, 1]], "fwd": [[1, 0, 1, 1], [2, 0, 1, 1], [2, 1, 1, 1], [3, 1, 1, 1], [3, 2, 1, 1], [4, 2, 1, 1], [4, 3, 1, 1], [5, 3, 1, 1], [3, 4, 1, 1], [4, 4, 1, 1], [2, 5, 1, 1], [3, 5, 1, 1], [1, 6, 1, 1], [2, 6, 1, 1]], "reload": [[2, 0, 3, 1], [6, 0, 1, 3], [1, 1, 1, 1], [5, 1, 1, 1], [4, 2, 2, 1], [0, 2, 1, 3], [6, 4, 1, 1], [1, 5, 1, 1], [5, 5, 1, 1], [2, 6, 3, 1]], "min": [[0, 5, 7, 2]], "max": [[0, 0, 7, 2], [0, 2, 1, 5], [6, 2, 1, 5], [1, 6, 5, 1]], "close": [[0, 0, 2, 1], [5, 0, 2, 1], [0, 1, 3, 1], [4, 1, 3, 1], [1, 2, 5, 1], [2, 3, 3, 1], [1, 4, 5, 1], [0, 5, 3, 1], [4, 5, 3, 1], [0, 6, 2, 1], [5, 6, 2, 1]], "dl": [[2, 0, 3, 2], [0, 2, 7, 1], [1, 3, 5, 1], [2, 4, 3, 1], [3, 5, 1, 1], [0, 7, 7, 1]], "star": [[1, 0, 2, 1], [6, 0, 2, 1], [0, 1, 4, 4], [5, 1, 4, 4], [0, 5, 1, 1], [8, 5, 1, 1], [0, 6, 4, 1], [5, 6, 4, 1], [3, 7, 3, 1]]};
+const ART = '../../src/Shell/pages/art/';
+const load = (p) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = ART + p; });
+const RUNE_STONE = ['...OOOOOO...','..OHHHHHLO..','.OHHLLLLLSO.','OHLLLLLLLLSO','OHLLLLLLLLSO','OHLLLLLLLLSO','OLLLLLLLLLSO','OLLLLLLLLSSO','OLLLLLLLLSSO','.OSLLLLLSSO.','..OSSSSSSO..','...OOOOOO...'];
+const RUNE_G = ['...G...','G..G.G.','.G.GG..','..GGGGG','GGGG...','..G.GG.','.G..G.G'];
+const RC = { O: '#2a1a10', H: '#fbf3e4', L: '#f0e3c8', S: '#cdb48c', G: '#d97757' };
+function bar(id, H, draw) {
+  const W = 500, st = document.getElementById(id);
+  const cv = Object.assign(document.createElement('canvas'), { width: W * 2, height: H * 2 }), g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false; g.scale(2, 2);
+  st.append(cv);
+  const page = document.createElement('div'); page.className = 'page'; page.innerHTML = '<i></i><i></i><i></i>'; st.append(page);
+  const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const glyph = (name, x, y, col, hi, sh) => {
+    if (sh) for (const [a, b, w, h] of G[name]) R(x + a + 1, y + b + 1, w, h, sh);
+    for (const [a, b, w, h] of G[name]) R(x + a, y + b, w, h, col);
+    if (hi) for (const [a, b, w, h] of G[name]) R(x + a, y + b, 1, 1, hi);
+  };
+  const rune = (x, y) => { RUNE_STONE.forEach((r, j) => [...r].forEach((c, i) => { if (c !== '.') R(x + i, y + j, 1, 1, RC[c]); })); RUNE_G.forEach((r, j) => [...r].forEach((c, i) => { if (c === 'G') R(x + i + 2, y + j + 2, 1, 1, RC.G); })); };
+  const text = (s, x, y, col, shadow) => { const t = document.createElement('span'); t.className = 't'; t.textContent = s; t.style.left = x * 2 + 'px'; t.style.top = y * 2 + 'px'; t.style.color = col; if (shadow) t.style.textShadow = `2px 2px 0 ${shadow}`; st.append(t); };
+  draw({ g, R, glyph, rune, text, W, H });
+}
+(async () => {
+  const [band, shield, lan, tray] = await Promise.all([load('browser/band.png'), load('browser/shield_rest.png'), load('samara/samara-lantern-16.png'), load('browser/tray.png')]);
+  const shieldAt = (g, x, y) => { if (shield) g.drawImage(shield, 0, 0, 20, 24, x, y, 10, 12); };
+
+  // ---------- A: one carved plank, 26 art px tall (band.png at its true size) ----------
+  bar('A', 28, ({ g, R, glyph, rune, text, W }) => {
+    for (let x = 0; x < W; x += 64) g.drawImage(band, x, 0);
+    R(0, 26, W, 2, '#120A05');
+    // a carved socket: dark inside, its top-left in shadow, its bottom-right lip catching the light
+    const sock = (x, y, w, h) => { R(x, y, w, h, '#120A05'); R(x + 1, y + 1, w - 2, h - 2, '#24140a'); R(x + 1, y + 1, w - 2, 1, '#0d0704'); R(x + 1, y + 1, 1, h - 2, '#0d0704'); R(x + 1, y + h - 2, w - 2, 1, '#6b4322'); R(x + w - 2, y + 1, 1, h - 2, '#6b4322'); };
+    const BR = ['#FFC43C', '#FFE096', '#7a4a0c'];
+    // the lantern's niche: Samara's crest, and the menu
+    sock(4, 3, 20, 20); if (lan) g.drawImage(lan, 6, 5);
+    R(13, 0, 2, 5, '#120A05');                      // its hook, from the top edge
+    let x = 30;
+    for (const k of ['back', 'fwd', 'reload']) { sock(x, 5, 16, 16); glyph(k, x + 4, x === 30 ? 9 : 9, BR[0], BR[1], BR[2]); x += 18; }
+    // the groove: one long cut, the shield, the address, and Claude's rune set in at its end
+    const gx = 90, gw = 330; sock(gx, 4, gw, 18);
+    shieldAt(g, gx + 5, 7);
+    text('amazon.ca', gx + 20, 9, '#F0E2C0', '#0d0704');
+    glyph('star', gx + gw - 30, 9, BR[0], BR[1], BR[2]);
+    rune(gx + gw - 16, 7);
+    x = 432;
+    for (const k of ['min', 'max', 'close']) { sock(x, 5, 16, 16); glyph(k, x + 4, 9, BR[0], BR[1], BR[2]); x += 20; }
+  });
+
+  // ---------- B: inventory bar, square slots in one frame ----------
+  bar('B', 30, ({ g, R, glyph, rune, text, W }) => {
+    for (let x = 0; x < W; x += 64) { g.drawImage(band, x, 0); g.drawImage(band, 0, 22, 64, 4, x, 26, 64, 4); }
+    R(0, 28, W, 2, '#120A05');
+    const slot = (x, y, s) => { R(x, y, s, s, '#120A05'); R(x + 1, y + 1, s - 2, s - 2, '#DEC28C'); R(x + 1, y + 1, s - 2, 2, '#F0DCB4'); R(x + 1, y + s - 3, s - 2, 2, '#b89a64'); R(x + 2, y + 3, s - 4, s - 6, '#ECD5A8'); };
+    const INK = ['#2E2216', null, '#b89a64'];
+    // one frame round all the slots, like a toolbar
+    const fx = 3, fw = W - 6; R(fx, 2, fw, 26, '#120A05'); R(fx + 1, 3, fw - 2, 24, '#6b4322'); R(fx + 1, 3, fw - 2, 1, '#9a6a3a'); R(fx + 1, 26, fw - 2, 1, '#3a2414');
+    let x = 7;
+    slot(x, 5, 20); if (lan) g.drawImage(lan, x + 2, 7); x += 22;
+    for (const k of ['back', 'fwd', 'reload']) { slot(x, 5, 20); glyph(k, x + 6, 11, INK[0], null, INK[2]); x += 22; }
+    // the parchment strip, rolled at both ends
+    const sx = x + 2, sw = 300;
+    R(sx, 5, sw, 20, '#120A05'); R(sx + 1, 6, sw - 2, 18, '#ECD5A8'); R(sx + 1, 6, sw - 2, 2, '#F6E6C2'); R(sx + 1, 22, sw - 2, 2, '#cdb48c');
+    for (const ex of [sx - 3, sx + sw - 1]) { R(ex, 4, 4, 22, '#120A05'); R(ex + 1, 5, 2, 20, '#b89a64'); R(ex + 1, 5, 1, 20, '#DEC28C'); }
+    shieldAt(g, sx + 6, 9);
+    text('amazon.ca', sx + 22, 11, '#2E2216');
+    x = sx + sw + 6;
+    slot(x, 5, 20); rune(x + 4, 9); x += 22;
+    for (const k of ['min', 'max', 'close']) { slot(x, 5, 20); glyph(k, x + 6, 11, INK[0], null, INK[2]); x += 22; }
+  });
+
+  // ---------- C: quiet line, a thin dark rail and a gold edge ----------
+  bar('C', 18, ({ g, R, glyph, rune, text, W }) => {
+    for (let x = 0; x < W; x += 64) g.drawImage(tray, 0, 0, 64, 16, x, 0, 64, 16);
+    R(0, 0, W, 16, 'rgba(10,6,3,.55)');
+    R(0, 16, W, 1, '#C98C14'); R(0, 17, W, 1, '#120A05');
+    const BR = ['#d9a441', '#FFE096', '#120A05'];
+    if (lan) g.drawImage(lan, 4, 0);
+    let x = 26;
+    for (const k of ['back', 'fwd', 'reload']) { glyph(k, x, 5, BR[0], null, BR[2]); x += 14; }
+    shieldAt(g, 196, 2);
+    text('amazon.ca', 210, 4, '#F0E2C0', '#000');
+    rune(292, 2);
+    x = 452;
+    for (const k of ['min', 'max', 'close']) { glyph(k, x, 5, BR[0], null, BR[2]); x += 14; }
+  });
+})();
+</script>
+</body>
+</html>
