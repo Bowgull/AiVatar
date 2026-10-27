@@ -38,33 +38,49 @@
 
 ---
 
-## B. Samara (about 80 s, 16:9)
+## B. Samara (about 90 s, 16:9), rewritten 2026-10-26
+
+His picks: for developers on GitHub; pitched as "a cozy browser that Claude can use safely"; his voice; soft cozy game music under it. Recorded on the PC, except the TV clip (Mac only for now). Claude does a real task on public pages: comparing three laptops.
 
 | Time | Say | Screen |
 |---|---|---|
-| 0:00-0:04 | "This is Samara. It's a browser, but it's not really for me. It's for Claude." | Taskbar lantern lights up. Samara opens as a floating page with soft edges |
-| 0:04-0:09 | "I wanted Claude to do web stuff for me without touching my real browser." | Title card "samara" with the lantern, dark wood |
-| 0:09-0:22 | "Before it starts, Claude shows me its plan. Which sites, which steps. Don't like one? I untick it, or just tell Claude what to change." | Plan card. One site gets unticked. Zoom on the card |
-| 0:22-0:30 | "Then it works in its own tabs, grouped in my tab list, so I can watch it go." | Claude's grouped tabs appear and load. The Claude rune shows progress in the bar |
-| 0:30-0:36 | "And if it goes sideways, there's a big STOP key. I like big keys." | Cursor to the STOP key. Press. Everything halts. Zoom 2× |
-| 0:36-0:50 | "Every site gets its own rules behind the shield. Bank and money sites are just never opened. Not by Claude, not ever. Pages can't hide sneaky text for Claude to read, and they can't trick it into pressing Send." | Shield button, then per-site rules. Caption: "bank & money sites are never opened". A bank-type link offers to open in Chrome with one big button |
-| 0:50-1:00 | "It's also just a nice browser. Videos pop out into their own window, and closing the pop-out brings Samara back." | Video tab pops out, player pinned edge to edge. The tab shows what's playing. Close the pop-out: Samara returns |
-| 1:00-1:08 | "When Claude makes me design mockups, they land in their own trail, every version kept." | Mockups trail: a sheet with its versions; click back a version |
-| 1:08-1:14 | "Every big version gets named after a character. This one's Gojo." | Updates window or About, showing 1.21.0 "Gojo" |
-| 1:14-1:20 | "Link's below." | End card: "samara" + GitHub link |
+| 0:00-0:05 | "This is Samara. It's the browser I use every day, and Claude uses it too." | Lantern lights in the taskbar. Samara opens: dark wood band, soft edges, the page fades in |
+| 0:05-0:10 | "I built it with Claude, so it looks like the games I grew up on." | Title card "samara" (sheet 68 look). Quick cuts: tab tray sliding in, shield panel, wooden menus |
+| 0:10-0:22 | "I asked Claude to compare three laptops. Before it touches anything, it shows me its plan. Which sites, which steps. I can untick one." | Typing the ask. The plan card appears. One site gets unticked. Zoom on the card |
+| 0:22-0:34 | "Then it works in its own tabs, right in my tab list, so I can watch it go. When it's done, I get the answer." | Claude's trail of tabs loads one by one. The Claude rune fills in the bar. The result table |
+| 0:34-0:40 | "If it goes sideways, there's a big STOP key. I like big keys." | Cursor to STOP. Press. Everything halts. Zoom 2x |
+| 0:40-0:52 | "Some places it never goes. Bank and money sites are never opened by Claude. Not once. And pages can't hide sneaky text to trick it, or make it press Send." | Shield, the site rules. Caption: "bank & money sites: never opened by AI". A bank link offers Chrome with one big button |
+| 0:52-1:04 | "It's also just a nice browser. Stremio plays right here. Pop a video out, and it floats on its own." | Stremio in a tab, a title playing. The pop-out lifts it into its own window, edge to edge |
+| 1:04-1:12 | "One tap, and it's on my TV. It waits, paused, until I hit play." | (Mac clip) The TV key, the TV picked, a cut to the TV screen showing it paused |
+| 1:12-1:22 | "And when Claude designs something for me, it lands in its own trail, with every version kept." | Mockups trail: a sheet with its versions; click back a version |
+| 1:22-1:30 | "It's called Samara. The link's below." | End card: "samara" + github.com/Bowgull/Samara |
 
-**About 205 words.**
+**About 235 words.**
 
-### Samara teaser (17 s, vertical)
+### Samara teaser (20 s, vertical)
 
 | Time | Say | Screen |
 |---|---|---|
-| 0:00-0:03 | "I gave Claude its own browser." | Lantern lights, Samara opens |
-| 0:03-0:09 | "It shows me the plan first. I can untick anything." | Plan card, untick |
-| 0:09-0:14 | "Big STOP key. And bank sites? Never opened." | STOP press, then the shield caption |
-| 0:14-0:17 | "It's called Samara." | Title card |
+| 0:00-0:03 | "I built a browser Claude can use safely." | Lantern lights, Samara opens |
+| 0:03-0:09 | "It shows me its plan first. I can untick anything." | Plan card, untick |
+| 0:09-0:14 | "Big STOP key. Bank sites? Never opened." | STOP press, then the shield caption |
+| 0:14-0:18 | "And it sends my shows to the TV." | The TV key, the TV, paused |
+| 0:18-0:20 | "It's called Samara." | Title card |
 
----
+### Shot list (what to film, and where)
+
+| # | Clip | Where | Demo data |
+|---|---|---|---|
+| 1 | Samara opening from the lantern, a few tabs, the tab tray | PC | Demo tabs only (public sites), no history, no bookmarks of his |
+| 2 | Claude's laptop task: the ask, plan card, untick, trail of tabs, result | PC | Public shop and review pages; signed out |
+| 3 | STOP mid-task | PC | Same task, a second take |
+| 4 | Shield and site rules; a bank link offering Chrome | PC | A well-known bank's public home page, never signed in |
+| 5 | Stremio playing, then the pop-out | PC | A public-domain title (e.g. a Blender open movie), never his library |
+| 6 | Send to TV, then the TV paused | Mac + the TV filmed with a phone, or AirPlay mirroring captured | Same public title |
+| 7 | Mockups trail with versions | PC | A demo sheet, no personal notes |
+| 8 | Title and end cards, zooms, captions | Made in code (HyperFrames) | None |
+
+Before filming: a clean demo profile (no real tabs, mail, logins or bookmarks), notifications off, the taskbar tidy. Nothing on screen with his name or email.
 
 ## C. Waymark (about 65 s, vertical 1080×1920, plus a 16:9 cut with the phone centred on dark grain)
 
@@ -114,13 +130,13 @@
 
 **Samara**
 - **Plan card.** It shows the plan before it starts; you can untick a site or tell Claude what to change.
-- **Claude's tabs.** It has its own grouped tabs and a big STOP key.
+- **Claude's tabs.** It has its own trail of tabs and a big STOP key.
 - **Claude rune.** It shows job progress.
 - **Shield and site rules.** Bank and money sites are never opened; they open in Chrome with one button.
 - **Page tricks blocked.** Hidden trick text can't reach Claude, and pages can't trick it into pressing Send.
-- **Pop-outs.** Videos pop out, the tab shows what's playing, and closing the pop-out brings Samara back.
+- **Stremio and pop-outs.** Stremio plays in a tab; videos pop out into their own window.
+- **Send to TV.** Built 2026-10-25, Mac only (finding the TV uses the Mac's Bonjour); videos arrive paused.
 - **Mockups trail.** Every version is kept.
-- **Version names.** Every big version is named after a character; the current one is 1.21.0 "Gojo".
 
 **Waymark**
 - **Morning Report.** The drum picker logs it.
