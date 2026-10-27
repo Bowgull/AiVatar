@@ -59,7 +59,7 @@ const RCLICK_JS = `(() => { document.getElementById('tabmenu')?.remove();
   const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu ov99'; m.setAttribute('role', 'menu');
   const gh = (t) => m.append(Object.assign(document.createElement('div'), { className: 'gh', textContent: t }));
   const item = (t, off = false) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.disabled = off; m.append(b); return b; };
-  gh('SEND TO YEET'); const first = item("In the TV's Netflix"); item('The whole window'); item('Just the video (not on Netflix)', true);
+  gh('SEND TO TV'); const first = item('Play in Netflix on the TV'); item('Show this whole window'); item('Send only the video', true);
   m.append(Object.assign(document.createElement('div'), { className: 'sep' })); item('TV settings');
   document.body.append(m); const t = document.getElementById('tvkey').getBoundingClientRect();
   m.style.left = Math.round(t.left - 10) + 'px'; m.style.top = Math.round(t.bottom + 6) + 'px';
@@ -75,13 +75,13 @@ const ASK_JS = (kind: 'link' | 'asleep') => `(() => {
   const tag = a.querySelector('.tag'); tag.textContent = ${kind === 'link' ? "'Your TV'" : "'Went wrong'"};
   const faces = a.querySelector('.faces'); faces.remove();
   a.querySelector('.q2').lastElementChild.textContent = ${kind === 'link' ? "'Link Samara to yeet'" : "\"yeet didn't wake up\""};
-  a.querySelector('.m').innerHTML = ${kind === 'link' ? "'Type the code your TV is showing. Only this once.'" : "'Turn it on with its remote, then try again. <b>The whole window</b> works with it asleep.'"};
+  a.querySelector('.m').innerHTML = ${kind === 'link' ? "'Type the code your TV is showing. Only this once.'" : "'Turn it on with its remote, then try again. Or show this whole window, which works with the TV asleep.'"};
   ${kind === 'link' ? `const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin:10px 0 2px';
     for (const ch of ['5', '5', 'F', '', '', '']) { const c = document.createElement('span'); c.textContent = ch;
       c.style.cssText = 'width:34px;height:40px;display:grid;place-items:center;border-radius:7px;border:3px solid #120A05;background:#0B0718;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);font:800 18px Figtree,sans-serif;color:#ffe28c' + (ch === '' && !row.querySelector('.cur') ? ';box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 0 0 2px #FFC43C' : '');
       if (ch === '' && !row.querySelector('.cur')) c.className = 'cur'; row.append(c); }
     a.querySelector('.m').after(row);` : ''}
-  const ks = a.querySelectorAll('.keys button'); ks[0].firstElementChild.textContent = ${kind === 'link' ? "'Link'" : "'Try again'"}; ks[1].firstElementChild.textContent = ${kind === 'link' ? "'Not now'" : "'Whole window'"};
+  const ks = a.querySelectorAll('.keys button'); ks[0].firstElementChild.textContent = ${kind === 'link' ? "'Link'" : "'Try again'"}; ks[1].firstElementChild.textContent = ${kind === 'link' ? "'Not now'" : "'Show whole window'"};
   const t = document.getElementById('tvkey').getBoundingClientRect(), band = document.getElementById('band').getBoundingClientRect();
   a.style.width = '300px'; a.style.left = Math.round(t.left - band.left - 22) + 'px';
   document.getElementById('band').append(a); return 1; })()`;
