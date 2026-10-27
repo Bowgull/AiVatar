@@ -1270,3 +1270,19 @@ html.secret .tabmenu button{color:#e4eaff}
 @keyframes newn{from{transform:translateY(-6px) scale(.6);opacity:0}to{transform:none;opacity:1}}
 html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:#141a38}
 @media (prefers-reduced-motion:reduce){.hnd .newn{animation:none}}
+
+/* ---- Sheet 99: Send to TV in one click. The TV icon sits in the bar on any page that can be sent, dim until pointed
+   at; while sending, its screen fills a third per step; playing, it is the full picture with its glow (sheet 89). The
+   code his TV shows goes in six boxes in the TV's own ask; a TV that did not wake wears the notices' red. ---- */
+.slot .tvkey.idle{opacity:.6;filter:none;transition:opacity .12s ease-out,filter .12s ease-out}
+.slot .tvkey.idle:hover{opacity:1;filter:drop-shadow(0 0 6px rgba(190,150,255,1)) brightness(1.25)}
+.slot .tvkey.going{filter:none}
+.slot .tvkey canvas{display:block;image-rendering:pixelated}
+.bandchip.kind.k-bad{--kc:#a8382a}
+.bandchip .tvcode{display:flex;gap:6px;margin:10px 0 2px}
+.bandchip .tvcode[hidden]{display:none}
+.bandchip .tvcode input{width:34px;height:40px;box-sizing:border-box;text-align:center;border-radius:7px;border:3px solid #120A05;background:#0B0718;
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.6);font:800 18px var(--body);color:#ffe28c;text-transform:uppercase;caret-color:#FFC43C;outline:none;padding:0}
+.bandchip .tvcode input:focus{box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 0 0 2px #FFC43C}
+.bandchip .tvcode.wrong{animation:afshake .28s ease-in-out}
+.bandchip .faces[hidden]{display:none}

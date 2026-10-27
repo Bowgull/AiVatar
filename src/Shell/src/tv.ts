@@ -41,6 +41,23 @@ export async function findTvs(waitMs = 2500): Promise<CastTv[]> {
   return out;
 }
 
+/** Google TVs on the home network that run Google TV's remote service (sheet 99), by name, for tvremote.ts. */
+export async function findRemoteTvs(waitMs = 2500): Promise<{ name: string; host: string }[]> {
+  if (process.platform !== 'darwin') return [];
+  const browse = await run(['-B', '_androidtvremote2._tcp', 'local.'], waitMs);
+  const names = [...new Set([...browse.matchAll(/_androidtvremote2\._tcp\.\s+(.+?)\s*$/gm)].map((m) => m[1]!.trim()))].slice(0, 6);
+  const out: { name: string; host: string }[] = [];
+  for (const name of names) {
+    const info = await run(['-L', name, '_androidtvremote2._tcp', 'local.'], waitMs, /can be reached at/);
+    const at = /can be reached at (\S+?)\.?:(\d+)/.exec(info);
+    if (!at) continue;
+    let host = at[1]!;
+    try { host = (await lookup(host, { family: 4 })).address; } catch { /* keep the .local name */ }
+    out.push({ name, host });
+  }
+  return out;
+}
+
 /** The AirPlay screens on the home network, by name (his TV answers as "yeet"): to know which Mac display it is. */
 export async function airplayNames(waitMs = 2500): Promise<string[]> {
   if (process.platform !== 'darwin') return [];

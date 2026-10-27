@@ -120,9 +120,11 @@
     </div>
     <!-- Sheet 89: the TV ask, in sheet 86's family: the TV's colour, Samara's pixel screen, where it comes from and goes. -->
     <div class="bandchip kind k-tv" id="tvchip" hidden>
-      <span class="tag" id="tvtag">Your TV</span>
+      <span class="tag" id="tvtag"><span id="tvtagw">Your TV</span></span>
       <div class="q2"><span class="faces"><span class="face"><i class="bm-letter" id="tvfrom"></i></span><span class="to" id="tvto"></span><span class="face" id="tvface"></span></span><span id="tvq"></span></div>
       <p class="m" id="tvm"></p>
+      <!-- Sheet 99: the code his TV shows, the very first Send to TV only (six letters and numbers). -->
+      <div class="tvcode" id="tvcode" hidden><input maxlength="1" aria-label="Code 1"><input maxlength="1" aria-label="Code 2"><input maxlength="1" aria-label="Code 3"><input maxlength="1" aria-label="Code 4"><input maxlength="1" aria-label="Code 5"><input maxlength="1" aria-label="Code 6"></div>
       <div class="keys"><button class="key primary sm" id="tvyes" type="button"><span></span><span class="k">A</span></button><button class="key sm" id="tvno" type="button"><span></span><span class="k">Z</span></button></div>
     </div>
     <div class="bandchip" id="askchip" hidden>

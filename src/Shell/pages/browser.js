@@ -2619,34 +2619,96 @@ if (!SOLO) {
   el('tvtag').prepend(pixIcon('video', 1.5) ?? document.createTextNode(''));
   el('tvface').append(pixIcon('video', 2) ?? document.createTextNode(''));
   el('tvto').innerHTML = ARROW;
-  let keys = { yes: '', no: '' }, was = null;
+  let keys = { yes: '', no: '' }, was = null, tvNow = null, drawn = '';
+  // Sheet 99: the TV icon's screen filling a third per step (pixicons' "video", 10 x 10 at 2x, its own palette)
+  const TV_MAP = ['kkkkkkkkkk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kSSSSSSSSk', 'kkkkkkkkkk', '...kGGk...', '.kkkkkkkk.'];
+  const tvFill = (step) => {
+    const c = Object.assign(document.createElement('canvas'), { width: 20, height: 20 }), g = c.getContext('2d');
+    const upto = 1 + step * 3;           // 0: dark, 1: a third, 2: two thirds (the bright edge is where it has reached)
+    TV_MAP.forEach((r, y) => [...r].forEach((ch, x) => {
+      const col = ch === 'k' ? '#2E3248' : ch === 'G' ? '#A2AAC0' : ch === 'S' ? (x < upto - 1 ? '#2B78D0' : x === upto - 1 && step > 0 ? '#8ED2FF' : '#161a2c') : null;
+      if (col) { g.fillStyle = col; g.fillRect(x * 2, y * 2, 2, 2); }
+    }));
+    return c;
+  };
+  const code = el('tvcode'), boxes = [...code.querySelectorAll('input')];
+  const typed = () => boxes.map((x) => x.value).join('').toUpperCase();
+  for (const [i, x] of boxes.entries()) {
+    x.addEventListener('input', () => { x.value = x.value.replace(/[^0-9a-f]/gi, '').slice(-1).toUpperCase(); if (x.value && boxes[i + 1]) boxes[i + 1].focus(); if (typed().length === 6) window.aang?.browserTv?.('code:' + typed()); });
+    x.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !x.value && boxes[i - 1]) { boxes[i - 1].focus(); boxes[i - 1].value = ''; } if (e.key === 'Enter' && typed().length === 6) window.aang?.browserTv?.('code:' + typed()); if (e.key === 'Escape') window.aang?.browserTv?.('nolink'); });
+    x.addEventListener('paste', (e) => { const t = (e.clipboardData?.getData('text') || '').replace(/[^0-9a-f]/gi, '').toUpperCase().slice(0, 6); if (!t) return; e.preventDefault(); boxes.forEach((b, j) => { b.value = t[j] ?? ''; }); if (t.length === 6) window.aang?.browserTv?.('code:' + t); else boxes[t.length]?.focus(); });
+  }
   window.paintTv = (tv) => {
-    // the light: only while something is on the TV; it breathes once as it starts
-    const on = Boolean(tv?.kind);
-    if (on && tvkey.hidden) { tvkey.classList.remove('live'); void tvkey.offsetWidth; tvkey.classList.add('live'); }
+    tvNow = tv;
+    // the icon: playing (the full picture, it breathes once as it starts), sending (filling), or ready to send (dim)
+    const playing = Boolean(tv?.kind), going = tv?.step != null, on = playing || going || Boolean(tv?.can);
+    if (playing && drawn !== 'play') tvkey.classList.remove('live');
+    const want = playing ? 'play' : going ? 'step' + tv.step : on ? 'idle' : '';
+    if (want !== drawn) {
+      tvkey.replaceChildren(going ? tvFill(tv.step) : pixIcon('video', 2) ?? document.createTextNode('TV'));
+      if (want === 'play') { void tvkey.offsetWidth; tvkey.classList.add('live'); }
+      drawn = want;
+    }
+    tvkey.classList.toggle('idle', want === 'idle'); tvkey.classList.toggle('going', going);
+    tvkey.title = playing ? `On ${tv.name}` : tv?.toTv ? 'Send to TV' : 'Send window';
+    tvkey.setAttribute('aria-label', tvkey.title);
     tvkey.hidden = !on;
-    // the ask: setting yeet up as a second screen, or what is playing there
+    // the ask: setting yeet up as a second screen, what is playing there, the code (sheet 99), or the TV asleep
     const ask = tv?.ask ?? null;
     if (!ask) { chip.hidden = true; was = null; return; }
     const name = tv.name || 'your TV';
+    const faces = chip.querySelector('.faces');
+    faces.hidden = ask === 'link' || ask === 'asleep';
+    code.hidden = ask !== 'link';
+    chip.classList.toggle('k-bad', ask === 'asleep');
+    el('tvtagw').textContent = ask === 'asleep' ? 'Went wrong' : 'Your TV';
     el('tvfrom').textContent = (tv.site || 'S').replace(/^www\./, '').charAt(0).toUpperCase();
     if (ask === 'setup') {
       el('tvq').textContent = `Show this window on ${name}?`;
       el('tvm').replaceChildren('Once only: your Mac needs ', Object.assign(document.createElement('b'), { textContent: name }), ' as a second screen. Samara opens the place to turn it on.');
       keys = { yes: 'displays', no: 'close' }; el('tvyes').firstChild.textContent = 'Open Displays'; el('tvno').firstChild.textContent = 'Not now';
+    } else if (ask === 'link') {
+      el('tvq').textContent = `Link Samara to ${name}`;
+      el('tvm').textContent = tv.linkErr || 'Type the code your TV is showing. Only this once.';
+      if (tv.linkErr && was === 'link') { code.classList.remove('wrong'); void code.offsetWidth; code.classList.add('wrong'); boxes.forEach((b) => { b.value = ''; }); boxes[0].focus(); }
+      keys = { yes: 'code', no: 'nolink' }; el('tvyes').firstChild.textContent = 'Link'; el('tvno').firstChild.textContent = 'Not now';
+      if (was !== 'link') { boxes.forEach((b) => { b.value = ''; }); setTimeout(() => boxes[0].focus(), 60); }
+    } else if (ask === 'asleep') {
+      el('tvq').textContent = `${name === 'your TV' ? 'Your TV' : name} didn't wake up`;
+      el('tvm').textContent = 'Turn it on with its remote, then try again. Or send this window, which works with the TV asleep.';
+      keys = { yes: 'retry', no: 'send:window' }; el('tvyes').firstChild.textContent = 'Try again'; el('tvno').firstChild.textContent = 'Send window';
     } else {
       el('tvq').textContent = tv.kind === 'window' ? `This window is on ${name}` : `Playing on ${name}`;
       el('tvm').replaceChildren(Object.assign(document.createElement('b'), { textContent: tv.title || tv.site }), tv.kind === 'window' ? '' : (tv.site ? `, from ${tv.site}` : ''), '.');
       keys = { yes: 'back', no: 'stop' }; el('tvyes').firstChild.textContent = 'Bring it back'; el('tvno').firstChild.textContent = tv.kind === 'window' ? 'Back to the Mac' : 'Stop';
     }
-    // it hangs from the address bar, flush with its left edge, like every ask in the family
-    const band = el('band').getBoundingClientRect(), slot = el('slot').getBoundingClientRect();
-    chip.style.left = Math.round(slot.left - band.left) + 'px';
+    // the code and the asleep ask hang from the TV icon; the others from the address bar, flush with its left edge
+    const band = el('band').getBoundingClientRect(), slot = el('slot').getBoundingClientRect(), k = tvkey.getBoundingClientRect();
+    chip.style.left = Math.round((ask === 'link' || ask === 'asleep') && k.width ? k.left - band.left - 22 : slot.left - band.left) + 'px';
     if (was !== ask) { chip.classList.remove('in'); void chip.offsetWidth; chip.classList.add('in'); }
     was = ask;
     chip.hidden = false;
   };
-  tvkey.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserTv?.(chip.hidden ? 'open' : 'close'); });
-  el('tvyes').addEventListener('click', () => { if (keys.yes) window.aang?.browserTv?.(keys.yes); });
+  // One click: Send to TV (or Send window on a site that cannot go on its own); while playing, what and where.
+  tvkey.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (tvNow?.kind || tvNow?.ask) window.aang?.browserTv?.(chip.hidden ? 'open' : 'close');
+    else if (tvNow?.step == null) window.aang?.browserTv?.(tvNow?.toTv ? 'send' : 'send:window');
+  });
+  // Right-click: his two ways (his words: "it should be send to TV or send window"), and the TV's settings.
+  tvkey.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    closeTabMenu();
+    const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+    const item = (label, act, off = false) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = label; b.disabled = off;
+      b.addEventListener('click', () => { closeTabMenu(); window.aang?.browserTv?.(act); }); m.append(b); };
+    item('Send to TV', 'send', !tvNow?.toTv);
+    item('Send window', 'send:window');
+    m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+    item('TV settings', 'settings');
+    placeMenu(m, e.clientX, e.clientY);
+  });
+
+  el('tvyes').addEventListener('click', () => { if (keys.yes === 'code') { if (typed().length === 6) window.aang?.browserTv?.('code:' + typed()); else boxes.find((b) => !b.value)?.focus(); } else if (keys.yes) window.aang?.browserTv?.(keys.yes); });
   el('tvno').addEventListener('click', () => { if (keys.no) window.aang?.browserTv?.(keys.no); });
 }
