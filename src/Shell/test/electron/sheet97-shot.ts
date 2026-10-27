@@ -33,33 +33,59 @@ const PLANK = `.band{height:66px !important;background-size:128px 52px !importan
 const C = { working: '#f0a64a', needs: '#7cc4ff' };
 // The address bar's end: the new rune (36 px, its ring in the state's colour). Watching Claude's tab: one label, the rune,
 // CLAUDE IS DRIVING and STOP, and the bar's edge ringed in the same colour, two whole pixels, no blur.
-const COLOR_BAR = (state: 'working' | 'needs', watching: boolean) => `(() => { ${ART}
-  const COL = '${C[state]}';
-  const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; c.style.cssText = 'display:block;flex:none;image-rendering:pixelated'; const g = c.getContext('2d'); return [c, (x, y, col) => { g.fillStyle = col; g.fillRect(x * 2, y * 2, 2, 2); }]; };
+// v2 (his "what about this design feels AI slop"): one rune, one size (36 px, its ring in the state's colour) in the bar,
+// on Claude's row and on its trail; no outlines anywhere; watching, the address bar's corners are the gold caps the tab
+// list's panels wear, taking the state's colour; the handle carries the rune's stone carved in, ringed in the colour,
+// drawn in whole pixels; "needs you" is Samara's real hanging ask (sheet 86's family, .bandchip.kind).
+const CV = `const cv = (w, h, s = 2) => { const c = document.createElement('canvas'); c.width = w * s; c.height = h * s; c.style.cssText = 'display:block;flex:none;image-rendering:pixelated'; const g = c.getContext('2d'); return [c, (x, y, col) => { g.fillStyle = col; g.fillRect(x * s, y * s, s, s); }]; };`;
+const RUNE36 = (state: string, p: number, id = '') => `(() => { const [c, P] = cv(18, 18); rune(P, 0, 0, '${state}', ${p}); ${id ? `c.id = '${id}';` : ''} return c; })()`;
+const COLOR_BAR = (state: 'working' | 'needs', watching: boolean) => `(() => { ${ART} ${CV}
   const [lc, lp] = cv(18, 18); lantern(lp); document.getElementById('menukey').replaceChildren(lc);
-  const slot = document.getElementById('slot'); document.getElementById('r97')?.remove();
-  const [rc, rp] = cv(18, 18); rune(rp, 0, 0, '${state}', ${state === 'needs' ? 1 : 0.4}); rc.id = 'r97'; rc.style.margin = '-6px -8px -6px 0';
+  const slot = document.getElementById('slot'); document.getElementById('r97')?.remove(); document.getElementById('caps97')?.remove();
+  const rc = ${RUNE36('${state}', 0, 'r97')}; rc.style.margin = '-5px 0 -5px 2px';
+  if ('${state}' === 'needs') { const g = rc.getContext('2d'); g.clearRect(0, 0, 36, 36); rune((x, y, k) => { g.fillStyle = k; g.fillRect(x * 2, y * 2, 2, 2); }, 0, 0, 'needs', 1); }
+  else { const g = rc.getContext('2d'); g.clearRect(0, 0, 36, 36); rune((x, y, k) => { g.fillStyle = k; g.fillRect(x * 2, y * 2, 2, 2); }, 0, 0, 'working', 0.4); }
   const who = document.getElementById('who');
   if (${watching} && !who.hidden) {
-    // one sign: the rune leads the label, STOP after it; the bar's edge in the state's colour, two whole pixels
-    who.querySelector('.who-ic')?.replaceWith(rc); rc.style.margin = '-8px 0';
-    slot.style.boxShadow = 'inset 0 4px 0 rgba(0,0,0,.7),0 0 0 2px ' + COL;
+    // Samara redraws the label as it goes, so the rune sits just before it and the label's own mark is hidden by style
+    const wr = who.getBoundingClientRect(), sr = slot.getBoundingClientRect();
+    rc.style.cssText += ';position:absolute;z-index:3;top:50%;margin:-18px 0 0 0;left:' + Math.round(wr.left - sr.left + 8) + 'px';
+    slot.append(rc);
+    const caps = document.createElement('i'); caps.id = 'caps97';
+    caps.style.cssText = 'position:absolute;inset:-6px;pointer-events:none;z-index:2;image-rendering:pixelated;background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat';
+    slot.style.position = 'relative'; slot.style.overflow = 'visible'; slot.append(caps);
   } else slot.append(rc);
   return 1; })()`;
-// The tab list: Claude's trail head wears the rune (no ring) and a left edge in the state's colour; the page Claude is on
-// right now has the FFX glove pointing at it and the same edge. The handle gets a small pip in the state's colour.
-const LIST_JS = (state: 'working' | 'needs', at: number) => `(() => { ${ART}
-  const col = '${C.working}', c2 = '${C.needs}', COL = '${state}' === 'needs' ? c2 : col;
+const LIST_JS = (state: 'working' | 'needs', at: number) => `(() => { ${ART} ${CV}
+  const st = '${state}', p = st === 'needs' ? 1 : 0.4;
   const h = document.querySelector('.th.driver'); if (!h) return 'no trail';
-  const [ic] = [h.querySelector('.who-ic')]; if (ic) { const c = document.createElement('canvas'); c.width = 24; c.height = 24; c.style.cssText = 'display:block;image-rendering:pixelated'; const g = c.getContext('2d'); rune((x, y, k) => { g.fillStyle = k; g.fillRect(x * 2, y * 2, 2, 2); }, 0, 0, '${state}', 1, false); ic.replaceChildren(c); }
-  h.style.boxShadow = 'inset 4px 0 0 ' + COL;
+  const ic = h.querySelector('.who-ic'); if (ic) { const [c, P] = cv(18, 18); rune(P, 0, 0, st, p); c.style.margin = '-8px 0'; ic.replaceWith(c); }
   const rows = [...document.querySelectorAll('.tp.drv')]; const r = rows[${at}]; if (!r) return 'no rows ' + rows.length;
-  r.style.boxShadow = 'inset 4px 0 0 ' + COL + ', 0 0 0 2px ' + COL; r.style.position = 'relative'; r.style.marginLeft = '30px';
-  const gl = document.createElement('i'); gl.style.cssText = 'position:absolute;left:-32px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated'; r.append(gl);
-  ${state === 'needs' ? "const t = r.querySelector('.t'); if (t) t.textContent = t.textContent + '  ·  needs you';" : ''}
+  r.style.position = 'relative'; r.style.paddingRight = '44px';
+  const [c, P] = cv(18, 18); rune(P, 0, 0, st, p); c.style.cssText += ';position:absolute;right:4px;top:50%;margin-top:-18px'; r.append(c);
   return 'ok'; })()`;
-const HANDLE_JS = (state: 'working' | 'needs') => `(() => { const b = document.querySelector('.hnd button'); if (!b) return 'no handle';
-  const p = document.createElement('i'); p.id = 'pip97'; p.style.cssText = 'position:absolute;left:10px;top:6px;width:12px;height:12px;background:${C[state]};box-shadow:0 0 0 2px #120A05,inset -2px -2px 0 rgba(0,0,0,.25),inset 2px 2px 0 rgba(255,255,255,.45)'; b.append(p); return 'ok'; })()`;
+// The handle: the rune's stone (12 x 12) carved into the handle's wood, ringed in the state's colour, whole pixels at 2x.
+const HANDLE_JS = (state: 'working' | 'needs') => `(() => { ${ART} ${CV}
+  const b = document.querySelector('.hnd button'); if (!b) return 'no handle';
+  const [c, P] = cv(14, 14); const col = STATE['${state}'];
+  for (let y = 0; y < 14; y++) for (let x = 0; x < 14; x++) { const d = Math.hypot(x - 6.5, y - 6.5); if (d > 5.6 && d <= 6.9) P(x, y, col); }
+  rune((x, y, k) => P(x + 1, y + 1, k), 0, 0, '${state}', 1, false);
+  c.id = 'pip97'; c.style.cssText += ';position:absolute;left:2px;top:4px'; b.append(c); return 'ok'; })()`;
+// "Needs you": Samara's real hanging ask, the OK kind's colour and tag, hung from the rune at the bar's end.
+const ASK_JS = `(() => { ${ART} ${CV}
+  const src = document.getElementById('tvchip'); const a = src.cloneNode(true); a.id = 'ask97'; a.hidden = false; a.classList.remove('k-tv'); a.style.setProperty('--kc', '#1f6fb0');
+  const r = document.getElementById('r97').getBoundingClientRect(), band = document.getElementById('band').getBoundingClientRect();
+  a.style.left = Math.round(r.left - band.left - 20) + 'px'; a.style.width = '330px';
+  const tag = a.querySelector('.tag'); tag.removeAttribute('id'); tag.textContent = '';
+  const ok = ['.........', '.........', '.###.....', '##.##....', '#...#####', '##.##.#.#', '.###..#.#', '.........', '.........'];
+  const [ic, IP] = cv(9, 9); ok.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') IP(x, y, '#7cc4ff'); })); tag.append(ic, 'Needs your OK');
+  const faces = a.querySelector('.faces'); faces.replaceChildren(); const f = document.createElement('span'); f.className = 'face';
+  const [rc, RP] = cv(12, 12); rune(RP, 0, 0, 'needs', 1, false); f.append(rc); faces.append(f);
+  a.querySelector('#tvq').textContent = 'Claude wants to open the checkout';
+  a.querySelector('#tvm').innerHTML = '<b>Compare laptops</b> is on <b>bestbuy.ca</b>. It will only look at the price with tax, and won\\'t buy anything.';
+  const k = a.querySelectorAll('.keys button'); k[0].firstElementChild.textContent = 'Allow once'; k[1].firstElementChild.textContent = 'No';
+  for (const e of a.querySelectorAll('[id]')) e.removeAttribute('id');
+  document.getElementById('band').append(a); const q = a.getBoundingClientRect(); return JSON.stringify({ x: Math.round(q.left), y: Math.round(q.top), w: Math.round(q.width), h: Math.round(q.height) + 16 }); })()`;
 app.whenReady().then(async () => {
   (screen as any).getCursorScreenPoint = () => ({ x: -20000, y: 500 });
   const out = process.argv[process.argv.length - 1];
@@ -99,14 +125,19 @@ app.whenReady().then(async () => {
   b.driverAct('watch', opened[1].page); await wait(2500); await frame('t-watch'); b.driverAct('unwatch', 0); await wait(1200);
   // ---- new
   const key = await fw.insertCSS(PLANK);
-  for (const [st, nm] of [['working', 'n'], ['needs', 'q']] as const) {
-    await fw.executeJavaScript(COLOR_BAR(st, false)); await fw.executeJavaScript(HANDLE_JS(st)); await wait(800);
-    await frame(`${nm}-closed`);
-    await drawer(true); console.log('LIST ' + await b.trayV.webContents.executeJavaScript(LIST_JS(st, 1))); await wait(600); await frame(`${nm}-list`); await drawer(false);
-    await fw.executeJavaScript(`document.getElementById('pip97')?.remove(); 1`);
-    if (st === 'working') { b.driverAct('watch', opened[1].page); await wait(2500); await fw.executeJavaScript(COLOR_BAR(st, true)); await wait(600); await frame('n-watch'); b.driverAct('unwatch', 0); await wait(1200);
-      await fw.executeJavaScript(`document.getElementById('slot').style.boxShadow = ''; 1`); }
-  }
+  const tw = () => b.trayV.webContents;
+  await fw.executeJavaScript(COLOR_BAR('working', false)); console.log('HANDLE ' + await fw.executeJavaScript(HANDLE_JS('working'))); await wait(800);
+  await frame('n-closed');
+  await drawer(true); console.log('LIST ' + await tw().executeJavaScript(LIST_JS('working', 1))); await wait(600); await frame('n-list'); await drawer(false);
+  await fw.executeJavaScript(`document.getElementById('pip97')?.remove(); 1`);
+  b.driverAct('watch', opened[1].page); await wait(2500); const hideKey = await fw.insertCSS('#who .who-ic{display:none !important} #who{padding-left:52px !important}'); await wait(400); await fw.executeJavaScript(COLOR_BAR('working', true)); await wait(600); await frame('n-watch'); await fw.removeInsertedCSS(hideKey); b.driverAct('unwatch', 0); await wait(1200);
+  await fw.executeJavaScript(`document.getElementById('caps97')?.remove(); 1`);
+  await fw.executeJavaScript(COLOR_BAR('needs', false)); console.log('HANDLE ' + await fw.executeJavaScript(HANDLE_JS('needs')));
+  console.log('ASK ' + await fw.executeJavaScript(ASK_JS)); await wait(900);
+  b.win.webContents.send('browser:frozen', null);
+  await frame('q-closed');
+  await fw.executeJavaScript(`document.getElementById('ask97')?.remove(); 1`);
+  await drawer(true); console.log('LIST ' + await tw().executeJavaScript(LIST_JS('needs', 1))); await wait(600); await frame('q-list'); await drawer(false);
   void key;
   site.close(); app.exit(0);
 });
