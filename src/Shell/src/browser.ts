@@ -1845,11 +1845,13 @@ export class AangBrowser {
     this.activate(t.id);
   }
   /** The PIN box over the page: his PIN, a new one (the first time, or after his Mac password), or too many wrong ones. */
-  private pinAsk(mode?: 'enter' | 'new' | 'gone'): void {
+  private pinAsk(mode?: 'enter' | 'new' | 'gone' | 'keychain'): void {
     const w = this.win, seal = this.secretPin;
     if (!w || w.isDestroyed() || !seal) return;
     // A forgotten PIN (too many wrong ones wipe its seal) never lets a new one in without his Mac password.
-    const m = mode ?? (seal.has() ? 'enter' : this.pinReset || !existsSync(this.secretMade) ? 'new' : 'gone');
+    // His report (2026-10-27): after an update the Mac's Keychain box was missed, so his PIN looked forgotten and a new
+    // one could not be kept. A PIN the Keychain will not open is never "gone": the box says how to let Samara back in.
+    const m = mode ?? (seal.has() ? 'enter' : seal.unreadable() ? 'keychain' : this.pinReset || !existsSync(this.secretMade) ? 'new' : 'gone');
     this.pinOpen = true;
     this.place();
     w.webContents.focus();
@@ -1869,11 +1871,12 @@ export class AangBrowser {
     const pin = typeof a.pin === 'string' ? a.pin : '';
     // Put away without his PIN: the band's handle goes back to closed.
     if (a.act === 'cancel') { this.pinReset = false; this.pinClose(); this.win?.webContents.send('browser:tray', { open: false }); return; }
+    if (a.act === 'reopen') { app.relaunch(); app.quit(); return; }
     if (a.act === 'reset') { if (!seal.has() && await macPassword()) { this.pinReset = true; this.pinAsk('new'); } return; }
     if (!pinOk(pin)) return;
     if (a.act === 'set') {
       if (!(this.pinReset || (!seal.has() && !existsSync(this.secretMade)))) return;
-      if (!await seal.seal(pin, 'secret')) { this.note('Samara could not keep your PIN safely on this Mac.'); return; }
+      if (!await seal.seal(pin, 'secret')) { this.pinAsk('keychain'); return; }
       try { writeFileAtomic(this.secretMade, JSON.stringify({ at: new Date().toISOString() })); } catch { /* the seal is what counts */ }
       this.pinReset = false;
       if (this.locked) await this.unlock(); else this.pinClose();

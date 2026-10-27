@@ -115,6 +115,8 @@ export class PinSeal {
   }
   private write(o: object): boolean { const s = lockText(JSON.stringify(o)); if (!s) return false; try { writeFileAtomic(this.file, JSON.stringify({ v: 1, sealed: s })); return true; } catch { return false; } }
   has(): boolean { return existsSync(this.file) && this.read() !== null; }
+  /** His PIN is here but the Mac's Keychain would not open it (the box after an update was refused or missed). */
+  unreadable(): boolean { try { return typeof JSON.parse(readFileSync(this.file, 'utf8'))?.sealed === 'string' && this.read() === null; } catch { return false; } }
   /** False when this machine cannot keep it safely (no Keychain), or the PIN is not 4 digits. */
   async seal(pin: string, session: string): Promise<boolean> {
     if (!pinOk(pin) || !session) return false;
