@@ -1745,14 +1745,16 @@ export class AangBrowser {
     // silent any more.
     const say = (s: string) => console.log(`shell: TV: ${s}`);
     say(`just the video from ${hostOf(t.url)} (tab ${t.lent ? 'in the pop-out' : t.view ? 'live' : 'asleep'})`);
-    if (!wc || wc.isDestroyed() || !isWeb(t.url)) { say('no live page to send'); this.note('That tab has no video playing right now. Play it, then send it again.'); return; }
+    // A YouTube video goes by its address alone, so an asleep tab (as every tab is after an update) sends too.
+    const live = Boolean(wc && !wc.isDestroyed());
+    if (!isWeb(t.url) || (!live && !youTubeId(t.url))) { say('no live page to send'); this.note('That tab has no video playing right now. Play it, then send it again.'); return; }
     await this.tvOff(false);
     const tvs = await findTvs();
     say(`found ${tvs.map((x) => x.name).join(', ') || 'no TV'}`);
     const tv = tvs.find((x) => /yeet/i.test(x.name)) ?? tvs[0];
     if (!tv) { this.note('Your TV is not answering for videos. Turn it on, then try again (The whole window works with it asleep).'); return; }
     this.tvName = tv.name;
-    const v = await within(askPage<{ src: string; at: number; live: boolean; paused: boolean; poster: string; title: string }>(wc, PAGE_VIDEO_JS), 2000, null);
+    const v = live ? await within(askPage<{ src: string; at: number; live: boolean; paused: boolean; poster: string; title: string }>(wc!, PAGE_VIDEO_JS), 2000, null) : null;
     const title = (t.title || v?.title || '').slice(0, 200), site = hostOf(t.url);
     const cast = new CastSession(tv);
     try {
@@ -1761,11 +1763,15 @@ export class AangBrowser {
         say(`YouTube video ${yt}`);
         await cast.open(YOUTUBE_APP);
         say('YouTube opened on the TV');
+        // YouTube starting from cold takes longer than a few seconds to answer (his TV, 2026-10-27: it gave up at 8 s),
+        // and a question asked before it is ready goes unheard: asked again every 1.5 s, for up to 25 s.
         const screen = await new Promise<string>((res, rej) => {
-          const tm = setTimeout(() => rej(new Error('no screen')), 8000);
-          cast.on('app', (ns: string, d: Record<string, unknown>) => { const id = (d.data as Record<string, unknown> | undefined)?.screenId; if (ns === YOUTUBE_NS && typeof id === 'string') { clearTimeout(tm); res(id); } });
+          const ask = setInterval(() => cast.appSend(YOUTUBE_NS, { type: 'getMdxSessionStatus' }), 1500);
+          const tm = setTimeout(() => { clearInterval(ask); rej(new Error('YouTube on the TV did not answer. If the TV was off, turn it on and send it again')); }, 25_000);
+          cast.on('app', (ns: string, d: Record<string, unknown>) => { const id = (d.data as Record<string, unknown> | undefined)?.screenId; if (ns === YOUTUBE_NS && typeof id === 'string') { clearTimeout(tm); clearInterval(ask); res(id); } });
           cast.appSend(YOUTUBE_NS, { type: 'getMdxSessionStatus' });
         });
+        say('YouTube on the TV answered');
         const why = await youTubeOnTv(screen, yt, v?.at ?? 0);
         say(why ?? 'video sent');
         if (why) throw new Error(why);
@@ -1776,7 +1782,7 @@ export class AangBrowser {
         await cast.load(media);
       }
     } catch (e) { cast.close(); say(`failed: ${(e as Error).message}`); this.note(`${tv.name} could not play it: ${(e as Error).message}.`); return; }
-    void askPage(wc, PAUSE_PAGE_JS);
+    if (live) void askPage(wc!, PAUSE_PAGE_JS);
     this.tv = { kind: 'video', tab: t.id, name: tv.name, title, site, cast };
     cast.on('ended', () => { if (this.tv?.cast === cast) { this.tv = null; this.tvAsk = null; this.sendTabs(); } });
     this.sendTabs();
