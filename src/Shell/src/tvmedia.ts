@@ -125,3 +125,48 @@ export async function youTubeOnTv(screenId: string, videoId: string, at: number)
   await fetch(`${base}?${new URLSearchParams({ ...common, RID: '2', SID: sid, gsessionid: gs, loungeIdToken: tok })}`, { method: 'POST', headers: head, body: new URLSearchParams({ count: '1', ofs: '1', req0__sc: 'pause' }), signal: AbortSignal.timeout(8000) }).catch(() => null);
   return null;
 }
+
+// ---- Sheet 99 (his pick, 2026-10-27): the TV's own apps, through Google TV's remote service (tvremote.ts). Each site's
+// page address becomes the link the TV's app answers, as found on his TV that day: YouTube's watch link plays in the
+// TV's YouTube with his Premium (no ads); Netflix plays a title only with ?source=30; Prime's app.primevideo.com link
+// reaches the Prime app (it stops at its profile picker, then shows its home); Stremio opens the show's page.
+export type TvApp = 'YouTube' | 'Netflix' | 'Prime Video' | 'Stremio';
+export interface TvAppLink { app: TvApp; link: string }
+/** The TV-app link for a page, or null when the site has no app on the TV that Samara knows how to open. */
+export function tvAppLink(url: string, at = 0): TvAppLink | null {
+  const yt = youTubeId(url);
+  if (yt) return { app: 'YouTube', link: `https://www.youtube.com/watch?v=${yt}${at >= 1 ? `&t=${Math.floor(at)}` : ''}` };
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+  const h = u.hostname.replace(/^www\./, '');
+  if (h === 'netflix.com') {
+    const id = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(?:watch|title)\/(\d{5,})/i.exec(u.pathname)?.[1] ?? (/^\d{5,}$/.test(u.searchParams.get('jbv') ?? '') ? u.searchParams.get('jbv') : null);
+    return id ? { app: 'Netflix', link: `https://www.netflix.com/title/${id}?source=30` } : null;
+  }
+  const prime = h === 'primevideo.com' ? /\/detail\/([A-Z0-9]{8,})/i.exec(u.pathname)?.[1]
+    : /^amazon\.(ca|com|co\.uk)$/.test(h) ? /\/gp\/video\/detail\/([A-Z0-9]{8,})/i.exec(u.pathname)?.[1] : undefined;
+  if (prime) return { app: 'Prime Video', link: `https://app.primevideo.com/detail?gti=${prime}` };
+  if (h === 'web.stremio.com') {
+    const m = /^#\/detail\/(movie|series)\/(tt\d{5,})/.exec(u.hash);
+    return m ? { app: 'Stremio', link: `stremio:///detail/${m[1]}/${m[2]}` } : null;
+  }
+  return null;
+}
+/** Sites whose video is copy-protected inside the page: "Send only the video" cannot work there. */
+export function copyProtected(url: string): boolean {
+  try { return /(^|\.)(netflix\.com|primevideo\.com|disneyplus\.com|crave\.ca|crunchyroll\.com|max\.com|hulu\.com|paramountplus\.com|apple\.com)$/.test(new URL(url).hostname) || /amazon\.[a-z.]+$/.test(new URL(url).hostname) && /\/gp\/video\//.test(new URL(url).pathname); } catch { return false; }
+}
+/**
+ * What Samara does on the TV, in order: wake it, Home (an app opened over the screensaver stays behind it), the link;
+ * then on YouTube, answer "Who's watching?" with his account (the first choice) and pause, as his rule wants videos to
+ * arrive paused. Netflix ignores outside pause keys, so it is left playing. Times in ms from the start.
+ */
+export function tvSteps(a: TvAppLink, o: { answerYouTube: boolean; pause: boolean }): Array<{ link: string; at: number } | { key: number; at: number }> {
+  const KEYS = { HOME: 3, OK: 23, PAUSE: 127, WAKEUP: 224 };
+  const s: Array<{ link: string; at: number } | { key: number; at: number }> = [{ key: KEYS.WAKEUP, at: 0 }, { key: KEYS.HOME, at: 1500 }, { link: a.link, at: 2500 }];
+  if (a.app === 'YouTube') {
+    if (o.answerYouTube) s.push({ key: KEYS.OK, at: 7000 });
+    if (o.pause) s.push({ key: KEYS.PAUSE, at: 11000 });
+  }
+  return s;
+}

@@ -21,8 +21,11 @@ export class FakeTv {
   /** What it was asked to do, in order. */
   links: string[] = [];
   keys: number[] = [];
-  /** Asleep: it lets nobody in, as a TV in deep standby. */
-  asleep = false;
+  /** Asleep: it answers nothing at all (nothing listening), as a TV in deep standby. A TV that has forgotten Samara
+   *  is different: it lets the connection in and then hangs up (see remote()). */
+  get asleep(): boolean { return this.sleeping; }
+  set asleep(v: boolean) { this.sleeping = v; if (v) for (const s of this.servers) s.close(); else void this.listen(); }
+  private sleeping = false;
   private linked = new Set<string>();
   private servers: Server[] = [];
   readonly cert: Buffer;
@@ -34,20 +37,21 @@ export class FakeTv {
     execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '30', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=faketv'], { stdio: 'ignore' });
     this.cert = readFileSync(path.join(dir, 'c.pem')); this.key = readFileSync(path.join(dir, 'k.pem'));
   }
-  async start(): Promise<this> {
+  async start(): Promise<this> { await this.listen(); return this; }
+  /** Listening on the same two ports each time it wakes. */
+  private async listen(): Promise<void> {
     const opts = { cert: this.cert, key: this.key, requestCert: true, rejectUnauthorized: false };
     const pair = createServer(opts, (s) => this.pairing(s));
     const rem = createServer(opts, (s) => this.remote(s));
-    for (const srv of [pair, rem]) await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
+    await new Promise<void>((r) => pair.listen(this.pairPort, '127.0.0.1', () => r()));
+    await new Promise<void>((r) => rem.listen(this.remotePort, '127.0.0.1', () => r()));
     this.pairPort = (pair.address() as { port: number }).port; this.remotePort = (rem.address() as { port: number }).port;
     this.servers = [pair, rem];
-    return this;
   }
   stop(): void { for (const s of this.servers) s.close(); }
   isLinked(certPem: Buffer): boolean { return this.linked.has(fp(new X509Certificate(certPem).raw)); }
 
   private pairing(s: TLSSocket): void {
-    if (this.asleep) { s.destroy(); return; }
     const send = (f: Parameters<typeof enc>[0]) => s.write(frame(enc([[1, 2], [2, 200], ...f])));
     const peer = () => new X509Certificate(s.getPeerCertificate().raw);
     let expect: Buffer | null = null;
@@ -74,7 +78,6 @@ export class FakeTv {
     s.on('error', () => {});
   }
   private remote(s: TLSSocket): void {
-    if (this.asleep) { s.destroy(); return; }
     s.once('secure', () => {});
     // only a linked certificate gets in, as his TV did
     setImmediate(() => {

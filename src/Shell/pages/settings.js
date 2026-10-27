@@ -65,6 +65,7 @@ const CYCLE = {
   startup: [['tabs', 'My tabs'], ['home', 'Home page']], dark: ONOFF, tabSize: [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']],
   search: [['brave', 'Brave'], ['ddg', 'DuckDuckGo'], ['google', 'Google'], ['yandex', 'Yandex']], aiBox: ONOFF, ads: ONOFF, popups: ONOFF, sounds: ONOFF, afSounds: ONOFF,
   lockAfter: [['5m', '5 min'], ['30m', '30 min'], ['2h', '2 hours'], ['quit', 'Until I quit']],
+  tvAnswer: ONOFF, tvPause: ONOFF,
 };
 for (const r of document.querySelectorAll('[data-cyc]')) {
   const key = r.dataset.cyc;
@@ -290,6 +291,11 @@ function paint(d) {
   data = d;
   paintCycles();
   $('#homev').textContent = bare(d.homeNow);
+  // Sheet 99: his TV, the Mac only
+  $('#tvnav').hidden = !d.mac;
+  $('#tvv').textContent = d.tv?.linked ? `${d.tv.name} · linked` : d.tv?.name ? `${d.tv.name} · not linked` : 'Not linked';
+  $('#tvv').classList.toggle('dim', !d.tv?.linked);
+  $('#tvunlink').hidden = !d.tv?.linked;
   // autofill
   const det = d.autofill?.details ?? {};
   const has = det.given || det.family || det.emails?.length || det.phone || det.street;

@@ -28,8 +28,9 @@ import { connect as netConnect } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
-import { CastSession, DEFAULT_PLAYER, airplayNames, findTvs } from './tv.ts';
-import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, plainMedia, seekPageJs, twitchMedia, twitchOf, youTubeId, youTubeOnTv } from './tvmedia.ts';
+import { CastSession, DEFAULT_PLAYER, airplayNames, findRemoteTvs, findTvs } from './tv.ts';
+import { KEY, ensureCert, remote, startPairing, type TvTarget } from './tvremote.ts';
+import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, copyProtected, plainMedia, seekPageJs, tvAppLink, tvSteps, twitchMedia, twitchOf, youTubeId, youTubeOnTv, type TvAppLink } from './tvmedia.ts';
 import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
@@ -109,7 +110,10 @@ function darkSource(): string | null {
   return darkSrc;
 }
 
+/** Sites with video, for the TV icon (sheet 99): the same list as the frame's VIDEO_SITE (browser.js). */
+const TV_VIDEO_SITE = /(^|\.)(youtube\.com|youtu\.be|twitch\.tv|crunchyroll\.com|netflix\.com|primevideo\.com|amazon\.(com|ca)|disneyplus\.com|vimeo\.com|kick\.com|max\.com|crave\.ca|stremio\.com)$/i;
 export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string; /** tests only */ testLocal?: boolean;
+  /** tests only (sheet 99): a pretend TV's remote service instead of finding his on the network */ tvAt?: { host: string; port: number; pairPort: number; name: string };
   /** Where the mockups' git repo is (sheet 47). Found from the Shell's own folder; a test gives its own. */ repoDir?: string;
   /** 2026-10-22, the Mac: no AangApp repo beside Samara, but the MOCKUPS trail is on for other repos' pages and live
    *  pages (the Mac's Claude sessions, through mockupdoor.ts). Only when git is really there (macmain checks). */
@@ -1726,14 +1730,112 @@ export class AangBrowser {
 
   // ------------------------------------------------------------------ sheet 89, his TV
   /** What is on his TV now: one video (Google Cast) or this window (AirPlay, as a second screen). */
-  private tv: { kind: 'video' | 'window'; tab: number; name: string; title: string; site: string; cast?: CastSession; back?: Electron.Rectangle; win?: BrowserWindow } | null = null;
-  /** The TV ask in the band: setting yeet up as a second screen (once), or what is playing there. */
-  private tvAsk: 'setup' | 'playing' | null = null;
+  private tv: { kind: 'video' | 'window' | 'app'; tab: number; name: string; title: string; site: string; cast?: CastSession; back?: Electron.Rectangle; win?: BrowserWindow; app?: string } | null = null;
+  /** The TV ask in the band: setting yeet up as a second screen (once), what is playing there, the code to link
+   *  Samara (sheet 99, the very first send), or the TV that did not wake. */
+  private tvAsk: 'setup' | 'playing' | 'link' | 'asleep' | null = null;
+  /** Sheet 99: how far a send has got (0 started, 1 waking the TV, 2 opening the app), for the TV icon's fill. */
+  private tvStep: number | null = null;
+  private tvLinkErr = '';
   private tvState(): Record<string, unknown> | null {
-    if (!this.tv && !this.tvAsk) return null;
-    return { kind: this.tv?.kind ?? null, name: this.tv?.name ?? this.tvName, title: this.tv?.title ?? '', site: this.tv?.site ?? hostOf(this.cur()?.url ?? ''), ask: this.tvAsk };
+    const t = this.cur();
+    // Sheet 99: the TV icon sits in the bar on any page Samara can send (the Mac only: that is where his TV is)
+    const can = Boolean((process.platform === 'darwin' || this.o.tvAt) && t && isWeb(t.url) && !t.internal && (tvAppLink(t.url) || TV_VIDEO_SITE.test(hostOf(t.url)) || t.audible));
+    if (!this.tv && !this.tvAsk && this.tvStep === null && !can) return null;
+    const app = t ? tvAppLink(t.url)?.app ?? null : null;
+    return { kind: this.tv?.kind ?? null, name: this.tv?.name ?? this.tvName, title: this.tv?.title ?? '', site: this.tv?.site ?? hostOf(t?.url ?? ''), ask: this.tvAsk,
+      can, step: this.tvStep, app, toTv: Boolean(app || (t && !copyProtected(t.url))), linkErr: this.tvLinkErr };
   }
   private tvName = 'your TV';
+  // ---- sheet 99: the TV's own apps, through Google TV's remote service (tvremote.ts)
+  private get tvFile(): string { return path.join(this.o.stateDir, 'tv-remote.json'); }
+  /** The linked TV and his two TV settings (his picks: answer YouTube's "Who's watching?", pause the video here). */
+  private tvCfg(): { host: string; name: string; linked: boolean; answer: boolean; pause: boolean } {
+    let j: Record<string, unknown> = {};
+    try { j = JSON.parse(readFileSync(this.tvFile, 'utf8')); } catch { /* none yet */ }
+    return { host: typeof j.host === 'string' ? j.host : '', name: typeof j.name === 'string' ? j.name : '', linked: j.linked === true, answer: j.answer !== false, pause: j.pause !== false };
+  }
+  private saveTvCfg(c: ReturnType<AangBrowser['tvCfg']>): void { try { writeFileAtomic(this.tvFile, JSON.stringify(c)); } catch (e) { console.log('shell: TV: could not save its link: ' + (e as Error).message); } }
+  private tvTarget(host: string): TvTarget {
+    const at = this.o.tvAt;
+    return { host: at ? at.host : host, ...(at ? { port: at.port, pairPort: at.pairPort } : {}), ...ensureCert(this.o.stateDir) };
+  }
+  /** His TV on the network (the one named yeet if there are several), or the one he linked last time. */
+  private async tvFind(): Promise<{ host: string; name: string } | null> {
+    if (this.o.tvAt) return { host: this.o.tvAt.host, name: this.o.tvAt.name };
+    const c = this.tvCfg();
+    const all = await findRemoteTvs().catch(() => []);
+    const tv = all.find((x) => c.name && x.name === c.name) ?? all.find((x) => /yeet/i.test(x.name)) ?? all[0];
+    return tv ?? (c.host ? { host: c.host, name: c.name || 'your TV' } : null);
+  }
+  private tvRemoteRun(steps: Parameters<typeof remote>[1]): Promise<void> { const c = this.tvCfg(); return remote(this.tvTarget(c.host), steps); }
+  private tvPair: { finish: (code: string) => Promise<void>; close: () => void } | null = null;
+  private tvPending: { tab: number; a: TvAppLink; at: number } | null = null;
+  private setTvStep(n: number | null): void { this.tvStep = n; this.sendTabs(); }
+  /**
+   * Send to TV, one click on the TV icon (sheet 99): the TV's own app when the site has one, else just the video; a
+   * copy-protected site with neither sends the window. The icon fills as each step is done; the video here pauses once the TV has it; nothing fails silently.
+   */
+  private async tvSend(t: Tab): Promise<void> {
+    const say = (s: string) => console.log(`shell: TV: ${s}`);
+    const wc = t.view?.webContents, live = Boolean(wc && !wc.isDestroyed());
+    const v = live ? await within(askPage<{ at: number }>(wc!, PAGE_VIDEO_JS), 1500, null) : null;
+    const at = v?.at ?? 0;
+    const a = tvAppLink(t.url, at);
+    say(`send from ${hostOf(t.url)}: ${a ? 'the TV\'s ' + a.app : copyProtected(t.url) ? 'the whole window' : 'just the video'}`);
+    // A copy-protected site with no app on the TV cannot go on its own: the click sends the window instead.
+    if (!a) { if (copyProtected(t.url)) await this.tvWindow(t); else await this.tvVideo(t); return; }
+    this.tvAsk = null; this.tvLinkErr = '';
+    this.setTvStep(0);
+    const tv = await this.tvFind();
+    if (!tv) { say('no TV found'); this.tvName = 'your TV'; this.tvStep = null; this.tvAsk = 'asleep'; this.sendTabs(); return; }
+    this.tvName = tv.name;
+    const c = this.tvCfg();
+    if (!c.linked || c.host !== tv.host) {
+      // the very first send: the TV shows its code, and the ask hangs from the TV icon for it
+      this.saveTvCfg({ ...c, host: tv.host, name: tv.name, linked: false });
+      try { this.tvPair?.close(); this.tvPair = await startPairing(this.tvTarget(tv.host)); }
+      catch (e) { say('could not start linking: ' + (e as Error).message); this.tvStep = null; this.tvAsk = 'asleep'; this.sendTabs(); return; }
+      this.tvPending = { tab: t.id, a, at }; this.tvAsk = 'link'; this.sendTabs();
+      return;
+    }
+    await this.tvOpen(t.id, a);
+  }
+  /** The code he typed: Samara is linked, and the send that was waiting goes on. */
+  private async tvCode(code: string): Promise<void> {
+    if (!this.tvPair || !this.tvPending) return;
+    try { await this.tvPair.finish(code); }
+    catch (e) { this.tvLinkErr = (e as Error).message.includes('look right') || (e as Error).message.includes('match') ? 'That code does not match. Check the TV and type it again.' : 'The TV stopped waiting. Click the TV icon to try again.'; this.sendTabs(); return; }
+    this.tvPair = null; this.tvLinkErr = '';
+    this.saveTvCfg({ ...this.tvCfg(), linked: true });
+    console.log('shell: TV: linked to ' + this.tvName);
+    const p = this.tvPending; this.tvPending = null; this.tvAsk = null;
+    await this.tvOpen(p.tab, p.a);
+  }
+  private async tvOpen(tabId: number, a: TvAppLink): Promise<void> {
+    const t = this.tabs.find((x) => x.id === tabId);
+    const c = this.tvCfg();
+    this.setTvStep(1);
+    const steps = tvSteps(a, { answerYouTube: c.answer, pause: c.pause });
+    const linkAt = steps.find((x) => 'link' in x)?.at ?? 0;
+    const two = setTimeout(() => this.setTvStep(2), linkAt);
+    try { await remote(this.tvTarget(c.host), steps); }
+    catch (e) {
+      clearTimeout(two);
+      const why = (e as Error).message;
+      console.log('shell: TV: failed: ' + why);
+      // turned away: the TV forgot Samara (a reset, or unlinked on the TV), so it links again on the next click
+      if (/turned Samara away/.test(why)) this.saveTvCfg({ ...c, linked: false });
+      this.tvStep = null; this.tvAsk = 'asleep'; this.sendTabs(); return;
+    }
+    clearTimeout(two);
+    console.log(`shell: TV: playing in the TV's ${a.app}`);
+    const wc = t?.view?.webContents;
+    if (c.pause && wc && !wc.isDestroyed()) void askPage(wc, PAUSE_PAGE_JS);
+    this.tv = { kind: 'app', tab: tabId, name: this.tvName, title: (t?.title || '').slice(0, 200), site: hostOf(t?.url ?? ''), app: a.app };
+    this.tvStep = null;
+    this.sendTabs();
+  }
   /**
    * Just the video (his picks: Stremio, YouTube, Twitch, any plain video). The TV plays it by itself, so his TV remote
    * works and the Mac is free; the tab's own video pauses where it was. A page that plays from inside itself has nothing
@@ -1811,6 +1913,15 @@ export class AangBrowser {
   }
   /** The TV ask's keys, from the frame only (browseripc). */
   async tvAct(act: string): Promise<void> {
+    const t = this.cur();
+    // Sheet 99 (his words: "it should be send to TV or send window"): Send to TV plays the show or video on the TV by
+    // itself (the TV's own app when the site has one, else just the video); Send window shows this whole window there.
+    if (act === 'send') { if (t) void this.tvSend(t); return; }
+    if (act === 'send:window') { if (t) void this.tvWindow(t); return; }
+    if (act === 'settings') { this.openSettings('tv'); return; }
+    if (act.startsWith('code:')) { void this.tvCode(act.slice(5)); return; }
+    if (act === 'retry') { this.tvAsk = null; this.sendTabs(); if (t) void this.tvSend(t); return; }
+    if (act === 'nolink') { this.tvPair?.close(); this.tvPair = null; this.tvPending = null; this.tvAsk = null; this.tvStep = null; this.tvLinkErr = ''; this.sendTabs(); return; }
     if (act === 'open') { this.tvAsk = this.tv ? 'playing' : null; this.sendTabs(); }
     else if (act === 'close') { this.tvAsk = null; this.sendTabs(); }
     else if (act === 'displays') { this.tvAsk = null; this.sendTabs(); void shell.openExternal('x-apple.systempreferences:com.apple.Displays-Settings.extension'); }
@@ -1822,7 +1933,11 @@ export class AangBrowser {
     const tv = this.tv;
     this.tv = null; this.tvAsk = null;
     if (!tv) return;
-    if (tv.kind === 'video' && tv.cast) {
+    if (tv.kind === 'app') {
+      // In the TV's own app: Samara cannot read where it got to, so Stop just takes the TV back to its home.
+      if (!bringBack) void this.tvRemoteRun([{ key: KEY.HOME }]).catch(() => null);
+      if (bringBack) this.activate(tv.tab);
+    } else if (tv.kind === 'video' && tv.cast) {
       const at = bringBack ? await tv.cast.where() : 0;
       tv.cast.stop();
       const wc = this.tabs.find((x) => x.id === tv.tab)?.view?.webContents;
@@ -2648,7 +2763,9 @@ export class AangBrowser {
       vault, phish: this.phish.count(),
       afSounds: this.prefs.afSounds, lockAfter: this.prefs.lockAfter,
       autofill: { details: this.details.get(), pin: this.pinSeal.has(), pinLen: this.pinSeal.has() ? this.pinSeal.length() : 0, sounds: this.prefs.afSounds },
-      versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin',
+      versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin' || Boolean(this.o.tvAt),
+      // Sheet 99: his TV (kept on this Mac only, tv-remote.json; the PC has no TV link)
+      ...(() => { const c = this.tvCfg(); return { tv: { name: c.name, linked: c.linked }, tvAnswer: c.answer, tvPause: c.pause }; })(),
     };
   }
   private pushSettings(): void {
@@ -2667,6 +2784,8 @@ export class AangBrowser {
       case 'afDetails': this.details.set(cleanDetails(value)); this.sync?.changed('prefs'); break;
       case 'afSounds': this.prefs.afSounds = value === true; this.savePrefs(); break;
       case 'afPin': void this.afSetPin(value); return;
+      case 'tvAnswer': this.saveTvCfg({ ...this.tvCfg(), answer: value === true }); break;
+      case 'tvPause': this.saveTvCfg({ ...this.tvCfg(), pause: value === true }); break;
       case 'lockAfter': this.prefs.lockAfter = lockPick(value); this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]); this.savePrefs(); break;
       case 'tabSize': {
         this.tabSize = value === 's' || value === 'm' ? value : 'l';
@@ -2728,6 +2847,7 @@ export class AangBrowser {
     else if (act === 'import-chrome' || act === 'import-safari') void this.importFrom(act === 'import-chrome' ? 'chrome' : 'safari').then(() => this.pushSettings());
     else if (act === 'lockvault') { this.vault.lock(); this.pushSettings(); }
     else if (act === 'afforgetpin') { this.pinSeal.wipe(); this.pushSettings(); }
+    else if (act === 'tvunlink') { this.saveTvCfg({ ...this.tvCfg(), linked: false }); console.log('shell: TV: unlinked'); this.pushSettings(); }
     else if (act === 'signout') { this.pinSeal.wipe(); void this.vault.signOut().then(() => this.pushSettings()); }
   }
 
