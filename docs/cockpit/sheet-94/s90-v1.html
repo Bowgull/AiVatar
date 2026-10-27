@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 90 - The cat, logins and the shelf</title>
+<!-- Sheet 90 (2026-10-25). His asks: a page for when a site doesn't answer (all four kinds: no answer, offline, not
+     found, anything else) with a pixel black cat, "show me a few"; the Bitwarden master password box ("I can't tell if
+     it worked", "looks wrong"); asking to save a login after he logs in (Save / Not now / Never for this site); ghost
+     letters for his emails (Tab or the right arrow takes them), the light only where a saved login can fill; his
+     logins managed inside Settings > Autofill > Bitwarden (see, search, copy, edit, delete, add; his PIN before any
+     password shows); dragging bookmarks on the shelf. Drawn from Samara's own pieces: the asks family (sheet 86), the
+     light (sheet 77), the shelf, the pixel palettes. The cats are drawn here at 4x, pixel for pixel. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/browser.css">
+<style>
+
+  /* ---- sheet 86's asks family, as it is there ---- */
+  
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:34px 0 12px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:600px;line-height:1.45}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  button.replay{background:none;border:none;font:700 13px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 6px;margin-left:6px}
+  button.replay:hover{color:#ffe28c}
+
+  /* A slice of Samara: the band (its own wood), the shield and the address, and the page under it. */
+  .win{position:relative;width:600px;height:300px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .win.tall{height:360px}
+  .bandbar{position:absolute;left:0;right:0;top:0;height:58px;background:url(../../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;border-bottom:3px solid #120a05;z-index:3}
+  .slotbar{position:absolute;left:62px;right:62px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
+    display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;image-rendering:auto}
+  .slotbar .sh{width:20px;height:24px;background:url(../../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none;position:relative}
+  .slotbar .sh.gold{filter:drop-shadow(0 0 4px rgba(255,196,60,.9))}
+  .slotbar .sh.pop{background-image:url(../../../src/Shell/pages/art/browser/shield_popup.png)}
+  /* caught: three breaths of the shield's own blue glow, then a faint glow that stays until he looks */
+  .slotbar .sh.pop.caught{animation:popglow 1.2s ease-in-out 3, popfaint .4s ease-out 3.6s forwards}
+  .slotbar .sh.pop.rest{filter:drop-shadow(0 0 2px rgba(140,195,255,.6))}
+  @keyframes popfaint{to{filter:drop-shadow(0 0 2px rgba(140,195,255,.6))}}
+  .slotbar .sh.bad{background-image:url(../../../src/Shell/pages/art/browser/shield_bad.png)}
+  .slotbar .sh.swell{animation:swell .14s ease-out}
+  @keyframes swell{50%{transform:scale(1.18)}}
+  .page{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#f6f3ee;overflow:hidden}
+  .page.dark{background:#0e0e10}
+
+  /* ---- The ask: Samara's own .bandchip, hung under the shield (its notch sits right under the shield). ---- */
+  .win .bandchip{left:58px;top:55px;z-index:4}
+  .win .bandchip::before{left:12px}
+  /* sheet 64's tag 1: the kind's colour, a pixel icon, read at a glance */
+  .tag{display:inline-flex;align-items:center;gap:6px;padding:3px 9px 3px 5px;border-radius:6px;border:2px solid #120A05;font:800 12.5px var(--body);color:#fff;
+    text-shadow:0 1px 0 rgba(0,0,0,.6);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  .tag svg{display:block}
+  .k-app{--kc:#C98C14}.k-cam{--kc:#2F8F55}.k-prog{--kc:#C95E28}.k-pop{--kc:#2B78D0}
+  .tag{background:var(--kc)}
+  /* the frame takes the kind's colour too (sheet 64): the notch and a band along the top edge */
+  .bandchip.kind{box-shadow:inset 0 4px 0 var(--kc),0 6px 0 rgba(0,0,0,.45),0 14px 24px rgba(0,0,0,.45)}
+  .bandchip.kind::before{background:var(--kc)}
+  .bandchip .q2{display:flex;align-items:center;gap:10px;margin-top:8px;font:800 15px var(--body);color:#271c10}
+  /* who -> where: the site's carved letter (or its icon), and the app's */
+  .faces{display:flex;align-items:center;gap:6px;flex:none}
+  .face{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;border:2px solid #120A05;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .face .bm-letter{font-size:15px}
+  .faces .to{width:12px;height:12px;display:grid;place-items:center}
+  .bandchip .m b{color:#271c10}
+  .bandchip .keys{margin-top:12px}
+
+  /* the risky yes: armed after a beat (Firefox does the same for installs), so a stray click or A can't take it */
+  .key.arming{position:relative;overflow:hidden;filter:saturate(.35) brightness(.85);pointer-events:none}
+  .key.arming::after{content:"";position:absolute;left:0;bottom:0;height:4px;width:100%;background:#FFE28C;transform-origin:left;animation:arm 1s linear forwards}
+  @keyframes arm{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .key.armed{filter:none;pointer-events:auto}
+
+  /* ---- Motion, Samara's own: the download tray's spring (cubic-bezier .3,1.5,.5,1) over 220 ms, rolled from under the
+     shield (it unrolls, the words do not move once it has landed); away again in 160 ms. ---- */
+  .bandchip.in{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both}
+  @keyframes unroll{from{clip-path:inset(0 0 100% 0);transform:translateY(-8px)}to{clip-path:inset(0 0 0 0);transform:none}}
+  .bandchip.out{animation:rollup .16s ease-in both}
+  .slotbar .sh.yes{animation:vpulse .6s ease-out}
+
+  /* the pop-up peek: a small tag that comes out of the shield, waits four seconds, and goes back in; the shield keeps its glow */
+  .peek{position:absolute;left:58px;top:55px;z-index:4;display:flex;align-items:center;gap:8px;padding:8px 10px 9px;border-radius:0 0 10px 10px;
+    background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);border-top:none;color:var(--ink-text);
+    box-shadow:inset 0 4px 0 #2B78D0,0 6px 0 rgba(0,0,0,.45),0 14px 24px rgba(0,0,0,.45);font:700 13px var(--body);image-rendering:auto}
+  .peek::before{content:"";position:absolute;left:12px;top:-12px;width:18px;height:12px;background:#2B78D0;border-left:3px solid var(--outline);border-right:3px solid var(--outline)}
+  .peek.in{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both}
+  .peek.in.life{animation:unroll .22s cubic-bezier(.3,1.5,.5,1) both, rollup .16s ease-in 4.2s forwards}
+  @keyframes rollup{from{clip-path:inset(0 0 0 0);opacity:1}to{clip-path:inset(0 0 100% 0);transform:translateY(-6px);opacity:0}}
+
+  /* the fake-site stop: Samara's own red plate, full page, the words fixed */
+  /* the stop, as a place: the page is boarded up. Samara's dark wood lit red from behind, two planks nailed across,
+     the red shield large in pixels, the plate hung in front. */
+  /* ---- sheet 89: the TV joins the family. Its own colour (Samara's violet) and Samara's own pixel screen icon. The bar is
+     calm in the middle now (sheet 88), so the ask hangs from it there. ---- */
+  .k-tv{--kc:#7A4FC4}
+  .slotbar.calm{left:120px;right:120px}
+  .win .bandchip.tvask{left:120px}
+  .tvlit{display:grid;place-items:center;flex:none;margin-left:auto;margin-right:2px;animation:tvglow 1.2s ease-in-out 1}
+  .tvlit.rest{filter:drop-shadow(0 0 3px rgba(190,150,255,.8))}
+  @keyframes tvglow{0%,100%{filter:drop-shadow(0 0 2px rgba(190,150,255,.6))}50%{filter:drop-shadow(0 0 9px rgba(190,150,255,1))}}
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 6px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:32px 0 10px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:1000px;line-height:1.45}
+  .pic{display:block;border-radius:10px;box-shadow:0 12px 26px rgba(0,0,0,.55);max-width:none}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  .steps{margin:8px 0 0;padding:0 0 0 18px;color:#cdbb9a;font-size:13.5px;line-height:1.7;max-width:1000px}
+
+  .k-bw{--kc:#2C6BD8}
+  .wide{width:1240px}
+  .cats{display:flex;gap:26px;flex-wrap:wrap}
+  .catpage{position:relative;width:600px;height:420px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:radial-gradient(ellipse 70% 55% at 50% 38%,rgba(120,90,200,.18),rgba(0,0,0,0) 70%),linear-gradient(rgba(6,8,20,.86),rgba(4,4,12,.9)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .catpage canvas{display:block;margin:26px auto 0;image-rendering:pixelated}
+  .catpage h3{font:700 21px var(--display);color:#ffe28c;text-align:center;margin:14px 0 4px;text-shadow:0 2px 0 #000}
+  .catpage p{font:500 13.5px var(--body);color:#c9bfe0;text-align:center;margin:0 40px}
+  .catpage .keys{display:flex;gap:10px;justify-content:center;margin-top:16px}
+  .msgs{border-collapse:collapse;margin-top:6px}
+  .msgs td{padding:6px 14px 6px 0;font:500 13px var(--body);color:#d8ccb0;vertical-align:top}
+  .msgs td b{color:#ffe28c}
+  .field{display:flex;align-items:center;gap:8px;margin-top:10px;height:34px;padding:0 10px;border-radius:7px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
+    font:600 14px var(--body);color:#efe4cc;letter-spacing:2px}
+  .field .eye{margin-left:auto;opacity:.7}
+  .state{display:flex;align-items:center;gap:8px;margin-top:8px;font:700 12.5px var(--body)}
+  .state.check{color:#4e3d28} .state.wrong{color:#b23a22} .state.ok{color:#2f7d4a}
+  .spn{width:14px;height:14px;border-radius:50%;border:3px solid rgba(0,0,0,.2);border-top-color:#2C6BD8;animation:sp 1s linear infinite;flex:none}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .field.shake{animation:afshake .28s ease-in-out 2}
+  .site{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#fff;padding:26px 40px;font:14px Figtree,sans-serif;color:#222}
+  .site label{display:block;font-size:12px;color:#666;margin:12px 0 4px}
+  .site .in{position:relative;width:300px;height:36px;border:1px solid #bbb;border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:15px}
+  .site .in .typed{color:#111}.site .in .ghost{color:#aaa}
+  .site .in .caret{width:1px;height:18px;background:#111;margin:0 1px}
+  .site .btn{margin-top:14px;width:120px;height:36px;border-radius:6px;background:#7b5bf5;color:#fff;display:grid;place-items:center;font-weight:700}
+  /* the light (sheet 77), as it draws beside the box */
+  .lt{position:absolute;width:28px;height:28px}
+  .lt .orb{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#fffbe6 0 18%,rgba(255,232,150,.9) 30%,rgba(255,200,90,.35) 55%,transparent 70%);animation:float 1.8s ease-in-out infinite}
+  .lt .orb::before,.lt .orb::after{content:"";position:absolute;top:6px;width:11px;height:9px;border-radius:50%;background:rgba(255,248,220,.6);animation:wing .18s ease-in-out infinite alternate}
+  .lt .orb::before{left:-5px}.lt .orb::after{right:-5px}
+  @keyframes wing{to{transform:scaleY(.4)}} @keyframes float{50%{transform:translateY(-3px)}}
+  .lt .item{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .lt .tg{position:absolute;left:30px;top:50%;transform:translateY(-50%);white-space:nowrap;background:#24160d;border:3px solid #120A05;border-radius:6px;padding:5px 9px;font:700 12.5px var(--body);color:#ffe28c}
+  .lt .tg .n{color:#8a7a62;margin-left:6px;font-weight:600}
+  .pic{display:block;border-radius:10px;box-shadow:0 12px 26px rgba(0,0,0,.55);max-width:none}
+  .steps{margin:8px 0 0;padding:0 0 0 18px;color:#cdbb9a;font-size:13.5px;line-height:1.7;max-width:1000px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+</style>
+</head>
+<body>
+<h1>SHEET 90 - THE CAT, LOGINS AND THE SHELF</h1>
+<p class="lead">When a site doesn't answer, a little black cat keeps you company: three to pick from. Then Bitwarden and your logins, made clear and in Samara's own family, and bookmarks you can drag.</p>
+
+<h2>1 · WHEN A SITE DOESN'T ANSWER: PICK A CAT</h2>
+<p class="sub">The same page for every kind of failure, only the words change (below). Try again reloads; Go back returns. Drawn at 4x, every pixel square.</p>
+<div class="cats">
+  <div><p class="cap">A · Sitting by the pulled plug</p><div class="catpage"><canvas id="catA" width="512" height="256"></canvas><h3>This site isn't answering</h3><p><b style="color:#ffe28c">example.com</b> took too long. It may be down for now.</p>
+    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div></div>
+  <div><p class="cap">B · Asleep on the lantern</p><div class="catpage"><canvas id="catB" width="512" height="256"></canvas><h3>You're offline</h3><p>Your Mac isn't connected to the internet. The cat will wait.</p>
+    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div></div>
+  <div><p class="cap">C · Waiting at the door</p><div class="catpage"><canvas id="catC" width="512" height="256"></canvas><h3>That page isn't here</h3><p><b style="color:#ffe28c">example.com</b> answered, but this page doesn't exist.</p>
+    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div></div>
+</div>
+<table class="msgs">
+  <tr><td><b>Didn't answer</b></td><td>This site isn't answering · <i>site</i> took too long. It may be down for now.</td></tr>
+  <tr><td><b>No internet</b></td><td>You're offline · Your Mac isn't connected to the internet.</td></tr>
+  <tr><td><b>Page not found</b></td><td>That page isn't here · <i>site</i> answered, but this page doesn't exist.</td></tr>
+  <tr><td><b>Anything else</b></td><td>Couldn't reach this site · <i>site</i> can't be found. Check the address.</td></tr>
+</table>
+
+<h2>2 · BITWARDEN'S MASTER PASSWORD: ALWAYS SAYS WHERE IT IS</h2>
+<p class="sub">In the asks family, Bitwarden's own blue. Four moments, so you always know: waiting for you, checking, wrong, unlocked. After it opens once, your PIN does it from then on.</p>
+<div class="row" id="bwrow"></div>
+
+<h2>3 · AFTER YOU LOG IN: SAVE IT?</h2>
+<p class="sub">Only when the login worked and Bitwarden doesn't have it yet. Never for this site means it never asks there again.</p>
+<div class="row">
+  <div class="win"><div class="bandbar"><div class="slotbar calm"><i class="sh"></i>web.stremio.com</div></div><div class="page dark" style="top:206px"></div>
+    <div class="bandchip kind k-bw tvask in"><span class="tag" data-ic="key">Bitwarden</span>
+      <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">S</i></span><span class="to" data-ar></span><span class="face" data-ic2="key"></span></span>Save this login?</div>
+      <p class="m"><b>sam.rivers@mail.com</b> on web.stremio.com, to Bitwarden.</p>
+      <div class="keys"><button class="key primary sm" type="button">Save<span class="k">A</span></button><button class="key sm" type="button">Not now<span class="k">Z</span></button><button class="key sm" type="button">Never here</button></div></div></div>
+</div>
+
+<h2>4 · YOUR EMAIL, FINISHED AS YOU TYPE</h2>
+<p class="sub">Ghost letters from your emails and your saved logins; Tab or the right arrow takes them, typing on ignores them. The light comes only where a saved login can fill.</p>
+<div class="row">
+  <div><p class="cap">A site with no saved login: just the ghost letters</p>
+    <div class="win"><div class="bandbar"><div class="slotbar calm"><i class="sh"></i>newsite.com</div></div>
+      <div class="site"><b style="font-size:18px">Sign in</b><label>Email</label><div class="in"><span class="typed">sam</span><span class="caret"></span><span class="ghost">.rivers@mail.com</span></div><label>Password</label><div class="in"></div><div class="btn">Log in</div></div></div></div>
+  <div><p class="cap">A site with a saved login: the light offers it</p>
+    <div class="win"><div class="bandbar"><div class="slotbar calm"><i class="sh"></i>web.stremio.com</div></div>
+      <div class="site"><b style="font-size:18px">Sign in</b><label>Email</label><div class="in" style="position:relative"><span class="typed">sam</span><span class="caret"></span><span class="ghost">.rivers@mail.com</span>
+        <div class="lt" style="left:308px;top:3px"><div class="orb"></div><span class="item" data-ic3="key"></span><div class="tg">sam.rivers@mail.com<span class="n">••••••</span></div></div></div><label>Password</label><div class="in"></div><div class="btn">Log in</div></div></div></div>
+</div>
+
+<h2>5 · YOUR LOGINS, IN SETTINGS › AUTOFILL › BITWARDEN</h2>
+<p class="sub">No new chapter: the Bitwarden page you have, with your logins under it. Search, then each row opens to copy, show (your PIN first), edit or delete; Add a login at the top.</p>
+<img class="pic" id="logins" src="../art/sheet90-logins.png" width="1000" alt="">
+
+<h2>6 · DRAG A BOOKMARK</h2>
+<p class="sub">Pick one up and it lifts with a little tilt; the others slide apart where it will land; let go and it drops in with Samara's spring.</p>
+<img class="pic" src="../art/sheet90-shelf.png" width="340" alt="">
+
+<script type="module">
+import { pixIcon } from '../../../src/Shell/pages/pixicons.js';
+for (const t of document.querySelectorAll('[data-ic]')) { const x = pixIcon(t.dataset.ic, 1.5); if (x) t.prepend(x); }
+for (const t of document.querySelectorAll('[data-ic2]')) { const x = pixIcon(t.dataset.ic2, 2); if (x) t.append(x); }
+for (const t of document.querySelectorAll('[data-ic3]')) { const x = pixIcon(t.dataset.ic3, 1); if (x) t.append(x); }
+const ARROW = '<svg width="12" height="12" viewBox="0 0 6 6" shape-rendering="crispEdges"><path fill="#6b5132" d="M0 2h3V0h1v1h1v1h1v2H5v1H4v1H3V4H0z"/></svg>';
+// ---- Bitwarden: the four moments
+const bw = (state) => {
+  const st = { wait: '', check: '<div class="state check"><span class="spn"></span>Checking with Bitwarden…</div>', wrong: '<div class="state wrong">That isn\'t it. Try again.</div>', ok: '<div class="state ok">Unlocked. Your PIN opens it from now on.</div>' }[state];
+  const cap = { wait: 'Waiting for you', check: 'Checking', wrong: 'Wrong: the box shakes', ok: 'Unlocked: it rolls away a moment later' }[state];
+  const field = state === 'ok' ? '' : `<div class="field${state === 'wrong' ? ' shake' : ''}">${state === 'wait' ? '' : '••••••••••••'}<span class="eye" data-ic3="eye"></span></div>`;
+  const keys = state === 'ok' ? '' : `<div class="keys"><button class="key primary sm" type="button"${state === 'check' ? ' disabled style="opacity:.6"' : ''}>Unlock<span class="k">A</span></button><button class="key sm" type="button">Cancel<span class="k">Z</span></button></div>`;
+  return `<div><p class="cap">${cap}</p><div class="win" style="height:330px"><div class="bandbar"><div class="slotbar calm"><i class="sh"></i>web.stremio.com</div></div><div class="page dark" style="top:${state === 'ok' ? 190 : 296}px"></div>
+    <div class="bandchip kind k-bw tvask in"><span class="tag" data-ic="key">Bitwarden</span>
+      <div class="q2"><span class="faces"><span class="face"><i class="bm-letter">S</i></span><span class="to" data-ar></span><span class="face" data-ic2="key"></span></span>${state === 'ok' ? 'Bitwarden is open' : 'Unlock Bitwarden'}</div>
+      <p class="m">${state === 'ok' ? 'Your logins can fill on <b>web.stremio.com</b>.' : 'Your <b>master password</b>, once. Samara never keeps it.'}</p>${field}${st}${keys}</div></div></div>`;
+};
+document.getElementById('bwrow').innerHTML = ['wait', 'check', 'wrong', 'ok'].map(bw).join('');
+for (const t of document.querySelectorAll('#bwrow [data-ic]')) { const x = pixIcon(t.dataset.ic, 1.5); if (x) t.prepend(x); }
+for (const t of document.querySelectorAll('#bwrow [data-ic2]')) { const x = pixIcon(t.dataset.ic2, 2); if (x) t.append(x); }
+for (const t of document.querySelectorAll('#bwrow [data-ic3]')) { const x = pixIcon(t.dataset.ic3, 1); if (x) t.append(x); else t.textContent = '👁'; }
+for (const a of document.querySelectorAll('[data-ar]')) a.innerHTML = ARROW;
+
+// ---- The cats. Samara's night palette, a violet rim where the lamp catches the fur; drawn into 128 x 64 scenes at 4x.
+const C = { r: '#6a58a8', K: '#2e2449', s: '#1b1530', h: '#7d6cbc', y: '#FFD34A', Y: '#FFF6C0', P: '#140c00', n: '#c06a8a', m: '#3a2d5c', w: '#a89cd4', c: '#7262b0' };
+const SIT = [
+  '....r...........r.......',
+  '...rKr.........rKr......',
+  '...rKKr.......rKKr......',
+  '..rKhKKr.....rKKhKr.....',
+  '..rKKKKKrrrrrKKKKKr.....',
+  '..rKKKKKKKKKKKKKKKr.....',
+  '.rKKKKKKKKKKKKKKKKKr....',
+  '.rKKyyYKKKKKKKyyYKKr....',
+  '.rKKyPyKKKKKKKyPyKKr....',
+  '.rKKKKKKKKnKKKKKKKKr....',
+  '.rKwwKKKKmKmKKKKwwKr....',
+  '..rKKKKKKKKKKKKKKKr.....',
+  '...rrKKKKKKKKKKKrr......',
+  '....rKKKKKKKKKKKr.......',
+  '...rKKKKKKKKKKKKKr......',
+  '..rKhKKKKKKKKKKKKKr.....',
+  '..rKhKKKKKKKKKKKKKr.....',
+  '.rKhKKKKKKKKKKKKKKKr...r',
+  '.rKhKKKKKKKKKKKKKKKr..rK',
+  '.rKKKKKKKKKKKKKKKKKKr.rK',
+  '.rKKKKKKKKKKKKKKKKKKKrKr',
+  '.rKKKKKKKKKKKKKKKKKKKKr.',
+  '.rKKKsKKKKKKKKKsKKKKr...',
+  '..rKKsKKKKKKKKKsKKKr....',
+  '..rKKrKKKKKKKKKrKKr.....',
+  '...rr.rrrrrrrrr.rr......',
+];
+// A: the same cat, one front paw up at the cable
+const BAT = SIT.map((r) => r);
+BAT[13] = 'rr..rKKKKKKKKKKKr.......';
+BAT[14] = 'rKr.rKKKKKKKKKKKKr......';
+BAT[15] = 'rKKrKhKKKKKKKKKKKKr.....';
+BAT[16] = '.rKKKhKKKKKKKKKKKKr.....';
+BAT[22] = '.rKKKKKKKKKKKKKsKKKKr...';
+BAT[23] = '..rKKKKKKKKKKKKsKKKr....';
+BAT[24] = '..rKKKKKKKKKKKKrKKr.....';
+BAT[25] = '...rrrrrrrrrrrr.rr......';
+// B: curled up asleep, head on the right, eyes shut
+const CURL = [
+  '..................r..r......',
+  '......rrrrrrrr...rKrrKr.....',
+  '....rrKKKKKKKKrrrKKKKKKr....',
+  '..rrKKKKKKKKKKKKKKKKKKKKr...',
+  '.rKKKKKKKKKKKKKKKKKKKKKKKr..',
+  'rKKKKKKKKKKKKKKKKKKccKKccKr.',
+  'rKKKKKKKKKKKKKKKKKKKKKnKKKKr',
+  'rKKhKKKKKKKKKKKKKKKKKKKKKKr.',
+  '.rKKhhKKKKKKKKKKKKKKKKKKKr..',
+  '..rKKKKhhhhKKKKKKKKKKKKrr...',
+  '...rrKKKKKKKKKKKKKKKrr......',
+  '.....rrrrrrrrrrrrrrr........',
+];
+// C: from behind, looking back over its shoulder with one eye; its tail curled on the floor
+const BACK = SIT.map((r) => r);
+BACK[7] = '.rKKKKKKKKKKKKKyyYKr....';
+BACK[8] = '.rKKKKKKKKKKKKKyPyKr....';
+BACK[9] = '.rKKKKKKKKKKKKKKKKKr....';
+BACK[10] = '.rKKKKKKKKKKKKKKKwwr....';
+for (let i = 15; i <= 21; i++) BACK[i] = BACK[i].replace(/h/g, 'K');
+BACK[17] = '.rKKKKKKKKKKKKKKKKKr....'; BACK[18] = '.rKKKKKKKKKKKKKKKKKr....'; BACK[19] = '.rKKKKKKKKKKKKKKKKKKr...'; BACK[20] = '.rKKKKKKKKKKKKKKKKKKKr..'; BACK[21] = '.rKKKKKKKKKKKKKKKKKKKr..';
+BACK[22] = 'rKKKKKKKKKKKKKKKKKKKKr..'; BACK[23] = 'rKKKKKKKKKKKKKKKKKKKr...'; BACK[24] = 'rKKKKKKKKKKKKKKKKKKr....'; BACK[25] = '.rrrrrrrrrrrrrrrrrr.....';
+const S = 4;
+function scene(id, draw) { const cv = document.getElementById(id), g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(S, S); return draw((x, y, c) => { if (c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); } }, g); }
+const sprite = (put, rows, x0, y0, pal = C) => rows.forEach((r, y) => [...r].forEach((ch, x) => put(x0 + x, y0 + y, pal[ch])));
+// the floor: Samara's dark planks, lit a little from above, all the way across
+const floor = (put) => { for (let y = 52; y < 64; y++) for (let x = 0; x < 128; x++) { const seam = y === 52 || ((x + (Math.floor((y - 52) / 4) % 2) * 11) % 24 === 0 && y > 52); put(x, y, seam ? '#120A05' : y === 53 ? '#3b2414' : (x * 7 + y * 3) % 13 === 0 ? '#2a190d' : '#24160d'); } };
+const glow = (g, cx, cy, r, col) => { const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 64); };
+const line = (put, pts, col) => { for (let i = 0; i < pts.length - 1; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]; const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1); for (let k = 0; k <= n; k++) put(Math.round(x1 + (x2 - x1) * k / n), Math.round(y1 + (y2 - y1) * k / n), col); } };
+// A: a socket on the wall, its plug pulled out onto the floor, a spark; the cat batting the cable
+scene('catA', (put, g) => {
+  glow(g, 64, 44, 46, 'rgba(255,196,60,.10)');
+  floor(put);
+  const SOCK = ['oooooooo', 'oWWWWWWo', 'oWkWWkWo', 'oWkWWkWo', 'oWWWWWWo', 'oWWkkWWo', 'oWWWWWWo', 'oooooooo'];
+  sprite(put, SOCK, 26, 30, { o: '#120A05', W: '#cdbb9a', k: '#3b2414' });
+  line(put, [[34, 34], [37, 36], [40, 40], [43, 45], [47, 49], [52, 51], [58, 51]], '#120A05');
+  line(put, [[34, 33], [37, 35], [40, 39], [43, 44], [47, 48], [52, 50], [58, 50]], '#C98C14');
+  const PLUG = ['.oooo.', 'oWWWWo', 'oWWWWoss', 'oWWWWo..', 'oWWWWoss', '.oooo.'];
+  sprite(put, PLUG, 58, 46, { o: '#120A05', W: '#e8dcc4', s: '#c9cdd6' });
+  [[67, 44], [68, 43], [69, 45], [67, 41], [70, 42]].forEach(([x, y], i) => put(x, y, i % 2 ? '#FFC43C' : '#FFE28C'));
+  sprite(put, SIT, 70, 27);
+});
+// B: Samara's own lantern, gone out; the cat curled on top of it, asleep
+scene('catB', (put, g) => {
+  glow(g, 64, 40, 34, 'rgba(120,110,220,.12)');
+  floor(put);
+  const img = new Image(); img.src = '../../../src/Shell/pages/art/samara/samara-lantern-32.png';
+  img.onload = () => {
+    g.save(); g.filter = 'brightness(.42) saturate(.55)'; g.drawImage(img, 48, 21, 32, 32); g.restore();
+    sprite(put, CURL, 50, 11);
+    [[80, 6, 'Z'], [86, 2, 'z'], [91, -1, 'z']].forEach(([x, y, k]) => { const z = k === 'Z' ? ['ccc', '..c', '.c.', 'c..', 'ccc'] : ['cc', '.c', 'c.', 'cc']; z.forEach((r, j) => [...r].forEach((ch, i) => ch === 'c' && put(x + i, y + j, '#a89cd4'))); });
+  };
+});
+// C: a closed wooden door, warm light under it; the cat sat before it, looking back at you
+scene('catC', (put, g) => {
+  floor(put);
+  for (let y = 8; y < 52; y++) for (let x = 44; x < 78; x++) {
+    const edge = x === 44 || x === 77 || y === 8;
+    const frame = x < 47 || x > 74 || y < 11;
+    const plank = !frame && (x - 47) % 7 === 0;
+    put(x, y, edge ? '#120A05' : frame ? '#3b2414' : plank ? '#3b2414' : (y * 3 + x) % 11 === 0 ? '#6a4a2c' : '#56371F');
+  }
+  for (const [x, y] of [[70, 30], [71, 30], [70, 31], [71, 31]]) put(x, y, '#FFC43C');
+  for (let x = 47; x < 75; x++) put(x, 51, '#FFE28C');
+  glow(g, 60, 54, 30, 'rgba(255,196,60,.18)');
+  sprite(put, BACK, 50, 26);
+});
+</script>
+</body>
+</html>

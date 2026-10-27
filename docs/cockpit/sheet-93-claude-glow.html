@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 93 - Claude's glow</title>
+<!-- Sheet 93 (2026-10-27). His ask: "is there another way to show that Claude is in Samara, just something like a glow in
+     the bar or something". His picks: show me mockups; only while Claude is acting (clicking, typing, reading), quiet
+     otherwise so it means something. Today the only sign is Claude's rune by the ... key (sheet 50), which is about jobs.
+     Four calm signs, each from Samara's own pieces, in Claude's own orange (#D97757, pixicons' K). Each can be played
+     "acting" and "quiet". -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1100px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:38px 0 12px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:640px;line-height:1.45}
+  :root{--cl:#D97757;--cl-lit:#FFB08A;--cl-deep:#8E3F22}
+
+  .win{position:relative;width:640px;height:230px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .bandbar{position:absolute;left:0;right:0;top:0;height:58px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;border-bottom:3px solid #120a05;z-index:3}
+  .slotbar{position:absolute;left:110px;right:62px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
+    display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;z-index:4;image-rendering:auto}
+  .slotbar .sh{width:20px;height:24px;background:url(../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none}
+  .lamp{position:absolute;left:14px;top:9px;width:40px;height:40px;z-index:5;image-rendering:pixelated;background:url(../../src/Shell/pages/art/samara/samara-light-4-64.png) center/40px 40px no-repeat}
+  .rb{position:absolute;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;background:linear-gradient(180deg,var(--plum),var(--plum-deep));box-shadow:0 3px 0 #120a05;z-index:4}
+  .page{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#f6f3ee;overflow:hidden}
+  .page i{display:block;height:9px;border-radius:4px;background:#e2ddd4;margin:16px 22px 0}
+  .page i:nth-child(2){width:60%} .page i:nth-child(3){width:75%}
+  .ctl{display:flex;gap:10px;margin:8px 0 0}
+  .ctl button{font:700 12.5px var(--body);padding:4px 10px;border-radius:6px;border:2px solid #120A05;cursor:pointer;color:#fff;background:#3a2a1c;box-shadow:0 2px 0 #000}
+  .ctl button[aria-pressed=true]{background:var(--cl-deep);outline:2px solid var(--gold);outline-offset:2px}
+
+  /* 1 · an ember line along the band's bottom edge, breathing, a spark running along it while Claude types */
+  .w1 .ember{position:absolute;left:0;right:0;top:56px;height:4px;z-index:6;opacity:0;transition:opacity .5s;
+    background:linear-gradient(90deg,transparent,var(--cl) 12%,var(--cl-lit) 50%,var(--cl) 88%,transparent);box-shadow:0 0 10px 2px rgba(217,119,87,.7)}
+  .w1 .ember::after{content:"";position:absolute;top:-2px;width:8px;height:8px;background:#fff1e6;box-shadow:0 0 10px 3px var(--cl-lit);animation:run 2.2s linear infinite}
+  .w1.on .ember{opacity:1;animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{50%{opacity:.55}}
+  @keyframes run{from{left:0}to{left:100%}}
+
+  /* 2 · Samara's lantern takes Claude's colour: the flame goes orange and flickers, a little Claude spark beside it */
+  .w2 .lamp{transition:filter .5s}
+  .w2.on .lamp{filter:hue-rotate(-22deg) saturate(1.5) drop-shadow(0 0 7px var(--cl));animation:flick 1.6s steps(1) infinite}
+  .w2 .spark{position:absolute;left:50px;top:8px;z-index:6;opacity:0;transition:opacity .4s}
+  .w2.on .spark{opacity:1;animation:twinkle 1.6s ease-in-out infinite}
+  @keyframes flick{0%,100%{filter:hue-rotate(-22deg) saturate(1.5) drop-shadow(0 0 7px var(--cl))}45%{filter:hue-rotate(-22deg) saturate(1.5) drop-shadow(0 0 3px var(--cl))}75%{filter:hue-rotate(-22deg) saturate(1.6) drop-shadow(0 0 10px var(--cl))}}
+  @keyframes twinkle{50%{transform:scale(.7) rotate(45deg);opacity:.6}}
+
+  /* 3 · the address slot's frame glows Claude's orange, and says who is driving at its right end */
+  .w3 .slotbar{transition:box-shadow .5s,border-color .5s}
+  .w3.on .slotbar{border-color:var(--cl-deep);box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 0 0 2px var(--cl),0 0 14px 2px rgba(217,119,87,.6);animation:slotb 2.4s ease-in-out infinite}
+  .w3 .who{margin-left:auto;display:flex;align-items:center;gap:6px;font:400 10px var(--label);letter-spacing:1.2px;color:var(--cl-lit);opacity:0;transition:opacity .4s}
+  .w3.on .who{opacity:1}
+  @keyframes slotb{50%{box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 0 0 2px var(--cl),0 0 6px 1px rgba(217,119,87,.4)}}
+
+  /* 4 · the page itself: a thin warm frame round the page Claude is on, the corners lit like the gold caps */
+  .w4 .page{transition:box-shadow .5s}
+  .w4.on .page{box-shadow:0 0 0 3px var(--cl),0 0 18px 3px rgba(217,119,87,.55);animation:pageb 2.4s ease-in-out infinite}
+  @keyframes pageb{50%{box-shadow:0 0 0 3px var(--cl),0 0 8px 1px rgba(217,119,87,.35)}}
+  .w4 .tag{position:absolute;right:24px;bottom:22px;z-index:6;display:flex;align-items:center;gap:6px;padding:3px 9px 3px 5px;border-radius:6px;border:2px solid #120A05;
+    background:linear-gradient(180deg,var(--cl),var(--cl-deep));font:800 12px var(--body);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6);opacity:0;transition:opacity .4s}
+  .w4.on .tag{opacity:1}
+</style>
+</head>
+<body>
+<h1>Sheet 93 · Claude's glow</h1>
+<p class="lead">A calm sign that Claude is working in Samara. It shows only while Claude is clicking, typing or reading, then fades out, so when you see it, it means something. All four use Claude's own orange. Tap Acting and Quiet to compare.</p>
+
+<h2>1 · EMBER IN THE BAND</h2>
+<p class="cap">A thin ember line along the bottom of the toolbar, breathing slowly. A spark runs along it while Claude types.</p>
+<p class="sub">Seen from anywhere on screen. Doesn't touch the page.</p>
+<div class="win w1 on" id="w1"><div class="bandbar"></div><span class="lamp"></span><span class="rb" style="left:62px"></span><div class="slotbar"><span class="sh"></span>amazon.ca/laptops</div><span class="rb" style="right:14px"></span><span class="ember"></span><div class="page"><i></i><i></i><i></i></div></div>
+<div class="ctl" data-for="w1"><button data-on="1" aria-pressed="true">Acting</button><button data-on="0">Quiet</button></div>
+
+<h2>2 · THE LANTERN TURNS CLAUDE'S COLOUR</h2>
+<p class="cap">Samara's lantern flame turns orange and flickers, with a small Claude spark beside it.</p>
+<p class="sub">The smallest sign of the four. Easy to miss if you're watching the page.</p>
+<div class="win w2 on" id="w2"><div class="bandbar"></div><span class="lamp"></span><span class="spark" data-ic="claude"></span><span class="rb" style="left:62px"></span><div class="slotbar"><span class="sh"></span>amazon.ca/laptops</div><span class="rb" style="right:14px"></span><div class="page"><i></i><i></i><i></i></div></div>
+<div class="ctl" data-for="w2"><button data-on="1" aria-pressed="true">Acting</button><button data-on="0">Quiet</button></div>
+
+<h2>3 · THE ADDRESS BAR GLOWS</h2>
+<p class="cap">The address bar's frame glows orange, and a small label at its end says CLAUDE.</p>
+<p class="sub">Right where your eyes go. Says who is driving without a word on the page.</p>
+<div class="win w3 on" id="w3"><div class="bandbar"></div><span class="lamp"></span><span class="rb" style="left:62px"></span><div class="slotbar"><span class="sh"></span>amazon.ca/laptops<span class="who"><span data-ic="claude"></span>CLAUDE</span></div><span class="rb" style="right:14px"></span><div class="page"><i></i><i></i><i></i></div></div>
+<div class="ctl" data-for="w3"><button data-on="1" aria-pressed="true">Acting</button><button data-on="0">Quiet</button></div>
+
+<h2>4 · A WARM FRAME ROUND THE PAGE</h2>
+<p class="cap">When you look at a page Claude is using, a warm frame glows round it, with a small Claude tag in the corner.</p>
+<p class="sub">Tells you which page is Claude's, not just that Claude is busy. Only shows when you're looking at Claude's page.</p>
+<div class="win w4 on" id="w4"><div class="bandbar"></div><span class="lamp"></span><span class="rb" style="left:62px"></span><div class="slotbar"><span class="sh"></span>amazon.ca/laptops</div><span class="rb" style="right:14px"></span><div class="page"><i></i><i></i><i></i></div><span class="tag"><span data-ic="claude"></span>Claude</span></div>
+<div class="ctl" data-for="w4"><button data-on="1" aria-pressed="true">Acting</button><button data-on="0">Quiet</button></div>
+
+<script type="module">
+import { pixIcon } from '../../src/Shell/pages/pixicons.js';
+for (const t of document.querySelectorAll('[data-ic]')) { const s = pixIcon(t.dataset.ic, t.classList.contains('spark') ? 2 : 1.5); if (s) t.append(s); }
+for (const g of document.querySelectorAll('.ctl')) for (const b of g.querySelectorAll('button')) b.addEventListener('click', () => {
+  for (const x of g.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+  document.getElementById(g.dataset.for).classList.toggle('on', b.dataset.on === '1');
+});
+</script>
+</body>
+</html>

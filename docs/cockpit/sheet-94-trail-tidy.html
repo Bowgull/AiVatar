@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 94 - A tidier Mockups trail</title>
+<!-- Sheet 94 (2026-10-27). His ask: "is there a cleaner way to organize and present mockups in Samara? right now it's
+     amazing, I love the features, but wonder if there is a cleaner way". What bugs him: too many rows, old versions in
+     the way, hard to compare; "not sure, show me". Every feature of today's trail stays (marks, approve, archive, the
+     broom, restore); only how it's laid out changes. Two layouts for the list (A quest log, B bookshelf) and one way to
+     compare (C). Drawn in the drawer's own dark wood, Silkscreen labels, the stage colours of sheet 79. Real sheets. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1100px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:38px 0 12px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 12px;max-width:640px;line-height:1.45}
+  .row{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+  :root{--draft:#8a7a62;--fix:#4C9BE8;--ok:#FFC43C;--built:#6FB34A;--park:#5a5048}
+
+  /* The drawer, as Samara draws it: dark wood, a carved panel. */
+  .drawer{width:330px;padding:10px;border-radius:12px;border:3px solid #120A05;box-shadow:0 4px 0 #120A05,0 14px 26px rgba(0,0,0,.5);
+    background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .panel{border-radius:9px;border:3px solid #120A05;background:#1a0f09;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);padding:8px 8px 10px}
+
+  /* A · quest log */
+  .qtabs{display:flex;gap:4px;margin:0 0 8px}
+  .qtabs button{flex:1;font:400 10px var(--label);letter-spacing:1.2px;padding:6px 4px 5px;border-radius:6px 6px 0 0;border:2px solid #120A05;border-bottom:none;cursor:pointer;
+    background:#2a1a0e;color:#a8977a}
+  .qtabs button[aria-pressed=true]{background:linear-gradient(180deg,#5e3c21,#3a2414);color:#ffe28c;box-shadow:inset 0 2px 0 rgba(255,224,150,.2)}
+  .qtabs b{display:inline-block;margin-left:5px;min-width:16px;padding:1px 3px;border-radius:4px;background:#120A05;color:#ffe28c;font:400 9px var(--label)}
+  .grp{font:400 9.5px var(--label);letter-spacing:1.3px;color:#c9a35a;margin:10px 4px 4px}
+  .q{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:7px;cursor:pointer}
+  .q:hover{background:rgba(255,196,60,.1)}
+  .q .num{flex:none;font:400 10px var(--label);color:#2a1c00;background:#c9a35a;border:2px solid #120A05;border-radius:4px;padding:2px 4px 1px;min-width:18px;text-align:center}
+  .q .nm{flex:1;min-width:0;font:700 13.5px var(--body);color:#efe4cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pips{display:flex;gap:3px;align-items:center;flex:none}
+  .pip{width:9px;height:9px;border-radius:2px;border:2px solid #120A05;background:var(--draft);cursor:pointer;position:relative}
+  .pip.new{width:12px;height:12px}
+  .pip.fix{background:var(--fix)} .pip.ok{background:var(--ok);box-shadow:0 0 6px rgba(255,196,60,.7)} .pip.built{background:var(--built)} .pip.park{background:var(--park)}
+  .pip.sel{outline:2px solid #fff6c8;outline-offset:1px}
+  .pip:hover::after{content:attr(data-t);position:absolute;bottom:16px;left:50%;transform:translateX(-50%);white-space:nowrap;font:700 11px var(--body);color:#efe4cc;
+    background:#120A05;padding:3px 6px;border-radius:4px;z-index:3}
+  .waiting{font:400 9px var(--label);letter-spacing:1px;color:#2a1c00;background:var(--fix);border:2px solid #120A05;border-radius:4px;padding:1px 4px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 4px 0;font:600 11.5px var(--body);color:#a8977a}
+  .legend span{display:inline-flex;align-items:center;gap:4px}
+  .legend .pip{cursor:default}
+
+  /* B · bookshelf: each branch a shelf, each sheet a book spine in its stage's colour */
+  .shelf{position:relative;margin:4px 0 14px;padding:0 6px}
+  .shelf .lab{font:400 9.5px var(--label);letter-spacing:1.3px;color:#c9a35a;margin:0 0 4px 2px}
+  .books{display:flex;align-items:flex-end;gap:3px;height:74px;padding:0 4px;border-bottom:7px solid #6b4322;box-shadow:0 3px 0 #120A05}
+  .bk{width:24px;border:2px solid #120A05;border-bottom:none;border-radius:3px 3px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 0 3px;cursor:pointer;
+    box-shadow:inset 3px 0 0 rgba(255,255,255,.18),inset -3px 0 0 rgba(0,0,0,.25);transition:transform .12s}
+  .bk:hover{transform:translateY(-5px)}
+  .bk .n{font:400 9px var(--label);color:#120A05;writing-mode:vertical-rl;transform:rotate(180deg)}
+  .bk .vs{display:flex;flex-direction:column;gap:2px}
+  .bk .vs i{display:block;width:8px;height:3px;background:rgba(18,10,5,.55)}
+  .bk.draft{background:linear-gradient(90deg,#b8a684,#9a8868)} .bk.fix{background:linear-gradient(90deg,#7bb8f0,#4C9BE8)} .bk.ok{background:linear-gradient(90deg,#ffe096,#FFC43C)}
+  .bk.built{background:linear-gradient(90deg,#9fd57c,#6FB34A)} .bk.park{background:linear-gradient(90deg,#7a6e64,#5a5048);opacity:.75}
+  .bk.open{transform:translateY(-8px);outline:2px solid #fff6c8}
+  .peek{margin:8px 4px 0;padding:8px 10px;border-radius:8px;background:linear-gradient(180deg,#F0DCB4,#DEC28C);border:3px solid #120A05;color:#2E2216}
+  .peek b{font:800 13.5px var(--body)} .peek .pips{margin-top:6px}
+  .peek small{display:block;font:500 12px var(--body);color:#5a4834;margin-top:3px}
+
+  /* C · compare */
+  .cmp{position:relative;width:760px;height:430px;border-radius:10px;overflow:hidden;border:3px solid #120A05;box-shadow:0 12px 26px rgba(0,0,0,.55);background:#0e0a07}
+  .cmp .fr{position:absolute;left:0;top:0;width:1520px;height:860px;border:0;transform:scale(.5);transform-origin:0 0;pointer-events:none}
+  .cmp .fr.R{clip-path:inset(0 0 0 50%)}
+  .cmp .lab{position:absolute;top:10px;z-index:3;font:400 10px var(--label);letter-spacing:1.2px;padding:3px 7px 2px;border-radius:4px;border:2px solid #120A05;color:#2a1c00}
+  .cmp .lab.l{left:10px;background:#c9a35a} .cmp .lab.r{right:10px;background:var(--built)}
+  .cmp .div{position:absolute;top:0;bottom:0;left:50%;width:6px;margin-left:-3px;background:#120A05;z-index:4;cursor:ew-resize}
+  .cmp .div::after{content:"";position:absolute;top:50%;left:50%;width:22px;height:34px;margin:-17px 0 0 -11px;border-radius:6px;border:3px solid #120A05;
+    background:linear-gradient(180deg,var(--gold-lit),var(--gold))}
+  .cmp .bar{position:absolute;left:0;right:0;bottom:0;height:0}
+</style>
+</head>
+<body>
+<h1>Sheet 94 · A tidier Mockups trail</h1>
+<p class="lead">Everything the trail does today stays: the marks, Approve, the archive, the broom. Only the layout changes. Two ways to show the list (A and B), and one way to compare two versions side by side (C). The sheets shown are your real ones.</p>
+
+<div class="row">
+<div>
+<h2>A · QUEST LOG</h2>
+<p class="cap">Two tabs, like a game's quest log: Waiting on you, and Done.</p>
+<p class="sub">One line per sheet, and the versions become little squares instead of rows. Their colour is the stage. Hover one for its date, click to open it. Built and parked sheets move to Done by themselves.</p>
+<div class="drawer"><div class="panel">
+  <div class="qtabs" id="qtabs"><button aria-pressed="true" data-t="wait">WAITING<b>3</b></button><button aria-pressed="false" data-t="done">DONE<b>13</b></button></div>
+  <div id="qbody"></div>
+  <div class="legend"><span><i class="pip"></i>draft</span><span><i class="pip fix"></i>fix</span><span><i class="pip ok"></i>approved</span><span><i class="pip built"></i>built</span><span><i class="pip park"></i>parked</span></div>
+</div></div>
+</div>
+
+<div>
+<h2>B · BOOKSHELF</h2>
+<p class="cap">Each topic is a shelf, each sheet a book in its stage's colour. The notches on a spine are its versions.</p>
+<p class="sub">You see the state of everything at a glance, with no text to read. Tap a book to pull it out: its name and its version squares.</p>
+<div class="drawer"><div class="panel" id="shelves"></div></div>
+</div>
+</div>
+
+<h2>C · SIDE BY SIDE</h2>
+<p class="cap">Pick two versions (click one square, then Shift-click another) and they open next to each other in the page.</p>
+<p class="sub">Drag the gold handle to slide between them. Works with A or B. Shown here: the cat sheet, v1 (three cats) against v2 (the one cat).</p>
+<div class="cmp" id="cmp">
+  <iframe class="fr" src="sheet-94/s90-v1.html" tabindex="-1"></iframe>
+  <iframe class="fr R" id="frR" src="sheet-94/s90-v2.html" tabindex="-1"></iframe>
+  <span class="lab l">V1 · 2 DAYS AGO</span><span class="lab r">V2 · 2 DAYS AGO</span>
+  <div class="div" id="div"></div>
+</div>
+
+<script>
+// His real sheets and stages (from the trail's marks, 2026-10-27).
+const S = [
+  { n: 94, nm: 'A tidier Mockups trail', br: 'mockups', v: ['draft'] },
+  { n: 93, nm: "Claude's glow", br: 'claude', v: ['draft'] },
+  { n: 92, nm: 'Notices', br: 'notices', v: ['draft'] },
+  { n: 90, nm: 'The cat, logins and the shelf', br: 'samara', v: ['draft', 'fix'] , done: true },
+  { n: 89, nm: 'Stremio and the TV', br: 'samara', v: ['draft', 'draft', 'built'], done: true },
+  { n: 88, nm: 'Address bar', br: 'samara', v: ['draft', 'built'], done: true },
+  { n: 87, nm: 'Private window', br: 'secret', v: ['draft', 'draft', 'draft', 'draft', 'draft', 'draft', 'draft', 'draft', 'draft', 'built', 'draft', 'draft', 'built'], done: true },
+  { n: 86, nm: "Samara's asks", br: 'samara', v: ['draft', 'draft', 'draft'], done: true },
+  { n: 85, nm: 'Asks (first try)', br: 'samara', v: ['park'], done: true },
+  { n: 83, nm: 'Settings, game menu', br: 'settings', v: ['draft', 'built', 'built', 'built'], done: true },
+  { n: 82, nm: "What's new", br: 'mockups', v: ['built'], done: true },
+  { n: 81, nm: 'Marks in tabs', br: 'mockups', v: ['built'], done: true },
+  { n: 79, nm: 'Mockup marks', br: 'mockups', v: ['draft', 'built'], done: true },
+  { n: 78, nm: 'Key icon', br: 'settings', v: ['built'], done: true },
+  { n: 77, nm: 'Autofill', br: 'settings', v: ['draft', 'draft', 'draft', 'built'], done: true },
+  { n: 71, nm: 'Tab size', br: 'samara', v: ['built'], done: true },
+];
+S[3].done = false; // sheet 90's v2 waits on him (cat redrawn); so Waiting is 92, 93, 94 and 90
+const T = ['now', '2h ago', 'yesterday', '2 days ago', '3 days ago', 'last week'];
+const pips = (s) => { const w = document.createElement('span'); w.className = 'pips';
+  const vs = s.v.length > 6 ? s.v.slice(-6) : s.v;
+  if (s.v.length > 6) w.append(Object.assign(document.createElement('span'), { textContent: '+' + (s.v.length - 6), style: 'font:700 11px var(--body);color:#a8977a;margin-right:2px' }));
+  vs.forEach((st, i) => { const p = document.createElement('i'); const vn = s.v.length - vs.length + i + 1;
+    p.className = 'pip ' + (st === 'draft' ? '' : st) + (i === vs.length - 1 ? ' new' : ''); p.dataset.t = `V${vn} · ${T[Math.min(T.length - 1, vs.length - 1 - i)]}`; w.append(p); });
+  return w; };
+function quest(tab) {
+  const body = document.getElementById('qbody'); body.replaceChildren();
+  const list = S.filter((s) => tab === 'wait' ? !s.done : s.done);
+  const byBr = {}; for (const s of list) (byBr[s.br] ??= []).push(s);
+  for (const [br, ss] of Object.entries(byBr)) {
+    body.append(Object.assign(document.createElement('div'), { className: 'grp', textContent: br.toUpperCase() }));
+    for (const s of ss) { const r = document.createElement('div'); r.className = 'q';
+      r.append(Object.assign(document.createElement('span'), { className: 'num', textContent: s.n }), Object.assign(document.createElement('span'), { className: 'nm', textContent: s.nm }));
+      if (tab === 'wait' && s.v.at(-1) === 'fix') r.append(Object.assign(document.createElement('span'), { className: 'waiting', textContent: 'FIX' }));
+      r.append(pips(s)); body.append(r); }
+  }
+}
+for (const b of document.querySelectorAll('#qtabs button')) b.addEventListener('click', () => {
+  for (const x of document.querySelectorAll('#qtabs button')) x.setAttribute('aria-pressed', String(x === b)); quest(b.dataset.t); });
+quest('wait');
+document.querySelector('#qtabs [data-t=wait] b').textContent = S.filter((s) => !s.done).length;
+document.querySelector('#qtabs [data-t=done] b').textContent = S.filter((s) => s.done).length;
+
+// B
+const sh = document.getElementById('shelves'), byBr = {};
+for (const s of S) (byBr[s.br] ??= []).push(s);
+let peek = null;
+for (const [br, ss] of Object.entries(byBr)) {
+  const shelf = document.createElement('div'); shelf.className = 'shelf';
+  shelf.append(Object.assign(document.createElement('div'), { className: 'lab', textContent: br.toUpperCase() }));
+  const books = document.createElement('div'); books.className = 'books';
+  for (const s of ss) {
+    const st = s.v.includes('built') ? 'built' : s.v.at(-1);
+    const bk = document.createElement('div'); bk.className = 'bk ' + st; bk.style.height = (52 + (s.n % 4) * 5) + 'px';
+    const vs = document.createElement('span'); vs.className = 'vs'; for (let i = 0; i < Math.min(5, s.v.length); i++) vs.append(document.createElement('i'));
+    bk.append(Object.assign(document.createElement('span'), { className: 'n', textContent: s.n }), vs);
+    bk.addEventListener('click', () => {
+      for (const x of sh.querySelectorAll('.bk.open')) x.classList.remove('open'); bk.classList.add('open');
+      peek?.remove(); peek = document.createElement('div'); peek.className = 'peek';
+      peek.append(Object.assign(document.createElement('b'), { textContent: `${s.n} · ${s.nm}` }), pips(s), Object.assign(document.createElement('small'), { textContent: `${s.v.length} version${s.v.length === 1 ? '' : 's'}. Click a square to open it.` }));
+      shelf.append(peek);
+    });
+    books.append(bk);
+  }
+  shelf.append(books); sh.append(shelf);
+}
+sh.querySelector('.bk').click();
+
+// C: the handle wipes between the two
+const cmp = document.getElementById('cmp'), div = document.getElementById('div'), R = document.getElementById('frR');
+let drag = false;
+div.addEventListener('pointerdown', (e) => { drag = true; div.setPointerCapture(e.pointerId); });
+div.addEventListener('pointerup', () => { drag = false; });
+div.addEventListener('pointermove', (e) => { if (!drag) return; const r = cmp.getBoundingClientRect(); const x = Math.max(.05, Math.min(.95, (e.clientX - r.left) / r.width)) * 100;
+  div.style.left = x + '%'; R.style.clipPath = `inset(0 0 0 ${x}%)`; });
+</script>
+</body>
+</html>
