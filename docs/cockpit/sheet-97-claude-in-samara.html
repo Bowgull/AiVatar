@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 97 - Claude in Samara, one sign</title>
+<!-- Sheet 97 (2026-10-27). His asks: "up the quality of the Samara icon and the Claude rune ... mix this with the glows
+     thing we were talking about with Claude driving a tab or its own tab"; then "I wanted to see mockups ... how should it
+     work, what is the current interaction, and how can we add to and improve". His picks: redraw both at the same size;
+     the glow follows the rune's colours (amber working, blue needs you, teal done). Every bar and list picture is Samara
+     itself (test/electron/sheet97-shot.ts): Claude comparing three laptops in its own hidden tabs while a Claude job runs.
+     The lantern and rune are hand-placed on the keys' grid (sheet-97/art.js), 18 x 18 at 2x. Not built. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1000px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:40px 0 10px}
+  .cap{font:700 13.5px var(--body);color:#ffe28c;margin:14px 0 3px}
+  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 10px;max-width:900px;line-height:1.5}
+  img.pic{display:block;max-width:100%;image-rendering:pixelated;border:3px solid #120A05}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .steps{margin:6px 0 0;padding:0;list-style:none;max-width:900px}
+  .steps li{font:500 13.5px/1.5 var(--body);color:#d8c8a6;margin:0 0 6px}
+  .steps b{color:#ffe28c}
+  .miss li b{color:#ff9a8a}
+  .art{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap}
+  .art figure{margin:0;text-align:center}
+  .art figcaption{font:400 10px var(--label);letter-spacing:1px;color:#c9a35a;margin-top:8px}
+  .art canvas,.art img{display:block;image-rendering:pixelated;background:url(../../src/Shell/pages/art/browser/band.png) 0 0/128px 52px;border:3px solid #120A05}
+  .dot{display:inline-block;width:12px;height:12px;border:2px solid #120A05;vertical-align:-2px;margin:0 4px 0 2px}
+</style>
+</head>
+<body>
+<h1>Sheet 97 · Claude in Samara, one sign</h1>
+<p class="lead">Every picture of the bar and the tab list is Samara itself, with Claude comparing three laptops in its own tabs.</p>
+
+<h2>1 · THE LANTERN AND THE RUNE, REDRAWN</h2>
+<p class="sub">Same size as every key in the bar (18 by 18 pixels, shown at 2x), drawn by hand. The lantern gets a hook, a gold rim, ribbed paper lit from inside, a real maple leaf and a tassel. The rune keeps the shape you called perfect, with a cleaner stone, a glint and a chipped corner.</p>
+<div class="art">
+  <figure><img src="../../src/Shell/pages/art/samara/samara-lantern-16.png" width="32" height="32" style="padding:2px"><figcaption>LANTERN NOW</figcaption></figure>
+  <figure><canvas id="l2" width="36" height="36"></canvas><figcaption>NEW, REAL SIZE</figcaption></figure>
+  <figure><canvas id="l8" width="144" height="144"></canvas><figcaption>NEW, 8X</figcaption></figure>
+  <figure><canvas id="r8" width="144" height="144"></canvas><figcaption>RUNE, 8X</figcaption></figure>
+  <figure><canvas id="r8b" width="144" height="144"></canvas><figcaption>NEEDS YOU</figcaption></figure>
+</div>
+
+<h2>2 · HOW IT WORKS TODAY</h2>
+<ul class="steps">
+  <li><b>Claude asks first.</b> Before using Samara it shows its plan, and you allow it.</li>
+  <li><b>Claude gets its own tabs,</b> hidden, grouped under its task in your tab list. Stop takes two presses.</li>
+  <li><b>Click one of Claude's tabs to watch it live.</b> Double-click to take it over.</li>
+  <li><b>The address bar says CLAUDE IS DRIVING</b>, but only while you're watching.</li>
+  <li><b>The rune sits by the menu</b> while a Claude job runs. Click it for progress.</li>
+</ul>
+<div class="row" style="margin-top:12px"><div><p class="cap">The bar while Claude works</p><img class="pic" src="sheet-97/t-closed.png" style="width:1080px"></div></div>
+<div class="row"><div><p class="cap">Your tab list</p><img class="pic" src="sheet-97/t-list.png" style="width:520px"></div>
+  <div><p class="cap">What's missing</p><ul class="steps miss" style="max-width:420px">
+    <li><b>Two Claude signs that don't connect:</b> the rune by the menu, and the label in the address bar.</li>
+    <li><b>With the list closed,</b> nothing says Claude is busy in its tabs.</li>
+    <li><b>You can't tell which page Claude is on right now.</b></li>
+    <li><b>Colours don't say what's happening:</b> working, needs you or done all look the same in the list.</li>
+  </ul></div></div>
+<p class="cap">Watching Claude's tab</p><img class="pic" src="sheet-97/t-watch.png" style="width:1080px">
+
+<h2>3 · ONE SIGN, ONE COLOUR</h2>
+<p class="sub">Claude has one look everywhere: the rune. Its colour tells you what's happening, the same colour in every spot: <span class="dot" style="background:#f0a64a"></span>working <span class="dot" style="background:#7cc4ff"></span>needs you <span class="dot" style="background:#3fc4b4"></span>done.</p>
+<p class="cap">The rune lives at the end of the address bar</p>
+<p class="sub">Not by the menu anymore. The lantern is the menu. Its ring fills as the job goes.</p>
+<img class="pic" src="sheet-97/n-closed.png" style="width:1080px">
+<div class="row">
+  <div><p class="cap">A pip on the tab handle</p><p class="sub" style="max-width:240px">With the list closed, you still see Claude is busy in its tabs.</p><img class="pic" src="sheet-97/handle.png" style="width:120px"></div>
+  <div><p class="cap">In the list, the glove points at Claude's page</p><p class="sub" style="max-width:520px">Claude's group wears the rune. The page Claude is on right now gets the glove (the same pointer as your menus) and an edge in the rune's colour.</p><img class="pic" src="sheet-97/n-list.png" style="width:520px"></div>
+</div>
+<p class="cap">Watching Claude's tab: one label</p>
+<p class="sub">The rune leads CLAUDE IS DRIVING, with Stop after it. The address bar's edge takes the rune's colour, so you can't mistake it for your own tab.</p>
+<img class="pic" src="sheet-97/n-watch.png" style="width:1080px">
+<p class="cap">When Claude needs you, everything turns blue together</p>
+<img class="pic" src="sheet-97/q-closed.png" style="width:1080px">
+<img class="pic" src="sheet-97/q-list.png" style="width:520px;margin-top:12px">
+
+<script type="module">
+import { lantern, rune } from './sheet-97/art.js';
+const paint = (id, s, f) => { const g = document.getElementById(id).getContext('2d'); f((x, y, c) => { g.fillStyle = c; g.fillRect(x * s, y * s, s, s); }); };
+paint('l2', 2, (P) => lantern(P)); paint('l8', 8, (P) => lantern(P));
+paint('r8', 8, (P) => rune(P, 0, 0, 'working', 0.4)); paint('r8b', 8, (P) => rune(P, 0, 0, 'needs', 1));
+</script>
+</body>
+</html>
