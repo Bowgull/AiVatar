@@ -9,8 +9,15 @@
 const MARK = 60;                 // room for a mark: the tallest (16 rows at 3 px) + the 9 px gap + its shadow
 const ART_TOP = 78, ART_X = 88, ART_W = 50;
 const cv = document.getElementById('pet');
-const g = cv.getContext('2d');
+const out = cv.getContext('2d');
+out.imageSmoothingEnabled = false;
+// He is drawn upright here (MARK above, the frame below, clipped at `show`), then turned onto the window's canvas for the
+// edge he is docked on (Dock.cs Rotation: left 90 clockwise, right 90 anticlockwise, top 180). Free or at the bottom it
+// is a straight copy.
+const up = document.createElement('canvas'); up.width = 224; up.height = MARK + 34;
+const g = up.getContext('2d');
 g.imageSmoothingEnabled = false;
+let edge = 'bottom';
 
 // Anim.cs: frames a second, and whether it loops.
 const SPEC = { idle: [6, true], talk: [10, true], think: [8, true], nap: [3, true], walk: [8, true], scooter: [10, true], look: [10, false], hello: [10, false], spin: [12, false], zip: [12, false] };
@@ -99,7 +106,7 @@ function drawHalo(img, now) {
 function play(s) { if (!SPEC[s] || !frames[s]?.length) s = 'idle'; if (s === state) return; state = s; frame = 0; due = 0; }
 
 function draw() {
-  g.clearRect(0, 0, cv.width, cv.height);
+  g.clearRect(0, 0, up.width, up.height);
   const f = frames[state]?.[frame];
   if (f && show > 0) {
     // Only the top `show` pixels of his art: the rest is under the edge.
@@ -111,11 +118,35 @@ function draw() {
     g.drawImage(f, 0, MARK - ART_TOP);
     g.restore();
   }
+  out.setTransform(1, 0, 0, 1, 0, 0);
+  out.clearRect(0, 0, cv.width, cv.height);
+  if (edge === 'left') out.setTransform(0, 1, -1, 0, up.height, 0);          // (x, y) -> (H - y, x)
+  else if (edge === 'right') out.setTransform(0, -1, 1, 0, 0, up.width);    // (x, y) -> (y, W - x)
+  else if (edge === 'top') out.setTransform(-1, 0, 0, -1, up.width, up.height);
+  out.drawImage(up, 0, 0);
+  out.setTransform(1, 0, 0, 1, 0, 0);
+  // The mark stays upright whichever way he is turned (it is a sign, not part of him), centred where it would sit
+  // above his head.
   const kind = flash && performance.now() < flashUntil ? flash : mark;
   if (kind && SHAPES[kind] && show > 0) {
     const a = markOf(kind);
-    g.drawImage(a.c, Math.round(ART_X + ART_W / 2 - a.w / 2), MARK - 9 - a.h);
+    const [cx, cy] = turned(ART_X + ART_W / 2, MARK - 9 - a.h / 2);
+    out.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(cy - a.h / 2));
   }
+}
+/** A point of his upright drawing, on the window's canvas. */
+function turned(x, y) {
+  if (edge === 'left') return [up.height - y, x];
+  if (edge === 'right') return [y, up.width - x];
+  if (edge === 'top') return [up.width - x, up.height - y];
+  return [x, y];
+}
+/** A point on the window's canvas, back in his upright drawing (where the mark is above him). */
+function upright(x, y) {
+  if (edge === 'left') return [y, up.height - x];
+  if (edge === 'right') return [up.width - y, x];
+  if (edge === 'top') return [up.width - x, up.height - y];
+  return [x, y];
 }
 
 function tick(now) {
@@ -144,8 +175,13 @@ window.pet?.onState((s) => {
   if (Number.isFinite(s.show)) {
     show = Math.max(0, Math.min(126, Math.round(s.show)));
     // The window is MARK plus what shows (macaang.ts placePet); the canvas follows it, one to one.
-    const h = MARK + Math.max(1, show);
-    if (cv.height !== h) { cv.height = h; g.imageSmoothingEnabled = false; }
+  }
+  if (typeof s.edge === 'string') edge = ['left', 'right', 'top'].includes(s.edge) ? s.edge : 'bottom';
+  if (Number.isFinite(s.show) || typeof s.edge === 'string') {
+    const h = MARK + Math.max(1, show), side = edge === 'left' || edge === 'right';
+    if (up.height !== h) { up.height = h; g.imageSmoothingEnabled = false; }
+    const w = side ? h : 224, hh = side ? 224 : h;
+    if (cv.width !== w || cv.height !== hh) { cv.width = w; cv.height = hh; out.imageSmoothingEnabled = false; }
   }
   if (typeof s.anim === 'string') { rest = s.anim; play(s.anim); }
   if ('mark' in s) {
@@ -168,7 +204,7 @@ let solid = false, down = null, dragging = false, holding = false, holdTimer = 0
 const HOLD_MS = 300;
 function isSolid(x, y) {
   if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) return false;
-  return g.getImageData(x, y, 1, 1).data[3] > 20;
+  return out.getImageData(x, y, 1, 1).data[3] > 20;
 }
 document.addEventListener('mousemove', (e) => {
   const now = isSolid(e.offsetX, e.offsetY) || dragging;
@@ -188,7 +224,7 @@ document.addEventListener('mouseup', (e) => {
   clearTimeout(holdTimer);
   if (holding) { holding = false; down = null; window.pet?.hold('release', e.screenX, e.screenY); return; }
   if (dragging) window.pet?.drag('end', e.screenX, e.screenY);
-  else if (down && solid) window.pet?.click(e.offsetY < MARK ? 'mark' : 'aang');
+  else if (down && solid) window.pet?.click(upright(e.offsetX, e.offsetY)[1] < MARK ? 'mark' : 'aang');
   down = null; dragging = false;
 });
 document.addEventListener('contextmenu', (e) => { e.preventDefault(); if (solid) window.pet?.context(e.screenX, e.screenY); });
