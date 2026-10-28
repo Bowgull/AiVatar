@@ -12,9 +12,10 @@
 //     Origin header, or a Host other than 127.0.0.1:<port>, is refused before anything else (DNS rebinding).
 //   - GET /hello?n=<nonce> answers HMAC(key, 'hello', nonce), so the mod tells nothing (folders, file names) to whoever
 //     else might be on the port.
-// THE CHECKS (as mockupdrop.ts does on the PC; the browser checks again when it opens it): a file must be an .html page
-// inside the git repo the session runs in (real path, links followed), no dot folder or file on the way, committed;
+// THE CHECKS (the browser checks again when it opens it): a file must be an .html page
+// inside a git repo (its own, found from the file; real path, links followed), no dot folder or file on the way, committed;
 // a live page must be http(s) on this computer. Nothing is written anywhere: the page goes straight into the trail.
+import { execFileSync } from 'node:child_process';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
@@ -28,6 +29,30 @@ const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(
 
 export interface DoorAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }
 export type DoorAnswer = { ok: boolean; message: string };
+
+/**
+ * The file a live page on this Mac is, when the program answering on its port serves a plain folder: the folder it was
+ * started in (lsof), the address's path under it, an existing .html file. Null for anything else.
+ */
+export function servedFile(u: string, lsof = '/usr/sbin/lsof'): string | null {
+  try {
+    const x = new URL(u);
+    const port = Number(x.port || (x.protocol === 'https:' ? 443 : 80));
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+    const pids = execFileSync(lsof, ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], { encoding: 'utf8', timeout: 3000 }).split('\n').filter((n) => /^\d+$/.test(n));
+    let rel = decodeURIComponent(x.pathname);
+    if (rel.endsWith('/')) rel += 'index.html';
+    if (!/\.html?$/i.test(rel) || rel.includes('\0') || rel.split('/').includes('..')) return null;
+    for (const pid of pids) {
+      const out = execFileSync(lsof, ['-a', '-p', pid, '-d', 'cwd', '-Fn'], { encoding: 'utf8', timeout: 3000 });
+      const dir = /^n(\/.*)$/m.exec(out)?.[1];
+      if (!dir) continue;
+      const f = path.join(dir, rel);
+      if (inside(f, dir) && existsSync(f) && statSync(f).isFile()) return f;
+    }
+  } catch { /* not ours to find */ }
+  return null;
+}
 
 /** The nearest folder up from `dir` with a .git, or null. */
 export function repoOf(dir: string): string | null {
@@ -53,20 +78,28 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
   if (hasUrl) {
     const u = cleanLive(String(ask.url).trim());
     if (!u) return { ok: false, message: 'url must be a page on this computer: http://127.0.0.1, http://localhost or http://[::1] (any port), with no user name.' };
+    // A page served straight from a folder (python -m http.server and the like) is a file in disguise: filed as that
+    // file when it sits in a git repo, so it keeps working after the server stops. A real dev server stays live.
+    const f = servedFile(u);
+    if (f) { const c = checkAsk({ path: f, title: ask.title, branch: ask.branch }); if (c.ok) return c; }
     return { ok: true, drop: { path: '', repo: null, url: u, title, branch }, name: u };
   }
   const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
-  if (!cwd || !path.isAbsolute(cwd) || !existsSync(cwd)) return { ok: false, message: "Your session's folder is not known here. Serve the page on 127.0.0.1 and pass url instead." };
-  const root0 = repoOf(cwd);
-  if (!root0) return { ok: false, message: "Your session's folder is not in a git repo. The Mockups trail shows committed pages; serve the page on 127.0.0.1 and pass url instead." };
   const raw = String(ask.path).trim();
-  if (raw.length > 1000 || raw.startsWith('//') || raw.startsWith('\\\\')) return { ok: false, message: 'path must be a file in your repo.' };
-  let file = '', root = '';
+  if (raw.length > 1000 || raw.startsWith('//') || raw.startsWith('\\\\')) return { ok: false, message: 'path must be a file in a git repo.' };
+  // 2026-10-28 (his "mockups aren't being sent organized correctly"): the repo is the FILE's, not the session's. A session
+  // in a folder outside any repo (~/Handoff/aang) used to be told to serve the page on 127.0.0.1, and every such page
+  // became a live row that died with its server. An absolute path needs no session folder at all.
+  if (!path.isAbsolute(raw) && (!cwd || !path.isAbsolute(cwd) || !existsSync(cwd))) return { ok: false, message: "Your session's folder is not known here. Pass the page's full path." };
+  let file = '';
   try {
-    file = realpathSync.native(path.resolve(cwd, raw));
-    root = realpathSync.native(root0);
+    file = realpathSync.native(path.resolve(cwd || '/', raw));
     if (!statSync(file).isFile()) throw new Error('not a file');
   } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
+  const root0 = repoOf(path.dirname(file));
+  if (!root0) return { ok: false, message: `${path.basename(file)} is not in a git repo. The Mockups trail keeps every version from git: put it in one and commit it, then call show_mockup again.` };
+  let root = '';
+  try { root = realpathSync.native(root0); } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
   if (!inside(file, root)) return { ok: false, message: 'path must be inside your own repo.' };
   const rel = path.relative(root, file).split(path.sep).join('/');
   if (!/\.html?$/i.test(rel)) return { ok: false, message: 'path must be an .html page.' };

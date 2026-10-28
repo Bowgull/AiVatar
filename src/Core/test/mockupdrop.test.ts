@@ -44,9 +44,10 @@ test('a committed page in the session repo becomes a .mockup with its repo; titl
   assert.deepEqual(readdirSync(path.join(state, 'open-urls')).filter((n) => n.endsWith('.tmp')), [], 'no half-written file left');
 });
 
-test('paths outside the repo, hidden folders, non-pages, missing and uncommitted files are refused; nothing is written', async () => {
+test('files in no repo, hidden folders, non-pages, missing and uncommitted files are refused; nothing is written', async () => {
   clear();
-  for (const p of ['../outside.html', path.join(tmp, 'outside.html'), '.hidden/x.html', 'notes.txt', 'docs/nope.html', 'docs/new.html', '\\\\server\\share\\x.html', '../AangApp/docs/cockpit/sheet-1.html']) {
+  // 2026-10-28: a page in ANOTHER repo is no longer refused (it files under that repo); see the test after this one.
+  for (const p of ['../outside.html', path.join(tmp, 'outside.html'), '.hidden/x.html', 'notes.txt', 'docs/nope.html', 'docs/new.html', '\\\\server\\share\\x.html']) {
     const r = await dropMockup(state, { cwd: way, path: p }, home);
     assert.equal(r.ok, false, `${p} should be refused`);
   }
@@ -54,6 +55,13 @@ test('paths outside the repo, hidden folders, non-pages, missing and uncommitted
   assert.equal((await dropMockup(state, { cwd: tmp, path: 'outside.html' }, home)).ok, false, 'a folder that is not a git repo');
   assert.equal((await dropMockup(state, { cwd: 'relative/dir', path: 'docs/motion.html' }, home)).ok, false, 'no known folder');
   assert.equal(drops().length, 0);
+});
+
+test('a page in another repo is filed under that repo, from any session folder (2026-10-28)', async () => {
+  clear();
+  const r = await dropMockup(state, { cwd: tmp, path: path.join(home, 'docs', 'cockpit', 'sheet-1.html') }, home);
+  assert.equal(r.ok, true, r.message);
+  assert.equal(drops().length, 1);
 });
 
 test('in AangApp itself only the mockup folders, written the old way (a repo path only)', async () => {
