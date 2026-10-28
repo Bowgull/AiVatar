@@ -71,8 +71,11 @@ export class AangMenu {
    * `avoid` (2026-10-21, DIP, from avoidRect) is Aang and his mark: the page places the menu beside it, never over it
    * (at the bottom-right corner it used to open on top of him).
    */
-  open(phys: { x: number; y: number }, state: MenuState, avoid: Electron.Rectangle | null = null): void {
+  /** Opened by the Mac's test door: shown without taking the keyboard (and so never closed by a blur it never had). */
+  private quiet = false;
+  open(phys: { x: number; y: number }, state: MenuState, avoid: Electron.Rectangle | null = null, quiet = false): void {
     const w = this.window();
+    this.quiet = quiet;
     // screenToDipPoint exists on Windows only (Electron); the Mac's points are already DIPs (2026-10-28: the menu never opened).
     const at = process.platform === 'win32' ? screen.screenToDipPoint(phys) : phys;
     const b = screen.getDisplayNearestPoint(at).workArea;
@@ -100,6 +103,7 @@ export class AangMenu {
     if (this.pending) {
       this.pending = false;
       this.shownAt = Date.now();
+      if (this.quiet) { w.showInactive(); return; }
       w.show();
       w.focus();
     }

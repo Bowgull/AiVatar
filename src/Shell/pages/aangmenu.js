@@ -59,6 +59,8 @@ const MODELS = [
 const clock = (ms) => { const d = new Date(ms); return `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 /** A row this machine cannot do yet (the Mac's `soon` list). @param {any} s @param {string} id */
+// The Mac's own sizes (sheet 103): the stylesheet's html.mac rules.
+if (/Mac/i.test(navigator.platform)) document.documentElement.classList.add('mac');
 const soon = (s, id) => Array.isArray(s.soon) && s.soon.includes(id);
 function mainRows(s) {
   const jobs = Number(s.jobsRunning) || 0, hushed = Number(s.hushedUntil) > Date.now();

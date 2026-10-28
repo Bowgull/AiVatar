@@ -381,6 +381,8 @@ function macSnip(): void { execFile('/usr/sbin/screencapture', ['-i', '-c'], () 
 let busyNow = false;
 /** On a call (mic or camera in use): timers glow without their knocks. */
 let onCall = false;
+/** What a wheel slot does (the wheel, and the test door's slot pick). */
+let wheelPick: (slot: string) => void = () => {};
 let snipper: Snipper | null = null;
 let macMedia: MacMedia | null = null;
 let miniPlayer: MiniPlayer | null = null, playerHears: ((m: Record<string, unknown>) => boolean) | null = null;
@@ -450,9 +452,9 @@ function prefillBox(text: string): void {
   setTimeout(() => input?.send('input:failed', { text, reason: 'prefill' }), 60);
 }
 function minutesToMorning(): number { const now = new Date(), end = new Date(now); end.setHours(6, 0, 0, 0); if (end <= now) end.setDate(end.getDate() + 1); return Math.max(1, Math.ceil((+end - +now) / 60000)); }
-function openMenu(at: { x: number; y: number }): void {
+function openMenu(at: { x: number; y: number }, quiet = false): void {
   const a = petAt();
-  menu?.open(at, menuState(), { x: a.sprite.x - 10, y: a.sprite.y - MARK, width: a.sprite.width + 20, height: a.sprite.height + MARK });
+  menu?.open(at, menuState(), { x: a.sprite.x - 10, y: a.sprite.y - MARK, width: a.sprite.width + 20, height: a.sprite.height + MARK }, quiet);
 }
 
 /** His real head at its own pixel size for the menu bar: frame rows 78..119, every other pixel (sheet 101). */
@@ -522,10 +524,11 @@ app.whenReady().then(async () => {
       // Opening the box or the menu makes Aang the active app (they take the keyboard for him). From the door that
       // would take Joshua's: the app he was in is brought back straight after.
       click: () => { void keepFront(() => { lastTouch = Date.now(); if (input?.visible) input.close(false); else openTypeBox(false); }); },
-      menu: () => { void keepFront(() => openMenu(head())); },
+      menu: () => openMenu(head(), true),
       hold: () => { const h = head(); wheelHeld = true; if (input?.visible) input.close(); bubble?.send('bubble:dismiss', 'wheel'); wheel?.open(h); },
       release: (x, y) => { wheelHeld = false; wheel?.release({ x, y }); },
       out: () => { lastTouch = Date.now(); setPose('out'); },
+      slot: (name) => wheelPick(name),
     },
   });
   app.on('before-quit', closeDoor);
@@ -543,16 +546,17 @@ app.whenReady().then(async () => {
   // Sheet 17's wheel, held on Aang (main.ts): Timer and Notes open in the bubble, Browser is Samara, Away is Discord.
   wheel = new Wheel({
     origin: pages.origin, preloadPath: preload,
-    pick: (slot) => {
+    pick: (slot) => wheelPick(slot),
+  });
+  wheel.warm();
+  wheelPick = (slot: string) => {
       if (slot === 'TIMER') { bubble?.send('brain:message', { t: 'timer.setup' }); bubble?.show(); }
       else if (slot === 'NOTES') { bubble?.send('brain:message', { t: 'notes.board' }); bubble?.show(); }
       else if (slot === 'BROWSER') void shell.openPath(path.join(os.homedir(), 'Applications', 'Samara.app'));
       else if (slot === 'AWAY') link.send({ t: 'away' });
       else if (slot === 'SNIP') macSnip();
       else if (slot === 'MUSIC') miniPlayer?.open();
-    },
-  });
-  wheel.warm();
+  };
   // Sheet 17 / 67: each running timer is its own small brass window, beside him (main.ts).
   timerWins = new TimerWindows({
     takeKeys: () => { void takeKeys(); }, refocus: giveKeysBack,

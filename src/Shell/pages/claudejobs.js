@@ -546,8 +546,11 @@ function liveAgents(getJob) {
  * What an Open in Claude press asks main.ts for (2026-10-21, claudewire.ts claudeOpenTarget): the session's own app link,
  * 'mac' for a job on the MacBook, or 'front' (the Claude app forward) when there is no app link. Never nothing.
  */
+/** The machine this page runs on (2026-10-28: on the Mac its own sessions were labelled PC). */
+const HERE = /Mac/i.test(navigator.platform) ? 'MAC' : 'PC';
 function openTarget(j) {
-  if (j?.machine === 'MAC') return 'mac';
+  // A job on the OTHER machine (the MacBook, from the PC); one here opens by its own link.
+  if (j?.machine === 'MAC' && HERE !== 'MAC') return 'mac';
   return typeof j?.open === 'string' && /^claude:\/\/claude\.ai\/epitaxy\//.test(j.open) ? j.open : 'front';
 }
 
@@ -563,7 +566,7 @@ function readJob(x) {
   }));
   return {
     // His own name for the session in the Claude app when it has one (claudenames.ts), else its folder's.
-    id: x.id.slice(0, 100), machine: x.machine === 'mac' ? 'MAC' : 'PC', project: str(x.title, 60) || str(x.project, 60) || 'Claude', phase, tasks,
+    id: x.id.slice(0, 100), machine: x.machine === 'mac' ? 'MAC' : HERE, project: str(x.title, 60) || str(x.project, 60) || 'Claude', phase, tasks,
     startedAt: Number(x.startedAt) || 0, prompt: str(x.prompt, 200), current: str(x.current, 200),
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
