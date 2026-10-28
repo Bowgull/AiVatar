@@ -96,13 +96,34 @@ function floor(): number { const b = display().bounds; return b.y + b.height - (
 /** The top of his art on screen: from the floor when docked, where he was put when free. */
 function artTop(): number { return docked ? floor() - show : artY; }
 
+type DockEdge = 'bottom' | 'left' | 'right' | 'top';
+/** The edge he is docked on (Dock.cs DockEdge), and where along it: the frame's left (top, bottom) or top (left, right). */
+let edge: DockEdge = 'bottom';
+let along = 0;
+type Rect = { x: number; y: number; width: number; height: number };
+/**
+ * His window and the part of his art that shows, on screen. Free, or docked at the bottom, he stands upright with the
+ * mark's room above him. At the other edges he is turned like the PC's pet (Dock.cs Rotation: 90 clockwise at the left,
+ * 90 anticlockwise at the right, 180 at the top), feet into the edge, so the mark's room is on the side away from it.
+ */
+function where(): { win: Rect; art: Rect } {
+  const b = display().bounds, wa = display().workArea, h = MARK + Math.max(1, show);
+  if (!docked || edge === 'bottom') {
+    const top = artTop();
+    return { win: { x: petX, y: top - MARK, width: 224, height: h }, art: { x: petX + ART.x, y: top, width: ART.w, height: show } };
+  }
+  if (edge === 'left') return { win: { x: b.x, y: along, width: h, height: 224 }, art: { x: b.x, y: along + ART.x, width: show, height: ART.w } };
+  if (edge === 'right') { const r = b.x + b.width; return { win: { x: r - h, y: along, width: h, height: 224 }, art: { x: r - show, y: along + 224 - ART.x - ART.w, width: show, height: ART.w } }; }
+  return { win: { x: along, y: wa.y, width: 224, height: h }, art: { x: along + 224 - ART.x - ART.w, y: wa.y, width: ART.w, height: show } };
+}
+
 /** What the PC's pet sends as pet.at, worked out here (anchor.ts reads it the same way). */
 function petAt(): PetAt {
-  const area = display().workArea;
+  const area = display().workArea, a = where().art;
   return {
-    sprite: { x: petX + ART.x, y: artTop(), width: ART.w, height: ART.h },
+    sprite: { x: a.x, y: a.y, width: a.width, height: Math.max(a.height, 1) },
     screen: { x: area.x, y: area.y, width: area.width, height: area.height },
-    scale: 1, edge: docked ? 'bottom' : 'none', peeking: docked && (pose === 'peek' || pose === 'hidden'),
+    scale: 1, edge: docked ? edge : 'none', peeking: docked && (pose === 'peek' || pose === 'hidden'),
   };
 }
 
@@ -113,9 +134,8 @@ function petAt(): PetAt {
  */
 function placePet(): void {
   if (!pet || pet.isDestroyed()) return;
-  const h = MARK + Math.max(1, show);
-  pet.setBounds({ x: petX, y: artTop() - MARK, width: 224, height: h });
-  pet.webContents.send('pet:state', { show });
+  pet.setBounds(where().win);
+  pet.webContents.send('pet:state', { show, edge: docked ? edge : 'bottom' });
 }
 
 function setPose(p: Pose): void {
@@ -139,19 +159,21 @@ function step(): void {
   // it. macOS does not say when it is up, so this follows the pointer the way the Dock itself does.
   const c = screen.getCursorScreenPoint(), b = display().bounds, bottom = b.y + b.height;
   const up = dockUp ? c.y >= bottom - DOCK_H - 6 : c.y >= bottom - 2;
-  if (up !== dockUp) { dockUp = up; if (docked) { placePet(); placeWindows(); } }
+  if (up !== dockUp) { dockUp = up; if (docked && edge === 'bottom') { placePet(); placeWindows(); } }
   // Is the pointer on him? macOS does not pass mouse moves to a window that is letting clicks through (2026-10-28: a
   // right-click went straight through him), so the pointer is followed here and his window takes the mouse only while
   // it is over him (his art box, and his mark when one shows).
-  const top = artTop() - (markNow ? 52 : 2);
-  const over = !hidden && show > 0 && c.x >= petX + ART.x - 2 && c.x <= petX + ART.x + ART.w + 2 && c.y >= top && c.y <= artTop() + show;
+  // His art, plus the mark's room on the side away from the edge while a mark shows.
+  const a = where().art, m = markNow ? 52 : 2, e = docked ? edge : 'bottom';
+  const over = !hidden && show > 0 && c.x >= a.x - 2 - (e === 'right' ? m : 0) && c.x <= a.x + a.width + 2 + (e === 'left' ? m : 0)
+    && c.y >= a.y - (e === 'bottom' ? m : 2) && c.y <= a.y + a.height + (e === 'top' ? m : 2);
   if (over !== mouseOn || dragFrom || wheelHeld) {
     const on = over || !!dragFrom || wheelHeld;
     if (on !== mouseOn) { mouseOn = on; if (process.env.AANG_PET_TRACE) console.log(`aang: mouse ${on ? 'on' : 'off'} him at ${c.x},${c.y}`); pet?.setIgnoreMouseEvents(!on, { forward: true }); if (on) { lastTouch = Date.now(); if (pose === 'peek') setPose('out'); } }
   }
   // His timers ask for the mouse the same way (timerwin.ts pointerAt); while one is up the pointer is followed briskly.
   const timersUp = timerWins?.pointerAt(c) ?? false;
-  const near = Math.abs(c.x - (petX + ART.x + ART.w / 2)) < 160 && Math.abs(c.y - artTop()) < 240;
+  const near = Math.abs(c.x - (a.x + a.width / 2)) < 160 && Math.abs(c.y - (a.y + a.height / 2)) < 240;
   // Docked and out with nothing showing for 45 s: he tucks back into the edge (the PC's idle tuck). Free, he stays.
   if (docked && (pose === 'out' || pose === 'more') && !input?.visible && !bubbleUp && Date.now() - lastTouch > TUCK_AFTER_MS) setPose('peek');
   setTimeout(step, slide || near || dragFrom ? 16 : (c.y > bottom - 140 || timersUp ? 80 : 250));
@@ -290,9 +312,9 @@ function chime(name: string): void {
 
 // ---------------------------------------------------------------- his menu (the same rows as right-clicking him)
 function menuState(): Record<string, unknown> {
-  return { docked, dock: 'bottom', model: inputMode, muted, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
+  return { docked, dock: edge, model: inputMode, muted, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
     // Not on the Mac yet: dim, never a pick that does nothing.
-    soon: ['player', 'quiet', 'dock.left', 'dock.right', 'dock.top'] };
+    soon: ['player', 'quiet'] };
 }
 function picked(id: string): void {
   if (id === 'jobs') { bubble?.send('brain:message', { t: 'mark.click' }); bubble?.show(); return; }
@@ -303,7 +325,7 @@ function picked(id: string): void {
   if (id.startsWith('hush.')) { const n = { 'hush.15': 15, 'hush.60': 60, 'hush.240': 240, 'hush.off': 0 }[id] ?? minutesToMorning(); link.send({ t: 'hush', minutes: n }); return; }
   if (id === 'mute') { muted = !muted; link.send({ t: 'mute', on: muted }); return; }
   if (id === 'comeback') { undock(); lastTouch = Date.now(); return; }
-  if (id === 'dock.bottom') { dockBottom(); return; }
+  if (id === 'dock.bottom' || id === 'dock.left' || id === 'dock.right' || id === 'dock.top') { if (docked) undock(); dockAt(id.slice(5) as DockEdge); return; }
   if (id === 'hide') { hidden = true; bubble?.hide(); input?.close(false); setPose('hidden'); pet?.hide(); return; }
   if (id.startsWith('model.')) { inputMode = id.slice(6); link.send({ t: 'mode', mode: inputMode as never }); return; }
   if (id === 'saving') { link.send({ t: 'saving', on: lastLevel !== 'saving' }); return; }
@@ -398,10 +420,12 @@ app.whenReady().then(async () => {
     toBrain: (m) => link.send(m as never),
   });
 
-  const saved = readJson(SETTINGS()) as { x?: number; y?: number; docked?: boolean } | null;
+  const saved = readJson(SETTINGS()) as { x?: number; y?: number; docked?: boolean; edge?: string; along?: number } | null;
   const b = display().bounds;
   petX = Number.isFinite(saved?.x) ? Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, Number(saved!.x))) : b.x + b.width - 330;
   docked = saved?.docked === true;
+  edge = saved?.edge === 'left' || saved?.edge === 'right' || saved?.edge === 'top' ? saved.edge : 'bottom';
+  along = Number.isFinite(saved?.along) ? Number(saved!.along) : 0;
   // Free: where he was left, else standing on the bottom edge at the right.
   artY = Number.isFinite(saved?.y) ? Math.max(b.y + MARK, Math.min(b.y + b.height - ART.h, Number(saved!.y))) : b.y + b.height - ART.h;
   pose = docked ? 'peek' : 'out'; show = SHOW[pose];
@@ -486,16 +510,32 @@ ipcMain.on('pet:click', (e, where) => {
   openTypeBox();
 });
 ipcMain.on('pet:context', (e, x, y) => { if (fromPet(e)) openMenu({ x: Number(x) || 0, y: Number(y) || 0 }); });
-function savePlace(): void { try { writeFileAtomic(SETTINGS(), JSON.stringify({ x: petX, y: artY, docked })); } catch { /* next time */ } }
-/** Free again, in full, where he is (the menu's Come back, or dragged off the edge). */
+function savePlace(): void { try { writeFileAtomic(SETTINGS(), JSON.stringify({ x: petX, y: artY, docked, edge, along })); } catch { /* next time */ } }
+/** Free again, in full, standing upright where he was (the menu's Come back, or dragged off the edge). */
 function undock(): void {
-  if (docked) { artY = floor() - OUT; docked = false; }
+  if (docked) {
+    const a = where().art, b = display().bounds, wa = display().workArea;
+    if (edge === 'bottom') artY = floor() - OUT;
+    else {
+      // Off a side or the top: upright, his middle where his head was, fully on the screen.
+      petX = Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, Math.round(a.x + a.width / 2 - ART.x - ART.w / 2)));
+      artY = Math.max(wa.y + MARK, Math.min(b.y + b.height - ART.h, Math.round(a.y + a.height / 2 - ART.h / 2)));
+    }
+    docked = false; edge = 'bottom';
+  }
   slide = null; pose = 'out'; show = OUT; placePet(); placeWindows(); savePlace();
 }
-/** Docked at the bottom: he tucks into the edge (the 34 px peek) and slides out on hover (Dock.cs). */
-function dockBottom(): void {
-  docked = true; slide = null; pose = 'peek'; show = PEEK; placePet(); placeWindows(); savePlace();
+/** Docked at an edge: he tucks into it (the 34 px peek) and slides out on hover (Dock.cs). */
+function dockAt(e: DockEdge): void {
+  const b = display().bounds;
+  // Along the edge where he is now: his middle stays put.
+  const a = where().art, midX = a.x + a.width / 2, midY = a.y + a.height / 2;
+  if (e === 'left' || e === 'right') along = Math.max(b.y, Math.min(b.y + b.height - 224, Math.round(midY - 112)));
+  else if (e === 'top') along = Math.max(b.x, Math.min(b.x + b.width - 224, Math.round(midX - 112)));
+  else petX = Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, Math.round(midX - ART.x - ART.w / 2)));
+  edge = e; docked = true; slide = null; pose = 'peek'; show = PEEK; placePet(); placeWindows(); savePlace();
 }
+function dockBottom(): void { dockAt('bottom'); }
 let dragFrom: { x: number; y: number; px: number; py: number } | null = null;
 ipcMain.on('pet:drag', (e, phase, x, y) => {
   if (!fromPet(e)) return;
@@ -505,12 +545,17 @@ ipcMain.on('pet:drag', (e, phase, x, y) => {
     dragFrom = { x: Number(x), y: Number(y), px: petX, py: artY }; anim('walk'); bubble?.hide(); input?.close(false);
   } else if (phase === 'move' && dragFrom) {
     petX = Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, dragFrom.px + Number(x) - dragFrom.x));
-    artY = Math.max(b.y + MARK, Math.min(b.y + b.height - ART.h, dragFrom.py + Number(y) - dragFrom.y));
+    // Up to the menu bar, so he can be dropped on the top edge (the mark's room may go under it while he is carried).
+    artY = Math.max(display().workArea.y, Math.min(b.y + b.height - ART.h, dragFrom.py + Number(y) - dragFrom.y));
     placePet(); placeWindows();
   } else if (phase === 'end') {
     dragFrom = null; anim('idle');
-    // Dropped near the bottom (or on the Dock's top while it is up): he docks there. Anywhere else he stays, in full.
-    if (artY + ART.h >= floor() - SNAP) dockBottom(); else savePlace();
+    // Dropped near an edge (the bottom, or the Dock's top while it is up): he docks there, the nearest edge first
+    // (Dock.cs Nearest). Anywhere else he stays, in full.
+    const b = display().bounds, wa = display().workArea, ax = petX + ART.x;
+    const near: [DockEdge, number][] = [['bottom', floor() - (artY + ART.h)], ['left', ax - b.x], ['right', b.x + b.width - (ax + ART.w)], ['top', artY - wa.y]];
+    const best = near.filter(([, d]) => d <= SNAP).sort((x, y) => x[1] - y[1])[0];
+    if (best) dockAt(best[0]); else savePlace();
   }
 });
 
