@@ -14,7 +14,8 @@ app.on('window-all-closed', () => {});
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const [TRAIL, OUT] = process.argv.slice(-2) as [string, string];
 mkdirSync(OUT, { recursive: true });
-BrowserWindow.prototype.show = function (this: BrowserWindow) { this.setPosition(-6000, 100); this.showInactive(); };
+// never on his screen (2026-10-28: these test windows showed up in front of him): see-through and far off to the side
+BrowserWindow.prototype.show = function (this: BrowserWindow) { this.setOpacity(0); this.setPosition(-6000, 100); this.showInactive(); };
 BrowserWindow.prototype.focus = function () {};
 BrowserWindow.prototype.moveTop = function () {};
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -80,7 +81,9 @@ app.whenReady().then(async () => {
   await until(async () => (await lwc.executeJavaScript(`document.querySelectorAll('#detail .vt .pic[style*="background-image"]').length`)) >= 4, 300000);
   console.log(`pictures for 86 after ${Math.round((Date.now() - t0) / 1000)} s`);
   await wait(1000);
+  if (process.env.WHOLE) { w.setSize(1400, 860); await wait(1200); }
   writeFileSync(path.join(OUT, 'log-86.png'), (await lwc.capturePage()).toPNG());
+  if (process.env.WHOLE) console.log('log view ' + JSON.stringify(lg.view.getBounds()));
   const before = b.tabs.filter((x: any) => x.mock).length;
   await lwc.executeJavaScript(`document.querySelector('#detail .go').click(); 1`);
   await until(() => b.tabs.some((x: any) => x.mock?.sheet?.includes('sheet-86')), 8000);
