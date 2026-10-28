@@ -13,6 +13,7 @@ rsync -a --delete --exclude test "$REPO/src/Shell/src" "$REPO/src/Shell/pages" "
 cp "$REPO/src/Shell/package.json" "$A/"
 rsync -a "$REPO/assets/aang/frames" "$REPO/assets/aang/sfx" "$A/assets/"
 swiftc -O -o "$A/bin/aang-clicks" "$A/mac/clicks.swift"
+swiftc -O -o "$A/bin/aang-look" "$A/mac/look.swift" 2>/dev/null
 [ -d "$A/node_modules" ] || cp -cR "$SHELL_MODULES" "$A/node_modules"
 
 P="$HOME/Library/LaunchAgents/com.aang.pet.plist"

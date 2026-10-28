@@ -12,7 +12,7 @@
 //
 // Run: electron src/macaang.ts   (the LaunchAgent com.aang.pet does this)
 import { app, BrowserWindow, Menu, Tray, clipboard, globalShortcut, ipcMain, nativeImage, screen, shell } from 'electron';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,6 +27,8 @@ import { HotkeyKeeper } from './hotkeys.ts';
 import { bubbleAt, headOf, inputAt, type PetAt } from './anchor.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { appName, macBodyAnswers } from './macbody.ts';
+import { claudeMessage, claudeOpenTarget } from './claudewire.ts';
 
 const HERE = import.meta.dirname;
 const ROOT = path.join(HERE, '..', '..', '..');
@@ -237,6 +239,14 @@ const link = new CoreLink({
       if (s !== shadowFront) { shadowFront = s; if (s) { bubble?.hide(); input?.close(false); setPose('hidden'); } else { setPose('out'); if (heldBubble) say(heldBubble); } }
       return;
     }
+    // The PC pet's hands, eyes and the shell's browser jobs, answered the Mac way (macbody.ts), never left hanging.
+    if (macBody(m)) return;
+    // The pet's own short notes (PetWindow.cs Note): what Hush and Job hunt now did.
+    if (m.t === 'hush.reply' || m.t === 'job.hunt.reply') {
+      const text = m.t === 'hush.reply' ? String(m.text ?? 'Hush.') : m.onMac === true ? 'Running on your MacBook.' : 'Your MacBook is not reachable - running it here.';
+      bubble?.send('brain:message', { t: 'pet.say', text: text.slice(0, 300), hold: 6000 }); bubble?.show();
+      return;
+    }
     if (m.t === 'ack' && ackWait && m.id === ackWait.id) { clearTimeout(ackWait.timer); ackWait = null; }
     if (m.t === 'quota') {
       lastWeek = Number(m.week) || 0; lastLevel = String(m.level ?? 'ok'); lastFive = Number(m.five) || 0; lastWeekResetsAt = Number(m.weekResetsAt) || 0;
@@ -264,6 +274,12 @@ const link = new CoreLink({
   onConnected: (up) => { bubble?.send('brain:connected', up); },
 });
 
+const macBody = macBodyAnswers({
+  send: (m) => link.send(m as never),
+  binDir: path.join(HERE, '..', 'bin'),
+  samara: path.join(os.homedir(), 'Applications', 'Samara.app'),
+});
+
 /** The four chimes (ClaudeMarks.cs Chimes.Resolve), played by macOS. */
 function chime(name: string): void {
   const known = name === 'permission' || name === 'question' || name === 'plan-ready' ? 'needs-you' : name === 'job-complete' ? 'done' : name;
@@ -274,12 +290,15 @@ function chime(name: string): void {
 
 // ---------------------------------------------------------------- his menu (the same rows as right-clicking him)
 function menuState(): Record<string, unknown> {
-  return { docked, dock: 'bottom', model: inputMode, muted, jobsRunning: 0, other: 'pc', otherOn: false };
+  return { docked, dock: 'bottom', model: inputMode, muted, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
+    // Not on the Mac yet: dim, never a pick that does nothing.
+    soon: ['player', 'quiet', 'dock.left', 'dock.right', 'dock.top'] };
 }
 function picked(id: string): void {
   if (id === 'jobs') { bubble?.send('brain:message', { t: 'mark.click' }); bubble?.show(); return; }
   if (id === 'hunt') { link.send({ t: 'job.hunt' }); return; }
-  if (id === 'claudejob') { openTypeBox(); return; }
+  if (id === 'claudejob') { prefillBox('Start a Claude job: '); return; }
+  if (id === 'notes.notice') { notesNotice = !notesNotice; link.send({ t: 'notice.set', on: notesNotice }); return; }
   if (id === 'back') { bubble?.send('bubble:recall', 'back'); return; }
   if (id.startsWith('hush.')) { const n = { 'hush.15': 15, 'hush.60': 60, 'hush.240': 240, 'hush.off': 0 }[id] ?? minutesToMorning(); link.send({ t: 'hush', minutes: n }); return; }
   if (id === 'mute') { muted = !muted; link.send({ t: 'mute', on: muted }); return; }
@@ -287,9 +306,16 @@ function picked(id: string): void {
   if (id === 'dock.bottom') { dockBottom(); return; }
   if (id === 'hide') { hidden = true; bubble?.hide(); input?.close(false); setPose('hidden'); pet?.hide(); return; }
   if (id.startsWith('model.')) { inputMode = id.slice(6); link.send({ t: 'mode', mode: inputMode as never }); return; }
-  if (id === 'saving') { link.send({ t: 'saving', on: true }); return; }
+  if (id === 'saving') { link.send({ t: 'saving', on: lastLevel !== 'saving' }); return; }
   if (id === 'quit') { app.quit(); return; }
   // gopc: the PC's Aang joins in phase 6; the row stays dim until then.
+}
+/** Sheet 60's switch, as last set from this menu (the brain keeps the real one). */
+let notesNotice = true;
+/** The box opened with words already in it ("Start a Claude job: ", or his words back after Change). */
+function prefillBox(text: string): void {
+  openTypeBox();
+  setTimeout(() => input?.send('input:failed', { text, reason: 'prefill' }), 60);
 }
 function minutesToMorning(): number { const now = new Date(), end = new Date(now); end.setHours(6, 0, 0, 0); if (end <= now) end.setDate(end.getDate() + 1); return Math.max(1, Math.ceil((+end - +now) / 60000)); }
 function openMenu(at: { x: number; y: number }): void {
@@ -518,13 +544,60 @@ ipcMain.on('bubble:open', (e, t) => {
   if (t.kind === 'link' && /^https?:\/\//i.test(value)) void shell.openExternal(value);
   else if (t.kind === 'file' && value.startsWith('/') && !value.includes('/../')) shell.showItemInFolder(value);
 });
+// main.ts's bubble doors, the same checks (2026-10-28: the Mac had none of these, so Claude cards, Look back, Undo, the
+// brief's keys and the media keys did nothing).
+ipcMain.on('bubble:claude', (e, raw) => {
+  if (!fromBubble(e)) return;
+  const m = claudeMessage(raw);
+  if (!m) { console.error('aang: refused a Claude message from the bubble that did not check out'); return; }
+  link.send(m);
+});
+ipcMain.on('bubble:openclaude', (e, raw) => {
+  if (!fromBubble(e)) return;
+  const t = claudeOpenTarget(raw);
+  if (!t) { console.error('aang: refused an Open in Claude link that was not a Claude session'); return; }
+  bubble?.send('bubble:dismiss', 'openclaude');
+  if (input?.visible) input.close(false);
+  // This Mac is where Claude runs: its session link, or just the Claude app to the front.
+  if (t.kind === 'link') void shell.openExternal(t.url).catch((err: Error) => console.error('aang: Open in Claude: ' + err.message));
+  else execFile('/usr/bin/open', ['-a', 'Claude'], () => {});
+});
+ipcMain.on('bubble:macfront', (e) => { if (fromBubble(e)) execFile('/usr/bin/open', ['-a', 'Claude'], () => {}); });
+ipcMain.on('bubble:focus', (e, name) => { const n = fromBubble(e) ? appName(name) : null; if (n) execFile('/usr/bin/open', ['-a', n], () => {}); });
+ipcMain.on('bubble:stop', (e) => { if (fromBubble(e)) link.send({ t: 'stop' }); });
+ipcMain.on('bubble:older', (e, a) => {
+  if (!fromBubble(e)) return;
+  const before = Number(a?.before);
+  link.send({ t: 'history', q: '', ...(Number.isFinite(before) ? { before } : {}) } as never);
+});
+ipcMain.on('bubble:undo', (e, id) => { const n = Number(id); if (fromBubble(e) && Number.isInteger(n) && n > 0) link.send({ t: 'turn.undo', id: n } as never); });
+ipcMain.on('bubble:forget', (e, id) => { const n = Number(id); if (fromBubble(e) && Number.isFinite(n)) link.send({ t: 'forget.turn', id: n } as never); });
+ipcMain.on('bubble:media', (e, key) => { if (fromBubble(e) && (key === 'playpause' || key === 'next' || key === 'previous')) link.send({ t: 'media', key }); });
+ipcMain.on('bubble:briefact', (e, a) => {
+  if (!fromBubble(e) || !a || typeof a !== 'object') return;
+  const item = Number(a.item), act = String(a.act ?? '');
+  if (Number.isInteger(item) && item >= 0 && item <= 200 && ['through', 'reply', 'prep', 'drive', 'matches'].includes(act)) link.send({ t: 'brief.act', item, act } as never);
+});
+ipcMain.on('bubble:log', (e) => { if (fromBubble(e)) void shell.openPath(path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'core.log')); });
 ipcMain.on('bubble:answer', (e, a) => { if (!fromBubble(e) || !a || typeof a !== 'object') return; answerAsk(a as Record<string, unknown>); liveAsk = null; input?.send('input:ask', null); });
 ipcMain.on('input:answer', (e, a) => { if (!fromInput(e) || !liveAsk) return; answerAsk({ ...liveAsk, choice: String((a as Record<string, unknown>)?.choice ?? '') }); liveAsk = null; input?.send('input:ask', null); });
 /** main.ts answerAsk, the kinds the Mac has today. The id always comes from what we hold, never from the page. */
 function answerAsk(a: Record<string, unknown>): void {
   const choice = String(a.choice ?? '');
   if (a.t === 'plan') { link.send({ t: 'plan.reply', id: String(a.id ?? ''), go: choice === 'go' }); return; }
-  if (a.t === 'claude.start') { const pick = choice === 'go' ? 'go' : choice === 'change' ? 'change' : 'no'; link.send({ t: 'claude.start.reply', id: String(a.id ?? '').slice(0, 64), hash: String(a.hash ?? '').slice(0, 64), choice: pick }); return; }
+  if (a.t === 'claude.start') {
+    const pick = choice === 'go' ? 'go' : choice === 'change' ? 'change' : 'no';
+    link.send({ t: 'claude.start.reply', id: String(a.id ?? '').slice(0, 64), hash: String(a.hash ?? '').slice(0, 64), choice: pick });
+    if (pick === 'change') prefillBox(`Start a Claude job: ${String(a.words ?? '').slice(0, 2000)}`);
+    return;
+  }
+  // Sheet 67 v2: Got it closes the finished timer, 5 more turns it over for five minutes.
+  if (a.t === 'timer.done') {
+    const id = String(a.id ?? '').slice(0, 40), label = String(a.label ?? '').slice(0, 40);
+    if (choice === 'more') link.send({ t: 'timer.act', id, action: 'again', ms: 5 * 60_000, label });
+    else if (id) link.send({ t: 'timer.act', id, action: 'stop' });
+    return;
+  }
   if (a.t === 'choice') { const n = Number(choice); link.send({ t: 'choice.reply', id: String(a.id ?? ''), pick: Number.isInteger(n) && n >= 0 && n < 4 ? n : -1 }); return; }
   if (typeof a.reminder === 'string' && a.reminder) { link.send({ t: 'reminder.reply', id: a.reminder, snooze: choice === 'snooze' }); return; }
   if (a.t === 'permission') {
