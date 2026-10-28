@@ -22,6 +22,8 @@ export interface TimerOptions {
   toBrain?: (m: Record<string, unknown>) => void;
   /** Rename is done: the keyboard goes back to the window he was in. */
   refocus?: () => void;
+  /** The Mac (2026-10-28): before a rename takes the keyboard, the app must be made active, or the keys go elsewhere. */
+  takeKeys?: () => void;
   iconPath?: string;
   /** Tests: keep the menu on its own rectangle instead of a real screen's work area. */
   menuArea?: () => Electron.Rectangle;
@@ -170,6 +172,7 @@ export class TimerWindows {
     if (!v || v.w.isDestroyed()) return;
     v.w.setIgnoreMouseEvents(false);
     v.w.setFocusable(true);
+    this.o.takeKeys?.();
     v.w.focus(); v.w.webContents.focus();
     v.w.webContents.send('timer:do', 'rename');
   }
