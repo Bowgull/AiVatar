@@ -51,11 +51,11 @@ export class MacPresence {
   private reading: MacReading | null = null;
   private fails = 0;
   private readonly bin: string;
-  private readonly o: { presence: (p: PresenceOut) => void; desk: (active: boolean) => void; log?: (s: string) => void; now?: () => number };
+  private readonly o: { presence: (p: PresenceOut) => void; desk: (active: boolean) => void; log?: (s: string) => void; now?: () => number; first?: () => void; missing?: (why: string) => void };
   constructor(bin: string, o: MacPresence['o']) { this.bin = bin; this.o = o; }
 
   start(): boolean {
-    if (!existsSync(this.bin)) { this.o.log?.(`mac presence: no helper at ${this.bin}; Aang cannot tell when you are away or busy`); return false; }
+    if (!existsSync(this.bin)) { const why = `no helper at ${this.bin}`; this.o.log?.(`mac presence: ${why}; Aang cannot tell when you are away or busy`); this.o.missing?.(why); return false; }
     this.spawn();
     return true;
   }
@@ -80,6 +80,7 @@ export class MacPresence {
   }
 
   private take(r: MacReading): void {
+    if (!this.reading) this.o.first?.();
     this.reading = r;
     const now = (this.o.now ?? Date.now)();
     const fg = r.front, why = quietReason(r), quiet = why !== '', shadow = why === 'shadow';

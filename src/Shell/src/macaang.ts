@@ -200,6 +200,8 @@ let notesLatest: { id: string; out?: unknown }[] = [];
 let tray: Tray | null = null;
 let bubbleUp = false;
 let heldBubble: Record<string, unknown> | null = null;
+/** When the held one arrived: back from Shadow after an hour, something Aang said on his own is not news (review R2). */
+let heldAt = 0;
 let liveAsk: Record<string, unknown> | null = null;
 let inputMode = 'auto';
 let lastWeek = 0, lastLevel = 'ok', lastFive = 0, lastWeekResetsAt = 0;
@@ -239,6 +241,7 @@ function openTypeBox(): void {
 
 /** Say it: slide out to talk first when he is tucked (the PC holds the reply until he is out). */
 function say(m: Record<string, unknown>): void {
+  if (heldBubble !== m) heldAt = Date.now();
   heldBubble = m;
   if (shadowFront || hidden) return;              // held: said when he is back on the Mac
   if (docked && pose === 'peek') {
@@ -264,7 +267,7 @@ const link = new CoreLink({
     // PC, so the Mac's Aang tucks away (his pick), and comes back when it goes.
     if (m.t === 'mac.front') {
       const s = m.shadow === true;
-      if (s !== shadowFront) { shadowFront = s; if (s) { bubble?.hide(); input?.close(false); setPose('hidden'); } else { setPose('out'); if (heldBubble) say(heldBubble); } }
+      if (s !== shadowFront) { shadowFront = s; if (s) { bubble?.hide(); input?.close(false); setPose('hidden'); } else { setPose('out'); if (heldBubble && (heldBubble.proactive !== true || Date.now() - heldAt < 60 * 60_000)) say(heldBubble); else heldBubble = null; } }
       return;
     }
     // The PC pet's hands, eyes and the shell's browser jobs, answered the Mac way (macbody.ts), never left hanging.
@@ -313,7 +316,11 @@ const macBody = macBodyAnswers({
 });
 
 /** The four chimes (ClaudeMarks.cs Chimes.Resolve), played by macOS. */
+let lastChime = 0;
 function chime(name: string): void {
+  // One at a time, 2.5 s apart, like the PC's pet (a finished turn could send two "done"s, 2026-10-28 review R11).
+  if (Date.now() - lastChime < 2500) return;
+  lastChime = Date.now();
   const known = name === 'permission' || name === 'question' || name === 'plan-ready' ? 'needs-you' : name === 'job-complete' ? 'done' : name;
   const f = path.join(CHIMES_DIR, known + '.wav');
   if (!/^(needs-you|done|failed|timer)$/.test(known) || !existsSync(f)) return;
