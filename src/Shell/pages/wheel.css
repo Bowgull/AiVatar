@@ -5,7 +5,10 @@ html,body{margin:0;background:transparent;overflow:hidden;width:100%;height:100%
   background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;display:grid;place-items:center;
   box-shadow:0 4px 0 var(--outline),0 8px 16px rgba(0,0,0,.5);transform:scale(0);transition:transform .22s cubic-bezier(.32,1.5,.5,1),box-shadow .15s}
 .disc.in{transform:scale(1)}
-.disc.on{box-shadow:0 0 0 3px var(--gold),0 4px 0 var(--outline),0 8px 16px rgba(0,0,0,.5);transform:scale(1.1)}
+/* Sheet 104 (his yes, 2026-10-28): the slot he points at lifts by whole pixels with a light gold rim, never scaled by a
+   fraction (1.1x made its pixel icon soft). */
+.disc.on{box-shadow:0 0 0 3px #FFE28C,0 0 0 6px #120A05,0 7px 0 var(--outline),0 11px 16px rgba(0,0,0,.5);transform:translateY(-3px)}
+.disc svg{image-rendering:pixelated}
 .disc span{position:absolute;top:-15px;font:700 11.5px var(--body);color:var(--gold-light);white-space:nowrap;text-shadow:1px 1px 0 #000;letter-spacing:.2px}
 .gi{filter:drop-shadow(1.5px 0 0 #120A05) drop-shadow(-1.5px 0 0 #120A05) drop-shadow(0 1.5px 0 #120A05) drop-shadow(0 -1.5px 0 #120A05) drop-shadow(2px 3px 0 rgba(0,0,0,.55))}
 @media (prefers-reduced-motion:reduce){.disc{transition:none}}
