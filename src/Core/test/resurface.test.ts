@@ -10,6 +10,7 @@ const at = (iso: string) => new Date(iso);
 test('a named day is worked out from when it was said', () => {
   assert.deepEqual(mentionedDay('He has a dentist appointment on Thursday at 2pm', MON), { day: '2026-09-24', hour: 14 });
   assert.deepEqual(mentionedDay('His interview is tomorrow at 10am', MON), { day: '2026-09-22', hour: 10 });
+  assert.deepEqual(mentionedDay('The movie is the day after tomorrow', MON), { day: '2026-09-23', hour: null }, 'not tomorrow (2026-10-28)');
   assert.deepEqual(mentionedDay('He is seeing Sarah tonight', MON), { day: '2026-09-21', hour: 19 });
   assert.deepEqual(mentionedDay('His rent is due Oct 1', MON), { day: '2026-10-01', hour: null });
   assert.deepEqual(mentionedDay('Flight on 3rd of January', MON), { day: '2027-01-03', hour: null }, 'a date gone this year is next year');

@@ -903,6 +903,12 @@ assistant" (status list) and "Loose ends and new asks (2026-10-13)".**
    browser on the Mac + paid video (castLabs, EVS-signed)~~ -> **M7** bubble,
    typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
    (mockups first) -> **M9** the new pet for both machines (mockups first).
+   **2026-10-28, his call (replaces "the brain stays on Shadow", 2026-09-24): the MacBook is Aang's ONE home.** One brain
+   and memory on the Mac (always on: it never sleeps on the charger); Shadow is the power arm (its pet, Qwen, meaning
+   search and the WoW bits connect to the Mac's brain when it is on). Two bodies, one conversation: Aang follows his
+   input (the Shadow window in front -> the Mac's Aang tucks away and Shadow's comes out), plus a "Go to the PC / Mac"
+   menu item. No Qwen, Ollama or WoW pieces on the Mac. iMessage considered and dropped. Plan:
+   ~/Handoff/aang/reports (Aang full review, One Aang on two machines, 2026-10-28).
 3. **S3 leftover:** move the Mac listener's key from the address into a header (the rest of S3 was done in M1).
 4. **L** the everyday test, Qwen and Claude together (spends quota: needs his go) -> **6.16** Qwen on the strip (Auto
    finally routes to Qwen) -> **6.25** page summaries (after L) -> **K4** Qwen does a little more.

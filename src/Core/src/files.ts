@@ -16,13 +16,31 @@ import { writeFileAtomic } from './atomic.ts';
  *  not just what the string says. `refusal()` must check THIS, not the raw path: a shortcut named notmydb.txt
  *  that points at aang.db has to be caught exactly as surely as aang.db itself, and neither path.resolve() nor
  *  a suffix regex on the given name follows a link to find that out. A file that does not exist yet cannot be
- *  resolved directly, so its parent directory is resolved instead (still catching a junction *directory* aimed
- *  at a protected area) and the file's own name is kept as given. */
+ *  resolved directly, so its nearest existing folder is resolved instead (still catching a junction *directory*
+ *  aimed at a protected area) and the rest of the path is kept as given. */
 function realish(file: string): string {
   const abs = path.resolve(file);
-  try { return realpathSync.native(abs); } catch { /* does not exist yet - keep trying */ }
-  try { return path.join(realpathSync.native(path.dirname(abs)), path.basename(abs)); }
-  catch { return abs; }                                  // the parent doesn't exist either; nothing left to resolve
+  // Walk up to the nearest folder that exists and resolve that, keeping the rest as given (2026-10-28: stopping at
+  // the parent left a new file two folders down unresolved, so on the Mac, where /var is really /private/var, it
+  // no longer matched a protected folder that had been resolved).
+  const rest: string[] = [];
+  for (let at = abs; ; at = path.dirname(at)) {
+    try { return path.join(realpathSync.native(at), ...rest); }
+    catch { /* does not exist yet - one folder up */ }
+    if (path.dirname(at) === at) return abs;             // nothing on the way exists; nothing left to resolve
+    rest.unshift(path.basename(at));
+  }
+}
+
+/**
+ * realish() for a protected FOLDER, remembered: the folders are a fixed handful, but a vault walk checks every file
+ * against all of them, and resolving each one every time made a check four times slower (0.28 to 1.26 ms, 2026-10-28).
+ */
+const folderReal = new Map<string, string>();
+function realFolder(dir: string): string {
+  let r = folderReal.get(dir);
+  if (r === undefined) { r = realish(dir).toLowerCase(); folderReal.set(dir, r); }
+  return r;
 }
 
 /** Where the before-copies go, one per change, newest last. */
@@ -36,6 +54,9 @@ export interface Protected { stateDir: string; dataDir: string }
 const AANG_STATE = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
 /** Aang's own source code, the security code included (S2 2.2). */
 export const AANG_APP = process.env.AANG_APP_DIR ?? path.join(os.homedir(), 'Documents', 'AangApp');
+const MAC = process.platform === 'darwin';
+/** Where his code lives on the MacBook (the PC's is AANG_APP). */
+const AANG_APP_MAC = path.join(os.homedir(), 'projects', 'AiVatar');
 /**
  * Places a program can hide in so it runs again later (S2 2.3, MITRE T1547.001 and T1546.013): the Startup
  * folder, and the two folders PowerShell reads a profile from every time it starts.
@@ -47,8 +68,37 @@ export function persistenceDirs(): string[] {
     path.join(roaming, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'),
     path.join(home, 'Documents', 'WindowsPowerShell'),
     path.join(home, 'Documents', 'PowerShell'),
+    // The Mac's (2026-10-28): launchd's start-up folders, and the files every new shell runs (MITRE T1543.001, T1546.004).
+    ...(MAC ? [
+      path.join(home, 'Library', 'LaunchAgents'), '/Library/LaunchAgents', '/Library/LaunchDaemons',
+      ...['.zshrc', '.zprofile', '.zshenv', '.zlogin', '.bashrc', '.bash_profile', '.profile'].map(f => path.join(home, f)),
+    ] : []),
   ];
 }
+
+/**
+ * The Mac's own places for keys (2026-10-28): before this, the rules only knew Windows paths, so on the MacBook
+ * Aang's own settings (his Discord, Google and link keys), the Keychain and Chrome's saved passwords were not
+ * guarded at all. Off limits like ~/.ssh: refused, never asked.
+ */
+export function macKeyDirs(): { dir: string; why: string }[] {
+  if (!MAC) return [];
+  const lib = path.join(os.homedir(), 'Library');
+  const support = path.join(lib, 'Application Support');
+  const mine = 'that is my own settings folder, where the keys to your accounts are kept';
+  const browser = 'that is a browser profile, where saved passwords and cookies are kept';
+  return [
+    { dir: path.join(support, 'Aang'), why: mine },
+    { dir: path.join(support, 'AangListener'), why: mine },
+    { dir: path.join(lib, 'Keychains'), why: 'that is the Mac Keychain, where your passwords are kept' },
+    { dir: path.join(lib, 'Cookies'), why: browser },
+    ...['Google', 'BraveSoftware', 'Microsoft Edge', 'Vivaldi', 'Chromium', 'Firefox'].map(b => ({ dir: path.join(support, b), why: browser })),
+  ];
+}
+
+/** Places on a Mac that belong to macOS or to installed programs. */
+// Not all of /private: the Mac's temp folders live under /private/var/folders, and Aang writes scratch files there.
+const MAC_SYSTEM = ['/System', '/Library', '/usr', '/bin', '/sbin', '/Applications', '/private/etc'];
 
 /**
  * Joshua's Obsidian vault, and the one folder inside it Aang may write to.
@@ -156,7 +206,7 @@ export function offLimits(file: string): string | null {
   }
 
   const home = os.homedir().toLowerCase();
-  const under = (dir: string) => { const d = path.resolve(dir).toLowerCase(); return lower === d || lower.startsWith(d + path.sep); };
+  const under = (dir: string) => { const d = realFolder(dir); return lower === d || lower.startsWith(d + path.sep); };
 
   // Keys and tokens. Reading any of these once is enough to matter, so they are refused rather than
   // asked about: a question Joshua might wave through mid-raid is not a control.
@@ -171,6 +221,7 @@ export function offLimits(file: string): string | null {
   // S2 2.19: Aang's own settings folder holds the Google token, which can send mail as him, and the
   // Discord token. None of his own tools may read it, with or without a yes.
   if (under(AANG_STATE)) return 'that is my own settings folder, where the keys to your accounts are kept';
+  for (const k of macKeyDirs()) if (under(k.dir)) return k.why;
 
   // Browser profiles: Login Data, Cookies and Local State are where saved passwords and session
   // cookies live. The whole profile folder goes, because the file names move between versions.
@@ -186,7 +237,9 @@ export function refusal(file: string, p: Protected): string | null {
   const never = offLimits(file);
   if (never) return never;
   const full = realish(file).toLowerCase();
-  const under = (dir: string) => { const d = path.resolve(dir).toLowerCase(); return full === d || full.startsWith(d + path.sep); };
+  // The protected folder is followed through links too (2026-10-28): on the Mac /var is really /private/var, so a
+  // file's real path never started with the folder's raw one and the guard silently let it through.
+  const under = (dir: string) => { const d = realFolder(dir); return full === d || full.startsWith(d + path.sep); };
   if (under(p.stateDir)) return 'that is my own settings and permissions folder, and I never write to it myself';
   if (under(path.join(p.dataDir, 'aang.db')) || /[\\/]aang\.db(-wal|-shm)?$/.test(full)) return 'that is my memory database; memory changes go through remember and forget';
   if (under(UNDO_DIR)) return 'that is where my undo copies are kept';
@@ -201,10 +254,11 @@ export function refusal(file: string, p: Protected): string | null {
   for (const sys of [win, process.env.ProgramFiles ?? 'C:\\Program Files', process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', process.env.ProgramData ?? 'C:\\ProgramData']) {
     if (under(sys)) return 'that is part of Windows or an installed program';
   }
+  if (MAC && MAC_SYSTEM.some(under)) return 'that is part of macOS or an installed program';
   if (!path.isAbsolute(file)) return 'give the full path, starting with the drive, so there is no doubt which file it is';
   if (under(path.join(p.dataDir, 'Brain'))) return 'that is my Brain folder, who I am and what I know; it changes only through remember and correct';
-  if (under(AANG_APP)) return 'that is my own source code; changes to me go through a Claude session he reviews';
-  if (persistenceDirs().some(under)) return 'that folder makes things run by themselves every time Windows or PowerShell starts';
+  if (under(AANG_APP) || (MAC && under(AANG_APP_MAC))) return 'that is my own source code; changes to me go through a Claude session he reviews';
+  if (persistenceDirs().some(under)) return 'that makes things run by themselves every time the computer or a shell starts';
   return null;
 }
 

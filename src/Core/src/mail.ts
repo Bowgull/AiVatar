@@ -183,7 +183,7 @@ export class MailStore {
   /** The drafts still waiting for his answer, oldest first. */
   open(): MailDraft[] { return Object.values(this.s.drafts).filter(d => d.status === 'pending' || d.status === 'confirm').sort((a, b) => a.createdAt - b.createdAt); }
   get briefDay(): string | undefined { return this.s.briefDay; }
-  set briefDay(d: string | undefined) { if (d) this.s.briefDay = d; this.save(); }
+  set briefDay(d: string | undefined) { if (d) this.s.briefDay = d; else delete this.s.briefDay; this.save(); }
   knows(email: string): boolean { return this.s.known.includes(email.toLowerCase()); }
   learn(emails: string[]) { for (const e of emails.map(x => x.toLowerCase())) if (!this.s.known.includes(e)) this.s.known.push(e); this.s.known = this.s.known.slice(-2000); this.save(); }
 
@@ -546,7 +546,11 @@ export class MailService {
     const day = t.toLocaleDateString('en-CA', { timeZone: TZ });
     const hour = Number(t.toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', hour12: false }).slice(0, 2));
     if (hour < fromHour || this.store.briefDay === day || !this.g.connected) return null;
+    const before = this.store.briefDay;
     this.store.briefDay = day;
-    return this.brief();
+    // A brief that fails partway must not use up the day (2026-10-28): the day only counts once it is made, so the
+    // next check (ten minutes on) tries again.
+    try { return await this.brief(); }
+    catch (e) { this.store.briefDay = before; throw e; }
   }
 }
