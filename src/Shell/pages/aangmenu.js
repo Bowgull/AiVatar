@@ -58,6 +58,8 @@ const MODELS = [
 ];
 const clock = (ms) => { const d = new Date(ms); return `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
+/** A row this machine cannot do yet (the Mac's `soon` list). @param {any} s @param {string} id */
+const soon = (s, id) => Array.isArray(s.soon) && s.soon.includes(id);
 function mainRows(s) {
   const jobs = Number(s.jobsRunning) || 0, hushed = Number(s.hushedUntil) > Date.now();
   return [
@@ -65,7 +67,8 @@ function mainRows(s) {
     { id: 'jobs', ic: 'claude', t: 'Claude jobs', tag: jobs > 0 ? `${jobs} RUNNING` : '' },
     { id: 'claudejob', ic: 'claude', t: 'Start a Claude job' },
     { id: 'hunt', ic: 'hunt', t: 'Job hunt now' },
-    { id: 'player', ic: 'music', t: 'Music player' },
+    // The Mac (2026-10-28): rows it cannot do yet are dim, never a pick that does nothing (s.soon lists them).
+    { id: 'player', ic: 'music', t: 'Music player', off: soon(s, 'player') },
     '-',
     { sub: 'hush', ic: 'hush', t: 'Hush', tag: hushed ? `UNTIL ${clock(Number(s.hushedUntil))}` : '' },
     '-',
@@ -96,9 +99,9 @@ function subRows(which, s) {
       { id: 'mute', t: 'Mute: nothing unprompted', tick: !!s.muted },
       '-',
       { head: 'QUIET IN GAMES' },
-      { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto' },
-      { id: 'quiet.always', t: 'Always', tick: q === 'always' },
-      { id: 'quiet.never', t: 'Never', tick: q === 'never' },
+      { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto', off: soon(s, 'quiet') },
+      { id: 'quiet.always', t: 'Always', tick: q === 'always', off: soon(s, 'quiet') },
+      { id: 'quiet.never', t: 'Never', tick: q === 'never', off: soon(s, 'quiet') },
       // Sheet 60 (2026-10-22): the one switch for all of "Aang notices things in your notes".
       '-',
       { head: 'YOUR NOTES' },
@@ -108,7 +111,7 @@ function subRows(which, s) {
   }
   if (which === 'dock') {
     const d = s.docked ? s.dock : 'none';
-    return ['bottom', 'left', 'right', 'top'].map((e) => ({ id: 'dock.' + e, t: e[0].toUpperCase() + e.slice(1), tick: d === e }));
+    return ['bottom', 'left', 'right', 'top'].map((e) => ({ id: 'dock.' + e, t: e[0].toUpperCase() + e.slice(1), tick: d === e, off: soon(s, 'dock.' + e) }));
   }
   const list = Array.isArray(s.models) && s.models.length ? s.models : MODELS;
   return list.filter((m) => m && typeof m.id === 'string').map((m) => ({ id: 'model.' + m.id, t: String(m.label ?? m.id), tick: s.model === m.id }));
