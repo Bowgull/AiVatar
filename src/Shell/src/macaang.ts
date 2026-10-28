@@ -238,7 +238,7 @@ const link = new CoreLink({
     if (m.t === 'notes.state' && Array.isArray(m.notes)) notesLatest = m.notes as { id: string; out?: unknown }[];
     if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
     // A timer ran out: its three wood knocks (sheet 67), even when everything else is quiet; muting still silences it.
-    if (m.t === 'timer.done' && !muted) chime('timer');
+    if (m.t === 'timer.done') { if (!muted) chime('timer'); pet?.webContents.send('pet:state', { glow: 'timer' }); setTimeout(() => pet?.webContents.send('pet:state', { glow: 'off' }), 15_000); }
     if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') { liveAsk = m; input?.send('input:ask', liveAsk); }
     if (m.t === 'ask.expired' && liveAsk && String(liveAsk.id ?? '') === String(m.id ?? '')) { liveAsk = null; input?.send('input:ask', null); }
     // While he talks, he talks; while the brain thinks, he thinks (the pet's own states).
@@ -378,6 +378,7 @@ app.whenReady().then(async () => {
   console.log('aang: on the Mac, talking to the brain on ' + PORT);
   // Tests only: say a line of our own a few seconds in, so the bubble can be looked at without the brain saying anything.
   if (process.env.AANG_PET_DEMO) setTimeout(() => say({ t: 'bubble', text: process.env.AANG_PET_DEMO, stream: false, proactive: true, turn: 1 }), 3000);
+  if (process.env.AANG_PET_MARK) setTimeout(() => { markNow = process.env.AANG_PET_MARK!; pet?.webContents.send('pet:state', { mark: markNow }); }, 3000);
 });
 
 /**
