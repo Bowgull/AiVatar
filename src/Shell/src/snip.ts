@@ -52,13 +52,17 @@ export class Snipper {
       if (!src || src.thumbnail.isEmpty()) { console.error('shell: snip: nothing came back from the screen capture'); return; }
       this.full = src.thumbnail;
     } catch (e) { console.error('shell: snip: the screen could not be captured: ' + (e as Error).message); return; }
-    const w = this.win({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, alwaysOnTop: true, backgroundColor: '#000000' });
+    // The Mac (2026-10-28): macOS keeps a window below the menu bar unless it may be larger than the screen, and that
+    // moved the frozen picture 25 px down from the screen it shows. Placed again once it is up, over the menu bar too.
+    const mac = process.platform === 'darwin';
+    const w = this.win({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, alwaysOnTop: true, backgroundColor: '#000000', ...(mac ? { enableLargerThanScreen: true } : {}) });
     // Over everything, his game included, for the second it takes to drag a box.
     w.setAlwaysOnTop(true, 'screen-saver');
     w.webContents.once('did-finish-load', () => {
       if (w.isDestroyed() || !this.full) return;
       w.webContents.send('snip:shot', this.full.toDataURL());
       w.show(); w.focus();
+      if (mac) { w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true }); w.setBounds(d.bounds); }
     });
     w.on('closed', () => { if (this.overlay === w) this.overlay = null; this.releaseEsc(); });
     this.overlay = w;

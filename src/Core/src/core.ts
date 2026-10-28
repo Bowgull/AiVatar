@@ -2647,7 +2647,16 @@ export class Core {
     this.token = newToken(this.cfg.stateDir);
     if (process.platform === 'darwin' && process.env.AANG_PRESENCE !== '0') {
       this.macPresence = new MacPresence(process.env.AANG_PRESENCE_BIN ?? path.join(import.meta.dirname, '..', 'bin', 'aang-presence'), {
-        presence: p => { this.applyPresence(p); this.sendTo('desktop', { t: 'mac.front', shadow: p.shadow } as never); },
+        presence: p => {
+          this.applyPresence(p);
+          this.sendTo('desktop', { t: 'mac.front', shadow: p.shadow } as never);
+          // The bubble's own quiet (the PC pet sends this): a call, the Shadow window, full screen or Focus holds Claude
+          // cards and timer cards in the bubble until it ends, as a game does on the PC (2026-10-28 notice review: the
+          // Mac never sent it, so cards and the needs-you chime came up mid-call). Never "hidden": that would turn asks
+          // away rather than hold them.
+          this.lastBubbleState = { t: 'bubble.state', quiet: p.quiet, hidden: false, muted: this.muted };
+          this.sendTo('desktop', this.lastBubbleState);
+        },
         desk: active => this.applyDesk(active), log: s => console.log(s),
       });
       this.macPresence.start();
