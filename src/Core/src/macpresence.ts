@@ -27,7 +27,8 @@ export function quietReason(r: MacReading): string {
  * idle time shorter than the time since then, exactly as the pet does it.
  */
 export function atDesk(r: MacReading, now: number, awayFrom: number | null): boolean {
-  if (awayFrom !== null && now > awayFrom && r.idle * 1000 >= now - awayFrom) return false;
+  // Inside the grace (the click or Enter that said it) he stays away; after it, only new input brings him back.
+  if (awayFrom !== null && (now <= awayFrom || r.idle * 1000 >= now - awayFrom)) return false;
   return r.idle < AWAY_AFTER_S;
 }
 
