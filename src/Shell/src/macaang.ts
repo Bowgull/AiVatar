@@ -355,6 +355,11 @@ function picked(id: string): void {
   if (id === 'quit') { app.quit(); return; }
   // gopc: the PC's Aang joins in phase 6; the row stays dim until then.
 }
+/**
+ * His call (2026-10-28): Snipit is not needed on the Mac, macOS has its own. The wheel's Snip slot starts macOS's area
+ * capture straight to the clipboard (Cmd+Ctrl+Shift+4), so it pastes into Claude or anywhere. No key of Aang's is taken.
+ */
+function macSnip(): void { execFile('/usr/sbin/screencapture', ['-i', '-c'], () => {}); }
 /** He is on a call, on Shadow, full screen or in Focus (the brain's bubble.state from the Mac presence helper). */
 let busyNow = false;
 /** On a call (mic or camera in use): timers glow without their knocks. */
@@ -459,15 +464,14 @@ app.whenReady().then(async () => {
   // His keys (sheet 61): Talk and Quick note as on the PC. The pop-out's key is Samara's on this Mac, so it is not taken here.
   hotkeys = new HotkeyKeeper(app.getPath('userData'), globalShortcut, {
     talk: () => { if (input?.visible) input.close(); else { setPose('out'); openTypeBox(); } },
-    snip: () => { void startSnip(); },
+    snip: () => { macSnip(); },
     popout: () => { /* Samara's */ },
     note: () => { void takeKeys(); if (!noteWins?.quick()) { bubble?.send('brain:message', { t: 'notes.board', fresh: true }); bubble?.show(); } },
     pin: () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; },
   });
   hotkeys.want('talk', true);
   hotkeys.want('note', true);
-  hotkeys.want('snip', true);
-  console.log('aang: keys ' + hotkeys.list().filter((k) => k.id === 'talk' || k.id === 'note' || k.id === 'snip').map((k) => `${k.id}=${k.acc}${globalShortcut.isRegistered(k.acc) ? '' : ' (not taken: another app has it)'}`).join(', '));
+  console.log('aang: keys ' + hotkeys.list().filter((k) => k.id === 'talk' || k.id === 'note').map((k) => `${k.id}=${k.acc}${globalShortcut.isRegistered(k.acc) ? '' : ' (not taken: another app has it)'}`).join(', '));
   // Snipit (6.17): freeze the screen, drag a box, it lands on his box as a chip (sheet 62), kept in Pictures/Aang snips.
   snipper = new Snipper({
     origin: pages.origin, preloadPath: preload, dir: path.join(app.getPath('pictures'), 'Aang snips'),
@@ -501,7 +505,7 @@ app.whenReady().then(async () => {
       else if (slot === 'NOTES') { bubble?.send('brain:message', { t: 'notes.board' }); bubble?.show(); }
       else if (slot === 'BROWSER') void shell.openPath(path.join(os.homedir(), 'Applications', 'Samara.app'));
       else if (slot === 'AWAY') link.send({ t: 'away' });
-      else if (slot === 'SNIP') void startSnip();
+      else if (slot === 'SNIP') macSnip();
       else if (slot === 'MUSIC') miniPlayer?.open();
     },
   });
