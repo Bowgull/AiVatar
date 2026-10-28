@@ -31,8 +31,10 @@ const ROOT = path.join(HERE, '..', '..', '..');
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 /** The brain's folder on the Mac (index.ts): its password for us (shell.token) lives here. Samara uses it too. */
 const STATE_DIR = process.env.AANG_STATE_DIR ?? path.join(os.homedir(), 'Library', 'Application Support', 'Aang');
-const FRAMES_DIR = process.env.AANG_FRAMES_DIR ?? path.join(ROOT, 'assets', 'aang', 'frames');
-const CHIMES_DIR = path.join(ROOT, 'assets', 'aang', 'sfx', 'chimes');
+/** His art and sounds: the repo's assets, or the installed copy beside the app (AANG_ASSETS_DIR, set by com.aang.pet). */
+const ASSETS = process.env.AANG_ASSETS_DIR ?? path.join(ROOT, 'assets', 'aang');
+const FRAMES_DIR = process.env.AANG_FRAMES_DIR ?? path.join(ASSETS, 'frames');
+const CHIMES_DIR = path.join(ASSETS, 'sfx', 'chimes');
 
 // His windows are see-through and float over other apps, so Chromium takes them for hidden behind those apps and stops
 // painting them (2026-10-28: the bubble was drawn and placed, and the screen still showed nothing; he stayed tucked on
