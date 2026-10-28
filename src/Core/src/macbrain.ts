@@ -542,7 +542,9 @@ class WarmClaude {
           brain.meter('chat', m);
           if (m.type === 'result') {
             const w = this.waiting; this.waiting = null;
-            w?.(m.subtype === 'success' ? { text: String(m.result ?? '') } : { err: String(m.errors?.join?.('; ') || m.subtype) });
+            // is_error: an API failure dressed as a success, its error as the "answer" (see lane.ts).
+            w?.(m.subtype === 'success' && !m.is_error ? { text: String(m.result ?? '') }
+              : { err: String((m.is_error && m.result) || m.errors?.join?.('; ') || m.subtype) });
           }
         }
       } catch (e) { why = (e as Error).message || why; }
@@ -576,6 +578,12 @@ async function claudeAnswer(brain: MacBrain, text: string): Promise<{ text: stri
   const smart = ACT.test(text) || HARD.test(text) || /\b(pdf|graphic|picture|poster|flyer|image)\b/i.test(text);
   try { return await brain.warmClaude().ask(text, smart); }
   catch (e) {
+    // An expired sign-in usually renews itself within seconds (2026-10-20 it answered fine three minutes later):
+    // one more try after a short wait before telling him.
+    if (/auth|log ?in|401/i.test((e as Error).message)) {
+      await new Promise(r => setTimeout(r, 4_000));
+      return brain.warmClaude().ask(text, smart);
+    }
     // A conversation that will not load again (or a session that died): start fresh once, then give up.
     if (!brain.resumeId && !/stopped|would not start/.test((e as Error).message)) throw e;
     brain.resetWarm(true);

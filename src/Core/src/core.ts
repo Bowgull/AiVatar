@@ -107,6 +107,7 @@ import { gameRunning } from './gpu.ts';
 import { DEFAULT_DUBS, dubFor, isPlan, nameLeftOver, readChannels, readDubs, readWords, rememberChannel, setDub } from './puton.ts';
 import type { Channels, Dub, DubTable, WatchPlan, Where } from './puton.ts';
 import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
+import { steppingAway } from './away.ts';
 import type { CalEvent, Fetch } from './google.ts';
 import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
@@ -244,6 +245,8 @@ export const CLAIMS_DID = new RegExp(
 /** Quick giving up on something a tool could do. It is thrown away and Smart takes the turn instead. */
 // 2026-10-13: + "blocked", "not available/allowed/possible", "no way to", "unable", and NOT SURE. Quick said "the
 // tool's blocked on my end" and nothing caught it; and a small model that is not sure should not be the one answering.
+/** Claude's own words when its sign-in has expired or been refused (lane results with is_error set). */
+const SIGNED_OUT = /failed to authenticate|oauth|not (logged|signed) in|invalid api key|\b401\b|please run \/login/i;
 export const REFUSES = /\b(blocked|not (?:available|allowed|possible|set up|able)|no (?:way|tool|access) to|unable to|(?:I'?m|I am) not (?:sure|certain)|I don'?t know|not something I can|I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
 
 /**
@@ -1802,10 +1805,7 @@ export class Core {
     this.hushTimer.unref?.();
     return `Hushed for ${m} minutes (until ${clock(new Date(this.hushUntil))}). I will hold whatever comes up and tell you after.`;
   }
-  private releasePending(): void {
-    const held = this.pending.splice(0);
-    held.forEach((text, i) => setTimeout(() => this.announce(text), i * 6000).unref?.());
-  }
+  private releasePending(): void { this.releaseHeld(); }
 
   /** Ask (once, then trusted), then change the file. A refusal by the rules is reported without asking at all. */
   private async changeFile(tool: string, input: Record<string, unknown>, doIt: () => { ok: boolean; detail: string }): Promise<{ ok: boolean; detail: string }> {
@@ -2396,8 +2396,25 @@ export class Core {
   /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
   private bodyQuiet = false;
   private muted = false;
-  /** Unprompted messages that arrived while he was quiet or muted, oldest first. */
-  private readonly pending: string[] = [];
+  /**
+   * Unprompted messages that arrived while he was quiet, muted or hushed, oldest first. The whole message is kept
+   * (2026-10-28): holding only the words dropped the brief's card, the links, the Claude session, the reminder's
+   * buttons, and the row that lets him reply to it.
+   */
+  private readonly pending: { text: string; opts: NonNullable<Parameters<Core['announce']>[1]> }[] = [];
+  /** How many held messages were pushed out by newer ones since the last release, so he is told instead of not. */
+  private heldOver = 0;
+  private hold(text: string, opts: NonNullable<Parameters<Core['announce']>[1]>, cap: number): void {
+    this.pending.push({ text, opts });
+    while (this.pending.length > cap) { this.pending.shift(); this.heldOver++; }
+  }
+  /** Everything held comes back through announce(), one after another so they do not overwrite each other. */
+  private releaseHeld(): void {
+    const held = this.pending.splice(0);
+    const over = this.heldOver; this.heldOver = 0;
+    held.forEach((h, i) => setTimeout(() => this.announce(h.text, h.opts), i * 6000).unref?.());
+    if (over) setTimeout(() => this.announce(`There were ${over} older ones before those that I could not keep.`), held.length * 6000).unref?.();
+  }
   /** The one permission question outstanding, if any. */
   private permission: { id: string; resolve: (choice: PermChoice) => void; timer: NodeJS.Timeout } | null = null;
   private permissionSeq = 0;
@@ -2685,7 +2702,11 @@ export class Core {
       // 2026-10-22: not for a session the aang-link mod speaks for: its own card says exactly what waits, and goes the
       // moment he answers it anywhere; this line could not, and stayed up after he had answered in Claude.
       if (said && said.kind === 'waiting' && !(this.inClaude() && !remote) && !this.claudeJobs.linked(said.session.id)) {
-        const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
+        // His name for the session where Aang knows it (2026-10-28), not the folder: "waiting on you in Resume rewrite",
+        // never "in 2026-10-20_project".
+        const named = this.claudeJobs.list().find(j => j.id === said.session.id)?.title || this.claudeNames.of(said.session.id)?.title;
+        const base = named ? said.text.replace(` in ${said.session.project}.`, ` in ${named}.`) : said.text;
+        const text = remote ? base.replace(/^Claude Code/, 'Claude Code on the MacBook') : base;
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         const claude = said.session.project, session = said.session.id;
         this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, claude, session, ...where } : { asked: true, done: true, claude, session, ...where });
@@ -3821,6 +3842,15 @@ export class Core {
           }).catch(e => this.send(ws, { t: 'bubble', text: 'The brief could not be put together: ' + (e as Error).message, stream: false, id, who: 'Aang' }));
           break;
         }
+        // "brb" (his ask, 2026-10-28): the same as the wheel's Away, in plain code. Desktop only: on Discord he is away already.
+        if (m.ephemeral !== true && this.kindOfSocket(ws) === 'desktop' && steppingAway(text)) {
+          this.send(ws, { t: 'ack', id });
+          this.atDesk = false;
+          this.sendTo('desktop', { t: 'away.set' });
+          this.send(ws, { t: 'bubble', text: 'Okay. Everything goes to Discord until you are back.', stream: false, id, who: 'Aang' });
+          this.sendTo('discord', { t: 'bubble', text: 'You stepped away. I am here; everything comes to Discord until you are back at the PC.', stream: false, proactive: true });
+          break;
+        }
         // The mini player (2026-10-22): "show the music player" opens it on the PC, in plain code.
         if (m.ephemeral !== true && wantsPlayer(text)) {
           this.send(ws, { t: 'ack', id });
@@ -4290,7 +4320,10 @@ export class Core {
     // result
     if (!sub) { this.finishTurn(turn); return; }                       // silent warm-up turn
     if (turn.stopped) { this.finishTurn(turn); return; }
-    if (!e.ok) { this.fail(turn, 'Claude stopped before finishing that.', 'Ask again, or try Smart for something harder.'); return; }
+    if (!e.ok) {
+      if (SIGNED_OUT.test(e.text)) { this.fail(turn, 'My Claude sign-in ran out, so I could not answer that.', 'Open the Claude app so it signs in again, then ask me again.'); return; }
+      this.fail(turn, 'Claude stopped before finishing that.', 'Ask again, or try Smart for something harder.'); return;
+    }
 
     const linted = lint(e.text, e.tools, sub.text, this.canDraw(sub.socket));
     if (!linted.cleaned) { this.fail(turn, 'I got nothing back for that.', 'Ask again in a different way.'); return; }
@@ -4552,7 +4585,7 @@ export class Core {
     this.lastAnnounced = { text, at: Date.now(), ...(opts.about ? { url: opts.about.url } : {}) };
     if (opts.about) this.rememberLink(opts.about.url, opts.about.title, opts.about.thumb);
     // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
-    if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
+    if (this.hushUntil > Date.now()) { this.hold(text, opts, 8); return; }
     const blocking = opts.blocking ?? Core.BLOCKING.test(text);
     const done = !blocking && (opts.done ?? (!!opts.jobCwd && Core.DONE.test(text)));
     const msg: Extract<ToBody, { t: 'bubble' }> = {
@@ -4597,8 +4630,7 @@ export class Core {
     // Something he asked Aang to watch for (a job he started) is said even while he is in the game - Joshua's
     // rule, 2026-09-21: "only when I asked for it". Mute still holds everything.
     if (this.muted || (this.bodyQuiet && !opts.asked)) {
-      this.pending.push(text);
-      while (this.pending.length > 5) this.pending.shift();
+      this.hold(text, opts, 5);
       return;
     }
     remember();
@@ -4782,9 +4814,9 @@ export class Core {
     const was = this.bodyQuiet || this.muted;
     this.bodyQuiet = quiet; this.muted = muted;
     if (!was || quiet || muted) return;
-    const held = this.pending.splice(0);
-    // One after another, with a gap, so they do not overwrite each other in the bubble.
-    held.forEach((text, i) => setTimeout(() => this.sendTo('desktop', { t: 'bubble', text, stream: false, proactive: true }), i * 6000).unref?.());
+    // Back through announce() (2026-10-28), not straight to the desktop: so each is stored and can be replied to,
+    // keeps its card, and goes to Discord instead if he has walked away since.
+    this.releaseHeld();
   }
 
   /** What is waiting to be said (tests and diagnostics). */

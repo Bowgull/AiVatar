@@ -174,6 +174,50 @@ test('nothing unprompted arrives while the game has focus; it waits and is deliv
   await core.stop();
 });
 
+test('a message held during the game comes back whole: its links and its row, so he can reply to it (2026-10-28)', async (t) => {
+  const core = new Core({ testDoor: true, port: 48098, dataDir: tmp(), stateDir: tmp(), warm: false });
+  await core.start();
+  t.after(() => core.stop());
+  const { c, bubbles } = await connected(48098);
+  t.after(() => c.close());
+
+  c.send(JSON.stringify({ t: 'presence', quiet: true, foreground: 'Wow' }));
+  await new Promise(r => setTimeout(r, 100));
+  core.announce('New video from his channel', { links: [{ label: 'Watch', url: 'https://www.youtube.com/watch?v=x' }] });
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(bubbles().length, 0);
+
+  c.send(JSON.stringify({ t: 'presence', quiet: false, foreground: 'explorer' }));
+  await new Promise(r => setTimeout(r, 300));
+  const b = bubbles()[0];
+  assert.equal(b?.text, 'New video from his channel');
+  assert.deepEqual(b?.links, [{ label: 'Watch', url: 'https://www.youtube.com/watch?v=x' }], 'the link is not lost');
+  assert.equal(typeof b?.turn, 'number', 'stored when he saw it, so a reply has something to point at');
+});
+
+test('typing "brb" sends what comes next to Discord, with no Claude turn (2026-10-28)', async (t) => {
+  const core = new Core({ testDoor: true, port: 48086, dataDir: tmp(), stateDir: tmp(), warm: false });
+  await core.start();
+  t.after(() => core.stop());
+  const desk = await connected(48086);
+  t.after(() => desk.c.close());
+  const phone = await connected(48086);
+  t.after(() => phone.c.close());
+  phone.c.send(JSON.stringify({ t: 'hello', v: 1, client: 'discord' }));
+  desk.c.send(JSON.stringify({ t: 'hello', v: 1 }));
+  await new Promise(r => setTimeout(r, 100));
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b1', text: 'brb grabbing food' }));
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(desk.bubbles().find(b => b.id === 'b1')?.text, 'Okay. Everything goes to Discord until you are back.');
+  assert.ok(desk.inbox.some(m => m.t === 'away.set'), 'the pet is told, so his next touch brings him back');
+
+  core.announce('Reminder: call the bank');
+  await new Promise(r => setTimeout(r, 200));
+  assert.ok(phone.bubbles().some(b => b.text === 'Reminder: call the bank'), 'it goes to Discord');
+  assert.ok(!desk.bubbles().some(b => b.text === 'Reminder: call the bank'), 'not to the bubble as well');
+});
+
 test('muting silences unprompted messages until it is turned off', async () => {
   const core = new Core({ testDoor: true, port: 48082, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
@@ -217,7 +261,11 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   const dataDir = tmp();
   const core = new Core({ testDoor: true, port: 48092, dataDir, stateDir: tmp(), warm: false });
   await core.start();
+  // Always shut down, even after a failed assert: a Core left running kept the whole file from ever ending (it hung
+  // for 25 minutes on the MacBook, 2026-10-28).
+  t.after(() => core.stop());
   const { c, bubbles } = await connected(48092);
+  t.after(() => c.close());
   const key = readFileSync(path.join(dataDir, 'hook.key'), 'utf8').trim();
   const body = JSON.stringify({ hook_event_name: 'Notification', session_id: 'm1', cwd: '/Users/josh/code/site', message: 'needs permission' });
 
@@ -240,15 +288,15 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   // A click on its icon: the Core asks the Mac's one-job listener (played here by a fake) to bring Claude forward.
   const got: string[] = [];
   const fake = http.createServer((req, res) => { got.push(`${req.method} ${req.url} ${String(req.headers['x-aang-key'] ?? '')}`); res.writeHead(204).end(); });
-  await new Promise<void>(r => fake.listen(47840, ts, () => r()));
+  // On the MacBook itself the real listener already holds 47840, so the fake cannot stand in for it there.
+  const listening = await new Promise<boolean>(r => { fake.once('error', () => r(false)); fake.listen(47840, ts, () => r(true)); });
+  if (!listening) { t.skip('the real Mac listener holds 47840 on this machine'); return; }
   c.send(JSON.stringify({ t: 'claude.front', host: 'mac' }));
   await new Promise(r => setTimeout(r, 300));
   const frontKey = readFileSync(path.join(dataDir, 'mac-front.key'), 'utf8').trim();
   assert.deepEqual(got, [`POST /front ${frontKey}`], 'the key as a header, never in the address');
   assert.notEqual(frontKey, key, 'a different key from the one the hooks send');
   await new Promise<void>(r => fake.close(() => r()));
-  c.close();
-  await core.stop();
 });
 
 test('the MacBook setup script is served once, for its code, with both keys in it', async (t) => {
