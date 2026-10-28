@@ -2,6 +2,12 @@
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import os from 'node:os';
+
+/** Example paths in the tool notes, in this computer's own form (the Mac, 2026-10-28: Windows examples led the model to
+ *  give C:\ paths that do not exist there). */
+const MAC = process.platform === 'darwin';
+const ex = (...bits: string[]): string => MAC ? [os.homedir(), ...bits].join('/') : ['C:\\Users\\Shadow', ...bits].join('\\');
+const FULL_PATH = MAC ? 'Give the full path, starting with /.' : 'Give the full path starting with the drive.';
 import type { Memory } from './memory.ts';
 import type { HookTracker } from './hooks.ts';
 import type { Reminders } from './reminders.ts';
@@ -662,7 +668,7 @@ export function makeTools(
       tool('my_abilities', 'What you can and cannot do. Call it whenever he asks what you can do, what you are able to do, or whether you can do something you are unsure about.', {},
         async () => ok(ABILITIES)),
       tool('send_to_phone', 'Put something in Joshua\'s Discord so he can see it on his phone: a file from this computer, or a picture of the window he has in front of him. Use for "send me that file", "show me my screen", "what is on my screen, send a screenshot", "send it to my phone". It shows him its own yes/no first time. Give what as a full file path, or the word "screen" for a picture of the window in front. It cannot send files that hold passwords or keys. The picture is of one window, not the whole desktop; say so if he asked for the whole screen.',
-        { what: z.string().describe('a full file path like C:\\Users\\Shadow\\Documents\\resume.pdf, or "screen"'), note: z.string().optional().describe('a short caption to go with it') },
+        { what: z.string().describe(`a full file path like ${ex('Documents', 'resume.pdf')}, or "screen"`), note: z.string().optional().describe('a short caption to go with it') },
         async ({ what, note }) => {
           if (!doers) return fail('Sending to Discord is not available right now.');
           const r = await doers.phone(what, note);
@@ -842,7 +848,7 @@ export function makeTools(
         { app: z.string().describe('the app name'), name: z.string().describe('the field\'s exact name from list_controls'), text: z.string().describe('the text to put in the field') },
         async ({ app, name, text }) => { if (!doers) return fail('Acting in apps is not available right now.'); const r = await doers.uiFill(app, name, text); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('list_folder', 'See what is in a folder: names, sizes and dates, newest first. Use before tidying, moving or deleting, and for "what is in my Downloads". Full path.',
-        { path: z.string().describe('full folder path, e.g. C:\\Users\\Shadow\\Downloads') },
+        { path: z.string().describe(`full folder path, e.g. ${ex('Downloads')}`) },
         async ({ path: p }) => ok(doers ? doers.listFolder(p) : 'Looking in folders is not available right now.')),
       tool('move_file', 'Move or rename a file or folder. Never overwrites: if the destination exists it says so. Full paths for both. Rename is a move with the new name in the same folder. Undoable.',
         { from: z.string(), to: z.string().describe('the full new path, including the new name') },
@@ -859,8 +865,8 @@ export function makeTools(
       tool('copy_to_clipboard', 'Put text on his clipboard so he can paste it: a command, an address, a summary. Replaces what is on it now. Use only when he asks for something on the clipboard or to copy it.',
         { text: z.string().describe('the text to copy') },
         async ({ text }) => { if (!doers) return fail('The clipboard is not available right now.'); const r = await doers.hands('clipset', text); return r.ok ? ok(r.detail) : fail(r.detail); }),
-      tool('write_file', 'Create a file or replace one whole, with the text you give. For a small change to an existing file use edit_file instead. Give the full path starting with the drive. The old version is kept, so undo_file_change can put it back. You cannot write to Windows, program folders, or your own settings and memory.',
-        { file: z.string().describe('full path, e.g. C:\\Users\\Shadow\\Documents\\notes.txt'), content: z.string().describe('the whole new content of the file') },
+      tool('write_file', `Create a file or replace one whole, with the text you give. For a small change to an existing file use edit_file instead. ${FULL_PATH} The old version is kept, so undo_file_change can put it back. You cannot write to ${MAC ? 'macOS system folders, apps' : 'Windows, program folders'}, or your own settings and memory.`,
+        { file: z.string().describe(`full path, e.g. ${ex('Documents', 'notes.txt')}`), content: z.string().describe('the whole new content of the file') },
         async ({ file, content }) => {
           if (!doers) return fail('Writing files is not available right now.');
           const r = await doers.writeFile(file, content);

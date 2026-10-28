@@ -116,7 +116,8 @@ const MAC_SYSTEM = ['/System', '/Library', '/usr', '/bin', '/sbin', '/Applicatio
  * they sit outside his folder, so they are covered.
  */
 export const VAULT_DIR = process.env.AANG_VAULT_DIR
-  ?? path.join(process.env.USERPROFILE ?? 'C:\\Users\\Shadow', 'Documents', 'CereBro-Vault');
+  // The Mac (2026-10-28): its home is HOME, not USERPROFILE; the Windows default made every vault path relative there.
+  ?? path.join(process.env.USERPROFILE ?? (process.platform === 'darwin' ? os.homedir() : 'C:\\Users\\Shadow'), 'Documents', 'CereBro-Vault');
 
 /**
  * The folder Obsidian actually opens, which is NOT the repository root.
@@ -259,7 +260,7 @@ export function refusal(file: string, p: Protected): string | null {
     if (under(sys)) return 'that is part of Windows or an installed program';
   }
   if (MAC && MAC_SYSTEM.some(under)) return 'that is part of macOS or an installed program';
-  if (!path.isAbsolute(file)) return 'give the full path, starting with the drive, so there is no doubt which file it is';
+  if (!path.isAbsolute(file)) return process.platform === 'darwin' ? 'give the full path, starting with /, so there is no doubt which file it is' : 'give the full path, starting with the drive, so there is no doubt which file it is';
   if (under(path.join(p.dataDir, 'Brain'))) return 'that is my Brain folder, who I am and what I know; it changes only through remember and correct';
   if (under(AANG_APP) || (MAC && under(AANG_APP_MAC))) return 'that is my own source code; changes to me go through a Claude session he reviews';
   if (persistenceDirs().some(under)) return 'that makes things run by themselves every time the computer or a shell starts';
