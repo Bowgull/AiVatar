@@ -44,6 +44,58 @@ function markOf(kind) {
   return (markArt[kind] = { c, w: map[0].length * px, h: map.length * px });
 }
 
+// ---------------------------------------------------------------- his aura (Aura.cs, sheet 51 "A · soft falloff")
+// Pure haze: alpha falls off with distance from his silhouette, I * (1 - d/R)^1.8, breathing R 9..13 and I 0.68..1 on a
+// slow 4 s ease, never off. A new mark that wants him starts with the burst: out to 18 px, a soft ~9 Hz flicker for
+// 650 ms, then it eases into the calm breath. Only the marks that glow (ClaudeMarks.Glows) and a timer that went off.
+const GLOWS = new Set(['permission', 'question', 'plan', 'complete', 'failed']);
+const AVATAR = '#c8e8ff';                       // Theme.AvatarGlow: a timer that ran out (sheet 17)
+const REACH = 18;
+const near = new Map();                         // frame image -> { idx: Int32Array, d: Float32Array } (pixels within REACH)
+function fieldOf(img) {
+  let f = near.get(img); if (f) return f;
+  const c = document.createElement('canvas'); c.width = 224; c.height = 224; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+  const a = x.getImageData(0, 0, 224, 224).data, N = 224 * 224, INF = 1e9, d = new Float32Array(N);
+  for (let i = 0; i < N; i++) d[i] = a[i * 4 + 3] > 20 ? 0 : INF;
+  // Two-pass chamfer distance (1, sqrt 2): near enough to the sheet's own field for a haze.
+  const R2 = Math.SQRT2;
+  for (let y = 0; y < 224; y++) for (let x0 = 0; x0 < 224; x0++) { const i = y * 224 + x0; if (!d[i]) continue;
+    let v = d[i]; if (x0 > 0) v = Math.min(v, d[i - 1] + 1); if (y > 0) { v = Math.min(v, d[i - 224] + 1); if (x0 > 0) v = Math.min(v, d[i - 225] + R2); if (x0 < 223) v = Math.min(v, d[i - 223] + R2); } d[i] = v; }
+  for (let y = 223; y >= 0; y--) for (let x0 = 223; x0 >= 0; x0--) { const i = y * 224 + x0; if (!d[i]) continue;
+    let v = d[i]; if (x0 < 223) v = Math.min(v, d[i + 1] + 1); if (y < 223) { v = Math.min(v, d[i + 224] + 1); if (x0 < 223) v = Math.min(v, d[i + 225] + R2); if (x0 > 0) v = Math.min(v, d[i + 223] + R2); } d[i] = v; }
+  const idx = [], dist = [];
+  for (let i = 0; i < N; i++) if (d[i] > 0 && d[i] <= REACH) { idx.push(i); dist.push(d[i]); }
+  f = { idx: Int32Array.from(idx), d: Float32Array.from(dist) };
+  near.set(img, f);
+  return f;
+}
+let glow = null, glowAt = 0, lastGlow = 0;                    // the colour, and when its burst began
+const halo = document.createElement('canvas'); halo.width = 224; halo.height = 224;
+const hg = halo.getContext('2d');
+let haloData = hg.createImageData(224, 224);
+function breath(sec) { const ph = (1 - Math.cos(2 * Math.PI * sec / 4)) / 2; return [9 + 4 * ph, 0.68 + 0.32 * ph]; }
+function auraNow(now) {
+  const t = now - glowAt, sec = now / 1000;
+  if (t < 650) {
+    const snap = Math.max(0, Math.min(1, t < 150 ? t / 150 : t < 320 ? 1 - (t - 150) / 170 : 0));
+    return [12 + 6 * snap, Math.floor(t / 56) % 2 === 0 ? 1 : 0.5];
+  }
+  const [r, i] = breath(sec), u0 = Math.max(0, Math.min(1, (t - 650) / 700)), u = u0 * u0 * (3 - 2 * u0);
+  return [12 + (r - 12) * u, 0.95 + (i - 0.95) * u];
+}
+function drawHalo(img, now) {
+  const f = fieldOf(img), [R, I] = auraNow(now);
+  const c = parseInt(glow.slice(1), 16), r = c >> 16, g2 = (c >> 8) & 255, b = c & 255;
+  const data = haloData.data; data.fill(0);
+  for (let k = 0; k < f.idx.length; k++) {
+    const dd = f.d[k]; if (dd > R) continue;
+    const a = I * Math.pow(1 - dd / R, 1.8), j = f.idx[k] * 4;
+    data[j] = r; data[j + 1] = g2; data[j + 2] = b; data[j + 3] = Math.round(a * 255);
+  }
+  hg.putImageData(haloData, 0, 0);
+  g.drawImage(halo, 0, MARK - ART_TOP);
+}
+
 function play(s) { if (!SPEC[s] || !frames[s]?.length) s = 'idle'; if (s === state) return; state = s; frame = 0; due = 0; }
 
 function draw() {
@@ -55,6 +107,7 @@ function draw() {
     // Nothing above his head is cut: his frames bob and some reach above row 78 (2026-10-28, his head was clipped). Only
     // the bottom is clipped, at the edge he stands or docks on.
     g.beginPath(); g.rect(0, 0, 224, MARK + show); g.clip();
+    if (glow) drawHalo(f, performance.now());
     g.drawImage(f, 0, MARK - ART_TOP);
     g.restore();
   }
@@ -73,6 +126,9 @@ function tick(now) {
     else frame++;
     draw();
   } else if (flash && now >= flashUntil) { flash = null; draw(); }
+  // The haze breathes between frames too, at 20 a second: a 4 s breath needs no more, and this Mac is old (60 a second
+  // cost ~20% of a core, 2026-10-28).
+  else if (glow && now - lastGlow >= 50) { lastGlow = now; draw(); }
   requestAnimationFrame(tick);
 }
 
@@ -92,7 +148,15 @@ window.pet?.onState((s) => {
     if (cv.height !== h) { cv.height = h; g.imageSmoothingEnabled = false; }
   }
   if (typeof s.anim === 'string') { rest = s.anim; play(s.anim); }
-  if ('mark' in s) mark = SHAPES[s.mark] ? s.mark : null;
+  if ('mark' in s) {
+    const was = mark;
+    mark = SHAPES[s.mark] ? s.mark : null;
+    // One aura (his call, 2026-10-21): a mark that wants him glows in its own colour, with the burst when it is new.
+    if (mark && GLOWS.has(mark)) { if (mark !== was || !glow) glowAt = performance.now(); glow = COLOR[mark]; }
+    else if (glow !== AVATAR) glow = null;
+  }
+  if (s.glow === 'timer') { glow = AVATAR; glowAt = performance.now(); }
+  if (s.glow === 'off') glow = mark && GLOWS.has(mark) ? COLOR[mark] : null;
   if (s.flash && SHAPES[s.flash]) { flash = s.flash; flashUntil = performance.now() + (s.flash === 'step' ? 1800 : 4000); }
   draw();
 });
