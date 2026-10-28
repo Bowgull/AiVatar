@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 98 - The top bar and every notice, redone</title>
+<!-- Sheet 98 (2026-10-28). His interview after sheet 97: the lantern is the crest at the far left; options for the empty
+     wood, the address bar's shape and how the lantern's menu opens; watching Claude has no words, a soft glow round the
+     address bar like real light, breathing slowly, in the rune's colour, Stop inside the rune's panel; every notice in
+     Samara and Claude's asks are one family, coloured as the rune (teal done, blue needs you, red went wrong), a sound
+     only for needs-you, one at a time with a count, done ones stay until dismissed; places and feels shown as options.
+     v1 of this sheet was never shown. This one follows his anti-slop rules (2026-10-27): pixel light in steps instead of
+     a blur glow, no gradient boxes, plain sentence-case labels, Samara's real notice lines only.
+     Every picture is Samara itself (test/electron/sheet98-shot.ts); the new pieces are laid on for the picture. Not built. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0;max-width:1000px;line-height:1.5}
+  h2{font:800 18px var(--body);color:#ffe28c;margin:44px 0 4px;text-shadow:0 2px 0 #000}
+  .sub{font:500 13.5px var(--body);color:#b9a684;margin:0 0 14px;max-width:880px;line-height:1.5}
+  img{display:block;image-rendering:pixelated;border:3px solid #120A05;max-width:100%}
+  figure{margin:0 0 18px}
+  figcaption{font:700 13.5px var(--body);color:#e8dcc4;margin:0 0 6px}
+  .row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .row figure{margin:0}
+  .breath{position:relative;width:800px;height:72px;border:3px solid #120A05}
+  .breath img{position:absolute;inset:0;border:0;opacity:0;animation:breathe 4.8s steps(1) infinite}
+  .breath img:nth-child(1){animation-delay:0s}.breath img:nth-child(2){animation-delay:-3.2s}.breath img:nth-child(3){animation-delay:-1.6s}
+  @keyframes breathe{0%{opacity:1}33.4%{opacity:0}100%{opacity:0}}
+  .sorted{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;max-width:1300px}
+  .sorted h3{display:flex;align-items:center;gap:8px;font:800 14px var(--body);margin:0 0 8px}
+  .sorted h3 i{width:12px;height:12px;border:2px solid #120A05;display:block}
+  .sorted ul{margin:0;padding:0;list-style:none}
+  .sorted li{font:500 13px/1.45 var(--body);color:#d8c8a6;padding:5px 0;border-top:2px solid #2a1e14}
+  .flag{max-width:1000px;margin:0;padding:0;list-style:none}
+  .flag li{font:500 13.5px/1.5 var(--body);color:#d8c8a6;margin:0 0 6px}
+  .flag b{color:#ffe28c}
+</style>
+</head>
+<body>
+<h1>Sheet 98 · The top bar and every notice, redone</h1>
+<p class="lead">Your picks from the interview, on Samara's real bar. Where you asked to see options, each one is here side by side.</p>
+
+<h2>The lantern at the far left</h2>
+<p class="sub">The lantern takes the place of the ... menu and the crest spot at the start of the bar.</p>
+<figure><figcaption>Today</figcaption><img src="sheet-98/bar-today.png" width="1440"></figure>
+<figure><figcaption>The lantern as the crest</figcaption><img src="sheet-98/bar-crest.png" width="1440"></figure>
+
+<h2>What fills the empty wood</h2>
+<figure><figcaption>Leave it empty</figcaption><img src="sheet-98/bar-crest.png" width="1440"></figure>
+<figure><figcaption>A shorter bar</figcaption><img src="sheet-98/bar-wood-slim.png" width="1440"></figure>
+<figure><figcaption>Your sites as keys after Reload</figcaption><img src="sheet-98/bar-wood-sites.png" width="1440"></figure>
+<figure><figcaption>A wider address bar</figcaption><img src="sheet-98/bar-wood-wide.png" width="1440"></figure>
+
+<h2>The address bar's shape</h2>
+<p class="sub">Shown at 2x so the corners are clear.</p>
+<div class="row">
+  <figure><figcaption>Soft (today)</figcaption><img src="sheet-98/shape-soft.png" width="720"></figure>
+  <figure><figcaption>Round</figcaption><img src="sheet-98/shape-round.png" width="720"></figure>
+  <figure><figcaption>Pill</figcaption><img src="sheet-98/shape-pill.png" width="720"></figure>
+</div>
+
+<h2>How the lantern's menu opens</h2>
+<div class="row">
+  <figure><figcaption>Drops down from the lantern</figcaption><img src="sheet-98/menu-drop-c.png" width="560"></figure>
+  <figure><figcaption>Opens as a game panel</figcaption><img src="sheet-98/menu-panel-c.png" width="880"></figure>
+</div>
+
+<h2>Claude at work</h2>
+<p class="sub">No words in the bar. The address bar gives off light in the rune's colour, drawn in pixel steps, and breathes slowly while you watch Claude's tab.</p>
+<figure><figcaption>Breathing</figcaption><div class="breath"><img src="sheet-98/breath-dim.png"><img src="sheet-98/breath-half.png"><img src="sheet-98/breath-full.png"></div></figure>
+<div class="row">
+  <figure><figcaption>Dim</figcaption><img src="sheet-98/breath-dim.png" width="800"></figure>
+  <figure><figcaption>Brightest</figcaption><img src="sheet-98/breath-full.png" width="800"></figure>
+</div>
+<figure style="margin-top:18px"><figcaption>Click the rune: Stop is in its panel</figcaption><img src="sheet-98/stop.png" width="840"></figure>
+<figure><figcaption>When Claude needs you, the light turns blue</figcaption><img src="sheet-98/bar-glow-needs.png" width="1440"></figure>
+
+<h2>Notices: one family for all of Samara</h2>
+<p class="sub">Every notice and every Claude ask uses the same plate and the rune's colours. One shows at a time, with a count. Only Needs your OK makes a sound. Done stays until you press Got it.</p>
+<figure><figcaption>Today: a plain note under the bar</figcaption><img src="sheet-98/toast-today-c.png" width="880"></figure>
+<div class="row">
+  <figure><figcaption>Done</figcaption><img src="sheet-98/kind-done.png" width="390"></figure>
+  <figure><figcaption>Needs your OK</figcaption><img src="sheet-98/kind-mid.png" width="390"></figure>
+  <figure><figcaption>Went wrong</figcaption><img src="sheet-98/kind-wrong.png" width="390"></figure>
+</div>
+
+<h2>Where they hang</h2>
+<figure><figcaption>From the lantern</figcaption><img src="sheet-98/where-left.png" width="1440"></figure>
+<figure><figcaption>From the address bar</figcaption><img src="sheet-98/where-mid.png" width="1440"></figure>
+<figure><figcaption>From the window keys</figcaption><img src="sheet-98/where-right.png" width="1440"></figure>
+
+<h2>Or a text box at the bottom</h2>
+<p class="sub">The other feel: a game text box in the menu's wood frame, at the bottom of the window.</p>
+<figure><figcaption>Needs your OK</figcaption><img src="sheet-98/box-needs-c.png" width="720"></figure>
+<figure><figcaption>Done</figcaption><img src="sheet-98/box-done-c.png" width="720"></figure>
+<figure><figcaption>Went wrong</figcaption><img src="sheet-98/box-wrong-c.png" width="720"></figure>
+
+<h2>Every notice Samara shows today, sorted</h2>
+<p class="sub">Samara's real lines, each given its colour.</p>
+<div class="sorted">
+  <div><h3 style="color:#3fc4b4"><i style="background:#3fc4b4"></i>Done</h3><ul>
+    <li>Downloaded tax-form.pdf to your Downloads.</li>
+    <li>Kept in your Bitwarden: github.com.</li>
+    <li>Home page saved.</li>
+    <li>This page is your home page now.</li>
+    <li>Brought in 40 bookmarks. The bar ones are on the shelf in the drawer.</li>
+    <li>Closed Compare laptops and its 3 tabs. (with Undo)</li>
+    <li>Compare laptops is in the Stash.</li>
+    <li>Removed 2 duplicates.</li>
+    <li>Netflix would not play in this tab, so it opened in the video window.</li>
+  </ul></div>
+  <div><h3 style="color:#7cc4ff"><i style="background:#7cc4ff"></i>Needs your OK</h3><ul>
+    <li>Every Claude ask (Allow once or No)</li>
+    <li>Link Samara to your TV (the TV's code)</li>
+    <li>Bitwarden wants your master password again.</li>
+    <li>Five wrong PINs: Bitwarden needs your master password again.</li>
+    <li>Sign in to Bitwarden once first, yourself.</li>
+    <li>Safari keeps its bookmarks private. Turn on Aang under Full Disk Access, then press this again.</li>
+  </ul></div>
+  <div><h3 style="color:#ff8a78"><i style="background:#ff8a78"></i>Went wrong</h3><ul>
+    <li>Samara couldn't open your PIN. Reopen Samara, type your Mac password and pick Always Allow.</li>
+    <li>tax-form.pdf did not finish downloading.</li>
+    <li>Your TV didn't wake up. (Try again, Send window)</li>
+    <li>Bitwarden did not answer. Try the key again.</li>
+    <li>Bitwarden did not keep it. Try again from the key.</li>
+    <li>No saved login for bestbuy.ca in your Bitwarden.</li>
+    <li>No login box found on this page to fill.</li>
+    <li>Chrome didn't open. Open your bank there yourself.</li>
+    <li>That is not a web address.</li>
+  </ul></div>
+</div>
+
+<h2>Lines to fix while we're in there</h2>
+<ul class="flag">
+  <li><b>Not sure which colour:</b> "A popup tried to open a site on the fake-site lists. It was closed." and "A website tried to open an address on your home network." Samara stopped something. Done, or Went wrong?</li>
+  <li><b>Says PC on the Mac:</b> "Bitwarden's tool is not on this PC yet."</li>
+  <li><b>Old names:</b> "The whole window" in the TV notes is now Send window. "Mockups in the ... menu" becomes the lantern.</li>
+</ul>
+</body>
+</html>
