@@ -114,6 +114,9 @@ export function findRepo(from: string): string | null {
   return existsSync(path.join(root, '.git')) ? root : null;
 }
 
+/** Sheet 100: a version's picture file name, from its key (the same picture has the same key, so one file each). */
+export const thumbKey = (key: string): string => createHash('sha1').update('thumb\n' + key).digest('hex');
+
 /** The versioned page server. */
 export class MockServer {
   private server: Server | null = null;
@@ -121,7 +124,11 @@ export class MockServer {
   private readonly repo: string;
   /** Another repo's folder by its name (2026-10-22: every session's mockups); null when it is not one we know. */
   private readonly other: (name: string) => string | null;
-  constructor(repo: string, other: (name: string) => string | null = () => null) { this.repo = repo; this.other = other; }
+  /** Sheet 100: the folder of version pictures (thumbKey.png), served as /t/<thumbKey>.png. */
+  private readonly thumbs: string | null;
+  constructor(repo: string, other: (name: string) => string | null = () => null, thumbs: string | null = null) { this.repo = repo; this.other = other; this.thumbs = thumbs; }
+  /** A version's small picture, while this run lasts. */
+  thumbUrl(key: string): string { return `${this.origin}/t/${thumbKey(key)}.png`; }
   get origin(): string { return `http://127.0.0.1:${this.port}`; }
   start(): Promise<number> {
     return new Promise((done) => {
@@ -149,6 +156,15 @@ export class MockServer {
     if (String(req.headers.host ?? '') !== `127.0.0.1:${this.port}`) { res.writeHead(403).end(); return; }
     const from = req.headers.origin;
     if (from && from !== this.origin) { res.writeHead(403).end(); return; }
+    const t = /^\/t\/([0-9a-f]{40})\.png$/.exec(String(req.url ?? ''));
+    if (t) {
+      let png: Buffer | null = null;
+      try { png = this.thumbs ? readFileSync(path.join(this.thumbs, t[1] + '.png')) : null; } catch { /* not made yet */ }
+      if (!png) { res.writeHead(404).end(); return; }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=86400' });
+      res.end(req.method === 'HEAD' ? undefined : png);
+      return;
+    }
     const want = parseVersioned(String(req.url ?? ''));
     const repo = !want ? null : want.repo === null ? this.repo : this.other(want.repo);
     if (!want || !repo) { res.writeHead(404).end(); return; }
@@ -235,7 +251,9 @@ export async function resolveVersion(repo: string, sheet: string): Promise<{ com
  * The family tree inside the trail (his ask, 2026-10-21): a named BRANCH > a MOCKUP (a sheet) > its CHILD mockups (the
  * follow-ups, 45b, 45d...). Three levels only: a child never has children, and a child is always in its parent's branch.
  */
-export interface MockBranch { id: number; name: string; folded: boolean }
+/** 2026-10-28 (sheet 100, his pick: Project > Topic > Sheet): a branch is a TOPIC, and it belongs to a project by name
+ *  (Samara, Couch Mode...). No project: its sheets' repo's project (MockStore.projectOf). */
+export interface MockBranch { id: number; name: string; folded: boolean; project?: string }
 export interface MockPlace { branch: number | null; parent: string | null }
 /** The longest a branch name may be. */
 export const BRANCH_MAX = 40;
@@ -249,6 +267,8 @@ export function cleanBranch(x: unknown): string | null {
   const n = x.replace(/[\x00-\x1f\x7f-\x9f]/g, '').replace(/\s+/g, ' ').trim();
   return n.length >= 1 && n.length <= BRANCH_MAX ? n : null;
 }
+/** A repo's folder name read as a project's: couch-mode is Couch Mode. */
+export const readable = (name: string): string => name.replace(/[-_.]+/g, ' ').trim().replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, BRANCH_MAX);
 /** A sheet's number and letter: docs/cockpit/sheet-45g-click.html is 45 and g. */
 export function sheetNum(sheet: string): { n: string; letter: string } | null {
   const m = /^sheet-([0-9]+)([a-z]?)(?=[-.])/i.exec(path.posix.basename(sheet));
@@ -273,6 +293,8 @@ export class MockStore {
   places = new Map<string, MockPlace>();
   /** 2026-10-22: the other repos a sheet can come from (@<name>/...), by name: their full folder. */
   repos = new Map<string, string>();
+  /** 2026-10-28: each repo's project, by the repo's name ('' is AangApp itself): AiVatar is Samara, couch-mode is Couch Mode. */
+  projects = new Map<string, string>();
   /** 2026-10-22: what the tidy keeps about each sheet (mockuptidy.ts SheetMeta), and when it last ran. */
   meta = new Map<string, SheetMeta>();
   tidiedAt = 0;
@@ -317,7 +339,9 @@ export class MockStore {
         // Marks set before the log existed (2026-10-23) join it, so they travel too.
         for (const v of this.list) if (v.stage && !this.stageLog.has(v.key)) this.stageLog.set(v.key, { key: v.key, sheet: bareSheet(v.sheet), stage: v.stage, ...(v.note ? { note: v.note } : {}), ...(v.said ? { said: v.said } : {}), by: v.by ?? 'you', at: v.stageAt ?? 0 });
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
-          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true })).slice(0, 100);
+          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true, ...(cleanBranch(b.project) ? { project: cleanBranch(b.project)! } : {}) })).slice(0, 100);
+        const pj = s?.projects && typeof s.projects === 'object' ? s.projects as Record<string, unknown> : {};
+        for (const [k, v] of Object.entries(pj)) if ((k === '' || REPO_NAME_RE.test(k)) && cleanBranch(v)) this.projects.set(k, cleanBranch(v)!);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};
         for (const [k, v] of Object.entries(pl)) {
           if (!cleanSheet(k) || !v || typeof v !== 'object') continue;
@@ -333,7 +357,7 @@ export class MockStore {
     this.branchSeq = this.branches.reduce((m, x) => Math.max(m, x.id), 0);
   }
   private save(): void {
-    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt, stageLog: [...this.stageLog.values()] })); }
+    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), projects: Object.fromEntries(this.projects), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt, stageLog: [...this.stageLog.values()] })); }
     catch (e) { console.error('shell: mockups: the history could not be saved: ' + (e as Error).message); }
   }
   /**
@@ -387,6 +411,17 @@ export class MockStore {
   }
   /** Another repo's folder by its name, or null. */
   repoPath(name: string): string | null { return this.repos.get(name) ?? null; }
+  /**
+   * The project a sheet is in (sheet 100): its topic's project, else its repo's, else the repo's name made readable
+   * (couch-mode reads Couch Mode). Live pages are 'Live pages'.
+   */
+  projectOf(sheet: string): string {
+    const b = this.branches.find((x) => x.id === this.placeOf(sheet).branch);
+    if (b?.project) return b.project;
+    if (sheetKind(sheet) === 'live') return 'Live pages';
+    const repo = sheet.startsWith('@') ? splitRepoSheet(sheet)?.name ?? '' : '';
+    return this.projects.get(repo) ?? (repo ? readable(repo) : 'AangApp');
+  }
   /**
    * The name a repo's sheets go by (@<name>/...): the one it already has, else its folder's name made plain, with -2, -3
    * after it when another repo has that name. Kept, so an old version still finds its repo after a restart.
@@ -459,9 +494,14 @@ export class MockStore {
     const parent = this.places.get(sheet)!.parent;
     const target = parent ? (this.placeOf(parent).branch === null ? parent : null) : sheet;
     if (!target) return null;
-    const id = this.branches.find((b) => b.name.toLowerCase() === n.toLowerCase())?.id ?? this.newBranch(n);
+    // Sheet 100: a topic is matched inside the sheet's own project (Couch Mode's "Launcher" is never Samara's), and a new
+    // one belongs to that project.
+    const proj = this.projectOf(target), here = (b: MockBranch) => (b.project ?? proj) === proj;
+    let id = this.branches.find((b) => b.name.toLowerCase() === n.toLowerCase() && here(b) && (b.project || this.sheetsIn(b.id).every((x) => this.projectOf(x) === proj)))?.id;
+    if (id === undefined) { id = this.newBranch(n); this.branches.find((b) => b.id === id)!.project = proj; this.save(); }
     return this.toBranch(target, id) ? null : target;
   }
+  private sheetsIn(branch: number): string[] { return [...this.places].filter(([, v]) => v.branch === branch && !v.parent).map(([k]) => k); }
   /** Make a mockup the child of another. Three levels only: dropped on a child, it joins that child's parent instead. */
   toParent(sheet: string, parent: string): string {
     const top = this.places.get(parent)?.parent ?? parent;

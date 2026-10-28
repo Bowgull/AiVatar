@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 100 (his pick, 2026-10-28: "Quest log page and the picture strip"): every mockup in a page of its own.
+     Projects and topics on the left, that topic's sheets in the middle, the one he picks big on the right with its
+     versions under it. Drawn with textContent only; the only doors are window.mocklog. Pictures come from Samara's own
+     mockup server on 127.0.0.1. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: http://127.0.0.1:*; font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Mockups</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="mocklog.css">
+</head>
+<body>
+<div class="log panel">
+  <div class="c1"><div class="ttl">PROJECTS</div><div id="tree"></div></div>
+  <div class="c2"><div class="ttl" id="topic"></div><div id="sheets"></div></div>
+  <div class="c3" id="detail"></div>
+</div>
+<script type="module" src="mocklog.js"></script>
+</body>
+</html>

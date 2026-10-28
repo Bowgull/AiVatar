@@ -1,0 +1,81 @@
+/* Sheet 100, the Mockups quest log: Samara's tray wood in its pixel frame with brass corners, three columns. The four
+   layers keep the looks they have in the trail (browser.css, "Sheet 100"): project plaque, topic capitals, sheet chip,
+   version picture. */
+html{background:#0d0805}
+body{margin:0;height:100vh;box-sizing:border-box;padding:14px;color:#e8dcc4;font-family:var(--body);overflow:hidden;
+  background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.panel{position:relative;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:linear-gradient(rgba(0,0,0,.30),rgba(0,0,0,.40)),url(art/browser/tray.png) 0 0/128px 256px;background-clip:padding-box;box-shadow:0 6px 0 rgba(0,0,0,.5)}
+.panel::after{content:"";position:absolute;inset:-8px;pointer-events:none;
+  background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+    url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+.log{height:100%;box-sizing:border-box;display:grid;grid-template-columns:270px minmax(260px,330px) 1fr}
+.log>div{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#5a3a1e transparent}
+.log>div::-webkit-scrollbar{width:8px}.log>div::-webkit-scrollbar-thumb{background:#5a3a1e;border:2px solid #120A05}.log>div::-webkit-scrollbar-track{background:transparent}
+.c1{padding:12px 10px;border-right:3px solid #120A05}
+.c2{padding:12px 8px;border-right:3px solid #120A05;background:rgba(0,0,0,.18)}
+.c3{padding:16px 20px}
+.ttl{font:400 11px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:0 0 10px;text-transform:uppercase}
+button{font:inherit;color:inherit}
+
+/* PROJECT */
+.proj{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:7px 10px 7px 7px;margin:0 0 6px;border:3px solid #120A05;border-radius:8px;cursor:pointer;text-align:left;
+  background:linear-gradient(180deg,#5a3a1e 0 3px,#3d2612 3px calc(100% - 3px),#24160a calc(100% - 3px));box-shadow:0 3px 0 #120A05,inset 0 0 0 2px rgba(255,214,140,.12)}
+.proj:hover{filter:brightness(1.08)}
+.proj .em{flex:none;width:32px;height:32px;display:grid;place-items:center;border:2px solid #120A05;border-radius:6px;background:#0B0718}
+.proj .em img{width:32px;height:32px}
+.proj .em b{font:700 17px var(--display);color:#FFE28C;text-shadow:0 2px 0 #000}
+.proj .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 14px var(--display);letter-spacing:1.6px;color:#f2e3c2;text-transform:uppercase;text-shadow:0 2px 0 #000}
+.proj .pc{font:700 12px var(--body);color:#a98e6a}
+.chev{flex:none;width:0;height:0;border:5px solid transparent;border-left:6px solid #FFE28C;border-right:0;transition:transform .2s steps(3)}
+.proj.open .chev{transform:rotate(90deg)}
+/* TOPIC */
+.topic{display:flex;align-items:center;gap:7px;width:calc(100% - 6px);margin:8px 0 4px 6px;padding:2px 0;border:none;background:none;cursor:pointer;text-align:left;
+  font:400 11px var(--label);letter-spacing:1.4px;color:#c9a35a;text-transform:uppercase}
+.topic::after{content:"";flex:1;order:3;height:3px;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1.5px,rgba(255,224,150,.18) 1.5px 3px)}
+.topic .chev{border-width:4px;border-left-width:5px;border-left-color:#c9a35a}
+.topic .n{order:2;font:700 11.5px var(--body);letter-spacing:0;color:#a98e6a;text-transform:none}
+.topic.on,.topic:hover{color:#FFE28C}
+.topic.on .chev{border-left-color:#FFE28C;transform:rotate(90deg)}
+/* SHEET */
+.sh{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 3px;padding:8px;border:none;border-radius:6px;background:none;cursor:pointer;text-align:left;font:700 14px var(--body);color:#f2e3c2}
+.sh.kid{width:calc(100% - 22px);margin-left:22px;font-size:13.5px}
+.sh:hover{background:rgba(255,196,60,.10)}
+.sh.on{background:rgba(255,196,60,.16);box-shadow:inset 3px 0 0 #FFC43C}
+.num{flex:none;min-width:28px;box-sizing:border-box;padding:2px 5px;border-radius:4px;text-align:center;font:800 12px/1.2 var(--body);color:#2a1c00;
+  background:#d9ae62;box-shadow:0 2px 0 #120A05,inset 0 2px 0 #f0d08e,inset 0 -2px 0 #a8793a}
+.sh .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh .vc{flex:none;font:700 11.5px var(--body);color:#a98e6a}
+.sh.parked .nm{color:#8f7a5c;text-decoration:line-through;text-decoration-color:rgba(185,166,132,.6)}
+/* the marks, as sheet 79 has them */
+.mk{flex:none;font:800 10.5px/1 var(--body);letter-spacing:.5px;padding:4px 5px 3px;border-radius:3px;white-space:nowrap;font-style:normal}
+.mk.ok{background:#FFC43C;color:#2a1c00}
+.mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
+.mk.chg{background:#e8913a;color:#2b1405}
+.mk.park{background:#4a3f33;color:#b9a684}
+/* the one he picked */
+.where{font:400 11px var(--label);letter-spacing:1.4px;color:#c9a35a;margin:0 0 6px;text-transform:uppercase}
+.where b{color:#FFE28C;font-weight:400}
+.dt{display:flex;align-items:center;gap:10px;font:700 21px var(--display);color:#FFE28C;text-shadow:0 2px 0 #000;margin:0 0 12px}
+.dt .num{text-shadow:none}
+.big{display:grid;place-items:center;width:100%;max-width:820px;aspect-ratio:16/10;box-sizing:border-box;border:8px solid transparent;
+  border-image:url(art/browser/trayframe.png) 4 repeat;background:#0B0718 center/cover no-repeat;image-rendering:auto;font:800 18px var(--body);color:#a98e6a}
+.said{margin:10px 0 0;font:500 13px var(--body);color:#e8b27a;font-style:italic}
+.go{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 12px 5px;border-radius:6px;border:2px solid #120A05;background:#FFC43C;color:#2a1c00;
+  font:800 13px var(--body);box-shadow:0 3px 0 #120A05;cursor:pointer}
+.go:hover{filter:brightness(1.07)}
+.go:active{transform:translateY(2px);box-shadow:0 1px 0 #120A05}
+/* VERSIONS: the picture strip */
+.strip{display:flex;gap:8px;margin:14px 0 0;flex-wrap:wrap}
+.vt{position:relative;width:96px;cursor:pointer;background:none;border:none;padding:0;text-align:left}
+.vt .pic{display:grid;place-items:center;width:96px;height:60px;box-sizing:border-box;border:4px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:#0B0718 center/cover no-repeat;image-rendering:auto;font:800 12px var(--body);color:#a98e6a}
+.vt .v{display:block;margin:3px 0 0 1px;font:800 11.5px var(--body);color:#FFE28C}
+.vt .mk{position:absolute;right:-4px;top:-6px;font-size:9.5px;padding:3px 4px 2px;box-shadow:0 2px 0 #120A05}
+.vt.ok .pic{border-image:none;border:4px solid #FFC43C;box-shadow:0 0 0 2px #120A05}
+.vt.park .pic{filter:saturate(.25) brightness(.6)}
+.vt.on .v{color:#fff}
+.vt.on .pic{outline:2px solid #fff;outline-offset:1px}
+.vt:hover .pic{filter:brightness(1.15)}
+.empty{font:500 13px var(--body);color:#a98e6a;margin:8px 4px}
+@media (prefers-reduced-motion:reduce){.chev{transition:none}}

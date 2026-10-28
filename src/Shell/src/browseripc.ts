@@ -107,6 +107,9 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('browser:dl', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.act === 'string') b(e).dlAct(a.act.slice(0, 10), Number(a.id) || 0); });
   ipcMain.on('browser:dldrag', (e, id) => { if ((top(e) && b(e)?.isFrame(e.sender)) && Number.isInteger(id)) b(e).dlDrag(e.sender, id); });
   ipcMain.on('browser:dlhello', (e) => { if ((top(e) && b(e)?.isFrame(e.sender))) b(e).resendDownloads(); });
+  // Sheet 100: the Mockups quest log's only doors: read the tree, open a version.
+  ipcMain.handle('mocklog:get', (e) => (top(e) && b(e)?.isMockLog(e.sender)) ? b(e).mockLogData() : null);
+  ipcMain.on('mocklog:show', (e, id) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && Number.isInteger(id)) b(e).mockLogShow(id); });
   ipcMain.handle('things:history', (e, a) => (top(e) && b(e)?.isThings(e.sender)) && a ? b(e).historyPage(String(a.q ?? ''), Number(a.offset) || 0) : null);
   ipcMain.handle('things:downloads', (e) => (top(e) && b(e)?.isThings(e.sender)) ? b(e).downloadsPage() : null);
   ipcMain.on('things:hist', (e, a) => { if ((top(e) && b(e)?.isThings(e.sender)) && a && typeof a.act === 'string') b(e).historyAct(a.act.slice(0, 12), typeof a.url === 'string' ? a.url.slice(0, 2000) : undefined, Number(a.at)); });
