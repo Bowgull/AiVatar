@@ -2726,7 +2726,9 @@ export class Core {
           // cards and timer cards in the bubble until it ends, as a game does on the PC (2026-10-28 notice review: the
           // Mac never sent it, so cards and the needs-you chime came up mid-call). Never "hidden": that would turn asks
           // away rather than hold them.
-          this.lastBubbleState = { t: 'bubble.state', quiet: p.quiet, hidden: false, muted: this.muted };
+          // `call` (2026-10-28, his pick): on a call a timer only glows, no knocks.
+          const r = this.macPresence?.now();
+          this.lastBubbleState = { t: 'bubble.state', quiet: p.quiet, hidden: false, muted: this.muted, ...(r && (r.mic || r.cam) ? { call: true } : {}) } as never;
           this.sendTo('desktop', this.lastBubbleState);
         },
         desk: active => this.applyDesk(active), log: s => console.log(s),
