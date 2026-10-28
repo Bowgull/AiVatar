@@ -108,6 +108,7 @@ import { DEFAULT_DUBS, dubFor, isPlan, nameLeftOver, readChannels, readDubs, rea
 import type { Channels, Dub, DubTable, WatchPlan, Where } from './puton.ts';
 import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import { steppingAway } from './away.ts';
+import { MacPresence } from './macpresence.ts';
 import type { CalEvent, Fetch } from './google.ts';
 import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
@@ -2614,11 +2615,42 @@ export class Core {
     if (!r.ok && wasStale) this.announce(`I have not backed up cleanly in over 12 hours. The last attempt failed: ${r.detail}.`);
   }
 
+  /** He came back to (or left) the machine: from the pet on the PC, from the Mac's presence helper on the Mac. */
+  private applyDesk(active: boolean): void {
+    const was = this.atDesk; this.atDesk = active;
+    if (!was && this.atDesk) setTimeout(() => this.briefIfDue(), 20_000).unref?.();
+  }
+  /** What is in front and whether to keep quiet: from the pet on the PC, from the Mac's presence helper on the Mac. */
+  private applyPresence(m: { foreground?: unknown; title?: unknown; quiet?: unknown; watching?: unknown; hwnd?: unknown }): void {
+    this.fgProcess = String(m.foreground ?? '');
+    this.fgTitle = String(m.title ?? '');
+    this.frontMoved();
+    // Perf sweep (2026-10-22): the game just came to the front. Ollama keeps Qwen (13 GB of his 15 GB card) resident
+    // for five minutes after its last job, and until now only the NEXT local job gave the card back, so a job finished
+    // a minute before he tabbed into WoW held the card through the start of his session. Now it goes at once. A model
+    // that is not loaded is untouched (Ollama answers keep_alive 0 with an empty prompt by unloading, never loading),
+    // and a job mid-answer finishes first.
+    if (m.quiet === true && !this.bodyQuiet && process.platform !== 'darwin') void import('./local.ts').then(({ unloadLocal }) => unloadLocal()).catch(() => {});
+    this.setSilent(m.quiet === true, this.muted);
+    const watching = m.watching !== false;
+    if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }
+    if (!watching) clearReadCache();
+    if (watching) this.activity.record(String(m.foreground ?? ''), String(m.title ?? ''), Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
+  }
+  /** The Mac's presence helper (mac/presence.swift); null on the PC, where the pet does this. */
+  private macPresence: MacPresence | null = null;
+
   /** This run's password. Null only if it could not be written; the Origin rule still stands. */
   private token: string | null = null;
 
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
+    if (process.platform === 'darwin' && process.env.AANG_PRESENCE !== '0') {
+      this.macPresence = new MacPresence(process.env.AANG_PRESENCE_BIN ?? path.join(import.meta.dirname, '..', 'bin', 'aang-presence'), {
+        presence: p => this.applyPresence(p), desk: active => this.applyDesk(active), log: s => console.log(s),
+      });
+      this.macPresence.start();
+    }
     // 2026-10-21: the finished version is worked out in the background (refreshRelease); the changelog follows it.
     void this.refreshRelease().then(() => this.writeChangelog());
     this.watchMacShip();
@@ -2859,6 +2891,7 @@ export class Core {
   }
 
   async stop(): Promise<void> {
+    this.macPresence?.stop();
     // A stale password must not outlive the Core that issued it.
     clearToken(this.cfg.stateDir);
     clearLinkKey(this.cfg.dataDir);
@@ -3504,7 +3537,7 @@ export class Core {
         this.armTimers();
         break;
       }
-      case 'desk': { const was = this.atDesk; this.atDesk = m.active !== false; if (!was && this.atDesk) setTimeout(() => this.briefIfDue(), 20_000).unref?.(); break; }
+      case 'desk': this.applyDesk(m.active !== false); break;
       // He clicked Aang, so the typing box is opening: warm the lane now rather than at every
       // restart (step Q1). Costs the same one silent turn, but only when he is actually here.
       case 'poked': this.warmNow(); break;
@@ -3757,6 +3790,7 @@ export class Core {
         // back; until then everything goes to Discord.
         this.atDesk = false;
         this.sendTo('desktop', { t: 'away.set' });
+        this.macPresence?.awaySet();
         this.send(ws, { t: 'away.reply', text: 'Okay. Everything comes here until you are back at the PC.' });
         if (this.kindOfSocket(ws) === 'desktop') this.sendTo('discord', { t: 'bubble', text: 'You stepped away. I am here; everything comes to Discord until you are back at the PC.', stream: false, proactive: true });
         break;
@@ -3849,6 +3883,7 @@ export class Core {
           this.send(ws, { t: 'ack', id });
           this.atDesk = false;
           this.sendTo('desktop', { t: 'away.set' });
+          this.macPresence?.awaySet();
           this.send(ws, { t: 'bubble', text: 'Okay. Everything goes to Discord until you are back.', stream: false, id, who: 'Aang' });
           this.sendTo('discord', { t: 'bubble', text: 'You stepped away. I am here; everything comes to Discord until you are back at the PC.', stream: false, proactive: true });
           break;
@@ -3915,23 +3950,7 @@ export class Core {
       case 'addons.update': void this.addonDesk.update((Array.isArray(m.ids) ? m.ids : []).map(Number).filter(Number.isInteger).slice(0, 60)).catch(e => console.error('addons: ' + (e as Error).message)); break;
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
-      case 'presence': {
-        this.fgProcess = String(m.foreground ?? '');
-        this.fgTitle = String(m.title ?? '');
-        this.frontMoved();
-        // Perf sweep (2026-10-22): the game just came to the front. Ollama keeps Qwen (13 GB of his 15 GB card) resident
-        // for five minutes after its last job, and until now only the NEXT local job gave the card back, so a job finished
-        // a minute before he tabbed into WoW held the card through the start of his session. Now it goes at once. A model
-        // that is not loaded is untouched (Ollama answers keep_alive 0 with an empty prompt by unloading, never loading),
-        // and a job mid-answer finishes first.
-        if (m.quiet === true && !this.bodyQuiet) void import('./local.ts').then(({ unloadLocal }) => unloadLocal()).catch(() => {});
-        this.setSilent(m.quiet === true, this.muted);
-        const watching = m.watching !== false;
-        if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }
-        if (!watching) clearReadCache();
-        if (watching) this.activity.record(m.foreground ?? '', m.title ?? '', Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
-        break;
-      }
+      case 'presence': this.applyPresence(m); break;
       // The browser's Trail clean up (2026-10-12). Tab titles are web page text: they go in as data under a fixed system
       // prompt that says so, and the Shell reads the answer strictly (tab numbers and short names only). askLocal itself
       // refuses while a game is running ('game'), and the Shell then waits and asks again.
