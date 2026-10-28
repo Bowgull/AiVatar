@@ -9,6 +9,7 @@
 //  8 closing the window locks it
 //  5b the mask: hide behind Brave Search, double click + PIN to come back
 //  8b opened again, his tabs come back with his PIN
+//  8c 2026-10-28: ⇧⌘N brings a locked secret window forward; closing its last tab keeps every tab for next time
 //  9 five wrong PINs: a new one needs his Mac password
 // 10 the secret window searches with Yandex
 // Run: TEST_CERT_DIR=<dir with test-key.pem, test-cert.pem> npx electron test/electron/secret-check.ts
@@ -24,6 +25,7 @@ setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 180_000).unre
 app.commandLine.appendSwitch('host-resolver-rules', 'MAP shop.example 127.0.0.1, MAP ads.example 127.0.0.1, MAP yandex.com 127.0.0.1');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('use-mock-keychain');                 // never his real Keychain
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 app.setPath('userData', mkdtempSync(path.join(os.tmpdir(), 'sec-ud-')));
 app.on('window-all-closed', () => {});
@@ -188,6 +190,29 @@ app.whenReady().then(async () => {
   for (let i = 0; i < 40 && s.locked; i++) await wait(150);
   const again = s.tabs.map((t: any) => String(t.url)).join(' ');
   check('8b opened again, a click on the mask and his PIN bring his tabs back', !s.locked && again.includes('/before') && again.includes('/kept'), again);
+  // 8c: his tabs survive closing them one by one down to the last; and ⇧⌘N on a locked, minimized window brings it up
+  const tabsFile = path.join(sdir, 'browser-tabs.json');
+  while (s.tabs.length > 1) s.close(s.tabs[0].id);
+  const lastUrl = String(s.tabs[0].url);
+  s.close(s.tabs[0].id);
+  await wait(2000);
+  const after = existsSync(tabsFile) ? readFileSync(tabsFile, 'utf8') : '';
+  check('8c closing the last secret tab keeps it for next time (never an empty list)', s.locked === true && after.includes(lastUrl) && !/"tabs":\[\]/.test(after), `last ${lastUrl}`);
+  s.open();
+  for (let i = 0; i < 100 && !s.cur()?.view; i++) await wait(150);
+  await wait(1200);
+  s.win.minimize();
+  await wait(800);
+  s.open();
+  await wait(800);
+  check('8c ⇧⌘N on a locked secret window that is out of sight brings it forward', s.locked === true && !s.win.isMinimized() && s.win.isVisible(), `minimized ${s.win.isMinimized()}, visible ${s.win.isVisible()}`);
+  s.win.focus(); s.win.webContents.focus();
+  await s.secretMask('one');
+  await wait(400);
+  for (const k of ['1', '2', '3', '4']) { s.win.webContents.sendInputEvent({ type: 'keyDown', keyCode: k }); s.win.webContents.sendInputEvent({ type: 'keyUp', keyCode: k }); await wait(60); }
+  for (let i = 0; i < 40 && s.locked; i++) await wait(150);
+  const kept3 = s.tabs.map((t: any) => String(t.url)).join(' ');
+  check('8c and its PIN brings back the tab he closed last', !s.locked && kept3.includes(lastUrl), kept3);
   s.win.close();
   await wait(1500);
   // 9: five wrong PINs wipe it; a new one then needs his Mac password (never just picked by whoever is there)

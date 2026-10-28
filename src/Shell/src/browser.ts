@@ -2115,7 +2115,13 @@ export class AangBrowser {
   /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
   open(url?: string): void {
     const p = this.lastPane();
-    if (p && !this.restored) { if (url) this.whenOpen.push(() => this.newTab(url)); return; }
+    if (p && !this.restored) {
+      if (url) this.whenOpen.push(() => this.newTab(url));
+      // 2026-10-28 (his report: ⇧⌘N did nothing and no secret window showed): the secret window is never "restored"
+      // while locked, so this returned with the window still behind others, minimized or never shown. It comes forward.
+      if (this.o.secret) { p.win!.setOpacity(1); bringFront(p.win!); }
+      return;
+    }
     if (p) {
       this.pane = p;
       bringFront(p.win!);
@@ -3093,6 +3099,9 @@ export class AangBrowser {
     const at = this.paneTabs().indexOf(this.tabs[i]!);
     // A tab playing in the popout comes back first, so its page is closed here and nowhere else.
     if (this.tabs[i]!.lent) this.onReclaim?.();
+    // 2026-10-28 (his pick: "I always want my older tabs to be there"): the secret window's last tab closing only closes
+    // the window. Its tabs are saved as they are first, this one included, and never written over with an empty list.
+    if (this.o.secret && lastClosesWindow && this.tabs.length === 1 && this.restored) void this.snapshot(true);
     const [t] = this.tabs.splice(i, 1);
     if (isWeb(t!.url)) { this.closed.push(t!.url); if (this.closed.length > 25) this.closed.shift(); }
     this.closeView(t!);
@@ -3104,7 +3113,7 @@ export class AangBrowser {
       if (next) this.activate(next.id);
       else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
         // Nothing left in the whole browser: remember an empty window (so the closed tabs do not come back next time).
-        if (!this.tabs.length && this.restored) {
+        if (!this.tabs.length && this.restored && !this.o.secret) {
           this.keepTabsCopy('empty');
           try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
           this.sync?.changed('tabs');
@@ -5256,18 +5265,7 @@ export class AangBrowser {
     const fronts = windows.map((p) => keep.findIndex((t) => t.id === p.active));
     const trails = this.trails.map((x) => ({ ...x }));
     const closed = this.closed.slice(-25);
-    // Only the tabs in front, and the ones he was on since the last save (measured 2026-10-20: asking every tab every
-    // 8 s woke them all, and on a slow machine ran past its deadline so nothing was saved). Closing asks them all.
-    const due = this.scrollDue; this.scrollDue = new Set();
-    await Promise.all(keep.map(async (t) => {
-      if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
-      if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
-      const wc = t.view.webContents;
-      const got = await within(askPage<[number, string]>(wc, PAGE_LOOK_JS), 800, null);
-      if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
-      try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
-    }));
-    const data = {
+    const make = () => ({
       v: 1,
       // Every window's tabs, each knowing its window (`win`), and the tab in front in each (`fronts`).
       active: Math.max(0, keep.findIndex((x) => x.id === front)),
@@ -5282,13 +5280,31 @@ export class AangBrowser {
       })),
       trails,
       closed,
+    });
+    // Closing or quitting: written once at once with what is known (2026-10-28: quitting could end Samara before the
+    // pages answered below, and then nothing of the last few seconds was kept), then again with their scroll spots.
+    const kept = (d: ReturnType<typeof make>) => {
+      const mine = d.tabs.filter((t) => !t.mock).length;
+      if (this.savedCount >= 4 && mine < this.savedCount / 2) this.keepTabsCopy('drop');
+      this.savedCount = mine;
     };
+    if (all) { const d = make(); kept(d); try { writeFileAtomic(this.file, JSON.stringify({ ...d, at: new Date().toISOString() })); } catch { /* written again below */ } }
+    // Only the tabs in front, and the ones he was on since the last save (measured 2026-10-20: asking every tab every
+    // 8 s woke them all, and on a slow machine ran past its deadline so nothing was saved). Closing asks them all.
+    const due = this.scrollDue; this.scrollDue = new Set();
+    await Promise.all(keep.map(async (t) => {
+      if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
+      if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
+      const wc = t.view.webContents;
+      const got = await within(askPage<[number, string]>(wc, PAGE_LOOK_JS), 800, null);
+      if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
+      try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
+    }));
+    const data = make();
     const body = JSON.stringify(data);
     if (!all && body === this.lastSnap) return;
     this.lastSnap = body;
-    const mine = data.tabs.filter((t) => !t.mock).length;
-    if (this.savedCount >= 4 && mine < this.savedCount / 2) this.keepTabsCopy('drop');
-    this.savedCount = mine;
+    kept(data);
     // In the background while he browses; on closing, written before anything else happens.
     const text = JSON.stringify({ ...data, at: new Date().toISOString() });
     const fail = (e: unknown) => console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message);
