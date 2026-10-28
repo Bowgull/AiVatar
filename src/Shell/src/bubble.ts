@@ -151,7 +151,7 @@ export class Bubble {
       if (key === this.lastPointer) return;
       this.lastPointer = key;
       w.webContents.send('bubble:pointer', { x, y });
-    }, 60);
+    }, 30);   // 2026-10-28 motion audit: 60 ms made a hover feel late; one cursor read is cheap
     this.pointerTimer.unref?.();
   }
   private stopPointer(): void {

@@ -23,7 +23,7 @@ let edge = 'bottom';
 const SPEC = { idle: [6, true], talk: [10, true], think: [8, true], nap: [3, true], walk: [8, true], scooter: [10, true], look: [10, false], hello: [10, false], spin: [12, false], zip: [12, false] };
 const frames = {};               // state -> [ImageBitmap]
 let state = 'idle', frame = 0, due = 0, rest = 'idle';
-let show = 34, mark = null, flash = null, flashUntil = 0;
+let show = 34, room = 34, mark = null, flash = null, flashUntil = 0;
 
 // ClaudeMarks.cs, verbatim (O outline, H light, F face, S shade).
 const SHAPES = {
@@ -113,7 +113,10 @@ function draw() {
     g.save();
     // Nothing above his head is cut: his frames bob and some reach above row 78 (2026-10-28, his head was clipped). Only
     // the bottom is clipped, at the edge he stands or docks on.
-    g.beginPath(); g.rect(0, 0, 224, MARK + show); g.clip();
+    g.beginPath(); g.rect(0, 0, 224, MARK + room); g.clip();
+    // He slides inside a window sized for the whole slide (macaang.ts room): `room - show` pixels of it are empty
+    // space above him, so the window is not resized every frame.
+    g.translate(0, room - show);
     if (glow) drawHalo(f, performance.now());
     g.drawImage(f, 0, MARK - ART_TOP);
     g.restore();
@@ -130,7 +133,7 @@ function draw() {
   const kind = flash && performance.now() < flashUntil ? flash : mark;
   if (kind && SHAPES[kind] && show > 0) {
     const a = markOf(kind);
-    const [cx, cy] = turned(ART_X + ART_W / 2, MARK - 9 - a.h / 2);
+    const [cx, cy] = turned(ART_X + ART_W / 2, MARK - 9 - a.h / 2 + (room - show));
     out.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(cy - a.h / 2));
   }
 }
@@ -174,11 +177,12 @@ window.pet?.onFrames(async (all) => {
 window.pet?.onState((s) => {
   if (Number.isFinite(s.show)) {
     show = Math.max(0, Math.min(126, Math.round(s.show)));
-    // The window is MARK plus what shows (macaang.ts placePet); the canvas follows it, one to one.
+    // The window is MARK plus `room` (macaang.ts placePet); the canvas follows it, one to one.
+    room = Number.isFinite(s.room) ? Math.max(show, Math.min(126, Math.round(s.room))) : show;
   }
   if (typeof s.edge === 'string') edge = ['left', 'right', 'top'].includes(s.edge) ? s.edge : 'bottom';
   if (Number.isFinite(s.show) || typeof s.edge === 'string') {
-    const h = MARK + Math.max(1, show), side = edge === 'left' || edge === 'right';
+    const h = MARK + Math.max(1, room), side = edge === 'left' || edge === 'right';
     if (up.height !== h) { up.height = h; g.imageSmoothingEnabled = false; }
     const w = side ? h : 224, hh = side ? 224 : h;
     if (cv.width !== w || cv.height !== hh) { cv.width = w; cv.height = hh; out.imageSmoothingEnabled = false; }
@@ -226,7 +230,7 @@ document.addEventListener('mouseup', (e) => {
   clearTimeout(holdTimer);
   if (holding) { holding = false; down = null; window.pet?.hold('release', e.screenX, e.screenY); return; }
   if (dragging) window.pet?.drag('end', e.screenX, e.screenY);
-  else if (down && solid) window.pet?.click(upright(e.offsetX, e.offsetY)[1] < MARK ? 'mark' : 'aang');
+  else if (down && solid) window.pet?.click(upright(e.offsetX, e.offsetY)[1] < MARK + (room - show) ? 'mark' : 'aang');
   down = null; dragging = false;
 });
 document.addEventListener('contextmenu', (e) => { e.preventDefault(); if (solid) window.pet?.context(e.screenX, e.screenY); });
