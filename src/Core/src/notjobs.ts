@@ -14,7 +14,10 @@ const NOT_HIS = [
   /[\\/]\.aang-(self|test)([\\/]|$)/i,
   /[\\/]src[\\/]Core[\\/]test([\\/]|$)/i,
   /[\\/]AppData[\\/]Local[\\/]Temp([\\/]|$)/i,
-  /^\/tmp(\/|$)/,
+  // The Mac's temp folders (2026-10-28): /tmp is /private/tmp there, and each app's own is under /var/folders. Three
+  // test runs in /private/tmp left a "done" mark on his head for an hour.
+  /^\/(private\/)?tmp(\/|$)/,
+  /^\/(private\/)?var\/folders\//,
 ];
 
 const norm = (p: string) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();

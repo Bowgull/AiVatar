@@ -10,7 +10,7 @@ const TMP = 'C:\\Users\\Shadow\\AppData\\Local\\Temp';
 
 test('tests, temp folders and Aang lanes are not his; his real folders are', () => {
   for (const c of ['C:\\Users\\Shadow\\Documents\\AangApp\\src\\Core\\test', 'C:\\Users\\Shadow\\Documents\\AangApp\\src\\Core\\test\\fixtures',
-    `${TMP}\\aang-test-x1`, 'C:\\Users\\Shadow\\Documents\\Aang\\.aang-self', 'D:\\x\\.aang-test', '/tmp/aang', 'C:\\Elsewhere\\Tmp\\run'])
+    `${TMP}\\aang-test-x1`, 'C:\\Users\\Shadow\\Documents\\Aang\\.aang-self', 'D:\\x\\.aang-test', '/tmp/aang', '/private/tmp/claude-501/x/scratchpad', '/var/folders/ab/cd/T/run', 'C:\\Elsewhere\\Tmp\\run'])
     assert.equal(notHisCwd(c, '', 'C:\\Elsewhere\\Tmp'), true, c);
   for (const c of ['C:\\Users\\Shadow\\Documents\\AangApp', 'C:\\Users\\Shadow\\Documents\\AangApp\\src\\Core', 'C:\\Users\\Shadow\\Documents\\Aang',
     'C:\\code\\testing', 'C:\\Users\\Shadow\\Documents\\AangApp\\src\\Core\\tests-notes', 'C:\\Elsewhere\\Tmpx', '', undefined])
