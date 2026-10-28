@@ -1203,3 +1203,16 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .nkeys[hidden]{display:none}
 .bignote.npaper .np-in{min-height:260px}
 .nkeys{flex-wrap:nowrap;gap:8px}.nkeys .key{font-size:12.5px;padding:8px 12px 9px;white-space:nowrap}
+
+/* Sheet 104 (his yes, 2026-10-28): the boxes inside the bubble take the bubble's own pixel edge. A 7x7 frame drawn at
+   exactly 2x (art/frames/*.svg: stepped corners, a dark outline, a light inner edge, the fill), stretched by its middle
+   pixel only, never by a fraction. Not in the lantern look, which keeps its own glass. */
+#bubble:not(.lantern) .lt-slip{border:6px solid transparent;border-image:url(art/frames/slip.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated;filter:drop-shadow(0 2px 0 rgba(90,60,25,.25))}
+#bubble:not(.lantern) .lt-lamp{border:6px solid transparent;border-image:url(art/frames/lamp.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated}
+#bubble:not(.lantern) .lt-part.now{border-radius:0;box-shadow:inset 0 0 0 2px #c89a3c}
+#bubble .lt-tile{border:6px solid transparent;border-image:url(art/frames/tile.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated}
+#bubble .bchip{border:6px solid transparent;border-image:url(art/frames/chip.svg) 3 fill / 6px stretch;border-radius:0;background:none;padding:3px 9px 4px;image-rendering:pixelated}
+#bubble .bchip.on{border-image-source:url(art/frames/chip-on.svg);background:none;color:#fff}
+#bubble .bchip.add{border-image-source:url(art/frames/chip-add.svg)}
+/* Look back's day papers too (sheet 104 showed them framed), in the wood look the scroll-back wears. */
+#bubble .lookback .lt-slip, #bubble .lb-list .lt-slip{border:6px solid transparent;border-image:url(art/frames/slip.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated;filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
