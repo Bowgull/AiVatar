@@ -19,7 +19,7 @@ export type MenuState = Record<string, unknown>;
  * when he is tucked at an edge, so a tucked Aang gets that room on every side.
  */
 export function avoidRect(sprite: { x: number; y: number; width: number; height: number } | null | undefined, tucked = false,
-  toDip: (r: Electron.Rectangle) => Electron.Rectangle = (r) => screen.screenToDipRect(null, r)): Electron.Rectangle | null {
+  toDip: (r: Electron.Rectangle) => Electron.Rectangle = (r) => (process.platform === 'win32' ? screen.screenToDipRect(null, r) : r)): Electron.Rectangle | null {
   if (!sprite || !(sprite.width > 0) || !(sprite.height > 0)) return null;
   const r = toDip({ x: Math.round(sprite.x), y: Math.round(sprite.y), width: Math.round(sprite.width), height: Math.round(sprite.height) });
   const top = 48, side = tucked ? 48 : 10, under = tucked ? 48 : 6;
@@ -73,7 +73,8 @@ export class AangMenu {
    */
   open(phys: { x: number; y: number }, state: MenuState, avoid: Electron.Rectangle | null = null): void {
     const w = this.window();
-    const at = screen.screenToDipPoint(phys);
+    // screenToDipPoint exists on Windows only (Electron); the Mac's points are already DIPs (2026-10-28: the menu never opened).
+    const at = process.platform === 'win32' ? screen.screenToDipPoint(phys) : phys;
     const b = screen.getDisplayNearestPoint(at).workArea;
     if (w.isVisible()) w.hide();
     w.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height });
