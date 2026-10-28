@@ -477,8 +477,13 @@ function paintList() {
   if (box.hidden) return;
   const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   if (replyList.header?.text) box.append(T('span', 'plaque tone-' + (replyList.header.tone ?? 'normal'), replyList.header.text));
-  for (const it of replyList.items ?? []) {
+  for (const [i, it] of (replyList.items ?? []).entries()) {
     const row = T('div', 'lrow');
+    // Sheet 102 (2026-10-28): a row of "while you were busy" opens that one, as it would have come; a row of "welcome
+    // back" opens Look back, where what went to the phone is kept. Nothing is sent again.
+    const held = Array.isArray(replyList.held) ? replyList.held[i] : null;
+    if (held && typeof held === 'object') { row.classList.add('tap'); row.onclick = () => onBrain(held); }
+    else if (it.look) { row.classList.add('tap'); row.onclick = () => { try { recall('back'); } catch { /* nothing to show */ } }; }
     const mid = T('div', 'lmid');
     mid.append(T('div', 'lt', it.title ?? ''));
     if (it.subtitle) mid.append(T('div', 'ls', it.subtitle));

@@ -541,11 +541,12 @@ export class MailService {
    * Once a day, the first time this is asked after `fromHour` Toronto time (7 by default). Returns the text or null.
    * 2026-10-22 (his ask, "I'm usually up at 6 if not before"): at the desk the brief comes from 5:00 (core.ts).
    */
-  async dailyBrief(fromHour = 7): Promise<string | null> {
+  async dailyBrief(fromHour = 7, untilHour = 24): Promise<string | null> {
     const t = this.now();
     const day = t.toLocaleDateString('en-CA', { timeZone: TZ });
     const hour = Number(t.toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', hour12: false }).slice(0, 2));
-    if (hour < fromHour || this.store.briefDay === day || !this.g.connected) return null;
+    // A morning brief only in the morning (2026-10-28 review R5): never at 3 pm. He can still ask for it any time.
+    if (hour < fromHour || hour >= untilHour || this.store.briefDay === day || !this.g.connected) return null;
     const before = this.store.briefDay;
     this.store.briefDay = day;
     // A brief that fails partway must not use up the day (2026-10-28): the day only counts once it is made, so the

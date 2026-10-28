@@ -292,6 +292,22 @@ app.whenReady().then(async () => {
       { title: 'Your timer went off', subtitle: 'pasta, 10 minutes', chipText: 'TIMER', chipTone: 'normal' },
     ] } }) });
 
+  // Built: what the brain's own bundleOf / welcomeBack make (src/Core/src/heldnotes.ts), and a tap on a row.
+  const { bundleOf, welcomeBack, awayItemOf } = await import('../../../Core/src/heldnotes.ts');
+  const held = [
+    { t: 'bubble', text: 'Earlier, at 2:10 pm: Reminder: call the dentist', stream: false, proactive: true, reminder: 'r1', turn: 31 },
+    { t: 'bubble', text: 'Waymark needs your OK. Delete 3 old build folders?', stream: false, proactive: true, kind: 'claude', blocking: true, project: 'Waymark', turn: 32 },
+    { t: 'bubble', text: 'A creator you follow just posted: a new video', stream: false, proactive: true, about: { url: 'https://youtu.be/x', title: 'x' }, turn: 33 },
+  ];
+  await scene(pages, '3a-built-busy', { pose: 'more', run: say(bundleOf(held as never[], 'While you were busy:')) });
+  await scene(pages, '3b-built-tap', { pose: 'more', run: async (js) => {
+    await say(bundleOf(held as never[], 'While you were busy:'))(js);
+    const ok = await js(`(() => { const r = document.querySelectorAll('#rlist .lrow.tap')[1]; if (!r) return 'no tappable row'; r.click(); return 'tapped'; })()`);
+    console.log('tap: ' + ok);
+    await wait(2600);
+  } });
+  await scene(pages, '3c-built-back', { pose: 'more', run: say(welcomeBack([awayItemOf('Your Waymark job finished. Every test passed.', { kind: 'claude' }, 1), awayItemOf('Reminder: laundry', { reminder: 'r2' }, 2), { text: "Time's up: pasta. 10 minutes.", at: 3, chipText: 'TIMER', chipTone: 'normal' }])!) });
+
   pages.close();
   setTimeout(() => app.exit(0), 300);
 });

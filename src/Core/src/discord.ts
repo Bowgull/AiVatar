@@ -448,7 +448,8 @@ export class DiscordAdapter {
       const q = await this.post('needs-you', await this.drawn('needs', { title: `${title} needs you`, text: text.slice(0, 380) }, 0xC95E28, { content: `Claude needs you: ${first}`, as: 'claude' }));
       if (q) { this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: this.state.channels['needs-you']!, m: q } }; this.save(); }
     }
-    if (state === 'done') await this.gw.send(p.post, { content: `Done: ${text.slice(0, 1800)}`, as: 'claude', loud: true });
+    // A finished job buzzes, except in his quiet hours (2026-10-28 review R14); a session that needs him always does.
+    if (state === 'done') await this.gw.send(p.post, { content: `Done: ${text.slice(0, 1800)}`, as: 'claude', loud: !this.budget.quiet(this.now()) });
     void this.refreshHome().catch(() => {});
   }
   /** A short stable key for a job's folder, for its buttons. */
@@ -986,7 +987,7 @@ export class DiscordAdapter {
         // Something Aang says on his own: a reminder, a Claude job that needs him or finished, a warning.
         const kind = kindOf(ev);
         const loud = this.budget.loud(kind, this.now());
-        const channel = kind === 'asked' && /^Need input/i.test(ev.text) ? 'needs-you' : 'aang';
+        const channel = kind === 'needs' || (kind === 'asked' && /^Need input/i.test(ev.text)) ? 'needs-you' : 'aang';
         // The morning brief, drawn (sheet 21 board 1).
         if (ev.brief && typeof ev.brief === 'object' && this.state.channels['aang']) { await this.briefPost(this.state.channels['aang'], ev.text, ev.brief, !loud); return; }
         if (typeof ev.jobCwd === 'string' && ev.jobCwd) {

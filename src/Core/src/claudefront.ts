@@ -16,17 +16,21 @@ import type { ToBody } from './protocol.ts';
 import type { MarkMsg } from './claudemark.ts';
 
 /** How many proactive lines are kept while he is in Claude; past that the oldest go (as the hush queue does). */
+import { fresh, keep, tierOf, type Tier, type TierBits } from './heldnotes.ts';
+
 export const FRONT_HOLD_MAX = 8;
 
 export class FrontGate {
-  private held: ToBody[] = [];
+  /** Each with when it came and how much it matters (heldnotes.ts). */
+  private held: { m: ToBody; at: number; tier: Tier }[] = [];
   /** The latest steady mark while he was in Claude: what goes over Aang's head when he leaves (quietly). */
   private mark: MarkMsg | null = null;
   private wasIn = false;
   private readonly inClaude: () => boolean;
 
   /** `inClaude()` reads the foreground the pet last reported. */
-  constructor(inClaude: () => boolean) { this.inClaude = inClaude; }
+  private readonly now: () => number;
+  constructor(inClaude: () => boolean, now: () => number = Date.now) { this.inClaude = inClaude; this.now = now; }
 
   /**
    * A message on its way to the desktop. Returns what to send now: the message, a quieter copy of it, or null when it
@@ -42,7 +46,7 @@ export class FrontGate {
         return null;
       case 'whisper':
         // A "now playing" line only matters while it is true: keep the latest one, not a queue of them.
-        this.held = this.held.filter(m => m.t !== 'whisper');
+        this.held = this.held.filter(h => h.m.t !== 'whisper');
         this.hold(msg);
         return null;
       case 'claude.mark': {
@@ -59,8 +63,8 @@ export class FrontGate {
   }
 
   private hold(msg: ToBody): void {
-    this.held.push(msg);
-    while (this.held.length > FRONT_HOLD_MAX) this.held.shift();
+    // A full hold lets the least important go first (2026-10-28 review R8): never the brief for a now-playing line.
+    keep(this.held, { m: msg, at: this.now(), tier: msg.t === 'bubble' ? tierOf(msg as TierBits) : 3 }, FRONT_HOLD_MAX);
   }
 
   /**
@@ -74,7 +78,9 @@ export class FrontGate {
     const mark = this.mark; this.mark = null;
     // 2026-10-22 (his "if I act on it in Claude it should disappear"): a held line about something a session waited on
     // him for, that he has since answered in Claude, is not news any more: it is dropped, never replayed.
-    const lines = this.held.filter(m => !over(m)); this.held = [];
+    // Past its age it is not news either (R2): a line about a video from three hours ago is dropped.
+    const now = this.now();
+    const lines = this.held.filter(h => fresh(h, now, h.m.t === 'bubble' && !!(h.m as { brief?: unknown }).brief) && !over(h.m)).map(h => h.m); this.held = [];
     return { mark, lines };
   }
 
