@@ -351,7 +351,7 @@ function chime(name: string): void {
 
 // ---------------------------------------------------------------- his menu (the same rows as right-clicking him)
 function menuState(): Record<string, unknown> {
-  return { docked, dock: edge, model: inputMode, muted, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
+  return { docked, dock: edge, model: inputMode, muted, hushedUntil, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
     // Not on the Mac yet: dim, never a pick that does nothing.
     soon: ['quiet'] };
 }
@@ -362,7 +362,7 @@ function picked(id: string): void {
   if (id === 'player') { miniPlayer?.open(); return; }
   if (id === 'notes.notice') { notesNotice = !notesNotice; link.send({ t: 'notice.set', on: notesNotice }); return; }
   if (id === 'back') { bubble?.send('bubble:recall', 'back'); return; }
-  if (id.startsWith('hush.')) { const n = { 'hush.15': 15, 'hush.60': 60, 'hush.240': 240, 'hush.off': 0 }[id] ?? minutesToMorning(); link.send({ t: 'hush', minutes: n }); return; }
+  if (id.startsWith('hush.')) { const n = { 'hush.15': 15, 'hush.60': 60, 'hush.240': 240, 'hush.off': 0 }[id] ?? minutesToMorning(); hushedUntil = n ? Date.now() + n * 60_000 : 0; link.send({ t: 'hush', minutes: n }); return; }
   if (id === 'mute') { muted = !muted; link.send({ t: 'mute', on: muted }); return; }
   if (id === 'comeback') { undock(); lastTouch = Date.now(); return; }
   if (id === 'dock.bottom' || id === 'dock.left' || id === 'dock.right' || id === 'dock.top') { if (docked) undock(); dockAt(id.slice(5) as DockEdge); return; }
@@ -420,6 +420,12 @@ function frontApp(): Promise<{ pid: number; path: string } | null> {
     });
   }));
 }
+/** Do something from the test door, then give the front back to the app he was in if Aang took it. */
+async function keepFront(act: () => void): Promise<void> {
+  const before = await frontApp();
+  act();
+  setTimeout(() => { void frontApp().then((now) => { if (before && before.pid !== process.pid && now?.pid === process.pid && before.path.endsWith('.app')) execFile('/usr/bin/open', ['-a', before.path], () => {}); }); }, 350);
+}
 /** The last test-door action: for ten seconds after it, Aang never takes the keyboard (a test must not grab his typing). */
 let doorAt = 0;
 async function takeKeys(w?: BrowserWindow | null): Promise<void> {
@@ -434,6 +440,8 @@ function giveKeysBack(): void {
   if (to && existsSync(to)) execFile('/usr/bin/open', ['-a', to], () => {});
 }
 
+/** Until when he hushed Aang from this menu (the menu's "UNTIL 4:15" tag and its Stop row; the brain keeps the real one). */
+let hushedUntil = 0;
 /** Sheet 60's switch, as last set from this menu (the brain keeps the real one). */
 let notesNotice = true;
 /** The box opened with words already in it ("Start a Claude job: ", or his words back after Change). */
@@ -511,8 +519,10 @@ app.whenReady().then(async () => {
   const closeDoor = openTestDoor({
     keyFile: path.join(STATE_DIR, 'aang-test-door.key'), log: (s2) => console.log(s2), touched: () => { doorAt = Date.now(); },
     pet: {
-      click: () => { lastTouch = Date.now(); if (input?.visible) input.close(false); else openTypeBox(false); },
-      menu: () => openMenu(head()),
+      // Opening the box or the menu makes Aang the active app (they take the keyboard for him). From the door that
+      // would take Joshua's: the app he was in is brought back straight after.
+      click: () => { void keepFront(() => { lastTouch = Date.now(); if (input?.visible) input.close(false); else openTypeBox(false); }); },
+      menu: () => { void keepFront(() => openMenu(head())); },
       hold: () => { const h = head(); wheelHeld = true; if (input?.visible) input.close(); bubble?.send('bubble:dismiss', 'wheel'); wheel?.open(h); },
       release: (x, y) => { wheelHeld = false; wheel?.release({ x, y }); },
       out: () => { lastTouch = Date.now(); setPose('out'); },
@@ -547,7 +557,9 @@ app.whenReady().then(async () => {
   timerWins = new TimerWindows({
     takeKeys: () => { void takeKeys(); }, refocus: giveKeysBack,
     origin: pages.origin, preloadPath: preload, spotFile: path.join(app.getPath('userData'), 'timer-spot.json'),
-    near: () => { const a = petAt().sprite; return { x: a.x - 320, y: a.y + 10 }; },
+    // Beside him on HIS screen (2026-10-28: with a second screen to the left, a timer by a left-docked Aang opened on the
+    // other screen and he could not find it): left of him when there is room, else right of him.
+    near: () => { const a = petAt().sprite, wa = display().workArea; const left = a.x - 320; return { x: left >= wa.x ? left : Math.min(a.x + a.width + 20, wa.x + wa.width - 300), y: Math.min(Math.max(a.y + 10, wa.y), wa.y + wa.height - 260) }; },
     toBrain: (m) => link.send(m as never),
   });
 
