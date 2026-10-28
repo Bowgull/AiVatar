@@ -228,3 +228,16 @@ document.addEventListener('mouseup', (e) => {
   down = null; dragging = false;
 });
 document.addEventListener('contextmenu', (e) => { e.preventDefault(); if (solid) window.pet?.context(e.screenX, e.screenY); });
+
+// ---------------------------------------------------------------- files dropped on him (the PC pet's drop target)
+// While something is dragged over him the brain hears drop.hover (the bubble says "drop it on me"); on the drop, the
+// files' paths go to the brain, which judges and reads them (core.ts dropped).
+let hovering = false;
+document.addEventListener('dragover', (e) => { e.preventDefault(); if (!hovering) { hovering = true; window.pet?.drop('hover', []); } });
+document.addEventListener('dragleave', () => { if (hovering) { hovering = false; window.pet?.drop('leave', []); } });
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  hovering = false;
+  const files = [...(e.dataTransfer?.files ?? [])];
+  window.pet?.drop(files.length ? 'drop' : 'leave', files);
+});

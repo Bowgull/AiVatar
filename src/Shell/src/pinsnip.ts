@@ -28,7 +28,7 @@ export interface PinSnipOptions {
 export const BAR = 34, ROOM_R = 44, MAX_W = 360, MAX_H = 300, MIN_W = 180;
 export const MIN_OPACITY = 0.3;
 
-interface Pin { w: BrowserWindow; title: string; pic: string; pinned: boolean; opacity: number; drag: { x: number; y: number } | null; fid: string }
+interface Pin { w: BrowserWindow; title: string; pic: string; pinned: boolean; opacity: number; drag: { x: number; y: number } | null; fid: string; hot?: boolean }
 
 const all = new Set<PinSnips>();
 let wired = false;
@@ -126,7 +126,23 @@ export class PinSnips {
   }
 
   /* ---- what the page may ask */
-  hearClickable(p: Pin, on: boolean): void { if (!p.w.isDestroyed()) p.w.setIgnoreMouseEvents(!(on || p.drag), { forward: true }); }
+  hearClickable(p: Pin, on: boolean): void { if (!p.w.isDestroyed()) { p.hot = on; p.w.setIgnoreMouseEvents(!(on || p.drag), { forward: true }); } }
+  /**
+   * The Mac (2026-10-28): macOS sends no mouse moves to a window letting clicks through, so the page never says the
+   * pointer is on it. The Mac app follows the pointer and calls this, as for timers. A pinned one stays click-through.
+   * True while there is a pinned snip to follow.
+   */
+  pointerAt(pt: { x: number; y: number }): boolean {
+    let any = false;
+    for (const p of this.pins) {
+      if (p.w.isDestroyed() || p.pinned) continue;
+      any = true;
+      const b = p.w.getBounds();
+      const on = pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height;
+      if (on !== p.hot && !p.drag) { p.hot = on; p.w.setIgnoreMouseEvents(!on, { forward: true }); }
+    }
+    return any;
+  }
   hearDrag(p: Pin, phase: unknown, dx: number, dy: number): void {
     if (p.w.isDestroyed()) return;
     const [x, y] = p.w.getPosition();
