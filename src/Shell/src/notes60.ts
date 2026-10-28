@@ -37,7 +37,7 @@ export class NoteHeld {
       });
       // The bubble's level: above his own window, never above Windows' alerts.
       w.setAlwaysOnTop(true, 'pop-up-menu');
-      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
       lockDown(w.webContents);
       denyPermissions(w.webContents.session);
       void w.loadURL(`${this.o.origin}/noteheld.html`);

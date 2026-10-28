@@ -43,7 +43,7 @@ export class NoteWindows {
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
     const now = Date.now();
@@ -114,7 +114,7 @@ export class NoteWindows {
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
     void w.loadURL(`${this.o.origin}/note.html`);
