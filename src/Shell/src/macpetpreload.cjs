@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('pet', {
   click: (where) => ipcRenderer.send('pet:click', where === 'mark' ? 'mark' : 'aang'),
   context: (x, y) => ipcRenderer.send('pet:context', Number(x) || 0, Number(y) || 0),
   drag: (phase, x, y) => ipcRenderer.send('pet:drag', String(phase), Number(x) || 0, Number(y) || 0),
+  hold: (phase, x, y) => ipcRenderer.send('pet:hold', String(phase), Number(x) || 0, Number(y) || 0),
 });

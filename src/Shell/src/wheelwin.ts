@@ -22,7 +22,7 @@ export class Wheel {
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     w.setIgnoreMouseEvents(true);
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
@@ -37,7 +37,7 @@ export class Wheel {
   /** Held on Aang. `phys` is where the mouse is, in real screen pixels, from the pet. */
   open(phys: { x: number; y: number }): void {
     const w = this.window();
-    const at = screen.screenToDipPoint(phys);
+    const at = process.platform === 'win32' ? screen.screenToDipPoint(phys) : phys;   // Windows-only call; the Mac's are DIPs
     // The whole screen, taskbar included: docked under the taskbar or in a corner, a smaller window cut discs off
     // (his test, 2026-10-12). It is see-through and only up while he holds the mouse on Aang.
     const b = screen.getDisplayNearestPoint(at).bounds;
@@ -59,7 +59,7 @@ export class Wheel {
     const w = this.win;
     if (this.poll) { clearInterval(this.poll); this.poll = null; }
     if (!w || w.isDestroyed() || !w.isVisible()) return;
-    const p = screen.screenToDipPoint(phys);
+    const p = process.platform === 'win32' ? screen.screenToDipPoint(phys) : phys;
     w.webContents.send('wheel', { kind: 'release', x: p.x - this.origin.x, y: p.y - this.origin.y });
     // Whatever happens, it goes; a pick that never comes back still leaves nothing on his screen.
     setTimeout(() => { if (!w.isDestroyed()) w.hide(); }, 400);

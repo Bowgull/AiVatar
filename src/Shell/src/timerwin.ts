@@ -75,7 +75,7 @@ export class TimerWindows {
     if (this.o.iconPath) { try { w.setIcon(this.o.iconPath); } catch { /* the default icon */ } }
     // Above a full-screen game, the same level the pop-out uses.
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
     w.setIgnoreMouseEvents(true, { forward: true });

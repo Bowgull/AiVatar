@@ -20,6 +20,8 @@ import { CoreLink } from './link.ts';
 import { Bubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { AangMenu } from './aangmenu.ts';
+import { Wheel } from './wheelwin.ts';
+import { TimerWindows, type TimerData } from './timerwin.ts';
 import { bubbleAt, headOf, inputAt, type PetAt } from './anchor.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { writeFileAtomic } from './atomic.ts';
@@ -78,6 +80,8 @@ let slide: { from: number; to: number; at: number } | null = null;
 let markNow: string | null = null;
 /** His window is taking the mouse (the pointer is on him). */
 let mouseOn = false;
+/** The mouse is held on him and the wheel is up: his window keeps the mouse until it is let go, wherever it goes. */
+let wheelHeld = false;
 
 function display() { return screen.getPrimaryDisplay(); }
 /** The line he stands on: the screen's bottom, or the Dock's top while it is up. */
@@ -135,8 +139,8 @@ function step(): void {
   // it is over him (his art box, and his mark when one shows).
   const top = artTop() - (markNow ? 52 : 2);
   const over = !hidden && show > 0 && c.x >= petX + ART.x - 2 && c.x <= petX + ART.x + ART.w + 2 && c.y >= top && c.y <= artTop() + show;
-  if (over !== mouseOn || dragFrom) {
-    const on = over || !!dragFrom;
+  if (over !== mouseOn || dragFrom || wheelHeld) {
+    const on = over || !!dragFrom || wheelHeld;
     if (on !== mouseOn) { mouseOn = on; if (process.env.AANG_PET_TRACE) console.log(`aang: mouse ${on ? 'on' : 'off'} him at ${c.x},${c.y}`); pet?.setIgnoreMouseEvents(!on, { forward: true }); if (on) { lastTouch = Date.now(); if (pose === 'peek') setPose('out'); } }
   }
   const near = Math.abs(c.x - (petX + ART.x + ART.w / 2)) < 160 && Math.abs(c.y - artTop()) < 240;
@@ -152,6 +156,10 @@ let pages: PageServer | null = null;
 let bubble: Bubble | null = null;
 let input: InputBox | null = null;
 let menu: AangMenu | null = null;
+let wheel: Wheel | null = null;
+let timerWins: TimerWindows | null = null;
+/** The brain's notes, as it last sent them (the bubble's board edits these). */
+let notesLatest: { id: string; out?: unknown }[] = [];
 let tray: Tray | null = null;
 let bubbleUp = false;
 let heldBubble: Record<string, unknown> | null = null;
@@ -227,6 +235,10 @@ const link = new CoreLink({
       input?.send('input:state', { week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt });
     }
     if (m.t === 'mode' && typeof m.mode === 'string') inputMode = m.mode;
+    if (m.t === 'notes.state' && Array.isArray(m.notes)) notesLatest = m.notes as { id: string; out?: unknown }[];
+    if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
+    // A timer ran out: its three wood knocks (sheet 67), even when everything else is quiet; muting still silences it.
+    if (m.t === 'timer.done' && !muted) chime('timer');
     if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') { liveAsk = m; input?.send('input:ask', liveAsk); }
     if (m.t === 'ask.expired' && liveAsk && String(liveAsk.id ?? '') === String(m.id ?? '')) { liveAsk = null; input?.send('input:ask', null); }
     // While he talks, he talks; while the brain thinks, he thinks (the pet's own states).
@@ -256,7 +268,7 @@ function picked(id: string): void {
   if (id === 'jobs') { bubble?.send('brain:message', { t: 'mark.click' }); bubble?.show(); return; }
   if (id === 'hunt') { link.send({ t: 'job.hunt' }); return; }
   if (id === 'claudejob') { openTypeBox(); return; }
-  if (id === 'back') { openTypeBox(); return; }
+  if (id === 'back') { bubble?.send('bubble:recall', 'back'); return; }
   if (id.startsWith('hush.')) { const n = { 'hush.15': 15, 'hush.60': 60, 'hush.240': 240, 'hush.off': 0 }[id] ?? minutesToMorning(); link.send({ t: 'hush', minutes: n }); return; }
   if (id === 'mute') { muted = !muted; link.send({ t: 'mute', on: muted }); return; }
   if (id === 'comeback') { undock(); lastTouch = Date.now(); return; }
@@ -307,6 +319,24 @@ app.whenReady().then(async () => {
   input = new InputBox({ origin: pages.origin, preloadPath: preload });
   input.window();
   menu = new AangMenu({ origin: pages.origin, preloadPath: preload, pick: picked });
+  // Sheet 17's wheel, held on Aang (main.ts): Timer and Notes open in the bubble, Browser is Samara, Away is Discord.
+  wheel = new Wheel({
+    origin: pages.origin, preloadPath: preload,
+    pick: (slot) => {
+      if (slot === 'TIMER') { bubble?.send('brain:message', { t: 'timer.setup' }); bubble?.show(); }
+      else if (slot === 'NOTES') { bubble?.send('brain:message', { t: 'notes.board' }); bubble?.show(); }
+      else if (slot === 'BROWSER') void shell.openPath(path.join(os.homedir(), 'Applications', 'Samara.app'));
+      else if (slot === 'AWAY') link.send({ t: 'away' });
+      // MUSIC and SNIP: the mini player and Snipit come over in phase 5.
+    },
+  });
+  wheel.warm();
+  // Sheet 17 / 67: each running timer is its own small brass window, beside him (main.ts).
+  timerWins = new TimerWindows({
+    origin: pages.origin, preloadPath: preload, spotFile: path.join(app.getPath('userData'), 'timer-spot.json'),
+    near: () => { const a = petAt().sprite; return { x: a.x - 320, y: a.y + 10 }; },
+    toBrain: (m) => link.send(m as never),
+  });
 
   const saved = readJson(SETTINGS()) as { x?: number; y?: number; docked?: boolean } | null;
   const b = display().bounds;
@@ -331,8 +361,18 @@ app.whenReady().then(async () => {
 
   tray = new Tray(headIcon());
   tray.setToolTip('Aang');
-  tray.on('click', () => { const r = tray!.getBounds(); menu?.open({ x: r.x, y: r.y + r.height + 2 }, menuState(), null); });
-  tray.on('right-click', () => { const r = tray!.getBounds(); menu?.open({ x: r.x, y: r.y + r.height + 2 }, menuState(), null); });
+  // On the Mac the menu bar icon may say click and mouse-up for one press: one press opens it once.
+  let barAt = 0;
+  const fromBar = (how: string) => {
+    if (Date.now() - barAt < 500) return;
+    barAt = Date.now();
+    const r = tray!.getBounds();
+    if (process.env.AANG_PET_TRACE) console.log(`aang: menu bar ${how} at ${JSON.stringify(r)}`);
+    menu?.open({ x: r.x, y: r.y + r.height + 2 }, menuState(), null);
+  };
+  tray.on('click', () => fromBar('click'));
+  tray.on('right-click', () => fromBar('right-click'));
+  tray.on('mouse-up', () => fromBar('mouse-up'));
   link.start();
   console.log('aang: on the Mac, talking to the brain on ' + PORT);
   // Tests only: say a line of our own a few seconds in, so the bubble can be looked at without the brain saying anything.
@@ -448,6 +488,48 @@ ipcMain.on('input:mode', (e, m) => { if (fromInput(e) && typeof m === 'string' &
 ipcMain.on('input:size', (e, s) => { if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0); });
 ipcMain.on('input:page', (e, d) => { if (fromInput(e) && (d === 1 || d === -1)) bubble?.send('bubble:page', d); });
 ipcMain.on('menu:pick', (e, id) => { if (menu?.owns(e.sender)) menu.picked(e.sender, id); });
+ipcMain.on('timer:clickable', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.clickable(e.sender, on === true); });
+ipcMain.on('timer:opacity', (e, n) => { if (timerWins?.owns(e.sender)) timerWins.opacity(e.sender, Number(n)); });
+ipcMain.on('timer:pin', (e) => { if (timerWins?.owns(e.sender)) timerWins.pin(e.sender); });
+ipcMain.on('timer:through', (e) => { if (timerWins?.owns(e.sender)) timerWins.toggleThrough(e.sender); });
+ipcMain.on('timer:drag', (e, a) => { if (timerWins?.owns(e.sender) && a && typeof a === 'object') timerWins.drag(e.sender, String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0); });
+ipcMain.on('timer:act', (e, a) => {
+  const id = timerWins?.idOf(e.sender);
+  if (!id || !a || typeof a !== 'object') return;
+  const action = ['add', 'pause', 'stop', 'again', 'rename'].includes(String(a.action)) ? String(a.action) : null;
+  if (!action) return;
+  const ms = Number(a.ms);
+  link.send({ t: 'timer.act', id, action: action as 'add', ...(Number.isFinite(ms) && Math.abs(ms) <= 24 * 3_600_000 ? { ms: Math.round(ms) } : {}),
+    ...(action === 'rename' ? { label: String(a.label ?? '').slice(0, 40) } : {}) });
+});
+ipcMain.on('timer:menu', (e, at) => { if (!timerWins?.owns(e.sender)) return; const x = Number(at?.x), y = Number(at?.y); timerWins.openMenu(e.sender, Number.isFinite(x) && Number.isFinite(y) ? { x: Math.round(x), y: Math.round(y) } : null); });
+ipcMain.on('timer:typing', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.typing(e.sender, on === true); });
+ipcMain.on('timer:menushape', (e, rects) => { timerWins?.menu.shape(e.sender, rects); });
+ipcMain.on('timer:menupick', (e, m) => { timerWins?.menu.pick(e.sender, m); });
+ipcMain.on('wheel:pick', (e, slot) => { if (wheel?.owns(e.sender)) wheel.picked(e.sender, typeof slot === 'string' ? slot.slice(0, 12) : ''); });
+ipcMain.on('pet:hold', (e, phase, x, y) => {
+  if (!fromPet(e)) return;
+  // Holding on Aang clears the stage first (his ask, 2026-10-13): the bubble and the box go, the wheel is the only thing up.
+  if (phase === 'open') { wheelHeld = true; if (input?.visible) input.close(); bubble?.send('bubble:dismiss', 'wheel'); wheel?.open({ x: Number(x) || 0, y: Number(y) || 0 }); }
+  else if (phase === 'release') { wheelHeld = false; wheel?.release({ x: Number(x) || 0, y: Number(y) || 0 }); }
+});
+// Sheet 17's timer and notes, from the bubble (main.ts): each checked against its sender.
+ipcMain.on('bubble:timerstart', (e, a) => {
+  if (!fromBubble(e) || !a || typeof a !== 'object') return;
+  const ms = Number(a.ms);
+  if (!Number.isFinite(ms) || ms < 1000 || ms > 24 * 3_600_000) return;
+  link.send({ t: 'timer.start', ms: Math.round(ms), label: String(a.label ?? '').slice(0, 40) });
+});
+const noteOk = (n: unknown): n is { id: string } => !!n && typeof n === 'object' && typeof (n as { id?: unknown }).id === 'string' && /^n[a-z0-9]{1,20}$/.test((n as { id: string }).id);
+ipcMain.on('bubble:notesave', (e, n) => { if (fromBubble(e) && noteOk(n)) link.send({ t: 'notes.save', note: { ...n, out: notesLatest.find((x) => x.id === n.id)?.out } } as never); });
+ipcMain.on('bubble:notedelete', (e, id) => { if (fromBubble(e) && typeof id === 'string') link.send({ t: 'notes.delete', id }); });
+// Typing in a note in the bubble: the bubble takes the keyboard only while he types there.
+ipcMain.on('bubble:typing', (e, on) => {
+  if (!fromBubble(e)) return;
+  const w = bubble?.window(); if (!w || w.isDestroyed()) return;
+  bubble?.setFocusable(on === true);
+  if (on === true) { w.focus(); w.webContents.focus(); }
+});
 ipcMain.on('menu:shape', (e, rects) => { if (menu?.owns(e.sender)) menu.shape(e.sender, rects); });
 
 app.on('before-quit', () => { link.stop(); input?.destroy(); bubble?.close(); menu?.close(); tray?.destroy(); pages?.close(); });
