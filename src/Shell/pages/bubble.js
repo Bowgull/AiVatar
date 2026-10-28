@@ -1238,7 +1238,8 @@ function showBrief(b) {
   top.append(date);
   if (Array.isArray(b.parts) && b.parts.length) {
     const lamp = T('div', 'lt-lamp');
-    const nowPart = hour < 12 ? 'morn' : hour < 18 ? 'aftn' : 'eve';
+    // The same hours as the greeting above (2026-10-28: "Good evening" at 5 pm with AFTN lit).
+    const nowPart = hour < 12 ? 'morn' : hour < 17 ? 'aftn' : 'eve';
     for (const p of b.parts) {
       const c = T('div', 'lt-part' + (p.part === nowPart ? ' now' : ''));
       c.append(T('i', '', PART[p.part] ?? ''));
@@ -1314,7 +1315,7 @@ function showBrief(b) {
   // Sheet 65: the Addons slip under Today (addonslip.js). Update ticked sends the ids still ticked; Not now folds it away.
   const addons = addonsSlip(b.addons, { update: (ids) => window.aang?.addonsUpdate?.(ids), later: () => { fit(); reportSize(); } });
   if (addons) body.append(addons);
-  if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', 'Nothing needs you this morning.')); body.append(s); }
+  if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', `Nothing needs you ${hour < 12 ? 'this morning' : hour < 17 ? 'this afternoon' : 'tonight'}.`)); body.append(s); }
   card.append(body);
 
   // the keys: Got it, and the most useful next thing; the week's meter on the right

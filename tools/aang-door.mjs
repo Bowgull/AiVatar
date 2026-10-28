@@ -10,6 +10,7 @@
 //   node tools/aang-door.mjs pet click|menu|hold|out
 //   node tools/aang-door.mjs pet release <screenX> <screenY>
 //   node tools/aang-door.mjs pet slot timer|notes|browser|music|snip|away
+//   node tools/aang-door.mjs say <words>          (as if he typed it and pressed Enter)
 // A kind (bubble, input, aangmenu, wheel, timer, macpet...) picks the first shown window of that page.
 import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -37,6 +38,7 @@ try {
   else if (cmd === 'click') console.log(JSON.stringify(await (await call('POST', '/click', { id: await idOf(a), x: Number(b), y: Number(c), button: d === 'right' ? 'right' : 'left', holdMs: Number(d === 'right' ? e : d) || 0 })).json()));
   else if (cmd === 'hover') console.log(JSON.stringify(await (await call('POST', '/hover', { id: await idOf(a), x: Number(b), y: Number(c) })).json()));
   else if (cmd === 'type') console.log(JSON.stringify(await (await call('POST', '/type', { id: await idOf(a), text: process.argv.slice(4).join(' ') })).json()));
+  else if (cmd === 'say') console.log(JSON.stringify(await (await call('POST', '/pet', { do: 'say', text: process.argv.slice(3).join(' ') })).json()));
   else if (cmd === 'pet' && a === 'slot') console.log(JSON.stringify(await (await call('POST', '/pet', { do: 'slot', slot: String(b).toUpperCase() })).json()));
   else if (cmd === 'pet') console.log(JSON.stringify(await (await call('POST', '/pet', { do: a, x: Number(b), y: Number(c) })).json()));
   else console.log('windows | shot <w> <file> | text <w> | click <w> x y [right] [holdMs] | hover <w> x y | type <w> words | pet click|menu|hold|out|release x y');
