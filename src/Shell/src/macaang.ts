@@ -547,6 +547,8 @@ app.whenReady().then(async () => {
       release: (x, y) => { wheelHeld = false; wheel?.release({ x, y }); },
       out: () => { lastTouch = Date.now(); setPose('out'); },
       slot: (name) => wheelPick(name),
+      // A message as if he typed it in the box and pressed Enter (the bubble shows his words, then the answer).
+      say: (text) => { if (link.send({ t: 'submit', id: 's' + Date.now(), text, mode: inputMode } as never)) { bubble?.send('brain:message', { t: 'asked', text }); } },
     },
   });
   app.on('before-quit', closeDoor);

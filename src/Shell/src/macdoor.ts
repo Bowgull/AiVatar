@@ -19,7 +19,7 @@ import path from 'node:path';
 
 export const TEST_DOOR_PORT = 47856;
 
-export interface DoorPet { click(): void; menu(): void; hold(): void; release(x: number, y: number): void; out(): void; slot(name: string): void }
+export interface DoorPet { click(): void; menu(): void; hold(): void; release(x: number, y: number): void; out(): void; slot(name: string): void; say(text: string): void }
 
 /** Which of Aang's pages a window shows: its file name (bubble, input, aangmenu, timer, macpet...). */
 function kindOf(w: BrowserWindow): string {
@@ -69,7 +69,7 @@ export function openTestDoor(o: { keyFile: string; pet: DoorPet; log: (s: string
         const b = await body(req);
         if (u.pathname === '/pet') {
           const what = String(b.do ?? '');
-          if (what === 'click') o.pet.click(); else if (what === 'menu') o.pet.menu(); else if (what === 'hold') o.pet.hold(); else if (what === 'release') o.pet.release(Number(b.x) || 0, Number(b.y) || 0); else if (what === 'out') o.pet.out(); else if (what === 'slot' && /^(TIMER|NOTES|BROWSER|MUSIC|SNIP|AWAY)$/.test(String(b.slot))) o.pet.slot(String(b.slot));
+          if (what === 'click') o.pet.click(); else if (what === 'menu') o.pet.menu(); else if (what === 'hold') o.pet.hold(); else if (what === 'release') o.pet.release(Number(b.x) || 0, Number(b.y) || 0); else if (what === 'out') o.pet.out(); else if (what === 'say' && typeof b.text === 'string' && b.text.trim()) o.pet.say(b.text.slice(0, 2000)); else if (what === 'slot' && /^(TIMER|NOTES|BROWSER|MUSIC|SNIP|AWAY)$/.test(String(b.slot))) o.pet.slot(String(b.slot));
           else { json(res, 400, { error: 'do: click, menu, hold or out' }); return; }
           json(res, 200, { ok: true });
           return;

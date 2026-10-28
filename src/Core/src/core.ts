@@ -3169,6 +3169,9 @@ export class Core {
     if (this.cfg.warm === false) return;
     const name: LaneName = this.policy.saving ? 'quick' : 'smart';
     this.lane(name).start?.();
+    // Quick too (2026-10-28, measured on the Mac: the first "hey" after a start waited 10 s for Quick's process). Free:
+    // no API call until a message, only the process (about 140 MB) while it runs.
+    if (name !== 'quick') this.lane('quick').start?.();
     if (this.active || this.warming) return;
     if (Date.now() - (this.laneTouched.get(name) ?? 0) < Core.CACHE_STALE_MS) return;
     this.warmPending = false;
