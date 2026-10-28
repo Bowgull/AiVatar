@@ -1025,8 +1025,7 @@ html.tsize-s .drawer .tp .x::before{top:8px}
 .drawer .th .mtidy:active{transform:translateY(2px);box-shadow:0 0 0 var(--outline)}
 .drawer .th .mtidy.sweep img{animation:msweep .5s cubic-bezier(.32,.72,0,1)}
 @keyframes msweep{0%{transform:rotate(0)}35%{transform:rotate(-28deg)}70%{transform:rotate(16deg)}100%{transform:rotate(0)}}
-.drawer .mproj{font:700 12px var(--display);letter-spacing:1.5px;color:#f2e3c2;text-transform:uppercase;margin:4px 0 4px;padding:0 0 6px;
-  background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1.5px,rgba(255,224,150,.18) 1.5px 3px) left bottom/100% 3px no-repeat}
+/* .mproj: sheet 100, below */
 .drawer .mgap{height:8px}
 .drawer .mfold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s cubic-bezier(.32,.72,0,1)}
 .drawer .mfold.open{grid-template-rows:1fr}
@@ -1286,3 +1285,50 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 .bandchip .tvcode input:focus{box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 0 0 2px #FFC43C}
 .bandchip .tvcode.wrong{animation:afshake .28s ease-in-out}
 .bandchip .faces[hidden]{display:none}
+
+/* ---- Sheet 100 (his picks, 2026-10-28: "Project, topic, sheet", "Quest log page and the picture strip"): four layers,
+   four looks. A PROJECT is a carved plaque with its own emblem and its name in Cinzel capitals; a TOPIC is small gold
+   Silkscreen capitals on a ruled line; a SHEET keeps its brass number chip; a VERSION is a small picture in Samara's
+   pixel frame with his mark on its corner. Folds open in pixel steps. ---- */
+.drawer .mproj{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;margin:8px 0 6px;padding:7px 10px 7px 7px;border:3px solid var(--outline);border-radius:8px;cursor:pointer;text-align:left;
+  background:linear-gradient(180deg,#5a3a1e 0 3px,#3d2612 3px calc(100% - 3px),#24160a calc(100% - 3px));box-shadow:0 3px 0 var(--outline),inset 0 0 0 2px rgba(255,214,140,.12)}
+.drawer .mproj:hover{filter:brightness(1.08)}
+.drawer .mproj .em{flex:none;width:32px;height:32px;display:grid;place-items:center;border:2px solid var(--outline);border-radius:6px;background:#0B0718;image-rendering:pixelated}
+.drawer .mproj .em img{width:32px;height:32px}
+.drawer .mproj .em b{font:700 17px var(--display);color:#ffe28c;text-shadow:0 2px 0 #000}
+.drawer .mproj .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 14px var(--display);letter-spacing:1.6px;color:#f2e3c2;text-transform:uppercase;text-shadow:0 2px 0 #000}
+.drawer .mproj .pc{flex:none;font:700 12px var(--body);color:#a98e6a}
+.drawer .mproj .chev,.drawer .mtopic .chev{flex:none;width:0;height:0;border:5px solid transparent;border-left:6px solid #ffe28c;border-right:0;transition:transform .2s steps(3)}
+.drawer .mproj.open .chev,.drawer .mtopic.open .chev{transform:rotate(90deg)}
+.drawer .mtopic{display:flex;align-items:center;gap:7px;width:calc(100% - 8px);margin:8px 0 3px 8px;padding:3px 0;border:none;background:none;cursor:pointer;text-align:left;
+  font:400 11px var(--label);letter-spacing:1.4px;color:#c9a35a;text-transform:uppercase}
+.drawer .mtopic::after{content:"";flex:1;order:3;height:3px;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1.5px,rgba(255,224,150,.18) 1.5px 3px)}
+.drawer .mtopic .chev{border-width:4px;border-left-width:5px;border-left-color:#c9a35a}
+.drawer .mtopic .tn{flex:none;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer .mtopic .n{order:2;flex:none;font:700 11.5px var(--body);letter-spacing:0;color:#a98e6a;text-transform:none}
+.drawer .mtopic:hover .tn{color:#ffe28c}
+.drawer .mtopic+.mfold .msr{margin-left:14px;width:calc(100% - 14px)}
+.drawer .mstrip{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px 36px}
+.drawer .mstrip.kid{margin-left:58px}
+.drawer .mvt{position:relative;width:60px;padding:0;border:none;background:none;cursor:pointer;text-align:left}
+.drawer .mvt .pic{display:grid;place-items:center;width:60px;height:38px;box-sizing:border-box;border:4px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:#0B0718 center/cover no-repeat;image-rendering:auto;font:800 12px var(--body);color:#a98e6a}
+.drawer .mvt .v{display:block;margin:3px 0 0 1px;font:800 11.5px var(--body);color:#ffe28c}
+.drawer .mvt .mk{position:absolute;right:-4px;top:-6px;font:800 9.5px/1 var(--body);letter-spacing:.4px;padding:3px 4px 2px;border-radius:3px;box-shadow:0 2px 0 var(--outline);font-style:normal}
+.drawer .mvt .mk.ok{background:#FFC43C;color:#2a1c00}
+.drawer .mvt .mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:0 2px 0 var(--outline),inset 0 0 0 1.5px #5fbf6c}
+.drawer .mvt .mk.chg{background:#e8913a;color:#2b1405}
+.drawer .mvt .mk.park{background:#4a3f33;color:#b9a684}
+.drawer .mvt.ok .pic{border-image:none;border:4px solid #FFC43C;box-shadow:0 0 0 2px var(--outline)}
+.drawer .mvt.park .pic{filter:saturate(.25) brightness(.6)}
+.drawer .mvt.now .pic{outline:2px solid #fff;outline-offset:1px}
+.drawer .mvt.now .v{color:#fff}
+.drawer .mvt:hover .pic{filter:brightness(1.15)}
+.drawer .mvt.park:hover .pic{filter:saturate(.4) brightness(.8)}
+.drawer .mmore{align-self:flex-start;height:38px;padding:0 8px;border:2px solid var(--outline);border-radius:5px;background:rgba(0,0,0,.3);cursor:pointer;font:800 12px var(--body);color:#a98e6a}
+.drawer .mmore:hover{color:#ffe28c}
+.drawer .mstripnote{margin:-2px 0 8px 36px;font:500 11.5px var(--body);color:#e8b27a;font-style:italic}
+@media (prefers-reduced-motion:reduce){.drawer .mproj .chev,.drawer .mtopic .chev{transition:none}}
+.drawer .th.mock .mlog{order:2;flex:0 0 auto;width:28px;height:28px;padding:2px;margin-left:auto;border:none;border-radius:6px;background:none;cursor:pointer;display:grid;place-items:center}
+.drawer .th.mock .mlog:hover{background:rgba(255,196,60,.14)}
+.drawer .th.mock .mlog svg{display:block;image-rendering:pixelated}
