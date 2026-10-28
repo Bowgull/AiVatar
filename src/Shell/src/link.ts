@@ -20,6 +20,11 @@ export interface LinkOptions {
   onMessage: (m: Record<string, unknown>) => void;
   /** Called when the line comes up or goes down, so windows can show it. */
   onConnected?: (up: boolean) => void;
+  /**
+   * Says hello as the pet instead of a Shell (the Mac, 2026-10-28): the Mac app's second line plays the PC pet's part for
+   * what only the pet sends and takes (media.now, media.cmd), since the brain takes those from a pet and never a Shell.
+   */
+  asPet?: boolean;
 }
 
 export class CoreLink {
@@ -57,7 +62,8 @@ export class CoreLink {
       this.connected = true;
       this.o.onConnected?.(true);
       // `bubble`: this Shell is drawing the replies (AANG_NEW_BUBBLE), so they may keep their formatting (6.11).
-      this.send({ t: 'hello', v: 1, client: 'desktop', shell: true, pid: process.pid, bubble: process.env.AANG_NEW_BUBBLE === '1' });
+      this.send(this.o.asPet ? { t: 'hello', v: 1, client: 'desktop', pid: process.pid } as never
+        : { t: 'hello', v: 1, client: 'desktop', shell: true, pid: process.pid, bubble: process.env.AANG_NEW_BUBBLE === '1' });
     });
     ws.on('message', d => {
       // Nothing the brain sends may throw out of here and take the Shell with it.
