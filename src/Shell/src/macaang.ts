@@ -28,6 +28,7 @@ import { bubbleAt, headOf, inputAt, type PetAt } from './anchor.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { appName, macBodyAnswers } from './macbody.ts';
+import { openTestDoor } from './macdoor.ts';
 import { claudeMessage, claudeOpenTarget } from './claudewire.ts';
 import { SendDesk } from './sendtoaang.ts';
 import { Snipper } from './snip.ts';
@@ -239,7 +240,8 @@ function placeWindows(): void {
   if (b && !b.isDestroyed()) { const [width, height] = b.getSize(); const box = bubbleBox({ width: width - 72, height: height - 38 }); b.setPosition(box.x, box.y); aimTail(b, box); }
 }
 
-function openTypeBox(): void {
+/** `keys` false: shown without taking the keyboard (the test door, so testing never grabs his typing). */
+function openTypeBox(keys = true): void {
   if (!input) return;
   lastTouch = Date.now();
   link.send({ t: 'poked' });
@@ -249,7 +251,7 @@ function openTypeBox(): void {
     week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt, starters: [],
   });
   bubble?.send('bubble:recall', 'recent');
-  void takeKeys(input.window());
+  if (keys) void takeKeys(input.window());
 }
 
 /** Say it: slide out to talk first when he is tucked (the PC holds the reply until he is out). */
@@ -418,7 +420,10 @@ function frontApp(): Promise<{ pid: number; path: string } | null> {
     });
   }));
 }
+/** The last test-door action: for ten seconds after it, Aang never takes the keyboard (a test must not grab his typing). */
+let doorAt = 0;
 async function takeKeys(w?: BrowserWindow | null): Promise<void> {
+  if (Date.now() - doorAt < 10_000) return;
   const f = await frontApp();
   if (f && f.pid !== process.pid && f.path.endsWith('.app')) cameFrom = f.path;
   app.focus({ steal: true });
@@ -501,6 +506,19 @@ app.whenReady().then(async () => {
     send: (m) => { if (m.t === 'player.watch' && macMedia) macMedia.watching = m.visible === true; link.send(m as never); },
   }));
   menu = new AangMenu({ origin: pages.origin, preloadPath: preload, pick: picked, keys: hotkeys });
+  // The test door (macdoor.ts, his yes 2026-10-28): Claude sees and touches Aang's own windows without his mouse.
+  const head = () => { const a = petAt().sprite; return { x: a.x + a.width / 2, y: a.y + 20 }; };
+  const closeDoor = openTestDoor({
+    keyFile: path.join(STATE_DIR, 'aang-test-door.key'), log: (s2) => console.log(s2), touched: () => { doorAt = Date.now(); },
+    pet: {
+      click: () => { lastTouch = Date.now(); if (input?.visible) input.close(false); else openTypeBox(false); },
+      menu: () => openMenu(head()),
+      hold: () => { const h = head(); wheelHeld = true; if (input?.visible) input.close(); bubble?.send('bubble:dismiss', 'wheel'); wheel?.open(h); },
+      release: (x, y) => { wheelHeld = false; wheel?.release({ x, y }); },
+      out: () => { lastTouch = Date.now(); setPose('out'); },
+    },
+  });
+  app.on('before-quit', closeDoor);
   // Sheet 17 / 60: notes pulled out of the bubble onto the screen, and the quick note (main.ts).
   noteWins = new NoteWindows({
     origin: pages.origin, preloadPath: preload,
