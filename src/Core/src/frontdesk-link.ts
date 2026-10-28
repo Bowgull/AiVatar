@@ -33,6 +33,8 @@ export class FrontDeskGateway implements Gateway {
     // Found 2026-10-13: the Mac refused this PC (its key no longer matched) and Discord just waited, saying nothing.
     // Now it is said once, plainly, so he knows to run the Mac setup again.
     ws.on('unexpected-response', (_req, res) => {
+      // 409 (2026-10-28): the brain on the Mac is Aang's home and holds Discord; this PC stays off it, quietly.
+      if (res.statusCode === 409 && !this.toldRefused) { this.toldRefused = true; this.o.log('discord: the brain on the MacBook holds Discord now (Aang\'s home); this PC stays off it'); }
       if (res.statusCode === 403 && !this.toldRefused) { this.toldRefused = true; this.o.log('discord: the MacBook front desk refused this PC (its key does not match); run the Mac setup again'); this.o.onRefused?.(); }
       try { ws.terminate(); } catch { /* gone */ }
     });

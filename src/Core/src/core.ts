@@ -2715,7 +2715,9 @@ export class Core {
     // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
     () => ({ up: true, atDesk: this.atDesk && this.clientsOf('desktop').length > 0 }));
     // C1 (2026-10-21): the aang-link mod's doors, locked with a key made fresh for this run (claudelink.ts).
-    const linkKey = newLinkKey(this.cfg.dataDir);
+    // AANG_LINK_DOOR=0 (2026-10-28): the Mac's brain runs without the Claude link until the Mac has a bubble to show it in,
+    // so the Claude sessions on the Mac are never held waiting on a brain with nowhere to ask him.
+    const linkKey = process.env.AANG_LINK_DOOR === '0' ? null : newLinkKey(this.cfg.dataDir);
     if (linkKey) {
       const door = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
       // show_mockup (2026-10-22): a session's mockup goes to Samara's Mockups trail; the brain writes the drop file, since a

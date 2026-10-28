@@ -45,7 +45,8 @@ class FakeDiscord implements Gateway {
 async function rig(port: number, shadow = '127.0.0.1') {
   const gw = new FakeDiscord();
   const queueFile = path.join(mkdtempSync(path.join(os.tmpdir(), 'aang-desk-')), 'queue.json');
-  const desk = await startFrontDesk({ gw, host: '127.0.0.1', port, key: KEY, shadow, queueFile, log: () => {} });
+  // self: the tests play Shadow from 127.0.0.1, so "the brain on this Mac" is an address no test connects from.
+  const desk = await startFrontDesk({ gw, host: '127.0.0.1', self: '100.64.9.9', port, key: KEY, shadow, queueFile, log: () => {} });
   return { gw, desk, queueFile };
 }
 const link = (port: number, key = KEY) => new FrontDeskGateway({ url: `ws://127.0.0.1:${port}`, key, log: () => {}, retryMs: 100 });
@@ -218,4 +219,14 @@ test('found live: when the Mac refuses this PC, it is said once, plainly, instea
   const fd = new FrontDeskGateway({ url: 'ws://127.0.0.1:48517', key: 'wrong'.padEnd(24, 'x'), log: () => {}, retryMs: 50, onRefused: () => { told++; } });
   try { await wait(400); assert.equal(told, 1, 'once, not on every retry'); }
   finally { fd.close(); await desk.close(); }
+});
+
+test('the Mac is home (2026-10-28): its own brain always gets in; the PC only while the Mac\'s brain is not connected', async () => {
+  const { admit } = await import('../src/frontdesk.ts');
+  const o = { self: '100.83.0.1', shadow: '100.91.0.2', key: KEY, homeConnected: false };
+  assert.equal(admit('100.83.0.1', KEY, o), 'home');
+  assert.equal(admit('100.91.0.2', KEY, o), 'shadow', 'no brain on the Mac: the PC is let in as before');
+  assert.equal(admit('100.91.0.2', KEY, { ...o, homeConnected: true }), 409, 'the Mac\'s brain is connected: the PC is turned away');
+  assert.equal(admit('100.83.0.1', 'wrong'.padEnd(24, 'x'), o), 403, 'the key is still needed from this Mac');
+  assert.equal(admit('100.1.2.3', KEY, o), 403, 'any other machine');
 });
