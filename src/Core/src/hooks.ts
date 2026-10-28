@@ -171,7 +171,7 @@ export class HookTracker {
  */
 /**
  * Always on 127.0.0.1. With a key, also on this machine's Tailscale address, so Claude Code on his MacBook can
- * reach it (2026-09-22). Anything that is not local must carry the key (?k=), and the tailnet address itself is
+ * reach it (2026-09-22). Anything that is not local must carry the key (the x-aang-key header), and the tailnet address itself is
  * only reachable from his own devices.
  */
 export class HookServer {
@@ -240,8 +240,9 @@ export class HookServer {
     // from Claude Code. curl, which is what the hooks actually use, sends no Origin.
     if (req.headers.origin) { res.writeHead(403).end(); return; }
     if (!isLoopback(req.socket.remoteAddress ?? '')) {
-      // The key in a header, never on a command line (code audit L6, 2026-10-14); the old ?k= still works for older Macs.
-      const k = String(req.headers['x-aang-key'] ?? '') || (new URL(req.url ?? '/', 'http://x').searchParams.get('k') ?? '');
+      // The key in a header only, never on a command line or in an address (code audit L6, 2026-10-14; S3's last item,
+      // 2026-10-28: the old ?k= fallback is gone, every Mac file uses the header).
+      const k = String(req.headers['x-aang-key'] ?? '');
       if (!this.key || !sameKey(k, this.key)) { res.writeHead(403).end(); return; }
     }
     // M2 (2026-10-13): the MacBook asks every few seconds whether the big brain is up. It learns only that, and
