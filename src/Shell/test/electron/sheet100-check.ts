@@ -39,6 +39,8 @@ app.whenReady().then(async () => {
   b.mockAct('list', { open: true });
   await wc.executeJavaScript("document.body.classList.add('drawer-open'); true");
   // the pictures come in one at a time; wait for the open topic's
+  console.log('magnifier ' + await wc.executeJavaScript(`JSON.stringify([...document.querySelectorAll('.th.mock')].map((h) => { const m = h.querySelector('.mlog'); const b = m?.getBoundingClientRect(); return m ? [Math.round(b.x), Math.round(b.width), getComputedStyle(m).display, h.innerHTML.length] : 'none'; }))`));
+  if (process.env.QUICK) app.exit(0);
   await until(async () => (await wc.executeJavaScript(`document.querySelectorAll('.mstrip .mvt .pic[style*="background-image"]').length`)) >= 1, 120000);
   await wait(4000);
   const t = JSON.parse(await wc.executeJavaScript(`JSON.stringify({
