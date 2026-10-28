@@ -56,6 +56,8 @@ const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "w
 
 export interface FrontDeskOpts {
   gw: Gateway; host: string; port: number; key: string; shadow: string; queueFile: string;
+  /** This Mac's own address, where its own brain connects from. The listening address unless a test says otherwise. */
+  self?: string;
   log?: (s: string) => void;
   /** M4: answers while Shadow is off. Without it, messages only wait. */
   brain?: DeskBrain;
@@ -78,6 +80,18 @@ const toWire = (msg: OutMsg) => ({ ...msg, ...(msg.files ? { files: msg.files.ma
 export const fromWire = (msg: any): OutMsg => ({ ...msg, ...(msg?.files ? { files: msg.files.map((f: any) => ({ name: String(f.name), data: Buffer.from(String(f.data), 'base64') })) } : {}) });
 export { toWire };
 
+/**
+ * Who may connect (2026-10-28). The brain on this Mac (its own Tailscale address) always, with the key. The Shadow PC's
+ * exact address, with the key, only while the Mac's own brain is not connected: then it is turned away with 409, so
+ * there is one brain. Anything else is refused.
+ */
+export function admit(peer: string, key: string, o: { self: string; shadow: string; key: string; homeConnected: boolean }): 'home' | 'shadow' | 409 | 403 {
+  if (!sameKey(key, o.key)) return 403;
+  if (peer === o.self) return 'home';
+  if (peer === o.shadow) return o.homeConnected ? 409 : 'shadow';
+  return 403;
+}
+
 export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => Promise<void>; queued: () => number }> {
   const log = o.log ?? ((s: string) => console.log(s));
   let queue: Incoming[] = [];
@@ -87,6 +101,12 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
   const timers: NodeJS.Timeout[] = [];
   let pressSeq = 0;
   let shadow: WebSocket | null = null;
+  /**
+   * 2026-10-28 (his call: the Mac is Aang's home): the brain on THIS Mac connects from this Mac's own Tailscale address,
+   * with the same key. While it is connected it is the one brain: the PC's is turned away, so two never answer.
+   */
+  let homeConnected = false;
+  let toldTurnedAway = 0;
   const send = (x: ToShadow) => { if (shadow && shadow.readyState === shadow.OPEN) { shadow.send(JSON.stringify(x)); return true; } return false; };
 
   o.gw.onMessage(m => {
@@ -156,18 +176,25 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     verifyClient: ({ req }, done) => {
       const peer = String(req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
       const key = String(req.headers['x-aang-key'] ?? '');
-      if (peer === o.shadow && sameKey(key, o.key)) return done(true);
+      const who = admit(peer, key, { self: o.self ?? o.host, shadow: o.shadow, key: o.key, homeConnected });
+      if (who === 'home' || who === 'shadow') return done(true);
+      if (who === 409) {
+        if (Date.now() - toldTurnedAway > 10 * 60_000) { toldTurnedAway = Date.now(); log('front desk: turned the PC\'s brain away: the brain on this Mac is Aang\'s home'); }
+        return done(false, 409, 'Conflict');
+      }
       log(`front desk: refused a connection from ${peer}`);
       done(false, 403, 'Forbidden');
     },
   });
   await new Promise<void>((res, rej) => { wss.once('listening', () => res()); wss.once('error', rej); });
 
-  wss.on('connection', ws => {
+  wss.on('connection', (ws, req) => {
     // One Shadow at a time: a new connection replaces an old one that never said goodbye.
     if (shadow && shadow !== ws) { try { shadow.close(); } catch { /* gone */ } }
     shadow = ws;
-    log(`front desk: Shadow connected (${queue.length} waiting)`);
+    const home = String(req.socket.remoteAddress ?? '').replace(/^::ffff:/, '') === (o.self ?? o.host);
+    homeConnected = home;
+    log(home ? `front desk: the brain on this Mac connected (${queue.length} waiting)` : `front desk: Shadow connected (${queue.length} waiting)`);
     const handing = queue.slice();
     send({ ev: 'hello', queued: handing.length });
     for (const m of handing) send({ ev: 'message', m, queued: true });
@@ -189,7 +216,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
       try { reply({ ok: true, value: await call(x.op, x.args ?? []) }); }
       catch (e) { reply({ ok: false, error: (e as Error).message || 'failed' }); }
     });
-    ws.on('close', () => { if (shadow === ws) { shadow = null; goneSince = Date.now(); log('front desk: Shadow went away'); } });
+    ws.on('close', () => { if (shadow === ws) { shadow = null; homeConnected = false; goneSince = Date.now(); log(home ? 'front desk: the brain on this Mac went away' : 'front desk: Shadow went away'); } });
     ws.on('error', () => { /* close follows */ });
   });
 
