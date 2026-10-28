@@ -32,6 +32,12 @@ const STATE_DIR = process.env.AANG_STATE_DIR ?? path.join(os.homedir(), 'Library
 const FRAMES_DIR = process.env.AANG_FRAMES_DIR ?? path.join(ROOT, 'assets', 'aang', 'frames');
 const CHIMES_DIR = path.join(ROOT, 'assets', 'aang', 'sfx', 'chimes');
 
+// His windows are see-through and float over other apps, so Chromium takes them for hidden behind those apps and stops
+// painting them (2026-10-28: the bubble was drawn and placed, and the screen still showed nothing; he stayed tucked on
+// screen after sliding out). Always paint.
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 // Not Samara's folder: two apps on one Chromium profile fight over its lock.
 app.setName('Aang');
 app.setPath('userData', path.join(os.homedir(), 'Library', 'Application Support', 'AangPet'));
@@ -70,6 +76,8 @@ let hidden = false;
 let lastTouch = Date.now();
 let slide: { from: number; to: number; at: number } | null = null;
 let markNow: string | null = null;
+/** His window is taking the mouse (the pointer is on him). */
+let mouseOn = false;
 
 function display() { return screen.getPrimaryDisplay(); }
 /** The line he stands on: the screen's bottom, or the Dock's top while it is up. */
@@ -122,9 +130,19 @@ function step(): void {
   const c = screen.getCursorScreenPoint(), b = display().bounds, bottom = b.y + b.height;
   const up = dockUp ? c.y >= bottom - DOCK_H - 6 : c.y >= bottom - 2;
   if (up !== dockUp) { dockUp = up; if (docked) { placePet(); placeWindows(); } }
+  // Is the pointer on him? macOS does not pass mouse moves to a window that is letting clicks through (2026-10-28: a
+  // right-click went straight through him), so the pointer is followed here and his window takes the mouse only while
+  // it is over him (his art box, and his mark when one shows).
+  const top = artTop() - (markNow ? 52 : 2);
+  const over = !hidden && show > 0 && c.x >= petX + ART.x - 2 && c.x <= petX + ART.x + ART.w + 2 && c.y >= top && c.y <= artTop() + show;
+  if (over !== mouseOn || dragFrom) {
+    const on = over || !!dragFrom;
+    if (on !== mouseOn) { mouseOn = on; if (process.env.AANG_PET_TRACE) console.log(`aang: mouse ${on ? 'on' : 'off'} him at ${c.x},${c.y}`); pet?.setIgnoreMouseEvents(!on, { forward: true }); if (on) { lastTouch = Date.now(); if (pose === 'peek') setPose('out'); } }
+  }
+  const near = Math.abs(c.x - (petX + ART.x + ART.w / 2)) < 160 && Math.abs(c.y - artTop()) < 240;
   // Docked and out with nothing showing for 45 s: he tucks back into the edge (the PC's idle tuck). Free, he stays.
   if (docked && (pose === 'out' || pose === 'more') && !input?.visible && !bubbleUp && Date.now() - lastTouch > TUCK_AFTER_MS) setPose('peek');
-  setTimeout(step, slide ? 16 : (c.y > bottom - 140 ? 80 : 250));
+  setTimeout(step, slide || near || dragFrom ? 16 : (c.y > bottom - 140 ? 80 : 250));
 }
 
 function anim(s: string): void { pet?.webContents.send('pet:state', { anim: s }); }
@@ -317,11 +335,13 @@ app.whenReady().then(async () => {
   tray.on('right-click', () => { const r = tray!.getBounds(); menu?.open({ x: r.x, y: r.y + r.height + 2 }, menuState(), null); });
   link.start();
   console.log('aang: on the Mac, talking to the brain on ' + PORT);
+  // Tests only: say a line of our own a few seconds in, so the bubble can be looked at without the brain saying anything.
+  if (process.env.AANG_PET_DEMO) setTimeout(() => say({ t: 'bubble', text: process.env.AANG_PET_DEMO, stream: false, proactive: true, turn: 1 }), 3000);
 });
 
 // ---------------------------------------------------------------- the pet's page
 const fromPet = (e: Electron.IpcMainEvent) => !!pet && !pet.isDestroyed() && e.sender === pet.webContents;
-ipcMain.on('pet:solid', (e, on) => { if (fromPet(e)) { pet!.setIgnoreMouseEvents(on !== true, { forward: true }); if (on === true) { lastTouch = Date.now(); if (pose === 'peek') setPose('out'); } } });
+ipcMain.on('pet:solid', () => { /* the pointer is followed in step(); the page's own check only decides what a click hit */ });
 ipcMain.on('pet:click', (e, where) => {
   if (!fromPet(e)) return;
   lastTouch = Date.now();
@@ -373,6 +393,8 @@ ipcMain.on('bubble:size', (e, size) => {
   aimTail(w, box);
   bubbleUp = true;
   bubble?.show();
+  if (process.env.AANG_PET_TRACE) console.log(`aang: bubble at ${JSON.stringify(w.getBounds())} visible=${w.isVisible()} pet=${JSON.stringify(petAt().sprite)}`);
+  if (process.env.AANG_PET_SHOT) setTimeout(() => { void w.webContents.capturePage().then((img) => writeFileSync(process.env.AANG_PET_SHOT!, img.toPNG())); }, 900);
 });
 ipcMain.on('bubble:hidden', (e) => { if (!fromBubble(e)) return; bubbleUp = false; bubble?.setClickable(false); bubble?.hide(); heldBubble = null; lastTouch = Date.now(); });
 ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });

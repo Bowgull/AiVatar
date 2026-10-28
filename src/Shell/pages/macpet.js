@@ -52,7 +52,9 @@ function draw() {
   if (f && show > 0) {
     // Only the top `show` pixels of his art: the rest is under the edge.
     g.save();
-    g.beginPath(); g.rect(0, MARK, 224, show); g.clip();
+    // Nothing above his head is cut: his frames bob and some reach above row 78 (2026-10-28, his head was clipped). Only
+    // the bottom is clipped, at the edge he stands or docks on.
+    g.beginPath(); g.rect(0, 0, 224, MARK + show); g.clip();
     g.drawImage(f, 0, MARK - ART_TOP);
     g.restore();
   }

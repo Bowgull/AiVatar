@@ -71,7 +71,7 @@ export class Bubble {
       // game; 'screen-saver' would sit over Windows' own alerts, which is not Aang's place.
       w.setAlwaysOnTop(true, 'pop-up-menu');
       // Visible on every desktop, because he switches desktops and Aang is not a per-desktop thing.
-      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
       lockDown(w.webContents);
       denyPermissions(w.webContents.session);
       // THE MOUSE PASSES STRAIGHT THROUGH, except over the drawn bubble.
