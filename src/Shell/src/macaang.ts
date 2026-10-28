@@ -374,10 +374,39 @@ app.whenReady().then(async () => {
   tray.on('right-click', () => fromBar('right-click'));
   tray.on('mouse-up', () => fromBar('mouse-up'));
   link.start();
+  watchClicksAway();
   console.log('aang: on the Mac, talking to the brain on ' + PORT);
   // Tests only: say a line of our own a few seconds in, so the bubble can be looked at without the brain saying anything.
   if (process.env.AANG_PET_DEMO) setTimeout(() => say({ t: 'bubble', text: process.env.AANG_PET_DEMO, stream: false, proactive: true, turn: 1 }), 3000);
 });
+
+/**
+ * A click anywhere that is not Aang's (main.ts clickedAway, the pet's outside.click on the PC): the bubble lets go and the
+ * box closes, keeping its draft. bin/aang-clicks (mac/clicks.swift) hears presses in other apps only.
+ */
+function watchClicksAway(): void {
+  const bin = process.env.AANG_CLICKS_BIN ?? path.join(HERE, '..', 'bin', 'aang-clicks');
+  if (!existsSync(bin)) { console.log('aang: no click helper at ' + bin + '; the bubble will not close on a click elsewhere'); return; }
+  let fails = 0;
+  const run = () => {
+    const child = spawn(bin, [], { stdio: ['pipe', 'pipe', 'ignore'] });
+    let buf = '';
+    child.stdout!.on('data', (d) => {
+      buf += String(d);
+      for (let i = buf.indexOf('\n'); i >= 0; i = buf.indexOf('\n')) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        if (!/^down -?\d+ -?\d+$/.test(line)) continue;
+        fails = 0;
+        if (bubbleUp || input?.visible) { bubble?.send('bubble:dismiss', 'outside'); if (input?.visible) input.close(false); }
+      }
+    });
+    child.on('exit', () => { if (!quitting) setTimeout(run, Math.min(60_000, 2_000 * 2 ** Math.min(5, fails++))); });
+    app.on('before-quit', () => { try { child.stdin?.end(); child.kill(); } catch { /* gone */ } });
+  };
+  run();
+}
+let quitting = false;
+app.on('before-quit', () => { quitting = true; });
 
 // ---------------------------------------------------------------- the pet's page
 const fromPet = (e: Electron.IpcMainEvent) => !!pet && !pet.isDestroyed() && e.sender === pet.webContents;
