@@ -78,6 +78,8 @@ let petX = 0;                                      // the frame's left edge on s
 // 34 px peek) only when dropped at an edge.
 let pose: Pose = 'out';
 let show = OUT;
+/** How deep his window is: `show`, or during a slide the larger end of it, so the window is sized once per slide. */
+let room = OUT;
 let docked = false;
 /** Free: where the top of his art is. Docked: worked out from the floor. */
 let artY = 0;
@@ -112,10 +114,12 @@ type Rect = { x: number; y: number; width: number; height: number };
  * 90 anticlockwise at the right, 180 at the top), feet into the edge, so the mark's room is on the side away from it.
  */
 function where(): { win: Rect; art: Rect } {
-  const b = display().bounds, wa = display().workArea, h = MARK + Math.max(1, show);
+  // The window is sized for `room` (the larger end of a slide), and he slides inside it (2026-10-28 motion audit:
+  // resizing the whole window every frame was the costliest motion on this Mac). His art is `show` deep at the edge.
+  const b = display().bounds, wa = display().workArea, h = MARK + Math.max(1, room);
   if (!docked || edge === 'bottom') {
-    const top = artTop();
-    return { win: { x: petX, y: top - MARK, width: 224, height: h }, art: { x: petX + ART.x, y: top, width: ART.w, height: show } };
+    const top = artTop(), floorY = top + show;
+    return { win: { x: petX, y: floorY - h, width: 224, height: h }, art: { x: petX + ART.x, y: top, width: ART.w, height: show } };
   }
   if (edge === 'left') return { win: { x: b.x, y: along, width: h, height: 224 }, art: { x: b.x, y: along + ART.x, width: show, height: ART.w } };
   if (edge === 'right') { const r = b.x + b.width; return { win: { x: r - h, y: along, width: h, height: 224 }, art: { x: r - show, y: along + 224 - ART.x - ART.w, width: show, height: ART.w } }; }
@@ -137,10 +141,12 @@ function petAt(): PetAt {
  * window that hangs off the bottom of the screen back up (seen on his screen, 2026-10-28: he floated 112 px up), so
  * nothing of it may be below the edge: the slide grows and shrinks the window instead of moving it.
  */
+let lastWin = '';
 function placePet(): void {
   if (!pet || pet.isDestroyed()) return;
-  pet.setBounds(where().win);
-  pet.webContents.send('pet:state', { show, edge: docked ? edge : 'bottom' });
+  const w = where().win, key = `${w.x},${w.y},${w.width},${w.height}`;
+  if (key !== lastWin) { lastWin = key; pet.setBounds(w); }        // only when it really moves or changes size
+  pet.webContents.send('pet:state', { show, room, edge: docked ? edge : 'bottom' });
 }
 
 function setPose(p: Pose): void {
@@ -157,8 +163,11 @@ function step(): void {
     const t = Math.min(1, (Date.now() - slide.at) / SLIDE_MS);
     const e = 1 - Math.pow(1 - t, 3);
     show = Math.round(slide.from + (slide.to - slide.from) * e);
+    room = t >= 1 ? show : Math.max(slide.from, slide.to);
     placePet();
-    if (t >= 1) { slide = null; placeWindows(); }
+    // The bubble and the box ride along with him while he slides, not only once he stops (motion audit).
+    placeWindows();
+    if (t >= 1) slide = null;
   }
   // The Dock hides at the bottom and slides up when the pointer reaches the bottom edge, then stays while the pointer is on
   // it. macOS does not say when it is up, so this follows the pointer the way the Dock itself does.
@@ -532,7 +541,7 @@ app.whenReady().then(async () => {
   along = Number.isFinite(saved?.along) ? Number(saved!.along) : 0;
   // Free: where he was left, else standing on the bottom edge at the right.
   artY = Number.isFinite(saved?.y) ? Math.max(b.y + MARK, Math.min(b.y + b.height - ART.h, Number(saved!.y))) : b.y + b.height - ART.h;
-  pose = docked ? 'peek' : 'out'; show = SHOW[pose];
+  pose = docked ? 'peek' : 'out'; show = SHOW[pose]; room = show;
   pet = new BrowserWindow({
     width: 224, height: MARK + OUT, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false,
     focusable: false, skipTaskbar: true, show: false, type: 'panel', alwaysOnTop: true,
@@ -627,7 +636,7 @@ function undock(): void {
     }
     docked = false; edge = 'bottom';
   }
-  slide = null; pose = 'out'; show = OUT; placePet(); placeWindows(); savePlace();
+  slide = null; pose = 'out'; show = OUT; room = OUT; placePet(); placeWindows(); savePlace();
 }
 /** Docked at an edge: he tucks into it (the 34 px peek) and slides out on hover (Dock.cs). */
 function dockAt(e: DockEdge): void {
@@ -637,7 +646,7 @@ function dockAt(e: DockEdge): void {
   if (e === 'left' || e === 'right') along = Math.max(b.y, Math.min(b.y + b.height - 224, Math.round(midY - 112)));
   else if (e === 'top') along = Math.max(b.x, Math.min(b.x + b.width - 224, Math.round(midX - 112)));
   else petX = Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, Math.round(midX - ART.x - ART.w / 2)));
-  edge = e; docked = true; slide = null; pose = 'peek'; show = PEEK; placePet(); placeWindows(); savePlace();
+  edge = e; docked = true; slide = null; pose = 'peek'; show = PEEK; room = PEEK; placePet(); placeWindows(); savePlace();
 }
 function dockBottom(): void { dockAt('bottom'); }
 let dragFrom: { x: number; y: number; px: number; py: number } | null = null;
