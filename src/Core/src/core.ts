@@ -64,6 +64,7 @@ import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoU
 import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
 import { notHisCwd } from './notjobs.ts';
+import { quickMath } from './quickmath.ts';
 import { awayItemOf, bundleOf, earlier, fresh, keep, tierOf, welcomeBack, type AwayItem, type Tier } from './heldnotes.ts';
 /** "what time is it", "what's the date", "what day is it" and the like, alone (a greeting before it is fine). */
 const CLOCK_ASK = /^\s*(?:(?:hey|yo|aang|ok)[, ]+)*(?:what(?:'?s| is) the (?:time|date|day)(?: (?:now|today|right now))?|what time is it(?: (?:now|right now))?|what day is it(?: today)?|what'?s today'?s date|what is today|whats today)\s*[?.!]*\s*$/i;
@@ -3971,6 +3972,14 @@ export class Core {
         // The time, the date or the day, in plain code (2026-10-28, his "talking to aang takes forever": "what time is it"
         // took 2.7 s to its first word on Smart). Exact, instant, never a model turn; his 2026-10-13 rule (Quick only for
         // small talk) stands. Anything more ("in tokyo", "until 5") still goes to the model.
+        // Simple sums too ("what's 6 times 7"): exact and instant in plain code, never a 5 s model turn (quickmath.ts).
+        const sum = m.ephemeral !== true ? quickMath(text) : null;
+        if (sum !== null) {
+          this.send(ws, { t: 'ack', id });
+          this.send(ws, { t: 'bubble', text: `${sum}.`, stream: false, id, who: 'Aang' });
+          this.memory.saveSaid?.(`${sum}.`, 'say');
+          break;
+        }
         const clock = m.ephemeral !== true ? CLOCK_ASK.exec(text) : null;
         if (clock) {
           this.send(ws, { t: 'ack', id });
