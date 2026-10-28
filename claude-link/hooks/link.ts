@@ -446,7 +446,7 @@ export function notHisCwd(cwd: string, tmp = ''): boolean {
   const c = String(cwd ?? '').trim()
   if (!c) return false
   if (/[\\/]\.aang-(self|test)([\\/]|$)/i.test(c) || /[\\/]src[\\/]Core[\\/]test([\\/]|$)/i.test(c)) return true
-  if (/[\\/]AppData[\\/]Local[\\/]Temp([\\/]|$)/i.test(c) || /^\/tmp(\/|$)/.test(c)) return true
+  if (/[\\/]AppData[\\/]Local[\\/]Temp([\\/]|$)/i.test(c) || /^\/(private\/)?tmp(\/|$)/.test(c) || /^\/(private\/)?var\/folders\//.test(c)) return true
   const t = tmp ? normFolder(tmp) : ''
   return !!t && (normFolder(c) === t || normFolder(c).startsWith(t + '\\'))
 }
