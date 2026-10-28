@@ -99,7 +99,9 @@ window.pet?.onState((s) => {
 
 // ---------------------------------------------------------------- the mouse on him
 // The window ignores the mouse except over his drawn pixels (the main process turns that on and off from here).
-let solid = false, down = null, dragging = false;
+let solid = false, down = null, dragging = false, holding = false, holdTimer = 0;
+/** PetWindow.cs: holding still on him for 300 ms opens the wheel; moving first is a drag. */
+const HOLD_MS = 300;
 function isSolid(x, y) {
   if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) return false;
   return g.getImageData(x, y, 1, 1).data[3] > 20;
@@ -107,13 +109,20 @@ function isSolid(x, y) {
 document.addEventListener('mousemove', (e) => {
   const now = isSolid(e.offsetX, e.offsetY) || dragging;
   if (now !== solid) { solid = now; window.pet?.solid(now); }
-  if (down && !dragging && Math.hypot(e.screenX - down.x, e.screenY - down.y) > 4) { dragging = true; window.pet?.drag('start', e.screenX, e.screenY); }
+  if (down && !dragging && !holding && Math.hypot(e.screenX - down.x, e.screenY - down.y) > 4) { clearTimeout(holdTimer); dragging = true; window.pet?.drag('start', e.screenX, e.screenY); }
   if (dragging) window.pet?.drag('move', e.screenX, e.screenY);
 });
 document.addEventListener('mouseleave', () => { if (!dragging && solid) { solid = false; window.pet?.solid(false); } });
-document.addEventListener('mousedown', (e) => { if (e.button === 0 && solid) down = { x: e.screenX, y: e.screenY }; });
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0 || !solid) return;
+  down = { x: e.screenX, y: e.screenY };
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => { if (down && !dragging) { holding = true; window.pet?.hold('open', down.x, down.y); } }, HOLD_MS);
+});
 document.addEventListener('mouseup', (e) => {
   if (e.button !== 0) return;
+  clearTimeout(holdTimer);
+  if (holding) { holding = false; down = null; window.pet?.hold('release', e.screenX, e.screenY); return; }
   if (dragging) window.pet?.drag('end', e.screenX, e.screenY);
   else if (down && solid) window.pet?.click(e.offsetY < MARK ? 'mark' : 'aang');
   down = null; dragging = false;
