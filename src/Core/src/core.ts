@@ -3101,7 +3101,9 @@ export class Core {
       // Quick sees a shelf of 16, not 52: past ~40 tools the right one stops standing out (see QUICK_TOOLS).
       // Anything it cannot reach is a doing request, which routes to Smart first anyway - and if one slips
       // through, its "I can't" is caught and re-run there.
-      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE, ...(name === 'quick' ? QUICK_HIDDEN : [])],
+      // On the Mac (2026-10-28): his own browse tools drive Samara on the PC only; here they would fail after a wait.
+      // Samara's own tools (aang-browser, from his Claude settings) are the way he drives Samara on this Mac.
+      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE, ...(name === 'quick' ? QUICK_HIDDEN : []), ...(process.platform === 'darwin' ? ['mcp__aang__browse', 'mcp__aang__browser_history'] : [])],
       // Which of the ENGINE's own built-ins get loaded at all. A third switch, and the only one that
       // changes the prompt: allowedTools and disallowedTools both still SEND every schema and merely
       // decide what may be called. Measured 2026-09-30: all built-ins cost 56,822 input tokens, these
@@ -4407,6 +4409,11 @@ export class Core {
 
     if (e.t === 'tool') {
       if (sub && e.phase === 'start') this.toTurn(sub, { t: 'tool', id: sub.id, name: e.name, phase: 'start', label: e.label });
+      // Samara asks him to allow a browsing plan in its own window (aang-browser's browser_plan). That ask is Samara's,
+      // not Aang's, so nothing of Aang's showed it (2026-10-28: he waited on a plan he never saw). Said in the bubble.
+      if (sub && e.phase === 'start' && e.name === 'mcp__aang-browser__browser_plan') {
+        this.toTurn(sub, { t: 'whisper', text: 'Samara is asking you to allow my plan. Its window has an Allow button.' } as never);
+      }
       turn.buf = '';
       return;
     }
