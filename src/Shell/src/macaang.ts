@@ -657,6 +657,11 @@ function watchClicksAway(): void {
         const [, x, y] = line.split(' ').map(Number);
         const r = petAt().sprite;
         if (x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height) continue;
+        // Nor a press on the bubble's own panel, or in the chat box (2026-10-28, his "the new note button does nothing":
+        // a real click on + New note was heard here as a click away and the bubble closed under it). Only the drawn
+        // panel: its see-through margin lets the click through to the app behind, which is a click away.
+        const inside = (w: BrowserWindow | null | undefined) => { if (!w || w.isDestroyed() || !w.isVisible()) return false; const b = w.getBounds(); return x >= b.x && x < b.x + b.width && y >= b.y && y < b.y + b.height; };
+        if ((bubble?.takesClicks && inside(bubble.window())) || inside(input?.visible ? input.window() : null)) continue;
         if (bubbleUp || input?.visible) { bubble?.send('bubble:dismiss', 'outside'); if (input?.visible) input.close(false); }
       }
     });
