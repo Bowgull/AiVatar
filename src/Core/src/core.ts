@@ -1594,7 +1594,7 @@ export class Core {
   }
 
   private listFolderSafe(dir: string): string {
-    if (!path.isAbsolute(dir)) return 'Give the full path of the folder, starting with the drive.';
+    if (!path.isAbsolute(dir)) return process.platform === 'darwin' ? 'Give the full path of the folder, starting with /.' : 'Give the full path of the folder, starting with the drive.';
     const full = path.resolve(dir).toLowerCase(), state = path.resolve(this.cfg.stateDir).toLowerCase();
     if (full === state || full.startsWith(state + path.sep)) return 'That is my own settings folder, which I do not open.';
     // Belt and braces with the check in askPermission: a listing reached any other way is still refused.
