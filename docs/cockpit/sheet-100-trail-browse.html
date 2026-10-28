@@ -3,303 +3,46 @@
 <head>
 <meta charset="utf-8">
 <title>Sheet 100 - The Mockups trail, browse everything</title>
-<!-- Sheet 100 (2026-10-28). His asks: "I need a way to browse the entire thing", "mockups aren't being sent organized
-     correctly", "a top bar trail that clearly belongs in Samara", "make it easier to understand between labels and
-     categories and projects, versions". His picks so far: layers are Project > Topic > Sheet (versions inside). Browse
-     and versions: "show me mockups". So: the four layers, each with its own look; two ways to browse; two ways to show
-     versions. Every sheet, topic and picture here is real (pictures captured from each version at its commit by
-     test/electron/sheet100-thumbs.ts). Drawn from Samara's own pieces: tray wood, trayframe, velvet, cap3 corners, the
-     lantern, the mark chips of sheet 79. -->
+<!-- Sheet 100 v2 (2026-10-28). v1 picks (his): Project > Topic > Sheet; "Quest log page and the picture strip". Built on
+     samara-startup (not installed). His note on v1: the quest log must be part of Samara, not a page or window over it.
+     So two ways it can sit inside the window, side by side. Every picture is Samara itself, captured by
+     test/electron/sheet100-check.ts on a copy of his trail; nothing is redrawn. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
-  :root{--ol:#120A05;--gold:#FFC43C;--gold-lit:#FFE28C;--ink:#f2e3c2;--dim:#a98e6a;
-    --wood:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;--vel:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px}
   html{background:#0d0805}
   body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px;margin:0;
-    background:linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,.72)),var(--wood);image-rendering:pixelated}
-  h1{font:700 22px var(--display);color:var(--gold-lit);margin:0 0 6px;text-shadow:0 2px 0 #000}
-  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1100px;line-height:1.5}
+    background:linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,.72)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  h1{font:700 22px var(--display);color:#FFE28C;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1000px;line-height:1.5}
   h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:40px 0 12px}
-  .cap{font:700 14px var(--body);color:var(--gold-lit);margin:0 0 3px}
-  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:620px;line-height:1.45}
-  .row{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
-
-  /* ---- Samara's panel: tray wood in its pixel frame, brass corners ---- */
-  .panel{position:relative;border:8px solid transparent;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
-    background:linear-gradient(rgba(0,0,0,.30),rgba(0,0,0,.40)),var(--wood);background-clip:padding-box;box-shadow:0 6px 0 rgba(0,0,0,.5)}
-  .panel::after{content:"";position:absolute;inset:-8px;pointer-events:none;
-    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
-      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
-  .velv{border:8px solid transparent;border-image:url(../../src/Shell/pages/art/browser/velvetframe.png) 4 repeat;background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.35)),var(--vel);background-clip:padding-box}
-
-  /* ---- The four layers, each its own look ---- */
-  /* 1 PROJECT: a carved plaque, its own emblem, the name in Cinzel capitals */
-  .proj{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:7px 10px 7px 7px;margin:0 0 6px;border:3px solid var(--ol);border-radius:8px;cursor:pointer;
-    background:linear-gradient(180deg,#5a3a1e 0 3px,#3d2612 3px calc(100% - 3px),#24160a calc(100% - 3px));box-shadow:0 3px 0 var(--ol),inset 0 0 0 2px rgba(255,214,140,.12);text-align:left}
-  .proj .em{flex:none;width:32px;height:32px;display:grid;place-items:center;border:2px solid var(--ol);border-radius:6px;background:#0B0718;image-rendering:pixelated}
-  .proj .em img{width:32px;height:32px}
-  .proj .em b{font:700 17px var(--display);color:var(--gold-lit);text-shadow:0 2px 0 #000}
-  .proj .pn{flex:1;font:700 14px var(--display);letter-spacing:1.6px;color:var(--ink);text-transform:uppercase;text-shadow:0 2px 0 #000}
-  .proj .pc{font:700 12px var(--body);color:var(--dim)}
-  .proj.folded{opacity:.9}
-  .proj .chev{width:0;height:0;border:5px solid transparent;border-left:6px solid var(--gold-lit);border-right:0;transition:transform .2s steps(3)}
-  .proj.open .chev{transform:rotate(90deg)}
-  /* 2 TOPIC: Silkscreen capitals on a ruled line, a fold arrow, a count; never a box */
-  .topic{display:flex;align-items:center;gap:7px;margin:10px 0 4px 10px;font:400 11px var(--label);letter-spacing:1.4px;color:#c9a35a;cursor:pointer;text-transform:uppercase}
-  .topic::after{content:"";flex:1;order:3;height:3px;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1.5px,rgba(255,224,150,.18) 1.5px 3px)}
-  .topic .chev{width:0;height:0;border:4px solid transparent;border-left:5px solid #c9a35a;border-right:0;transition:transform .2s steps(3)}
-  .topic.open .chev{transform:rotate(90deg)}
-  .topic .n{order:2;font:700 11.5px var(--body);letter-spacing:0;color:var(--dim);text-transform:none}
-  /* 3 SHEET: its number on a brass chip, its name in Figtree */
-  .sh{display:flex;align-items:center;gap:8px;width:calc(100% - 22px);margin:2px 0 0 22px;padding:6px 8px 6px 4px;border:none;border-radius:6px;background:none;cursor:pointer;text-align:left;
-    font:700 14px var(--body);color:var(--ink)}
-  .sh:hover{background:rgba(255,196,60,.10)}
-  .sh.on{background:rgba(255,196,60,.16);box-shadow:inset 3px 0 0 var(--gold)}
-  .num{flex:none;min-width:28px;box-sizing:border-box;padding:2px 5px;border-radius:4px;text-align:center;font:800 12px/1.2 var(--body);color:#2a1c00;
-    background:#d9ae62;box-shadow:0 2px 0 var(--ol),inset 0 2px 0 #f0d08e,inset 0 -2px 0 #a8793a}
-  .sh .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .sh .vc{flex:none;font:700 11.5px var(--body);color:var(--dim)}
-  .sh.parked .nm{color:#8f7a5c;text-decoration:line-through;text-decoration-color:rgba(185,166,132,.6)}
-  /* 4 VERSION: a small picture, or a pip; see the versions section */
-  /* the marks, as sheet 79 has them */
-  .mk{flex:none;font:800 10.5px/1 var(--body);letter-spacing:.5px;padding:4px 5px 3px;border-radius:3px;white-space:nowrap}
-  .mk.ok{background:var(--gold);color:#2a1c00}
-  .mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
-  .mk.fix{background:#e8913a;color:#2b1405}
-  .mk.park{background:#4a3f33;color:#b9a684}
-
-  /* the legend: one of each, side by side */
-  .legend{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;max-width:1180px}
-  .legend .slot{padding:12px}
-  .legend .what{font:700 13px var(--body);color:var(--gold-lit);margin:10px 0 2px}
-  .legend .how{font:500 12.5px/1.45 var(--body);color:#b9a684}
-
-  /* ---- Side trail ---- */
-  .trail{width:340px;box-sizing:border-box;padding:10px 10px 14px}
-  .trail .head{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:700 15px var(--display);letter-spacing:1px;color:var(--gold-lit);text-shadow:0 2px 0 #000}
-  .trail .head img{width:22px;height:22px;border-radius:4px;box-shadow:0 0 0 1.5px var(--ol);image-rendering:auto}
-  .trail .head .n{font:700 12px var(--body);color:var(--dim);letter-spacing:0}
-  .trail .head .mag{margin-left:auto;width:24px;height:24px}
-  .fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .24s steps(4)}
-  .fold.open{grid-template-rows:1fr}
-  .fold>div{min-height:0;overflow:hidden}
-
-  /* ---- Versions: A, a picture strip ---- */
-  .strip{display:flex;gap:6px;margin:8px 0 8px 36px;flex-wrap:wrap}
-  .vt{position:relative;width:60px;cursor:pointer;background:none;border:none;padding:0;text-align:left}
-  .vt .pic{display:block;width:60px;height:38px;box-sizing:border-box;border:4px solid transparent;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
-    background:#000 center/cover no-repeat;image-rendering:auto}
-  .vt .v{display:block;margin:3px 0 0 1px;font:800 11.5px var(--body);color:var(--gold-lit)}
-  .vt .mk{position:absolute;right:-4px;top:-6px;font-size:9.5px;padding:3px 4px 2px;box-shadow:0 2px 0 var(--ol)}
-  .vt.ok .pic{border-image:none;border:4px solid var(--gold);box-shadow:0 0 0 2px var(--ol)}
-  .vt.park .pic{filter:saturate(.25) brightness(.6)}
-  .vt.on .v{color:#fff}
-  .vt.on .pic{outline:2px solid #fff;outline-offset:1px}
-  .vt:hover .pic{filter:brightness(1.15)}
-  /* ---- Versions: B, numbered pips ---- */
-  .pips{display:flex;gap:5px;margin:6px 0 8px 36px;flex-wrap:wrap;position:relative}
-  .pip{position:relative;width:22px;height:22px;box-sizing:border-box;border:2px solid var(--ol);border-radius:4px;cursor:pointer;padding:0;
-    background:#2a1d10;box-shadow:0 2px 0 var(--ol),inset 0 2px 0 rgba(255,224,150,.15);font:800 11px/18px var(--body);color:#d9c7a2;text-align:center}
-  .pip.ok{background:var(--gold);color:#2a1c00}
-  .pip.built{background:#2f7d3e;color:#e9ffe9}
-  .pip.fix{background:#e8913a;color:#2b1405}
-  .pip.park{background:#4a3f33;color:#8f7a5c}
-  .pip.on{outline:2px solid #fff;outline-offset:1px}
-  .peek{position:absolute;left:0;top:30px;z-index:5;width:240px;padding:6px;display:none}
-  .peek.show{display:block}
-  .peek .big{display:block;width:240px;height:150px;background:#000 center/cover no-repeat}
-  .peek .pl{margin:6px 2px 0;font:700 12.5px var(--body);color:var(--ink);display:flex;gap:6px;align-items:center}
-
-  /* ---- Browse A: the quest log, a whole tab ---- */
-  .log{width:1180px;height:640px;display:grid;grid-template-columns:270px 330px 1fr;gap:0;padding:0}
-  .log>div{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#5a3a1e transparent}
-  .log>div::-webkit-scrollbar{width:8px}.log>div::-webkit-scrollbar-thumb{background:#5a3a1e;border:2px solid var(--ol)}.log>div::-webkit-scrollbar-track{background:transparent}
-  .log .c1{padding:12px 10px;border-right:3px solid var(--ol)}
-  .log .c2{padding:12px 8px;border-right:3px solid var(--ol);background:rgba(0,0,0,.18)}
-  .log .c3{padding:16px 20px}
-  .log .ttl{font:400 11px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:0 0 10px}
-  .log .c1 .topic{margin-left:6px}
-  .log .c1 .topic.on{color:var(--gold-lit)}
-  .log .c1 .topic.on .chev{border-left-color:var(--gold-lit)}
-  .log .c2 .sh{margin:0 0 3px;width:100%;padding:8px}
-  .log .where{font:400 11px var(--label);letter-spacing:1.4px;color:#c9a35a;margin:0 0 6px}
-  .log .where b{color:var(--gold-lit);font-weight:400}
-  .log .dt{display:flex;align-items:center;gap:10px;font:700 21px var(--display);color:var(--gold-lit);text-shadow:0 2px 0 #000;margin:0 0 12px}
-  .log .bigpic{display:block;width:100%;aspect-ratio:16/10;max-height:330px;box-sizing:border-box;border:8px solid transparent;
-    border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;background:#000 center/cover no-repeat}
-  .log .said{margin:10px 0 0;font:500 13px var(--body);color:#e8b27a;font-style:italic}
-  .log .go{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 12px 5px;border-radius:6px;border:2px solid var(--ol);background:var(--gold);color:#2a1c00;
-    font:800 13px var(--body);box-shadow:0 3px 0 var(--ol);cursor:pointer}
-  .log .c3 .strip{margin:12px 0 0}
-  .log .c3 .vt{width:96px}.log .c3 .vt .pic{width:96px;height:60px}
-  /* the tab it lives in: Samara's band on top, the address showing it is Samara's own page */
-  .tabwin{width:1196px;border:3px solid var(--ol);border-radius:10px;overflow:hidden;box-shadow:0 12px 26px rgba(0,0,0,.55)}
-  .tabwin .band{height:58px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 52px;border-bottom:3px solid var(--ol);position:relative}
-  .tabwin .slot{position:absolute;left:62px;right:62px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid var(--ol);display:flex;align-items:center;gap:8px;padding:0 10px;
-    font:600 13px var(--body);color:#efe4cc;box-sizing:border-box}
-  .tabwin .slot img{width:16px;height:16px}
-  .tabwin .log{border:0;width:auto}
-
-  .note{font:500 12.5px var(--body);color:#b9a684;margin:10px 0 0;max-width:640px;line-height:1.45}
-  .note b{color:var(--gold-lit)}
-  @media (prefers-reduced-motion:reduce){.fold,.proj .chev,.topic .chev{transition:none}}
+  .cap{font:700 14px var(--body);color:#FFE28C;margin:0 0 3px}
+  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:760px;line-height:1.45}
+  .shot{display:block;width:1050px;max-width:100%;border:3px solid #120A05;border-radius:10px;box-shadow:0 12px 26px rgba(0,0,0,.55);image-rendering:auto}
+  .row{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap}
+  .trail{width:340px;border:3px solid #120A05;border-radius:6px;image-rendering:auto}
 </style>
 </head>
 <body>
 <h1>Sheet 100 · The Mockups trail, browse everything</h1>
-<p class="lead">Every sheet you've seen, in one place, by project, then topic, then sheet, with the versions inside. Each layer has its own look, so you can tell at a glance what you're looking at. Every sheet and picture here is real.</p>
+<p class="lead">Two ways the quest log can live inside Samara's own window. Same log in both. Every picture here is Samara itself, running on a copy of your trail.</p>
 
-<h2>1 · FOUR LAYERS, FOUR LOOKS</h2>
-<div class="legend" id="legend"></div>
+<h2>A · A TAB, LIKE SETTINGS</h2>
+<p class="cap">The magnifier opens it in place of your page</p>
+<p class="sub">It takes the page's spot, and the address says Mockups. Back, or another tab, takes you out. It stays open as a tab until you close it.</p>
+<img class="shot" src="sheet-100/v2-tab.png" alt="">
 
-<h2>2 · HOW YOU BROWSE: A · THE QUEST LOG</h2>
-<p class="cap">A whole page of its own, opened from the trail's head</p>
-<p class="sub">Projects and topics on the left, that topic's sheets in the middle, and the one you pick big on the right with all its versions under it. Click around: it works.</p>
-<div class="tabwin">
-  <div class="band"><div class="slot"><img src="../../src/Shell/pages/art/samara/samara-lantern-16.png" alt="">Mockups</div></div>
-  <div class="log panel" id="log">
-    <div class="c1"><div class="ttl">PROJECTS</div><div id="logtree"></div></div>
-    <div class="c2"><div class="ttl" id="logtopic"></div><div id="logsheets"></div></div>
-    <div class="c3" id="logdetail"></div>
-  </div>
-</div>
+<h2>B · THE TAB LIST SLIDES OPEN WIDE</h2>
+<p class="cap">The magnifier pulls the tab list open across the whole window</p>
+<p class="sub">Your page stays where it is underneath, and the address still shows it. Move off the log and it slides back, the way the tab list does.</p>
+<img class="shot" src="sheet-100/v2-slide.png" alt="">
 
-<h2>2 · HOW YOU BROWSE: B · A BIGGER SIDE TRAIL</h2>
-<p class="cap">Everything stays in the side trail</p>
-<p class="sub">The same four layers, folded. Open a sheet and its versions show right under it. No extra page.</p>
+<h2>BUILT ALREADY · THE TRAIL</h2>
 <div class="row">
-  <div class="trail panel" id="trailB"></div>
+  <img class="trail" src="sheet-100/v2-trail.png" alt="">
   <div>
-    <p class="cap">Folded down</p>
-    <p class="sub">With every project shut, the whole trail is five lines.</p>
-    <div class="trail panel" id="trailShut"></div>
+    <p class="cap">Project, topic, sheet, and a picture of every version</p>
+    <p class="sub">The magnifier sits on the MOCKUPS heading. A picture shows once Samara has taken it, newest sheets first. Until then the frame is empty.</p>
   </div>
 </div>
-
-<h2>3 · HOW VERSIONS SHOW: A · A PICTURE STRIP</h2>
-<p class="cap">Small pictures of each version, your mark on its corner</p>
-<p class="sub">The one you approved sits in a gold frame. Parked ones go grey. Click one to open it.</p>
-<div class="row">
-  <div class="trail panel" id="vA1"></div>
-  <div class="trail panel" id="vA2"></div>
-</div>
-
-<h2>3 · HOW VERSIONS SHOW: B · NUMBERED PIPS</h2>
-<p class="cap">A row of small numbered squares, coloured by your mark</p>
-<p class="sub">Shorter rows. Point at one to see its picture.</p>
-<div class="row">
-  <div class="trail panel" id="vB1"></div>
-  <div class="trail panel" id="vB2"></div>
-</div>
-<p class="note">The marks on 85, 86, 87, 90, 92, 93, 94 and 98 are what you said in past chats. Most aren't set in the trail yet; this repair sets them. Waymark and Couch Mode have no topics yet, so they show as one topic each until you sort them.</p>
-
-<script>
-const ART = '../../src/Shell/pages/art/';
-const P = (f) => 'sheet-100/v/' + f + '.png';
-// Real: every sheet in the trail, sorted the way the repair would file it. v: version count; pics: captured versions
-// (version -> picture); mk: his marks from past chats.
-const DATA = [
-  { name: 'Samara', em: 'lantern', topics: [
-    { name: 'Top bar', sheets: [[95, 'The lantern is the menu', 1], [96, 'The whole bar, as one thing', 2, { 1: '96-1', 2: '96-2' }], [98, 'Top bar and notices', 1, { 1: '98-1' }, { 1: ['fix', 'None of these are good'] }]] },
-    { name: 'Security', sheets: [[84, 'Full screen notice', 1], [85, 'How Samara asks', 1, null, { 1: ['park', 'AI slop'] }],
-      [86, 'Samara asks, one family', 4, { 1: '86-1', 2: '86-2', 3: '86-3', 4: '86-4' }, { 3: ['ok', ''] }],
-      [87, 'The secret window', 13, { 1: '87-1', 11: '87-11', 12: '87-12', 13: '87-13' }, { 13: ['ok', ''] }]] },
-    { name: 'TV', sheets: [[89, 'Stremio and the TV', 3, { 1: '89-1', 2: '89-2', 3: '89-3' }], [99, 'Send to TV, one click', 3, { 1: '99-1', 2: '99-2', 3: '99-3' }]] },
-    { name: 'Claude', sheets: [[93, "Claude's glow", 1, null, { 1: ['park', 'AI slop'] }], [97, 'Claude in Samara, one sign', 2, { 1: '97-1', 2: '97-2' }]] },
-    { name: 'Notices', sheets: [[92, 'Notices', 1, null, { 1: ['park', 'AI slop'] }]] },
-    { name: 'Logins', sheets: [[90, 'The cat, logins and the shelf', 2, { 1: '90-1', 2: '90-2' }, { 2: ['ok', ''] }], [91, 'The cat, Jiji style', 1]] },
-    { name: 'Address bar', sheets: [[88, 'The address bar', 2, { 1: '88-1', 2: '88-2' }]] },
-    { name: 'Settings', sheets: [[83, 'Settings, the game menu', 4, { 1: '83-1', 2: '83-2', 3: '83-3', 4: '83-4' }]] },
-    { name: 'Mockups trail', sheets: [[79, 'Approved, built and the rest', 2], [80, 'Find a mockup', 2], [81, 'Marks where you look', 1], [82, 'What just arrived', 1], [94, 'Tidier Mockups trail', 1, null, { 1: ['park', 'AI slop'] }], [100, 'Browse everything', 1]] },
-    { name: 'Autofill', sheets: [[72, 'Autofill', 2], [73, 'Autofill, three worlds', 1], [74, 'Autofill, our own way', 1], [75, 'The light and its PIN pad', 2], [76, 'Autofill, three ways', 1], [77, 'Autofill, the one to build', 4], [78, 'The address bar key', 1]] },
-    { name: 'Tabs', sheets: [[69, 'Keyboards and devices', 1], [70, 'Tab list arrow turning', 1], [71, 'Tab list size', 1]] },
-  ] },
-  { name: 'Couch Mode', em: 'C', topics: [
-    { name: 'Campfire scene', sheets: [['06', 'Campfire Loading', 2, { 2: 'c06' }], ['10', 'Willow Campfire', 1], ['11', 'Dark Forest Fire', 2, { 2: 'c11' }]] },
-    { name: 'Launcher', sheets: [['01', 'Couch Mode', 1], ['02', 'Couch Launcher', 1], ['03', 'Couch Launcher, blue', 1], ['04', 'Couch Styles', 1], ['05', 'Adventure Scenes', 1], ['07', 'Menus and Sounds', 1], ['08', 'Pixel Menus', 1], ['09', 'Sounds', 1]] },
-  ] },
-  { name: 'Waymark', em: 'W', topics: [
-    { name: 'All Waymark', sheets: [[75, 'Ledger ring miss', 1], [76, 'Hard runs and the 5k', 1], [77, 'Calmer Ledger', 1], [78, 'Run voices', 1], [79, 'Ledger boards', 2, { 2: 'w79' }], [86, 'Bag finisher', 1], [87, 'Technique switches by side', 1], [88, 'Week plan', 1], [89, 'Strides and the long run', 1], [90, 'Landmine sets', 1], [91, 'Ratings and unlocks', 1], [92, 'Bag rounds by stage', 1], [93, 'Switch kick vs left kick', 2, { 2: 'w93' }]] },
-  ] },
-  { name: 'Showcase', em: 'S', topics: [{ name: 'Title cards', sheets: [[68, 'Showcase title cards', 1]] }] },
-  { name: 'Anti-slop', em: 'A', topics: [{ name: 'Report', sheets: [['01', 'Anti-Slop Hunt report', 1, { 1: 's01' }]] }] },
-];
-const MK = { ok: 'APPROVED', built: '✓ BUILT', fix: 'FIX', park: 'PARKED' };
-const el = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; };
-const count = (p) => p.topics.reduce((a, t) => a + t.sheets.length, 0);
-const emblem = (p) => p.em === 'lantern' ? `<span class="em"><img src="${ART}samara/samara-lantern-32.png" alt=""></span>` : `<span class="em"><b>${p.em}</b></span>`;
-const projHtml = (p, open) => `<button class="proj ${open ? 'open' : 'folded'}">${emblem(p)}<span class="pn">${p.name}</span><span class="pc">${count(p)}</span><i class="chev"></i></button>`;
-const topicHtml = (t, open) => `<div class="topic ${open ? 'open' : ''}"><i class="chev"></i><span>${t.name}</span><span class="n">${t.sheets.length}</span></div>`;
-const sheetMark = (s) => { const m = s[4]; if (!m) return ''; const k = Object.keys(m).map(Number).sort((a, b) => b - a)[0]; return m[k][0]; };
-const sheetHtml = (s, on) => { const m = sheetMark(s);
-  return `<button class="sh ${on ? 'on' : ''} ${m === 'park' ? 'parked' : ''}"><span class="num">${s[0]}</span><span class="nm">${s[1]}</span>${m ? `<i class="mk ${m}">${MK[m]}</i>` : ''}<span class="vc">${s[2] > 1 ? s[2] + ' v' : ''}</span></button>`; };
-const versionsOf = (s) => { const out = []; for (let v = 1; v <= s[2]; v++) out.push({ v, pic: s[3]?.[v], mk: s[4]?.[v]?.[0] }); return out; };
-// A long run of versions shows the first, the marked ones and the last three; the rest fold into "+n".
-const pickShown = (s) => { const vs = versionsOf(s); if (vs.length <= 6) return vs; return vs.filter((x) => x.v === 1 || x.mk || x.v > vs.length - 3); };
-const stripHtml = (s, onV) => { const vs = pickShown(s), hidden = s[2] - vs.length;
-  return `<div class="strip">${vs.map((x) => `<button class="vt ${x.mk ?? ''} ${x.v === onV ? 'on' : ''}" data-v="${x.v}"><span class="pic" style="background-image:${x.pic ? `url(${P(x.pic)})` : 'none'}"></span><span class="v">v${x.v}</span>${x.mk ? `<i class="mk ${x.mk}">${MK[x.mk]}</i>` : ''}</button>`).join('')}${hidden > 0 ? `<span class="v" style="align-self:center;font:700 12px var(--body);color:var(--dim)">+${hidden} more</span>` : ''}</div>`; };
-const pipsHtml = (s) => `<div class="pips">${versionsOf(s).map((x) => `<button class="pip ${x.mk ?? ''}" data-v="${x.v}" data-pic="${x.pic ?? ''}" data-mk="${x.mk ?? ''}">${x.v}</button>`).join('')}<div class="peek panel"><span class="big"></span><div class="pl"></div></div></div>`;
-const head = (n) => `<div class="head"><img src="${ART}claude-icon.png" alt="">MOCKUPS <span class="n">${n}</span><svg class="mag" viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="#120A05" d="M3 1h4v1H3zM2 2h1v1H2zM7 2h1v1H7zM1 3h1v4H1zM8 3h1v4H8zM2 7h1v1H2zM7 7h1v1H7zM3 8h4v1H3zM8 8h1v1H8zM9 9h1v1H9zM10 10h1v1h-1z"/><path fill="#FFE28C" d="M3 2h4v1H3zM2 3h1v4H2zM7 3h1v4H7zM3 7h4v1H3zM8 8h1v1H8zM9 9h1v1H9z"/><path fill="#7cc4ff" d="M3 3h4v4H3z" opacity=".45"/></svg></div>`;
-const total = DATA.reduce((a, p) => a + count(p), 0);
-const S = (proj, topic, num) => DATA.find((p) => p.name === proj).topics.find((t) => t.name === topic).sheets.find((s) => String(s[0]) === String(num));
-
-// ---- 1, the legend
-document.getElementById('legend').innerHTML = [
-  ['Project', projHtml(DATA[0], true), 'A carved plaque with the project\'s own emblem and its name in capitals. Samara, Couch Mode, Waymark.'],
-  ['Topic', topicHtml(DATA[0].topics[0], true), 'Small gold capitals on a ruled line. A part of the project: Top bar, TV, Security.'],
-  ['Sheet', sheetHtml(S('Samara', 'Security', 86)), 'Its number on a brass chip, its name, your newest mark, how many versions.'],
-  ['Version', stripHtml({ 0: 99, 1: '', 2: 1, 3: { 1: '99-3' } }, 0).replace('v1', 'v3'), 'A small picture of that version, or a numbered pip. Two ways below.'],
-].map(([w, h, how]) => `<div class="slot panel">${h}<div class="what">${w}</div><div class="how">${how}</div></div>`).join('');
-
-// ---- 2A, the quest log
-let logP = 0, logT = 0, logS = 2, logV = 3;
-function drawLog() {
-  const p = DATA[logP], t = p.topics[logT], s = t.sheets[logS] ?? t.sheets[0];
-  document.getElementById('logtree').innerHTML = DATA.map((q, i) => projHtml(q, i === logP) + (i === logP ? q.topics.map((u, j) => topicHtml(u, j === logT).replace('class="topic', `data-t="${j}" class="topic${j === logT ? ' on' : ''}`)).join('') : '')).join('');
-  [...document.querySelectorAll('#logtree .proj')].forEach((b, i) => b.onclick = () => { logP = i; logT = 0; logS = 0; logV = 0; drawLog(); });
-  [...document.querySelectorAll('#logtree .topic')].forEach((b) => b.onclick = () => { logT = Number(b.dataset.t); logS = 0; logV = 0; drawLog(); });
-  document.getElementById('logtopic').textContent = t.name.toUpperCase() + ' · ' + t.sheets.length;
-  document.getElementById('logsheets').innerHTML = t.sheets.map((x) => sheetHtml(x, x === s)).join('');
-  [...document.querySelectorAll('#logsheets .sh')].forEach((b, i) => b.onclick = () => { logS = i; logV = 0; drawLog(); });
-  const vs = versionsOf(s), v = vs.find((x) => x.v === logV) ?? vs.filter((x) => x.mk === 'ok')[0] ?? vs[vs.length - 1];
-  const words = s[4]?.[v.v]?.[1];
-  document.getElementById('logdetail').innerHTML = `<div class="where">${p.name.toUpperCase()} › <b>${t.name.toUpperCase()}</b></div>
-    <div class="dt"><span class="num">${s[0]}</span>${s[1]}${v.mk ? `<i class="mk ${v.mk}">${MK[v.mk]}</i>` : ''}</div>
-    <span class="bigpic" style="background-image:${v.pic ? `url(${P(v.pic)})` : 'none'}"></span>
-    ${words ? `<div class="said">You said: "${words}"</div>` : ''}
-    <button class="go">Open v${v.v}</button>${stripHtml(s, v.v)}`;
-  [...document.querySelectorAll('#logdetail .vt')].forEach((b) => b.onclick = () => { logV = Number(b.dataset.v); drawLog(); });
-}
-drawLog();
-
-// ---- 2B, the side trail
-function trail(id, openP, openT, openS, how) {
-  const box = document.getElementById(id);
-  box.innerHTML = head(total) + DATA.map((p, i) => projHtml(p, i === openP) + `<div class="fold ${i === openP ? 'open' : ''}"><div>` +
-    p.topics.map((t, j) => topicHtml(t, i === openP && j === openT) + (i === openP && j === openT ? t.sheets.map((s) => sheetHtml(s, String(s[0]) === String(openS)) + (String(s[0]) === String(openS) ? (how === 'pips' ? pipsHtml(s) : stripHtml(s, 0)) : '')).join('') : '')).join('') + '</div></div>').join('');
-  [...box.querySelectorAll('.proj')].forEach((b) => b.onclick = () => { b.classList.toggle('open'); b.classList.toggle('folded'); b.nextElementSibling.classList.toggle('open'); });
-  wirePips(box);
-}
-function wirePips(box) {
-  for (const pipRow of box.querySelectorAll('.pips')) {
-    const pk = pipRow.querySelector('.peek');
-    for (const b of pipRow.querySelectorAll('.pip')) {
-      b.onmouseenter = () => { pk.querySelector('.big').style.backgroundImage = b.dataset.pic ? `url(${P(b.dataset.pic)})` : 'none';
-        pk.querySelector('.pl').innerHTML = `v${b.dataset.v}` + (b.dataset.mk ? ` <i class="mk ${b.dataset.mk}">${MK[b.dataset.mk]}</i>` : '');
-        pk.style.left = Math.min(b.offsetLeft, 20) + 'px'; pk.classList.add('show'); };
-      b.onmouseleave = () => pk.classList.remove('show');
-    }
-  }
-}
-trail('trailB', 0, 0, 98, 'strip');
-document.getElementById('trailShut').innerHTML = head(total) + DATA.map((p) => projHtml(p, false)).join('');
-// ---- 3, the versions, both ways, on the same two sheets
-trail('vA1', 0, 1, 86, 'strip'); trail('vA2', 0, 1, 87, 'strip');
-trail('vB1', 0, 1, 86, 'pips'); trail('vB2', 0, 1, 87, 'pips');
-// the second of each pair shows only its topic, so the two sit level
-for (const id of ['vA1', 'vA2', 'vB1', 'vB2']) { const b = document.getElementById(id); b.querySelectorAll('.proj:not(:first-of-type)').forEach((x) => { x.nextElementSibling.remove(); x.remove(); }); }
-// pip B: show one peek open, for the picture
-setTimeout(() => { const b = document.querySelector('#vB1 .pip[data-v="3"]'); b?.onmouseenter?.(); }, 300);
-</script>
 </body>
 </html>

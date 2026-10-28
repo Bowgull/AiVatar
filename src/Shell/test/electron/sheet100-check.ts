@@ -84,6 +84,7 @@ app.whenReady().then(async () => {
   if (process.env.WHOLE) { w.setSize(1400, 860); await wait(1200); }
   writeFileSync(path.join(OUT, 'log-86.png'), (await lwc.capturePage()).toPNG());
   if (process.env.WHOLE) console.log('log view ' + JSON.stringify(lg.view.getBounds()));
+  if (process.env.WHOLE) { await wc.executeJavaScript("document.body.classList.remove('drawer-open'); true"); await wait(800); writeFileSync(path.join(OUT, 'frame-log.png'), (await wc.capturePage()).toPNG()); }
   const before = b.tabs.filter((x: any) => x.mock).length;
   await lwc.executeJavaScript(`document.querySelector('#detail .go').click(); 1`);
   await until(() => b.tabs.some((x: any) => x.mock?.sheet?.includes('sheet-86')), 8000);
