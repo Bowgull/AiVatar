@@ -130,9 +130,11 @@ export function askFrom(m) {
     const part = (n, w) => n ? `${n} ${w}${n === 1 ? '' : 's'}` : '';
     const dur = [part(h, 'hour'), part(mi, 'minute'), h ? '' : part(sec, 'second')].filter(Boolean).join(' ') || 'time';
     const label = typeof m.label === 'string' ? m.label.trim() : '';
+    // "1 minute is up", "2 minutes are up": the verb follows the one unit there is (it said "1 minute are up").
+    const verb = /^1 \w+$/.test(dur) || dur === 'time' ? 'is' : 'are';
     return {
       plaque: 'TIME\u2019S UP',
-      question: label ? `${label}. Your ${dur} ${s === 1 ? 'is' : 'are'} up.` : `Your ${dur} ${s === 1 ? 'is' : 'are'} up.`,
+      question: label ? `${label}. Your ${dur} ${verb} up.` : `Your ${dur} ${verb} up.`,
       keys: [
         { label: 'Got it', key: 'A', choice: 'ok', tone: 'primary' },
         { label: '5 more', key: 'Z', choice: 'more' },

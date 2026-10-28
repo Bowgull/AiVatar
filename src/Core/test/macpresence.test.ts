@@ -25,6 +25,7 @@ test('away after five minutes idle; after "brb", away until he touches the Mac a
   const brb = now - 60_000;                                      // said a minute ago
   assert.equal(atDesk(r({ idle: 61 }), now, brb), false, 'no input since: still away');
   assert.equal(atDesk(r({ idle: 2 }), now, brb), true, 'input after it: back');
+  assert.equal(atDesk(r({ idle: 0 }), brb - 1000, brb), false, 'the click that picked Away, inside the grace: still away');
 });
 
 test('a reading is checked before it is used', () => {

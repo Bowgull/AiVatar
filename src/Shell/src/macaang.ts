@@ -147,10 +147,12 @@ function step(): void {
     const on = over || !!dragFrom || wheelHeld;
     if (on !== mouseOn) { mouseOn = on; if (process.env.AANG_PET_TRACE) console.log(`aang: mouse ${on ? 'on' : 'off'} him at ${c.x},${c.y}`); pet?.setIgnoreMouseEvents(!on, { forward: true }); if (on) { lastTouch = Date.now(); if (pose === 'peek') setPose('out'); } }
   }
+  // His timers ask for the mouse the same way (timerwin.ts pointerAt); while one is up the pointer is followed briskly.
+  const timersUp = timerWins?.pointerAt(c) ?? false;
   const near = Math.abs(c.x - (petX + ART.x + ART.w / 2)) < 160 && Math.abs(c.y - artTop()) < 240;
   // Docked and out with nothing showing for 45 s: he tucks back into the edge (the PC's idle tuck). Free, he stays.
   if (docked && (pose === 'out' || pose === 'more') && !input?.visible && !bubbleUp && Date.now() - lastTouch > TUCK_AFTER_MS) setPose('peek');
-  setTimeout(step, slide || near || dragFrom ? 16 : (c.y > bottom - 140 ? 80 : 250));
+  setTimeout(step, slide || near || dragFrom ? 16 : (c.y > bottom - 140 || timersUp ? 80 : 250));
 }
 
 function anim(s: string): void { pet?.webContents.send('pet:state', { anim: s }); }
