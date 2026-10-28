@@ -301,7 +301,13 @@ const link = new CoreLink({
     // A timer ran out: its three wood knocks (sheet 67), even when everything else is quiet; muting still silences it.
     // His pick (2026-10-28): on a call a timer only glows; the knocks would go down the call.
     if (m.t === 'timer.done') { if (!muted && !onCall) chime('timer'); pet?.webContents.send('pet:state', { glow: 'timer' }); setTimeout(() => pet?.webContents.send('pet:state', { glow: 'off' }), 15_000); }
-    if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') { liveAsk = m; input?.send('input:ask', liveAsk); }
+    if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') {
+      liveAsk = m; input?.send('input:ask', liveAsk);
+      // Waiting on him: he glows needs-you blue and the needs-you chime plays (not on a call, Shadow or full screen),
+      // out of the edge if he was tucked, so a card behind another window is still seen (2026-10-28).
+      if (m.t === 'permission' || m.t === 'consent') { pet?.webContents.send('pet:state', { glow: 'ask' }); if (!busyNow && !muted) chime('needs-you'); if (docked && pose === 'peek') setPose('more'); }
+    }
+    if ((m.t === 'ask.expired' || m.t === 'ask.done' || m.t === 'permission.done') && liveAsk) pet?.webContents.send('pet:state', { glow: 'off' });
     if (m.t === 'ask.expired' && liveAsk && String(liveAsk.id ?? '') === String(m.id ?? '')) { liveAsk = null; input?.send('input:ask', null); }
     // While he talks, he talks; while the brain thinks, he thinks (the pet's own states).
     if (m.t === 'bubble.dots') anim('think');
@@ -722,8 +728,8 @@ ipcMain.on('bubble:briefact', (e, a) => {
   if (Number.isInteger(item) && item >= 0 && item <= 200 && ['through', 'reply', 'prep', 'drive', 'matches'].includes(act)) link.send({ t: 'brief.act', item, act } as never);
 });
 ipcMain.on('bubble:log', (e) => { if (fromBubble(e)) void shell.openPath(path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'core.log')); });
-ipcMain.on('bubble:answer', (e, a) => { if (!fromBubble(e) || !a || typeof a !== 'object') return; answerAsk(a as Record<string, unknown>); liveAsk = null; input?.send('input:ask', null); });
-ipcMain.on('input:answer', (e, a) => { if (!fromInput(e) || !liveAsk) return; answerAsk({ ...liveAsk, choice: String((a as Record<string, unknown>)?.choice ?? '') }); liveAsk = null; input?.send('input:ask', null); });
+ipcMain.on('bubble:answer', (e, a) => { if (!fromBubble(e) || !a || typeof a !== 'object') return; answerAsk(a as Record<string, unknown>); liveAsk = null; input?.send('input:ask', null); pet?.webContents.send('pet:state', { glow: 'off' }); });
+ipcMain.on('input:answer', (e, a) => { if (!fromInput(e) || !liveAsk) return; answerAsk({ ...liveAsk, choice: String((a as Record<string, unknown>)?.choice ?? '') }); liveAsk = null; input?.send('input:ask', null); pet?.webContents.send('pet:state', { glow: 'off' }); });
 /** main.ts answerAsk, the kinds the Mac has today. The id always comes from what we hold, never from the page. */
 function answerAsk(a: Record<string, unknown>): void {
   const choice = String(a.choice ?? '');

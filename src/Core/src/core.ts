@@ -311,6 +311,7 @@ const TURN_TIMEOUT_MS = 120_000;
  */
 const BLACK_SHARE = 0.85;
 const MAX_TEXT = 8000;
+const PERMISSION_AT_DESK_MS = 30_000;
 const PERMISSION_TIMEOUT_MS = 120_000;   // he may be in the game; wait, but never for ever          // a chat message this long is a paste; cap it rather than trust the sender
 
 /**
@@ -5063,7 +5064,10 @@ export class Core {
     const id = `perm${++this.permissionSeq}`;
     const question = opts?.question ?? describeCall(tool, input);
     return new Promise<boolean>(resolve => {
-      const timer = setTimeout(() => { this.refused = 'he did not answer the question in the bubble in time'; this.answerPermission(id, 'no'); this.sendTo('desktop', { t: 'ask.expired', id }); }, PERMISSION_TIMEOUT_MS);
+      // At the desk 30 s, then let go and say what it was for (his yes, 2026-10-28: a card he could not see held the
+      // Watson question for two minutes). Away, the card is on his phone: the full two minutes.
+      const wait = this.whereHeIs() === 'discord' ? PERMISSION_TIMEOUT_MS : PERMISSION_AT_DESK_MS;
+      const timer = setTimeout(() => { this.refused = `he did not answer the question in the bubble within ${Math.round(wait / 1000)} seconds. Tell him in one short line what you wanted to do and why, so he can just say yes`; this.answerPermission(id, 'no'); this.sendTo('desktop', { t: 'ask.expired', id }); }, wait);
       timer.unref?.();
       this.permission = {
         id,
