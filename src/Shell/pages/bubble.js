@@ -1999,7 +1999,7 @@ function onBrain(m) {
     who.hidden = !who.textContent || cockpit;
     if (cockpit) bubble.classList.add('lantern');
     paintChange(!m.stream);
-    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC', m.face);
+    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession || /Mac/i.test(navigator.platform) ? 'MAC' : 'PC', m.face);
     // 2026-10-21: the dots stay until a word of the answer is actually on the paper (a first chunk can be half a word),
     // so between thinking and answering there is never a moment of empty bubble.
     reveal.tick();
@@ -2083,6 +2083,7 @@ function onBrain(m) {
   if (m.t === 'timer.setup') {
     if (cockpit) { cockCommit(); live = { skip: true }; }
     closeBoard();
+    setSpeaker(null);
     reveal.start('', false);
     who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
     scroller.hidden = true; working.hidden = true; tools.hidden = true;
@@ -2371,6 +2372,8 @@ function openBoard() {
   scroller.hidden = true; working.hidden = true; tools.hidden = true;
   bubble.classList.remove('whisper');
   bubble.classList.add('wide', 'widest');
+  // Not a Claude message: Claude's name, chip and Open Claude from an earlier one must not sit over the board (2026-10-28).
+  setSpeaker(null);
   boardOpen = true; editingNote = null; boardPage = 0;
   showBoard();
   bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
