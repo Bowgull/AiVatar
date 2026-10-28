@@ -291,11 +291,12 @@ const link = new CoreLink({
       const own = Array.isArray((m.cats as { own?: unknown } | undefined)?.own) ? ((m.cats as { own: unknown[] }).own).map(String) : [];
       if (noteWins) { noteWins.cats = own; noteWins.sync(m.notes as NoteData[]); }
     }
-    if (m.t === 'bubble.state') busyNow = m.quiet === true;
+    if (m.t === 'bubble.state') { busyNow = m.quiet === true; onCall = m.call === true; }
     if (m.t === 'drop.done' && typeof m.path === 'string') lastDropPath = m.path;
     if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
     // A timer ran out: its three wood knocks (sheet 67), even when everything else is quiet; muting still silences it.
-    if (m.t === 'timer.done') { if (!muted) chime('timer'); pet?.webContents.send('pet:state', { glow: 'timer' }); setTimeout(() => pet?.webContents.send('pet:state', { glow: 'off' }), 15_000); }
+    // His pick (2026-10-28): on a call a timer only glows; the knocks would go down the call.
+    if (m.t === 'timer.done') { if (!muted && !onCall) chime('timer'); pet?.webContents.send('pet:state', { glow: 'timer' }); setTimeout(() => pet?.webContents.send('pet:state', { glow: 'off' }), 15_000); }
     if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') { liveAsk = m; input?.send('input:ask', liveAsk); }
     if (m.t === 'ask.expired' && liveAsk && String(liveAsk.id ?? '') === String(m.id ?? '')) { liveAsk = null; input?.send('input:ask', null); }
     // While he talks, he talks; while the brain thinks, he thinks (the pet's own states).
@@ -352,6 +353,8 @@ function picked(id: string): void {
 }
 /** He is on a call, on Shadow, full screen or in Focus (the brain's bubble.state from the Mac presence helper). */
 let busyNow = false;
+/** On a call (mic or camera in use): timers glow without their knocks. */
+let onCall = false;
 let snipper: Snipper | null = null;
 let macMedia: MacMedia | null = null;
 let miniPlayer: MiniPlayer | null = null, playerHears: ((m: Record<string, unknown>) => boolean) | null = null;
