@@ -315,6 +315,9 @@ export class MiniPlayer {
       return { x: Math.max(area.x, Math.min(area.x + area.width - FULL_W, p.x)), y: Math.max(area.y, Math.min(area.y + area.height - h, p.y)) };
     }
     const area = screen.getPrimaryDisplay().workArea;
+    // The Mac (2026-10-28): the bottom right is where Aang lives and his bubble opens, so it covered the player. It
+    // starts at the top right there; on the PC Aang sits on the taskbar, clear of it.
+    if (process.platform === 'darwin') return { x: area.x + area.width - FULL_W - 24, y: area.y + 24 };
     return { x: area.x + area.width - FULL_W - 24, y: area.y + area.height - FULL_H - 24 };
   }
   private savePlace(): void {

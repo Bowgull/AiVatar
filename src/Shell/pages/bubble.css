@@ -559,6 +559,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .lt-date{flex:1;min-width:0}
 .lt-date small{display:block;font:700 12.5px var(--body);letter-spacing:.2px;color:var(--gold)}
 .lt-date b{display:block;font:700 26px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+.lt-date b.long{font-size:21px;white-space:nowrap}
 .lt-date span{display:block;font:italic 500 13px var(--body);color:#c9b48c;margin-top:4px}
 .lt-lamp{display:flex;gap:4px;padding:6px;border-radius:10px;flex:none;
   background:radial-gradient(ellipse at 50% 30%,rgba(255,196,90,.2),rgba(0,0,0,0) 70%),#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}

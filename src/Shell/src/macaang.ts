@@ -217,7 +217,10 @@ function bubbleBox(size: { width: number; height: number }): Electron.Rectangle 
   return { ...box, y: Math.max(at.screen.y, box.y - 14) };
 }
 function aimTail(w: BrowserWindow, box: { x: number; y: number }): void {
-  const h = headOf(petAt());
+  // At his cheek's edge, not his head's centre (his report, 2026-10-28: "on top of his face then right on his chin"):
+  // the tail's tip stops beside his face. Free or at the bottom only; turned at another edge, the centre is right.
+  const c = headOf(petAt()), a = where().art, up = !docked || edge === 'bottom';
+  const h = up ? { x: a.x - 3, y: a.y + 26 } : c;
   w.webContents.send('bubble:aim', { x: h.x - box.x, y: h.y - box.y, flip: h.x - box.x < 0, s: 1 });
 }
 function placeWindows(): void {
@@ -237,6 +240,7 @@ function openTypeBox(): void {
     week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt, starters: [],
   });
   bubble?.send('bubble:recall', 'recent');
+  void takeKeys(input.window());
 }
 
 /** Say it: slide out to talk first when he is tucked (the PC holds the reply until he is out). */
@@ -379,6 +383,32 @@ ipcMain.on('snip:done', (e, r) => {
   snipper.done(ok ? { x: +r.x, y: +r.y, w: +r.w, h: +r.h, vw: +r.vw, vh: +r.vh } : null);
 });
 
+// ---------------------------------------------------------------- the keyboard
+// On the PC a window takes the keys with focus(). On the Mac (2026-10-28, his "pressing new note does nothing") an app
+// that is not the active one cannot: focus() quietly fails and his typing goes to the app he was in. So Aang is made the
+// active app while he types (the chat box, a note in the bubble, a timer's name, the quick note), and the app he came
+// from is brought back when he is done, by its own path (Aang and Samara are both "Electron" by name).
+let cameFrom: string | null = null;
+function frontApp(): Promise<{ pid: number; path: string } | null> {
+  return new Promise((res) => execFile('/usr/bin/lsappinfo', ['front'], { timeout: 1500 }, (e, asn) => {
+    if (e || !String(asn).trim()) { res(null); return; }
+    execFile('/usr/bin/lsappinfo', ['info', '-only', 'pid', '-only', 'bundlepath', String(asn).trim()], { timeout: 1500 }, (e2, out) => {
+      const pid = Number(/"pid"=(\d+)/.exec(String(out))?.[1]), p = /"LSBundlePath"="([^"]+)"/.exec(String(out))?.[1] ?? '';
+      res(e2 || !pid ? null : { pid, path: p });
+    });
+  }));
+}
+async function takeKeys(w?: BrowserWindow | null): Promise<void> {
+  const f = await frontApp();
+  if (f && f.pid !== process.pid && f.path.endsWith('.app')) cameFrom = f.path;
+  app.focus({ steal: true });
+  if (w && !w.isDestroyed()) { w.focus(); w.webContents.focus(); }
+}
+function giveKeysBack(): void {
+  const to = cameFrom; cameFrom = null;
+  if (to && existsSync(to)) execFile('/usr/bin/open', ['-a', to], () => {});
+}
+
 /** Sheet 60's switch, as last set from this menu (the brain keeps the real one). */
 let notesNotice = true;
 /** The box opened with words already in it ("Start a Claude job: ", or his words back after Change). */
@@ -424,13 +454,14 @@ app.whenReady().then(async () => {
   bubble = new Bubble({ origin: pages.origin, preloadPath: preload });
   bubble.window();
   input = new InputBox({ origin: pages.origin, preloadPath: preload });
+  input.onGiveBack = giveKeysBack;
   input.window();
   // His keys (sheet 61): Talk and Quick note as on the PC. The pop-out's key is Samara's on this Mac, so it is not taken here.
   hotkeys = new HotkeyKeeper(app.getPath('userData'), globalShortcut, {
     talk: () => { if (input?.visible) input.close(); else { setPose('out'); openTypeBox(); } },
     snip: () => { void startSnip(); },
     popout: () => { /* Samara's */ },
-    note: () => { if (!noteWins?.quick()) { bubble?.send('brain:message', { t: 'notes.board', fresh: true }); bubble?.show(); } },
+    note: () => { void takeKeys(); if (!noteWins?.quick()) { bubble?.send('brain:message', { t: 'notes.board', fresh: true }); bubble?.show(); } },
     pin: () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; },
   });
   hotkeys.want('talk', true);
@@ -477,6 +508,7 @@ app.whenReady().then(async () => {
   wheel.warm();
   // Sheet 17 / 67: each running timer is its own small brass window, beside him (main.ts).
   timerWins = new TimerWindows({
+    takeKeys: () => { void takeKeys(); }, refocus: giveKeysBack,
     origin: pages.origin, preloadPath: preload, spotFile: path.join(app.getPath('userData'), 'timer-spot.json'),
     near: () => { const a = petAt().sprite; return { x: a.x - 320, y: a.y + 10 }; },
     toBrain: (m) => link.send(m as never),
@@ -866,7 +898,8 @@ ipcMain.on('bubble:typing', (e, on) => {
   if (!fromBubble(e)) return;
   const w = bubble?.window(); if (!w || w.isDestroyed()) return;
   bubble?.setFocusable(on === true);
-  if (on === true) { w.focus(); w.webContents.focus(); }
+  if (on === true) void takeKeys(w);
+  else if (!input?.visible) giveKeysBack();
 });
 ipcMain.on('menu:shape', (e, rects) => { if (menu?.owns(e.sender)) menu.shape(e.sender, rects); });
 

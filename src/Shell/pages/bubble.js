@@ -1229,6 +1229,8 @@ function showBrief(b) {
   const date = T('div', 'lt-date');
   date.append(T('small', '', hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING'),
     T('b', '', String(b.day ?? '').split(',')[0] || now.toLocaleDateString('en-CA', { weekday: 'long' })));
+  // A long day name ("Wednesday") ran past the card's edge on the Mac (2026-10-28): a size down rather than cut off.
+  const dayEl = date.querySelector('b'); if (dayEl && (dayEl.textContent ?? '').length >= 8) dayEl.classList.add('long');
   const rest = String(b.day ?? '').split(',').slice(1).join(',').trim();
   const wet = b.rainFrom ? `${b.rainIsSnow ? 'Snow' : 'Rain'} from ${b.rainFrom}, ${b.rainIsSnow ? 'dress warm' : 'bring a jacket'}.` : '';
   const sky = !wet && b.weather ? `${b.weather.words.charAt(0).toUpperCase() + b.weather.words.slice(1)}, ${b.weather.low} to ${b.weather.high}.` : '';
