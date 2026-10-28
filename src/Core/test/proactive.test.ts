@@ -271,12 +271,14 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
 
   const without = await fetch(`http://${ts}:48093/hook?e=Notification`, { method: 'POST', body });
   assert.equal(without.status, 403, 'no key, no entry');
-  const wrong = await fetch(`http://${ts}:48093/hook?e=Notification&k=nope`, { method: 'POST', body });
+  const wrong = await fetch(`http://${ts}:48093/hook?e=Notification`, { method: 'POST', headers: { 'x-aang-key': 'nope' }, body });
   assert.equal(wrong.status, 403);
+  const inAddress = await fetch(`http://${ts}:48093/hook?e=Notification&k=${key}`, { method: 'POST', body });
+  assert.equal(inAddress.status, 403, 'the right key in the address is refused: header only');
   await new Promise(r => setTimeout(r, 150));
   assert.equal(bubbles().length, 0);
 
-  const ok = await fetch(`http://${ts}:48093/hook?e=Notification&k=${key}`, { method: 'POST', body });
+  const ok = await fetch(`http://${ts}:48093/hook?e=Notification`, { method: 'POST', headers: { 'x-aang-key': key }, body });
   assert.equal(ok.status, 204);
   await new Promise(r => setTimeout(r, 200));
   const b = bubbles()[0];

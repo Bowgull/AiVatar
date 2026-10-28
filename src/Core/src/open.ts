@@ -9,7 +9,7 @@
 // work, because chrome.exe is not on PATH - Windows finds it through the App Paths registry key, which
 // Node's spawn never looks at - and Aang then told Joshua Chrome was not installed. Spotify and Discord are
 // in neither place; only their Start menu shortcuts know where they live.
-import { execFileSync, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,6 +23,30 @@ const ALIASES: Record<string, string> = {
 
 export type OpenKind = 'link' | 'path' | 'app';
 
+/** The Mac (2026-10-28, the Mac is Aang's home): apps are .app bundles in the Applications folders, opened with open(1). */
+const MAC = process.platform === 'darwin';
+/** What people call an app, mapped to its name in the Mac's Applications folders. */
+const MAC_ALIASES: Record<string, string> = {
+  chrome: 'Google Chrome', 'google chrome': 'Google Chrome', firefox: 'Firefox', 'mozilla firefox': 'Firefox', edge: 'Microsoft Edge',
+  vscode: 'Visual Studio Code', 'vs code': 'Visual Studio Code', code: 'Visual Studio Code', 'visual studio code': 'Visual Studio Code',
+  files: 'Finder', 'file explorer': 'Finder', explorer: 'Finder', settings: 'System Settings', 'system preferences': 'System Settings',
+  browser: 'Samara', aang: 'Samara', calculator: 'Calculator', notes: 'Notes', terminal: 'Terminal', music: 'Music', maps: 'Maps',
+};
+const MAC_APP_DIRS = ['/Applications', '/Applications/Utilities', '/System/Applications', '/System/Applications/Utilities', path.join(os.homedir(), 'Applications')];
+
+/** "spotify" -> /Applications/Spotify.app, matched without caring about case. */
+function fromMacApps(name: string): string | null {
+  const want = (MAC_ALIASES[name.toLowerCase()] ?? name).toLowerCase().replace(/\.app$/, '');
+  if (want === 'finder') return '/System/Library/CoreServices/Finder.app';
+  for (const dir of MAC_APP_DIRS) {
+    let names: string[] = [];
+    try { names = readdirSync(dir); } catch { continue; }
+    const hit = names.find(n => n.toLowerCase() === want + '.app');
+    if (hit) return path.join(dir, hit);
+  }
+  return null;
+}
+
 export function classify(what: string): OpenKind {
   const t = (what ?? '').trim();
   if (/^https?:\/\//i.test(t)) return 'link';
@@ -30,6 +54,7 @@ export function classify(what: string): OpenKind {
   // and one that resolve() will refuse. Treating file:// as a path meant resolving it against the
   // working directory, which is neither what he asked for nor safe to guess at.
   if (/^[a-z]:[\\/]/i.test(t) || t.startsWith('\\\\')) return 'path';
+  if (MAC && (t.startsWith('/') || t.startsWith('~/'))) return 'path';
   if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return 'link';
   // "youtube.com/..." or "www.youtube.com": a link he did not type the scheme for. Checked before the slash
   // rule below, or youtube.com/watch reads as a folder.
@@ -117,6 +142,10 @@ export function findApp(name: string): FoundApp | null {
   const raw = (name ?? '').trim().replace(/^["']|["']$/g, '');
   if (!raw) return null;
   if (/^[a-z]:[\\/]/i.test(raw) && existsSync(raw)) return { target: raw, name: path.basename(raw) };
+  if (MAC) {
+    const app = raw.endsWith('.app') && existsSync(raw) ? raw : fromMacApps(raw);
+    return app ? { target: app, name: path.basename(app, '.app') } : null;
+  }
   const key = raw.toLowerCase().replace(/\.exe$/i, '');
   const base = ALIASES[key] ?? key;
   const exe = `${base}.exe`;
@@ -134,6 +163,14 @@ function displayName(target: string): string {
 
 /** The browser a link opens in when none is named, so he is told the truth about where it went. */
 export function defaultBrowser(): string {
+  if (MAC) {
+    // LaunchServices keeps the handler for https links by bundle id (Samara is com.aang.browser).
+    const out = run('/usr/bin/plutil', ['-extract', 'LSHandlers', 'json', '-o', '-', path.join(os.homedir(), 'Library', 'Preferences', 'com.apple.LaunchServices', 'com.apple.launchservices.secure.plist')]);
+    let id = '';
+    try { id = String((JSON.parse(out) as { LSHandlerURLScheme?: string; LSHandlerRoleAll?: string }[]).find(h => h.LSHandlerURLScheme === 'https')?.LSHandlerRoleAll ?? ''); } catch { /* none set */ }
+    const names: Record<string, string> = { 'com.aang.browser': 'Samara', 'com.google.chrome': 'Chrome', 'org.mozilla.firefox': 'Firefox', 'com.apple.safari': 'Safari', 'com.microsoft.edgemac': 'Edge', 'com.brave.browser': 'Brave' };
+    return names[id.toLowerCase()] ?? 'Safari';
+  }
   const out = run('reg.exe', ['query', 'HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice', '/v', 'ProgId']);
   const id = /ProgId\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? '';
   if (/^Firefox/i.test(id)) return 'Firefox';
@@ -186,6 +223,7 @@ export function resolve(what: string, withApp?: string): Resolved | { error: str
   // find by name, and the app it would find is the launcher, which only gets him as far as a Play button.
   if (!withApp) {
     const recipe = RECIPES.find(r => r.match.test(t));
+    if (recipe && MAC) return { error: `${recipe.label} needs Battle.net, which is on the PC, not this Mac.` };
     if (recipe) {
       if (!existsSync(recipe.exe)) return { error: `${recipe.label} needs Battle.net, and it is not installed where it was expected.` };
       return { target: recipe.exe, kind: 'app', args: recipe.args, app: { target: recipe.exe, name: recipe.label } };
@@ -197,7 +235,7 @@ export function resolve(what: string, withApp?: string): Resolved | { error: str
   let app: FoundApp | undefined;
   if (withApp && withApp.trim()) {
     const found = findApp(withApp);
-    if (!found) return { error: `${withApp} is not installed: it is not in the Start menu, the App Paths registry or on PATH.` };
+    if (!found) return { error: MAC ? `${withApp} is not installed: it is not in the Applications folders.` : `${withApp} is not installed: it is not in the Start menu, the App Paths registry or on PATH.` };
     app = found;
   }
 
@@ -211,13 +249,13 @@ export function resolve(what: string, withApp?: string): Resolved | { error: str
   }
 
   if (kind === 'path') {
-    const full = path.resolve(t);
+    const full = path.resolve(MAC && t.startsWith('~/') ? path.join(os.homedir(), t.slice(2)) : t);
     if (!existsSync(full)) return { error: `There is nothing at ${full}.` };
     return { target: full, kind, app };
   }
 
   const found = findApp(t);
-  if (!found) return { error: `${t} is not installed: it is not in the Start menu, the App Paths registry or on PATH.` };
+  if (!found) return { error: MAC ? `${t} is not installed: it is not in the Applications folders.` : `${t} is not installed: it is not in the Start menu, the App Paths registry or on PATH.` };
   return { target: found.target, kind, app: found };
 }
 
@@ -229,6 +267,13 @@ export function resolve(what: string, withApp?: string): Resolved | { error: str
  */
 export function launch(r: Resolved): Promise<{ ok: boolean; detail: string }> {
   return new Promise(done => {
+    if (MAC) {
+      // One door for everything on the Mac: open(1), as a double click or a dragged-on file would. Arguments are
+      // passed as an array, never through a shell.
+      const args = r.kind === 'app' ? ['-a', r.target] : r.app ? ['-a', r.app.target, r.target] : [r.target];
+      execFile('/usr/bin/open', args, { timeout: 8000 }, e => done(e ? { ok: false, detail: e.message.split('\n')[0]! } : { ok: true, detail: r.target }));
+      return;
+    }
     try {
       let child;
       let program = r.kind === 'app' ? r.target : r.app?.target;

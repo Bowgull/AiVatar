@@ -909,7 +909,7 @@ assistant" (status list) and "Loose ends and new asks (2026-10-13)".**
    input (the Shadow window in front -> the Mac's Aang tucks away and Shadow's comes out), plus a "Go to the PC / Mac"
    menu item. No Qwen, Ollama or WoW pieces on the Mac. iMessage considered and dropped. Plan:
    ~/Handoff/aang/reports (Aang full review, One Aang on two machines, 2026-10-28).
-3. **S3 leftover:** move the Mac listener's key from the address into a header (the rest of S3 was done in M1).
+3. ~~**S3 leftover:** move the Mac listener's key from the address into a header~~ (done 2026-10-28).
 4. **L** the everyday test, Qwen and Claude together (spends quota: needs his go) -> **6.16** Qwen on the strip (Auto
    finally routes to Qwen) -> **6.25** page summaries (after L) -> **K4** Qwen does a little more.
 5. **V** Aang's voice.
@@ -1097,7 +1097,7 @@ total. They must land before Aang reads his signed-in tabs (decision 42, step 6.
 
 **Done when:** each has a test that tries the attack and is refused.
 
-### `[~]` S3 The Mac bridge fixes  **2026-10-13: done in M1 (key off the command line, constant-time compare, Shadow's exact address); left: the key from the URL to a header**
+### `[x]` S3 The Mac bridge fixes  **2026-10-13: done in M1 (key off the command line, constant-time compare, Shadow's exact address); 2026-10-28: the key travels in a header only (the old ?k= fallback removed)**
 
 Low risk today: the listener binds only to the Mac's Tailscale address, so only his own devices reach it.
 When Mac work comes back: check the real tailnet range `100.64.0.0/10` (or `tailscale whois`) instead of

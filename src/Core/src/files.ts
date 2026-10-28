@@ -45,13 +45,17 @@ function realFolder(dir: string): string {
 
 /** Where the before-copies go, one per change, newest last. */
 export const UNDO_DIR = process.env.AANG_UNDO_DIR
-  ?? path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'), 'Aang', 'undo');
+  ?? (process.platform === 'darwin'
+    ? path.join(os.homedir(), 'Library', 'Application Support', 'Aang', 'undo')
+    : path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'), 'Aang', 'undo'));
 const MAX_BYTES = 2_000_000;
 
 export interface Protected { stateDir: string; dataDir: string }
 
 /** Aang's own settings folder (%APPDATA%\\Aang): his tokens live here. Never read by his tools (S2 2.19). */
-const AANG_STATE = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
+const AANG_STATE = process.env.AANG_STATE_DIR ?? (process.platform === 'darwin'
+  ? path.join(os.homedir(), 'Library', 'Application Support', 'Aang')
+  : path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang'));
 /** Aang's own source code, the security code included (S2 2.2). */
 export const AANG_APP = process.env.AANG_APP_DIR ?? path.join(os.homedir(), 'Documents', 'AangApp');
 const MAC = process.platform === 'darwin';

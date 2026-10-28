@@ -202,7 +202,7 @@ test('M4b: a Claude job on the Mac that cannot reach the PC tells the front desk
   const HK = 'h'.repeat(24);
   const desk = await startFrontDesk({ gw, host: '127.0.0.1', port: 48690, key: KEY, shadow: '127.0.0.1', queueFile: path.join(tmp(), 'q.json'), log: () => {}, brain: fakeBrain, hookKey: HK, hookPort: 48691 });
   try {
-    const post = (k: string) => fetch(`http://127.0.0.1:48691/hook?e=Notification&k=${k}`, { method: 'POST', body: JSON.stringify({ message: 'Claude needs your permission', cwd: '/Users/j/jobhunt' }) });
+    const post = (k: string) => fetch(`http://127.0.0.1:48691/hook?e=Notification`, { method: 'POST', headers: { 'x-aang-key': k }, body: JSON.stringify({ message: 'Claude needs your permission', cwd: '/Users/j/jobhunt' }) });
     assert.equal((await post('wrong'.repeat(5))).status, 403, 'a wrong key');
     assert.equal((await post(HK)).status, 204);
     await wait(50);

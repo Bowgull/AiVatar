@@ -10,7 +10,8 @@
 // than not remembering it.
 import { DatabaseSync } from 'node:sqlite';
 import { openMemory, type OpenResult } from './schema.ts';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { EMBED_DIM, embed, fromBlob, similarity, toBlob } from './embed.ts';
 
@@ -381,7 +382,7 @@ export class Memory {
    */
   private brainDir(): string {
     const drive = process.env.AANG_BRAIN_DIR
-      ?? path.join(process.env.GOOGLE_DRIVE_ROOT ?? 'G:\\My Drive', 'Aang Brain');
+      ?? path.join(process.env.GOOGLE_DRIVE_ROOT ?? (process.platform === 'darwin' ? macDrive() : null) ?? 'G:\\My Drive', 'Aang Brain');
     try { if (existsSync(drive)) return drive; } catch { /* unreachable network path */ }
     return path.join(this.dataDir, 'Brain');
   }
@@ -974,4 +975,19 @@ export function supersedes(relation: string): boolean { return SINGLE_VALUED.has
 export function relationOf(text: string, declared?: string): string {
   const d = (declared ?? '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
   return d || keyNoun(text);
+}
+
+/**
+ * The Mac (2026-10-28): Google Drive for desktop mounts each account at ~/Library/CloudStorage/GoogleDrive-<account>/My
+ * Drive. The one holding an "Aang Brain" folder is his; any other account on the Mac is never read.
+ */
+function macDrive(): string | null {
+  const root = path.join(os.homedir(), 'Library', 'CloudStorage');
+  let names: string[] = [];
+  try { names = readdirSync(root); } catch { return null; }
+  for (const n of names.filter(x => x.startsWith('GoogleDrive-')).sort()) {
+    const mine = path.join(root, n, 'My Drive');
+    if (existsSync(path.join(mine, 'Aang Brain'))) return mine;
+  }
+  return null;
 }

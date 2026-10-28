@@ -90,24 +90,30 @@ export function newSessionLink(prompt: string, folder: string): string {
   return `claude://code/new?q=${encodeURIComponent(prompt.slice(0, 12000))}&folder=${encodeURIComponent(folder)}`;
 }
 
+/**
+ * Hand a link to the system's own "open this link" routine. Windows: rundll32 (explorer.exe opened the Documents
+ * folder instead of the Claude app; cmd's "start" would read the %20s in the link as variables). The Mac (2026-10-28):
+ * open(1). A failure to start is reported, never left as an unhandled 'error' that would take the brain down with it.
+ */
+function openLink(url: string): void {
+  const child = process.platform === 'darwin'
+    ? spawn('/usr/bin/open', [url], { detached: true, stdio: 'ignore' })
+    : spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' });
+  child.on('error', e => console.error('could not open a Claude link: ' + e.message));
+  child.unref();
+}
+
 /** C6: open any claude:// link (a new session by folder, or an existing one) the way a click would. An error, or null. */
 export function openClaudeLink(url: string): string | null {
   if (!/^claude:\/\/(code\/new\?|claude\.ai\/epitaxy\/local_[0-9a-f-]{36}$)/.test(url)) return 'That is not a Claude app link.';
-  try {
-    const child = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' });
-    child.unref();
-    return null;
-  } catch (e) { return `Could not open the Claude app: ${(e as Error).message}`; }
+  try { openLink(url); return null; }
+  catch (e) { return `Could not open the Claude app: ${(e as Error).message}`; }
 }
 
-/** Open that link: Windows hands it to the Claude app, as a click on it would. */
+/** Open that link: the system hands it to the Claude app, as a click on it would. */
 export function openInClaude(prompt: string, opts: { name: string; cwd: string; now?: number }): Launched | { error: string } {
-  try {
-    // Windows' own "open this link" routine. explorer.exe was tried first and opened the Documents folder
-    // instead of the Claude app; cmd's "start" would read the %20s in the link as variables.
-    const child = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', newSessionLink(prompt, opts.cwd)], { detached: true, stdio: 'ignore' });
-    child.unref();
-  } catch (e) { return { error: `Could not open the Claude app: ${(e as Error).message}` }; }
+  try { openLink(newSessionLink(prompt, opts.cwd)); }
+  catch (e) { return { error: `Could not open the Claude app: ${(e as Error).message}` }; }
   return { name: opts.name, cwd: opts.cwd, sessionId: null, startedAt: opts.now ?? Date.now() };
 }
 
