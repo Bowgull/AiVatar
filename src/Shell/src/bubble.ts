@@ -180,6 +180,8 @@ export class Bubble {
     this.win.setIgnoreMouseEvents(!on, { forward: true });
   }
   private clickable = false;
+  /** The mouse is on its drawn panel and it takes clicks (the Mac's click-away helper asks, macaang.ts). */
+  get takesClicks(): boolean { return this.clickable; }
 
   /**
    * His report (2026-10-22): "+ New note" closed the bubble and no note opened. The Shell had reloaded the bubble's page
