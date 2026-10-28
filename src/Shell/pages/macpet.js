@@ -192,6 +192,8 @@ window.pet?.onState((s) => {
     else if (glow !== AVATAR) glow = null;
   }
   if (s.glow === 'timer') { glow = AVATAR; glowAt = performance.now(); }
+  // His own question waiting in the bubble (2026-10-28): the needs-you blue, the same as Claude's permission.
+  if (s.glow === 'ask') { glow = COLOR.permission; glowAt = performance.now(); }
   if (s.glow === 'off') glow = mark && GLOWS.has(mark) ? COLOR[mark] : null;
   if (s.flash && SHAPES[s.flash]) { flash = s.flash; flashUntil = performance.now() + (s.flash === 'step' ? 1800 : 4000); }
   draw();
