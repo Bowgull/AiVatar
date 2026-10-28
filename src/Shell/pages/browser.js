@@ -1,4 +1,5 @@
 import { pixIcon } from './pixicons.js';
+import { topicIcon } from './mockicons.js';
 import { startRune } from './rune.js';
 import { openRail, railTabs } from './sitenotes.js';
 // 6.20: the browser's frame. Draws the rail and the address slot from the tab list the Shell sends, and
@@ -849,7 +850,7 @@ function headFor(tr, n) {
   h.classList.toggle('fresh', tr.fresh === true);
   h.classList.toggle('shut', tr.collapsed === true);
   h.dataset.trail = String(tr.id);
-  h.replaceChildren(grip, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), log, more);
+  h.replaceChildren(grip, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   return h;
 }
 
@@ -1317,9 +1318,6 @@ el('failgo').addEventListener('click', () => window.aang?.browserAct?.('httpok')
 el('failretry').addEventListener('click', () => window.aang?.browserAct?.('failretry'));
 el('failback').addEventListener('click', () => window.aang?.browserAct?.('failback'));
 
-// Sheet 100: "+n" on a strip asks for the trail to be drawn again with every version showing.
-window.addEventListener('mockredraw', () => paintTabs());
-
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
@@ -1521,32 +1519,10 @@ function versionsMenu(t, x, y) {
   placeMenu(m, x, y);
 }
 /** A history line's own menu: open that version, or send exactly that version to Aang. */
-function versionMenu(id, x, y, it = {}) {
-  closeTabMenu();
-  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
-  const item = (label, go) => {
-    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: label });
-    b.setAttribute('role', 'menuitem');
-    b.addEventListener('click', () => { closeTabMenu(); go(); });
-    m.append(b);
-  };
-  // Sheet 79: his marks on this version (one stage at a time; each comes off the same way).
-  const stg = (to, name) => window.aang?.browserMockup?.({ act: 'stage', id, to, ...(name ? { name } : {}) });
-  const ok = it.stage === 'ok' || it.stage === 'chat';
-  item(ok ? 'Take back the approval' : 'Approve this version', () => stg(ok ? '' : 'ok'));
-  item(it.stage === 'fix' ? 'Take off the fix' : 'Needs a fix…', () => { if (it.stage === 'fix') stg(''); else fixNote(id); });
-  item(it.stage === 'park' ? 'Unpark it' : 'Park it', () => stg(it.stage === 'park' ? '' : 'park'));
-  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
-  item('Open this version', () => window.aang?.browserMockup?.({ act: 'show', id }));
-  if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'send', id })); aangFaceOn(m); }
-  placeMenu(m, x, y);
-}
 /** Sheet 79: what to fix, typed in place under the version: Enter keeps it, Esc leaves it. */
 function fixNote(id, at) {
-  const tile = at ?? document.querySelector(`.mv[data-id="${id}"], .mvt[data-id="${id}"]`);
-  if (!tile) { window.aang?.browserMockup?.({ act: 'stage', id, to: 'fix' }); return; }
-  // A picture in the strip (sheet 100): the box goes under the whole strip.
-  const row = tile.closest('.mstrip') ?? tile;
+  const row = at;
+  if (!row) { window.aang?.browserMockup?.({ act: 'stage', id, to: 'fix' }); return; }
   const box = Object.assign(document.createElement('input'), { type: 'text', className: 'mvnote', maxLength: 300, placeholder: 'What to fix' });
   row.after(box);
   box.focus();
@@ -1579,7 +1555,9 @@ function branchHead(b, n) {
   nm.addEventListener('click', (e) => { e.stopPropagation(); renameIn(nm, b.name, 40, (name) => window.aang?.browserMockup?.({ act: 'brename', id: b.id, name })); });
   const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Branch options' });
   more.addEventListener('click', (e) => { e.stopPropagation(); branchMenu(b, e.clientX, e.clientY); });
-  h.replaceChildren(chev, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
+  // Sheet 100 v3: the topic wears its icon here too, the same one as in the quest log.
+  const ic = Object.assign(document.createElement('span'), { className: 'bi' }); ic.append(topicIcon(b.name));
+  h.replaceChildren(chev, ic, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   if (state.mockups?.fresh === b.id && !freshDone.has(b.id)) { freshDone.add(b.id); setTimeout(() => { if (nm.isConnected) nm.click(); }, 0); }
   return h;
 }
@@ -1609,15 +1587,10 @@ function mockNodes(g, rowFor) {
   ic.append(Object.assign(document.createElement('img'), { src: 'art/claude-icon.png', alt: '' }));
   const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Mockups options' });
   more.addEventListener('click', (e) => { e.stopPropagation(); trailMenu(tr, e.clientX, e.clientY); });
-  // Sheet 100: the magnifier opens the quest log, every mockup in a page of its own.
-  const log = Object.assign(document.createElement('button'), { type: 'button', className: 'mlog', title: 'Every mockup' });
-  log.innerHTML = '<svg viewBox="0 0 12 12" width="24" height="24" shape-rendering="crispEdges" aria-hidden="true"><path fill="#120A05" d="M3 1h4v1H3zM2 2h1v1H2zM7 2h1v1H7zM1 3h1v4H1zM8 3h1v4H8zM2 7h1v1H2zM7 7h1v1H7zM3 8h4v1H3zM8 8h1v1H8zM9 9h1v1H9zM10 10h1v1h-1z"/><path fill="#FFE28C" d="M3 2h4v1H3zM2 3h1v4H2zM7 3h1v4H7zM3 7h4v1H3zM8 8h1v1H8zM9 9h1v1H9z"/><path fill="#7cc4ff" opacity=".45" d="M3 3h4v4H3z"/></svg>';
-  log.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'log' }); });
   const n = g.tabs.length;
   // No TIDY key of its own here (2026-10-22, his catch): the one broom at the foot of the drawer tidies the mockups too.
-  h.replaceChildren(ic, Object.assign(document.createElement('span'), { className: 'nm', textContent: 'MOCKUPS' }), Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), log, more);
+  h.replaceChildren(ic, Object.assign(document.createElement('span'), { className: 'nm', textContent: 'MOCKUPS' }), Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   out.push(h);
-  out.push(mockEls.from ?? (mockEls.from = Object.assign(document.createElement('div'), { className: 'mfrom', textContent: 'FROM CLAUDE' })));
   if (tr.collapsed) return out;
   // Newest on top (his ask, 2026-10-23): the latest arrival first, in each branch.
   const tabs = [...g.tabs].sort((a, b) => (Number(b.mock?.at) || 0) - (Number(a.mock?.at) || 0)), open = new Set(tabs.map((t) => t.mock?.sheet));
@@ -1644,15 +1617,15 @@ function mockNodes(g, rowFor) {
     out.push(branchHead(b, c));
     if (!b.folded) out.push(...group(b.id));
   }
-  // HISTORY: the row, and its list when open.
-  const hist = mockEls.hist ?? (mockEls.hist = Object.assign(document.createElement('button'), { type: 'button', className: 'mhist' }));
-  if (!hist.dataset.wired) { hist.dataset.wired = '1'; hist.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'list', open: !(state.mockups?.open) })); }
-  const count = Number(mk.count) || 0;
-  hist.classList.toggle('open', mk.open === true);
-  const arch = Number(mk.archived) || 0;
-  hist.replaceChildren(`HISTORY · ${count} VERSION${count === 1 ? '' : 'S'}` + (arch ? ` · ${arch} ARCHIVED` : ''), Object.assign(document.createElement('i'), { className: 'chev' }));
-  out.push(hist);
-  if (mk.open && mk.tree) out.push(mockList(mk));
+  // Sheet 100 v3 (his pick, 2026-10-28: "as a tab but something I can get into from the left rail trail section"): the
+  // way in to every mockup, the quest log's book and how many sheets there are. It opens the Mockups tab.
+  const qrow = mockEls.hist ?? (mockEls.hist = Object.assign(document.createElement('button'), { type: 'button', className: 'mquest' }));
+  if (!qrow.dataset.wired) { qrow.dataset.wired = '1'; qrow.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'log' })); }
+  const sheets = Number(mk.sheets) || 0;
+  qrow.replaceChildren(Object.assign(document.createElement('span'), { className: 'qi' }), Object.assign(document.createElement('span'), { className: 'qn', textContent: 'ALL MOCKUPS' }),
+    Object.assign(document.createElement('span'), { className: 'qc', textContent: `${sheets} SHEET${sheets === 1 ? '' : 'S'}` }));
+  qrow.firstChild.append(pixIcon('log', 2));
+  out.push(qrow);
   return out;
 }
 /**
@@ -1663,171 +1636,7 @@ function mockNodes(g, rowFor) {
  * Folding is the page's own (no round trip): a grid row that springs from 0fr to 1fr, so nothing jumps.
  * Rebuilt only when the Shell's data changed; a fold keeps its state across rebuilds.
  */
-// Sheet 100: projects and topics fold too. null until the first list: then the newest project and topic start open.
-const mockFold = { sheets: new Set(), older: new Set(), archive: false, projects: null, topics: null, all: new Set() };
 /** A fold: its body springs open and shut (grid rows 0fr to 1fr). Returns [wrapper, inner box]. */
-function foldBox(open) {
-  const w = Object.assign(document.createElement('div'), { className: 'mfold' + (open ? ' open' : '') });
-  const inner = Object.assign(document.createElement('div'), { className: 'mfi' });
-  w.append(inner);
-  return [w, inner];
-}
-function sheetMenu(node, x, y) {
-  closeTabMenu();
-  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
-  const item = (label, go, cls = '') => {
-    const b = Object.assign(document.createElement('button'), { type: 'button', className: cls, textContent: label });
-    b.setAttribute('role', 'menuitem');
-    b.addEventListener('click', () => { closeTabMenu(); go(); });
-    m.append(b);
-  };
-  const top = node.items[0] ?? node.older[0];
-  if (top) item('Open the newest version', () => window.aang?.browserMockup?.({ act: 'show', id: top.id }));
-  if (node.archived) item('Restore', () => window.aang?.browserMockup?.({ act: 'restore', sheet: node.sheet }));
-  else {
-    item(node.picked ? 'Not picked' : 'Mark as picked', () => window.aang?.browserMockup?.({ act: 'pick', sheet: node.sheet, open: !node.picked }));
-    m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
-    item('Archive (it stays in the Archive)', () => window.aang?.browserMockup?.({ act: 'archive', sheet: node.sheet }));
-  }
-  placeMenu(m, x, y);
-}
-function mockList(mk) {
-  const sig = JSON.stringify([mk.tree, mk.dups, new Date().toDateString()]);
-  if (mockEls.list && mockEls.listSig === sig) return mockEls.list;
-  const box = document.createElement('div'); box.className = 'mlist';
-  const lh = Object.assign(document.createElement('div'), { className: 'mlh' });
-  lh.append(Object.assign(document.createElement('b'), { textContent: 'EVERY MOCKUP, BY SHEET' }));
-  if (mk.dups > 0) {
-    // His rule (2026-10-21): Samara's own tidy broom for exact duplicates. The daily tidy merges them too; this is the
-    // same at once, only when he presses it.
-    const br = Object.assign(document.createElement('button'), { type: 'button', className: 'mbroom', title: 'Remove the exact duplicates (struck through)' });
-    br.append(Object.assign(document.createElement('img'), { src: 'art/browser/tidy_broom2.png', alt: '' }), `${mk.dups} DUPLICATE${mk.dups === 1 ? '' : 'S'}`);
-    br.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'broom' }));
-    lh.append(br);
-  }
-  box.append(lh);
-  const tree = mk.tree || {};
-  // Sheet 100 (his pick, 2026-10-28): a sheet's versions as a strip of small pictures, oldest first, his mark on each
-  // one's corner, the approved one in a gold frame, parked ones grey. Long runs show V1, the marked ones and the last
-  // three; "+n" shows the rest. A click opens that version; right-click is the version's menu, as before.
-  const STG = { fix: ['FIX', 'chg'], ok: ['APPROVED', 'ok'], chat: ['APPROVED', 'ok'], built: ['✓ BUILT', 'built'], park: ['PARKED', 'park'] };
-  const strip = (node, into, kid) => {
-    const all = [...(node.items ?? []), ...(node.older ?? [])].filter((x) => !x.same).sort((a, b) => a.v - b.v || a.at - b.at);
-    const seenV = new Set(), vs = all.filter((x) => (seenV.has(x.v) ? false : (seenV.add(x.v), true)));
-    const full = mockFold.all.has(node.sheet) || vs.length <= 6;
-    const shown = full ? vs : vs.filter((x, i) => i === 0 || x.stage || i >= vs.length - 3);
-    const box = Object.assign(document.createElement('div'), { className: 'mstrip' + (kid ? ' kid' : '') });
-    for (const it of shown) {
-      const t = Object.assign(document.createElement('button'), { type: 'button', className: 'mvt' + (it.now ? ' now' : '') + (STG[it.stage] ? ' ' + STG[it.stage][1] : '') });
-      t.dataset.id = String(it.id);
-      const pic = Object.assign(document.createElement('span'), { className: 'pic' });
-      if (it.pic) pic.style.backgroundImage = `url("${it.pic}")`;
-      t.append(pic, Object.assign(document.createElement('span'), { className: 'v', textContent: 'V' + it.v }));
-      if (STG[it.stage]) t.append(Object.assign(document.createElement('i'), { className: 'mk ' + STG[it.stage][1], textContent: STG[it.stage][0] }));
-      t.title = it.said ? `Your words: ${it.said}` : it.note ? `To fix: ${it.note}` : `V${it.v}`;
-      t.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'show', id: it.id }));
-      t.addEventListener('contextmenu', (e) => { e.preventDefault(); versionMenu(it.id, e.clientX, e.clientY, it); });
-      box.append(t);
-    }
-    if (!full) {
-      const more = Object.assign(document.createElement('button'), { type: 'button', className: 'mmore', textContent: `+${vs.length - shown.length}` });
-      more.title = 'Show every version';
-      more.addEventListener('click', () => { mockFold.all.add(node.sheet); mockEls.listSig = ''; window.dispatchEvent(new Event('mockredraw')); });
-      box.append(more);
-    }
-    into.append(box);
-    const fix = shown.find((x) => x.stage === 'fix' && x.note);
-    if (fix) into.append(Object.assign(document.createElement('div'), { className: 'mstripnote', textContent: fix.note }));
-  };
-  // One sheet's row, and its versions in a fold under it.
-  const sheet = (node, into, kid, archived) => {
-    const open = mockFold.sheets.has(node.sheet);
-    const row = Object.assign(document.createElement('button'), { type: 'button', className: 'msr' + (kid ? ' kid' : '') + (open ? ' open' : '') + (node.closed ? ' closed' : '') + (archived ? ' arch' : '') });
-    row.dataset.sheet = node.sheet;
-    row.setAttribute('aria-expanded', String(open));
-    row.append(Object.assign(document.createElement('i'), { className: 'chev' }));
-    if (node.num) row.append(Object.assign(document.createElement('span'), { className: 'num', textContent: node.num }));
-    row.append(Object.assign(document.createElement('span'), { className: 'nm', textContent: node.name, title: node.title }));
-    if (node.picked) row.append(Object.assign(document.createElement('span'), { className: 'pk', textContent: '✓', title: node.hand ? 'You marked it picked' : 'Decided (the sheet says so)' }));
-    if (archived) {
-      const why = node.why === 'gone' ? 'gone from the repo' : node.why === 'stale' ? (node.by ? `replaced by ${node.by}` : 'replaced') : 'put away by you';
-      row.append(Object.assign(document.createElement('span'), { className: 'why', textContent: why }));
-      const rs = Object.assign(document.createElement('span'), { className: 'mrestore', textContent: 'RESTORE', role: 'button', title: 'Back into the list' });
-      rs.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'restore', sheet: node.sheet }); });
-      row.append(rs);
-    } else {
-      // Sheet 79: the sheet's row says which version is THE design (built or approved), else how many versions.
-      const all = [...(node.items ?? []), ...(node.older ?? [])];
-      const done = all.find((x) => x.stage === 'ok' || x.stage === 'chat') ?? all.find((x) => x.stage === 'built');
-      if (done) row.append(Object.assign(document.createElement('span'), { className: 'okv' + (done.stage === 'built' ? ' built' : ''), textContent: `${done.stage === 'built' ? '✓ BUILT' : 'APPROVED'} V${done.v}` }));
-      else row.append(Object.assign(document.createElement('span'), { className: 'cnt', textContent: `${node.n} V` }));
-    }
-    const [fw, fi] = foldBox(open);
-    row.addEventListener('click', () => {
-      const now = !mockFold.sheets.has(node.sheet);
-      if (now) mockFold.sheets.add(node.sheet); else mockFold.sheets.delete(node.sheet);
-      row.classList.toggle('open', now); row.setAttribute('aria-expanded', String(now)); fw.classList.toggle('open', now);
-    });
-    row.addEventListener('contextmenu', (e) => { e.preventDefault(); sheetMenu(node, e.clientX, e.clientY); });
-    into.append(row, fw);
-    strip(node, fi, kid);
-    for (const c of node.children ?? []) sheet(c, into, true, archived);
-  };
-  const projects = tree.projects ?? [];
-  // Sheet 100: the first time, the newest project and its newest topic start open; after that, as he left them.
-  if (!mockFold.projects) {
-    mockFold.projects = new Set(projects.slice(0, 1).map((p) => p.name));
-    mockFold.topics = new Set(projects.slice(0, 1).flatMap((p) => (p.branches ?? []).slice(0, 1).map((b) => b.id)));
-  }
-  const count = (list) => list.reduce((n, x) => n + 1 + (x.children?.length ?? 0), 0);
-  for (const p of projects) {
-    // A PROJECT: a carved plaque, its own emblem (Samara's lantern, else its letter), its name in capitals, a count.
-    const open = mockFold.projects.has(p.name);
-    const pr = Object.assign(document.createElement('button'), { type: 'button', className: 'mproj' + (open ? ' open' : '') });
-    pr.setAttribute('aria-expanded', String(open));
-    const em = Object.assign(document.createElement('span'), { className: 'em' });
-    if (p.em === 'lantern') em.append(Object.assign(document.createElement('img'), { src: 'art/samara/samara-lantern-32.png', alt: '' }));
-    else em.append(Object.assign(document.createElement('b'), { textContent: p.em }));
-    const n = count(p.loose ?? []) + (p.branches ?? []).reduce((a, b) => a + count(b.mockups), 0);
-    pr.append(em, Object.assign(document.createElement('span'), { className: 'pn', textContent: p.name }), Object.assign(document.createElement('span'), { className: 'pc', textContent: String(n) }), Object.assign(document.createElement('i'), { className: 'chev' }));
-    const [pw, pi] = foldBox(open);
-    pr.addEventListener('click', () => {
-      const now = !mockFold.projects.has(p.name);
-      if (now) mockFold.projects.add(p.name); else mockFold.projects.delete(p.name);
-      pr.classList.toggle('open', now); pr.setAttribute('aria-expanded', String(now)); pw.classList.toggle('open', now);
-    });
-    box.append(pr, pw);
-    // TOPICS: small gold capitals on a ruled line, each folding its sheets.
-    for (const b of p.branches ?? []) {
-      const to = mockFold.topics.has(b.id);
-      const tr = Object.assign(document.createElement('button'), { type: 'button', className: 'mtopic' + (to ? ' open' : '') });
-      tr.setAttribute('aria-expanded', String(to));
-      tr.append(Object.assign(document.createElement('i'), { className: 'chev' }), Object.assign(document.createElement('span'), { className: 'tn', textContent: b.name }), Object.assign(document.createElement('span'), { className: 'n', textContent: String(count(b.mockups)) }));
-      const [tw, ti] = foldBox(to);
-      tr.addEventListener('click', () => {
-        const now = !mockFold.topics.has(b.id);
-        if (now) mockFold.topics.add(b.id); else mockFold.topics.delete(b.id);
-        tr.classList.toggle('open', now); tr.setAttribute('aria-expanded', String(now)); tw.classList.toggle('open', now);
-      });
-      pi.append(tr, tw);
-      for (const node of b.mockups) sheet(node, ti, false, false);
-    }
-    for (const node of p.loose ?? []) sheet(node, pi, false, false);
-  }
-  if (!projects.length) box.append(Object.assign(document.createElement('div'), { className: 'msheet', textContent: 'No mockups yet.' }));
-  // The Archive: never deleted, one click back.
-  const arch = tree.archive ?? [];
-  if (arch.length) {
-    const ab = Object.assign(document.createElement('button'), { type: 'button', className: 'march' + (mockFold.archive ? ' open' : '') });
-    ab.append(Object.assign(document.createElement('i'), { className: 'chev' }), `ARCHIVE · ${arch.length} SHEET${arch.length === 1 ? '' : 'S'}`);
-    const [aw, ai] = foldBox(mockFold.archive);
-    ab.addEventListener('click', () => { mockFold.archive = !mockFold.archive; ab.classList.toggle('open', mockFold.archive); aw.classList.toggle('open', mockFold.archive); });
-    box.append(ab, aw);
-    for (const node of arch) sheet(node, ai, false, true);
-  }
-  mockEls.list = box; mockEls.listSig = sig;
-  return box;
-}
 // ---- dragging, smoother (his ask, 2026-10-21: "make it easier to drag and drop into trails in general and make parent
 // child relationships easier with just a mouse move"). The browser's own drag and drop gave no say over each frame, so
 // this is pointer events:
@@ -1854,7 +1663,7 @@ function dgKey(n) {
   if (n.dataset.tab) return 't' + n.dataset.tab;
   if (n.matches('.th[data-trail]')) return 'h' + n.dataset.trail;
   if (n.dataset.branch) return 'b' + n.dataset.branch;
-  return n.id || (n.classList.contains('mhist') ? 'mh' : n.classList.contains('mfrom') ? 'mf' : '');
+  return n.id || (n.classList.contains('mquest') ? 'mh' : '');
 }
 function rowSpots() {
   const m = new Map();

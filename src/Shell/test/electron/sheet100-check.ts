@@ -36,33 +36,20 @@ app.whenReady().then(async () => {
   b.reopenMockups();
   await until(() => !!b.win, 15000);
   const w: BrowserWindow = b.win, wc = w.webContents;
+  wc.on('console-message', (e: any) => { const m = e?.message ?? ''; if (/error|undefined|not a function|cannot/i.test(m)) console.log('FRAME ' + String(m).slice(0, 300)); });
   w.setSize(1400, 1500); await wait(1500);
-  b.mockAct('list', { open: true });
   await wc.executeJavaScript("document.body.classList.add('drawer-open'); true");
-  // the pictures come in one at a time; wait for the open topic's
-  console.log('magnifier ' + await wc.executeJavaScript(`JSON.stringify([...document.querySelectorAll('.th.mock')].map((h) => { const m = h.querySelector('.mlog'); const b = m?.getBoundingClientRect(); return m ? [Math.round(b.x), Math.round(b.width), getComputedStyle(m).display, h.innerHTML.length] : 'none'; }))`));
-  if (process.env.QUICK) app.exit(0);
-  await until(async () => (await wc.executeJavaScript(`document.querySelectorAll('.mstrip .mvt .pic[style*="background-image"]').length`)) >= 1, 120000);
-  await wait(4000);
-  const t = JSON.parse(await wc.executeJavaScript(`JSON.stringify({
-    projects: [...document.querySelectorAll('.mlist .mproj .pn')].map((x) => x.textContent),
-    open: [...document.querySelectorAll('.mlist .mproj.open .pn')].map((x) => x.textContent),
-    topics: [...document.querySelectorAll('.mlist .mtopic .tn')].map((x) => x.textContent),
-    tiles: document.querySelectorAll('.mlist .mvt').length, pics: document.querySelectorAll('.mlist .mvt .pic[style*="background-image"]').length })`));
+  await wait(1200);
+  const t = JSON.parse(await wc.executeJavaScript(`JSON.stringify({ row: document.querySelector('.mquest')?.textContent, old: !!document.querySelector('.mhist, .mlist, .mfrom, .mlog'),
+    icons: document.querySelectorAll('.bh .bi svg, .bh .bi img').length })`));
   console.log(JSON.stringify(t));
-  check('projects, newest first, Live pages never', t.projects[0] === 'Samara' && t.projects.includes('Couch Mode') && t.projects.includes('Waymark') && t.projects.includes('Anti-slop') && !t.projects.includes('Live pages'), t.projects.join(', '));
-  check('only the newest project starts open', t.open.length === 1, t.open.join(', '));
-  check('Samara\'s topics are under it, Top bar among them', t.topics.includes('Top bar') && t.topics.includes('Security'), t.topics.join(', '));
-  check('the open sheet shows its versions as pictures', t.tiles > 0 && t.pics > 0, `${t.pics}/${t.tiles}`);
-  // open Security > 86 to see a longer strip
-  await wc.executeJavaScript(`(() => { const tp = [...document.querySelectorAll('.mlist .mtopic')].find((x) => x.querySelector('.tn').textContent === 'Security'); tp.click();
-    setTimeout(() => { const r = [...document.querySelectorAll('.mlist .msr')].find((x) => x.querySelector('.num')?.textContent === '87'); r?.click(); }, 400); return 1; })()`);
-  await wait(1500);
-  const r = await wc.executeJavaScript(`(() => { const m = document.querySelector('.drawer'); const b = m.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), width: Math.round(b.width), height: Math.min(1400, Math.round(b.height)) }; })()`);
+  check('the trail has one way in: All mockups, with how many sheets', /ALL MOCKUPS\s*\d+ SHEETS/.test(t.row ?? ''), t.row);
+  check('the old history list, FROM CLAUDE and the magnifier are gone', !t.old);
+  const r = await wc.executeJavaScript(`(() => { const m = document.querySelector('.drawer'); const b = m.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), width: Math.round(b.width), height: 700 }; })()`);
   writeFileSync(path.join(OUT, 'trail.png'), (await wc.capturePage(r)).toPNG());
   if (process.env.WHOLE) { w.setSize(1400, 860); await wait(800); writeFileSync(path.join(OUT, 'window.png'), (await wc.capturePage()).toPNG()); w.setSize(1400, 1500); await wait(500); }
+  await wc.executeJavaScript(`document.querySelector('.mquest').click(); 1`);
   // the quest log
-  b.openMockLog();
   await until(() => b.tabs.some((x: any) => x.internal === 'mocklog' && x.view && !x.view.webContents.isLoading()), 15000);
   const lg = b.tabs.find((x: any) => x.internal === 'mocklog');
   const lwc = lg.view.webContents;

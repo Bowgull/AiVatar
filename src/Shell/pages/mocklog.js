@@ -1,5 +1,7 @@
 // Sheet 100, the Mockups quest log (his pick, 2026-10-28). Everything drawn with textContent: titles are Claude's words.
 // The tree comes from Samara (mocklog:get, then mocklog:data on every change); a click opens a version in its own tab.
+import { projectIcon, topicIcon } from './mockicons.js';
+
 const STG = { fix: ['FIX', 'chg'], ok: ['APPROVED', 'ok'], chat: ['APPROVED', 'ok'], built: ['✓ BUILT', 'built'], park: ['PARKED', 'park'] };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 let tree = { projects: [] };
@@ -15,8 +17,9 @@ const versions = (n) => {
 const markOf = (n) => { const vs = versions(n); const d = vs.filter((x) => x.stage === 'ok' || x.stage === 'chat').at(-1) ?? vs.filter((x) => x.stage).at(-1); return d?.stage; };
 const count = (list) => list.reduce((a, n) => a + 1 + (n.children?.length ?? 0), 0);
 
+const ARCH = '\u0000archive';
 function chosen() {
-  const ps = tree.projects ?? [];
+  const ps = [...(tree.projects ?? []), ...(tree.archive?.length ? [{ name: ARCH, branches: [{ id: 'archive', name: 'Archive', mockups: tree.archive }] }] : [])];
   const p = ps.find((x) => x.name === pick.p) ?? ps[0];
   if (!p) return {};
   const ts = topicsOf(p);
@@ -34,22 +37,32 @@ function draw() {
   for (const q of tree.projects ?? []) {
     const open = q === p;
     const b = el('button', 'proj' + (open ? ' open' : '')); b.type = 'button';
-    const em = el('span', 'em');
-    if (q.em === 'lantern') { const i = el('img'); i.src = 'art/samara/samara-lantern-32.png'; i.alt = ''; em.append(i); } else em.append(el('b', '', q.em));
+    const em = el('span', 'em'); em.append(projectIcon(q.name));
     b.append(em, el('span', 'pn', q.name), el('span', 'pc', String(topicsOf(q).reduce((a, x) => a + count(x.sheets), 0))), el('i', 'chev'));
     b.addEventListener('click', () => { pick.p = q.name; pick.t = pick.s = pick.v = null; draw(); });
     tr.append(b);
     if (!open) continue;
     for (const x of ts) {
       const tb = el('button', 'topic' + (x === t ? ' on' : '')); tb.type = 'button';
-      tb.append(el('i', 'chev'), el('span', '', x.name), el('span', 'n', String(count(x.sheets))));
+      const ic = el('span', 'ti'); ic.append(topicIcon(x.name));
+      tb.append(ic, el('span', '', x.name), el('span', 'n', String(count(x.sheets))));
       tb.addEventListener('click', () => { pick.p = q.name; pick.t = x.id; pick.s = pick.v = null; draw(); });
       tr.append(tb);
     }
   }
   if (!tree.projects?.length) tr.append(el('div', 'empty', 'No mockups yet.'));
+  // The Archive (put away by him or the tidy, never deleted): last, as its own plaque.
+  if (tree.archive?.length) {
+    const open = pick.p === ARCH;
+    const b = el('button', 'proj arch' + (open ? ' open' : '')); b.type = 'button';
+    const em = el('span', 'em'); em.append(topicIcon('report'));
+    b.append(em, el('span', 'pn', 'Archive'), el('span', 'pc', String(tree.archive.length)), el('i', 'chev'));
+    b.addEventListener('click', () => { pick.p = ARCH; pick.t = pick.s = pick.v = null; draw(); });
+    tr.append(b);
+  }
 
-  document.getElementById('topic').textContent = t ? `${t.name} · ${count(t.sheets)}` : '';
+  const tt = document.getElementById('topic'); tt.replaceChildren();
+  if (t) { const ic = el('span', 'ti'); ic.append(topicIcon(t.name)); tt.append(ic, `${t.name} · ${count(t.sheets)}`); }
   const sh = document.getElementById('sheets'); sh.replaceChildren();
   for (const r of rows) {
     const m = markOf(r.n);
@@ -65,7 +78,7 @@ function draw() {
 
   const dt = document.getElementById('detail'); dt.replaceChildren();
   if (!s || !v) return;
-  const w = el('div', 'where'); w.append(`${p.name} › `, el('b', '', t.name)); dt.append(w);
+  const w = el('div', 'where'); w.append(p.name === ARCH ? 'Archive' : `${p.name} › `, ...(p.name === ARCH ? [] : [el('b', '', t.name)])); dt.append(w);
   const h = el('div', 'dt'); if (s.num) h.append(el('span', 'num', s.num)); h.append(el('span', '', s.name));
   if (STG[v.stage]) h.append(el('i', 'mk ' + STG[v.stage][1], STG[v.stage][0]));
   dt.append(h);

@@ -79,3 +79,10 @@ button{font:inherit;color:inherit}
 .vt:hover .pic{filter:brightness(1.15)}
 .empty{font:500 13px var(--body);color:#a98e6a;margin:8px 4px}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
+/* the topic icons (sheet 100 v3), at whole-number sizes */
+.ti{flex:none;display:inline-grid;place-items:center;width:22px;height:22px}
+.ti svg,.ti img{display:block}
+.topic .ti{margin:0 1px 0 -2px}
+.ttl .ti{vertical-align:middle;margin:-4px 6px 0 0}
+.proj .em svg{display:block}
+.proj.arch{margin-top:14px;opacity:.85}

@@ -4675,17 +4675,17 @@ export class AangBrowser {
     const t = this.cur();
     if (t?.mock?.unseen) { delete t.mock.unseen; this.changed(); }
   }
-  /** "Mockups" in the ... menu: the trail comes back with its history open, even after he closed it. */
+  /** "Mockups" in the ... menu: the trail comes back, even after he closed it, and the Mockups tab opens. */
   reopenMockups(): void {
     if (!this.mockStore) return;
     this.mockList = true;
     const tr = this.trails.find((x) => x.id === MOCK_TRAIL);
     if (tr) tr.collapsed = false;
     void this.mockTidy(false);
-    if (this.tabs.some((t) => t.mock)) { this.changed(); return; }
-    const last = [...this.mockStore.list].sort((a, b) => b.at - a.at || b.id - a.id)[0];
-    if (!last) { this.note('No mockups yet. When Claude opens one, it lands here.'); this.sendTabs(); return; }
-    this.showMockup(last);
+    if (!this.mockStore.list.length) { this.note('No mockups yet. When Claude opens one, it lands here.'); this.sendTabs(); return; }
+    // Sheet 100 v3: and the Mockups tab, every mockup.
+    this.changed();
+    this.openMockLog();
   }
   /** A branch just made from a tab's menu: the frame opens its name for typing, once. */
   private freshBranch = 0;
@@ -4959,7 +4959,9 @@ export class AangBrowser {
     const all = st.list, dups = st.dups();
     const archivedN = new Set(all.filter((x) => st.archived(x.sheet)).map((x) => x.sheet)).size;
     const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null,
-      toAang: Boolean(this.sendMock), archived: archivedN, tidiedAt: st.tidiedAt || null };
+      toAang: Boolean(this.sendMock), archived: archivedN, tidiedAt: st.tidiedAt || null,
+      // Sheet 100 v3: the All mockups row's count, every sheet not archived.
+      sheets: new Set(all.filter((x) => !st.archived(x.sheet)).map((x) => x.sheet)).size };
     if (!this.mockList) return out;
     out.tree = this.mockTree();
     return out;

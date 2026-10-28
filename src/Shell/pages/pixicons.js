@@ -78,6 +78,34 @@ const ICONS3 = {
   yes: ['TTTTTTTTTT', 'TuuuuuuuuT', 'TtttttttwT', 'TttttttwwT', 'TtwtttwwtT', 'TtwwtwwttT', 'TttwwwtttT', 'TtttwttttT', 'TTTTTTTTTT'],
 };
 
+// Sheet 100 (2026-10-28, his "icons are important here too"): the Mockups trail's projects and topics, same style as
+// the rest (coloured outlines, two or three tones, light from the top-left), their own few colours.
+const C4 = {
+  o: '#5A3414', W: '#D9A55E', m: '#9C6A32', r: '#C8402E', R: '#F06A50', y: '#FFCB3A', h: '#FFF2A0',
+  k: '#2E3248', G: '#A2AAC0', D: '#767F99', w: '#FFFFFF', g: '#DCE6F4', b: '#2B78D0', B: '#8ED2FF',
+  a: '#B06A10', A: '#FFD24A', Z: '#FFF2A0', n: '#7A4A1C', X: '#F6EBD3', e: '#6A4A22',
+};
+const ICONS4 = {
+  // a campfire: Couch Mode, and its campfire scenes
+  fire: ['....r.....', '...rRr....', '..rRyRr.r.', '..rRyyRrRr', '.rRyhyyRRr', '.rRyhhyRr.', '..rRyyRr..', '.oWWooWWo.', 'oWWmoomWWo', '.oo....oo.'],
+  // a signpost, two boards: Waymark
+  post: ['....oo....', 'oooooooo..', 'oWWWWWWWo.', 'oWmmmmmWWo', 'oooooooo..', '....oo....', '..oooooooo', '.oWWWWWWWo', 'oWWmmmmmWo', '..oooooooo', '....oo....', '...oooo...'],
+  // a window's top bar over its page: Top bar
+  bar: ['kkkkkkkkkk', 'kmWWWWWWmk', 'kmkkkkkkmk', 'kmkwwwwkmk', 'kmkkkkkkmk', 'kkkkkkkkkk', 'kgggggggGk', 'kgggggggGk', 'kGGGGGGGDk', 'kkkkkkkkkk'],
+  // a little TV on its feet: TV
+  tv: ['.k......k.', '..k....k..', '...k..k...', 'kkkkkkkkkk', 'kBBBBBBBDk', 'kBbbbbbbDk', 'kBbbbbbbDk', 'kDDDDDDDDk', 'kkkkkkkkkk', '.kk....kk.'],
+  // a gold bell: Notices
+  bell: ['....aa....', '...aAAa...', '..aAZAAa..', '..aZAAAa..', '..aAAAAa..', '.aAAAAAAa.', 'aAAAAAAAAa', 'aaaaaaaaaa', '....aa....'],
+  // a cog: Settings
+  cog: ['....kk....', '.kk.GG.kk.', '.kGGGGGGk.', '..GGDDGG..', 'kGGD..DGGk', 'kGGD..DGGk', '..GGDDGG..', '.kGGGGGGk.', '.kk.GG.kk.', '....kk....'],
+  // two tabs over a page: Tabs
+  tabs: ['kkkk.kkkk.', 'kBBkkkGGk.', 'kBBBBBBBBk', 'kwwwwwwwwk', 'kwwwwwwwwk', 'kgggggggGk', 'kkkkkkkkkk'],
+  // a game pad: Launcher
+  pad: ['.kkkkkkkk.', 'kGGGGGGGGk', 'kGkGGGGrGk', 'kkkkGGrGrk', 'kGkGGGGrGk', 'kGGGGGGGGk', '.kkk..kkk.'],
+  // an open book with a gold ribbon: the quest log, every mockup
+  log: ['.nnnn.nnnn.', 'nXXXXnXXXXn', 'nXeeXnXeeXn', 'nXXXXnXXXXn', 'nXeeXnXeeXn', 'nXXXXnXXXXn', 'nXeeXnXeAXn', 'nnnnnnnnAnn', '........a..'],
+};
+
 /**
  * The big play key over a video (his ask, 2026-10-20: "like megavideo or putlocker"). Hand-laid on a 20 x 20 grid and
  * shown at 4x: a gold coin with a carved play mark, light from the top-left, on a darker lip so it lifts on hover and
@@ -109,6 +137,7 @@ export function playButton(scale = 4) {
 
 /** An icon as an SVG element, or null for a name it does not know. */
 export function pixIcon(name, scale = 2) {
+  if (ICONS4[name]) return grid(ICONS4[name], C4, scale, 'pix');
   if (ICONS3[name]) return grid(ICONS3[name], C3, scale, 'pix');
   const own = ICONS2[name];
   const layers = own ? [[own, 0, 0]] : ICONS[name];
