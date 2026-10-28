@@ -96,17 +96,19 @@ export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HO
     body = { url: u };
   } else {
     const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
-    if (!cwd || !path.isAbsolute(cwd) || !existsSync(cwd)) return { ok: false, message: "Your session's folder is not known here, so a file cannot be checked. Serve the page on 127.0.0.1 and pass url instead." };
-    const root0 = repoOf(cwd);
-    if (!root0) return { ok: false, message: "Your session's folder is not in a git repo. The Mockups trail shows committed pages; serve the page on 127.0.0.1 and pass url instead." };
     const raw = String(ask.path).trim();
-    if (raw.length > 1000 || raw.startsWith('\\\\') || raw.startsWith('//')) return { ok: false, message: 'path must be a file in your repo.' };
+    if (raw.length > 1000 || raw.startsWith('\\\\') || raw.startsWith('//')) return { ok: false, message: 'path must be a file in a git repo.' };
+    // 2026-10-28 (his "mockups aren't being sent organized correctly"): the repo is the FILE's, not the session's, so a
+    // session outside any repo still files a sheet properly instead of serving it live (a row that dies with its server).
+    if (!path.isAbsolute(raw) && (!cwd || !path.isAbsolute(cwd) || !existsSync(cwd))) return { ok: false, message: "Your session's folder is not known here. Pass the page's full path." };
     let file = '', root = '';
     try {
-      file = realpathSync.native(path.resolve(cwd, raw));
-      root = realpathSync.native(root0);
+      file = realpathSync.native(path.resolve(cwd || homeRepo, raw));
       if (!statSync(file).isFile()) throw new Error('not a file');
     } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
+    const root0 = repoOf(path.dirname(file));
+    if (!root0) return { ok: false, message: `${path.basename(file)} is not in a git repo. The Mockups trail keeps every version from git: put it in one and commit it, then call show_mockup again.` };
+    try { root = realpathSync.native(root0); } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
     if (!inside(file, root)) return { ok: false, message: 'path must be inside your own repo.' };
     const rel = path.relative(root, file).split(path.sep).join('/');
     if (!/\.html?$/i.test(rel)) return { ok: false, message: 'path must be an .html page.' };
