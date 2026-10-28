@@ -2647,7 +2647,8 @@ export class Core {
     this.token = newToken(this.cfg.stateDir);
     if (process.platform === 'darwin' && process.env.AANG_PRESENCE !== '0') {
       this.macPresence = new MacPresence(process.env.AANG_PRESENCE_BIN ?? path.join(import.meta.dirname, '..', 'bin', 'aang-presence'), {
-        presence: p => this.applyPresence(p), desk: active => this.applyDesk(active), log: s => console.log(s),
+        presence: p => { this.applyPresence(p); this.sendTo('desktop', { t: 'mac.front', shadow: p.shadow } as never); },
+        desk: active => this.applyDesk(active), log: s => console.log(s),
       });
       this.macPresence.start();
     }

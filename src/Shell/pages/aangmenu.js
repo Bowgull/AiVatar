@@ -26,6 +26,8 @@ const ICONS = {
   warn: ['....OO....', '...OOOO...', '...O..O...', '..OO..OO..', '..O....O..', '.OO.OO.OO.', '.O..OO..O.', 'OO......OO', 'O...OO...O', 'OOOOOOOOOO', '..........'],
   // Sheet 59 (2026-10-22): the Music player row, a pixel quaver
   music: ['....OOOOOO.', '....OOOOOO.', '....O....O.', '....O....O.', '....O....O.', '....O....O.', '..OOO..OOO.', '.OOOO.OOOO.', '.OOOO.OOOO.', '..OO...OO..', '...........'],
+  // Sheet 101 (2026-10-28): Go to the PC / Go to the Mac, a screen with an arrow going into it.
+  gopc: ['OOOOOOOOOOO', 'O.........O', 'O...O.....O', 'O....O....O', 'O.OOOOO...O', 'O....O....O', 'O...O.....O', 'O.........O', 'OOOOOOOOOOO', '....OOO....', '..OOOOOOO..'],
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
 };
 const N = 11;
@@ -70,6 +72,8 @@ function mainRows(s) {
     { sub: 'dock', ic: 'dock', t: 'Dock' },
     { id: 'comeback', ic: 'back2', t: 'Come back', off: !s.docked },
     { id: 'hide', ic: 'hide', t: 'Hide' },
+    // Sheet 101 (2026-10-28): only where there is another machine to go to; dim while it is not on.
+    ...(s.other === 'pc' || s.other === 'mac' ? [{ id: 'gopc', ic: 'gopc', t: s.other === 'pc' ? 'Go to the PC' : 'Go to the Mac', off: s.otherOn !== true }] : []),
     '-',
     { sub: 'model', ic: 'model', t: 'Model', tag: MODEL_TAG[s.model] ?? 'AUTO' },
     { id: 'saving', ic: 'quota', t: 'Save quota', tick: !!s.saving },

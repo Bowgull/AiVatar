@@ -39,14 +39,14 @@ export function parseReading(line: string): MacReading | null {
   } catch { return null; }
 }
 
-export interface PresenceOut { foreground: string; quiet: boolean }
+export interface PresenceOut { foreground: string; quiet: boolean; /** the Shadow window is in front: he is on the PC */ shadow: boolean }
 
 /** Runs the helper and reports changes. Restarts it if it stops; gives up quietly if it cannot start at all. */
 export class MacPresence {
   private child: ChildProcess | null = null;
   private stopped = false;
   private awayFrom: number | null = null;
-  private last: { fg: string; quiet: boolean; desk: boolean | null } = { fg: '', quiet: false, desk: null };
+  private last: { fg: string; quiet: boolean; shadow: boolean; desk: boolean | null } = { fg: '', quiet: false, shadow: false, desk: null };
   private reading: MacReading | null = null;
   private fails = 0;
   private readonly bin: string;
@@ -81,9 +81,9 @@ export class MacPresence {
   private take(r: MacReading): void {
     this.reading = r;
     const now = (this.o.now ?? Date.now)();
-    const fg = r.front, quiet = quietReason(r) !== '';
+    const fg = r.front, why = quietReason(r), quiet = why !== '', shadow = why === 'shadow';
     if (quiet !== this.last.quiet) this.o.log?.(quiet ? `mac presence: quiet (${quietReason(r)})` : 'mac presence: not quiet');
-    if (fg !== this.last.fg || quiet !== this.last.quiet) { this.last.fg = fg; this.last.quiet = quiet; this.o.presence({ foreground: fg, quiet }); }
+    if (fg !== this.last.fg || quiet !== this.last.quiet || shadow !== this.last.shadow) { this.last.fg = fg; this.last.quiet = quiet; this.last.shadow = shadow; this.o.presence({ foreground: fg, quiet, shadow }); }
     const desk = atDesk(r, now, this.awayFrom);
     if (desk && this.awayFrom !== null && now > this.awayFrom) this.awayFrom = null;   // he is back: brb is over
     if (desk !== this.last.desk) { this.last.desk = desk; this.o.log?.(desk ? 'mac presence: at the Mac' : 'mac presence: away'); this.o.desk(desk); }
