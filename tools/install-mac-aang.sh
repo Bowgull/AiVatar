@@ -35,5 +35,7 @@ EOF
 )
 # Quit Aang from his menu exits cleanly, so launchd leaves him off until the next login; a crash brings him back.
 launchctl bootout "gui/$(id -u)/com.aang.pet" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$P"
+# bootout returns before launchd has let go; try again for a few seconds.
+for i in 1 2 3 4 5 6; do launchctl bootstrap "gui/$(id -u)" "$P" 2>/dev/null && break; sleep 2; done
+launchctl print "gui/$(id -u)/com.aang.pet" >/dev/null
 echo "Aang is installed and running. Log: $L/aang-app.log"

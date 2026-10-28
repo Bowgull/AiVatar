@@ -11,7 +11,7 @@
 // a menu bar Aang opens the same menu as right-clicking him.
 //
 // Run: electron src/macaang.ts   (the LaunchAgent com.aang.pet does this)
-import { app, BrowserWindow, Menu, Tray, clipboard, ipcMain, nativeImage, screen, shell } from 'electron';
+import { app, BrowserWindow, Menu, Tray, clipboard, globalShortcut, ipcMain, nativeImage, screen, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -22,6 +22,8 @@ import { InputBox } from './input.ts';
 import { AangMenu } from './aangmenu.ts';
 import { Wheel } from './wheelwin.ts';
 import { TimerWindows, type TimerData } from './timerwin.ts';
+import { NoteWindows, type NoteData } from './notewin.ts';
+import { HotkeyKeeper } from './hotkeys.ts';
 import { bubbleAt, headOf, inputAt, type PetAt } from './anchor.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { writeFileAtomic } from './atomic.ts';
@@ -160,6 +162,8 @@ let input: InputBox | null = null;
 let menu: AangMenu | null = null;
 let wheel: Wheel | null = null;
 let timerWins: TimerWindows | null = null;
+let noteWins: NoteWindows | null = null;
+let hotkeys: HotkeyKeeper | null = null;
 /** The brain's notes, as it last sent them (the bubble's board edits these). */
 let notesLatest: { id: string; out?: unknown }[] = [];
 let tray: Tray | null = null;
@@ -237,7 +241,11 @@ const link = new CoreLink({
       input?.send('input:state', { week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt });
     }
     if (m.t === 'mode' && typeof m.mode === 'string') inputMode = m.mode;
-    if (m.t === 'notes.state' && Array.isArray(m.notes)) notesLatest = m.notes as { id: string; out?: unknown }[];
+    if (m.t === 'notes.state' && Array.isArray(m.notes)) {
+      notesLatest = m.notes as { id: string; out?: unknown }[];
+      const own = Array.isArray((m.cats as { own?: unknown } | undefined)?.own) ? ((m.cats as { own: unknown[] }).own).map(String) : [];
+      if (noteWins) { noteWins.cats = own; noteWins.sync(m.notes as NoteData[]); }
+    }
     if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
     // A timer ran out: its three wood knocks (sheet 67), even when everything else is quiet; muting still silences it.
     if (m.t === 'timer.done') { if (!muted) chime('timer'); pet?.webContents.send('pet:state', { glow: 'timer' }); setTimeout(() => pet?.webContents.send('pet:state', { glow: 'off' }), 15_000); }
@@ -320,7 +328,29 @@ app.whenReady().then(async () => {
   bubble.window();
   input = new InputBox({ origin: pages.origin, preloadPath: preload });
   input.window();
-  menu = new AangMenu({ origin: pages.origin, preloadPath: preload, pick: picked });
+  // His keys (sheet 61): Talk and Quick note as on the PC. The pop-out's key is Samara's on this Mac, so it is not taken here.
+  hotkeys = new HotkeyKeeper(app.getPath('userData'), globalShortcut, {
+    talk: () => { if (input?.visible) input.close(); else { setPose('out'); openTypeBox(); } },
+    snip: () => { /* Snipit comes over in phase 5 */ },
+    popout: () => { /* Samara's */ },
+    note: () => { if (!noteWins?.quick()) { bubble?.send('brain:message', { t: 'notes.board', fresh: true }); bubble?.show(); } },
+    pin: () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; },
+  });
+  hotkeys.want('talk', true);
+  hotkeys.want('note', true);
+  console.log('aang: keys ' + hotkeys.list().filter((k) => k.id === 'talk' || k.id === 'note').map((k) => `${k.id}=${k.acc}${globalShortcut.isRegistered(k.acc) ? '' : ' (not taken: another app has it)'}`).join(', '));
+  menu = new AangMenu({ origin: pages.origin, preloadPath: preload, pick: picked, keys: hotkeys });
+  // Sheet 17 / 60: notes pulled out of the bubble onto the screen, and the quick note (main.ts).
+  noteWins = new NoteWindows({
+    origin: pages.origin, preloadPath: preload,
+    save: (n) => link.send({ t: 'notes.save', note: n } as never),
+    overAang: (p) => {
+      const b = bubble?.window();
+      if (b && !b.isDestroyed() && b.isVisible()) { const r = b.getBounds(); if (p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height) return true; }
+      const s = petAt().sprite;
+      return p.x >= s.x && p.x < s.x + s.width && p.y >= s.y && p.y < s.y + s.height;
+    },
+  });
   // Sheet 17's wheel, held on Aang (main.ts): Timer and Notes open in the bubble, Browser is Samara, Away is Discord.
   wheel = new Wheel({
     origin: pages.origin, preloadPath: preload,
@@ -400,6 +430,11 @@ function watchClicksAway(): void {
         const line = buf.slice(0, i); buf = buf.slice(i + 1);
         if (!/^down -?\d+ -?\d+$/.test(line)) continue;
         fails = 0;
+        // macOS reports some presses on Aang himself too (his window lets the mouse through until the poll catches up):
+        // those are his own click, which toggles the box, not a click away.
+        const [, x, y] = line.split(' ').map(Number);
+        const r = petAt().sprite;
+        if (x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height) continue;
         if (bubbleUp || input?.visible) { bubble?.send('bubble:dismiss', 'outside'); if (input?.visible) input.close(false); }
       }
     });
@@ -417,6 +452,7 @@ ipcMain.on('pet:solid', () => { /* the pointer is followed in step(); the page's
 ipcMain.on('pet:click', (e, where) => {
   if (!fromPet(e)) return;
   lastTouch = Date.now();
+  if (process.env.AANG_PET_TRACE) console.log(`aang: click on ${where}, box ${input?.visible ? 'open' : 'shut'}`);
   if (where === 'mark' && markNow) { bubble?.send('brain:message', { t: 'mark.click' }); setPose('more'); return; }
   if (input?.visible) { input.close(); return; }
   openTypeBox();
@@ -520,6 +556,27 @@ ipcMain.on('input:mode', (e, m) => { if (fromInput(e) && typeof m === 'string' &
 ipcMain.on('input:size', (e, s) => { if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0); });
 ipcMain.on('input:page', (e, d) => { if (fromInput(e) && (d === 1 || d === -1)) bubble?.send('bubble:page', d); });
 ipcMain.on('menu:pick', (e, id) => { if (menu?.owns(e.sender)) menu.picked(e.sender, id); });
+// Notes on the screen (main.ts): each one only ever speaks for its own note.
+ipcMain.on('bubble:notepull', (e, a) => {
+  if (!fromBubble(e) || !a || typeof a !== 'object') return;
+  const n = (notesLatest as NoteData[]).find((x) => x.id === a.id);
+  const x = Number(a.x), y = Number(a.y);
+  if (!n || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  noteWins?.pull(n, { x, y }, String(a.phase ?? ''));
+});
+ipcMain.on('note:save', (e, n) => { const v = noteWins?.of(e.sender); if (v && noteOk(n) && n.id === v.id) link.send({ t: 'notes.save', note: { ...n, out: v.note.out } } as never); });
+ipcMain.on('note:move', (e, a) => { if (noteWins?.of(e.sender) && a && typeof a === 'object') noteWins.move(e.sender, a.kind === 'resize' ? 'resize' : 'drag', String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0); });
+ipcMain.on('note:menu', (e, a) => {
+  const open = a === true || (!!a && typeof a === 'object' && (a as { open?: unknown }).open === true);
+  const at = a && typeof a === 'object' ? { x: Number((a as { x?: unknown }).x) || 0, y: Number((a as { y?: unknown }).y) || 0 } : null;
+  noteWins?.menu(e.sender, open, at);
+});
+ipcMain.on('note:opacity', (e, n) => { noteWins?.setOpacity(e.sender, Number(n)); });
+ipcMain.on('note:pin', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.setPinned(v.id, true); });
+ipcMain.on('note:through', (e) => { noteWins?.toggleThrough(e.sender); });
+ipcMain.on('note:back', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.back(v.id); });
+ipcMain.on('note:delete', (e) => { const v = noteWins?.of(e.sender); if (v) link.send({ t: 'notes.delete', id: v.id }); });
+ipcMain.on('menu:hotkey', (e, m) => { if (menu?.owns(e.sender)) menu.hotkey(e.sender, m); });
 ipcMain.on('timer:clickable', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.clickable(e.sender, on === true); });
 ipcMain.on('timer:opacity', (e, n) => { if (timerWins?.owns(e.sender)) timerWins.opacity(e.sender, Number(n)); });
 ipcMain.on('timer:pin', (e) => { if (timerWins?.owns(e.sender)) timerWins.pin(e.sender); });
@@ -564,6 +621,7 @@ ipcMain.on('bubble:typing', (e, on) => {
 });
 ipcMain.on('menu:shape', (e, rects) => { if (menu?.owns(e.sender)) menu.shape(e.sender, rects); });
 
+app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('before-quit', () => { link.stop(); input?.destroy(); bubble?.close(); menu?.close(); tray?.destroy(); pages?.close(); });
 app.on('window-all-closed', () => { /* the pet decides when Aang quits */ });
 Menu.setApplicationMenu(null);
