@@ -240,7 +240,10 @@ const readJson = (f: string): unknown => { try { return JSON.parse(readFileSync(
 
 /** bubble.ts places itself by these; the box goes up by its height while it is open (main.ts bubbleBox). */
 function bubbleBox(size: { width: number; height: number }): Electron.Rectangle {
-  const at = petAt(), box = bubbleAt(at, size);
+  const at = petAt(), raw = bubbleAt(at, size);
+  // The tail aims at his cheek's edge (aimTail): the bubble keeps 14 px more room from him, or the tail is only a stub
+  // (2026-10-28 look-and-feel pass, the timer setup). Free or at the bottom only; at a turned edge it is unchanged.
+  const box = !docked || edge === 'bottom' ? { ...raw, x: Math.max(at.screen.x, raw.x - 14) } : raw;
   if (!input?.visible) return box;
   return { ...box, y: Math.max(at.screen.y, box.y - 14) };
 }
