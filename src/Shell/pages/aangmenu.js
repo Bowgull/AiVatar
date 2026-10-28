@@ -62,6 +62,8 @@ const clock = (ms) => { const d = new Date(ms); return `${d.getHours() % 12 || 1
 // The Mac's own sizes (sheet 103): the stylesheet's html.mac rules.
 if (/Mac/i.test(navigator.platform)) document.documentElement.classList.add('mac');
 const soon = (s, id) => Array.isArray(s.soon) && s.soon.includes(id);
+/** A row this machine leaves out altogether (the Mac's `gone` list). @param {any} s @param {string} id */
+const gone = (s, id) => Array.isArray(s.gone) && s.gone.includes(id);
 function mainRows(s) {
   const jobs = Number(s.jobsRunning) || 0, hushed = Number(s.hushedUntil) > Date.now();
   return [
@@ -99,11 +101,11 @@ function subRows(which, s) {
       { id: 'hush.off', t: 'Stop hushing now', off: !hushed },
       '-',
       { id: 'mute', t: 'Mute: nothing unprompted', tick: !!s.muted },
-      '-',
-      { head: 'QUIET IN GAMES' },
-      { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto', off: soon(s, 'quiet') },
-      { id: 'quiet.always', t: 'Always', tick: q === 'always', off: soon(s, 'quiet') },
-      { id: 'quiet.never', t: 'Never', tick: q === 'never', off: soon(s, 'quiet') },
+      // Not on the Mac (his call, 2026-10-28): no games there; calls, Shadow and full screen keep him quiet by themselves.
+      ...(gone(s, 'quiet') ? [] : ['-', { head: 'QUIET IN GAMES' },
+        { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto', off: soon(s, 'quiet') },
+        { id: 'quiet.always', t: 'Always', tick: q === 'always', off: soon(s, 'quiet') },
+        { id: 'quiet.never', t: 'Never', tick: q === 'never', off: soon(s, 'quiet') }]),
       // Sheet 60 (2026-10-22): the one switch for all of "Aang notices things in your notes".
       '-',
       { head: 'YOUR NOTES' },
@@ -290,7 +292,9 @@ function keysMenu() {
   const rr = T('span', 'kr'); rr.append(T('span', 'hint', 'HOLD'));
   reset.append(T('span', 'lab', 'Put them all back to the defaults'), rr);
   m.append(reset);
-  m.append(T('div', 'note', 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Ctrl+C and Esc only listen while his bubble is up, so they are fixed.'));
+  m.append(T('div', 'note', /Mac/i.test(navigator.platform)
+    ? 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Esc only listens while his bubble is up, so it is fixed.'
+    : 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Ctrl+C and Esc only listen while his bubble is up, so they are fixed.'));
   // it grows and shrinks (the hold's line, the warning, the glove's nudge): kept on the screen, and the window's shape with it
   const ro = new ResizeObserver(() => { if (sub === m) relayout(); else ro.disconnect(); });
   ro.observe(m);

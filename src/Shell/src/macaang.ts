@@ -209,6 +209,24 @@ let hotkeys: HotkeyKeeper | null = null;
 let notesLatest: { id: string; out?: unknown }[] = [];
 let tray: Tray | null = null;
 let bubbleUp = false;
+/**
+ * Esc closes the bubble, held only while it is up (the PC's watchBusy; 2026-10-28 the Hotkeys menu listed it and nothing
+ * listened on the Mac). Let go the moment it goes, so Esc is every other app's again.
+ */
+let escHeld = false;
+function holdEsc(on: boolean): void {
+  if (on === escHeld) return;
+  if (on) escHeld = globalShortcut.register('Escape', () => { bubble?.send('bubble:dismiss', 'esc'); if (input?.visible) input.close(); });
+  else { try { globalShortcut.unregister('Escape'); } catch { /* gone */ } escHeld = false; }
+}
+/**
+ * The pin key (Ctrl+Alt+P), held only while something of his can be pinned is on screen (a timer, a note, a pinned
+ * snip), as on the PC; otherwise the key is every other app's.
+ */
+setInterval(() => {
+  const up = BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.isVisible() && /\/(timer|note|pinsnip)\.html/.test(w.webContents.getURL()));
+  hotkeys?.want('pin', up);
+}, 1500).unref?.();
 let heldBubble: Record<string, unknown> | null = null;
 /** When the held one arrived: back from Shadow after an hour, something Aang said on his own is not news (review R2). */
 let heldAt = 0;
@@ -351,9 +369,9 @@ function chime(name: string): void {
 
 // ---------------------------------------------------------------- his menu (the same rows as right-clicking him)
 function menuState(): Record<string, unknown> {
-  return { docked, dock: edge, model: inputMode, muted, hushedUntil, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
-    // Not on the Mac yet: dim, never a pick that does nothing.
-    soon: ['quiet'] };
+  return { docked, dock: edge, model: inputMode, muted, hushedUntil, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0,
+    // Not on the Mac (his call, 2026-10-28): the WoW quiet rows go; "Go to the PC" comes back with phase 6 (other: 'pc').
+    gone: ['quiet'] };
 }
 function picked(id: string): void {
   if (id === 'jobs') { bubble?.send('brain:message', { t: 'mark.click' }); bubble?.show(); return; }
@@ -719,12 +737,12 @@ ipcMain.on('bubble:size', (e, size) => {
   const box = bubbleBox({ width: width - pr, height: height - pb });
   w.setBounds({ x: box.x, y: box.y, width, height });
   aimTail(w, box);
-  bubbleUp = true;
+  bubbleUp = true; holdEsc(true);
   bubble?.show();
   if (process.env.AANG_PET_TRACE) console.log(`aang: bubble at ${JSON.stringify(w.getBounds())} visible=${w.isVisible()} pet=${JSON.stringify(petAt().sprite)}`);
   if (process.env.AANG_PET_SHOT) setTimeout(() => { void w.webContents.capturePage().then((img) => writeFileSync(process.env.AANG_PET_SHOT!, img.toPNG())); }, 900);
 });
-ipcMain.on('bubble:hidden', (e) => { if (!fromBubble(e)) return; bubbleUp = false; bubble?.setClickable(false); bubble?.hide(); heldBubble = null; lastTouch = Date.now(); });
+ipcMain.on('bubble:hidden', (e) => { if (!fromBubble(e)) return; bubbleUp = false; holdEsc(false); bubble?.setClickable(false); bubble?.hide(); heldBubble = null; lastTouch = Date.now(); });
 ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });
 ipcMain.on('bubble:recalled', (e, ok) => { if (!fromBubble(e)) return; if (ok === true) bubble?.show(); else if (!input?.visible) openTypeBox(); });
 ipcMain.on('bubble:copy', (e, text) => { if (fromBubble(e) && typeof text === 'string' && text) clipboard.writeText(text.slice(0, 100_000)); });

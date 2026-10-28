@@ -18,7 +18,8 @@ const SLOTS = [
   ['music', 'MUSIC', ['#EBDDFF', '#B48CEB', '#6E46A8']],
   ['snip', 'SNIP', ['#E2F5CF', '#8FD07A', '#3E8A4E']],
   ['moon', 'AWAY', ['#F2F2FF', '#C9CDEA', '#7C82B0']],     // 9.D D9: was QUIET; stepping away moves talking to Discord
-];
+// His call (2026-10-28): no Snip on the Mac; macOS has its own. Five there.
+].filter(([, label]) => !(label === 'SNIP' && /Mac/i.test(navigator.platform)));
 const HIT = 40;
 const NS = 'http://www.w3.org/2000/svg';
 /** @type {{el: HTMLElement, x: number, y: number}[]} */
