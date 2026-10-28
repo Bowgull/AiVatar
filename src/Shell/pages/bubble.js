@@ -2536,7 +2536,14 @@ function openNote(id, focusTitle = false) {
     const part = /** @type {HTMLElement} */ (e.target).closest?.('.ntitle') ? 'title' : 'body';
     const m = openMenu(menuHost, { x: 0, y: 0 }, paper, n, 'board', (what) => {
       if (what === 'delete') { window.aang?.notesDelete?.(n.id); notesAll = notesAll.filter((x) => x.id !== n.id); showBoard(); }
-      else if (what === 'out') { paper.flush(); const r = bubble.getBoundingClientRect(); window.aang?.notesPull?.({ phase: 'start', id: n.id, x: window.screenX + r.left - 240, y: window.screenY + r.top + 20 }); window.aang?.notesPull?.({ phase: 'end', id: n.id, x: window.screenX + r.left - 240, y: window.screenY + r.top + 20 }); showBoard(); }
+      else if (what === 'out') {
+        paper.flush(); const r = bubble.getBoundingClientRect();
+        // Left of the bubble, but never past the left edge of the bubble's own screen (2026-10-28: with a second screen to
+        // the left, "Stick on screen" put the note on the other screen): then it goes right of the bubble instead.
+        const left = window.screenX + r.left - 240, sx = Math.max(left, (window.screen.availLeft ?? 0) + 8) === left ? left : window.screenX + r.right + 12;
+        const at = { id: n.id, x: sx, y: window.screenY + r.top + 20 };
+        window.aang?.notesPull?.({ phase: 'start', ...at }); window.aang?.notesPull?.({ phase: 'end', ...at }); showBoard();
+      }
     }, part);
     fit(); reportSize();
     const watch = new MutationObserver(() => { if (!menuHost.contains(m)) { watch.disconnect(); fit(); reportSize(); } });

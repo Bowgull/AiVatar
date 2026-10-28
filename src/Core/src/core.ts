@@ -65,6 +65,8 @@ import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
 import { notHisCwd } from './notjobs.ts';
 import { awayItemOf, bundleOf, earlier, fresh, keep, tierOf, welcomeBack, type AwayItem, type Tier } from './heldnotes.ts';
+/** "what time is it", "what's the date", "what day is it" and the like, alone (a greeting before it is fine). */
+const CLOCK_ASK = /^\s*(?:(?:hey|yo|aang|ok)[, ]+)*(?:what(?:'?s| is) the (?:time|date|day)(?: (?:now|today|right now))?|what time is it(?: (?:now|right now))?|what day is it(?: today)?|what'?s today'?s date|what is today|whats today)\s*[?.!]*\s*$/i;
 /** The machine this brain runs on, in his words ("until you are back at the Mac"). */
 const MACHINE = process.platform === 'darwin' ? 'Mac' : 'PC';
 import { dropMockup, markMockup } from './mockupdrop.ts';
@@ -190,7 +192,8 @@ export function undash(t: string): string {
   return t.replace(/\s*—\s*/g, ', ').replace(/\s+–\s+/g, ', ').replace(/,\s*,/g, ',').replace(/,\s*([.!?])/g, '$1');
 }
 
-const SAYS_FAILED = /\b(couldn'?t|could not|didn'?t|did not|failed|not work|wasn'?t able|unable|can'?t|cannot|no luck|error)\b/i;
+// 2026-10-28: "you said no ... nothing was closed" and "went unanswered" already say it; the truth line repeated it.
+const SAYS_FAILED = /\b(couldn'?t|could not|didn'?t|did not|failed|not work|wasn'?t able|unable|can'?t|cannot|no luck|error|nothing was|said no|unanswered|left (?:it|them|\w+) alone|not done)\b/i;
 
 /**
  * The reply has to match what really happened this turn (the action record), whatever the model says - the email
@@ -3962,6 +3965,20 @@ export class Core {
           this.send(ws, { t: 'bubble', text: say, stream: false, id, who: 'Aang' });
           break;
         }
+        // The time, the date or the day, in plain code (2026-10-28, his "talking to aang takes forever": "what time is it"
+        // took 2.7 s to its first word on Smart). Exact, instant, never a model turn; his 2026-10-13 rule (Quick only for
+        // small talk) stands. Anything more ("in tokyo", "until 5") still goes to the model.
+        const clock = m.ephemeral !== true ? CLOCK_ASK.exec(text) : null;
+        if (clock) {
+          this.send(ws, { t: 'ack', id });
+          const now = new Date(), tz = 'America/Toronto';
+          const time = now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).toLowerCase();
+          const date = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' });
+          const say = /time/i.test(clock[0]) ? `It's ${time}.` : `It's ${date}.`;
+          this.send(ws, { t: 'bubble', text: say, stream: false, id, who: 'Aang' });
+          this.memory.saveSaid?.(say, 'say');
+          break;
+        }
         // Sheet 24: "brief", "show me my brief", "morning brief": the brief card now, in plain code (only its mail sort asks Haiku).
         // 2026-10-22 (his ask: "when I ask him for my morning brief in any way ... I get that brief"): any short ask for it.
         if (m.ephemeral !== true && wantsBrief(text) && this.kindOfSocket(ws) === 'desktop') {
@@ -5074,7 +5091,7 @@ export class Core {
       // At the desk 30 s, then let go and say what it was for (his yes, 2026-10-28: a card he could not see held the
       // Watson question for two minutes). Away, the card is on his phone: the full two minutes.
       const wait = this.whereHeIs() === 'discord' ? PERMISSION_TIMEOUT_MS : PERMISSION_AT_DESK_MS;
-      const timer = setTimeout(() => { this.refused = `he did not answer the question in the bubble within ${Math.round(wait / 1000)} seconds. Tell him in one short line what you wanted to do and why, so he can just say yes`; this.answerPermission(id, 'no'); this.sendTo('desktop', { t: 'ask.expired', id }); }, wait);
+      const timer = setTimeout(() => { this.refused = `he did not answer the question in the bubble within ${Math.round(wait / 1000)} seconds, so he can just say yes to have it done`; this.answerPermission(id, 'no'); this.sendTo('desktop', { t: 'ask.expired', id }); }, wait);
       timer.unref?.();
       this.permission = {
         id,

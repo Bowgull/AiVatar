@@ -84,7 +84,9 @@ export function openTestDoor(o: { keyFile: string; pet: DoorPet; log: (s: string
           return;
         }
         if (u.pathname === '/hover' && Number.isFinite(x) && Number.isFinite(y)) { mouse(w, 'mouseMove', x, y); json(res, 200, { ok: true }); return; }
-        if (u.pathname === '/type' && typeof b.text === 'string') { w.webContents.insertText(b.text.slice(0, 2000)); json(res, 200, { ok: true }); return; }
+        // Typed from inside the page (execCommand), never webContents.insertText: that one makes Aang the active app and
+        // takes his keyboard (seen 2026-10-28).
+        if (u.pathname === '/type' && typeof b.text === 'string') { await w.webContents.executeJavaScript(`document.execCommand('insertText', false, ${JSON.stringify(b.text.slice(0, 2000))})`, true); json(res, 200, { ok: true }); return; }
       }
       json(res, 404, { error: 'unknown door' });
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
