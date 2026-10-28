@@ -31,6 +31,8 @@ import { appName, macBodyAnswers } from './macbody.ts';
 import { claudeMessage, claudeOpenTarget } from './claudewire.ts';
 import { SendDesk } from './sendtoaang.ts';
 import { Snipper } from './snip.ts';
+import { MacMedia } from './macmedia.ts';
+import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import { PinSnips } from './pinsnip.ts';
 
 const HERE = import.meta.dirname;
@@ -267,6 +269,8 @@ const link = new CoreLink({
     }
     // The PC pet's hands, eyes and the shell's browser jobs, answered the Mac way (macbody.ts), never left hanging.
     if (macBody(m)) return;
+    // The mini player's own (media.now, player.open, devices); media.now also goes on to the bubble's whisper.
+    if (playerHears?.(m)) return;
     // The pet's own short notes (PetWindow.cs Note): what Hush and Job hunt now did.
     if (m.t === 'hush.reply' || m.t === 'job.hunt.reply') {
       const text = m.t === 'hush.reply' ? String(m.text ?? 'Hush.') : m.onMac === true ? 'Running on your MacBook.' : 'Your MacBook is not reachable - running it here.';
@@ -299,7 +303,7 @@ const link = new CoreLink({
     bubble?.send('brain:message', m);
     input?.send('brain:message', m);
   },
-  onConnected: (up) => { bubble?.send('brain:connected', up); },
+  onConnected: (up) => { bubble?.send('brain:connected', up); if (up) setTimeout(() => miniPlayer?.rewatch(), 0); },
 });
 
 const macBody = macBodyAnswers({
@@ -320,12 +324,13 @@ function chime(name: string): void {
 function menuState(): Record<string, unknown> {
   return { docked, dock: edge, model: inputMode, muted, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0, other: 'pc', otherOn: false,
     // Not on the Mac yet: dim, never a pick that does nothing.
-    soon: ['player', 'quiet'] };
+    soon: ['quiet'] };
 }
 function picked(id: string): void {
   if (id === 'jobs') { bubble?.send('brain:message', { t: 'mark.click' }); bubble?.show(); return; }
   if (id === 'hunt') { link.send({ t: 'job.hunt' }); return; }
   if (id === 'claudejob') { prefillBox('Start a Claude job: '); return; }
+  if (id === 'player') { miniPlayer?.open(); return; }
   if (id === 'notes.notice') { notesNotice = !notesNotice; link.send({ t: 'notice.set', on: notesNotice }); return; }
   if (id === 'back') { bubble?.send('bubble:recall', 'back'); return; }
   if (id.startsWith('hush.')) { const n = { 'hush.15': 15, 'hush.60': 60, 'hush.240': 240, 'hush.off': 0 }[id] ?? minutesToMorning(); link.send({ t: 'hush', minutes: n }); return; }
@@ -341,6 +346,8 @@ function picked(id: string): void {
 /** He is on a call, on Shadow, full screen or in Focus (the brain's bubble.state from the Mac presence helper). */
 let busyNow = false;
 let snipper: Snipper | null = null;
+let macMedia: MacMedia | null = null;
+let miniPlayer: MiniPlayer | null = null, playerHears: ((m: Record<string, unknown>) => boolean) | null = null;
 let pinSnips: PinSnips | null = null;
 /**
  * The snip key. macOS gives a program pictures of other apps only with Screen Recording allowed; without it the capture
@@ -426,6 +433,13 @@ app.whenReady().then(async () => {
     onSend: (file, thumb) => landSend({ kind: 'snip', file, thumb, site: 'your screen', title: 'snip ' + new Date().toTimeString().slice(0, 5) }),
   });
   pinSnips = new PinSnips({ origin: pages.origin, preloadPath: path.join(HERE, 'pinsnippreload.cjs') });
+  // Sheet 59, the mini player: Spotify on this Mac (macmedia.ts plays the pet's part), Connect devices through the brain.
+  macMedia = new MacMedia(PORT, STATE_DIR);
+  macMedia.start();
+  ({ player: miniPlayer, fromBrain: playerHears } = wireMiniPlayer({
+    origin: pages.origin, preloadPath: path.join(HERE, 'playerpreload.cjs'), prefsFile: path.join(app.getPath('userData'), 'player.json'),
+    send: (m) => { if (m.t === 'player.watch' && macMedia) macMedia.watching = m.visible === true; link.send(m as never); },
+  }));
   menu = new AangMenu({ origin: pages.origin, preloadPath: preload, pick: picked, keys: hotkeys });
   // Sheet 17 / 60: notes pulled out of the bubble onto the screen, and the quick note (main.ts).
   noteWins = new NoteWindows({
@@ -447,6 +461,7 @@ app.whenReady().then(async () => {
       else if (slot === 'BROWSER') void shell.openPath(path.join(os.homedir(), 'Applications', 'Samara.app'));
       else if (slot === 'AWAY') link.send({ t: 'away' });
       else if (slot === 'SNIP') void startSnip();
+      else if (slot === 'MUSIC') miniPlayer?.open();
     },
   });
   wheel.warm();
@@ -846,6 +861,6 @@ ipcMain.on('bubble:typing', (e, on) => {
 ipcMain.on('menu:shape', (e, rects) => { if (menu?.owns(e.sender)) menu.shape(e.sender, rects); });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { link.stop(); input?.destroy(); bubble?.close(); menu?.close(); tray?.destroy(); pages?.close(); });
+app.on('before-quit', () => { macMedia?.stop(); snipper?.close(); pinSnips?.dispose(); link.stop(); input?.destroy(); bubble?.close(); menu?.close(); tray?.destroy(); pages?.close(); });
 app.on('window-all-closed', () => { /* the pet decides when Aang quits */ });
 Menu.setApplicationMenu(null);
