@@ -2082,6 +2082,7 @@ function onBrain(m) {
   }
   // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.
   if (m.t === 'timer.setup') {
+    if (reading) leaveReading(false, true);
     if (cockpit) { cockCommit(); live = { skip: true }; }
     closeBoard();
     setSpeaker(null);
@@ -2367,6 +2368,8 @@ let boardOpen = false, boardPage = 0, pullingNote = false;
 let editingNote = null;
 const PER_PAGE = 6;
 function openBoard() {
+  // Out of Look back first (2026-10-28, a real-click test: Notes from the wheel did nothing while Look back was up).
+  if (reading) leaveReading(false, true);
   if (cockpit) { cockCommit(); live = { skip: true }; }
   reveal.start('', false);
   who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
