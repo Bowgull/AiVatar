@@ -170,6 +170,8 @@ export interface WaitItem {
    * (the signed inbox, the mod's $.prompt.submit), and it goes the moment he types anything in that session.
    */
   reply?: true;
+  /** What it is about, in one line (replygist.ts, 2026-10-29): "Drafted a Reddit post about your Elite paddles". */
+  about?: string;
 }
 
 export type Decision = 'allow' | 'always' | 'deny' | 'deny-message';
@@ -778,6 +780,13 @@ export class JobTracker {
   }
 
   /** The plain words for a waiting item, if it is still waiting. Option lines only fit a single question. */
+  /** The one line saying what a plain question is about, if it is still waiting. */
+  setAbout(id: string, about: string): void {
+    const w = this.waits.get(id);
+    if (!w || !about) return;
+    w.about = about.slice(0, 120);
+    this.onChange('wait');
+  }
   setPlain(id: string, plain: string, options: string[] = []): void {
     const w = this.waits.get(id);
     if (!w) return;
