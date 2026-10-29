@@ -263,6 +263,10 @@ contextBridge.exposeInMainWorld('aang', {
   browserHome: text => ipcRenderer.send('browser:home', text),
   browserSuggest: text => ipcRenderer.invoke('browser:suggest', text),
   browserGuesses: text => ipcRenderer.invoke('browser:guesses', text),
+  // Sheet 102: the list on its own layer (what to show, or null), forgetting one of his own lines, and his pointer on it.
+  browserSuggestShow: m => ipcRenderer.send('browser:suggestShow', m),
+  browserSuggestForget: a => ipcRenderer.send('browser:suggestForget', a),
+  onBrowserSuggestAct(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:suggestAct', h); return () => ipcRenderer.removeListener('browser:suggestAct', h); },
   onBrowserHover(fn) { const h = (_e, u) => fn(u); ipcRenderer.on('browser:hover', h); return () => ipcRenderer.removeListener('browser:hover', h); },
   // --- 6.23 the vault: the frame's unlock box and account picker
   browserVaultUnlock: pw => ipcRenderer.send('browser:vaultunlock', { pw }),

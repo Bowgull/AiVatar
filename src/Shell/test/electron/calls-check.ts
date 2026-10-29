@@ -33,6 +33,7 @@ const pageErrors: string[] = [];
 // A plain 16:9 picture for the fake sources, so none of his real screen is ever written anywhere.
 const THUMB = () => nativeImage.createFromBitmap(Buffer.alloc(16 * 9 * 4, 0x80), { width: 16, height: 9 }).toDataURL();
 
+app.dock?.hide();     // his rule (2026-10-29): tests never take his main monitor or keyboard
 app.whenReady().then(async () => {
   const pages = await servePages(path.join(SHELL, 'pages'));
 
@@ -174,6 +175,8 @@ app.whenReady().then(async () => {
   check('in a call, Restart now is off and says why', c.off === true && /call/.test(c.why), c.why);
 
   // ================================================================== part 4: search suggestions, sheet 19 A
+  const sugSent: any[] = [];
+  ipcMain.on('browser:suggestShow', (_e, m) => { if (m) sugSent.push(m); });
   ipcMain.handle('browser:suggest', () => [
     { kind: 'search', title: 'wowhe', url: '' },
     { kind: 'tab', title: 'Wowhead Classic: Thunder Bluff', url: 'https://www.wowhead.com/classic/zone=1638', id: 1 },
@@ -185,13 +188,11 @@ app.whenReady().then(async () => {
   await wait(200);
   await bjs(`(() => { const e = document.getElementById('edit'); e.value = 'wowhe'; e.dispatchEvent(new Event('input')); return true; })()`);
   await wait(400);
-  const sgs = await bjs<any>(`(() => { const s = document.getElementById('slot').getBoundingClientRect(), g = document.getElementById('suggest').getBoundingClientRect();
-    const rows = [...document.querySelectorAll('#suggest .srow')];
-    return { shown: !document.getElementById('suggest').hidden, rows: rows.length, left: Math.round(g.left - s.left), width: Math.round(g.width - s.width), top: Math.round(g.top - s.bottom),
-      glyphs: document.querySelectorAll('#suggest .sg svg').length, bold: rows[1]?.querySelector('.st b')?.textContent, act: rows[0]?.querySelector('.sa')?.textContent, glove: getComputedStyle(rows[0], '::before').backgroundImage }; })()`);
-  check('the suggestions hang exactly under the address field, as wide as it', sgs.shown && sgs.left === 0 && sgs.width === 0 && sgs.top === 0, JSON.stringify({ l: sgs.left, w: sgs.width, t: sgs.top }));
-  check('every row has its glyph, no glove', sgs.rows === 5 && sgs.glyphs === 5 && !/hand/.test(String(sgs.glove)), String(sgs.glove));
-  check('the part not typed is bold, and the chosen row says what Enter does', sgs.bold === 'ad Classic: Thunder Bluff' && sgs.act === 'Search', `${sgs.bold} / ${sgs.act}`);
+  // Sheet 102: the list is drawn on its own layer; the frame sends it what to show, placed exactly under the field.
+  const slot = await bjs<any>(`(() => { const s = document.getElementById('slot').getBoundingClientRect(); return { x: Math.round(s.left), y: Math.round(s.bottom), w: Math.round(s.width) }; })()`);
+  const sg = sugSent[sugSent.length - 1];
+  check('the suggestions hang exactly under the address field, as wide as it', !!sg && sg.rect.x === slot.x && sg.rect.y === slot.y && sg.rect.width === slot.w, JSON.stringify({ sent: sg?.rect, slot }));
+  check('every row is sent with its kind, and the first is what he typed', sg?.rows?.length === 5 && sg.rows[0].kind === 'search' && sg.pick === 0 && sg.typed === 'wowhe', JSON.stringify(sg?.rows?.map((r: any) => r.kind)));
   writeFileSync(path.join(OUT, 'suggestions.png'), (await b.webContents.capturePage()).toPNG());
 
   check('no page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

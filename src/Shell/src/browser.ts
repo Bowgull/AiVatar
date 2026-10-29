@@ -48,6 +48,7 @@ import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.t
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
+import { pastSearches, searchQueryOf, topSites } from './recall.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 import { TIDY_KEEP, isPicked, saysDecided, sheetLabel, spaceOf, tidyDue, tidyLine } from './mockuptidy.ts';
 import { LOGO_SPOTS, MockServer, MockStore, logoSlug, thumbKey, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
@@ -224,6 +225,9 @@ interface Pane {
   lentSent?: string;
   /** Autofill's light (sheet 77): its own see-through layer beside the box he clicked. */
   lightV?: WebContentsView | null;
+  /** Sheet 102: the address bar's list on its own layer, and the last thing it was told (sent again once it has loaded). */
+  sugV?: WebContentsView | null;
+  sugLast?: SugShow | null;
   curtain: WebContentsView | null;
   curtainReady: Promise<unknown>;
   veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
@@ -451,6 +455,9 @@ const SETTLED_JS = `(async () => {
   }
   return false;
 })()`;
+/** Sheet 102: what the address bar's list is told, as checked here. */
+interface SugShow { rows: { kind: string; title: string; url: string; favicon: string }[]; pick: number; typed: string; from: number; expect: number; first: boolean; x: number; y: number; width: number }
+const SUG_KINDS = new Set(['search', 'guess', 'past', 'go', 'tab', 'mark', 'history', 'closed']);
 /** Never a tab he looked at in the last 10 minutes, even when memory is short. */
 const SLEEP_MIN_MS = 10 * 60_000;
 /** Sheet 100 v4: a mockup tab not looked at for this long closes by itself (it stays in the Mockups tab). */
@@ -1961,7 +1968,7 @@ export class AangBrowser {
     if (this.tabs.some((t) => t.view?.webContents === wc)) return true;
     if (this.menu && !this.menu.isDestroyed() && this.menu.webContents === wc) return true;
     return this.panes.some((p) => {
-      try { return (this.alive(p) && p.win!.webContents === wc) || [p.trayV, p.runeV, p.lightV].some((v) => v && !v.webContents.isDestroyed() && v.webContents === wc); } catch { return false; }
+      try { return (this.alive(p) && p.win!.webContents === wc) || [p.trayV, p.runeV, p.lightV, p.sugV].some((v) => v && !v.webContents.isDestroyed() && v.webContents === wc); } catch { return false; }
     });
   }
   /** Locked: nothing of his is out, and the tabs open in the throwaway session (logged out). */
@@ -2104,6 +2111,8 @@ export class AangBrowser {
 
   private raiseTray(): void {
     if (this.trayOn && this.trayV && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(this.trayV);
+    // Sheet 102: the address bar's open list stays over whatever comes up under it.
+    if (this.pane.sugV && !this.pane.sugV.webContents.isDestroyed() && this.pane.sugV.getVisible() && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(this.pane.sugV);
     // 2026-10-21: the rune's panel too, whatever comes up under it (a waking tab, the page back from the pop-out).
     const P = this.pane;
     if (P.runeOn && P.runeV && !P.runeV.webContents.isDestroyed() && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(P.runeV);
@@ -2239,7 +2248,7 @@ export class AangBrowser {
     if (first) w.once('show', () => setTimeout(() => this.details.open(), 1200));
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
-    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.pane = was; }, 3000));
+    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.sugView(); this.pane = was; }, 3000));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
@@ -3521,6 +3530,84 @@ export class AangBrowser {
     if (p) this.pane = p;
     return Boolean(p);
   }
+  // ------------------------------------------------------------------ sheet 102, the address bar's list
+  /**
+   * His pick (2026-10-29): the list sits on its own see-through layer over the LIVE page, as the tab list does, so it
+   * opens at once and the page is never swapped for a still picture of itself (that took 44 to 564 ms). The typing stays
+   * in the bar; the layer only draws and says which row he points at or clicks. Made once per window, kept hidden.
+   */
+  private sugView(): WebContentsView | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    const P = this.pane;
+    if (P.sugV && !P.sugV.webContents.isDestroyed()) return P.sugV;
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.preloadPath), 'suggestpreload.cjs'), backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    v.webContents.on('did-finish-load', () => { if (P.sugLast && v.getVisible()) v.webContents.send('suggest:show', { ...P.sugLast, first: true }); });
+    void v.webContents.loadURL(`${this.o.origin}/suggest.html`);
+    P.sugV = v;
+    return v;
+  }
+  isSuggest(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => x.sugV && !x.sugV.webContents.isDestroyed() && x.sugV.webContents === sender);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  /** What the bar asks the list to show (checked here: kinds from a fixed few, plain words, his stored icons only), or null to put it away. */
+  suggestShow(m: unknown): void {
+    const w = this.win, P = this.pane;
+    if (!w || w.isDestroyed()) return;
+    if (!m || typeof m !== 'object') {
+      P.sugLast = null;
+      const v = P.sugV && !P.sugV.webContents.isDestroyed() ? P.sugV : null;
+      if (v?.getVisible()) { v.webContents.send('suggest:show', null); setTimeout(() => { if (!P.sugLast && !v.webContents.isDestroyed()) v.setVisible(false); }, 20); }
+      return;
+    }
+    const a = m as Record<string, unknown>, r = (a.rect ?? {}) as Record<string, unknown>;
+    const num = (x: unknown) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+    const str = (x: unknown, n: number) => (typeof x === 'string' ? x.slice(0, n) : '');
+    const rows = (Array.isArray(a.rows) ? a.rows : []).slice(0, 16).map((x: Record<string, unknown>) => ({
+      kind: SUG_KINDS.has(str(x?.kind, 10)) ? str(x.kind, 10) : 'go', title: str(x?.title, 300), url: str(x?.url, 2000),
+      favicon: /^data:image\//.test(str(x?.favicon, 20_000)) ? str(x.favicon, 20_000) : '',
+    }));
+    const [cw, ch] = w.getContentSize();
+    const x = Math.max(0, Math.min(cw - 40, num(r.x))), y = Math.max(0, Math.min(ch - 40, num(r.y)));
+    const width = Math.max(40, Math.min(cw - x, num(r.width)));
+    const show: SugShow = { rows, pick: Number.isInteger(a.pick) ? Number(a.pick) : -1, typed: str(a.typed, 200), from: num(a.from), expect: Math.max(0, Math.min(4, num(a.expect))), first: a.first === true, x, y, width };
+    const first = !P.sugLast || show.first;
+    P.sugLast = show;
+    const v = this.sugView();
+    if (!v) return;
+    // Its height is the list's own (the page says, suggestSize): a first guess until then, rows 40 tall.
+    const b = v.getBounds(), height = first || !v.getVisible() ? Math.min(ch - y, 14 + 40 * Math.max(1, rows.length)) : b.height;
+    v.setBounds({ x, y, width, height });
+    if (first || !v.getVisible()) { w.contentView.addChildView(v); v.setVisible(true); }
+    v.webContents.send('suggest:show', { ...show, first });
+  }
+  /** The list drew this tall: the layer is exactly that, so it never covers the page below the list. */
+  suggestSize(h: number): void {
+    const w = this.win, v = this.pane.sugV;
+    if (!w || w.isDestroyed() || !v || v.webContents.isDestroyed() || !this.pane.sugLast) return;
+    const [, ch] = w.getContentSize(), b = v.getBounds();
+    const height = Math.max(0, Math.min(ch - b.y, Math.round(h)));
+    if (height !== b.height) v.setBounds({ ...b, height });
+  }
+  /** He points at or clicks a row in the list: the bar does it (it holds the typing and the choices). */
+  suggestAct(act: 'hover' | 'pick', i: number): void {
+    const w = this.win;
+    if (w && !w.isDestroyed()) w.webContents.send('browser:suggestAct', { act, i });
+  }
+  /** Shift+Delete on one of his own lines (his pick, sheet 102): a past search goes from History, every time he made it; a page, every visit to it. */
+  suggestForget(kind: string, url: string): void {
+    if (this.locked || typeof url !== 'string' || url.length > 2000) return;
+    const q = kind === 'past' ? searchQueryOf(url)?.toLowerCase() : null;
+    if (kind === 'past' && !q) return;
+    if (kind !== 'past' && kind !== 'history') return;
+    for (const v of [...this.visits.list]) if (q ? searchQueryOf(v.url)?.toLowerCase() === q : v.url === url) this.visits.forget(v.url, v.at);
+  }
+
   /** Each showing has a number, so a fade that ends after a new showing never hides the new one. */
   private lightSeq = 0;
   private lightHide(): void {
@@ -4340,16 +4427,24 @@ export class AangBrowser {
   }
   suggest(text: string): { kind: string; title: string; url: string; id?: number }[] {
     const q = String(text ?? '').trim().toLowerCase().slice(0, 200);
-    if (!q) return [];
+    // Sheet 102 (his pick): a click in the bar, before a letter, shows his last searches, then the sites he uses most.
+    if (!q) {
+      if (this.locked) return [];
+      const now = Date.now();
+      return [...pastSearches(this.visits.list, '', now, 3).map((p) => ({ kind: 'past', title: p.query, url: p.url })),
+        ...topSites(this.visits.list, now, 3).map((v) => ({ kind: 'history', title: v.title, url: v.url }))].map((x) => ({ ...x, favicon: this.iconOf(x.url) }));
+    }
     const typed = addressFor(q, this.engine);
     const out: { kind: string; title: string; url: string; id?: number }[] = [];
     if (typed) out.push({ kind: typed.startsWith('https://search.brave.com') || typed.includes('/search?') || typed.includes('duckduckgo.com/?q=') || typed.includes('yandex.com/search') ? 'search' : 'go', title: String(text).trim().slice(0, 200), url: typed });
     if (this.locked) return out;              // sheet 87, his pick: the secret history suggests only after the PIN
+    // Sheet 102: his past searches that hold what he typed, right under his own line, as his words with a clock.
+    for (const p of pastSearches(this.visits.list, q, Date.now(), 2)) out.push({ kind: 'past', title: p.query, url: p.url });
     const hit = (title: string, url: string) => title.toLowerCase().includes(q) || url.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').includes(q);
     const seen = new Set(out.map((x) => x.url));
     for (const t of this.tabs) if (!t.internal && isWeb(t.url) && hit(t.title, t.url) && !seen.has(t.url)) { out.push({ kind: 'tab', title: t.title, url: t.url, id: t.id }); seen.add(t.url); }
     for (const m of this.marks) if (hit(m.title, m.url) && !seen.has(m.url)) { out.push({ kind: 'mark', title: m.title, url: m.url }); seen.add(m.url); if (out.length >= 9) break; }
-    for (let i = this.visits.list.length - 1, n = 0; i >= 0 && n < 3000 && out.length < 9; i--, n++) { const v = this.visits.list[i]; if (hit(v.title, v.url) && !seen.has(v.url)) { out.push({ kind: 'history', title: v.title || v.url, url: v.url }); seen.add(v.url); } }
+    for (let i = this.visits.list.length - 1, n = 0; i >= 0 && n < 3000 && out.length < 9; i--, n++) { const v = this.visits.list[i]; if (hit(v.title, v.url) && !seen.has(v.url) && !searchQueryOf(v.url)) { out.push({ kind: 'history', title: v.title || v.url, url: v.url }); seen.add(v.url); } }
     for (const u of [...this.closed].reverse()) if (hit('', u) && !seen.has(u)) { out.push({ kind: 'closed', title: u, url: u }); seen.add(u); if (out.length >= 9) break; }
     // Start connecting to where Enter will go while he is still typing, as Chrome does: the address lookup and
     // the secure handshake are done by the time he presses it. A connection only, nothing is fetched or sent.

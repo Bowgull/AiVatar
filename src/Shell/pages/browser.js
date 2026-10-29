@@ -509,6 +509,9 @@ el('crashreload').addEventListener('click', () => window.aang?.browserAct?.('rel
 el('crashclose').addEventListener('click', () => window.aang?.browserAct?.('close'));
 
 // ---- the address slot: shows the address; click it and it becomes a field. Enter searches or goes.
+// Sheet 102 (his pick): where the bar starts and where its slide out ends, measured once as he clicks in, so the list
+// opens at the bar's final width and widens with it instead of being measured mid-slide.
+let slotFrom = 0, slotTo = null, zeroAt = '';
 function editSlot(keepList = false) {
   // The menu hides the page under it; typing an address means he wants the page, so it goes. The tab list floats over a
   // LIVE page now, so a new tab (or Ctrl+L) leaves it open: it closes when his mouse leaves it (his ask, 2026-10-13).
@@ -516,96 +519,76 @@ function editSlot(keepList = false) {
   closeMenu();
   const t = state.tabs.find((x) => x.id === state.active);
   urlEl.hidden = true; edit.hidden = false;
-  el('slot').classList.add('editing');           // sheet 88 B: out to the full width while he types
+  const slot = el('slot');
+  if (!slot.classList.contains('editing')) {
+    slotFrom = slot.getBoundingClientRect().width;
+    slot.style.transition = 'none'; slot.classList.add('editing'); slotTo = slot.getBoundingClientRect();
+    slot.classList.remove('editing'); void slot.offsetWidth; slot.style.transition = '';
+  }
+  slot.classList.add('editing');                 // sheet 88 B: out wider while he types (sheet 102: to 1280)
   edit.value = t?.url ?? '';
   edit.focus(); edit.select();
+  zeroSuggest();
 }
-function closeSlot() { edit.hidden = true; urlEl.hidden = false; el('slot').classList.remove('editing'); }
+function closeSlot() { edit.hidden = true; urlEl.hidden = false; el('slot').classList.remove('editing'); slotTo = null; }
+addEventListener('resize', () => { slotTo = null; if (sugg.length) paintSuggest(); });
 el('slot').addEventListener('click', (e) => { if (finding || lock.contains(e.target)) return; if (edit.hidden) editSlot(); });
-// ---- address suggestions (6.22b item 6): tabs first ("switch to it"), then bookmarks, then recently closed.
-// The first row is always what he typed, so Enter does what he typed unless he arrows to something else.
-let sugg = [], pick = 0, suggSeq = 0;
-// Sheet 88: what he really typed (the bar may show a finished site or the line he has arrowed to), his own matches, and
-// his engine's guesses, which arrive a moment later and always go under his own things.
+// ---- address suggestions (6.22b item 6; sheet 88; sheet 102). The list is drawn on its own layer over the live page
+// (suggest.html); this keeps what he typed, the lines and which one he is on. The first line is what he typed, so Enter
+// does what he typed unless he arrows to something else. Then his past searches, tabs, bookmarks, history and recently
+// closed, then his engine's guesses, which arrive a moment later and always go under his own things.
+let sugg = [], pick = 0, suggSeq = 0, sugFirst = true;
 let own = '', mine = [], guesses = [];
-const sbox = el('suggest');
-function hideSuggest() { if (!sbox.hidden) { sbox.hidden = true; el('slot').classList.remove('open'); unfreeze('suggest'); } sugg = []; }
-// Sheet 19 A: one small glyph per kind, on the band's own 7 by 7 grid (the bookmark is the star's own shape).
-const SUG_GLYPH = {
-  search: ['0 0 7 7', 'M1 0h3v1H1zM0 1h1v3H0zM4 1h1v3H4zM1 4h3v1H1zM4 5h2v1H4zM5 6h2v1H5z'],
-  guess: ['0 0 7 7', 'M1 0h3v1H1zM0 1h1v3H0zM4 1h1v3H4zM1 4h3v1H1zM4 5h2v1H4zM5 6h2v1H5z'],
-  go: ['0 0 7 7', 'M1 0h1v1H1zM2 0h1v1H2zM2 1h1v1H2zM3 1h1v1H3zM3 2h1v1H3zM4 2h1v1H4zM4 3h1v1H4zM5 3h1v1H5zM3 4h1v1H3zM4 4h1v1H4zM2 5h1v1H2zM3 5h1v1H3zM1 6h1v1H1zM2 6h1v1H2z'],
-  tab: ['0 0 7 7', 'M1 0h3v1H1zM0 1h7v1H0zM0 2h1v4H0zM6 2h1v4H6zM0 6h7v1H0z'],
-  mark: ['0 0 9 8', 'M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z'],
-  history: ['0 0 7 7', 'M1 0h5v1H1zM0 1h1v5H0zM6 1h1v5H6zM3 1h1v3H3zM4 3h1v1H4zM1 6h5v1H1z'],
-  closed: ['0 0 7 7', 'M2 0h1v1H2zM1 1h2v1H1zM0 2h7v1H0zM1 3h2v1H1zM6 3h1v3H6zM2 4h1v1H2zM2 6h4v1H2z'],
-};
-const SUG_ACT = { search: 'Search', guess: 'Search', go: 'Go', tab: 'Switch to tab', mark: 'Open', history: 'Open', closed: 'Reopen' };
-const SVGNS = 'http://www.w3.org/2000/svg';
-/** The title with what he has NOT typed in bold (Chrome's rule), built from text nodes only. */
-function boldRest(span, text, typed) {
-  const at = typed ? text.toLowerCase().indexOf(typed.toLowerCase()) : -1;
-  const b = (t) => { if (t) span.append(Object.assign(document.createElement('b'), { textContent: t })); };
-  if (at < 0) { b(text); return; }
-  b(text.slice(0, at));
-  span.append(document.createTextNode(text.slice(at, at + typed.length)));
-  b(text.slice(at + typed.length));
-}
-/** The list hangs exactly under the slot, exactly as wide, so it reads as the field's own. */
-function placeSuggest() {
-  const band = el('band').getBoundingClientRect(), s = el('slot').getBoundingClientRect();
-  sbox.style.left = Math.round(s.left - band.left) + 'px';
-  sbox.style.width = Math.round(s.width) + 'px';
-  sbox.style.top = Math.round(s.bottom - band.top) + 'px';
+// Sheet 102: guesses are asked for 50 ms after the last letter (Firefox's wait), and an answer for an earlier letter
+// still counts while it fits what he has typed since: the list keeps its lines instead of emptying on every letter.
+let guessTimer = 0, guessSeq = 0, guessShown = 0;
+function hideSuggest() {
+  if (!sugFirst) { window.aang?.browserSuggestShow?.(null); el('slot').classList.remove('open'); }
+  sugg = []; sugFirst = true; guesses = []; guessShown = guessSeq;
 }
 function paintSuggest() {
   if (!sugg.length) { hideSuggest(); return; }
-  const typed = own.trim();
-  sbox.replaceChildren(...sugg.map((s, i) => {
-    const row = document.createElement('div');
-    row.className = 'srow' + (i === pick ? ' on' : '');
-    row.setAttribute('role', 'option');
-    row.setAttribute('aria-selected', String(i === pick));
-    const [vb, d] = SUG_GLYPH[s.kind] ?? SUG_GLYPH.go;
-    const wide = vb === '0 0 9 8';
-    const svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('viewBox', vb); svg.setAttribute('width', wide ? '18' : '14'); svg.setAttribute('height', wide ? '16' : '14');
-    svg.setAttribute('shape-rendering', 'crispEdges'); svg.setAttribute('aria-hidden', 'true');
-    const path = document.createElementNS(SVGNS, 'path'); path.setAttribute('d', d); svg.append(path);
-    row.append(Object.assign(document.createElement('span'), { className: 'sg' }));
-    row.lastChild.append(svg);
-    const st = Object.assign(document.createElement('span'), { className: 'st' });
-    const bare = String(s.url ?? '').replace(/^https?:\/\/(www\.)?/, '');
-    const onlyUrl = !s.title || s.title === s.url;      // a closed tab has no title: say the address once
-    if (s.kind === 'search') st.textContent = typed;
-    else if (s.kind === 'go') st.textContent = s.title || typed;
-    else boldRest(st, s.kind === 'guess' ? String(s.title) : onlyUrl ? bare : String(s.title), typed);
-    row.append(st);
-    const where = s.kind === 'search' ? 'Search the web' : s.kind === 'go' || s.kind === 'guess' || onlyUrl ? '' : bare;
-    if (where) row.append(Object.assign(document.createElement('span'), { className: 'su', textContent: where }));
-    row.append(Object.assign(document.createElement('span'), { className: 'sa', textContent: SUG_ACT[s.kind] ?? 'Open' }));
-    row.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
-    row.addEventListener('mouseenter', () => { if (pick !== i) { pick = i; sbox.querySelectorAll('.srow').forEach((r, j) => { r.classList.toggle('on', j === i); r.setAttribute('aria-selected', String(j === i)); }); } });
-    return row;
-  }));
-  placeSuggest();
-  if (sbox.hidden) { sbox.hidden = false; el('slot').classList.add('open'); freeze('suggest'); }
+  const r = slotTo ?? el('slot').getBoundingClientRect();
+  window.aang?.browserSuggestShow?.({
+    rows: sugg.map((s) => ({ kind: s.kind, title: String(s.title ?? ''), url: String(s.url ?? ''), favicon: typeof s.favicon === 'string' ? s.favicon : '' })),
+    pick, typed: own.trim(), first: sugFirst, from: sugFirst ? slotFrom : 0,
+    // Sheet 102: his engine's guesses are still coming for what he typed: the list keeps room for 4 of them.
+    expect: own.trim() && !guesses.length && !/^[a-z][a-z0-9+.-]*:\/\//i.test(own.trim()) ? 4 : 0,
+    rect: { x: Math.round(r.left), y: Math.round(r.bottom), width: Math.round(r.width) },
+  });
+  if (sugFirst) { sugFirst = false; el('slot').classList.add('open'); }
 }
 function choose(i) {
   const s = sugg[i];
   if (!s) return;
   if (s.kind === 'tab' && Number.isInteger(s.id)) window.aang?.browserTab?.({ id: s.id, act: 'show' });
   else if (s.kind === 'search' || s.kind === 'go') window.aang?.browserGo?.(edit.value.trim());
-  else if (s.kind === 'guess') window.aang?.browserGo?.(String(s.title));
+  else if (s.kind === 'guess' || s.kind === 'past') window.aang?.browserGo?.(String(s.title));
   else window.aang?.browserGo?.(s.url);
   hideSuggest(); closeSlot();
 }
+// The layer says which line his mouse is on (the bar remembers it for Enter) or which one he clicked.
+window.aang?.onBrowserSuggestAct?.((a) => {
+  if (edit.hidden || !a || !Number.isInteger(a.i) || !sugg[a.i]) return;
+  if (a.act === 'pick') choose(a.i); else pick = a.i;
+});
 /** His own things first, then at most 4 of his engine's guesses (his picks), none repeating a line already there. */
 function mergeSuggest() {
   const have = new Set(mine.map((x) => String(x.title).toLowerCase()));
   sugg = [...mine, ...guesses.filter((g) => !have.has(g.toLowerCase())).slice(0, 4).map((g) => ({ kind: 'guess', title: g, url: '' }))];
-  if (pick >= sugg.length) pick = 0;
+  if (pick >= sugg.length) pick = sugg.length ? 0 : -1;
   paintSuggest();
+}
+/** Sheet 102 (his pick): a click in the bar, before a letter, shows his last searches, then the sites he uses most. Nothing is picked, so Enter still goes where the bar says. */
+function zeroSuggest() {
+  const seq = ++suggSeq;
+  own = ''; mine = []; guesses = []; pick = -1; zeroAt = edit.value;
+  window.aang?.browserSuggest?.('').then((list) => {
+    if (seq !== suggSeq || edit.hidden || edit.value !== zeroAt) return;
+    mine = Array.isArray(list) ? list : [];
+    pick = -1;
+    if (mine.length) mergeSuggest();
+  });
 }
 /**
  * Sheet 88 (his pick): a site he has been to is finished as he types it: "red" becomes reddit.com, the rest selected, so
@@ -628,8 +611,11 @@ function finishSite(text) {
 edit.addEventListener('input', (e) => {
   const seq = ++suggSeq;
   const text = edit.value;
-  own = text; pick = 0; guesses = [];
-  if (!text.trim()) { hideSuggest(); return; }
+  own = text; pick = 0;
+  const low = text.trim().toLowerCase();
+  // The guesses from the letter before stay while they still fit (sheet 102): no emptying, no jump.
+  guesses = guesses.filter((g) => g.toLowerCase().startsWith(low));
+  if (!low) { zeroSuggest(); return; }
   const adding = String(e.inputType ?? '').startsWith('insert');
   window.aang?.browserSuggest?.(text).then((list) => {
     if (seq !== suggSeq || edit.hidden) return;
@@ -637,26 +623,45 @@ edit.addEventListener('input', (e) => {
     if (adding && edit.value === text) finishSite(text);
     mergeSuggest();
   });
-  // A moment later, his engine's guesses for the same words (only while they are still what he has typed).
-  window.aang?.browserGuesses?.(text).then((list) => {
-    if (seq !== suggSeq || edit.hidden || !Array.isArray(list)) return;
-    guesses = list.filter((g) => typeof g === 'string');
-    mergeSuggest();
-  }, () => {});
+  clearTimeout(guessTimer);
+  guessTimer = setTimeout(() => {
+    const gs = ++guessSeq;
+    window.aang?.browserGuesses?.(text).then((list) => {
+      if (edit.hidden || !Array.isArray(list) || gs < guessShown) return;
+      const now = own.trim().toLowerCase();
+      if (!now.startsWith(low)) return;                    // he went another way since
+      guessShown = gs;
+      const fresh = list.filter((g) => typeof g === 'string');
+      // The newest answer is taken whole; an older one only for the lines that still fit what he has typed.
+      guesses = gs === guessSeq ? fresh : fresh.filter((g) => g.toLowerCase().startsWith(now));
+      mergeSuggest();
+    }, () => {});
+  }, 50);
 });
-/** Sheet 88 (his pick): the arrow keys put the line he is on into the bar; back on the first line, his own typing. */
+/** Sheet 88 (his pick): the arrow keys put the line he is on into the bar; back on his own line, his own typing. */
 function showPick() {
   const s = sugg[pick];
-  if (!s) return;
-  edit.value = pick === 0 ? (s.kind === 'go' ? s.title : own) : s.kind === 'guess' ? s.title : s.kind === 'search' || s.kind === 'go' ? own : String(s.url || s.title);
+  if (!s) { edit.value = own || zeroAt; paintSuggest(); return; }
+  edit.value = s.kind === 'guess' || s.kind === 'past' ? String(s.title) : s.kind === 'search' ? own : s.kind === 'go' ? String(s.title || own) : String(s.url || s.title);
   paintSuggest();
 }
 edit.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' && sugg.length) { pick = (pick + 1) % sugg.length; showPick(); e.preventDefault(); return; }
-  if (e.key === 'ArrowUp' && sugg.length) { pick = (pick - 1 + sugg.length) % sugg.length; showPick(); e.preventDefault(); return; }
-  if (e.key === 'Enter' && edit.value.trim()) { if (sugg.length && pick > 0) choose(pick); else { window.aang?.browserGo?.(edit.value.trim()); hideSuggest(); closeSlot(); } }
+  if (e.key === 'ArrowUp' && sugg.length) { pick = pick <= 0 ? sugg.length - 1 : pick - 1; showPick(); e.preventDefault(); return; }
+  // Sheet 102 (his pick, Chrome's key): Shift+Delete on one of his past searches or pages forgets it.
+  const s = sugg[pick];
+  if ((e.key === 'Delete' || e.key === 'Backspace') && e.shiftKey && s && (s.kind === 'past' || s.kind === 'history') && (pick > 0 || !own)) {
+    window.aang?.browserSuggestForget?.({ kind: s.kind, url: s.url });
+    mine = mine.filter((x) => x !== s);
+    sugg = sugg.filter((x) => x !== s);
+    if (pick >= sugg.length) pick = sugg.length - 1;
+    showPick();
+    e.preventDefault();
+    return;
+  }
+  if (e.key === 'Enter' && edit.value.trim()) { if (sugg.length && pick > 0) choose(pick); else if (!own && pick === 0 && sugg[0]) choose(0); else { window.aang?.browserGo?.(edit.value.trim()); hideSuggest(); closeSlot(); } }
   // Esc brings back what he typed first; a second Esc closes the bar.
-  if (e.key === 'Escape') { if (!sbox.hidden && edit.value !== own) { edit.value = own; pick = 0; paintSuggest(); e.preventDefault(); return; } hideSuggest(); closeSlot(); }
+  if (e.key === 'Escape') { if (sugg.length && edit.value !== (own || zeroAt)) { edit.value = own || zeroAt; pick = own ? 0 : -1; paintSuggest(); e.preventDefault(); return; } hideSuggest(); closeSlot(); }
 });
 edit.addEventListener('blur', () => setTimeout(hideSuggest, 120));
 edit.addEventListener('blur', () => setTimeout(closeSlot, 120));

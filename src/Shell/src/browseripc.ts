@@ -121,6 +121,11 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('settings:act', (e, a) => { if ((top(e) && b(e)?.isSettings(e.sender)) && typeof a === 'string') b(e).settingsAct(a.slice(0, 20)); });
   // Sheet 88: his engine's guesses for what he typed, for the frame's address bar only.
   ipcMain.handle('browser:guesses', (e, text) => (top(e) && b(e)?.isFrame(e.sender)) && typeof text === 'string' ? b(e).guesses(text.slice(0, 200)) : []);
+  // Sheet 102: the bar's list on its own layer: the bar says what to show; the layer says which row and how tall it drew.
+  ipcMain.on('browser:suggestShow', (e, m) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).suggestShow(m); });
+  ipcMain.on('browser:suggestForget', (e, a) => { if (top(e) && b(e)?.isFrame(e.sender) && a && typeof a === 'object') b(e).suggestForget(String(a.kind ?? ''), String(a.url ?? '')); });
+  ipcMain.on('suggest:act', (e, a) => { if (top(e) && b(e)?.isSuggest(e.sender) && a && (a.act === 'hover' || a.act === 'pick') && Number.isInteger(a.i) && a.i >= 0 && a.i < 16) b(e).suggestAct(a.act, a.i); });
+  ipcMain.on('suggest:size', (e, h) => { if (top(e) && b(e)?.isSuggest(e.sender) && Number.isFinite(h)) b(e).suggestSize(Number(h)); });
   ipcMain.handle('browser:suggest', (e, text) => (top(e) && b(e)?.isFrame(e.sender)) && typeof text === 'string' ? b(e).suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if ((top(e) && b(e)?.isFrame(e.sender))) b(e).findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.key === 'string') b(e).setPref(a.key, a.on === true); });
