@@ -191,6 +191,9 @@ export class HookServer {
     this.port = port; this.onEvent = onEvent; this.key = key; this.setup = setup; this.alive = alive;
   }
 
+  /** POST /write (the message engine's handshake, 2026-10-29): this PC's Qwen writes a notice for the Mac's brain. Null: no such door. */
+  write: ((ask: { prompt: string; system: string; maxTokens: number }) => Promise<{ ok: boolean; text: string }>) | null = null;
+
   /** M6: GET /mac-look from this PC only: the Mac browser's window and log, saved for Claude. Null: no such door. */
   look: (() => Promise<Record<string, unknown> | null>) | null = null;
 
@@ -234,7 +237,8 @@ export class HookServer {
       return;
     }
     const isAlive = req.method === 'GET' && (req.url === '/alive' || req.url?.startsWith('/alive?')) && this.alive !== null;
-    if (!isAlive && (req.method !== 'POST' || !req.url?.startsWith('/hook'))) { res.writeHead(404).end(); return; }
+    const isWrite = req.method === 'POST' && req.url === '/write' && this.write !== null;
+    if (!isAlive && !isWrite && (req.method !== 'POST' || !req.url?.startsWith('/hook'))) { res.writeHead(404).end(); return; }
     // The same lock as the Core's socket (step S1). A web page can POST across origins to localhost
     // without a preflight when the content type is plain, so loopback alone is not proof this came
     // from Claude Code. curl, which is what the hooks actually use, sends no Origin.
@@ -249,6 +253,24 @@ export class HookServer {
     // whether he is at this PC; nothing else about him or his work is in the answer.
     if (isAlive) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(this.alive!()));
+      return;
+    }
+    // The message engine's handshake (2026-10-29, his "once Shadow is up they start working together"): the Mac's brain
+    // asks this one to write a notice with its own Qwen, free. Only with the key (the Mac is never loopback here). The
+    // prompt is the facts and the voice; what goes back is one line of text, nothing else of this PC.
+    if (isWrite) {
+      if (isLoopback(req.socket.remoteAddress ?? '')) { res.writeHead(403).end(); return; }
+      let wb = '';
+      req.on('data', d => { wb += d; if (wb.length > 32_000) req.destroy(); });
+      req.on('end', () => {
+        let ask: { prompt?: unknown; system?: unknown; maxTokens?: unknown };
+        try { ask = JSON.parse(wb); } catch { res.writeHead(400).end(); return; }
+        if (typeof ask.prompt !== 'string' || typeof ask.system !== 'string') { res.writeHead(400).end(); return; }
+        void this.write!({ prompt: ask.prompt.slice(0, 8000), system: ask.system.slice(0, 12_000), maxTokens: Math.min(400, Number(ask.maxTokens) || 160) })
+          .then(r => res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ ok: r.ok, text: String(r.text ?? '').slice(0, 2000) })),
+            () => res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ ok: false, text: '' })));
+      });
+      req.on('error', () => { /* client vanished */ });
       return;
     }
     let body = '';

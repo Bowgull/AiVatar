@@ -572,7 +572,7 @@ function readJob(x) {
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
     failed: x.failed === true, progress: readProgress(x.progress), activity: readActivity(x.activity), finished: x.finished === true,
     // 2026-10-22: finished and not yet seen (the brain's unread book, claudelink.ts): its done card stays until he X's or opens it.
-    unread: x.unread === true, doneAt: Number(x.doneAt) || 0,
+    unread: x.unread === true, doneAt: Number(x.doneAt) || 0, said: str(x.said, 240),
     plan: readPlan(x.plan), ci: (Array.isArray(x.ci) ? x.ci : []).slice(0, 4).map(readCi).filter(Boolean),
   };
 }
@@ -863,9 +863,10 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const d = h('div', 'jdone' + (leaving.has(j.id) ? ' ck-leaving going gentle' : '')); d.dataset.id = j.id;
     if (leaving.has(j.id)) d.style.height = '0px';     // redrawn mid-fold: it stays folded
     const img = document.createElement('img'); img.src = CL; img.alt = '';
-    const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.project));
+    const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.title || j.project));
     const last = [...j.tasks].reverse().find((t) => t.status === 'completed');
-    on.append(h('small', '', last?.text || j.prompt || 'All done'));
+    // What it did, in Aang's words (the brain's message engine, 2026-10-29), else its last task.
+    on.append(h('small', '', j.said || last?.text || j.prompt || 'All done'));
     const x = btn('jx', undefined, 'Done with it'); x.setAttribute('aria-label', 'Done with it');
     // The x is not the door: it only folds the card away.
     x.addEventListener('click', (e) => { e.stopPropagation(); if (closing.has(j.id)) return; ackDone(j.id); acknowledge(j.id, d); });

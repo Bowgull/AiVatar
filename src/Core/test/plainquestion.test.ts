@@ -176,14 +176,14 @@ test('flow: turn.end with a question -> a QUESTION card (no replied line) -> his
     await pause(150);
     assert.equal(lastWait()?.items?.length, 0, 'he typed in that session: the card went');
 
-    // No question: the usual "replied" line, no card.
+    // No question: no card, and (2026-10-29) no line either for a routine turn; its done card gets Aang's words.
     const S3 = '33333333-0000-0000-0000-000000000004';
     const ev3 = (events: unknown[]) => signed(key, 'POST', '/link/event', JSON.stringify({ session: S3, cwd: 'C:\\code\\Notes', events }));
     await ev3([{ type: 'start' }, { type: 'turn.start', prompt: 'move it' }]);
     await ev3([{ type: 'turn.end', aborted: false, reason: 'answer', said: 'Done, it runs on 5173 now.' }]);
     await pause(SETTLE_MS + 600);
     assert.equal(lastWait()?.items?.length, 0);
-    assert.ok(inbox.some(m => m.t === 'bubble' && /replied: Done, it runs on 5173 now\./.test(String(m.text))), 'the replied line');
+    assert.ok(!inbox.some(m => m.t === 'bubble' && /replied/.test(String(m.text))), 'no replied line');
 
     // A test or Aang's own session (a temp folder): never a card.
     const T = '33333333-0000-0000-0000-000000000002';

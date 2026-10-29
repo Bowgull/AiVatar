@@ -247,7 +247,7 @@ test('a hook posted over HTTP reaches the bubble', async () => {
   const res = await post({ hook_event_name: 'Notification', session_id: 'h1', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
   assert.equal(res.status, 204, 'hooks get an immediate, empty answer');
   await new Promise(r => setTimeout(r, 200));
-  assert.deepEqual(bubbles().map(b => [b.text, b.proactive]), [['Claude Code is waiting on you in AangApp.', true]]);
+  assert.deepEqual(bubbles().map(b => [b.text, b.proactive]), [['AangApp wants your OK: needs permission.', true]]);   // Aang's words (2026-10-29)
 
   await post('not an object');
   await fetch('http://127.0.0.1:48085/hook', { method: 'GET' }).catch(() => {});
@@ -284,8 +284,8 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   assert.equal(ok.status, 204);
   await new Promise(r => setTimeout(r, 200));
   const b = bubbles()[0];
-  // Named for the OTHER machine: the MacBook on the PC's brain, the PC on the Mac's (2026-10-29).
-  assert.equal(b?.text, `Claude Code on the ${process.platform === 'darwin' ? 'PC' : 'MacBook'} is waiting on you in site.`);
+  // Named for the OTHER machine: the MacBook on the PC's brain, the PC on the Mac's; in Aang's words (2026-10-29).
+  assert.equal(b?.text, `site on ${process.platform === 'darwin' ? 'the PC' : 'the MacBook'} wants your OK: needs permission.`);
   assert.equal(b?.blocking, true);
   assert.equal(b?.focus, undefined, 'no window on this PC to bring forward');
   assert.equal(b?.host, 'mac');
@@ -336,18 +336,17 @@ test('a session he started himself gets the same two tiers, even while the game 
 
   await post({ hook_event_name: 'Notification', session_id: 'h2', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
   await new Promise(r => setTimeout(r, 200));
-  const waiting = bubbles().find(b => /waiting on you/.test(b.text));
+  // In Aang's words since 2026-10-29 (messages.ts; the plain line in a test): who, and what it wants.
+  const waiting = bubbles().find(b => /^AangApp wants your OK: needs permission/.test(b.text));
   assert.ok(waiting, 'reaches him live, not held for the quiet-hold - it is not routine chatter');
   assert.equal(waiting.blocking, true);
   assert.equal(waiting.jobCwd, undefined, 'no Panel tab for a session Aang did not launch');
 
   await post({ hook_event_name: 'Stop', session_id: 'h2', cwd: 'C:\\code\\AangApp' });
-  // 2026-10-21: every turn end is now the "<title> replied" line (claudereplies.ts), said after a short settle.
+  // 2026-10-29 (his "only when it matters"): a short, routine turn end is not said; it only lights the done tick. The
+  // message engine writes its line for the done card instead (messages.ts). Never an "X replied: <first line>".
   await new Promise(r => setTimeout(r, 2000));
-  const finished = bubbles().find(b => /AangApp replied/.test(b.text));
-  assert.ok(finished, 'a Stop also reaches him live');
-  assert.equal(finished.done, true);
-  assert.equal(finished.blocking, undefined, 'done and blocking are never both set');
+  assert.equal(bubbles().filter(b => /replied/.test(b.text)).length, 0, 'no replied line for a routine turn');
 
   c.close();
   await core.stop();

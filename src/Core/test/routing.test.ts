@@ -80,6 +80,7 @@ test('present_list rides the reply\'s own bubble message, and clears once it has
   // present_list sets a per-turn field the same way turnActions already does; this checks it actually reaches
   // the bubble message the reply goes out on, and that a later turn which never called it gets none.
   const { core, desk, done } = await setup(48140);
+  try {
   desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'any jobs worth it' }));
   await wait(100);
   core.pendingList = { icon: 'job', items: [{ title: 'Senior CSM', subtitle: 'Shopify', chipText: '82', chipTone: 'good' }] };
@@ -94,7 +95,7 @@ test('present_list rides the reply\'s own bubble message, and clears once it has
   await wait(100);
   const second = desk.of('bubble').filter((b: any) => !b.stream).at(-1);
   assert.equal(second?.list, undefined, 'a turn that never called present_list carries no list');
-  await done();
+  } finally { await done(); }   // a failure here must not leave its Core open: that hung the whole run (2026-10-29)
 });
 
 test('a yes/no question goes where the request came from', async () => {
