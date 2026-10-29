@@ -18,6 +18,7 @@ Full docs live in `docs/`. **Start with [docs/FINAL-AANG-BUILD.md](docs/FINAL-AA
 - **Test what was just built, once.** Live test suites cost real quota. Don't re-run the full suite speculatively; run the targeted test for what changed.
 - **No self-activating anything.** Aang may propose (skills, memory writes, config changes) into a holding pen; a human approves. This is deliberate, evidence-backed policy, not caution for its own sake.
 - **Don't over-verify.** Do not add "double-check your work" / "verify this is correct" instructions to prompts or to yourself. Measured effect: it causes over-verification and wastes tokens with no quality gain. Trust test results and direct observation instead of re-checking reflexively.
+- **Samara is one app on two machines (his rule, 2026-10-29).** Every Samara change is designed, built and checked for BOTH the Mac and the PC (Windows on Shadow): paths, keys, window behaviour, signing, startup, sync. Before calling it done, say what it does on each machine and what was actually tested on each; anything untested on one side goes on that machine's checks-owed list. A fix on one machine never quietly drops a feature or breaks the other.
 - **Scope clamp.** Deliver what was asked, at the scope intended. Don't expand a task to cover adjacent things that weren't requested. Finish the whole task, then stop — don't add "while I'm here" work.
 
 ## Known landmines
