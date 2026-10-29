@@ -19,11 +19,11 @@ function release(version: string, lock = 'lock-1') {
   const tgz = path.join(src, 'b.tgz');
   execFileSync(TAR, ['-czf', tgz, '-C', src, 'src', 'package-lock.json']);
   const bytes = readFileSync(tgz);
-  const text = JSON.stringify({ v: 1, app: 'samara', version, commit: 'b'.repeat(40), at: '2026-10-29T12:00:00Z', notes: [`What ${version} brings`],
+  const text = JSON.stringify({ v: 1, app: 'samara', version, name: 'Gojo', commit: 'b'.repeat(40), at: '2026-10-29T12:00:00Z', notes: [`What ${version} brings`],
     bundle: { file: 'samara-bundle.tgz', sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length } });
   const sig = sign(null, Buffer.from(text), privateKey).toString('base64');
   return async (u: string) => {
-    const f = u.split('/').pop()!, body = f === 'manifest.json' ? Buffer.from(text) : f === 'manifest.sig' ? Buffer.from(sig) : f === 'samara-bundle.tgz' ? bytes : null;
+    const f = u.split('/').pop()!, body = /api\.github\.com/.test(u) ? Buffer.from(JSON.stringify({ tag_name: `samara-v${version}` })) : f === 'manifest.json' ? Buffer.from(text) : f === 'manifest.sig' ? Buffer.from(sig) : f === 'samara-bundle.tgz' ? bytes : null;
     if (!body) return { ok: false, status: 404, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0), body: null };
     return { ok: true, status: 200, text: async () => body.toString(), arrayBuffer: async () => body.buffer as ArrayBuffer,
       body: new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array(body)); c.close(); } }) };

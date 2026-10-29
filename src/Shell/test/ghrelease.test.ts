@@ -4,13 +4,13 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RELEASE_KEY, checkManifest, download, latest, listen, newer } from '../src/ghrelease.ts';
+import { RELEASE_KEY, checkManifest, download, latest, listen, newer, titleOf, withSection } from '../src/ghrelease.ts';
 
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
 const PUB = publicKey.export({ type: 'spki', format: 'pem' }).toString();
 const BUNDLE = Buffer.from('pretend bundle bytes');
 const make = (o: Record<string, unknown> = {}) => {
-  const text = JSON.stringify({ v: 1, app: 'samara', version: '1.2.3', commit: 'a'.repeat(40), at: '2026-10-29', notes: ['New search bar'],
+  const text = JSON.stringify({ v: 1, app: 'samara', version: '1.2.3', name: 'Gojo', commit: 'a'.repeat(40), at: '2026-10-29T15:00:00Z', notes: ['New search bar'], items: [{ text: 'New search bar', kind: 'feature' }],
     bundle: { file: 'samara-bundle.tgz', sha256: createHash('sha256').update(BUNDLE).digest('hex'), bytes: BUNDLE.length }, ...o }, null, 1);
   return { text, sig: sign(null, Buffer.from(text), privateKey).toString('base64') };
 };
@@ -47,12 +47,17 @@ test('versions: x.y.z by number; a hand install or a fingerprint is older than a
 
 test('latest() reads the release and checks the seal; anything odd is no release', async () => {
   const { text, sig } = make();
-  const files: Record<string, string> = { 'manifest.json': text, 'manifest.sig': sig };
-  const f = async (u: string) => (files[u.split('/').pop()!] ? res(files[u.split('/').pop()!]!) : res('', false));
-  assert.equal((await latest(f, 'https://x/', PUB))?.version, '1.2.3');
-  files['manifest.sig'] = make({ version: '9.9.9' }).sig;
-  assert.equal(await latest(f, 'https://x/', PUB), null);
-  assert.equal(await latest(async () => { throw new Error('offline'); }, 'https://x/', PUB), null);
+  const files: Record<string, string> = { 'https://api/latest': JSON.stringify({ tag_name: 'samara-v1.2.3' }), 'https://x/samara-v1.2.3/manifest.json': text, 'https://x/samara-v1.2.3/manifest.sig': sig };
+  const f = async (u: string) => (files[u] ? res(files[u]!) : res('', false));
+  const m = await latest(f, 'https://x/', PUB, 'https://api/latest');
+  assert.equal(m?.version, '1.2.3'); assert.equal(m?.name, 'Gojo'); assert.deepEqual(m?.items, [{ text: 'New search bar', kind: 'feature' }]);
+  files['https://api/latest'] = JSON.stringify({ tag_name: 'samara-v1.2.4' });                          // the tag and the sealed version must agree
+  files['https://x/samara-v1.2.4/manifest.json'] = text; files['https://x/samara-v1.2.4/manifest.sig'] = sig;
+  assert.equal(await latest(f, 'https://x/', PUB, 'https://api/latest'), null);
+  files['https://api/latest'] = JSON.stringify({ tag_name: 'samara-v1.2.3' });
+  files['https://x/samara-v1.2.3/manifest.sig'] = make({ version: '9.9.9' }).sig;
+  assert.equal(await latest(f, 'https://x/', PUB, 'https://api/latest'), null);
+  assert.equal(await latest(async () => { throw new Error('offline'); }, 'https://x/', PUB, 'https://api/latest'), null);
 });
 
 test('the bundle is kept only when it matches the sealed size and fingerprint', async () => {
@@ -72,4 +77,13 @@ test('a nudge makes one check, and a flood of them is still one', async () => {
   await new Promise((r) => setTimeout(r, 50));
   stop();
   assert.equal(n, 1);
+});
+
+test('the key and "Every version" say his version and its name, in the shape the PC always wrote', () => {
+  const m = checkManifest(make().text, make().sig, PUB)!;
+  assert.equal(titleOf(m), 'Version 1.2.3: Gojo');
+  const old = "# Samara Changelog\n\nEvery version...\n\n## Version 1.2.2: Gojo\n*October 22, 2026*\n\n- Fix: x\n";
+  const now = withSection(old, m);
+  assert.match(now, /^# Samara Changelog\n\n.*\n\n## Version 1\.2\.3: Gojo\n\*October 29, 2026\*\n\n- New: New search bar\n\n## Version 1\.2\.2: Gojo/s);
+  assert.equal(withSection(now, m), now, 'never twice');
 });
