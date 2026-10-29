@@ -4,7 +4,7 @@
 // writes down every link and key it is sent. Asleep, it answers nothing.
 import { execFileSync } from 'node:child_process';
 import { createHash, X509Certificate, randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createServer, type Server, type TLSSocket } from 'node:tls';
@@ -34,7 +34,7 @@ export class FakeTv {
   pairPort = 0;
   constructor() {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'faketv-'));
-    execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '30', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=faketv'], { stdio: 'ignore' });
+    execFileSync(existsSync('/usr/bin/openssl') ? '/usr/bin/openssl' : 'openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '30', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=faketv'], { stdio: 'ignore' });
     this.cert = readFileSync(path.join(dir, 'c.pem')); this.key = readFileSync(path.join(dir, 'k.pem'));
   }
   async start(): Promise<this> { await this.listen(); return this; }

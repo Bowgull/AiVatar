@@ -168,8 +168,9 @@ test('the mockup rule is merged into CLAUDE.md, never overwriting', () => {
   assert.equal(runJs(RULES_MERGE_JS, f, Buffer.from(MOCKUP_RULES + '\n- one more').toString('base64')), 'written', 'a newer section replaces only its own part');
   s = readFileSync(f, 'utf8');
   assert.match(s, /- one more\n<!-- \/aang:mockups-in-samara -->/); assert.match(s, /## Later\n- also mine/); assert.equal(s.split('aang:mockups-in-samara -->').length, 3);
-  const pc = readFileSync(path.join(os.homedir(), '.claude', 'CLAUDE.md'), 'utf8');
-  assert.ok(pc.replace(/\r/g, '').includes(MOCKUP_RULES), 'the same words as the PC rule');
+  // His own rules file, on his machines (a fresh test machine has none): the setup's words are the same as his rule's.
+  const mine = path.join(os.homedir(), '.claude', 'CLAUDE.md');
+  if (existsSync(mine)) assert.ok(readFileSync(mine, 'utf8').replace(/\r/g, '').includes(MOCKUP_RULES), 'the same words as the PC rule');
   const g = path.join(d, 'none', 'CLAUDE.md');
   assert.equal(runJs(RULES_MERGE_JS, g, b64), 'written', 'made when missing');
   assert.ok(existsSync(g));

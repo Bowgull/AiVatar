@@ -1,1 +1,17 @@
+# One line ending on both machines (2026-10-29, the Windows test run): code and text are LF everywhere, so the same
+# file reads the same on the Mac, on the PC and in a release.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.bin binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.tgz binary
 tools/git-hooks/* text eol=lf

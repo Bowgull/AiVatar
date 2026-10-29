@@ -12,8 +12,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 export interface DrmDeps {
-  /** The Shell's own folder, which holds node_modules and drm/. */
+  /** The Shell's own folder, which holds node_modules (castLabs' engine). */
   shellDir: string;
+  /** Where drm/ is when Samara runs from an installed release (2026-10-29); else shellDir. */
+  codeDir?: string;
   stateDir: string;
   /** Called when the runtime stops, however it stopped, so the Shell can forget it. */
   onExit?: (code: number | null) => void;
@@ -52,7 +54,7 @@ export class DrmRuntime {
     }
     this.close();
 
-    this.child = spawn(drmElectron(this.deps.shellDir), ['drm/main.ts'], {
+    this.child = spawn(drmElectron(this.deps.shellDir), [path.join(this.deps.codeDir ?? this.deps.shellDir, 'drm', 'main.ts')], {
       cwd: this.deps.shellDir,
       env: { ...process.env, AANG_STATE_DIR: this.deps.stateDir, AANG_DRM_URL: url, AANG_DRM_MODE: mode },
       stdio: ['ignore', 'pipe', 'pipe'],

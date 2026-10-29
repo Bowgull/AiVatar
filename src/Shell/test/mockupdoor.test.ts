@@ -10,7 +10,7 @@ import path from 'node:path';
 import { checkAsk, servedFile } from '../src/mockupdoor.ts';
 
 function repo() {
-  const r = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'md-repo-')));
+  const r = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'md-repo-')));   // native: Windows' long names, not RUNNER~1
   mkdirSync(path.join(r, 'docs'));
   writeFileSync(path.join(r, 'docs', 'sheet-1.html'), '<title>1</title>');
   execFileSync('git', ['init', '-q', r]);
@@ -37,7 +37,7 @@ test('a file in no repo is refused, saying how to fix it', () => {
 test('a page served from a folder is filed as its file; a page nothing serves stays live', async () => {
   const r = repo();
   const port = 20000 + Math.floor(Math.random() * 20000);
-  const srv = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { cwd: r, stdio: 'ignore' });
+  const srv = spawn(process.platform === 'win32' ? 'python' : 'python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { cwd: r, stdio: 'ignore' });
   try {
     for (let i = 0; i < 50 && !servedFile(`http://127.0.0.1:${port}/docs/sheet-1.html`); i++) await new Promise((x) => setTimeout(x, 100));
     assert.equal(servedFile(`http://127.0.0.1:${port}/docs/sheet-1.html?v=2`), path.join(r, 'docs', 'sheet-1.html'));
