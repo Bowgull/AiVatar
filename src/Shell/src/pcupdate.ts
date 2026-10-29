@@ -60,18 +60,24 @@ export class SamaraUpdates {
     try {
       const m = await latest(this.o.fetch, RELEASES, this.o.pub ?? RELEASE_KEY, LATEST_API);
       const have = this.pointer()?.version ?? this.running();
+      // The version he is on is in "Every version" too.
+      if (m && m.version === have && this.o.changelog) this.addToChangelog(m);
       if (!m || !newer(m.version, have) || this.list('failed.txt').includes(m.version) || this.list('filed.txt').includes(m.version)) return;
       if (this.ready?.version === m.version) return;
       console.log(`shell: Samara ${m.version} is on GitHub (${why}); getting it ready`);
       if (await this.prepare(m)) {
         this.ready = { version: m.version, name: m.name, commit: m.commit, notes: m.notes, since: Date.parse(m.at) || Date.now() };
-        if (this.o.changelog) { try { let had = ''; try { had = readFileSync(this.o.changelog, 'utf8'); } catch { /* first */ } const now = withSection(had, m); if (now !== had) writeFileSync(this.o.changelog, now); } catch { /* best effort */ } }
+        this.addToChangelog(m);
         this.o.changed();
       }
     } catch (e) { console.error('shell: Samara update check: ' + (e as Error).message); }
     finally { this.busy = false; }
   }
 
+  private addToChangelog(m: Manifest): void {
+    if (!this.o.changelog) return;
+    try { let had = ''; try { had = readFileSync(this.o.changelog, 'utf8'); } catch { /* first */ } const now = withSection(had, m); if (now !== had) writeFileSync(this.o.changelog, now); } catch { /* best effort */ }
+  }
   /** The release unpacked whole into its own folder, its libraries in, before anything points at it. */
   async prepare(m: Manifest): Promise<boolean> {
     const versions = this.file('versions'), dest = path.join(versions, m.version), part = dest + '.part', bundle = this.file(`samara-${m.version}.tgz`);

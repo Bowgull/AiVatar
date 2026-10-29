@@ -348,6 +348,8 @@ app.whenReady().then(async () => {
       if (!m) return;
       ghSeen = true;
       const i = installed();
+      // The version he is on is in "Every version" too (however it was put in).
+      if (m.version === i.version) { const log = path.join(LISTENER, 'Samara Changelog.md'); let had = ''; try { had = readFileSync(log, 'utf8'); } catch { /* first */ } const now = withSection(had, m); if (now !== had) { try { writeFileSync(log, now); } catch { /* best effort */ } } }
       if (!newer(m.version, i.version)) { if (offered?.github) { offered = null; browser?.setUpdate(null); } return; }
       if (failedUpdates().includes(m.version) || filed().includes(m.version)) return;
       offered = { version: m.version, label: m.version, name: m.name, notes: m.notes, since: Date.parse(m.at) || Date.now(), github: true };

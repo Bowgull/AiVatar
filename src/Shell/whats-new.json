@@ -630,6 +630,11 @@
       "at": "2026-10-29T14:34:00Z",
       "text": "Samara updates itself from GitHub on both computers.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-29T14:24:52Z",
+      "text": "Every version always lists the version you are on.",
+      "kind": "fix"
     }
   ]
 }
