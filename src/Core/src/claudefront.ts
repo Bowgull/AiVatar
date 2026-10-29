@@ -19,6 +19,8 @@ import type { MarkMsg } from './claudemark.ts';
 import { fresh, keep, tierOf, type Tier, type TierBits } from './heldnotes.ts';
 
 export const FRONT_HOLD_MAX = 8;
+/** How long a held "now playing" line stays worth saying. */
+export const WHISPER_LIFE_MS = 5 * 60_000;
 
 export class FrontGate {
   /** Each with when it came and how much it matters (heldnotes.ts). */
@@ -50,10 +52,11 @@ export class FrontGate {
         this.hold(msg);
         return null;
       case 'claude.mark': {
-        // No chime, no flare, no new mark while Claude is in front; the steady state is remembered for later.
+        // No chime and no flare while Claude is in front. The mark itself stays true (2026-10-29, his "build all 11", fix
+        // 5): a question he answers in Claude takes its mark and glow away at once, not when he next leaves Claude.
         const { flash: _f, sound: _s, ...steady } = msg;
-        this.mark = steady;
-        return null;
+        this.mark = null;
+        return steady;
       }
       case 'claude.wait':
         return { ...msg, quiet: true };
@@ -71,17 +74,28 @@ export class FrontGate {
    * The foreground changed (a presence report). Returns what to send now that he has left Claude: the quiet mark
    * first, then the held lines in the order they came (the caller spaces them out). Empty while he stays in Claude.
    */
-  moved(over: (msg: ToBody) => boolean = () => false): { mark: MarkMsg | null; lines: ToBody[] } {
+  moved(over: (msg: ToBody, at: number) => boolean = () => false, release = true): { mark: MarkMsg | null; lines: ToBody[] } {
     const nowIn = this.inClaude(), was = this.wasIn;
     this.wasIn = nowIn;
     if (nowIn || !was) return { mark: null, lines: [] };
     const mark = this.mark; this.mark = null;
-    // 2026-10-22 (his "if I act on it in Claude it should disappear"): a held line about something a session waited on
-    // him for, that he has since answered in Claude, is not news any more: it is dropped, never replayed.
-    // Past its age it is not news either (R2): a line about a video from three hours ago is dropped.
+    // 2026-10-29 (notices map, gap 2): out of Claude straight into a call, Shadow, a hush or mute, or away: the lines
+    // stay held here and come out through take() once the way is clear, instead of into a bubble that drops them.
+    return { mark, lines: release ? this.take(over) : [] };
+  }
+
+  /**
+   * The held lines that are still news, and the hold emptied. 2026-10-22 (his "if I act on it in Claude it should
+   * disappear"): a line about something a session waited on him for, that he has since answered in Claude, is dropped,
+   * never replayed. Past its age it is not news either (R2): a line about a video from three hours ago is dropped.
+   */
+  take(over: (msg: ToBody, at: number) => boolean = () => false): ToBody[] {
+    if (this.inClaude()) return [];
     const now = this.now();
-    const lines = this.held.filter(h => fresh(h, now, h.m.t === 'bubble' && !!(h.m as { brief?: unknown }).brief) && !over(h.m)).map(h => h.m); this.held = [];
-    return { mark, lines };
+    // "Now playing" is only true for a song's length: past five minutes it is not said (fix 8, 2026-10-29).
+    const lines = this.held.filter(h => fresh(h, now, h.m.t === 'bubble' && !!(h.m as { brief?: unknown }).brief) && !(h.m.t === 'whisper' && now - h.at > WHISPER_LIFE_MS) && !over(h.m, h.at)).map(h => h.m);
+    this.held = [];
+    return lines;
   }
 
   /** For the checks: how many lines are being held. */

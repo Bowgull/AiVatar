@@ -132,7 +132,7 @@ test('mark and card agree: hook sessions, with the stale rule', () => {
     lastWrite: () => NOW - 30_000 }, { mark: 'working', ids: ['H'] });
   agree('silent hooks, dead transcript', { jobs: [], waits: [], hooks: [hook('H', 'working', NOW - 3 * HOOK_STALE_MS, { transcriptPath: 'x.jsonl' })],
     lastWrite: () => NOW - 2 * HOOK_STALE_MS }, { mark: 'none', ids: [] });
-  agree('a permission prompt', { jobs: [], waits: [], hooks: [hook('H', 'waiting', NOW - 3 * HOOK_STALE_MS, { waitingFor: 'Claude needs your permission to use Bash' })] }, { mark: 'working', ids: ['H'] });
+  agree('a permission prompt', { jobs: [], waits: [], hooks: [hook('H', 'waiting', NOW - 3 * HOOK_STALE_MS, { waitingFor: 'Claude needs your permission to use Bash' })] }, { mark: 'question', ids: ['H'] });   // needs you, not honey (2026-10-29)
   // Claude Code's idle reminder after a finished turn: not work, not a question.
   agree('idle reminder', { jobs: [], waits: [], hooks: [hook('H', 'waiting', NOW, { waitingFor: 'Claude is waiting for your input' })] }, { mark: 'none', ids: [] });
   agree('idle', { jobs: [], waits: [], hooks: [hook('H', 'idle', NOW)] }, { mark: 'none', ids: [] });

@@ -168,7 +168,9 @@ test('nothing unprompted arrives while the game has focus; it waits and is deliv
 
   c.send(JSON.stringify({ t: 'presence', quiet: false, foreground: 'explorer' }));
   await new Promise(r => setTimeout(r, 300));
-  assert.deepEqual(bubbles().map(b => b.text), ['Claude Code is waiting on you in AangApp.'], 'the first one comes straight away');
+  // Two or more come out as ONE bubble with a row each, not a drip (2026-10-29, fix 9).
+  assert.deepEqual(bubbles().map(b => b.text), ['While you were busy:'], 'both at once, in one bubble');
+  assert.equal((bubbles()[0] as { list?: { items: unknown[] } }).list?.items.length, 2);
   assert.equal(core.pendingCount, 0);
   c.close();
   await core.stop();
@@ -282,7 +284,8 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   assert.equal(ok.status, 204);
   await new Promise(r => setTimeout(r, 200));
   const b = bubbles()[0];
-  assert.equal(b?.text, 'Claude Code on the MacBook is waiting on you in site.');
+  // Named for the OTHER machine: the MacBook on the PC's brain, the PC on the Mac's (2026-10-29).
+  assert.equal(b?.text, `Claude Code on the ${process.platform === 'darwin' ? 'PC' : 'MacBook'} is waiting on you in site.`);
   assert.equal(b?.blocking, true);
   assert.equal(b?.focus, undefined, 'no window on this PC to bring forward');
   assert.equal(b?.host, 'mac');

@@ -21,12 +21,13 @@ test('outside Claude everything passes untouched', () => {
   assert.equal(g.pass(w), w);
 });
 
-test('in Claude: no proactive bubble, no whisper, no chime, no mark; replies still go', () => {
+test('in Claude: no proactive bubble, no whisper, no chime or flare; the mark stays true; replies still go', () => {
   const { g, go } = gate();
   go('Claude');
   assert.equal(g.pass(line('HisWattson posted a video')), null);
   assert.equal(g.pass({ t: 'whisper', text: 'Now playing: a' }), null);
-  assert.equal(g.pass({ t: 'claude.mark', mark: 'question', flash: 'step', sound: 'needs-you', what: 'Waymark' }), null);
+  // 2026-10-29 fix 5: the steady mark goes through (an answered question's mark leaves at once), never its chime or flare.
+  assert.deepEqual(g.pass({ t: 'claude.mark', mark: 'question', flash: 'step', sound: 'needs-you', what: 'Waymark' }), { t: 'claude.mark', mark: 'question', what: 'Waymark' });
   const reply = line('Your demo is Friday.', false);
   assert.equal(g.pass(reply), reply, 'an answer to what he asked is never held');
   const s: ToBody = { t: 'claude.said', of: 'claude.answer', ok: true };
@@ -41,7 +42,7 @@ test('in Claude: the waiting list still reaches the Shell, marked quiet so nothi
   assert.deepEqual(g.pass({ t: 'claude.jobs', jobs: [] }), { t: 'claude.jobs', jobs: [] });
 });
 
-test('leaving Claude: the latest mark comes back quietly, then the held lines in order', () => {
+test('leaving Claude: the held lines come out in order (the mark was already live)', () => {
   const { g, go } = gate();
   assert.deepEqual(go('Claude'), { mark: null, lines: [] });
   g.pass(line('one'));
@@ -52,7 +53,7 @@ test('leaving Claude: the latest mark comes back quietly, then the held lines in
   g.pass({ t: 'claude.mark', mark: 'permission', flash: 'complete', sound: 'needs-you', what: 'Aang' });
   assert.deepEqual(go('Claude'), { mark: null, lines: [] }, 'staying in Claude releases nothing');
   const out = go('Code');
-  assert.deepEqual(out.mark, { t: 'claude.mark', mark: 'permission', what: 'Aang' }, 'the steady mark, with no chime and no flare');
+  assert.equal(out.mark, null, 'the mark went out live while he was in Claude');
   assert.deepEqual(out.lines.map(m => (m as { text: string }).text), ['one', 'Now playing: b', 'two'], 'only the latest whisper');
   assert.deepEqual(go('Code'), { mark: null, lines: [] }, 'nothing twice');
   assert.equal(g.holding, 0);

@@ -31,6 +31,8 @@ test('a choice names its answers: "A or B", "A, B or C", and a list he is asked 
   const list = findQuestion('I see three ways to do it:\n\n1. **Patch the mod** - smallest change\n2. **New brain door** - cleaner\n3. **Both** - belt and braces\n\nWhich one should I go with?');
   assert.equal(list?.question, 'Which one should I go with?');
   assert.deepEqual(list?.options, ['Patch the mod', 'New brain door', 'Both']);
+  // 2026-10-29: the words that point at the thing ("Want it") no longer swallow the first choice.
+  assert.deepEqual(findQuestion('Here is a draft.\n\nWant it more casual, shorter, or with anything cut?')?.options, ['More casual', 'Shorter', 'With anything cut']);
   const after = findQuestion('Pick one:\n- Keep the old tray\n- Use the new wood tray');
   assert.deepEqual(after?.options, ['Keep the old tray', 'Use the new wood tray']);
 });

@@ -393,14 +393,14 @@ export class JobTracker {
     this.onChange('jobs', true);
     return true;
   }
-  /** Every finished job is read (2026-10-29, his pick: the Claude app stayed in front 5 s, so he has seen them). */
-  ackAll(): number {
-    const n = this.unread.size;
-    if (!n) return 0;
+  /** Every finished job is read (2026-10-29, his pick: the Claude app stayed in front 5 s, so he has seen them). Their ids. */
+  ackAll(): string[] {
+    const ids = [...this.unread.keys()];
+    if (!ids.length) return ids;
     this.unread.clear();
     this.saveUnread();
     this.onChange('jobs', true);
-    return n;
+    return ids;
   }
   /** A finished, unread job whose session is gone: just enough of a job for its done card. */
   private lightJob(u: DoneNote): Job {

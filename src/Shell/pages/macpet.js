@@ -160,9 +160,9 @@ function tick(now) {
     else frame++;
     draw();
   } else if (flash && now >= flashUntil) { flash = null; draw(); }
-  // The haze breathes between frames too, at 20 a second: a 4 s breath needs no more, and this Mac is old (60 a second
-  // cost ~20% of a core, 2026-10-28).
-  else if (glow && now - lastGlow >= 50) { lastGlow = now; draw(); }
+  // The haze breathes between frames too, at 15 a second: a 4 s breath of pixel haze needs no more, and this Mac is old
+  // (60 a second cost ~20% of a core, 2026-10-28; 20 a second for as long as a question waits, 2026-10-29 fix 11).
+  else if (glow && now - lastGlow >= 66) { lastGlow = now; draw(); }
   requestAnimationFrame(tick);
 }
 

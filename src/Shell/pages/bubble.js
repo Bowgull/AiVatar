@@ -1862,11 +1862,19 @@ function onBrain(m) {
     if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) askGone(); }
     return;
   }
+  // Claude news he has seen in Claude (fix 3, 2026-10-29): the line held through a call or Shadow is dropped.
+  if (m.t === 'claude.seen' && Array.isArray(m.sessions)) { if (heldMsg && m.sessions.includes(heldMsg.session)) heldMsg = null; return; }
   if (m.t === 'bubble.state') {
     const wasQuiet = quiet;
     quiet = m.quiet === true; muted = m.muted === true; petHidden = m.hidden === true;
     if (wasQuiet && !quiet) { releaseHeldAsks(); claudeWaiting(claude?.waiting() ?? false, true); }
-    if (!quiet) heldMsg = null;          // the pet says the held one itself, through pet.say
+    // The PC pet says the held one itself, through pet.say. The Mac has no such pet (2026-10-29 notices map, gap 1: the
+    // held line was dropped there), so it comes out here.
+    if (!quiet && heldMsg && /Mac/i.test(navigator.platform) && !muted && !petHidden) {
+      const h = heldMsg; heldMsg = null;
+      window.dispatchEvent(new CustomEvent('aang:say', { detail: { ...h, proactive: false, fromPet: true } }));
+    }
+    if (!quiet) heldMsg = null;
     return;
   }
 
@@ -2000,7 +2008,7 @@ function onBrain(m) {
     who.hidden = !who.textContent || cockpit;
     if (cockpit) bubble.classList.add('lantern');
     paintChange(!m.stream);
-    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession || /Mac/i.test(navigator.platform) ? 'MAC' : 'PC', m.face);
+    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, /Mac/i.test(navigator.platform) !== macSession ? 'MAC' : 'PC', m.face);   // a remote session is the other machine (fix 10)
     // 2026-10-21: the dots stay until a word of the answer is actually on the paper (a first chunk can be half a word),
     // so between thinking and answering there is never a moment of empty bubble.
     reveal.tick();
