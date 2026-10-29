@@ -10,7 +10,7 @@ import { denyPermissions } from './safety.ts';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { startMockupDoor } from './mockupdoor.ts';
 import { takeMockupFile } from './mockups.ts';
-import { download as ghDownload, isVersion, latest as ghLatest, listen as ghListen, newer } from './ghrelease.ts';
+import { download as ghDownload, isVersion, latest as ghLatest, listen as ghListen, newer, withSection } from './ghrelease.ts';
 import { macUpdateScript } from './macupdate.ts';
 import { spawn } from 'node:child_process';
 import { createHash, verify as verifySig } from 'node:crypto';
@@ -350,7 +350,7 @@ app.whenReady().then(async () => {
       const i = installed();
       if (!newer(m.version, i.version)) { if (offered?.github) { offered = null; browser?.setUpdate(null); } return; }
       if (failedUpdates().includes(m.version) || filed().includes(m.version)) return;
-      offered = { version: m.version, label: m.version, name: '', notes: m.notes, since: Date.parse(m.at) || Date.now(), github: true };
+      offered = { version: m.version, label: m.version, name: m.name, notes: m.notes, since: Date.parse(m.at) || Date.now(), github: true };
       if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
       if (preparing || triedPrepare.has(m.version)) return;
       preparing = m.version; triedPrepare.add(m.version);
@@ -362,7 +362,8 @@ app.whenReady().then(async () => {
       try {
         const log = path.join(LISTENER, 'Samara Changelog.md');
         let had = ''; try { had = readFileSync(log, 'utf8'); } catch { /* first */ }
-        if (!had.includes(`## ${m.version} `)) writeFileSync(log, `## ${m.version} (${m.at.slice(0, 10)})\n${m.notes.map((n) => `- ${n}`).join('\n')}\n\n${had}`);
+        const now = withSection(had, m);
+        if (now !== had) writeFileSync(log, now);
       } catch { /* best effort */ }
       const script = macUpdateScript({ bundle, version: m.version, commit: m.commit });
       runPrepare(m.version, script, createHash('sha256').update(script).digest('hex'));

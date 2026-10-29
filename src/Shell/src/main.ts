@@ -14,7 +14,7 @@ import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell } from 'electron';
-import { listen as ghListen } from './ghrelease.ts';
+import { listen as ghListen, titleOf } from './ghrelease.ts';
 import { SamaraUpdates, samaraRoot } from './pcupdate.ts';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -965,7 +965,7 @@ app.whenReady().then(async () => {
       // release nudge; made ready beside the one running, then the same key. Windows only (the Mac has its own, macmain).
       const root = process.platform === 'win32' && !process.env.AANG_TEST ? samaraRoot() : null;
       if (root) {
-        const su = samaraUpdates = new SamaraUpdates({ root, codeDir: path.join(HERE, '..'), fetch: net.fetch as never, changed: showEngine });
+        const su = samaraUpdates = new SamaraUpdates({ root, codeDir: path.join(HERE, '..'), fetch: net.fetch as never, changed: showEngine, changelog: path.join(DATA_DIR, 'Samara Changelog.md') });
         setTimeout(() => void su.check('start'), 30_000);
         setInterval(() => void su.check('hourly'), 60 * 60_000).unref();
         ghListen(net.fetch as never, () => void su.check('nudge'));
@@ -1848,7 +1848,7 @@ function updateCard(): UpdateCard | null {
   const e = engineCard(engineUpdates?.ready ?? null), s = samaraUpdates?.ready;
   if (!s) return e;
   return {
-    version: e ? `${s.version}+${e.version}` : s.version, since: Math.min(s.since, e?.since ?? s.since), title: `Version ${s.version}`,
+    version: e ? `${s.version}+${e.version}` : s.version, since: Math.min(s.since, e?.since ?? s.since), title: titleOf(s),
     groups: [{ name: 'SAMARA', items: s.notes.map((text) => ({ text })) }, ...(e?.groups ?? [])],
     canBack: samaraUpdates?.canBack() === true || e?.canBack === true, overnight: updatePrefs().overnight,
   };

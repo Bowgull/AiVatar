@@ -11,7 +11,9 @@ export const RELEASE_KEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAVMZz/VO98/9eX9+eUALUiaxNyxiXuNL/KPWaOdMZQ2E=
 -----END PUBLIC KEY-----
 `;
-export const RELEASES = 'https://github.com/Bowgull/AiVatar/releases/latest/download/';
+export const RELEASES = 'https://github.com/Bowgull/AiVatar/releases/download/';
+/** Which release is current: GitHub's own answer (never a release marked not used), its tag only. */
+export const LATEST_API = 'https://api.github.com/repos/Bowgull/AiVatar/releases/latest';
 /** The release nudge (ntfy): a one-word "check now". It carries nothing, so anyone sending it can only make a Samara check. */
 export const NUDGE = 'https://ntfy.sh/samara-bowgull-7c1e9a52/json';
 /** The biggest bundle a Samara will download (today's is about 6 MB). */
@@ -19,6 +21,8 @@ export const BUNDLE_MAX = 200 * 1024 * 1024;
 
 export interface Manifest {
   v: 1; app: 'samara'; version: string; commit: string; at: string; notes: string[];
+  /** His version's name (his anime picks, tools/release/version.mjs: Gojo, Edward, Naruto...), and each line's kind. */
+  name: string; items: { text: string; kind: 'major' | 'feature' | 'fix' }[];
   bundle: { file: string; sha256: string; bytes: number };
 }
 
@@ -34,7 +38,9 @@ export function checkManifest(text: string, sigB64: string, pub: string = RELEAS
   if (m.v !== 1 || m.app !== 'samara' || !isVersion(m.version) || !/^[0-9a-f]{40}$/.test(String(m.commit))) return null;
   if (!b || b.file !== 'samara-bundle.tgz' || !/^[0-9a-f]{64}$/.test(String(b.sha256)) || !Number.isInteger(b.bytes) || b.bytes <= 0 || b.bytes > BUNDLE_MAX) return null;
   const notes = (Array.isArray(m.notes) ? m.notes : []).map((x) => String(x).slice(0, 160)).filter(Boolean).slice(0, 30);
-  return { v: 1, app: 'samara', version: m.version!, commit: m.commit!, at: String(m.at ?? ''), notes, bundle: { file: b.file, sha256: b.sha256, bytes: b.bytes } };
+  const name = typeof m.name === 'string' && /^[A-Za-z][A-Za-z0-9 .'-]{0,39}$/.test(m.name) ? m.name : '';
+  const items = (Array.isArray(m.items) ? m.items : []).slice(0, 30).map((x) => ({ text: String(x?.text ?? '').slice(0, 160), kind: x?.kind === 'major' || x?.kind === 'feature' ? x.kind : 'fix' as const })).filter((x) => x.text);
+  return { v: 1, app: 'samara', version: m.version!, commit: m.commit!, at: String(m.at ?? ''), notes, name, items, bundle: { file: b.file, sha256: b.sha256, bytes: b.bytes } };
 }
 
 export const isVersion = (v: unknown): v is string => typeof v === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v);
@@ -50,11 +56,16 @@ export function newer(a: string, b: string): boolean {
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer>; body?: ReadableStream<Uint8Array> | null }>;
 
 /** The latest release, sealed, or null (no release yet, offline, or a seal that does not check out: never used). */
-export async function latest(fetchFn: Fetch, base = RELEASES, pub = RELEASE_KEY): Promise<Manifest | null> {
+export async function latest(fetchFn: Fetch, base = RELEASES, pub = RELEASE_KEY, api = LATEST_API): Promise<Manifest | null> {
   try {
-    const get = async (f: string) => { const r = await fetchFn(base + f, { signal: AbortSignal.timeout(20_000) }); return r.ok ? r.text() : null; };
+    const r0 = await fetchFn(api, { signal: AbortSignal.timeout(20_000) });
+    if (!r0.ok) return null;
+    const tag = String((JSON.parse(await r0.text()) as { tag_name?: unknown }).tag_name ?? '');
+    if (!/^samara-v\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(tag)) return null;
+    const get = async (f: string) => { const r = await fetchFn(`${base}${tag}/${f}`, { signal: AbortSignal.timeout(20_000) }); return r.ok ? r.text() : null; };
     const [text, sig] = await Promise.all([get('manifest.json'), get('manifest.sig')]);
-    return text && sig ? checkManifest(text, sig, pub) : null;
+    const m = text && sig ? checkManifest(text, sig, pub) : null;
+    return m && `samara-v${m.version}` === tag ? m : null;
   } catch { return null; }
 }
 
@@ -62,7 +73,7 @@ export async function latest(fetchFn: Fetch, base = RELEASES, pub = RELEASE_KEY)
 export async function download(fetchFn: Fetch, m: Manifest, dest: string, base = RELEASES): Promise<boolean> {
   const part = dest + '.part';
   try {
-    const r = await fetchFn(base + m.bundle.file, { signal: AbortSignal.timeout(10 * 60_000) });
+    const r = await fetchFn(`${base}samara-v${m.version}/${m.bundle.file}`, { signal: AbortSignal.timeout(10 * 60_000) });
     if (!r.ok || !r.body) return false;
     const hash = createHash('sha256'), out = createWriteStream(part);
     let n = 0;
@@ -113,4 +124,21 @@ export function listen(fetchFn: Fetch, onNudge: () => void, url = NUDGE): () => 
   };
   void run();
   return () => { stopped = true; ctl?.abort(); };
+}
+
+/** "Version 1.22.0: Gojo" (his rule's name), as the key's title says it. */
+export const titleOf = (m: { version: string; name?: string }): string => (m.name ? `Version ${m.version}: ${m.name}` : `Version ${m.version}`);
+/** A version's section in "Every version" (Samara Changelog.md), the same shape the PC has always written. */
+export function changelogSection(m: Manifest): string {
+  const day = new Date(Date.parse(m.at) || Date.now()).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
+  const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
+  const lines = m.items.length ? m.items.map((i) => `- ${tag(i.kind)}: ${i.text}`) : m.notes.length ? m.notes.map((n) => `- ${n}`) : ['- Small fixes to keep things running smoothly.'];
+  return `## ${titleOf(m)}\n*${day}*\n\n${lines.join('\n')}\n\n`;
+}
+/** "Every version" with this version's section in, right under the heading (never twice). */
+export function withSection(changelog: string, m: Manifest): string {
+  if (changelog.includes(`## ${titleOf(m)}\n`)) return changelog;
+  const head = '# Samara Changelog\n\nEvery version of Samara, Aang\'s browser, and what it brought. Newest first. Versions go MAJOR.MINOR.PATCH: a big change starts a new number and a new character\'s name, a new feature bumps the middle number, a fix the last.\n\n';
+  const body = changelog.startsWith('# Samara Changelog') ? changelog.slice(changelog.indexOf('\n## ') + 1 || changelog.length) : changelog;
+  return head + changelogSection(m) + body;
 }

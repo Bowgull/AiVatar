@@ -11,11 +11,11 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { RELEASES, RELEASE_KEY, download, isVersion, latest, newer, type Manifest } from './ghrelease.ts';
+import { LATEST_API, RELEASES, RELEASE_KEY, download, isVersion, latest, newer, withSection, type Manifest } from './ghrelease.ts';
 
 export interface SamaraVersion { version: string; dir: string }
 export interface Pointer extends SamaraVersion { status: 'trial' | 'good'; previous: SamaraVersion | null; at: string }
-export interface SamaraReady { version: string; commit: string; notes: string[]; since: number }
+export interface SamaraReady { version: string; name: string; commit: string; notes: string[]; since: number }
 type Fetch = Parameters<typeof latest>[0];
 
 export const samaraRoot = (env: NodeJS.ProcessEnv = process.env): string | null => (env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'Aang', 'Samara') : null);
@@ -26,6 +26,8 @@ export interface SamaraUpdatesOpts {
   run?: (cmd: string, args: string[], cwd: string) => Promise<number>;
   /** His release key's public half (tests use their own). */
   pub?: string;
+  /** "Every version" on this PC (Samara Changelog.md), given this version's section once it is ready. */
+  changelog?: string;
 }
 export class SamaraUpdates {
   ready: SamaraReady | null = null;
@@ -56,12 +58,16 @@ export class SamaraUpdates {
     if (this.busy || Date.now() - this.at < 60_000) return;
     this.busy = true; this.at = Date.now();
     try {
-      const m = await latest(this.o.fetch, RELEASES, this.o.pub ?? RELEASE_KEY);
+      const m = await latest(this.o.fetch, RELEASES, this.o.pub ?? RELEASE_KEY, LATEST_API);
       const have = this.pointer()?.version ?? this.running();
       if (!m || !newer(m.version, have) || this.list('failed.txt').includes(m.version) || this.list('filed.txt').includes(m.version)) return;
       if (this.ready?.version === m.version) return;
       console.log(`shell: Samara ${m.version} is on GitHub (${why}); getting it ready`);
-      if (await this.prepare(m)) { this.ready = { version: m.version, commit: m.commit, notes: m.notes, since: Date.parse(m.at) || Date.now() }; this.o.changed(); }
+      if (await this.prepare(m)) {
+        this.ready = { version: m.version, name: m.name, commit: m.commit, notes: m.notes, since: Date.parse(m.at) || Date.now() };
+        if (this.o.changelog) { try { let had = ''; try { had = readFileSync(this.o.changelog, 'utf8'); } catch { /* first */ } const now = withSection(had, m); if (now !== had) writeFileSync(this.o.changelog, now); } catch { /* best effort */ } }
+        this.o.changed();
+      }
     } catch (e) { console.error('shell: Samara update check: ' + (e as Error).message); }
     finally { this.busy = false; }
   }
