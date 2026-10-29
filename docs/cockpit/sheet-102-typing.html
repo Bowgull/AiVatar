@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 102 - Typing in the bar</title>
+<!-- Sheet 102 (2026-10-29). His asks: "it's not very smooth, it's jumpy", "does it remember anything I've typed",
+     "the search bar is a bit too small now, find a middle ground", "could the text be too small, are we not using enough
+     of the space", "how do other browsers do it ... go big". Every picture is Samara itself at his screen's width, 1920
+     (test/electron/typing-sheet-shot.ts). The proposed pictures are drawn in on the real band, nothing is built.
+     Measured: the list shows his own things 15 ms after a letter, then doubles (186 to 358 px) about 270 ms after his
+     last letter, because each letter throws the guesses for the letter before away. Opening the list swaps the page for
+     a still picture first: 44 to 564 ms. Bar at rest 760 (before sheet 88: 1604), while typing 1600, the slide 840 px in
+     0.24 s. Words 13.5 px, addresses 12, hints 11.5, rows 34. Chrome: rows 40, 8 at most, old rows kept until new ones
+     land, the top row never moved by a late answer. Firefox: old rows kept 400 ms, frecency (30-day half-life), 5 recent
+     searches. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 0 90px}
+  .in{padding:0 34px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:15px;margin:0 0 6px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:40px 0 10px}
+  .sub{font:500 14px var(--body);color:#cdbb9a;margin:0 0 12px;max-width:1100px;line-height:1.5}
+  .sub b{color:#ffe28c}
+  .pic{display:block;width:1920px;max-width:none;image-rendering:pixelated}
+  .wrap{overflow-x:auto}
+  .tag{font:700 12px var(--body);color:#c9a35a;letter-spacing:.4px;margin:14px 34px 4px}
+  .tag b{color:#ffe28c}
+  table{border-collapse:collapse;font-size:14px;margin:4px 0 0}
+  td,th{padding:8px 18px 8px 0;text-align:left;vertical-align:top;border-bottom:2px solid #2c1f15}
+  th{font:400 11px var(--label);letter-spacing:1.2px;color:#c9a35a}
+  td:first-child{color:#ffe28c;font-weight:700;white-space:nowrap}
+  td.us{color:#ffe28c}
+  svg.chart{display:block;image-rendering:pixelated}
+</style>
+</head>
+<body>
+<div class="in">
+<h1>SHEET 102 · TYPING IN THE BAR</h1>
+<p class="lead">Why typing feels off: the list jumps, it forgets your searches, and it puts small words in a huge box. Then the fix, on the real band at your screen's width.</p>
+
+<h2>1 · TODAY: THE JUMP</h2>
+<p class="sub">You type "pix". Your own pages show at once. A quarter second after you stop, the search guesses land and the list <b>doubles</b>. Every new letter throws the guesses away, so the list shrinks and grows like this all the way through a word.</p>
+</div>
+<div class="tag">TODAY · <b>WHILE YOU TYPE</b></div>
+<div class="wrap"><img class="pic" src="art/sheet102-jump-a.png" alt=""></div>
+<div class="tag">TODAY · <b>A BEAT AFTER YOU STOP</b></div>
+<div class="wrap"><img class="pic" src="art/sheet102-jump-b.png" alt=""></div>
+<div class="in">
+<p class="sub" style="margin-top:14px">Three more things in these two pictures:<br>
+<b>It forgets your searches.</b> "pixel art tutorial" was a search you made. It comes back as a page called "pixel art tutorial - Brave Search".<br>
+<b>Small words, huge box.</b> The list is 1600 wide but the words are 13.5. Everything sits in the left fifth; "Search" is way over on the right.<br>
+<b>It starts late.</b> Before the list can show, Samara swaps the page for a still picture of it. That took 44 to 564 ms in the test.</p>
+
+<h2>2 · THE HEIGHT OF THE LIST, MOMENT BY MOMENT</h2>
+<p class="sub">Measured while typing "pixel" at a normal speed. Each gold tick is a letter.</p>
+<svg class="chart" width="1000" height="236" viewBox="0 0 250 59" shape-rendering="crispEdges" style="width:1000px;height:236px">
+  <rect x="0" y="0" width="250" height="59" fill="#21170f"/>
+  <rect x="0" y="50" width="250" height="1" fill="#3a2a1c"/>
+  <!-- letters: 2, 125, 247, 368, 489 ms; 1 unit = 4 ms -->
+  <g fill="#ffe28c"><rect x="1" y="51" width="1" height="3"/><rect x="31" y="51" width="1" height="3"/><rect x="62" y="51" width="1" height="3"/><rect x="92" y="51" width="1" height="3"/><rect x="122" y="51" width="1" height="3"/></g>
+  <!-- today: 186 px from 15 ms, 358 px from 761 ms (1 unit = 8 px) -->
+  <g fill="#9a6fd0"><rect x="4" y="27" width="186" height="1"/><rect x="190" y="5" width="1" height="23"/><rect x="190" y="5" width="60" height="1"/></g>
+  <!-- proposed: full height at once, then still -->
+  <g fill="#ffe28c"><rect x="4" y="3" width="246" height="1"/><rect x="4" y="3" width="1" height="47"/></g>
+</svg>
+<p class="sub" style="margin-top:8px"><span style="color:#9a6fd0;font-weight:700">Purple: today</span>, short while you type, then a sudden jump. <b>Gold: proposed</b>, it opens at its full size and stays still.</p>
+
+<h2>3 · THE WIDTH: BEFORE, TODAY, AND THE MIDDLE</h2>
+</div>
+<div class="tag">BEFORE SHEET 88 · <b>1604 WIDE</b> · "far too large"</div>
+<div class="wrap"><img class="pic" src="art/sheet102-before.png" alt=""></div>
+<div class="tag">TODAY · <b>760 WIDE</b> · "a bit too small"</div>
+<div class="wrap"><img class="pic" src="art/sheet102-rest.png" alt=""></div>
+<div class="tag">PROPOSED · <b>1000 WIDE</b> · still calm in the middle with the site's name</div>
+<div class="wrap"><img class="pic" src="art/sheet102-new-rest.png" alt=""></div>
+<div class="in">
+<p class="sub" style="margin-top:14px">While you type it still slides out (your sheet 88 rule), but to <b>1280</b>, not 1600. That's a 280 px slide instead of 840, so the bar barely moves under your eyes, and the list slides out with it as one piece.</p>
+
+<h2>4 · PROPOSED: AS YOU TYPE</h2>
+<p class="sub">Bigger words (15, up from 13.5), taller rows (40, like Chrome), each site's own icon, and your past search as one line with a clock. The guesses from your last letter stay until the new ones land, so nothing jumps.</p>
+</div>
+<div class="wrap"><img class="pic" src="art/sheet102-new-b.png" alt=""></div>
+<div class="in">
+
+<h2>5 · PROPOSED: CLICK THE BAR, BEFORE YOU TYPE</h2>
+<p class="sub">It remembers you right away: your last three searches, then the sites you go to most. The ones you use often rise to the top; old ones fade out after a month.</p>
+</div>
+<div class="wrap"><img class="pic" src="art/sheet102-new-zero.png" alt=""></div>
+<div class="in">
+
+<h2>6 · WHAT THE OTHER BROWSERS DO</h2>
+<table>
+<tr><th></th><th>CHROME</th><th>FIREFOX</th><th>SAFARI</th><th>SAMARA TODAY</th><th>PROPOSED</th></tr>
+<tr><td>Steady list</td><td>Old rows stay until new ones land; a late answer never moves the top row</td><td>Old rows stay 400 ms; a row never swaps to a different kind</td><td>Top Hits arrive in bursts (people complain)</td><td>Wiped every letter</td><td class="us">Old rows stay; top row only moves when you type</td></tr>
+<tr><td>Remembers</td><td>Learns what you pick; fills in sites you typed before</td><td>Ranks by how often and how recently (one-month half-life); 5 recent searches</td><td>Top Hit from your history</td><td>Pages only, newest first; searches show as pages</td><td class="us">Your searches as searches, ranked by often and recent</td></tr>
+<tr><td>Before typing</td><td>Up to 8 suggestions</td><td>Top sites</td><td>Favourites</td><td>Nothing</td><td class="us">3 recent searches, then top sites</td></tr>
+<tr><td>Rows</td><td>40 tall, 8 at most</td><td>10 at most</td><td></td><td>34 tall, up to 13</td><td class="us">40 tall, 9 at most</td></tr>
+<tr><td>Bar grows</td><td>A few px, merges with the list</td><td>5 px each side</td><td>No</td><td>760 to 1600</td><td class="us">1000 to 1280</td></tr>
+<tr><td>Remove one</td><td>Shift+Delete</td><td>Shift+Delete</td><td>X on hover</td><td>No</td><td class="us">Shift+Delete</td></tr>
+</table>
+
+<h2>7 · THE MOTION</h2>
+<p class="sub"><b>Opens on its own layer</b> over the live page, like the tab list does, so there's no still picture and no wait.<br>
+<b>Opens once, at full size</b>, sliding down with the bar in pixel steps.<br>
+<b>New guesses swap in place</b>, word for word, in rows that are already there. Nothing slides, nothing grows.<br>
+<b>The gold marker</b> glides between rows as you arrow down.</p>
+</div>
+</body>
+</html>
