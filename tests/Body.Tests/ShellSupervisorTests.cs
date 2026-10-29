@@ -39,7 +39,8 @@ public class ShellSupervisorTests
         // An older copy of Aang, or one installed before the Shell existed, must still run.
         using var s = CoreSupervisor.ForShell(Path.Combine(Path.GetTempPath(), "aang-no-shell-here"));
         s.Start();
-        Thread.Sleep(600);
+        // Until it has said something (a busy test machine can take more than a moment to start the task), 10 s at most.
+        for (var i = 0; i < 100 && s.Status.Contains("not started", StringComparison.OrdinalIgnoreCase); i++) Thread.Sleep(100);
         Assert.False(s.GivenUp);
         Assert.Contains("not found", s.Status, StringComparison.OrdinalIgnoreCase);
     }

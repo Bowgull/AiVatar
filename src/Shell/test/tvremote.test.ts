@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { KEY, ensureCert, remote, startPairing } from '../src/tvremote.ts';
+import { KEY, ensureCert, remote, startPairing, opensslBin } from '../src/tvremote.ts';
 import { FakeTv } from './faketv.ts';
 
 const fresh = () => ensureCert(mkdtempSync(path.join(os.tmpdir(), 'tvr-')));
@@ -52,4 +52,15 @@ test('a TV that is asleep is reported, never waited on forever', async () => {
     tv.asleep = true;
     await assert.rejects(remote(t, [{ link: 'https://www.youtube.com/watch?v=x' }], 1500));
   } finally { tv.stop(); }
+});
+
+test('openssl: the Mac\'s own; on the PC, the one Git for Windows ships, else the PATH', () => {
+  if (process.platform === 'win32') {
+    const git = path.join('C:\\Program Files', 'Git', 'mingw64', 'bin', 'openssl.exe');
+    assert.equal(opensslBin({ ProgramFiles: 'C:\\Program Files' }, (f) => f === git), git);
+    assert.equal(opensslBin({}, () => false), 'openssl');
+  } else {
+    assert.equal(opensslBin({}, (f) => f === '/usr/bin/openssl'), '/usr/bin/openssl');
+    assert.equal(opensslBin({}, () => false), 'openssl');
+  }
 });
