@@ -1077,6 +1077,8 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble:not(.cockpit) .ckpins .ctag img{display:none}
 #bubble:not(.cockpit) .ckpins .ctag::before{content:"CLAUDE \00b7  ";white-space:pre;display:inline-block;padding-left:22px;background:url(art/claude-icon.png) 0 50%/16px 16px no-repeat}
 #bubble:not(.cockpit) .ckpins .q{margin:0 0 6px;font:800 17px/1.3 Figtree,sans-serif;color:#1c1208}
+/* What a plain question is about (2026-10-29), in the tag's ink above Claude's own words. */
+.ckpins .about{margin:0 0 3px;font:600 13px/1.35 Figtree,sans-serif;color:#6b4a26}
 #bubble:not(.cockpit) .ckpins .glove{display:flex;flex-direction:column;margin:8px 0 2px}
 #bubble:not(.cockpit) .ckpins .opt{display:flex;align-items:flex-start;gap:9px;margin:0 0 7px 30px;padding:8px 11px;border-radius:7px;background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48;color:#21160a}
 #bubble:not(.cockpit) .ckpins .opt .lab{font:700 14.5px/1.3 Figtree,sans-serif;color:#21160a}

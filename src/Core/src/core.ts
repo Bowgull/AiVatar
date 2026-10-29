@@ -75,6 +75,7 @@ import { dropMockup, markMockup } from './mockupdrop.ts';
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
 import { MarkDeriver, claudeNow } from './claudemark.ts';
+import { gistOf } from './replygist.ts';
 import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
 import { SessionNames } from './claudenames.ts';
@@ -2204,13 +2205,31 @@ export class Core {
     if (this.launched.some(l => l.state !== 'ended' && l.sessionId === r.session)) return false;
     const found = findQuestion(r.words);
     if (!found) return false;
-    return confirmQuestion(r.words, found, this.plainQAsk).then(q => !!q && this.claudeJobs.replyQuestion(r.session, q) !== null);
+    return confirmQuestion(r.words, found, this.plainQAsk).then(q => {
+      const item = q ? this.claudeJobs.replyQuestion(r.session, q) : null;
+      // What "it" is (2026-10-29): the card says what the reply was about, a few seconds after it lands.
+      if (item && !this.gistOff) void gistOf(r.words, this.plainAsks()).then(g => { if (g) this.claudeJobs.setAbout(item.id, g); });
+      return item !== null;
+    });
   }
   /** One "<title> replied" line. False when it is not said: he is in Claude on this PC (he saw it there), or it is a
    *  session Aang launched, which already gets its own fuller news (newsFor). */
   private sayReply(line: ReplyLine): boolean {
     if (this.inClaude() && !line.host) return false;
     if (this.launched.some(l => l.state !== 'ended' && l.sessionId === line.session)) return false;
+    // What it did in one line (2026-10-29, his pick), not its first sentence; the first sentence if no model can say it.
+    if (line.words && !this.gistOff) {
+      void gistOf(line.words, this.plainAsks()).then(g => {
+        if (this.inClaude() && !line.host) return;          // he went to Claude meanwhile: he is reading it there
+        this.tellReply({ ...line, words: undefined, ...(g ? { text: `${line.name || line.project}: ${g}` } : {}) });
+      });
+      return true;
+    }
+    return this.tellReply(line);
+  }
+  /** The first sentence, no model: tests (the test door is only ever theirs) and AANG_GIST=0. */
+  get gistOff(): boolean { return this.cfg.testDoor === true || process.env.AANG_GIST === '0'; }
+  private tellReply(line: ReplyLine): boolean {
     this.announce(line.text, { asked: true, done: true, blocking: false, claude: line.project, session: line.session, ...(line.host ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW }) });
     // The teal done flash and the done chime at the desk (one of his four sounds, 2026-10-22). In a game the pet holds the line itself as the teal mark
     // (its own rule for a finished job); muted, hushed or away, nothing extra.

@@ -633,7 +633,7 @@ function readWait(x) {
   })).filter((q) => q.question) : [];
   if (kind === 'question' && !questions.length && x.readonly !== true) return null;
   return { id: x.id.slice(0, 100), session: x.session.slice(0, 100), project: str(x.project, 60) || 'Claude', kind, tool: str(x.tool, 120),
-    summary: str(x.summary, 300), plain: str(x.plain, 400), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true,
+    summary: str(x.summary, 300), plain: str(x.plain, 400), about: str(x.about, 120), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true,
     readonly: x.readonly === true, reply: x.reply === true };
 }
 
@@ -1004,7 +1004,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   function rType(on) { if (on === rTyping) return; rTyping = on; window.aang?.bubbleTyping?.(on); }
   function replyCard(card, w, typed = null) {
     const q = w.questions[0];
-    card.append(h('p', 'q', w.plain || q.question));
+    // What it is about, then Claude's own question (2026-10-29: the question alone never said what "it" was).
+    if (w.about) card.append(h('p', 'about', w.about));
+    card.append(h('p', 'q', q.question));
     const list = h('div', 'opts glove'), rows = [];
     const pick = (text) => { send({ t: 'claude.answer', id: w.id, answers: { [q.question]: text } }); done(w, text); };
     q.options.forEach((o, i) => {
@@ -1204,7 +1206,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       if (top !== null && top !== topId && m.quiet === true) parked = true;
       if (fresh) parked = false;
       topId = top;
-      const sig = JSON.stringify([live().map((w) => [w.id, w.plain, w.summary, w.questions.map((q) => q.options.map((o) => o.plain))]), parked]);
+      const sig = JSON.stringify([live().map((w) => [w.id, w.plain, w.about, w.summary, w.questions.map((q) => q.options.map((o) => o.plain))]), parked]);
       if (sig !== pinsSig || fresh) { pinsSig = sig; paintPins(); onChange(); }
       // A job waiting on him shows in the strip (and leaves it once answered).
       if (paintJobs()) onChange();
