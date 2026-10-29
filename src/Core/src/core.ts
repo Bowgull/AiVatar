@@ -75,7 +75,8 @@ import { dropMockup, markMockup } from './mockupdrop.ts';
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
 import { MarkDeriver, claudeNow } from './claudemark.ts';
-import { gistOf } from './replygist.ts';
+import { MessageEngine, type MsgEvent, type Writer } from './messages.ts';
+import { ShadowLink, readShadowAt } from './shadowlink.ts';
 import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
 import { SessionNames } from './claudenames.ts';
@@ -319,6 +320,10 @@ const MAX_TEXT = 8000;
 const PERMISSION_AT_DESK_MS = 30_000;
 /** Claude in front this long means he has seen what finished: the done tick goes (2026-10-29). */
 const SEEN_IN_CLAUDE_MS = 5_000;
+/** A turn this long is worth telling him about when it ends (2026-10-29, his "only when it matters"). */
+const LONG_TURN_MS = 8 * 60_000;
+/** The end of a reply that says it did not work out: worth telling him. */
+const TROUBLE = /\b(?:failed|failing|error|errors|couldn'?t|could not|can'?t get|blocked|stuck|broke|broken|crashed)\b/i;
 const PERMISSION_TIMEOUT_MS = 120_000;   // he may be in the game; wait, but never for ever          // a chat message this long is a paste; cap it rather than trust the sender
 
 /**
@@ -2208,7 +2213,11 @@ export class Core {
     return confirmQuestion(r.words, found, this.plainQAsk).then(q => {
       const item = q ? this.claudeJobs.replyQuestion(r.session, q) : null;
       // What "it" is (2026-10-29): the card says what the reply was about, a few seconds after it lands.
-      if (item && !this.gistOff) void gistOf(r.words, this.plainAsks()).then(g => { if (g) this.claudeJobs.setAbout(item.id, g); });
+      if (item) {
+        const name = this.claudeJobs.list().find(j => j.id === r.session)?.title || this.claudeNames.of(r.session)?.title || r.project;
+        void this.messages.write({ kind: 'claude.question', name, question: q!.question, options: q!.options, asked: this.claudeJobs.askedOf(r.session), words: r.words })
+          .then(text => this.claudeJobs.setAbout(item.id, text));
+      }
       return item !== null;
     });
   }
@@ -2217,18 +2226,52 @@ export class Core {
   private sayReply(line: ReplyLine): boolean {
     if (this.inClaude() && !line.host) return false;
     if (this.launched.some(l => l.state !== 'ended' && l.sessionId === line.session)) return false;
-    // What it did in one line (2026-10-29, his pick), not its first sentence; the first sentence if no model can say it.
-    if (line.words && !this.gistOff) {
-      void gistOf(line.words, this.plainAsks()).then(g => {
-        if (this.inClaude() && !line.host) return;          // he went to Claude meanwhile: he is reading it there
-        this.tellReply({ ...line, words: undefined, ...(g ? { text: `${line.name || line.project}: ${g}` } : {}) });
-      });
-      return true;
-    }
-    return this.tellReply(line);
+    // The message engine (2026-10-29): what it did, in Aang's words, goes on its done card every time. It is SAID only
+    // when it matters (his pick): a long turn, or one that ends in trouble. A routine reply only lights the tick.
+    const words = line.words ?? '';
+    const tookMs = this.claudeJobs.turnMs(line.session) ?? undefined;
+    const trouble = TROUBLE.test(words.slice(-600));
+    const matters = trouble || (tookMs ?? 0) >= LONG_TURN_MS;
+    const name = line.name || line.project;
+    const e: MsgEvent = trouble
+      ? { kind: 'claude.failed', name, ...(line.host ? { machine: this.otherMachine() } : {}), why: words.slice(-300) }
+      : { kind: 'claude.done', name, ...(line.host ? { machine: this.otherMachine() } : {}), asked: this.claudeJobs.askedOf(line.session), words, ...(tookMs ? { tookMs } : {}) };
+    void this.messages.write(e, { timeoutMs: 15_000 }).then(text => {
+      this.claudeJobs.setSaid(line.session, text);
+      if (!matters) return;
+      if (this.inClaude() && !line.host) return;          // he went to Claude meanwhile: he is reading it there
+      this.tellReply({ ...line, text });
+    });
+    return true;
   }
-  /** The first sentence, no model: tests (the test door is only ever theirs) and AANG_GIST=0. */
-  get gistOff(): boolean { return this.cfg.testDoor === true || process.env.AANG_GIST === '0'; }
+  /**
+   * Aang's own news whose facts are raw (a backup's error, a tool's detail): written in his words by the message engine
+   * (2026-10-29), the plain facts if no writer answers. News he words himself already (a reminder, a call, a video)
+   * keeps its own line.
+   */
+  private sayAang(about: string, facts: string, move?: string, opts: Parameters<Core['announce']>[1] = {}): void {
+    void this.messages.write({ kind: 'aang', about, facts, ...(move ? { move } : {}) }).then(text => this.announce(text, opts));
+  }
+  /** The machine a remote session is on, from this brain's side (2026-10-29). */
+  private otherMachine(): string { return process.platform === 'darwin' ? 'the PC' : 'the MacBook'; }
+  /**
+   * The message engine's writers, first that answers wins (his pick, 2026-10-29): Shadow while the two brains have shaken
+   * hands and it is on (free, its Qwen); Qwen on this machine (the PC only, the Mac has none); Claude's quick model.
+   * None in tests: the plain line from the facts.
+   */
+  shadowWriter: { up: () => boolean; write: Writer } | null = null;
+  private shadowLink: ShadowLink | null = null;
+  readonly messages = new MessageEngine({ list: () => {
+    if (this.gistOff) return [];
+    const [local, quick] = this.plainAsks();
+    return [
+      ...(this.shadowWriter?.up() ? [{ name: 'shadow', write: this.shadowWriter.write }] : []),
+      ...(process.platform === 'darwin' ? [] : [{ name: 'local', write: local! }]),
+      { name: 'quick', write: quick! },
+    ];
+  } });
+  /** No model writes the notices (the plain line from the facts): tests (only the real brain scans transcripts) and AANG_GIST=0. */
+  get gistOff(): boolean { return this.cfg.scanTranscripts !== true || this.cfg.testDoor === true || process.env.AANG_GIST === '0'; }
   private tellReply(line: ReplyLine): boolean {
     this.announce(line.text, { asked: true, done: true, blocking: false, claude: line.project, session: line.session, ...(line.host ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW }) });
     // The teal done flash and the done chime at the desk (one of his four sounds, 2026-10-22). In a game the pet holds the line itself as the teal mark
@@ -2328,8 +2371,11 @@ export class Core {
     for (const w of waits) {
       if (this.toldAway.has(w.id)) continue;
       this.toldAway.add(w.id);
-      const what = w.kind === 'question' ? 'has a question' : w.kind === 'plan' ? 'has a plan for you to look at' : 'wants your OK';
-      this.announce(`Need input: Claude in ${w.project} ${what}: ${(w.plain || w.summary).slice(0, 300)}`, { asked: true, blocking: true, claude: w.project, session: w.session });
+      // In Aang's words (the message engine, 2026-10-29): who, what it wants, how long it has waited.
+      const name = this.claudeJobs.list().find(j => j.id === w.session)?.title || this.claudeNames.of(w.session)?.title || w.project;
+      const doing = this.claudeJobs.list().find(j => j.id === w.session)?.activity.now;
+      void this.messages.write({ kind: 'claude.waiting', name, wants: w.kind === 'question' ? 'question' : w.kind === 'plan' ? 'plan' : 'ok', what: w.plain || w.summary, ...(doing ? { doing } : {}), waitedMs: Date.now() - w.at })
+        .then(text => this.announce(text, { asked: true, blocking: true, claude: w.project, session: w.session }));
     }
   }
   /** The program in front, as the pet last said (its process name). Kept whether or not he lets Aang watch windows. */
@@ -2778,7 +2824,7 @@ export class Core {
     const r = await this.backup.run();
     const rec = this.actions.add({ tool: 'backup', did: r.ok ? `backed up his memory: ${r.detail}` : `backup failed: ${r.detail}`, ok: r.ok, note: r.ok ? '' : r.detail });
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });
-    if (!r.ok && wasStale) this.announce(`I have not backed up cleanly in over 12 hours. The last attempt failed: ${r.detail}.`);
+    if (!r.ok && wasStale) this.sayAang('a memory backup', `His memory has not been backed up cleanly in over 12 hours. The last try said: ${r.detail}`);
   }
 
   /** He came back to (or left) the machine: from the pet on the PC, from the Mac's presence helper on the Mac. */
@@ -2916,7 +2962,17 @@ export class Core {
         mine.updatedAt = Date.now();
         this.saveLaunched();
         this.pushClaudeWorking();
-        if (news && !(this.inClaude() && !remote)) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW, ...(mine.sessionId ? { session: mine.sessionId } : {}) });
+        if (news && !(this.inClaude() && !remote)) {
+          // A job he started: always said (his pick, 2026-10-29), in Aang's words (the message engine).
+          const hook = String(ev?.hook_event_name ?? '');
+          const words = hook === 'Stop' && typeof ev?.transcript_path === 'string' ? lastAssistantText(ev.transcript_path) : '';
+          const e: MsgEvent = hook === 'Notification'
+            ? { kind: 'claude.waiting', name: `the ${mine.name}`, wants: /permission/i.test(String(ev?.message ?? '')) ? 'ok' : 'question', what: String(ev?.message ?? '').replace(/^Claude needs your permission to use\s+/i, 'permission to use ') }
+            : asksSomething(words) ? { kind: 'claude.question', name: `the ${mine.name}`, question: words.slice(-300), words }
+            : { kind: 'claude.done', name: `the ${mine.name}`, words };
+          const opts = { asked: true, focus: CLAUDE_WINDOW, ...(mine.sessionId ? { session: mine.sessionId } : {}) };
+          void this.messages.write(e, { timeoutMs: 15_000 }).then(text => this.announceJob(text.replace(/^the /, 'The '), mine.cwd, opts));
+        }
         return;
       }
       // A session he started himself, outside Aang, still gets the same two tiers - his rule, 2026-09-22:
@@ -2935,11 +2991,12 @@ export class Core {
         // His name for the session where Aang knows it (2026-10-28), not the folder: "waiting on you in Resume rewrite",
         // never "in 2026-10-20_project".
         const named = this.claudeJobs.list().find(j => j.id === said.session.id)?.title || this.claudeNames.of(said.session.id)?.title;
-        const base = named ? said.text.replace(` in ${said.session.project}.`, ` in ${named}.`) : said.text;
-        const text = remote ? base.replace(/^Claude Code/, process.platform === 'darwin' ? 'Claude Code on the PC' : 'Claude Code on the MacBook') : base;   // the other machine (2026-10-29, fix 10)
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         const claude = said.session.project, session = said.session.id;
-        this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, claude, session, ...where } : { asked: true, done: true, claude, session, ...where });
+        // In Aang's words (the message engine, 2026-10-29), named for the session, the other machine said as such.
+        const why = said.session.waitingFor.replace(/^Claude needs your permission to use\s+/i, 'permission to use ');
+        void this.messages.write({ kind: 'claude.waiting', name: named || said.session.project, ...(remote ? { machine: this.otherMachine() } : {}), wants: /permission/i.test(said.session.waitingFor) ? 'ok' : 'question', ...(why ? { what: why } : {}) })
+          .then(text => this.announce(text, { asked: true, blocking: true, claude, session, ...where }));
       }
     }, this.keyFile('hook.key'), code => this.setupFor(code),
     // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
@@ -2959,6 +3016,13 @@ export class Core {
       door.onStart = (session, ev) => this.starter.onEvent(session, ev);
       door.onProbe = (ask) => this.starter.probe(ask, this.cfg.dataDir);
       this.hookServer.link = door;
+    }
+    // The message engine's handshake (2026-10-29): on the PC its Qwen writes notices for the Mac's brain (free); on the Mac,
+    // while Shadow answers its heartbeat, Shadow writes them, and the Mac's quick model takes over the moment it does not.
+    if (process.platform !== 'darwin') this.hookServer.write = async (ask) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(ask.prompt, { system: ask.system, maxTokens: ask.maxTokens, timeoutMs: 20_000 }); return { ok: r.ok, text: r.text }; };
+    else if (this.cfg.scanTranscripts === true) {          // the real brain only, never a test
+      const at = readShadowAt();
+      if (at) { const shadow = new ShadowLink(at, { log: s => console.log(s) }); shadow.start(); this.shadowWriter = { up: () => shadow.up(), write: shadow.write }; this.shadowLink = shadow; }
     }
     // Progress engine v3 (2026-10-21): the duration history and the phase plans live in his Aang folder (they survive
     // restarts); the CI watcher runs only in the real brain (the same switch as the transcript scan), never in tests.
@@ -3097,6 +3161,7 @@ export class Core {
 
   async stop(): Promise<void> {
     this.macPresence?.stop();
+    this.shadowLink?.stop();
     // A stale password must not outlive the Core that issued it.
     clearToken(this.cfg.stateDir);
     clearLinkKey(this.cfg.dataDir);
@@ -4831,9 +4896,9 @@ export class Core {
       const r = await backupVault();
       this.actions.add({ tool: 'backup', did: r.detail.slice(0, 90), ok: r.ok, note: '' });
       // A failed save, or one that stayed on this PC because GitHub was out of reach, is the only thing he hears.
-      if (!r.ok || /could not reach GitHub/.test(r.detail)) this.announce(`Vault backup: ${r.detail}`);
+      if (!r.ok || /could not reach GitHub/.test(r.detail)) this.sayAang('the vault backup', `The backup of his notes vault to GitHub said: ${r.detail}`);
     } catch (e) {
-      this.announce(`I could not back up your vault: ${(e as Error).message}`);
+      this.sayAang('the vault backup', `The backup of his notes vault failed: ${(e as Error).message}`);
     } finally {
       this.backingUp = false;
     }
@@ -5088,7 +5153,8 @@ export class Core {
       l.staleNudged = true;
       changed = true;
       const mins = Math.round((now - l.startedAt) / 60_000);
-      void this.announceJob(`No word from the ${l.name} in Claude for a few minutes now (${mins} since it started) - worth checking it: it may be waiting on a prompt there that does not reach me.`, l.cwd, { asked: true, focus: CLAUDE_WINDOW });
+      void this.messages.write({ kind: 'claude.stalled', name: `the ${l.name}`, quietMs: Date.now() - (l.updatedAt ?? l.startedAt) })
+        .then(text => this.announceJob(text.replace(/^the /, 'The '), l.cwd, { asked: true, focus: CLAUDE_WINDOW }));
     }
     if (changed) { this.saveLaunched(); this.pushClaudeWorking(); }
   }

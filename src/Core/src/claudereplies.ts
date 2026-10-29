@@ -30,7 +30,7 @@ export interface TurnEnd {
   host?: 'mac';
 }
 
-export interface ReplyLine { session: string; project: string; text: string; host?: 'mac'; /** The reply itself, for its one-line gist (replygist.ts). */ words?: string; /** Its title, for "<title>: <gist>". */ name?: string }
+export interface ReplyLine { session: string; project: string; text: string; host?: 'mac'; /** The reply itself, for the message engine (messages.ts). */ words?: string; /** Its title, as he named the session. */ name?: string }
 /** A turn end's words, offered to the plain-question check (plainquestion.ts) before the "replied" line is said. */
 export interface ReplyWords { session: string; project: string; words: string; host?: 'mac' }
 
