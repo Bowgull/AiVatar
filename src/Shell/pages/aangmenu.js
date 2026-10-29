@@ -78,7 +78,7 @@ function mainRows(s) {
     '-',
     { sub: 'dock', ic: 'dock', t: 'Dock' },
     { id: 'comeback', ic: 'back2', t: 'Come back', off: !s.docked },
-    { id: 'hide', ic: 'hide', t: 'Hide' },
+    { id: 'hide', ic: 'hide', t: s.hidden ? 'Show Aang' : 'Hide' },
     // Sheet 101 (2026-10-28): only where there is another machine to go to; dim while it is not on.
     ...(s.other === 'pc' || s.other === 'mac' ? [{ id: 'gopc', ic: 'gopc', t: s.other === 'pc' ? 'Go to the PC' : 'Go to the Mac', off: s.otherOn !== true }] : []),
     '-',

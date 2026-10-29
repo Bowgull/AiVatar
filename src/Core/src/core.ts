@@ -1816,7 +1816,7 @@ export class Core {
     this.hushTimer.unref?.();
     return `Hushed for ${m} minutes (until ${clock(new Date(this.hushUntil))}). I will hold whatever comes up and tell you after.`;
   }
-  private releasePending(): void { this.releaseHeld(); }
+  private releasePending(): void { this.releaseHeld(); this.releaseFront(); }
 
   /** Ask (once, then trusted), then change the file. A refusal by the rules is reported without asking at all. */
   private async changeFile(tool: string, input: Record<string, unknown>, doIt: () => { ok: boolean; detail: string }): Promise<{ ok: boolean; detail: string }> {
@@ -2285,7 +2285,15 @@ export class Core {
   private toldAway = new Set<string>();
   private pushClaudeLink(what: 'jobs' | 'wait', urgent = false): void {
     // A wait coming or going also changes a job's live line ("Waiting for your OK"), so the jobs follow it at once.
-    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeWorking(); urgent = true; this.tellAwayOfWaits(); }
+    if (what === 'wait') {
+      const items = this.claudeJobs.waiting();
+      // The pusher below works out the mark (urgent: at once); doing it here too ran it twice per change (fix 11).
+      this.sendTo('desktop', { t: 'claude.wait', items }); urgent = true; this.tellAwayOfWaits();
+      // A session that stopped waiting: he answered it, here or in Claude. Its "needs you" posts say Seen (fix 4).
+      const now = new Set(items.map(w => w.session).filter((x): x is string => typeof x === 'string' && !!x));
+      this.seenOnDiscord([...this.waitSessions].filter(x => !now.has(x)));
+      this.waitSessions = now;
+    }
     this.claudePusher.ask(urgent);
   }
   /**
@@ -2312,29 +2320,76 @@ export class Core {
   /** The one gate for "never surface anything while Claude is in front" (claudefront.ts, 2026-10-21). */
   private readonly frontGate = new FrontGate(() => this.inClaude());
   private seenTimer: NodeJS.Timeout | null = null;
+  private seenInClaude = false;
+  private wasInClaude = false;
   /** He left the Claude window: the mark comes back quietly, then what was held, a few seconds apart (as hush does). */
   private frontMoved(): void {
     // 2026-10-29, his pick: Claude in front for 5 s means he has seen what finished, so the done tick goes (all of them:
-    // which Claude tab he looks at is not known). A quick switch through Claude leaves it.
-    // Presence repeats while nothing moves, so a running wait is left alone.
-    if (!this.inClaude()) { if (this.seenTimer) { clearInterval(this.seenTimer); this.seenTimer = null; } }
-    // Kept up while he stays: a job that finishes with Claude in front is seen there too.
-    else if (!this.seenTimer) {
-      this.seenTimer = setInterval(() => { if (this.inClaude()) this.claudeJobs.ackAll(); else { clearInterval(this.seenTimer!); this.seenTimer = null; } }, SEEN_IN_CLAUDE_MS);
-      this.seenTimer.unref?.();
+    // which Claude tab he looks at is not known). A quick switch through Claude leaves it. One timer per visit; a job
+    // that finishes after it, while he is still there, is read at once (pushed below, from the job list).
+    const inNow = this.inClaude();
+    if (inNow !== this.wasInClaude) {
+      this.wasInClaude = inNow;
+      if (this.seenTimer) { clearTimeout(this.seenTimer); this.seenTimer = null; }
+      this.seenInClaude = false;
+      if (inNow) {
+        this.seenTimer = setTimeout(() => { this.seenTimer = null; if (this.inClaude()) { this.seenInClaude = true; this.markSeen(this.claudeJobs.ackAll()); } }, SEEN_IN_CLAUDE_MS);
+        this.seenTimer.unref?.();
+      } else setTimeout(() => this.briefIfDue(), 3000).unref?.();   // out of Claude: a brief that waited for it comes now (R6)
     }
-    // Out of Claude: a brief that waited for it comes now (R6).
-    if (!this.inClaude()) setTimeout(() => this.briefIfDue(), 3000).unref?.();
-    const { mark, lines } = this.frontGate.moved(m => this.askOver(m));
+    const { mark, lines } = this.frontGate.moved((m, at) => this.claudeOver(m, at), this.deskOpen());
     if (mark) this.sendTo('desktop', mark);
-    // Looked at again as each one goes: one answered in Claude in the seconds between is not said either.
-    if (lines.length >= 3) { setTimeout(() => { const live = lines.filter(m => !this.askOver(m)); if (live.length) this.sendTo('desktop', live.length >= 3 ? bundleOf(live, 'While you were in Claude:') : live[0]!); }, 1500).unref?.(); return; }
-    lines.forEach((m, i) => setTimeout(() => { if (!this.askOver(m)) this.sendTo('desktop', m); }, 1500 + i * 6000).unref?.());
+    this.sayFrontHeld(lines);
+  }
+  /** Nothing in the way of a line reaching the bubble: no hush, mute or quiet, and he is at the desk (2026-10-29). */
+  private deskOpen(): boolean {
+    return this.hushUntil <= Date.now() && !this.muted && !this.bodyQuiet && this.whereHeIs() === 'desktop';
+  }
+  /** The way just cleared (a hush, mute or quiet ended, or he came back): what Claude's front gate still holds. */
+  private releaseFront(): void {
+    if (this.deskOpen()) this.sayFrontHeld(this.frontGate.take((m, at) => this.claudeOver(m, at)));
+  }
+  /**
+   * Lines held while he was in Claude, after the quiet mark. Two or more are ONE bubble with a row each (2026-10-29,
+   * gap 9: no drip). Looked at again just before: one answered in Claude in the seconds between is not said either.
+   */
+  private sayFrontHeld(lines: ToBody[]): void {
+    if (!lines.length) return;
+    setTimeout(() => {
+      const live = lines.filter(m => !this.askOver(m));
+      if (live.length) this.sendTo('desktop', live.length >= 2 ? bundleOf(live, 'While you were in Claude:') : live[0]!);
+    }, 1500).unref?.();
   }
   /**
    * 2026-10-22: a line saying a Claude session waits on him (a blocking line with its session) that is no longer true:
    * nothing of that session waits in the link, and the old hooks do not have it waiting either. He answered it in Claude.
    */
+  /**
+   * 2026-10-29 (his "build all 11", fix 3): Claude news he has dealt with in Claude is not news any more. A question he
+   * answered (askOver), or any line about a session he has seen since the line was made (the Claude app in front 5 s,
+   * or he X'd or opened its done card).
+   */
+  private claudeOver(m: ToBody, at: number): boolean {
+    if (this.askOver(m)) return true;
+    const b = m as { t: string; kind?: string; session?: string };
+    return b.t === 'bubble' && b.kind === 'claude' && typeof b.session === 'string' && this.newsSeen(b.session, at);
+  }
+  /** When he last saw each Claude session's news (session id to time), for claudeOver. */
+  private readonly seenAt = new Map<string, number>();
+  private newsSeen(session: string, at: number): boolean { return (this.seenAt.get(session) ?? 0) >= at; }
+  /** He has seen these sessions' news: remembered, and every hold on the desk drops its copies (claude.seen). */
+  private markSeen(ids: string[]): void {
+    if (!ids.length) return;
+    const now = Date.now();
+    for (const id of ids) this.seenAt.set(id, now);
+    while (this.seenAt.size > 200) this.seenAt.delete(this.seenAt.keys().next().value as string);
+    this.sendTo('desktop', { t: 'claude.seen', sessions: ids } as never);
+    this.seenOnDiscord(ids);
+  }
+  /** Discord's copies of these sessions' news are edited to "Seen" (fix 4, his pick: edited, never deleted). */
+  private seenOnDiscord(ids: string[]): void { if (ids.length) this.sendTo('discord', { t: 'claude.seen', sessions: ids } as never); }
+  /** The sessions that were waiting on him at the last list, to see which stopped (answered at the desk or in Claude). */
+  private waitSessions = new Set<string>();
   private askOver(m: ToBody): boolean {
     if (m.t !== 'bubble' || m.blocking !== true || typeof m.session !== 'string' || !m.session) return false;
     const s = m.session;
@@ -2477,26 +2532,36 @@ export class Core {
    */
   private releaseHeld(): void {
     const now = Date.now();
-    const held = this.pending.splice(0).filter(h => fresh(h, now, !!h.opts.brief) && !this.heldAskOver(h.opts));
-    // Three or more at once (sheet 102, his yes): ONE bubble with a row each, the most important first, not a drip.
-    if (held.length >= 3 && this.whereHeIs() === 'desktop') {
+    const held = this.pending.splice(0).filter(h => fresh(h, now, !!h.opts.brief) && !this.heldAskOver(h.opts, h.at));
+    // Two or more at once (sheet 102, his yes; two since 2026-10-29, gap 9): ONE bubble with a row each, the most
+    // important first, not a drip.
+    const where = this.whereHeIs();
+    if (held.length >= 2 && where === 'desktop') {
       const msgs: ToBody[] = [];
       for (const h of [...held].sort((a, b) => a.tier - b.tier || a.at - b.at)) {
         const when = h.opts.reminder ? earlier(h.at, now) : '';
         this.announce(when + h.text, { ...h.opts, heldAt: h.at, collect: m => msgs.push(m) });
       }
-      if (msgs.length) this.sendTo('desktop', bundleOf(msgs, 'While you were busy:'));
+      if (msgs.length >= 2) this.sendTo('desktop', bundleOf(msgs, 'While you were busy:'));
+      else if (msgs.length) this.sendTo('desktop', msgs[0]!);
       return;
     }
-    held.forEach((h, i) => setTimeout(() => {
-      if (this.heldAskOver(h.opts)) return;
-      const when = h.opts.reminder ? earlier(h.at, Date.now()) : '';
+    // Away: ONE Discord post with a line each, not eight posts 6 s apart (gap 9). Asked if any of them was.
+    if (held.length >= 2 && where === 'discord') {
+      const rows = [...held].sort((a, b) => a.tier - b.tier || a.at - b.at).map(h => '• ' + (h.opts.reminder ? earlier(h.at, now) : '') + h.text);
+      this.announce('While you were busy:\n' + rows.join('\n'), { asked: held.some(h => h.opts.asked === true) });
+      return;
+    }
+    for (const h of held) {
+      const when = h.opts.reminder ? earlier(h.at, now) : '';
       this.announce(when + h.text, { ...h.opts, heldAt: h.at });
-    }, i * 6000).unref?.());
+    }
   }
   /** A held line that said a Claude session waits on him, and it no longer does (askOver, for an announce's options). */
-  private heldAskOver(o: NonNullable<Parameters<Core['announce']>[1]>): boolean {
-    return o.blocking === true && typeof o.session === 'string' && !!o.session && this.askOver({ t: 'bubble', text: '', stream: false, blocking: true, session: o.session } as ToBody);
+  private heldAskOver(o: NonNullable<Parameters<Core['announce']>[1]>, at = Date.now()): boolean {
+    if (typeof o.session !== 'string' || !o.session) return false;
+    if (o.claude && this.newsSeen(o.session, at)) return true;     // seen in Claude since (fix 3, 2026-10-29)
+    return o.blocking === true && this.askOver({ t: 'bubble', text: '', stream: false, blocking: true, session: o.session } as ToBody);
   }
   /** The one permission question outstanding, if any. */
   private permission: { id: string; resolve: (choice: PermChoice) => void; timer: NodeJS.Timeout } | null = null;
@@ -2703,17 +2768,18 @@ export class Core {
     if (active) this.saidAway = false;
     // Back (sheet 102): one line with what went to his phone meanwhile, a row each; nothing is sent again.
     if (!was && active && this.awayLog.length) {
-      const back = welcomeBack(this.awayLog.splice(0));
+      // Not what he has dealt with in Claude meanwhile (fix 3): a question answered there, or news of a session he saw.
+      const back = welcomeBack(this.awayLog.splice(0).filter(x => !x.session || !(this.newsSeen(x.session, x.at)
+        || (x.blocking && this.askOver({ t: 'bubble', text: '', stream: false, blocking: true, session: x.session } as ToBody)))));
       if (back) setTimeout(() => this.sendTo('desktop', back), 2500).unref?.();
     }
     if (!active && was) this.awayLog.length = 0;
-    if (!was && this.atDesk) setTimeout(() => this.briefIfDue(), 20_000).unref?.();
+    if (!was && this.atDesk) { setTimeout(() => this.briefIfDue(), 20_000).unref?.(); setTimeout(() => this.releaseFront(), 4000).unref?.(); }
   }
   /** What is in front and whether to keep quiet: from the pet on the PC, from the Mac's presence helper on the Mac. */
   private applyPresence(m: { foreground?: unknown; title?: unknown; quiet?: unknown; watching?: unknown; hwnd?: unknown }): void {
     this.fgProcess = String(m.foreground ?? '');
     this.fgTitle = String(m.title ?? '');
-    this.frontMoved();
     // Perf sweep (2026-10-22): the game just came to the front. Ollama keeps Qwen (13 GB of his 15 GB card) resident
     // for five minutes after its last job, and until now only the NEXT local job gave the card back, so a job finished
     // a minute before he tabbed into WoW held the card through the start of his session. Now it goes at once. A model
@@ -2721,6 +2787,8 @@ export class Core {
     // and a job mid-answer finishes first.
     if (m.quiet === true && !this.bodyQuiet && process.platform !== 'darwin') void import('./local.ts').then(({ unloadLocal }) => unloadLocal()).catch(() => {});
     this.setSilent(m.quiet === true, this.muted);
+    // After the quiet is known (2026-10-29, gap 2): out of Claude straight into Shadow or a call keeps the lines held.
+    this.frontMoved();
     const watching = m.watching !== false;
     if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }
     if (!watching) clearReadCache();
@@ -2728,6 +2796,7 @@ export class Core {
   }
   /** The Mac's presence helper (mac/presence.swift); null on the PC, where the pet does this. */
   private macPresence: MacPresence | null = null;
+  private lastShadow: boolean | undefined;
 
   /** This run's password. Null only if it could not be written; the Origin rule still stands. */
   private token: string | null = null;
@@ -2737,16 +2806,20 @@ export class Core {
     if (process.platform === 'darwin' && process.env.AANG_PRESENCE !== '0') {
       this.macPresence = new MacPresence(process.env.AANG_PRESENCE_BIN ?? path.join(import.meta.dirname, '..', 'bin', 'aang-presence'), {
         presence: p => {
-          this.applyPresence(p);
-          this.sendTo('desktop', { t: 'mac.front', shadow: p.shadow } as never);
+          // The bubble hears that quiet is over BEFORE anything held comes out (2026-10-29 notices map, gap 1): the other
+          // way round, the "While you were busy" bundle and the Mac app's held bubble reached a bubble that still thought
+          // it was quiet, were held there and dropped.
           // The bubble's own quiet (the PC pet sends this): a call, the Shadow window, full screen or Focus holds Claude
           // cards and timer cards in the bubble until it ends, as a game does on the PC (2026-10-28 notice review: the
-          // Mac never sent it, so cards and the needs-you chime came up mid-call). Never "hidden": that would turn asks
-          // away rather than hold them.
+          // Mac never sent it, so cards and the needs-you chime came up mid-call). Never "hidden" from here: that is his
+          // own Hide, which the Mac app owns.
           // `call` (2026-10-28, his pick): on a call a timer only glows, no knocks.
           const r = this.macPresence?.now();
-          this.lastBubbleState = { t: 'bubble.state', quiet: p.quiet, hidden: false, muted: this.muted, ...(r && (r.mic || r.cam) ? { call: true } : {}) } as never;
-          this.sendTo('desktop', this.lastBubbleState);
+          const state = { t: 'bubble.state', quiet: p.quiet, hidden: false, muted: this.muted, ...(r && (r.mic || r.cam) ? { call: true } : {}) } as never;
+          // Only when something changed: every app switch used to send both again (gap 11).
+          if (JSON.stringify(state) !== JSON.stringify(this.lastBubbleState)) { this.lastBubbleState = state; this.sendTo('desktop', state); }
+          if (p.shadow !== this.lastShadow) { this.lastShadow = p.shadow; this.sendTo('desktop', { t: 'mac.front', shadow: p.shadow } as never); }
+          this.applyPresence(p);
         },
         desk: active => this.applyDesk(active), log: s => console.log(s),
         // The first reading after a start (R16): he may already be at the Mac, which applyDesk never sees as a change.
@@ -2844,7 +2917,7 @@ export class Core {
         // never "in 2026-10-20_project".
         const named = this.claudeJobs.list().find(j => j.id === said.session.id)?.title || this.claudeNames.of(said.session.id)?.title;
         const base = named ? said.text.replace(` in ${said.session.project}.`, ` in ${named}.`) : said.text;
-        const text = remote ? base.replace(/^Claude Code/, 'Claude Code on the MacBook') : base;
+        const text = remote ? base.replace(/^Claude Code/, process.platform === 'darwin' ? 'Claude Code on the PC' : 'Claude Code on the MacBook') : base;   // the other machine (2026-10-29, fix 10)
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         const claude = said.session.project, session = said.session.id;
         this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, claude, session, ...where } : { asked: true, done: true, claude, session, ...where });
@@ -2871,7 +2944,11 @@ export class Core {
     // Progress engine v3 (2026-10-21): the duration history and the phase plans live in his Aang folder (they survive
     // restarts); the CI watcher runs only in the real brain (the same switch as the transcript scan), never in tests.
     this.claudeJobs.useData(this.cfg.dataDir, { ci: this.cfg.scanTranscripts === true });
-    this.claudeJobs.onChange = (what, urgent) => this.pushClaudeLink(what, urgent);
+    this.claudeJobs.onChange = (what, urgent) => {
+      // Finished while he sits in Claude, past the first 5 s: he saw it there (2026-10-29). ackAll calls back here once.
+      if (what === 'jobs' && this.seenInClaude && this.inClaude()) { const ids = this.claudeJobs.ackAll(); if (ids.length) { this.markSeen(ids); return; } }
+      this.pushClaudeLink(what, urgent);
+    };
     this.claudeJobs.onTurn = (session, what, info) => { if (what === 'start') this.replies.started(session); else this.replies.ended({ session, project: info.project, aborted: info.aborted, ...(info.words ? { words: info.words } : {}) }); };
     // 2026-10-21: his session names are read in the background now (claudenames.ts), so a name learned later sends
     // the jobs again; the first read starts here rather than inside the first push.
@@ -2883,7 +2960,9 @@ export class Core {
     this.busyTimer = setInterval(() => this.pushClaudeWorking(), 60_000); this.busyTimer.unref?.();
     // Plain words (2026-10-21): every new ask is rewritten in the background; the card shows Claude's own summary
     // until then, and keeps it if the rewrite fails.
-    this.claudeJobs.onAsk = item => { void plainAsk(item, this.plainAsks()).then(r => { if (r) this.claudeJobs.setPlain(item.id, r.plain, r.options); }); };
+    // A question Claude ended its reply on is already in words: rewritten as if it were a permission, it lost what it was
+    // about ("how you want its wording changed... Nothing on your computer changes", 2026-10-29). Its own words stay.
+    this.claudeJobs.onAsk = item => { if (item.reply) return; void plainAsk(item, this.plainAsks()).then(r => { if (r) this.claudeJobs.setPlain(item.id, r.plain, r.options); }); };
     // M6: the Mac's browser syncs with this PC's through here (bsynchub.ts).
     this.hookServer.upgrade = (req, socket, head) => this.bsync.upgrade(req, socket, head);
     // His yes (2026-10-13): Claude may look at the Mac browser's window. Saved in the Aang folder, on this PC only.
@@ -2946,8 +3025,9 @@ export class Core {
     // offerFact() does the deciding; this only gives it a chance to. Five minutes because none of these
     // is urgent - they came out of documents he already has - and a question at a bad moment costs far
     // more than the same question later.
-    // Sheet 17 timers: checked every second, because a timer that goes off late is a broken timer.
-    this.timerTick = setInterval(() => this.fireTimers(), 1000);
+    // Sheet 17 timers ring on the dot from armTimers (one timeout for the next one due). This is only a backstop, every
+    // 30 s, not every second with no timers at all (2026-10-29, fix 11).
+    this.timerTick = setInterval(() => this.fireTimers(), 30_000);
     this.armTimers();
     // E7: leave-by and Join reminders, every five minutes (only when he has a TomTom key or a call is near).
     this.feedTimers.push(setInterval(() => { void this.tripTick().catch(() => {}); }, 5 * 60_000));
@@ -3814,7 +3894,7 @@ export class Core {
       case 'claude.ackdone': {
         if (!this.shells.has(ws)) break;
         const id = String(m.id ?? '');
-        if (/^[A-Za-z0-9._:-]{1,100}$/.test(id)) this.claudeJobs.ack(id);   // its onChange sends the list and the mark
+        if (/^[A-Za-z0-9._:-]{1,100}$/.test(id) && this.claudeJobs.ack(id)) this.markSeen([id]);   // its onChange sends the list and the mark
         break;
       }
       // C2 (2026-10-21): his answers and his messages to Claude sessions. Only the Shell (his own bubble on this PC)
@@ -4148,7 +4228,10 @@ export class Core {
         if (l && l.id === m.id) { clearTimeout(l.timer); this.looking = null; l.resolve(m); }
         break;
       }
-      case 'mute': this.setSilent(this.bodyQuiet, m.on === true); break;
+      case 'mute':
+        // On the Mac the bubble learns mute from the brain's bubble.state, now sent only on a change (2026-10-29).
+        if (this.macPresence && this.lastBubbleState && this.lastBubbleState.muted !== (m.on === true)) { this.lastBubbleState = { ...this.lastBubbleState, muted: m.on === true }; this.sendTo('desktop', this.lastBubbleState); }
+        this.setSilent(this.bodyQuiet, m.on === true); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;
       // The Body is closing. Set by index.ts, which owns the one shutdown path; a direct import here would
       // be circular, and the Core should not be deciding how the process exits anyway.
@@ -4599,7 +4682,8 @@ export class Core {
   offerFact(): void {
     // A question nobody answered (skipped, timed out, dropped by the bubble) used to block every later one until a
     // restart (2026-10-28 review R9): after four minutes it is let go, and the next waits half an hour.
-    if (this.askingFact !== null && Date.now() - this.askingFactAt > 4 * 60_000) { this.askingFact = null; this.factPauseUntil = Date.now() + 30 * 60_000; }
+    // Given up on: its card and the copy in the Mac's type box go too (fix 8, 2026-10-29).
+    if (this.askingFact !== null && Date.now() - this.askingFactAt > 4 * 60_000) { this.sendTo('desktop', { t: 'ask.expired', id: this.askingFact } as never); this.askingFact = null; this.factPauseUntil = Date.now() + 30 * 60_000; }
     if (this.askingFact !== null) return;                 // one question at a time
     if (Date.now() < this.factPauseUntil) return;
     if (this.active) return;                              // he is mid-answer
@@ -4692,7 +4776,11 @@ export class Core {
   }
   private fireTimers(): void {
     const due = this.timers.due();
+    const doneBefore = this.timers.list().filter(t => t.done).map(t => t.id);
     const gone = this.timers.expire();
+    // A finished timer the brain lets go of takes its "Got it / 5 more" card with it (2026-10-29, fix 6): until now the
+    // card stayed in the bubble for good.
+    if (gone) { const live = new Set(this.timers.list().map(t => t.id)); for (const id of doneBefore) if (!live.has(id)) this.sendTo('desktop', { t: 'ask.expired', id }); }
     if (due.length || gone) this.armTimers();
     if (!due.length) { if (gone) this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() }); return; }
     this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() });
@@ -4993,6 +5081,7 @@ export class Core {
     // Back through announce() (2026-10-28), not straight to the desktop: so each is stored and can be replied to,
     // keeps its card, and goes to Discord instead if he has walked away since.
     this.releaseHeld();
+    this.releaseFront();
     // A brief that waited for the call or Shadow to end comes now (R6).
     setTimeout(() => this.briefIfDue(), 3000).unref?.();
   }

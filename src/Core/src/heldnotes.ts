@@ -89,8 +89,11 @@ export function bundleOf(msgs: ToBody[], header: string): ToBody {
 }
 
 /** What went to his phone while he was away, kept for the one "welcome back" line (sheet 102). */
-export interface AwayItem { text: string; at: number; chipText: string; chipTone: string }
-export function awayItemOf(text: string, o: Record<string, unknown>, at: number): AwayItem { return { text, at, ...chipOf(o) }; }
+export interface AwayItem { text: string; at: number; chipText: string; chipTone: string; session?: string; blocking?: boolean }
+/** With its Claude session, if any, so news he has since dealt with in Claude can be left out (2026-10-29). */
+export function awayItemOf(text: string, o: Record<string, unknown>, at: number): AwayItem {
+  return { text, at, ...chipOf(o), ...(typeof o.session === 'string' && o.session ? { session: o.session } : {}), ...(o.blocking === true ? { blocking: true } : {}) };
+}
 
 /**
  * Sheet 102 (his yes): back from away, ONE line saying what went to his phone, a row each (newest last), each opening Look

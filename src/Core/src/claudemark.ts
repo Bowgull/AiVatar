@@ -50,7 +50,7 @@ export class MarkDeriver {
    * else null. `alsoWorking` is the older working signal (sessions Aang launched, the MacBook), so those still
    * show the honey mark while there is no linked job saying so.
    */
-  update(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking = false): MarkMsg | null {
+  update(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking: boolean | string = false): MarkMsg | null {
     // The first look only learns what is already there: a brain restart must not chime for a question asked an hour ago.
     const first = !this.primed; this.primed = true;
     let sound: ChimeName | undefined;
@@ -102,18 +102,20 @@ export class MarkDeriver {
   }
 
   /** What to tell a pet that has just connected: the steady mark only, no moment and no chime. */
-  now(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking = false): MarkMsg {
+  now(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking: boolean | string = false): MarkMsg {
     const m = steadyMark(jobs, waits, alsoWorking);
     return { t: 'claude.mark', mark: m.mark, ...(m.what ? { what: m.what } : {}) };
   }
 }
 
 /** The steady mark, by his order: blocking (permission, question, plan), then working, failed, done (unread), paused. */
-export function steadyMark(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking = false): { mark: MarkKind; what?: string } {
+export function steadyMark(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking: boolean | string = false): { mark: MarkKind; what?: string } {
   for (const kind of ['permission', 'question', 'plan'] as const) {
     const w = waits.find(x => x.kind === kind);
     if (w) return { mark: kind, what: w.project };
   }
+  // A hook-only session waiting on him (claudeNow puts its project here): needs you.
+  if (typeof alsoWorking === 'string') return { mark: 'question', what: alsoWorking };
   const working = jobs.find(j => j.phase === 'working');
   if (working) return { mark: 'working', what: working.project };
   if (alsoWorking) return { mark: 'working' };
@@ -232,12 +234,16 @@ export function claudeBusy(i: BusyInput): BusySession[] {
  * The whole picture from one list: the steady mark over his head, the old `claude.working` signal (the pet's fallback
  * and its no-brain click), and the sessions the card lists. Mark up exactly when the list is not empty.
  */
-export function claudeNow(i: BusyInput): { mark: { mark: MarkKind; what?: string }; working: { working: boolean; what?: string; host?: 'mac' }; sessions: BusySession[]; alsoWorking: boolean } {
+export function claudeNow(i: BusyInput): { mark: { mark: MarkKind; what?: string }; working: { working: boolean; what?: string; host?: 'mac' }; sessions: BusySession[]; alsoWorking: boolean | string } {
   const sessions = claudeBusy(i);
   // The jobs say their own mark (steadyMark reads them and the waits); the rest light honey.
   const alsoWorking = sessions.some(s => s.source === 'hook' || s.source === 'launched');
-  const mark = steadyMark(i.jobs, i.waits, alsoWorking);
+  // A session without the link mod that stops for him says "needs you", not honey (2026-10-29, fix 10): its project
+  // rides in alsoWorking, so the mark the brain pushes (MarkDeriver) says the same.
+  const hookWaits = sessions.find(s => (s.source === 'hook' || s.source === 'launched') && s.phase === 'waiting');
+  const also: boolean | string = hookWaits ? (hookWaits.project || 'Claude') : alsoWorking;
+  const mark = steadyMark(i.jobs, i.waits, also);
   const live = sessions.find(s => s.phase === 'working' || s.phase === 'waiting');
   const working = live ? { working: true, what: live.project, ...(live.host ? { host: live.host } : {}) } : { working: false };
-  return { mark, working, sessions, alsoWorking };
+  return { mark, working, sessions, alsoWorking: also };
 }

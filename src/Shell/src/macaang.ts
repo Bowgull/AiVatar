@@ -97,9 +97,12 @@ let mouseOn = false;
 /** The mouse is held on him and the wheel is up: his window keeps the mouse until it is let go, wherever it goes. */
 let wheelHeld = false;
 
-function display() { return screen.getPrimaryDisplay(); }
+/** The screen he is on: the one he was last dropped on, else the main one (2026-10-29, his "I can't move him to this
+ *  second screen": he was held to the main screen). */
+let screenId: number | null = null;
+function display() { return (screenId !== null && screen.getAllDisplays().find((d) => d.id === screenId)) || screen.getPrimaryDisplay(); }
 /** The line he stands on: the screen's bottom, or the Dock's top while it is up. */
-function floor(): number { const b = display().bounds; return b.y + b.height - (dockUp ? DOCK_H : 0); }
+function floor(): number { const d = display(), b = d.bounds; return b.y + b.height - (dockUp && d.id === screen.getPrimaryDisplay().id ? DOCK_H : 0); }
 
 /** The top of his art on screen: from the floor when docked, where he was put when free. */
 function artTop(): number { return docked ? floor() - show : artY; }
@@ -301,6 +304,8 @@ const link = new CoreLink({
     }
     // The Mac's front app, from the brain (the presence helper sees it): the Shadow window in front means he is on the
     // PC, so the Mac's Aang tucks away (his pick), and comes back when it goes.
+    // Claude news he has seen in Claude (fix 3, 2026-10-29): the line held while Shadow was in front is not said later.
+    if (m.t === 'claude.seen' && Array.isArray(m.sessions) && heldBubble && typeof heldBubble.session === 'string' && m.sessions.includes(heldBubble.session)) heldBubble = null;
     if (m.t === 'mac.front') {
       const s = m.shadow === true;
       if (s !== shadowFront) { shadowFront = s; if (s) { bubble?.hide(); input?.close(false); setPose('hidden'); } else { setPose('out'); if (heldBubble && (heldBubble.proactive !== true || Date.now() - heldAt < 60 * 60_000)) say(heldBubble); else heldBubble = null; } }
@@ -372,7 +377,7 @@ function chime(name: string): void {
 
 // ---------------------------------------------------------------- his menu (the same rows as right-clicking him)
 function menuState(): Record<string, unknown> {
-  return { docked, dock: edge, model: inputMode, muted, hushedUntil, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0,
+  return { docked, dock: edge, model: inputMode, muted, hushedUntil, hidden, saving: lastLevel === 'saving', notesNotice, jobsRunning: 0,
     // Not on the Mac (his call, 2026-10-28): the WoW quiet rows go; "Go to the PC" comes back with phase 6 (other: 'pc').
     gone: ['quiet'] };
 }
@@ -387,6 +392,8 @@ function picked(id: string): void {
   if (id === 'mute') { muted = !muted; link.send({ t: 'mute', on: muted }); return; }
   if (id === 'comeback') { undock(); lastTouch = Date.now(); return; }
   if (id === 'dock.bottom' || id === 'dock.left' || id === 'dock.right' || id === 'dock.top') { if (docked) undock(); dockAt(id.slice(5) as DockEdge); return; }
+  // Hide is undone from the same row, which reads "Show Aang" while he is hidden (2026-10-29, fix 6: it was one-way).
+  if (id === 'hide' && hidden) { hidden = false; pet?.showInactive(); setPose(docked ? 'peek' : 'out'); if (heldBubble && (heldBubble.proactive !== true || Date.now() - heldAt < 60 * 60_000)) say(heldBubble); else heldBubble = null; return; }
   if (id === 'hide') { hidden = true; bubble?.hide(); input?.close(false); setPose('hidden'); pet?.hide(); return; }
   if (id.startsWith('model.')) { inputMode = id.slice(6); link.send({ t: 'mode', mode: inputMode as never }); return; }
   if (id === 'saving') { link.send({ t: 'saving', on: lastLevel !== 'saving' }); return; }
@@ -590,7 +597,8 @@ app.whenReady().then(async () => {
     toBrain: (m) => link.send(m as never),
   });
 
-  const saved = readJson(SETTINGS()) as { x?: number; y?: number; docked?: boolean; edge?: string; along?: number } | null;
+  const saved = readJson(SETTINGS()) as { x?: number; y?: number; docked?: boolean; edge?: string; along?: number; screen?: number } | null;
+  screenId = Number.isFinite(saved?.screen) ? Number(saved!.screen) : null;
   const b = display().bounds;
   petX = Number.isFinite(saved?.x) ? Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, Number(saved!.x))) : b.x + b.width - 330;
   docked = saved?.docked === true;
@@ -685,7 +693,7 @@ ipcMain.on('pet:click', (e, where) => {
   openTypeBox();
 });
 ipcMain.on('pet:context', (e, x, y) => { if (fromPet(e)) openMenu({ x: Number(x) || 0, y: Number(y) || 0 }); });
-function savePlace(): void { try { writeFileAtomic(SETTINGS(), JSON.stringify({ x: petX, y: artY, docked, edge, along })); } catch { /* next time */ } }
+function savePlace(): void { try { writeFileAtomic(SETTINGS(), JSON.stringify({ x: petX, y: artY, docked, edge, along, screen: screenId })); } catch { /* next time */ } }
 /** Free again, in full, standing upright where he was (the menu's Come back, or dragged off the edge). */
 function undock(): void {
   if (docked) {
@@ -719,6 +727,10 @@ ipcMain.on('pet:drag', (e, phase, x, y) => {
     if (docked) undock();                         // picked up off the edge: he comes out in full
     dragFrom = { x: Number(x), y: Number(y), px: petX, py: artY }; anim('walk'); bubble?.hide(); input?.close(false);
   } else if (phase === 'move' && dragFrom) {
+    // Carried over to another screen: he belongs to that one now (its edges, its floor), wherever the pointer is.
+    const over = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    if (over.id !== display().id) screenId = over.id === screen.getPrimaryDisplay().id ? null : over.id;
+    const b = display().bounds;
     petX = Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, dragFrom.px + Number(x) - dragFrom.x));
     // Up to the menu bar, so he can be dropped on the top edge (the mark's room may go under it while he is carried).
     artY = Math.max(display().workArea.y, Math.min(b.y + b.height - ART.h, dragFrom.py + Number(y) - dragFrom.y));
@@ -747,6 +759,8 @@ ipcMain.on('bubble:size', (e, size) => {
   const box = bubbleBox({ width: width - pr, height: height - pb });
   w.setBounds({ x: box.x, y: box.y, width, height });
   aimTail(w, box);
+  // Hidden: cards wait (a question for his OK still shows, or it would be turned down unseen) (fix 6, 2026-10-29).
+  if (hidden && !liveAsk) return;
   bubbleUp = true; holdEsc(true);
   bubble?.show();
   if (process.env.AANG_PET_TRACE) console.log(`aang: bubble at ${JSON.stringify(w.getBounds())} visible=${w.isVisible()} pet=${JSON.stringify(petAt().sprite)}`);
