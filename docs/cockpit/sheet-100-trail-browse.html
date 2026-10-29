@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <title>Sheet 100 - The Mockups trail, browse everything</title>
-<!-- Sheet 100 v3 (2026-10-28). His picks: Project > Topic > Sheet; the quest log with the picture strip; "as a tab but
-     something I can get into from the left rail trail section"; "icons are important here too as well as just being
-     organized"; and he asked what goes away now. Every picture is Samara itself on the samara-startup branch, captured
-     by test/electron/sheet100-check.ts on a copy of his trail. -->
+<!-- Sheet 100 v4 (2026-10-28). His picks on v3: the MOCKUPS trail always there; old mockup tabs tucked away after 3 days;
+     open mockups under their project, then topic; Claude picks the icon that fits a topic ("can't Claude decide what
+     fits"); "if a project has a logo the logo is used in the trail". Every picture is Samara itself on the
+     samara-startup branch, captured by test/electron/sheet100-check.ts on a copy of his trail. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
   html{background:#0d0805}
@@ -16,7 +16,7 @@
   .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1000px;line-height:1.5}
   h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:40px 0 12px}
   .cap{font:700 14px var(--body);color:#FFE28C;margin:0 0 3px}
-  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:640px;line-height:1.5}
+  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:600px;line-height:1.5}
   .shot{display:block;width:1050px;max-width:100%;border:3px solid #120A05;border-radius:10px;box-shadow:0 12px 26px rgba(0,0,0,.55);image-rendering:auto}
   .row{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap}
   .pic{border:3px solid #120A05;border-radius:6px;image-rendering:auto;display:block}
@@ -31,41 +31,45 @@
 <h1>Sheet 100 · The Mockups trail, browse everything</h1>
 <p class="lead">Every mockup in a tab of its own, opened from the trail in your left rail. Every picture here is Samara itself, running on a copy of your trail.</p>
 
-<h2>1 · THE WAY IN, IN THE LEFT RAIL</h2>
+<h2>1 · ALWAYS THERE</h2>
 <div class="row">
-  <img class="pic" src="sheet-100/v3-rail.png" width="340" alt="">
+  <img class="pic" src="sheet-100/v4-empty.png" width="340" alt="">
   <div>
-    <p class="cap">ALL MOCKUPS, under your open mockups</p>
-    <p class="sub">The book opens the Mockups tab. The count is every sheet outside the Archive. The trail itself holds only the mockups you have open, under their topic's icon.</p>
+    <p class="cap">MOCKUPS stays in your tab list, even with nothing open</p>
+    <p class="sub">ALL MOCKUPS opens the Mockups tab. The count is every sheet outside the Archive.</p>
   </div>
 </div>
 
-<h2>2 · THE MOCKUPS TAB</h2>
+<h2>2 · OPEN MOCKUPS, BY PROJECT, THEN TOPIC</h2>
+<div class="row">
+  <img class="pic" src="sheet-100/v4-projects.png" width="340" alt="">
+  <div>
+    <p class="cap">Each project's own logo when it has one</p>
+    <p class="sub">Waymark wears its real logo. Samara wears its lantern. Couch Mode and Anti-slop have no logo of their own yet, so they wear a pixel campfire and Samara's broom. When a project gets a logo in its folder, Samara picks it up by itself.</p>
+    <p class="cap">Tucked away after 3 days</p>
+    <p class="sub">A mockup tab you haven't looked at in 3 days closes by itself. It's still in the Mockups tab. The one in front of you, and one that just arrived, never close.</p>
+  </div>
+</div>
+
+<h2>3 · THE MOCKUPS TAB</h2>
 <p class="cap">In your window, in place of the page, like Settings</p>
-<p class="sub">Projects and topics on the left, that topic's sheets in the middle, the one you pick big on the right with every version under it. Open puts that version in a tab of its own.</p>
-<img class="shot" src="sheet-100/v3-tab.png" alt="">
+<p class="sub">Projects with their logos on the left, each topic with its icon under it. That topic's sheets in the middle. The one you pick big on the right, with every version under it.</p>
+<img class="shot" src="sheet-100/v4-tab.png" alt="">
 
-<h2>3 · ICONS</h2>
-<div class="row">
-  <img class="pic" src="sheet-100/v3-icons.png" width="300" alt="">
-  <div>
-    <p class="cap">Each project and topic has its own</p>
-    <p class="sub">Samara's own art where it has some: the lantern, the shield for Security, Claude's mark, the broom for Anti-slop. New pixel icons in the same style for the rest: a campfire for Couch Mode, a signpost for Waymark, a bell for Notices, a cog for Settings, a TV, a game pad for the Launcher, a book for the Mockups trail. The same icon shows on a topic's open tabs in the left rail.</p>
-  </div>
-</div>
+<h2>4 · WHO PICKS A TOPIC'S ICON</h2>
+<p class="sub">Claude does, when it starts a topic: it picks the icon that fits from Samara's set (a top bar, the shield, a TV, a bell, a key, a globe, a cog, a book, a keyboard, tabs, a campfire, a game pad, a scroll, a star, a signpost and more). If nothing fits, it draws a new one in the same style and shows you first. The topics you have now got theirs picked the same way.</p>
 
-<h2>4 · WHAT GOES AWAY</h2>
+<h2>5 · WHAT GOES AWAY</h2>
 <ul class="list">
   <li><b>HISTORY and its list</b>Every sheet, its version lines, the older-versions fold. All of it is in the Mockups tab now.</li>
-  <li><b>The duplicates broom</b>The Mockups tab never shows an exact duplicate, so there's nothing to sweep.</li>
+  <li><b>The duplicates broom</b>The Mockups tab never shows an exact duplicate.</li>
   <li><b>FROM CLAUDE</b>The line under MOCKUPS. Claude's mark beside the name already says it.</li>
-  <li><b>The magnifier</b>From the last version. ALL MOCKUPS is the one way in.</li>
-  <li><b>Archive in the rail</b>It moves to the bottom of the Mockups tab, under the projects.</li>
+  <li><b>Archive in the rail</b>It moves to the bottom of the Mockups tab.</li>
 </ul>
 <h2>WHAT STAYS</h2>
 <ul class="list keep">
-  <li><b>Your open mockups</b>In the trail, under their topic, with their V chip and your mark.</li>
-  <li><b>Mockups in the ⋯ menu</b>Brings the trail back if you closed it, and opens the Mockups tab.</li>
+  <li><b>Your open mockups</b>In the trail, with their V chip and your mark.</li>
+  <li><b>Mockups in the ⋯ menu</b>Opens the Mockups tab.</li>
   <li><b>Marks</b>Right-click an open mockup's tab to approve, fix or park it, as now.</li>
 </ul>
 </body>

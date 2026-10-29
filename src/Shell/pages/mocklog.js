@@ -8,7 +8,7 @@ let tree = { projects: [] };
 // What he has picked: a project, a topic (its id, or 'loose'), a sheet, a version. Kept while the data changes.
 const pick = { p: null, t: null, s: null, v: null };
 
-const topicsOf = (p) => [...(p.branches ?? []).map((b) => ({ id: b.id, name: b.name, sheets: b.mockups })), ...(p.loose?.length ? [{ id: 'loose', name: 'Other', sheets: p.loose }] : [])];
+const topicsOf = (p) => [...(p.branches ?? []).map((b) => ({ id: b.id, name: b.name, icon: b.icon, sheets: b.mockups })), ...(p.loose?.length ? [{ id: 'loose', name: 'Other', sheets: p.loose }] : [])];
 const flat = (sheets) => sheets.flatMap((n) => [{ n, kid: false }, ...(n.children ?? []).map((c) => ({ n: c, kid: true }))]);
 const versions = (n) => {
   const seen = new Set();
@@ -37,14 +37,14 @@ function draw() {
   for (const q of tree.projects ?? []) {
     const open = q === p;
     const b = el('button', 'proj' + (open ? ' open' : '')); b.type = 'button';
-    const em = el('span', 'em'); em.append(projectIcon(q.name));
+    const em = el('span', 'em'); em.append(projectIcon(q.name, false, tree.logos));
     b.append(em, el('span', 'pn', q.name), el('span', 'pc', String(topicsOf(q).reduce((a, x) => a + count(x.sheets), 0))), el('i', 'chev'));
     b.addEventListener('click', () => { pick.p = q.name; pick.t = pick.s = pick.v = null; draw(); });
     tr.append(b);
     if (!open) continue;
     for (const x of ts) {
       const tb = el('button', 'topic' + (x === t ? ' on' : '')); tb.type = 'button';
-      const ic = el('span', 'ti'); ic.append(topicIcon(x.name));
+      const ic = el('span', 'ti'); ic.append(topicIcon(x.name, x.icon));
       tb.append(ic, el('span', '', x.name), el('span', 'n', String(count(x.sheets))));
       tb.addEventListener('click', () => { pick.p = q.name; pick.t = x.id; pick.s = pick.v = null; draw(); });
       tr.append(tb);
@@ -62,7 +62,7 @@ function draw() {
   }
 
   const tt = document.getElementById('topic'); tt.replaceChildren();
-  if (t) { const ic = el('span', 'ti'); ic.append(topicIcon(t.name)); tt.append(ic, `${t.name} · ${count(t.sheets)}`); }
+  if (t) { const ic = el('span', 'ti'); ic.append(topicIcon(t.name, t.icon)); tt.append(ic, `${t.name} · ${count(t.sheets)}`); }
   const sh = document.getElementById('sheets'); sh.replaceChildren();
   for (const r of rows) {
     const m = markOf(r.n);

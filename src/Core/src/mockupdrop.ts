@@ -21,7 +21,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
-export interface MockupAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }
+export interface MockupAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown; project?: unknown; icon?: unknown }
 export interface MockupResult { ok: boolean; message: string; file?: string }
 
 /** AangApp's own repo (this brain's), whose mockups may only come from the mockup folders. */
@@ -123,16 +123,23 @@ export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HO
     let dirty = false;
     try { dirty = !blobIds(readFileSync(file)).includes(head); } catch { /* read above: there */ }
     body = isHome ? { path: rel } : { repo: root, path: rel };
-    const r = write(stateDir, body, title, branch);
+    const r = write(stateDir, { ...body, ...extra(ask) }, title, branch);
     if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
     return { ok: true, file: r, message: `Showing ${rel} in Samara's Mockups trail${branch ? ` (branch ${branch})` : ''}.${dirty ? ' It has changes that are not committed: he sees it as last committed, so commit and call again to show the new version.' : ''}${branchNote}` };
   }
-  const r = write(stateDir, body, title, branch);
+  const r = write(stateDir, { ...body, ...extra(ask) }, title, branch);
   if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
   return { ok: true, file: r, message: `Showing ${body.url} in Samara's Mockups trail${branch ? ` (branch ${branch})` : ''}.${branchNote}` };
 }
 
 /** The .mockup file, written under another name first and then renamed, so the Shell never reads half of one. */
+/** Sheet 100 v4: the project Claude named and the icon it picked, passed on as given (Samara checks both again). */
+function extra(ask: MockupAsk): Record<string, string> {
+  const o: Record<string, string> = {};
+  if (typeof ask.project === 'string' && ask.project.trim() && ask.project.length <= 40) o.project = ask.project.trim();
+  if (typeof ask.icon === 'string' && /^[a-z]{2,10}$/.test(ask.icon)) o.icon = ask.icon;
+  return o;
+}
 function write(stateDir: string, body: Record<string, string>, title: string, branch: string | null): string | null {
   try {
     const dir = path.join(stateDir, 'open-urls');

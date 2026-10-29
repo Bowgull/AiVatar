@@ -114,6 +114,12 @@ export function findRepo(from: string): string | null {
   return existsSync(path.join(root, '.git')) ? root : null;
 }
 
+/** The names Samara's own repo goes by: AiVatar (the Mac's clone, GitHub), AangApp (the PC's folder). */
+const SAMARA_REPOS = new Set(['aivatar', 'aangapp']);
+/** Sheet 100: a project's logo file name: Couch Mode is couch-mode. */
+export const logoSlug = (project: string): string => project.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'project';
+/** Where a repo usually keeps its logo; the first that is a PNG wins. */
+export const LOGO_SPOTS = ['logo.png', 'Logo.png', 'assets/logo.png', 'assets/Logo.png', 'mockups/assets/Logo.png', 'mockups/assets/logo.png', 'docs/logo.png', 'assets/brand/Logo.png', 'assets/brand/logo.png', 'icon.png', 'assets/icon.png'];
 /** Sheet 100: a version's picture file name, from its key (the same picture has the same key, so one file each). */
 export const thumbKey = (key: string): string => createHash('sha1').update('thumb\n' + key).digest('hex');
 
@@ -156,10 +162,13 @@ export class MockServer {
     if (String(req.headers.host ?? '') !== `127.0.0.1:${this.port}`) { res.writeHead(403).end(); return; }
     const from = req.headers.origin;
     if (from && from !== this.origin) { res.writeHead(403).end(); return; }
-    const t = /^\/t\/([0-9a-f]{40})\.png$/.exec(String(req.url ?? ''));
+    // Sheet 100: /t/<key>.png a version's picture; /p/<slug>.png a project's own logo (his "if a project has a logo the
+    // logo is used"), both from Samara's own folder only.
+    const t = /^\/t\/([0-9a-f]{40})\.png$/.exec(String(req.url ?? '')) ?? /^\/p\/([a-z0-9-]{1,40})\.png$/.exec(String(req.url ?? ''));
     if (t) {
       let png: Buffer | null = null;
-      try { png = this.thumbs ? readFileSync(path.join(this.thumbs, t[1] + '.png')) : null; } catch { /* not made yet */ }
+      const dir = String(req.url).startsWith('/p/') ? (this.thumbs ? path.join(path.dirname(this.thumbs), 'mocklogos') : null) : this.thumbs;
+      try { png = dir ? readFileSync(path.join(dir, t[1] + '.png')) : null; } catch { /* not made yet */ }
       if (!png) { res.writeHead(404).end(); return; }
       res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=86400' });
       res.end(req.method === 'HEAD' ? undefined : png);
@@ -253,7 +262,10 @@ export async function resolveVersion(repo: string, sheet: string): Promise<{ com
  */
 /** 2026-10-28 (sheet 100, his pick: Project > Topic > Sheet): a branch is a TOPIC, and it belongs to a project by name
  *  (Samara, Couch Mode...). No project: its sheets' repo's project (MockStore.projectOf). */
-export interface MockBranch { id: number; name: string; folded: boolean; project?: string }
+export interface MockBranch { id: number; name: string; folded: boolean; project?: string; icon?: string }
+/** Sheet 100: the icons a topic can wear (claude-link MOCKUP_ICONS, pages/mockicons.js). */
+export const MOCK_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'globe', 'cog', 'log', 'keyboard', 'tabs', 'fire', 'pad', 'scroll', 'star', 'post', 'video', 'camera', 'mic', 'cal', 'letter', 'moon', 'ads', 'popup'];
+export const cleanIcon = (x: unknown): string | null => (typeof x === 'string' && MOCK_ICONS.includes(x) ? x : null);
 export interface MockPlace { branch: number | null; parent: string | null }
 /** The longest a branch name may be. */
 export const BRANCH_MAX = 40;
@@ -339,7 +351,7 @@ export class MockStore {
         // Marks set before the log existed (2026-10-23) join it, so they travel too.
         for (const v of this.list) if (v.stage && !this.stageLog.has(v.key)) this.stageLog.set(v.key, { key: v.key, sheet: bareSheet(v.sheet), stage: v.stage, ...(v.note ? { note: v.note } : {}), ...(v.said ? { said: v.said } : {}), by: v.by ?? 'you', at: v.stageAt ?? 0 });
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
-          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true, ...(cleanBranch(b.project) ? { project: cleanBranch(b.project)! } : {}) })).slice(0, 100);
+          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true, ...(cleanBranch(b.project) ? { project: cleanBranch(b.project)! } : {}), ...(cleanIcon(b.icon) ? { icon: b.icon } : {}) })).slice(0, 100);
         const pj = s?.projects && typeof s.projects === 'object' ? s.projects as Record<string, unknown> : {};
         for (const [k, v] of Object.entries(pj)) if ((k === '' || REPO_NAME_RE.test(k)) && cleanBranch(v)) this.projects.set(k, cleanBranch(v)!);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};
@@ -420,7 +432,9 @@ export class MockStore {
     if (b?.project) return b.project;
     if (sheetKind(sheet) === 'live') return 'Live pages';
     const repo = sheet.startsWith('@') ? splitRepoSheet(sheet)?.name ?? '' : '';
-    return this.projects.get(repo) ?? (repo ? readable(repo) : 'AangApp');
+    // Samara's own repo is AiVatar on the Mac and AangApp on the PC (and the PC's own sheets carry no repo): one project,
+    // Samara, on both machines (sheet 100, his pick).
+    return this.projects.get(repo) ?? (!repo || SAMARA_REPOS.has(repo.toLowerCase()) ? 'Samara' : readable(repo));
   }
   /**
    * The name a repo's sheets go by (@<name>/...): the one it already has, else its folder's name made plain, with -2, -3
@@ -488,7 +502,7 @@ export class MockStore {
    * it has no branch. The branch is matched by name, any case, or made (as New branch does) only when something moves.
    * The move is toBranch, so children follow exactly as with Move to branch. Returns the sheet that moved, or null.
    */
-  fileInto(sheet: string, name: unknown): string | null {
+  fileInto(sheet: string, name: unknown, o: { project?: string | null; icon?: string | null } = {}): string | null {
     const n = cleanBranch(name);
     if (!n || !this.places.has(sheet)) return null;
     const parent = this.places.get(sheet)!.parent;
@@ -496,9 +510,14 @@ export class MockStore {
     if (!target) return null;
     // Sheet 100: a topic is matched inside the sheet's own project (Couch Mode's "Launcher" is never Samara's), and a new
     // one belongs to that project.
-    const proj = this.projectOf(target), here = (b: MockBranch) => (b.project ?? proj) === proj;
+    // Claude may name the project (sheet 100 v4) and the icon that fits a new topic; a topic keeps the icon it has.
+    const proj = cleanBranch(o.project) ?? this.projectOf(target), here = (b: MockBranch) => (b.project ?? proj) === proj;
     let id = this.branches.find((b) => b.name.toLowerCase() === n.toLowerCase() && here(b) && (b.project || this.sheetsIn(b.id).every((x) => this.projectOf(x) === proj)))?.id;
-    if (id === undefined) { id = this.newBranch(n); this.branches.find((b) => b.id === id)!.project = proj; this.save(); }
+    if (id === undefined) id = this.newBranch(n);
+    const b = this.branches.find((x) => x.id === id)!;
+    if (!b.project) b.project = proj;
+    if (!b.icon && cleanIcon(o.icon)) b.icon = o.icon!;
+    this.save();
     return this.toBranch(target, id) ? null : target;
   }
   private sheetsIn(branch: number): string[] { return [...this.places].filter(([, v]) => v.branch === branch && !v.parent).map(([k]) => k); }
@@ -602,6 +621,8 @@ export interface MockupDrop {
   /** 2026-10-22: a live page on this computer (http://127.0.0.1...), or null. */
   url: string | null;
   title: string; branch: string | null;
+  /** Sheet 100 v4: the project Claude named, and the icon it picked for the topic. */
+  project?: string | null; icon?: string | null;
 }
 /**
  * 2026-10-22, every Claude session (the brain writes these for the aang-link mod's show_mockup): also
@@ -614,20 +635,21 @@ export function takeMockupFile(file: string): MockupDrop | null {
   try { const st = statSync(file); size = st.size; old = Date.now() - st.mtimeMs > 10 * 60_000; if (size <= 4096) raw = readFileSync(file, 'utf8'); } catch { return null; }
   try { unlinkSync(file); } catch { /* taken */ }
   if (old || size > 4096) return null;
-  let j: { path?: unknown; title?: unknown; branch?: unknown; repo?: unknown; url?: unknown };
+  let j: { path?: unknown; title?: unknown; branch?: unknown; repo?: unknown; url?: unknown; project?: unknown; icon?: unknown };
   try { j = JSON.parse(raw.replace(/^﻿/, '')); } catch { return null; }
   if (j.title !== undefined && (typeof j.title !== 'string' || j.title.length > 80)) return null;
   // eslint-disable-next-line no-control-regex
   const title = typeof j.title === 'string' ? j.title.replace(/[\x00-\x1f]/g, ' ').trim() : '', branch = cleanBranch(j.branch);
-  if (j.url !== undefined) { const u = cleanLive(j.url); return u ? { path: '', repo: null, url: u, title, branch } : null; }
+  const project = cleanBranch(j.project), icon = cleanIcon(j.icon);
+  if (j.url !== undefined) { const u = cleanLive(j.url); return u ? { path: '', repo: null, url: u, title, branch, project, icon } : null; }
   if (j.repo !== undefined) {
     const r = j.repo, p = cleanRel(j.path);
     if (typeof r !== 'string' || r.length > 400 || !path.isAbsolute(r) || r.startsWith('\\\\') || r.startsWith('//') || !p || !/\.html?$/i.test(p)) return null;
-    return { path: p, repo: path.resolve(r), url: null, title, branch };
+    return { path: p, repo: path.resolve(r), url: null, title, branch, project, icon };
   }
   const p = cleanPath(j?.path);
   if (!p || !/\.html?$/i.test(p)) return null;
-  return { path: p, repo: null, url: null, title, branch };
+  return { path: p, repo: null, url: null, title, branch, project, icon };
 }
 
 /**

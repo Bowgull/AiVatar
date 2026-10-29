@@ -1,5 +1,5 @@
 import { pixIcon } from './pixicons.js';
-import { topicIcon } from './mockicons.js';
+import { projectIcon, topicIcon } from './mockicons.js';
 import { startRune } from './rune.js';
 import { openRail, railTabs } from './sitenotes.js';
 // 6.20: the browser's frame. Draws the rail and the address slot from the tab list the Shell sends, and
@@ -785,7 +785,8 @@ function paintTabs() {
   const trails = Array.isArray(state.trails) ? state.trails : [];
   const live = state.tabs.filter((t) => !t.done);
   const groups = [{ id: null, tabs: live.filter((t) => t.trail == null) }];
-  for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length) groups.push({ id: tr.id, trail: tr, tabs }); }
+  // Sheet 100 v4 (his pick): the MOCKUPS trail stays even with no mockup open, so ALL MOCKUPS is always there.
+  for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length || tr.mock) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
     const dup = Boolean(state.tidy?.dup?.includes(t.id));
@@ -1530,7 +1531,7 @@ function fixNote(id, at) {
   box.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
   box.addEventListener('blur', () => done(box.value.trim() !== ''));
 }
-const mockEls = { head: null, from: null, hist: null, tidy: null, list: null, listSig: '', branches: new Map() };
+const mockEls = { head: null, from: null, hist: null, tidy: null, list: null, listSig: '', branches: new Map(), projs: new Map() };
 const freshDone = new Set();
 /** Type a new name in place (the trail name's own box): Enter keeps it, Esc leaves it. */
 function renameIn(nm, value, max, save) {
@@ -1542,6 +1543,15 @@ function renameIn(nm, value, max, save) {
   nm.replaceWith(box); box.focus(); box.select();
 }
 /** A branch's sub-heading: a fold chevron, its name (click to rename), how many, and its menu. */
+/** Sheet 100 v4: a project's small heading over its open mockups, its emblem and its name. */
+function projHead(name) {
+  let h = mockEls.projs.get(name);
+  if (!h) { h = document.createElement('div'); mockEls.projs.set(name, h); }
+  h.className = 'mph';
+  const em = Object.assign(document.createElement('span'), { className: 'em' }); em.append(projectIcon(name || 'Samara', true, state.mockups?.logos));
+  h.replaceChildren(em, Object.assign(document.createElement('span'), { className: 'pn', textContent: name || 'Samara' }));
+  return h;
+}
 function branchHead(b, n) {
   let h = mockEls.branches.get(b.id);
   if (!h) { h = document.createElement('div'); mockEls.branches.set(b.id, h); }
@@ -1556,7 +1566,7 @@ function branchHead(b, n) {
   const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Branch options' });
   more.addEventListener('click', (e) => { e.stopPropagation(); branchMenu(b, e.clientX, e.clientY); });
   // Sheet 100 v3: the topic wears its icon here too, the same one as in the quest log.
-  const ic = Object.assign(document.createElement('span'), { className: 'bi' }); ic.append(topicIcon(b.name));
+  const ic = Object.assign(document.createElement('span'), { className: 'bi' }); ic.append(topicIcon(b.name, b.icon));
   h.replaceChildren(chev, ic, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   if (state.mockups?.fresh === b.id && !freshDone.has(b.id)) { freshDone.add(b.id); setTimeout(() => { if (nm.isConnected) nm.click(); }, 0); }
   return h;
@@ -1605,17 +1615,22 @@ function mockNodes(g, rowFor) {
     return r;
   };
   const isTop = (t) => !t.mock?.parent || !open.has(t.mock.parent);
-  const group = (branch) => {
+  const group = (proj, branch) => {
     const r = [];
-    for (const t of tabs) if (isTop(t) && (t.mock?.branch ?? null) === branch) { r.push(row(t, false)); for (const k of tabs) if (k.mock?.parent && k.mock.parent === t.mock?.sheet) r.push(row(k, true)); }
+    for (const t of tabs) if (isTop(t) && (t.mock?.project ?? '') === proj && (t.mock?.branch ?? null) === branch) { r.push(row(t, false)); for (const k of tabs) if (k.mock?.parent && k.mock.parent === t.mock?.sheet) r.push(row(k, true)); }
     return r;
   };
-  out.push(...group(null));
-  for (const b of mk.branches ?? []) {
-    const c = tabs.filter((t) => (t.mock?.branch ?? null) === b.id).length;
-    if (!c) continue;
-    out.push(branchHead(b, c));
-    if (!b.folded) out.push(...group(b.id));
+  // Sheet 100 v4 (his pick): open mockups by project, then topic, as in the Mockups tab. Newest project first.
+  const projects = [...new Set(tabs.map((t) => t.mock?.project ?? ''))];
+  for (const proj of projects) {
+    out.push(projHead(proj));
+    out.push(...group(proj, null));
+    for (const b of mk.branches ?? []) {
+      const c = tabs.filter((t) => (t.mock?.project ?? '') === proj && (t.mock?.branch ?? null) === b.id).length;
+      if (!c) continue;
+      out.push(branchHead(b, c));
+      if (!b.folded) out.push(...group(proj, b.id));
+    }
   }
   // Sheet 100 v3 (his pick, 2026-10-28: "as a tab but something I can get into from the left rail trail section"): the
   // way in to every mockup, the quest log's book and how many sheets there are. It opens the Mockups tab.

@@ -1342,3 +1342,8 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 .drawer .mquest:active{transform:translateY(2px);box-shadow:0 1px 0 var(--outline)}
 .drawer .bh .bi{flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px}
 .drawer .bh .bi svg,.drawer .bh .bi img{display:block;max-width:20px;max-height:20px}
+.drawer .mph{display:flex;align-items:center;gap:8px;margin:10px 2px 4px 2px;font:700 12px var(--display);letter-spacing:1.4px;color:#f2e3c2;text-transform:uppercase;text-shadow:0 2px 0 var(--outline)}
+.drawer .mph .em{flex:none;width:24px;height:24px;display:grid;place-items:center;border:2px solid var(--outline);border-radius:5px;background:#0B0718;overflow:hidden}
+.drawer .mph .em img,.drawer .mph .em svg{display:block}
+.drawer .mph .em b{font:700 13px var(--display);color:#ffe28c}
+.drawer .mph .em:has(.plogo){background:#E9D2A6}

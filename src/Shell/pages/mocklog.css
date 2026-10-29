@@ -86,3 +86,4 @@ button{font:inherit;color:inherit}
 .ttl .ti{vertical-align:middle;margin:-4px 6px 0 0}
 .proj .em svg{display:block}
 .proj.arch{margin-top:14px;opacity:.85}
+.proj .em:has(.plogo){background:#E9D2A6}
