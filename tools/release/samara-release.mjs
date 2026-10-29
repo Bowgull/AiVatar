@@ -16,12 +16,13 @@ const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..',
 const shell = path.join(repo, 'src', 'Shell');
 mkdirSync(out, { recursive: true });
 
-// Same files and order as macBrowserBundle. On GitHub (GNU tar) owner and times are fixed too, so the same code always
+// Same files and order as macBrowserBundle, plus the Shell's assets (the PC's window icon; 2026-10-29, the PC installs
+// releases too). On GitHub (GNU tar) owner and times are fixed too, so the same code always
 // makes the same package; a Mac's own tar (for a trial run here) has no such switches.
 const bundle = path.join(out, 'samara-bundle.tgz');
 const gnu = /GNU tar/.test(execFileSync('tar', ['--version'], { encoding: 'utf8' }));
 execFileSync('tar', [...(gnu ? ['--sort=name', '--owner=0', '--group=0', '--numeric-owner', '--mtime=@0'] : []), '-czf', bundle,
-  '-C', shell, 'src', 'pages', 'drm', '-C', repo, 'claude-link/.claude-plugin', 'claude-link/hooks',
+  '-C', shell, 'src', 'pages', 'drm', 'assets', '-C', repo, 'claude-link/.claude-plugin', 'claude-link/hooks',
   '-C', path.join(shell, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'inherit', env: { ...process.env, GZIP: '-n' } });
 const bytes = readFileSync(bundle);
 

@@ -1,5 +1,6 @@
-# Samara's shared updater (his plan, 2026-10-23): a tag "samara-vX.Y.Z" builds, stamps and publishes one release that
-# every Samara checks by itself. The tag's message becomes the "what's new" lines on his UPDATE key.
+# Samara's update engine (his picks, 2026-10-29). Claude ships a version by tagging a commit on main "samara-vX.Y.Z";
+# the tag's message is the "what's new" on his UPDATE key. The tests run on a Mac and on Windows first; then the
+# release is packed, sealed with his release key and published, and both Samaras are nudged to check at once.
 name: Samara release
 on:
   push:
@@ -7,14 +8,19 @@ on:
 permissions:
   contents: write
 jobs:
+  gate:
+    uses: ./.github/workflows/samara-tests.yml
   release:
+    needs: gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      - name: Only from main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "A release is only made from a commit on main."; exit 1; }
       - uses: actions/setup-node@v4
         with: { node-version: '24' }
-      - name: Pack and stamp
+      - name: Pack and seal
         env:
           SAMARA_RELEASE_KEY: ${{ secrets.SAMARA_RELEASE_KEY }}
           TAG: ${{ github.ref_name }}
@@ -25,4 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz --title "Samara ${TAG#samara-v}" --notes-file notes.txt
+        run: gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz --title "Samara ${TAG#samara-v}" --notes-file notes.txt --latest
+      # The nudge carries one word and nothing else: a Samara that hears it only checks, and still checks the seal.
+      - name: Nudge both Samaras
+        run: curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null || echo "The nudge did not go; Samaras will find it within the hour."

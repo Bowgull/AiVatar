@@ -5,11 +5,13 @@
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
 import { startClaudeDoor } from './claudedoor.ts';
-import { app, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, session } from 'electron';
+import { app, globalShortcut, ipcMain, Menu, nativeImage, net, powerMonitor, session } from 'electron';
 import { denyPermissions } from './safety.ts';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { startMockupDoor } from './mockupdoor.ts';
 import { takeMockupFile } from './mockups.ts';
+import { download as ghDownload, isVersion, latest as ghLatest, listen as ghListen, newer } from './ghrelease.ts';
+import { macUpdateScript } from './macupdate.ts';
 import { spawn } from 'node:child_process';
 import { createHash, verify as verifySig } from 'node:crypto';
 import os from 'node:os';
@@ -258,7 +260,7 @@ app.whenReady().then(async () => {
   // Smooth (2026-10-14: "when i hit update it doesnt just freeze my computer"): an offered update is fetched and the
   // new Samara made in the background at low priority (macOS background QoS), while he keeps working. Only then does
   // the key light up, with its number, its name and what it brings in plain words. Restart now just swaps it in.
-  let offered: { version: string; label: string; name: string; notes: string[]; since: number } | null = null;
+  let offered: { version: string; label: string; name: string; notes: string[]; since: number; github?: boolean } | null = null;
   let preparing = '', readyFile: { version: string; sha: string } | null = null;
   const triedPrepare = new Set<string>();
   const STAGED = path.join(LISTENER, 'browser', 'staged', 'version'), SCRIPT = path.join(LISTENER, 'update.sh');
@@ -272,7 +274,7 @@ app.whenReady().then(async () => {
   const prefs = (): { overnight: boolean } => { try { return { overnight: JSON.parse(readFileSync(PREFS, 'utf8')).overnight === true }; } catch { return { overnight: false }; } };
   const canBack = () => existsSync(path.join(BR, 'rollback', 'Samara.app'));
   const macCard = () => offered ? ({
-    version: offered.version, since: offered.since, title: offered.label ? `Version ${offered.label}: ${offered.name}` : 'Samara update',
+    version: offered.version, since: offered.since, title: offered.label ? (offered.name ? `Version ${offered.label}: ${offered.name}` : `Version ${offered.label}`) : 'Samara update',
     groups: [{ name: 'SAMARA', items: offered.notes.map((text) => ({ text })) }], canBack: canBack(), overnight: prefs().overnight,
   }) : null;
   const showReady = () => {
@@ -295,6 +297,12 @@ app.whenReady().then(async () => {
         return;
       }
     }
+    runPrepare(m.version, script, sha);
+  };
+
+  /** Make the new Samara in the background from this script (the PC's, or one Samara wrote for a sealed GitHub release). */
+  const runPrepare = (version: string, script: string, sha: string) => {
+    const m = { version };
     try {
       writeFileSync(SCRIPT, script); chmodSync(SCRIPT, 0o700);
       const log = path.join(LISTENER, 'update-prepare.log'), out = openSync(log, 'w');
@@ -312,6 +320,8 @@ app.whenReady().then(async () => {
   };
   const onUpdateMsg = (m: any, s: WebSocket) => {
     if (m.t === 'update.offer' && typeof m.version === 'string' && /^[0-9a-f]{6,64}$/.test(m.version)) {
+      // Samara comes from GitHub now (his pick, 2026-10-29): the PC's offer steps aside once a release is here.
+      if (ghSeen || isVersion(installed().version)) { console.log(`aang: the PC offered ${m.version}; Samara updates from GitHub now, so not taken`); return; }
       if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} was skipped or failed before; not offered`); return; }
       if (filed().includes(m.version)) { console.log(`aang: update ${m.version} is put away; "Check for updates" brings it back`); return; }
       const notes = (Array.isArray(m.notes) ? m.notes : []).map((x: unknown) => String(x).slice(0, 160)).slice(0, 12);
@@ -324,6 +334,45 @@ app.whenReady().then(async () => {
     else if (m.t === 'update.fail') { preparing = ''; console.error('aang: update: ' + String(m.why ?? '')); }
     else if (m.t === 'update.script' && preparing === m.version) prepare(m);
   };
+  // ---- Samara's update engine (his picks, 2026-10-29): the latest sealed release on GitHub, checked on start, every
+  // hour, and the moment the release nudge arrives. A newer one is downloaded, checked against its sealed fingerprint,
+  // and made ready in the background by a script this Samara writes itself (macupdate.ts); then his UPDATE key lights
+  // up exactly as before (Restart now, overnight, put away, skip, go back).
+  const GH = path.join(BR, 'github');
+  let ghSeen = false, ghBusy = false, ghAt = 0;
+  const ghCheck = async (why: string) => {
+    if (ghBusy || Date.now() - ghAt < 60_000) return;
+    ghBusy = true; ghAt = Date.now();
+    try {
+      const m = await ghLatest(net.fetch as never);
+      if (!m) return;
+      ghSeen = true;
+      const i = installed();
+      if (!newer(m.version, i.version)) { if (offered?.github) { offered = null; browser?.setUpdate(null); } return; }
+      if (failedUpdates().includes(m.version) || filed().includes(m.version)) return;
+      offered = { version: m.version, label: m.version, name: '', notes: m.notes, since: Date.parse(m.at) || Date.now(), github: true };
+      if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
+      if (preparing || triedPrepare.has(m.version)) return;
+      preparing = m.version; triedPrepare.add(m.version);
+      console.log(`aang: Samara ${m.version} is on GitHub (${why}); downloading it`);
+      mkdirSync(GH, { recursive: true });
+      const bundle = path.join(GH, `samara-${m.version}.tgz`);
+      if (!(await ghDownload(net.fetch as never, m, bundle))) { preparing = ''; console.error(`aang: Samara ${m.version} did not download whole; trying again later`); triedPrepare.delete(m.version); return; }
+      // What it brings, kept for "Every version" in the key's menu.
+      try {
+        const log = path.join(LISTENER, 'Samara Changelog.md');
+        let had = ''; try { had = readFileSync(log, 'utf8'); } catch { /* first */ }
+        if (!had.includes(`## ${m.version} `)) writeFileSync(log, `## ${m.version} (${m.at.slice(0, 10)})\n${m.notes.map((n) => `- ${n}`).join('\n')}\n\n${had}`);
+      } catch { /* best effort */ }
+      const script = macUpdateScript({ bundle, version: m.version, commit: m.commit });
+      runPrepare(m.version, script, createHash('sha256').update(script).digest('hex'));
+    } catch (e) { preparing = ''; console.error('aang: GitHub update check: ' + (e as Error).message); }
+    finally { ghBusy = false; }
+  };
+  setTimeout(() => void ghCheck('start'), 30_000);
+  setInterval(() => void ghCheck('hourly'), 60 * 60_000).unref();
+  ghListen(net.fetch as never, () => void ghCheck('nudge'));
+
   // The report (his rule, 2026-10-14: a failed update must say why, so it can be fixed). After an update ran, once
   // the outcome is known (this Aang marked itself good, or the old one came back), what the update printed and the
   // end of Aang's own log go to the PC, which keeps them for Claude. Once per update run.
@@ -358,6 +407,7 @@ app.whenReady().then(async () => {
       triedPrepare.clear();
       const i = installed();
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit }));
+      ghAt = 0; void ghCheck('his check');
       return;
     }
     if (!offered) { if (act !== 'back') return; }

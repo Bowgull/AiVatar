@@ -1,0 +1,40 @@
+# Samara's ship gate (his rule, 2026-10-29: every Samara change thinks Mac AND PC). Its tests run on a Mac and on
+# Windows, and the pet's (the C# Body that starts Samara on the PC) on Windows. A release is only made when all pass.
+name: Samara tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+jobs:
+  samara:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: src/Shell
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      # Only the libraries Samara runs with (the Mac app's list): the engine itself comes from castLabs over a signed-in
+      # link and is not needed by these tests.
+      - name: Samara's libraries
+        run: |
+          cp mac-pkg/package.json mac-pkg/package-lock.json .
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Unit tests
+        run: node --no-warnings --test --test-timeout=30000 test/*.test.ts
+  pet:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: The pet's tests
+        run: dotnet test tests/Body.Tests/Body.Tests.csproj --nologo
