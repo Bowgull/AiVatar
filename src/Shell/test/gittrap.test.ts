@@ -17,8 +17,10 @@ function trapRepo() {
   mkdirSync(path.join(dir, 'docs'));
   writeFileSync(path.join(dir, 'docs', 'sheet-1-x.html'), '<title>1 · X</title>');
   run('add', '.'); run('commit', '-qm', 'one');
-  writeFileSync(path.join(dir, 'trap.sh'), `#!/bin/sh\ntouch "${fired}"\nexit 0\n`); chmodSync(path.join(dir, 'trap.sh'), 0o755);
-  run('config', 'core.fsmonitor', path.join(dir, 'trap.sh'));
+  // Git runs the trap through sh on Windows too, where a backslash is an escape: forward slashes on every machine.
+  const fwd = (p: string) => p.replace(/\\/g, '/');
+  writeFileSync(path.join(dir, 'trap.sh'), `#!/bin/sh\ntouch "${fwd(fired)}"\nexit 0\n`); chmodSync(path.join(dir, 'trap.sh'), 0o755);
+  run('config', 'core.fsmonitor', fwd(path.join(dir, 'trap.sh')));
   writeFileSync(path.join(dir, 'docs', 'sheet-1-x.html'), '<title>1 · X changed</title>');   // dirty, so git would look
   return { dir, fired };
 }

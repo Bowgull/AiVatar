@@ -18,7 +18,7 @@ const res = (body: string | Buffer, ok = true) => ({ ok, status: ok ? 200 : 404,
   body: new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array(Buffer.from(body))); c.close(); } }) });
 
 test('the key Samara carries is the one in release-key.pub', () => {
-  assert.equal(RELEASE_KEY.trim(), readFileSync(new URL('../release-key.pub', import.meta.url), 'utf8').trim());
+  assert.equal(RELEASE_KEY.trim(), readFileSync(new URL('../release-key.pub', import.meta.url), 'utf8').replace(/\r/g, '').trim());
 });
 
 test('a manifest is used only with his seal on exactly its text', () => {

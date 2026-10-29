@@ -13,7 +13,9 @@ import { PlanMemory } from './claudeplan.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { isRisky } from './secure.ts';
-import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell } from 'electron';
+import { listen as ghListen } from './ghrelease.ts';
+import { SamaraUpdates, samaraRoot } from './pcupdate.ts';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -72,6 +74,9 @@ const STATE_DIR = process.env.AANG_STATE_DIR
   ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
 const DATA_DIR = process.env.AANG_DATA_DIR ?? path.join(os.homedir(), 'Documents', 'Aang');
 const HERE = import.meta.dirname;
+/** The code folder (2026-10-29): where the engines and the paid-video runtime live. The pet says so when Samara runs from
+ *  an installed release (src/Body/SamaraPointer.cs); run from the code folder itself, it is the same folder. */
+const SHELL_HOME = process.env.AANG_SHELL_HOME && existsSync(process.env.AANG_SHELL_HOME) ? process.env.AANG_SHELL_HOME : path.join(HERE, '..');
 
 // Samara on its own (his ask, 2026-10-20): this process holds his browser, so it is no longer tied to the pet. It may
 // outlive him, so it writes its own log instead of a pipe the pet holds (a pipe that would break when he closes).
@@ -869,7 +874,8 @@ app.whenReady().then(async () => {
       // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
       // Ctrl+Plus and Snipit: taken below, once Snipit exists, and only while Aang is running.
 
-      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
+      // repoDir: the mockups' repo is the code folder's, also when Samara runs from an installed release (2026-10-29).
+      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, repoDir: path.join(SHELL_HOME, '..', '..'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
       // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
       aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
@@ -936,7 +942,7 @@ app.whenReady().then(async () => {
       writeJumpList(bodyAlive());
       // 6.28 the update key: a newer engine, downloaded, checked and tested quietly, waits for his Restart now.
       engineUpdates = new EngineUpdates({
-        shellDir: path.join(HERE, '..'), stateDir: STATE_DIR,
+        shellDir: SHELL_HOME, stateDir: STATE_DIR,
         quietNow: () => gameQuiet || aangBrowser?.inCall === true,
         changed: (r) => { showEngine(); if (r) link?.send({ t: 'engine.ready', version: r.version, major: r.major === true } as never); },
         signinNeeded: (signIn) => link?.send({ t: 'engine.signin', signIn } as never),
@@ -955,6 +961,22 @@ app.whenReady().then(async () => {
       }, 10 * 60_000).unref();
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
       engineUpdates.start();
+      // Samara's update engine (his picks, 2026-10-29): the latest sealed release on GitHub, on start, hourly and at the
+      // release nudge; made ready beside the one running, then the same key. Windows only (the Mac has its own, macmain).
+      const root = process.platform === 'win32' && !process.env.AANG_TEST ? samaraRoot() : null;
+      if (root) {
+        const su = samaraUpdates = new SamaraUpdates({ root, codeDir: path.join(HERE, '..'), fetch: net.fetch as never, changed: showEngine });
+        setTimeout(() => void su.check('start'), 30_000);
+        setInterval(() => void su.check('hourly'), 60 * 60_000).unref();
+        ghListen(net.fetch as never, () => void su.check('nudge'));
+        setTimeout(() => su.markGood(), 5 * 60_000);
+        // Overnight, his toggle: as for the engine, between 2 and 5 am, idle half an hour, never in a call or a game.
+        setInterval(() => {
+          const h = new Date().getHours();
+          if (!su.ready || engineUpdates?.ready || !updatePrefs().overnight || h < 2 || h >= 5 || gameQuiet || aangBrowser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
+          if (su.go()) { console.log('shell: updating Samara overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); }
+        }, 10 * 60_000).unref();
+      }
       {
         const done = engineUpdates.justUpdated();
         if (done) {
@@ -982,7 +1004,7 @@ app.whenReady().then(async () => {
     }
 
     drm = new DrmRuntime({
-      shellDir: path.join(HERE, '..'),
+      shellDir: SHELL_HOME, codeDir: path.join(HERE, '..'),
       stateDir: STATE_DIR,
       // Always said, not only on a bad code: a paid-video window that vanishes should never do so
       // silently, and the code is the first thing worth knowing when it does.
@@ -1463,6 +1485,13 @@ app.whenReady().then(async () => {
     if (act === 'changelog') { let t = ''; try { t = readFileSync(path.join(DATA_DIR, 'Samara Changelog.md'), 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
     if (act === 'overnight') { try { writeFileAtomic(updatePrefsFile, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } showEngine(); return; }
     if (act === 'seen') { aangBrowser.setUpdated(null); return; }
+    // Samara's own version, when one waits (or for going back, when it runs from a release); else the engine's.
+    if (samaraUpdates?.ready && (act === 'file' || act === 'skip')) { if (act === 'file') samaraUpdates.put(); else samaraUpdates.skip(); return; }
+    if (act === 'check') samaraUpdates?.checkNow();
+    if (act === 'back' && samaraUpdates?.pointer()) {
+      if (samaraUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); }
+      return;
+    }
     if (!engineUpdates) return;
     if (act === 'file') engineUpdates.file();
     else if (act === 'skip') engineUpdates.skip();
@@ -1473,7 +1502,14 @@ app.whenReady().then(async () => {
     }
   });
   ipcMain.on('browser:updatego', (e, choices) => {
-    if (!aangBrowser?.isFrame(e.sender) || !engineUpdates) return;
+    if (!aangBrowser?.isFrame(e.sender)) return;
+    // Samara's new version first: the pet starts it next, as a trial. Then the engine's, when it waits too.
+    if (samaraUpdates?.ready) {
+      if (aangBrowser.inCall || gameQuiet) { e.sender.send('browser:updatewhy', aangBrowser.inCall ? "You're in a call. Restart when it's over." : 'Not during a game.'); return; }
+      if (!samaraUpdates.go()) { e.sender.send('browser:updatewhy', 'The update is not ready yet. It will show up again when it is.'); return; }
+      if (!engineUpdates?.ready) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); return; }
+    }
+    if (!engineUpdates) return;
     const c = choices && typeof choices === 'object' ? { lock: (choices as any).lock !== false, closeBackdoors: (choices as any).closeBackdoors !== false } : undefined;
     void engineUpdates.restartNow(aangBrowser.showing, c).then((r) => {
       if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
@@ -1805,7 +1841,19 @@ function engineCard(r: Ready | null): UpdateCard | null {
     canBack: engineUpdates?.canBack() === true, overnight: updatePrefs().overnight,
   };
 }
-function showEngine(): void { aangBrowser?.setUpdate(engineCard(engineUpdates?.ready ?? null)); }
+/** Samara's own update from GitHub (2026-10-29, his pick: the PC like the Mac), set up once the browser is. */
+let samaraUpdates: SamaraUpdates | null = null;
+/** The key's card: Samara's new version first (its lines), then the engine's when both are waiting; one Restart now. */
+function updateCard(): UpdateCard | null {
+  const e = engineCard(engineUpdates?.ready ?? null), s = samaraUpdates?.ready;
+  if (!s) return e;
+  return {
+    version: e ? `${s.version}+${e.version}` : s.version, since: Math.min(s.since, e?.since ?? s.since), title: `Version ${s.version}`,
+    groups: [{ name: 'SAMARA', items: s.notes.map((text) => ({ text })) }, ...(e?.groups ?? [])],
+    canBack: samaraUpdates?.canBack() === true || e?.canBack === true, overnight: updatePrefs().overnight,
+  };
+}
+function showEngine(): void { aangBrowser?.setUpdate(updateCard()); }
 async function engineGo(): Promise<void> {
   if (!engineUpdates?.ready) return;
   const r = await engineUpdates.restartNow(aangBrowser?.showing === true, engineUpdates.ready.choices);

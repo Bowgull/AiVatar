@@ -27,8 +27,10 @@ public class ShellSupervisorTests
     {
         var dir = CoreSupervisor.FindShellDir()!;
         var electron = Path.Combine(dir, "node_modules", "electron", "dist", "electron.exe");
-        // Not the Core's Node, and not whatever Electron happens to be on the machine.
-        Assert.True(File.Exists(electron), $"the Shell's own Electron should be at {electron}");
+        // Not the Core's Node, and not whatever Electron happens to be on the machine (2026-10-29: checked on the
+        // launcher's own choice, so it holds on a test machine where Electron is not installed too).
+        using var sup = CoreSupervisor.ForShell(null);
+        Assert.Equal(electron, sup.Spec.Exe);
     }
 
     [Fact]

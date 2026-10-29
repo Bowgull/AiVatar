@@ -27,6 +27,9 @@ sealed class CoreSupervisor : IDisposable
         string GiveUpSays,  // what Aang says out loud when it has crashed too often
         Func<string, string>? PickExe = null,          // 6.28: choose the program afresh at every start (the Shell's engine)
         Action<string, TimeSpan>? AfterExit = null,    // 6.28: told what ran and for how long, at every exit
+        // 2026-10-29 (his pick: Samara from GitHub on the PC too): the folder to run, chosen afresh at every start (an
+        // installed release, or Dir). Dir stays the code folder: the engine and the paid-video runtime live there.
+        Func<string>? PickDir = null,
         // Samara on its own (his ask, 2026-10-20): the Shell holds his browser, so it is not tied to the pet. It is
         // left out of the job object (a pet that crashes does not take his tabs with it), writes its own log (no
         // pipe that breaks when the pet goes), is never killed when the pet closes, and one already running is
@@ -34,6 +37,8 @@ sealed class CoreSupervisor : IDisposable
         bool Independent = false);
 
     readonly ChildSpec spec;
+    /// <summary>What this supervisor starts (for the tests).</summary>
+    internal ChildSpec Spec => spec;
     readonly CancellationTokenSource cts = new();
     readonly IntPtr job;
     Process? child;
@@ -64,6 +69,7 @@ sealed class CoreSupervisor : IDisposable
     public static CoreSupervisor ForShell(string? shellDirOverride)
     {
         var dir = shellDirOverride is { Length: > 0 } ? shellDirOverride : FindShellDir();
+        string? ranDir = null;
         return new CoreSupervisor(new ChildSpec(
             Name: "Shell",
             LogFile: "shell.log",
@@ -75,7 +81,13 @@ sealed class CoreSupervisor : IDisposable
             Independent: true,
             // 6.28: an updated engine if the brain has tested one, rolled back if it dies early (EnginePointer).
             PickExe: dir == null ? null : fallback => EnginePointer.Pick(dir, fallback),
-            AfterExit: dir == null ? null : (ran, ranFor) => EnginePointer.AfterExit(dir, ran, ranFor)));
+            // 2026-10-29: Samara's own code from its installed release when there is one, rolled back if it dies early.
+            PickDir: dir == null ? null : () => ranDir = SamaraPointer.Pick(SamaraPointer.DefaultRoot) ?? dir!,
+            AfterExit: dir == null ? null : (ran, ranFor) =>
+            {
+                EnginePointer.AfterExit(dir, ran, ranFor);
+                if (ranDir != null) SamaraPointer.AfterExit(SamaraPointer.DefaultRoot, ranDir, ranFor);
+            }));
     }
 
     /// <summary>Walk up to the repo's src/Shell, the same way the Core is found.</summary>
@@ -188,9 +200,11 @@ sealed class CoreSupervisor : IDisposable
                 var exe = spec.PickExe?.Invoke(spec.Exe) ?? spec.Exe;
                 var psi = new ProcessStartInfo(exe, spec.Args)
                 {
-                    WorkingDirectory = spec.Dir, UseShellExecute = false, CreateNoWindow = true,
+                    WorkingDirectory = spec.PickDir?.Invoke() ?? spec.Dir, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = !spec.Independent, RedirectStandardError = !spec.Independent,
                 };
+                // Samara run from a release still finds the code folder's engines and paid-video runtime.
+                if (spec.PickDir != null && spec.Dir != null) psi.Environment["AANG_SHELL_HOME"] = spec.Dir;
                 child = Process.Start(psi);
                 if (child == null) { Set($"{spec.Name} would not start"); await Task.Delay(pause, cts.Token); continue; }
                 if (spec.Independent)
@@ -332,7 +346,9 @@ sealed class CoreSupervisor : IDisposable
         try
         {
             var exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
-            using var p = Process.Start(new ProcessStartInfo(exe, s.Args) { WorkingDirectory = s.Dir, UseShellExecute = false, CreateNoWindow = true });
+            var psi = new ProcessStartInfo(exe, s.Args) { WorkingDirectory = s.PickDir?.Invoke() ?? s.Dir, UseShellExecute = false, CreateNoWindow = true };
+            if (s.PickDir != null) psi.Environment["AANG_SHELL_HOME"] = s.Dir;
+            using var p = Process.Start(psi);
             Log.Write($"samara: opened on its own (pid {p?.Id})");
             return p != null;
         }
