@@ -14,6 +14,8 @@ if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'main') { console.error('Ship f
 if (git('status', '--porcelain', '--untracked-files=no')) { console.error('Commit the work first: nothing half-done ships.'); process.exit(2); }
 const rec = read('src/Shell/releases.json'), items = read('src/Shell/whats-new.json').items;
 const last = rec.versions.at(-1), lines = linesSince(items, last?.at);
+const ahead = items.filter((i) => Date.parse(i.at) > Date.now() + 60_000);
+if (ahead.length) { console.error('A line in whats-new.json is dated in the future (check its time zone): ' + ahead[0].text); process.exit(2); }
 if (!lines.length) { console.error('Nothing new in whats-new.json since ' + last.semver + ': write what this version brings first.'); process.exit(2); }
 const v = { ...next(last, lines), at: new Date(Math.max(Date.now(), ...lines.map((l) => Date.parse(l.at)) ) ).toISOString() };
 const tag = `samara-v${v.semver}`;
