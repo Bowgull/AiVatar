@@ -106,7 +106,7 @@ import type { PetAt } from './protocol.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
 import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
-import { Spotify, SpotifyError } from './spotify.ts';
+import { Spotify, SpotifyError, SPOTIFY_SETUP } from './spotify.ts';
 import { Simkl, episodeLink, findShow } from './simkl.ts';
 import type { Show } from './simkl.ts';
 import { gameRunning } from './gpu.ts';
@@ -316,6 +316,8 @@ const TURN_TIMEOUT_MS = 120_000;
 const BLACK_SHARE = 0.85;
 const MAX_TEXT = 8000;
 const PERMISSION_AT_DESK_MS = 30_000;
+/** Claude in front this long means he has seen what finished: the done tick goes (2026-10-29). */
+const SEEN_IN_CLAUDE_MS = 5_000;
 const PERMISSION_TIMEOUT_MS = 120_000;   // he may be in the game; wait, but never for ever          // a chat message this long is a paste; cap it rather than trust the sender
 
 /**
@@ -713,7 +715,7 @@ export class Core {
   spotifyLaunch = async (): Promise<void> => { const r = resolveOpen('spotify'); if (!('error' in r)) await launch(r); };
   private async playMusic(what: string, kind?: 'track' | 'playlist' | 'artist' | 'album'): Promise<{ ok: boolean; detail: string }> {
     const sp = new Spotify(path.join(this.cfg.stateDir, 'spotify.json'), this.spotifyFetch);
-    if (!sp.connected) return { ok: false, detail: 'Spotify is not connected yet. Joshua signs in once by double-clicking tools\\spotify-setup.cmd.' };
+    if (!sp.connected) return { ok: false, detail: `Spotify is not connected yet. Joshua signs in once with ${SPOTIFY_SETUP}.` };
     if (!await this.askPermission('mcp__aang__play_music', { what })) return { ok: false, detail: this.whyNot() + ' Nothing was played.' };
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -2309,8 +2311,18 @@ export class Core {
   private inClaude(): boolean { return this.fgProcess.toLowerCase() === CLAUDE_WINDOW.toLowerCase(); }
   /** The one gate for "never surface anything while Claude is in front" (claudefront.ts, 2026-10-21). */
   private readonly frontGate = new FrontGate(() => this.inClaude());
+  private seenTimer: NodeJS.Timeout | null = null;
   /** He left the Claude window: the mark comes back quietly, then what was held, a few seconds apart (as hush does). */
   private frontMoved(): void {
+    // 2026-10-29, his pick: Claude in front for 5 s means he has seen what finished, so the done tick goes (all of them:
+    // which Claude tab he looks at is not known). A quick switch through Claude leaves it.
+    // Presence repeats while nothing moves, so a running wait is left alone.
+    if (!this.inClaude()) { if (this.seenTimer) { clearInterval(this.seenTimer); this.seenTimer = null; } }
+    // Kept up while he stays: a job that finishes with Claude in front is seen there too.
+    else if (!this.seenTimer) {
+      this.seenTimer = setInterval(() => { if (this.inClaude()) this.claudeJobs.ackAll(); else { clearInterval(this.seenTimer!); this.seenTimer = null; } }, SEEN_IN_CLAUDE_MS);
+      this.seenTimer.unref?.();
+    }
     // Out of Claude: a brief that waited for it comes now (R6).
     if (!this.inClaude()) setTimeout(() => this.briefIfDue(), 3000).unref?.();
     const { mark, lines } = this.frontGate.moved(m => this.askOver(m));

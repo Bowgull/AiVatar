@@ -17,6 +17,7 @@ swiftc -O -o "$A/bin/aang-look" "$A/mac/look.swift" 2>/dev/null
 [ -d "$A/node_modules" ] || cp -cR "$SHELL_MODULES" "$A/node_modules"
 
 P="$HOME/Library/LaunchAgents/com.aang.pet.plist"
+OLD=$(cat "$P" 2>/dev/null || true)
 ( umask 077; cat > "$P" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -35,8 +36,14 @@ P="$HOME/Library/LaunchAgents/com.aang.pet.plist"
 EOF
 )
 # Quit Aang from his menu exits cleanly, so launchd leaves him off until the next login; a crash brings him back.
-launchctl bootout "gui/$(id -u)/com.aang.pet" 2>/dev/null || true
-# bootout returns before launchd has let go; try again for a few seconds.
-for i in 1 2 3 4 5 6; do launchctl bootstrap "gui/$(id -u)" "$P" 2>/dev/null && break; sleep 2; done
+# Same plist and already loaded: only restart him. Every bootstrap puts up a "Background Items Added" notice on the Mac
+# (2026-10-28: nine of them stacked up during one afternoon's testing).
+if [ "$OLD" = "$(cat "$P")" ] && launchctl print "gui/$(id -u)/com.aang.pet" >/dev/null 2>&1; then
+  launchctl kickstart -k "gui/$(id -u)/com.aang.pet"
+else
+  launchctl bootout "gui/$(id -u)/com.aang.pet" 2>/dev/null || true
+  # bootout returns before launchd has let go; try again for a few seconds.
+  for i in 1 2 3 4 5 6; do launchctl bootstrap "gui/$(id -u)" "$P" 2>/dev/null && break; sleep 2; done
+fi
 launchctl print "gui/$(id -u)/com.aang.pet" >/dev/null
 echo "Aang is installed and running. Log: $L/aang-app.log"

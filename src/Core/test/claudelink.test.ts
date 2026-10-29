@@ -329,3 +329,20 @@ test('unread: at most three finished jobs; the fourth drops the oldest, on disk 
     await t2.hist.flush();
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// 2026-10-29, his pick: Claude in front for 5 s means he has seen them, so every done tick goes at once.
+test('unread: ackAll reads every finished job and says how many', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const os = await import('node:os'), path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-ackall-'));
+  try {
+    const t = new JobTracker();
+    t.useData(dir, { ci: false });
+    const B = Date.now() - 600_000;
+    for (const s of ['a', 'b']) { t.event({ session: s, type: 'turn.start', cwd: '/code/' + s }, B + 1000); t.event({ session: s, type: 'turn.end' }, B + 2000); }
+    assert.equal(t.list(B + 3000).filter(j => j.unread).length, 2);
+    assert.equal(t.ackAll(), 2);
+    assert.equal(t.list(B + 3000).filter(j => j.unread).length, 0);
+    assert.equal(t.ackAll(), 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
