@@ -1,0 +1,34 @@
+/* Sheet 102 (his pick, 2026-10-29): the address bar's list, bigger and steady. The slot and its list are one dark piece
+   (sheet 19 A). Words 15, addresses 13, rows 40 (Chrome's height). It opens once, at full size, sliding down under the
+   bar in four pixel steps and widening with it; new guesses swap their words in rows that are already there; it never
+   shrinks while he types; the gold marker glides between rows. The layer is see-through: only the box draws, and the
+   layer is exactly as tall as the box (and its 3 px pixel drop), so it never catches a click meant for the page. */
+html,body{margin:0;background:transparent;overflow:hidden;user-select:none;-webkit-user-select:none}
+:root{--ink:#0B0718;--edge:var(--outline);--dim:#8a80a5}
+.box{position:relative;margin:0 auto;box-sizing:border-box;width:100%;padding:6px 0 8px;background:var(--ink);border:3px solid var(--edge);border-top:none;
+  border-radius:0 0 10px 10px;box-shadow:0 3px 0 rgba(0,0,0,.6);clip-path:inset(0 0 100% 0);
+  transition:width .24s cubic-bezier(.2,.8,.2,1)}
+.box::before{content:"";display:block;height:2px;margin:0 14px 4px;background:#241a3a}
+.box.in{clip-path:inset(0 0 -4px 0);animation:drop .12s steps(4,end)}
+@keyframes drop{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 -4px 0)}}
+.box.out{clip-path:inset(0 0 100% 0)}
+.mark{position:absolute;left:0;right:0;top:0;height:40px;background:linear-gradient(90deg,rgba(126,87,181,.45),rgba(74,44,110,.25));box-shadow:inset 3px 0 0 var(--gold);
+  transition:transform .09s cubic-bezier(.2,.8,.2,1);pointer-events:none;opacity:0}
+.mark.on{opacity:1}
+.mark.jump{transition:none}
+.rows{position:relative}
+.srow{display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;cursor:pointer;white-space:nowrap}
+.srow.hold{pointer-events:none}
+.srow.hold>*{visibility:hidden}
+.gl{height:2px;margin:4px 14px;background:#241a3a}
+.sg{flex:0 0 20px;display:grid;place-items:center}
+.sg svg{display:block}
+.sg svg path{fill:var(--dim)}
+.sg img{width:16px;height:16px;display:block}
+.st{font:500 15px var(--body);color:#d9d0ec;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;max-width:60%}
+.st b{font-weight:800;color:#F0E6FF}
+.su{flex:1;min-width:0;font:500 13px var(--body);color:#7f739f;overflow:hidden;text-overflow:ellipsis}
+.sa{margin-left:auto;flex:0 0 auto;font:600 13px var(--body);color:var(--gold-lit);visibility:hidden}
+.srow.on .sa{visibility:visible}
+.srow.on .sg svg path{fill:var(--gold-lit)}
+@media (prefers-reduced-motion:reduce){.box,.mark{transition:none}.box.in{animation:none}}
