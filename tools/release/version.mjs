@@ -5,9 +5,10 @@
 // src/Shell/releases.json is the record of every version. The ship step and GitHub's check both use this one file.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';   // a Windows path, never /D:/...
 import { releaseName } from '../../src/Core/src/releasenames.ts';
 
-export const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 /** @typedef {{ at: string; text: string; kind: string }} Line */
 /** @typedef {{ semver: string; name: string; at: string }} Version */
 /** @param {string} rel @returns {any} */
