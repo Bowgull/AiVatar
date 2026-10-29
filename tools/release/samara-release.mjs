@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash, createPrivateKey, sign } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';   // a Windows path, never /D:/...
 import { checkNewest, read } from './version.mjs';
 
 const [version, out, notesFile] = process.argv.slice(2);
@@ -21,7 +22,7 @@ if (why) { console.error(why); process.exit(2); }
 const lines = items.filter((i) => Date.parse(i.at) > (before ? Date.parse(before.at) : -Infinity) && Date.parse(i.at) <= Date.parse(v.at));
 const pem = process.env.SAMARA_RELEASE_KEY;
 if (!pem) { console.error('SAMARA_RELEASE_KEY is not set: a release is never published unstamped'); process.exit(2); }
-const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const shell = path.join(repo, 'src', 'Shell');
 mkdirSync(out, { recursive: true });
 
