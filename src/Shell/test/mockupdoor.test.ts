@@ -34,7 +34,9 @@ test('a file in no repo is refused, saying how to fix it', () => {
   if (!c.ok) assert.match(c.message, /not in a git repo/);
 });
 
-test('a page served from a folder is filed as its file; a page nothing serves stays live', async () => {
+// Mac only: finding which folder serves a page uses lsof. On the PC such a page stays a live page (a known gap, on the PC's
+// checks-owed list, 2026-10-29).
+test('a page served from a folder is filed as its file; a page nothing serves stays live', { skip: process.platform === 'win32' && 'the PC has no lsof yet' }, async () => {
   const r = repo();
   const port = 20000 + Math.floor(Math.random() * 20000);
   const srv = spawn(process.platform === 'win32' ? 'python' : 'python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { cwd: r, stdio: 'ignore' });

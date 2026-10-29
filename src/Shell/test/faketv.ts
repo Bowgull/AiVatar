@@ -34,7 +34,7 @@ export class FakeTv {
   pairPort = 0;
   constructor() {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'faketv-'));
-    execFileSync(existsSync('/usr/bin/openssl') ? '/usr/bin/openssl' : 'openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '30', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=faketv'], { stdio: 'ignore' });
+    execFileSync(existsSync('/usr/bin/openssl') ? '/usr/bin/openssl' : 'openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '30', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=faketv'], { stdio: 'ignore', env: { ...process.env, MSYS_NO_PATHCONV: '1', MSYS2_ARG_CONV_EXCL: '*' } });
     this.cert = readFileSync(path.join(dir, 'c.pem')); this.key = readFileSync(path.join(dir, 'k.pem'));
   }
   async start(): Promise<this> { await this.listen(); return this; }

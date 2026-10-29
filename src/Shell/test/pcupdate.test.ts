@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { SamaraUpdates } from '../src/pcupdate.ts';
 
+// Windows' own tar (bsdtar), as pcupdate.ts uses: Git's GNU tar reads "C:" as a remote host.
+const TAR = process.platform === 'win32' ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
 // A pretend GitHub: a real little bundle (src/main.ts and a lock file), sealed with a test key.
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
 function release(version: string, lock = 'lock-1') {
@@ -15,7 +17,7 @@ function release(version: string, lock = 'lock-1') {
   writeFileSync(path.join(src, 'src', 'main.ts'), `// samara ${version}`);
   writeFileSync(path.join(src, 'package-lock.json'), lock);
   const tgz = path.join(src, 'b.tgz');
-  execFileSync('tar', ['-czf', tgz, '-C', src, 'src', 'package-lock.json']);
+  execFileSync(TAR, ['-czf', tgz, '-C', src, 'src', 'package-lock.json']);
   const bytes = readFileSync(tgz);
   const text = JSON.stringify({ v: 1, app: 'samara', version, commit: 'b'.repeat(40), at: '2026-10-29T12:00:00Z', notes: [`What ${version} brings`],
     bundle: { file: 'samara-bundle.tgz', sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length } });
@@ -31,7 +33,7 @@ const PUB = publicKey.export({ type: 'spki', format: 'pem' }).toString();
 
 let npmRuns = 0;
 const run = async (cmd: string, args: string[], cwd: string) => {
-  if (/tar(\.exe)?$/.test(cmd)) { try { execFileSync('tar', args); return 0; } catch { return 1; } }
+  if (/tar(\.exe)?$/.test(cmd)) { try { execFileSync(cmd, args); return 0; } catch { return 1; } }
   npmRuns++; mkdirSync(path.join(cwd, 'node_modules'), { recursive: true }); writeFileSync(path.join(cwd, 'node_modules', 'x'), 'lib'); return 0;
 };
 const setup = (fetch: ReturnType<typeof release>, codeDir?: string) => {

@@ -63,11 +63,25 @@ export function pairingSecret(clientPem: Buffer | string, tvDer: Buffer, code: s
   const d = h.digest();
   return d[0] === parseInt(c.slice(0, 2), 16) ? d : null;
 }
+/**
+ * The openssl that makes the certificate: the Mac's own; on the PC (2026-10-29, the first Windows test run: TV linking
+ * could never work there) the one Git for Windows ships, else one on the PATH.
+ */
+export function opensslBin(env: NodeJS.ProcessEnv = process.env, has: (f: string) => boolean = existsSync): string {
+  if (process.platform !== 'win32') return has('/usr/bin/openssl') ? '/usr/bin/openssl' : 'openssl';
+  for (const root of [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs')]) {
+    if (!root) continue;
+    for (const sub of [['Git', 'mingw64', 'bin'], ['Git', 'usr', 'bin']]) { const f = path.join(root, ...sub, 'openssl.exe'); if (has(f)) return f; }
+  }
+  return 'openssl';
+}
 /** Samara's own certificate for its TV, made once in its folder (the TV remembers it once linked). */
 export function ensureCert(dir: string): { cert: Buffer; key: Buffer } {
   const certFile = path.join(dir, 'tv-remote-cert.pem'), keyFile = path.join(dir, 'tv-remote-key.pem');
   if (!existsSync(certFile) || !existsSync(keyFile)) {
-    execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '3650', '-keyout', keyFile, '-out', certFile, '-subj', '/CN=Samara'], { stdio: 'ignore' });
+    // MSYS_NO_PATHCONV: Git's own openssl must read "/CN=Samara" as a name, never turn it into a Windows path.
+    execFileSync(opensslBin(), ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '3650', '-keyout', keyFile, '-out', certFile, '-subj', '/CN=Samara'],
+      { stdio: 'ignore', env: { ...process.env, MSYS_NO_PATHCONV: '1', MSYS2_ARG_CONV_EXCL: '*' } });
   }
   return { cert: readFileSync(certFile), key: readFileSync(keyFile) };
 }
