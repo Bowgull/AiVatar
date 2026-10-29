@@ -20,14 +20,14 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { cleanBranch, cleanLive, type MockupDrop, type MockVersion } from './mockups.ts';
+import { cleanBranch, cleanIcon, cleanLive, type MockupDrop, type MockVersion } from './mockups.ts';
 
 export const MOCKUP_DOOR_PORT = 47844;
 export const mockupDoorKeyFile = (stateDir: string) => path.join(stateDir, 'mockup-door.key');
 export const doorMac = (key: string, ...parts: string[]): string => createHmac('sha256', key).update(parts.join('\n')).digest('hex');
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-export interface DoorAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }
+export interface DoorAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown; project?: unknown; icon?: unknown }
 export type DoorAnswer = { ok: boolean; message: string };
 
 /**
@@ -73,6 +73,7 @@ const cleanTitle = (t: unknown) => (typeof t === 'string' ? t.slice(0, 1000).rep
 export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: string } | { ok: false; message: string } {
   const title = cleanTitle(ask.title);
   const branch = typeof ask.branch === 'string' && ask.branch ? cleanBranch(ask.branch) : null;
+  const project = typeof ask.project === 'string' && ask.project ? cleanBranch(ask.project) : null, icon = cleanIcon(ask.icon);
   const hasPath = typeof ask.path === 'string' && ask.path.trim() !== '', hasUrl = typeof ask.url === 'string' && ask.url.trim() !== '';
   if (hasPath === hasUrl) return { ok: false, message: 'Pass either path (an .html file in your repo) or url (a page on http://127.0.0.1 or localhost), not both.' };
   if (hasUrl) {
@@ -81,8 +82,8 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
     // A page served straight from a folder (python -m http.server and the like) is a file in disguise: filed as that
     // file when it sits in a git repo, so it keeps working after the server stops. A real dev server stays live.
     const f = servedFile(u);
-    if (f) { const c = checkAsk({ path: f, title: ask.title, branch: ask.branch }); if (c.ok) return c; }
-    return { ok: true, drop: { path: '', repo: null, url: u, title, branch }, name: u };
+    if (f) { const c = checkAsk({ path: f, title: ask.title, branch: ask.branch, project: ask.project, icon: ask.icon }); if (c.ok) return c; }
+    return { ok: true, drop: { path: '', repo: null, url: u, title, branch, project, icon }, name: u };
   }
   const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
   const raw = String(ask.path).trim();
@@ -104,7 +105,7 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
   const rel = path.relative(root, file).split(path.sep).join('/');
   if (!/\.html?$/i.test(rel)) return { ok: false, message: 'path must be an .html page.' };
   if (rel.length > 400 || root.length > 400 || rel.split('/').some((s) => !s || s.startsWith('.'))) return { ok: false, message: 'That file is in a hidden folder (or its path is too long), so it is not shown.' };
-  return { ok: true, drop: { path: rel, repo: root, url: null, title, branch }, name: rel };
+  return { ok: true, drop: { path: rel, repo: root, url: null, title, branch, project, icon }, name: rel };
 }
 
 /**

@@ -50,7 +50,7 @@ import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } fro
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 import { TIDY_KEEP, isPicked, saysDecided, sheetLabel, spaceOf, tidyDue, tidyLine } from './mockuptidy.ts';
-import { MockServer, MockStore, thumbKey, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
+import { LOGO_SPOTS, MockServer, MockStore, logoSlug, thumbKey, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 /** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
@@ -453,6 +453,8 @@ const SETTLED_JS = `(async () => {
 })()`;
 /** Never a tab he looked at in the last 10 minutes, even when memory is short. */
 const SLEEP_MIN_MS = 10 * 60_000;
+/** Sheet 100 v4: a mockup tab not looked at for this long closes by itself (it stays in the Mockups tab). */
+const MOCK_TUCK_MS = 3 * 86_400_000;
 /**
  * Is the computer short on memory? On the Mac, its own pressure level (1 normal, 2 warning, 4 critical); on Windows,
  * under 12% of memory free. A failed read counts as fine.
@@ -2999,6 +3001,13 @@ export class AangBrowser {
    */
   private async sleepIdle(): Promise<void> {
     const now = Date.now();
+    // Sheet 100 v4 (his pick, 2026-10-28: "Tuck away old ones"): a mockup tab he has not looked at in 3 days closes by
+    // itself. It is still in the Mockups tab. Never the one in front, never one that arrived and was not seen yet.
+    for (const t of [...this.tabs]) {
+      if (!t.mock || t.mock.unseen || this.panes.some((p) => p.active === t.id)) continue;
+      const seen = this.mockStore?.meta.get(t.mock.sheet)?.opened ?? t.mock.at ?? now;
+      if (now - seen > MOCK_TUCK_MS) this.close(t.id, false);
+    }
     const can = (t: Tab) => t.view && !t.lent && !t.call && !t.internal && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_MIN_MS;
     let any = false;
     // Frozen first: out of sight for 5 minutes and silent; a call, the pop-out and Claude's work never.
@@ -3073,6 +3082,7 @@ export class AangBrowser {
     if (this.af && this.af.tab !== id) { this.af = null; this.afPin = null; this.lightHide(); this.afBand(); }
     this.active = id;
     t.lastSeen = Date.now();
+    if (t.mock) this.mockStore?.opened(t.mock.sheet);       // sheet 100 v4: when he last looked, kept across restarts
     this.place();
     for (const x of mine) if (x.id !== id && x.view) { try { x.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ } }
     // A tab still loading with nothing drawn yet (a new tab, a tab waking up): the page he was on stays until the
@@ -4407,7 +4417,12 @@ export class AangBrowser {
   private pendingTrail: number | null = null;
   private addTrail(name: string): number { const id = ++this.trailSeq; this.trails.push({ id, name, named: false }); return id; }
   /** A trail with nothing left in it goes. */
-  private tidyTrails(): void { this.trails = this.trails.filter((tr) => tr.id === this.pendingTrail || this.tabs.some((t) => t.trail === tr.id && !t.done)); }
+  private tidyTrails(): void {
+    // Sheet 100 v4 (his pick, 2026-10-28: "Always there"): the MOCKUPS trail stays while there is any mockup at all.
+    const keepMock = Boolean(this.mockStore?.list.length);
+    this.trails = this.trails.filter((tr) => tr.id === this.pendingTrail || (tr.mock && keepMock) || this.tabs.some((t) => t.trail === tr.id && !t.done));
+    if (keepMock && !this.trails.some((x) => x.id === MOCK_TRAIL)) this.mockTrail();
+  }
   newTrail(): void {
     this.pendingTrail = this.addTrail('NEW TRAIL');
     this.newTab(this.HOME);
@@ -4599,7 +4614,7 @@ export class AangBrowser {
    * and its sheet's tab shows it: a newer version of a sheet already open updates that same tab, never a new one (his pick).
    * branch: the branch Claude was told to file it in (mockups.ts fileInto has the rules).
    */
-  async openMockup(sheet: string, title = '', branch: string | null = null): Promise<MockVersion | null> {
+  async openMockup(sheet: string, title = '', branch: string | null = null, o: { project?: string | null; icon?: string | null } = {}): Promise<MockVersion | null> {
     if (!this.mockServer || !this.mockStore || cleanSheet(sheet) !== sheet) return null;
     if (!(await this.mockReady)) return null;
     // 2026-10-22: a live page has no versions to look up: it is shown as it is, always V1.
@@ -4608,7 +4623,7 @@ export class AangBrowser {
     if (!r) { console.log(`shell: mockups: ${sheet} is not in the repo's last commit, not opened`); return null; }
     const ver = this.mockStore.add(sheet, title || r.title, r.commit, r.key);
     // A branch Claude named (checked in cleanBranch): the same move as his Move to branch, children following.
-    if (branch) this.mockStore.fileInto(sheet, branch);
+    if (branch) this.mockStore.fileInto(sheet, branch, o);
     this.showMockup(ver);
     // The arrival notice (his ask, 2026-10-22): the drawer's arrow breathes, and this row glows once when he opens it.
     this.mockNew = { n: (this.mockNew?.n ?? 0) + 1, sheet, at: Date.now() };
@@ -4623,13 +4638,16 @@ export class AangBrowser {
    */
   async openMockupDrop(m: MockupDrop): Promise<MockVersion | null> {
     if (!this.mockStore) return null;
-    if (m.url) return this.openMockup(m.url, m.title, m.branch);
-    if (!m.repo) return this.openMockup(m.path, m.title, m.branch);
+    const o = { project: m.project ?? null, icon: m.icon ?? null };
+    if (m.url) return this.openMockup(m.url, m.title, m.branch, o);
+    if (!m.repo) return this.openMockup(m.path, m.title, m.branch, o);
     const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
     // AangApp itself, named by its folder: its own rules (only the mockup folders are served).
-    if (this.mockRepo && same(path.resolve(m.repo), path.resolve(this.mockRepo))) return cleanPath(m.path) ? this.openMockup(m.path, m.title, m.branch) : null;
+    if (this.mockRepo && same(path.resolve(m.repo), path.resolve(this.mockRepo))) return cleanPath(m.path) ? this.openMockup(m.path, m.title, m.branch, o) : null;
     if (!findRepo(m.repo)) { console.log('shell: mockups: not a git repo, not opened: ' + m.repo); return null; }
-    return this.openMockup(`@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`, m.title, m.branch);
+    const sheet = `@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`;
+    this.mockFindLogo(path.resolve(m.repo), m.project ?? this.mockStore.projectOf(sheet));
+    return this.openMockup(`@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`, m.title, m.branch, o);
   }
   /** Where a sheet's file is: its repo's folder and its path inside it. Null for a live page or an unknown repo. */
   private mockWhere(sheet: string): { repo: string; rel: string } | null {
@@ -4714,6 +4732,25 @@ export class AangBrowser {
   private mockPicQueue: MockVersion[] = [];
   private mockPicBusy = false;
   private mockPicTried = new Set<string>();
+  /** Sheet 100: each project's own logo, when it has one (served as /p/<slug>.png), by project name. */
+  private mockLogos(): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (!this.mockServer || !this.mockStore || !this.mockThumbs) return out;
+    const dir = path.join(path.dirname(this.mockThumbs), 'mocklogos');
+    const names = new Set([...this.mockStore.list.map((x) => this.mockStore!.projectOf(x.sheet)), ...this.mockStore.branches.map((b) => b.project ?? '')].filter(Boolean));
+    for (const n of names) if (existsSync(path.join(dir, logoSlug(n) + '.png'))) out[n] = `${this.mockServer.origin}/p/${logoSlug(n)}.png`;
+    return out;
+  }
+  /** A repo a mockup came from: its logo, found in the usual spots, kept for its project (once; his own choice is never replaced). */
+  private mockFindLogo(repo: string, project: string): void {
+    if (!this.mockThumbs) return;
+    const dir = path.join(path.dirname(this.mockThumbs), 'mocklogos'), to = path.join(dir, logoSlug(project) + '.png');
+    if (existsSync(to)) return;
+    for (const spot of LOGO_SPOTS) {
+      const f = path.join(repo, spot);
+      try { const b = readFileSync(f); if (b.length < 4_000_000 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) { mkdirSync(dir, { recursive: true }); writeFileSync(to, b); return; } } catch { /* not here */ }
+    }
+  }
   /** A version's small picture, or null while it has none (live pages never have one). */
   private mockPic(x: MockVersion): string | null {
     if (!this.mockServer || !this.mockThumbs || !x.commit) return null;
@@ -4883,7 +4920,7 @@ export class AangBrowser {
     for (const x of list) { const o = byV.get(x.v); if (!o || x.at >= o.at) byV.set(x.v, x); }
     const place = this.mockStore?.placeOf(sheet) ?? { branch: null, parent: null };
     return {
-      sheet, branch: place.branch, parent: place.parent, kids: this.mockStore?.childrenOf(sheet).length ?? 0,
+      sheet, branch: place.branch, parent: place.parent, kids: this.mockStore?.childrenOf(sheet).length ?? 0, project: this.mockStore?.projectOf(sheet) ?? '',
       // Its name in the trail ("88 · The address bar"), for the address bar (2026-10-25, his ask: not the number address).
       title: [...list].reverse().find((x) => x.key === t.mock!.key)?.title ?? list[list.length - 1]?.title ?? '',
       v: list.find((x) => x.key === t.mock!.key)?.v ?? 0,
@@ -4961,7 +4998,7 @@ export class AangBrowser {
     const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null,
       toAang: Boolean(this.sendMock), archived: archivedN, tidiedAt: st.tidiedAt || null,
       // Sheet 100 v3: the All mockups row's count, every sheet not archived.
-      sheets: new Set(all.filter((x) => !st.archived(x.sheet)).map((x) => x.sheet)).size };
+      sheets: new Set(all.filter((x) => !st.archived(x.sheet)).map((x) => x.sheet)).size, logos: this.mockLogos() };
     if (!this.mockList) return out;
     out.tree = this.mockTree();
     return out;
@@ -5003,7 +5040,7 @@ export class AangBrowser {
     const projects = names.map((name) => {
       const nodes = (branch: number | null) => tops.filter((s) => projOf(s) === name && st.placeOf(s).branch === branch).sort(byRank).slice(0, 120).map((s) => node(s, kidsOf(s)));
       // A topic's newest sheet first, so what he is working on now sits at the top.
-      const topics = st.branches.map((b) => ({ id: b.id, name: b.name, mockups: nodes(b.id) })).filter((b) => b.mockups.length)
+      const topics = st.branches.map((b) => ({ id: b.id, name: b.name, icon: b.icon ?? null, mockups: nodes(b.id) })).filter((b) => b.mockups.length)
         .sort((a, b) => Math.max(...b.mockups.map((m) => newest(m.sheet as string))) - Math.max(...a.mockups.map((m) => newest(m.sheet as string))));
       return { name, em: name === 'Samara' ? 'lantern' : name.charAt(0).toUpperCase(), loose: nodes(null), branches: topics };
     });
@@ -5031,7 +5068,7 @@ export class AangBrowser {
   /** What the quest log shows. Plain data, built from mockups.json and git only. */
   mockLogData(): Record<string, unknown> | null {
     if (!this.mockStore) return null;
-    return this.mockTree();
+    return { ...this.mockTree(), logos: this.mockLogos() };
   }
   private mockLogSig = '';
   private mockLogTimer: ReturnType<typeof setTimeout> | null = null;
@@ -5475,6 +5512,8 @@ export class AangBrowser {
 
   /** The rail and the band redraw from this. Plain data only. */
   private sendTabs(): void {
+    // Sheet 100 v4: the MOCKUPS trail is there whenever there is any mockup, open or not.
+    if (this.mockStore?.list.length && !this.trails.some((x) => x.id === MOCK_TRAIL)) this.mockTrail();
     // Sheet 100: an open quest log follows along, a moment later (so a burst of changes draws it once).
     if (this.tabs.some((t) => t.internal === 'mocklog') && !this.mockLogTimer) this.mockLogTimer = setTimeout(() => { this.mockLogTimer = null; this.pushMockLog(); }, 300);
     // A site's camera and microphone end when no tab is on it any more.
@@ -5521,7 +5560,7 @@ export class AangBrowser {
       // 2026-10-22: the newest mockup to arrive ({ n, sheet, at }), so the drawer's arrow can breathe for it.
       mockNew: this.mockNew,
       // The trails with a tab in this window (or the one about to start here).
-      trails: this.trails.filter((tr) => tr.id === this.pendingTrail || mine.some((x) => x.trail === tr.id)),
+      trails: this.trails.filter((tr) => tr.id === this.pendingTrail || tr.mock || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),
       // His own tab being driven by a session: the band says so, with STOP (2026-10-14).
       driving: (() => { const w = t?.view?.webContents; return w ? this.driver.drivingTab(w) : null; })(),

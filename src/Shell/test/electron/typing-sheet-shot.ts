@@ -98,12 +98,12 @@ app.whenReady().then(async () => {
   for (const k of 'pix') { key(k); await wait(60); }
   await wait(500);
   await shot('jump-a');
-  gate?.(); await wait(400);
+  (gate as (() => void) | null)?.(); await wait(400);
   await shot('jump-b');
   // the next letter wipes the guesses: caught before they come back
   key('e'); await wait(400);
   await shot('jump-c');
-  gate?.(); held = false; await wait(400);
+  (gate as (() => void) | null)?.(); held = false; await wait(400);
 
   // 3 the bar's slide while he clicks in: four moments of the 0.24 s stretch
   await fw.executeJavaScript(`document.getElementById('edit').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
@@ -167,13 +167,13 @@ app.whenReady().then(async () => {
   await fw.executeJavaScript(dress({ past: ['<span>pix</span><b>el art tutorial</b>'], hold: 9 }));
   await wait(400);
   await shot('new-a', 520);
-  gate?.(); await wait(500);
+  (gate as (() => void) | null)?.(); await wait(500);
   await fw.executeJavaScript(dress({ past: ['<span>pix</span><b>el art tutorial</b>'], hold: 9 }));
   await wait(400);
   await shot('new-b', 520);
   // On click, before a letter: his recent searches and most-visited, so the bar remembers him straight away
   await clear();
-  gate?.(); held = false;
+  (gate as (() => void) | null)?.(); held = false;
   await fw.executeJavaScript(`(() => {
     const sbox = document.getElementById('suggest'); sbox.hidden = false; document.getElementById('slot').classList.add('open');
     const CLOCK = '<svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M1 0h5v1H1zM0 1h1v5H0zM6 1h1v5H6zM3 1h1v3H3zM4 3h1v1H4zM1 6h5v1H1z"/></svg>';
