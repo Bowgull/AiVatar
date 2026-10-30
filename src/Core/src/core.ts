@@ -74,6 +74,7 @@ import { dropMockup, markMockup } from './mockupdrop.ts';
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
 import { MarkDeriver, claudeNow } from './claudemark.ts';
+import { DeskJobs, stillWaiting, thisMachine } from './sessionlist.ts';
 import { MessageEngine, type MsgEvent, type Writer } from './messages.ts';
 import { Models, quickModel } from './models.ts';
 import { askLocal, unloadLocal } from './local.ts';
@@ -2308,9 +2309,14 @@ export class Core {
    */
   private claudeState(now = Date.now()): ReturnType<typeof claudeNow> & { jobs: Job[]; waits: WaitItem[] } {
     const jobs = this.claudeJobs.list(now), waits = this.claudeJobs.waiting();
-    return { ...claudeNow({ jobs, waits, hooks: this.hooks.sessions.values(), launched: this.launched, now,
+    // 2026-10-30: the sessions engine (sessionlist.ts), fed by every source: link jobs and waits, the old hooks, the jobs
+    // Aang launched, and the Mac front desk's Discord jobs.
+    return { ...claudeNow({ jobs, waits, hooks: this.hooks.sessions.values(), launched: this.launched, desk: this.deskJobs.list(), now,
+      nameOf: id => this.claudeNames.of(id)?.title,
       lastWrite: (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } } }), jobs, waits };
   }
+  /** The Mac front desk's Claude jobs for Discord (macjobs.ts), read from its file; none on the PC, nor in tests unless asked. */
+  private readonly deskJobs: DeskJobs;
   /**
    * The stale rule is about time passing with nothing said, so no event will ever arrive to re-check it: a hook session
    * that died mid-turn would hold the mark up for good. A look once a minute lets it go (only a change is sent).
@@ -2435,9 +2441,9 @@ export class Core {
   private waitSessions = new Set<string>();
   private askOver(m: ToBody): boolean {
     if (m.t !== 'bubble' || m.blocking !== true || typeof m.session !== 'string' || !m.session) return false;
-    const s = m.session;
-    if (this.claudeJobs.waiting().some(w => w.session === s)) return false;
-    return this.hooks.sessions.get(s)?.phase !== 'waiting' || this.claudeJobs.linked(s);
+    // The sessions engine's one answer (2026-10-30): over when the session no longer waits on him in the one list,
+    // whichever source heard he answered (the link mod, a hook, the desk).
+    return !stillWaiting(this.claudeState().list, m.session);
   }
   /**
    * A directory only Aang's own chat lanes ever use as their session cwd - never a real folder he opens in
@@ -2619,6 +2625,7 @@ export class Core {
 
   constructor(cfg: CoreConfig) {
     this.cfg = cfg;
+    this.deskJobs = new DeskJobs(process.env.AANG_DESK_JOBS ?? (cfg.testDoor ? '' : undefined));
     this.policy = new QuotaPolicy(cfg.stateDir);   // remembers saving mode across restarts (step Q2)
     this.memory = new Memory(cfg.dataDir);
     // What he knows about Joshua is NOT in the system prompt: that is fixed for the life of a session, so a
@@ -2943,7 +2950,8 @@ export class Core {
       const said = this.hooks.handle(ev);
       // Which machine it is on is known here (the address it came from), not inside HookTracker - keep it on
       // the session so the working icon can say "on your MacBook" and route a click there.
-      if (remote) { const s = this.hooks.sessions.get(String(ev?.session_id ?? '')); if (s) s.host = 'mac'; }
+      // 2026-10-30 (sessions engine): which machine, both ways. `host` stays the PC brain's "on the MacBook" flag.
+      if (remote) { const s = this.hooks.sessions.get(String(ev?.session_id ?? '')); if (s) { s.machine = thisMachine() === 'mac' ? 'pc' : 'mac'; if (s.machine === 'mac') s.host = 'mac'; } }
       this.pushClaudeWorking();
       // The "<title> replied" line (2026-10-21): a prompt starts a turn, a Stop ends one (claudereplies.ts dedupes it
       // with the link mod's own turn.end).
