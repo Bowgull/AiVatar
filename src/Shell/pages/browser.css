@@ -1326,18 +1326,20 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 .drawer .th.mock .mlog{order:2;flex:0 0 auto;width:28px;height:28px;padding:2px;margin-left:auto;border:none;border-radius:6px;background:none;cursor:pointer;display:grid;place-items:center}
 .drawer .th.mock .mlog:hover{background:rgba(255,196,60,.14)}
 .drawer .th.mock .mlog svg{display:block;image-rendering:pixelated}
-.drawer .mquest{display:flex;align-items:center;gap:10px;width:100%;margin:6px 0 0;padding:7px 10px 7px 8px;border-radius:9px;cursor:pointer;background:#0B0718;border:3px solid var(--outline);
-  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.25);text-align:left}
-.drawer .mquest .qi{flex:none;width:24px;height:20px;display:grid;place-items:center}
-.drawer .mquest .qi svg{display:block}
-.drawer .mquest .qn{flex:1;font:700 12.5px var(--body);letter-spacing:.4px;color:#ffe28c}
-.drawer .mquest .qc{flex:none;font:700 11.5px var(--body);color:#bfae8a}
-.drawer .mquest:hover{filter:brightness(1.15)}
-.drawer .mquest:active{transform:translateY(2px);box-shadow:0 1px 0 var(--outline)}
+/* Sheet 107 (his pick, 2026-10-30): the one Mockups entry at the top of the tray, the sealed scroll on FFX blue, a gold
+   frame, white lettering, the gold NEW gem. The scroll is drawn at 16 x 14 and shown at 3x. */
+.drawer .mq{flex:none;position:relative;display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;height:62px;margin:0 0 12px;padding:0 14px 0 10px;border:3px solid var(--outline);border-radius:11px;cursor:pointer;
+  background:linear-gradient(180deg,#5b7fd8 0 3px,#2a4aa8 3px,#1b3283 50%,#0e1d55 calc(100% - 4px),#081239 calc(100% - 4px));
+  box-shadow:0 4px 0 var(--outline),inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease;text-align:left}
+.drawer .mq[hidden]{display:none}
+.drawer .mq:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.drawer .mq:active{transform:translateY(2px);box-shadow:0 2px 0 var(--outline),inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25)}
+.drawer .mq .pic{flex:none;width:48px;height:42px;display:grid;place-items:center}
+.drawer .mq .pic canvas{width:48px;height:42px;image-rendering:pixelated}
+.drawer .mq .nm{flex:1;font:700 17px var(--display);letter-spacing:1.6px;color:#fbfbff;text-shadow:0 2px 0 #071030;text-transform:uppercase}
+.drawer .mq .gem{flex:none;min-width:24px;height:24px;box-sizing:border-box;padding:0 6px;border-radius:12px;border:2px solid var(--outline);display:grid;place-items:center;
+  font:800 12px var(--body);color:#2a1c00;background:radial-gradient(circle at 35% 30%,#ffe9a6,#FFC43C 55%,#c98a12);box-shadow:0 2px 0 var(--outline)}
+.drawer .mq .gem[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.drawer .mq{transition:none}}
 .drawer .bh .bi{flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px}
 .drawer .bh .bi svg,.drawer .bh .bi img{display:block;max-width:20px;max-height:20px}
-.drawer .mph{display:flex;align-items:center;gap:8px;margin:10px 2px 4px 2px;font:700 12px var(--display);letter-spacing:1.4px;color:#f2e3c2;text-transform:uppercase;text-shadow:0 2px 0 var(--outline)}
-.drawer .mph .em{flex:none;width:24px;height:24px;display:grid;place-items:center;border:2px solid var(--outline);border-radius:5px;background:#0B0718;overflow:hidden}
-.drawer .mph .em img,.drawer .mph .em svg{display:block}
-.drawer .mph .em b{font:700 13px var(--display);color:#ffe28c}
-.drawer .mph .em:has(.plogo){background:#E9D2A6}

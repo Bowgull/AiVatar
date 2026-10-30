@@ -312,10 +312,10 @@ export const PLAN_SENTENCE = 'On a project with several phases (hours or days of
  */
 export const MOCKUP_TOOL = 'show_mockup'
 export const MOCKUP_TOOL_FULL = 'mcp__aang-link__show_mockup'
-export const MOCKUP_TOOL_DESC = "Show the user a mockup, design sheet or visual page: it opens in his browser Samara, in its Mockups trail, where every version is kept. " +
+export const MOCKUP_TOOL_DESC = "Show the user a mockup, design sheet or visual page: Mockups opens right on it in his browser Samara, in its project's tab, marked NEW, where every version is kept. " +
   'path: an .html file in your repo, already committed (he sees it as committed; commit again and call again for a new version). ' +
   'Or url: a page you serve on this computer (http://127.0.0.1:<port>/... or localhost). title: a short name ("NN · Name"). ' +
-  'The trail is Project > Topic > Sheet: project is what it belongs to (Samara, Couch Mode, Waymark...), branch is the topic inside it (Top bar, TV...). ' +
+  'Mockups is Project > Topic > Sheet: project is the real project it belongs to (Samara, Aang, Waymark, Couch Mode, Showcase, or a new one; Samara\'s and Aang\'s sheets both live in the AiVatar repo, so name which), branch is the topic inside it (Top bar, TV...). ' +
   'icon: pick the one that fits the topic; it is used when the topic is new.'
 /** Sheet 100 (2026-10-28, his "can't Claude decide what fits"): the icons a topic can wear, Samara's own set (pages/mockicons.js). */
 export const MOCKUP_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'globe', 'cog', 'log', 'keyboard', 'tabs', 'fire', 'pad', 'scroll', 'star', 'post', 'video', 'camera', 'mic', 'cal', 'letter', 'moon', 'ads', 'popup']
@@ -326,7 +326,7 @@ export const MOCKUP_TOOL_SCHEMA = {
     url: { type: 'string', description: 'Instead of path: a page on this computer, http://127.0.0.1:<port>/... or http://localhost:<port>/...' },
     title: { type: 'string', description: 'A short name for it in the trail ("Waymark motion").' },
     branch: { type: 'string', description: 'The topic inside the project to file it in ("Top bar", "TV"), 1-40 characters.' },
-    project: { type: 'string', description: 'Optional: the project it belongs to ("Samara", "Couch Mode"), 1-40 characters. Default: its repo\'s project.' },
+    project: { type: 'string', description: 'The real project it belongs to ("Samara", "Aang", "Waymark", "Couch Mode", "Showcase", or a new one), 1-40 characters, never a topic. Default: its repo\'s project (AiVatar is Samara: name Aang for Aang\'s sheets).' },
     icon: { type: 'string', enum: MOCKUP_ICONS, description: 'The icon that fits the topic best (used when the topic is new): bar a window\'s top bar, shield safety, tv, claude, bell notices, key logins, globe web, cog settings, log a book, keyboard typing, tabs, fire, pad games, scroll writing, star, post a signpost, video, camera, mic, cal dates, letter mail, moon night, ads, popup.' },
   },
 }
