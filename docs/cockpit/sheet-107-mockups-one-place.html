@@ -64,17 +64,42 @@
   .fixes{border-collapse:collapse;font:500 13px/1.45 var(--body);color:#e8dcc4}
   .fixes th{font:400 10px var(--label);letter-spacing:1.2px;color:#c9a35a;text-align:left;padding:6px 18px 6px 0}
   .fixes td{padding:6px 18px 6px 0;border-top:1px solid #3a2a1a;vertical-align:top}
+  .opts{display:flex;gap:34px;align-items:flex-start}
+  .opts>div{width:300px}
+  .olab{font:700 13px var(--body);color:#ffe28c;margin:0 0 8px}
+  .tray{width:300px;box-sizing:border-box;padding:14px 12px;border-radius:12px;box-shadow:0 0 0 3px #120a05,0 10px 22px rgba(0,0,0,.5);
+    background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .tsep{font:400 10.5px var(--label);letter-spacing:1.4px;color:#c9a35a;margin:16px 4px 8px}
+  .trow2{display:flex;align-items:center;height:40px;padding:0 12px;margin:0 0 8px;border:3px solid #120A05;border-radius:9px;font:700 14px var(--body);color:#d8c8a6;
+    background:linear-gradient(180deg,#4a2f18 0 3px,#33200f 3px calc(100% - 3px),#1e1209 calc(100% - 3px));box-shadow:0 3px 0 #120A05}
+  /* the Mockups plaque: gold-trimmed, its corners capped like the plan card, its picture drawn for it */
+  .mq{position:relative;display:flex;align-items:center;gap:12px;height:62px;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:11px;cursor:pointer;
+    background:linear-gradient(180deg,#7a4f26 0 3px,#4d3016 3px calc(100% - 4px),#24160a calc(100% - 4px));
+    box-shadow:0 4px 0 #120A05,inset 0 0 0 2px #c9a35a,inset 0 0 0 4px rgba(0,0,0,.35);transition:transform .15s ease,filter .15s ease}
+  .mq:hover{transform:translateY(-1px);filter:brightness(1.08)}
+  .mq .pic{flex:none;width:48px;height:42px;display:grid;place-items:center;position:relative}
+  .mq .pic canvas{width:48px;height:42px;image-rendering:pixelated}
+  .mq .nm{flex:1;font:700 17px var(--display);letter-spacing:1.6px;color:#FFE28C;text-shadow:0 2px 0 #000;text-transform:uppercase}
+  .mq .gem{flex:none;min-width:24px;height:24px;box-sizing:border-box;padding:0 6px;border-radius:12px;border:2px solid #120A05;display:grid;place-items:center;
+    font:800 12px var(--body);color:#2a1c00;background:radial-gradient(circle at 35% 30%,#ffe9a6,#FFC43C 55%,#c98a12);box-shadow:0 2px 0 #120A05}
+  .mq .fan{position:relative;width:48px;height:42px}
+  .mq .fan img{position:absolute;width:26px;height:26px;border:2px solid #120A05;border-radius:6px;background:#0B0718;box-shadow:0 2px 0 rgba(0,0,0,.5)}
   .rules{font:500 13.5px/1.6 var(--body);color:#e8dcc4;max-width:960px;margin:0;padding-left:18px}
 </style>
 </head>
 <body>
 <h1>Sheet 107 · Mockups, one place</h1>
-<p class="lead">One way in: <b>Mockups</b>, a single tab in your trail. Inside, a tab for each project with its logo, topics as sub headings, a Done section in every project, and the sheet itself opens right there at its true size. The old mockup list in the trail goes.</p>
+<p class="lead">v2: Mockups is a styled plaque at the top of your left tray, three looks to pick from. One way in: <b>Mockups</b>, a single tab in your trail. Inside, a tab for each project with its logo, topics as sub headings, a Done section in every project, and the sheet itself opens right there at its true size. The old mockup list in the trail goes.</p>
 
-<h2>1 · THE TRAIL: ONE MOCKUPS TAB</h2>
-<div class="cols">
-  <div class="trail" id="trail"></div>
-  <p class="sub" style="max-width:520px">Mockups sits in your trail like any tab. The gold number says how many sheets arrived that you haven't looked at. No list of mockup tabs under it any more, and no LIVE PAGES: every sheet, from any project, is inside Mockups.</p>
+<h2>1 · MOCKUPS IN THE LEFT TRAY (v2: THREE LOOKS, PICK ONE)</h2>
+<p class="sub">Your note: Mockups lives in the left-hand tray itself, with a bit of styling, and the book icon was generic. Each look is its own plaque pinned at the top of the tray, above your trails, with a picture drawn for it. The gold gem says how many new sheets are waiting.</p>
+<div class="opts">
+  <div><p class="olab">A · The sealed scroll</p><div class="tray"><div class="mq" data-ic="scroll"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div>
+    <p class="sub">A rolled quest scroll with a wax seal, like a quest you get handed in a game.</p></div>
+  <div><p class="olab">B · Your projects' logos</p><div class="tray"><div class="mq" data-ic="fan"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div>
+    <p class="sub">The logos of your projects fanned like cards: it says "everything I'm making" at a glance.</p></div>
+  <div><p class="olab">C · The quest board</p><div class="tray"><div class="mq" data-ic="board"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div>
+    <p class="sub">A little cork board with sheets pinned on it, pins in the mark colours. A quest board for your designs.</p></div>
 </div>
 
 <h2>2 · INSIDE MOCKUPS</h2>
@@ -132,9 +157,38 @@ function paint() {
   list.insertAdjacentHTML('beforeend', `<div class="done"><div class="topic"><i class="chev"></i>Done<span class="n">${p.done.length}</span></div>${p.done.map((s) => row([...s, ''])).join('')}</div>`);
 }
 paint();
+// the pictures drawn for the Mockups plaque, pixel by pixel at 3x (16 x 14)
+const PIC = {
+  scroll(g) {
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+    R(3, 2, 10, 10, '#120A05'); R(4, 3, 8, 8, '#F0DCB4');                      // the sheet
+    for (const y of [5, 7, 9]) R(5, y, 5, 1, '#c9a46a');                         // its lines
+    R(1, 1, 14, 3, '#120A05'); R(2, 2, 12, 1, '#e2c58e'); R(1, 2, 1, 1, '#9a7a48'); R(14, 2, 1, 1, '#9a7a48');   // the top roll
+    R(1, 10, 14, 3, '#120A05'); R(2, 11, 12, 1, '#e2c58e');                     // the bottom roll
+    R(10, 8, 4, 4, '#120A05'); R(11, 9, 2, 2, '#C8322A'); R(11, 9, 1, 1, '#f07a6a');   // the wax seal
+    R(11, 12, 1, 2, '#8A1E18'); R(13, 12, 1, 2, '#8A1E18');                     // its ribbon tails
+  },
+  board(g) {
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+    R(0, 1, 16, 12, '#120A05'); R(1, 2, 14, 10, '#6b4423'); R(2, 3, 12, 8, '#b07a4a');   // frame and cork
+    for (const [x, y, c] of [[3, 4, '#3FBFAE'], [8, 3, '#4C9BE8'], [5, 8, '#E0553E'], [10, 7, '#FFC43C']]) { R(x, y + 1, 3, 3, '#F6F2EA'); R(x + 1, y, 1, 1, c); R(x, y + 4, 3, 0, '#000'); }
+    R(1, 13, 2, 1, '#120A05'); R(13, 13, 2, 1, '#120A05');                     // its feet
+  },
+};
+for (const m of document.querySelectorAll('.mq')) {
+  const pic = document.createElement('span'); pic.className = 'pic';
+  if (m.dataset.ic === 'fan') {
+    const f = document.createElement('span'); f.className = 'fan';
+    for (const [src, l, t, r] of [['../../src/Shell/pages/art/samara/samara-lantern-64.png', 0, 10, -14], ['sheet-107/waymark.png', 22, 10, 14], ['../../src/Shell/pages/art/aang-face.png', 11, 4, 0]]) {
+      const i = document.createElement('img'); i.src = src; i.alt = ''; i.style.cssText = `left:${l}px;top:${t}px;transform:rotate(${r}deg)`; f.append(i); }
+    pic.append(f);
+  } else { const c = document.createElement('canvas'); c.width = 16; c.height = 14; PIC[m.dataset.ic](c.getContext('2d')); pic.append(c); }
+  m.append(pic);
+  m.insertAdjacentHTML('beforeend', '<span class="nm">Mockups</span><span class="gem">1</span>');
+}
 const trail = document.getElementById('trail');
-trail.innerHTML = `<div class="trow dim"><span class="ic"></span>Tax season<span class="sp"></span></div><div class="trow"><span class="ic" id="tic"></span>Mockups<span class="sp"></span><span class="newc" style="font:800 10.5px var(--body);color:#2a1c00;background:#FFC43C;border-radius:4px;padding:2px 6px">1 NEW</span></div><div class="trow dim"><span class="ic"></span>Waymark<span class="sp"></span></div>`;
-document.getElementById('tic').append(pixIcon('log', 2));
+if (trail) trail.innerHTML = `<div class="trow dim"><span class="ic"></span>Tax season<span class="sp"></span></div><div class="trow"><span class="ic" id="tic"></span>Mockups<span class="sp"></span><span class="newc" style="font:800 10.5px var(--body);color:#2a1c00;background:#FFC43C;border-radius:4px;padding:2px 6px">1 NEW</span></div><div class="trow dim"><span class="ic"></span>Waymark<span class="sp"></span></div>`;
+document.getElementById('tic')?.append(pixIcon('log', 2));
 </script>
 </body>
 </html>
