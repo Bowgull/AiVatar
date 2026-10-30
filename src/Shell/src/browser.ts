@@ -55,6 +55,7 @@ import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } fro
 import { Driver, type Job } from './driver.ts';
 import { pastSearches, searchQueryOf, topSites } from './recall.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
+import { DRAINED, NoticeQueue, cleanNotice, plainNotice, type NoticeFrom, type NoticeIn, type NoticeShown } from './notices.ts';
 import { TIDY_KEEP, isPicked, saysDecided, sheetLabel, spaceOf, tidyDue, tidyLine } from './mockuptidy.ts';
 import { LOGO_SPOTS, MockServer, MockStore, logoSlug, thumbKey, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
 
@@ -241,6 +242,9 @@ interface Pane {
   /** Sheet 102: the address bar's list on its own layer, and the last thing it was told (sent again once it has loaded). */
   sugV?: WebContentsView | null;
   sugLast?: SugShow | null;
+  /** Sheet 106 v7: Samara's notices, on their own layer over the live page; the one it is drawing now. */
+  noticeV?: WebContentsView | null;
+  noticeOn?: number | null;
   curtain: WebContentsView | null;
   curtainReady: Promise<unknown>;
   veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
@@ -470,6 +474,8 @@ const SETTLED_JS = `(async () => {
 })()`;
 /** Sheet 102: what the address bar's list is told, as checked here. */
 interface SugShow { rows: { kind: string; title: string; url: string; favicon: string }[]; pick: number; typed: string; from: number; expect: number; first: boolean; x: number; y: number; width: number }
+/** A size in plain words, as the download tray says it. */
+const mbOf = (n: number): string => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : n >= 1e3 ? Math.round(n / 1e3) + ' KB' : (n || 0) + ' B');
 const SUG_KINDS = new Set(['search', 'guess', 'past', 'go', 'tab', 'mark', 'history', 'closed']);
 /** Never a tab he looked at in the last 10 minutes, even when memory is short. */
 const SLEEP_MIN_MS = 10 * 60_000;
@@ -1065,7 +1071,7 @@ export class AangBrowser {
       const what = types.includes('video') && types.includes('audio') ? 'Camera and microphone?' : types.includes('video') ? 'Your camera?' : 'Your microphone?';
       const top = hostOf(wc.getURL());
       const text = `${host}${top && top !== host ? ` (inside ${top})` : ''} wants it for what you are doing now. It stops when you leave the site.`;
-      this.ask({ host, what, text }, (allow) => {
+      this.ask({ host, what, text, icon: types.includes('video') ? 'camera' : 'mic' }, (allow) => {
         if (allow) { const s = this.mediaOk.get(host) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(host, s); }
         done(allow);
         if (allow) this.sendTabs();             // the tab becomes a call tab at once
@@ -1108,10 +1114,10 @@ export class AangBrowser {
       if (known && details.deviceList.length === 1) { done(known.deviceId); return; }
       if (this.devAsk) { done(); return; }                       // one ask at a time
       this.inWc(wc);
-      const id = ++this.askSeq;
+      // Sheet 106: a "needs you" notice from the shield; the devices are picked on its parchment.
+      const id = this.notices.push(cleanNotice(this.devNotice(host, [...details.deviceList], known?.deviceId ?? null)), (act, value) => this.devAnswer(id, act === 'allow' && value ? value : null));
       const timer = setTimeout(() => this.devAnswer(id, null), 120_000);
       this.devAsk = { id, host, list: [...details.deviceList], done, timer, picked: known?.deviceId ?? null };
-      this.sendDevAsk();
     });
     // Plugged in or out while the ask is up: the list follows.
     this.ses.on('hid-device-added', (_e, d) => { if (this.devAsk && !this.devAsk.list.some((x) => x.deviceId === d.device.deviceId)) { this.devAsk.list.push(d.device); this.sendDevAsk(); } });
@@ -1119,10 +1125,16 @@ export class AangBrowser {
   }
   private sendDevAsk(): void {
     const a = this.devAsk;
-    if (!a || !this.win || this.win.isDestroyed()) return;
+    if (a) this.notices.update(a.id, cleanNotice(this.devNotice(a.host, a.list, a.picked)));
+  }
+  /** The device ask as a notice: only the devices the site asked for, the one allowed last time already picked. */
+  private devNotice(host: string, list: Electron.HIDDevice[], picked: string | null): NoticeIn {
     // How it is connected, from its own name (a wireless one calls itself a receiver or dongle); a cable otherwise.
     const how = (d: Electron.HIDDevice) => (/2\.4g|dongle|receiver|wireless/i.test(d.name) ? 'Wireless dongle' : 'Plugged in by cable');
-    this.win.webContents.send('browser:devask', { id: a.id, host: a.host, picked: a.picked, devices: a.list.map((d) => ({ id: d.deviceId, name: deviceName(d), how: how(d) })) });
+    return { kind: 'need', from: 'shield', icon: 'keyboard', kick: `${host || 'This site'} wants`, title: list.length ? 'One of your devices' : 'A keyboard or mouse',
+      rows: [{ g: '', v: list.length ? 'It wants to talk to one device. Pick it.' : 'None that it can use is plugged in.' }],
+      picks: list.map((d) => ({ id: d.deviceId, name: deviceName(d), how: how(d) })), picked,
+      keys: [{ label: 'Allow', act: 'allow' }, { label: 'No', act: 'no', plain: true }] };
   }
   /** His pick from the device ask: one of the devices it listed, or none. */
   devAnswer(id: number, deviceId: string | null): void {
@@ -1130,7 +1142,7 @@ export class AangBrowser {
     if (!a || a.id !== id) return;
     this.devAsk = null;
     clearTimeout(a.timer);
-    this.win?.webContents.send('browser:devask', { id, gone: true });
+    this.notices.drop(id);
     const d = deviceId ? a.list.find((x) => x.deviceId === deviceId) : undefined;
     if (d) { this.devices.add(a.host, d); this.sendTabs(); }
     a.done(d?.deviceId);
@@ -1222,13 +1234,20 @@ export class AangBrowser {
   }
   /** Work in the window of the tab this page is in (a site asking for something). */
   private inWc(wc: Electron.WebContents): void { const t = this.tabs.find((x) => x.view?.webContents === wc); if (t) this.inTab(t); }
-  /** Hang a chip from the band and wait for his answer. Unanswered in 2 minutes means no. */
-  private ask(a: { host: string; what: string; text?: string; yes?: string; no?: string }, done: (allow: boolean) => void): void {
+  /**
+   * Ask him, as a "needs you" notice dropping from what it is about (sheet 106 v7: the shield, the download key,
+   * Claude's rune), with its one sound, and wait for his answer. Unanswered in 2 minutes means no.
+   */
+  private ask(a: { host: string; what: string; text?: string; yes?: string; no?: string; from?: NoticeFrom; kick?: string; icon?: string; claude?: boolean }, done: (allow: boolean) => void): void {
     if (!this.win || this.win.isDestroyed()) { done(false); return; }
-    const id = ++this.askSeq;
-    const timer = setTimeout(() => { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(false); } }, 120_000);
-    this.asks.set(id, (allow) => { clearTimeout(timer); done(allow); });
-    this.win.webContents.send('browser:ask', { id, ...a });
+    let timer: NodeJS.Timeout | null = null;
+    const id = this.notices.push(cleanNotice({
+      kind: 'need', from: a.from ?? 'shield', kick: a.kick ?? `${a.host || 'This site'} wants`, title: a.what || 'Allow this?',
+      ...(a.icon ? { icon: a.icon } : {}), ...(a.claude ? { claude: true } : {}),
+      rows: [{ g: '', v: a.text || `${a.host || 'This site'} wants it for what you are doing now. You are asked again next time.` }],
+      keys: [{ label: a.yes || 'Allow', act: 'yes' }, { label: a.no || 'No', act: 'no', plain: true }],
+    }), (act) => { if (timer) clearTimeout(timer); done(act === 'yes'); });
+    timer = setTimeout(() => { this.notices.drop(id); done(false); }, 120_000);
   }
   /** A link to an app (APP_LINKS): asked in the band, then handed to the system, which opens that app. */
   private offerApp(tab: Tab, u: string): void {
@@ -1237,12 +1256,12 @@ export class AangBrowser {
     let host = '';
     try { host = new URL(tab.view?.webContents.getURL() ?? '').hostname.replace(/^www\./, ''); } catch { /* none */ }
     this.inTab(tab);
-    this.ask({ host, what: `Open ${app}?`, text: `${host || 'This page'} wants to hand you over to ${app}.`, yes: 'Open it', no: 'No' }, (ok) => {
-      if (ok) void shell.openExternal(u).catch((e) => this.note(`${app} would not open: ${(e as Error).message}`));
+    this.ask({ host, what: `Open ${app}?`, text: `${host || 'This page'} wants to hand you over to ${app}.`, yes: 'Open it', no: 'No', icon: 'popup' }, (ok) => {
+      if (ok) void shell.openExternal(u).catch((e) => this.note('', { kind: 'bad', from: 'shield', kick: app, title: 'Would not open', rows: [{ g: 'Why', v: (e as Error).message }] }));
     });
   }
-  /** His answer to the chip. */
-  answer(id: number, allow: boolean): void { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(allow); } }
+  /** His answer to an ask (the notice's own buttons say it; this is the old door, kept for the harnesses). */
+  answer(id: number, allow: boolean): void { this.notices.answer(id, allow ? 'yes' : 'no'); }
 
   /**
    * 6.22: downloads go to his Downloads folder and are marked as from the internet (the Mark of the Web),
@@ -1290,7 +1309,7 @@ export class AangBrowser {
           const text = this.trusted.has(site) && !fileOk ? `It is a program, and it comes from ${fileSite}, not ${site}. Only say yes if you meant to get it.`
             : other ? `It is a program. Your other computer trusts ${site}, but this one hasn't yet. Only say yes if you meant to get it.`
             : `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`;
-          this.ask({ host: site, what: `Download ${base}?`, text, yes: 'Download, trust this site', no: 'No' }, (allow) => {
+          this.ask({ host: site, what: `Download ${base}?`, text, yes: 'Download, trust this site', no: 'No', from: 'dl', kick: 'A program', icon: 'wont' }, (allow) => {
             if (item.getState() !== 'progressing') return;
             if (!allow) { item.cancel(); return; }
             if (site) {
@@ -1316,8 +1335,15 @@ export class AangBrowser {
         if (state === 'completed') { try { d.size = statSync(to).size; } catch { /* keep */ } }
         this.dls.save();
         this.sendDownloads(state === 'completed' ? 'pop' : true);
-        if (state === 'completed') this.win?.webContents.send('browser:download', { name: d.name, state, quiet: true });
-        else if (state === 'interrupted') this.win?.webContents.send('browser:download', { name: d.name, state });
+        if (state === 'completed') { this.win?.webContents.send('browser:download', { name: d.name, state, quiet: true }); this.dlNotice(d); }
+        else if (state === 'interrupted') {
+          // Sheet 106: red, from the download key, with Try again (the same address, from the same page when it is still there).
+          this.note('', { kind: 'bad', from: 'dl', kick: 'Did not finish', title: d.name, files: [{ id: d.id, kind: kindOf(d.name), name: d.name, meta: `${d.site ? d.site + ' · ' : ''}Did not finish` }],
+            keys: [{ label: 'Try again', act: 'retry' }, { label: 'Close', act: 'ok', plain: true }] }, (act) => {
+            if (act !== 'retry' || !isWeb(from)) return;
+            try { if (wc && !wc.isDestroyed()) wc.downloadURL(from); else this.ses.downloadURL(from); } catch { /* gone */ }
+          });
+        }
       });
     });
   }
@@ -1340,7 +1366,7 @@ export class AangBrowser {
   private toChrome(u: string): void {
     let url = '';
     try { const x = new URL(u); if (x.protocol !== 'https:' && x.protocol !== 'http:') return; url = x.href; } catch { return; }
-    const fail = (e: Error | null) => { if (e) this.note("Chrome didn't open. Open your bank there yourself."); };
+    const fail = (e: Error | null) => { if (e) this.note('', { kind: 'bad', from: 'shield', icon: 'globe', kick: 'Chrome', title: "Didn't open", rows: [{ g: 'Do this', v: 'Open your bank there yourself.' }] }); };
     if (process.platform === 'darwin') { execFile('open', ['-a', 'Google Chrome', url], (e) => { if (e) execFile('open', ['-a', 'Safari', url], fail); }); return; }
     const local = process.env.LOCALAPPDATA ?? '', pf = process.env.ProgramFiles ?? 'C:\\Program Files', pf86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
     const chrome = [path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'), path.join(pf86, 'Google', 'Chrome', 'Application', 'chrome.exe'), path.join(local, 'Google', 'Chrome', 'Application', 'chrome.exe')].find((f) => existsSync(f));
@@ -1584,10 +1610,10 @@ export class AangBrowser {
   setHome(text: string): void {
     const t = String(text ?? '').trim();
     const u = t ? addressFor(t) : DEFAULT_HOME;
-    if (!u || !isWeb(u)) { this.note('That is not a web address.'); return; }
+    if (!u || !isWeb(u)) { this.note('', { kind: 'bad', from: 'slot', small: true, kick: 'The address bar', title: 'Not a web address' }); return; }
     this.prefs.home = u;
     this.savePrefs();
-    this.note(t ? 'Home page saved.' : 'Home page set back to Brave Search.');
+    this.note('', t ? { from: 'menu', small: true, kick: 'Saved', title: 'Your home page' } : { from: 'menu', small: true, kick: 'Home page', title: 'Back to Brave Search' });
     this.sendTabs();
   }
 
@@ -1908,12 +1934,12 @@ export class AangBrowser {
     say(`just the video from ${hostOf(t.url)} (tab ${t.lent ? 'in the pop-out' : t.view ? 'live' : 'asleep'})`);
     // A YouTube video goes by its address alone, so an asleep tab (as every tab is after an update) sends too.
     const live = Boolean(wc && !wc.isDestroyed());
-    if (!isWeb(t.url) || (!live && !youTubeId(t.url))) { say('no live page to send'); this.note('That tab has no video playing right now. Play it, then send it again.'); return; }
+    if (!isWeb(t.url) || (!live && !youTubeId(t.url))) { say('no live page to send'); this.note('', { kind: 'bad', from: 'menu', icon: 'tv', kick: 'The TV', title: 'No video playing', rows: [{ g: 'Do this', v: 'Play it, then send it again.' }] }); return; }
     await this.tvOff(false);
     const tvs = await findTvs();
     say(`found ${tvs.map((x) => x.name).join(', ') || 'no TV'}`);
     const tv = tvs.find((x) => /yeet/i.test(x.name)) ?? tvs[0];
-    if (!tv) { this.note('Your TV is not answering for videos. Turn it on, then try again (The whole window works with it asleep).'); return; }
+    if (!tv) { this.note('', { kind: 'bad', from: 'menu', icon: 'tv', kick: 'The TV', title: 'Didn\u2019t answer', rows: [{ g: 'Try', v: 'Turn it on, then try again. The whole window works with it asleep.' }], keys: [{ label: 'Try again', act: 'retry' }, { label: 'Close', act: 'ok', plain: true }] }, (act) => { if (act === 'retry') void this.tvAct('retry'); }); return; }
     this.tvName = tv.name;
     const v = live ? await run<{ src: string; at: number; live: boolean; paused: boolean; poster: string; title: string } | null>(wc!, PAGE_VIDEO_JS, { ms: 2000, fallback: null }) : null;
     const title = (t.title || v?.title || '').slice(0, 200), site = hostOf(t.url);
@@ -1938,11 +1964,11 @@ export class AangBrowser {
         if (why) throw new Error(why);
       } else {
         const media = twitchOf(t.url) ? await twitchMedia(t.url, title, v?.at ?? 0) : plainMedia(v ? { ...v, title } : null);
-        if (!media) { cast.close(); this.note('This page plays its video from inside itself, so it can only go as The whole window.'); return; }
+        if (!media) { cast.close(); this.note('', { kind: 'bad', from: 'menu', icon: 'tv', kick: 'The TV', title: 'Only as the whole window', rows: [{ g: 'Why', v: 'This page plays its video from inside itself.' }], keys: [{ label: 'Send window', act: 'window' }, { label: 'Close', act: 'ok', plain: true }] }, (act) => { if (act === 'window') void this.tvAct('send:window'); }); return; }
         await cast.open(DEFAULT_PLAYER);
         await cast.load(media);
       }
-    } catch (e) { cast.close(); say(`failed: ${(e as Error).message}`); this.note(`${tv.name} could not play it: ${(e as Error).message}.`); return; }
+    } catch (e) { cast.close(); say(`failed: ${(e as Error).message}`); this.note('', { kind: 'bad', from: 'menu', icon: 'tv', kick: tv.name, title: 'Could not play it', rows: [{ g: 'Why', v: (e as Error).message }] }); return; }
     if (live) void run(wc!, PAUSE_PAGE_JS, { fallback: null });
     this.tv = { kind: 'video', tab: t.id, name: tv.name, title, site, cast };
     cast.on('ended', () => { if (this.tv?.cast === cast) { this.tv = null; this.tvAsk = null; this.sendTabs(); } });
@@ -2017,7 +2043,7 @@ export class AangBrowser {
     if (this.tabs.some((t) => t.view?.webContents === wc)) return true;
     if (this.menu && !this.menu.isDestroyed() && this.menu.webContents === wc) return true;
     return this.panes.some((p) => {
-      try { return (this.alive(p) && p.win!.webContents === wc) || [p.trayV, p.runeV, p.lightV, p.sugV].some((v) => v && !v.webContents.isDestroyed() && v.webContents === wc); } catch { return false; }
+      try { return (this.alive(p) && p.win!.webContents === wc) || [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV].some((v) => v && !v.webContents.isDestroyed() && v.webContents === wc); } catch { return false; }
     });
   }
   /** Locked: nothing of his is out, and the tabs open in the throwaway session (logged out). */
@@ -2165,6 +2191,8 @@ export class AangBrowser {
     // 2026-10-21: the rune's panel too, whatever comes up under it (a waking tab, the page back from the pop-out).
     const P = this.pane;
     if (P.runeOn && P.runeV && !P.runeV.webContents.isDestroyed() && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(P.runeV);
+    // Sheet 106: a notice stays over everything under it.
+    if (this.noticePane === P && P.noticeV && !P.noticeV.webContents.isDestroyed() && P.noticeV.getVisible() && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(P.noticeV);
   }
   private placeTray(): void {
     const w = this.win, v = this.trayV;
@@ -2258,8 +2286,10 @@ export class AangBrowser {
       this.pane = p;
       // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
       // window, and each close and reopen left four of them running (2026-10-30, stability check).
-      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
-      p.lightV = null; p.sugV = null;
+      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
+      p.lightV = null; p.sugV = null; p.noticeV = null;
+      // A notice it was showing moves to the window left (next time one is placed).
+      if (this.noticePane === p) { this.noticePane = null; if (this.noticeNow) setTimeout(() => { if (this.noticeNow && !this.noticePane) void this.noticePlace(++this.noticeGen); }, 0); }
       const others = this.panes.filter((x) => x !== p && this.alive(x));
       // Quitting: this window's tabs stay in the snapshot already taken; nothing is dropped or saved again.
       if (others.length && this.quitting) { p.win = null; p.trayV = null; p.trayOn = false; p.runeV = null; p.runeOn = false; this.panes = others; if (this.focused === p) this.focused = null; this.pane = others[others.length - 1]!; return; }
@@ -2301,7 +2331,7 @@ export class AangBrowser {
     if (first) w.once('show', () => setTimeout(() => this.details.open(), 1200));
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
-    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.sugView(); this.pane = was; }, 3000));
+    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.sugView(); this.noticeView(); this.pane = was; }, 3000));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
@@ -2402,6 +2432,8 @@ export class AangBrowser {
     const c = (n: number) => Math.max(0, Math.round(n));
     this.inset = { left: c(left), top: c(top), right: c(right), bottom: c(bottom) };
     this.place();
+    // Sheet 106: the window changed size (or a chip came down): the notice stays under what it came from.
+    if (this.noticePane === this.pane && this.noticeNow) void this.noticeFollow();
   }
 
   /** Put the active tab exactly in the page area. Synchronous, from the window's own content size. */
@@ -2622,7 +2654,7 @@ export class AangBrowser {
     // A page on the internet never sends him to this computer or the home network (security check 2026-10-24, finding 9:
     // a page could quietly post a form to his router's settings). He can still type such an address himself.
     const inward = (u: string) => { try { return privateHost(new URL(u).hostname) && !privateHost(new URL(wc.getURL()).hostname) && /^https?:$/.test(new URL(wc.getURL()).protocol); } catch { return false; } };
-    const refuseInward = (e: Electron.Event, u: string) => { e.preventDefault(); let h = ''; try { h = new URL(u).host; } catch { /* none */ } this.note(`A website tried to open ${h || 'an address'} on your home network. Type it in yourself if you meant to go there.`); };
+    const refuseInward = (e: Electron.Event, u: string) => { e.preventDefault(); let h = ''; try { h = new URL(u).host; } catch { /* none */ } this.note('', { kind: 'bad', from: 'shield', icon: 'wont', kick: 'Stopped', title: h || 'A home network address', rows: [{ g: 'Why', v: 'A website tried to open it on your home network. Type it in yourself if you meant to go there.' }] }); };
     on('will-navigate', (e, u) => {
       if (!isWeb(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
       if (inward(u)) { refuseInward(e, u); return; }
@@ -2639,7 +2671,7 @@ export class AangBrowser {
       if (!isWeb(u) && appOf(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
       // A link for something that is not a web page and that no app here opens: stopped quietly, never shown as a fake
       // site (2026-10-25: that red plate told him Shadow's sign-in was a fake login page).
-      if (!isWeb(u)) { e.preventDefault(); let sc = ''; try { sc = new URL(u).protocol; } catch { /* odd */ } this.note(`The page tried to open a ${sc || 'non-web'} link, and no app on this computer opens those.`); return; }
+      if (!isWeb(u)) { e.preventDefault(); let sc = ''; try { sc = new URL(u).protocol; } catch { /* odd */ } this.note('', { kind: 'bad', from: 'shield', small: true, icon: 'wont', kick: 'No app opens', title: `${sc.replace(/:$/, '') || 'Those'} links` }); return; }
       const l = this.stopFor(u);
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);
@@ -2964,6 +2996,25 @@ export class AangBrowser {
     return { id: d.id, name: d.name, kind: kindOf(d.name), site: d.site, size: d.size, at: d.at, state: d.state,
       got: g?.got ?? 0, total: g?.total ?? d.size, left, gone: d.state === 'done' && !existsSync(d.file) };
   }
+  /**
+   * Sheet 106 v7: a finished download is a notice from the download key whose parchment holds the download tray's own
+   * row, dragged out by the row. Files that finish while it is up (or waiting) join it: one notice, a row each.
+   */
+  private dlNotice(d: Dl): void {
+    const row = { id: d.id, kind: kindOf(d.name), name: d.name, meta: `${mbOf(d.size)}${d.site ? ' · ' + d.site : ''} · now` };
+    const was = this.notices.group('dl');
+    if (was?.files) {
+      const files = [...was.files.filter((f) => f.id !== d.id), row].slice(-6);
+      this.notices.update(was.id, cleanNotice({ ...was, kick: `${files.length} downloads`, title: 'All ready', files }));
+      return;
+    }
+    const mac = process.platform === 'darwin';
+    this.notices.push(cleanNotice({ kind: 'done', from: 'dl', group: 'dl', kick: 'Downloaded', title: 'Ready', files: [row],
+      keys: [{ label: mac ? 'Show in Finder' : 'Show in folder', act: 'show' }, { label: 'Got it', act: 'ok', plain: true }] }), (act, _v, n) => {
+      // Show in Finder: the one file, or the Downloads folder when several came together
+      if (act === 'show') { if (n.files?.length === 1) this.dlAct('show', n.files[0].id); else this.dlAct('folder', 0); }
+    });
+  }
   /** The Downloads page: every download kept (200), newest first. */
   downloadsPage(): Record<string, unknown>[] { return [...this.dls.list].reverse().map((d) => this.dlView(d)); }
   private pushThings(what: 'history' | 'downloads'): void {
@@ -3001,7 +3052,7 @@ export class AangBrowser {
     if (act === 'forget') { if (d.state !== 'going') { this.dls.remove(id); this.sendDownloads(true); } return; }
     // Only files this browser saved, and only once they are whole. Windows checks them (the Mark of the Web) as they open.
     if (d.state !== 'done' || !existsSync(d.file)) { this.sendDownloads(true); return; }
-    if (act === 'open') void shell.openPath(d.file).then((err) => { if (err) this.note(`${d.name} could not be opened: ${err}`); });
+    if (act === 'open') void shell.openPath(d.file).then((err) => { if (err) this.note('', { kind: 'bad', from: 'dl', icon: 'wont', kick: 'Could not open', title: d.name, rows: [{ g: 'Why', v: err }] }); });
     else if (act === 'show') shell.showItemInFolder(d.file);
   }
   /**
@@ -3278,7 +3329,7 @@ export class AangBrowser {
     pwc.on('did-navigate', name);
     const stop = (e: Electron.Event, u: string) => {
       if (!isWeb(u)) { e.preventDefault(); return; }
-      if (this.listed(u).length) { e.preventDefault(); pw.close(); this.note('A popup tried to open a site on the fake-site lists. It was closed.'); }
+      if (this.listed(u).length) { e.preventDefault(); pw.close(); this.note('', { from: 'shield', small: true, icon: 'popup', kick: 'Closed a popup', title: 'A fake site' }); }
     };
     pwc.on('will-navigate', stop);
     pwc.on('will-redirect', (e, u, _inPage, isMain) => { if (isMain) stop(e, u); });
@@ -3526,19 +3577,27 @@ export class AangBrowser {
     try { const locked = lockKey(this.siteKey); writeFileAtomic(this.sitesFile, JSON.stringify({ ...(locked ? { keyLocked: locked } : { key: this.siteKey }), sites: [...this.sites] })); } catch { /* best effort */ }
     void this.lookForLogin();
   }
-  private note(text: string): void { this.win?.webContents.send('browser:download', { name: '', state: 'note', text }); }
+  /**
+   * Sheet 106 v7: say something as a notice. Each of Samara's lines is sorted on the sheet's table (its kind, big or small,
+   * what it drops from); a line given only as words becomes plain small news, or big with a Got it when it is long.
+   */
+  private note(text: string, o?: Partial<NoticeIn>, on?: (act: string) => void): number {
+    const n: NoticeIn = o?.title ? { kind: 'done', from: 'menu', kick: 'Samara', ...o } as NoticeIn : plainNotice(text, o);
+    if (!n.small && !n.keys?.length) n.keys = [{ label: n.kind === 'bad' ? 'Close' : 'Got it', act: 'ok' }];
+    return this.notices.push(cleanNotice(n), on);
+  }
   /** He clicked the key. */
   async vaultKey(): Promise<void> {
     const t = this.cur();
-    if (!t || !t.view || !t.url.startsWith('https:')) { this.note('Logins are only filled on secure pages.'); return; }
+    if (!t || !t.view || !t.url.startsWith('https:')) { this.note('', { kind: 'bad', from: 'shield', small: true, icon: 'key', kick: 'Not filled', title: 'Not a secure page' }); return; }
     let host = '';
     try { host = new URL(t.url).hostname; } catch { return; }
     this.vaultFor = { tab: t.id, host };
     const P = this.pane;
     const s = await this.vault.state();
     this.pane = P;
-    if (s === 'missing') { this.note("Bitwarden's tool is not on this PC yet."); return; }
-    if (s === 'signed-out') { this.note('Sign in to Bitwarden once first, yourself: ' + BW_LOGIN); return; }
+    if (s === 'missing') { this.note('', { kind: 'bad', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Not on this computer yet', rows: [{ g: 'Why', v: "Bitwarden's tool is not installed here." }] }); return; }
+    if (s === 'signed-out') { this.note('', { kind: 'need', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Sign in once first', rows: [{ g: 'Yourself', v: BW_LOGIN }] }); return; }
     if (s === 'locked') { this.win?.webContents.send('browser:vault', { mode: 'unlock', host }); return; }
     await this.vaultList();
   }
@@ -3559,8 +3618,8 @@ export class AangBrowser {
     if (!f || !t) return;
     const logins: Login[] | null = await this.vault.loginsFor(t.url);
     if (!this.inTab(t)) return;
-    if (logins === null) { this.note('Bitwarden did not answer. Try the key again.'); return; }
-    if (!logins.length) { this.win?.webContents.send('browser:vault', null); this.note(`No saved login for ${f.host} in your Bitwarden.`); return; }
+    if (logins === null) { this.note('', { kind: 'bad', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Did not answer', rows: [{ g: 'Try', v: 'Press the key again.' }], keys: [{ label: 'Try again', act: 'retry' }, { label: 'Close', act: 'ok', plain: true }] }, (act) => { if (act === 'retry') void this.vaultKey(); }); return; }
+    if (!logins.length) { this.win?.webContents.send('browser:vault', null); this.note('', { kind: 'bad', from: 'shield', small: true, icon: 'key', kick: 'No saved login', title: f.host }); return; }
     if (logins.length === 1) { await this.vaultPick(logins[0]!.id); return; }
     this.win?.webContents.send('browser:vault', { mode: 'pick', host: f.host, logins });
   }
@@ -3575,11 +3634,11 @@ export class AangBrowser {
     if (!f || !t || !wc || wc.isDestroyed() || t.blocked || t.failed) return;
     let host = '';
     try { host = new URL(wc.getURL()).hostname; } catch { /* none */ }
-    if (host !== f.host || !wc.getURL().startsWith('https:')) { this.note('The page changed, so nothing was filled. Click the key again.'); return; }
+    if (host !== f.host || !wc.getURL().startsWith('https:')) { this.note('', { kind: 'bad', from: 'shield', small: true, icon: 'key', kick: 'Nothing filled', title: 'The page changed' }); return; }
     const s = await this.vault.secret(id);
-    if (!s) { this.note('Bitwarden did not give that login back. Try the key again.'); return; }
+    if (!s) { this.note('', { kind: 'bad', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Did not give it back', rows: [{ g: 'Try', v: 'Press the key again.' }], keys: [{ label: 'Try again', act: 'retry' }, { label: 'Close', act: 'ok', plain: true }] }, (act) => { if (act === 'retry') void this.vaultKey(); }); return; }
     const did = await run<number>(wc, fillScript(s.username, s.password), { world: FILL_WORLD, ms: 2000, fallback: 0 });
-    if (!did) this.note('No login box found on this page to fill.');
+    if (!did) this.note('', { kind: 'bad', from: 'shield', small: true, icon: 'key', kick: 'Nothing filled', title: 'No login box here' });
   }
   vaultCancel(): void { this.vaultFor = null; this.win?.webContents.send('browser:vault', null); }
 
@@ -3687,6 +3746,151 @@ export class AangBrowser {
     if (kind === 'past' && !q) return;
     if (kind !== 'past' && kind !== 'history') return;
     for (const v of [...this.visits.list]) if (q ? searchQueryOf(v.url)?.toLowerCase() === q : v.url === url) this.visits.forget(v.url, v.at);
+  }
+
+  // ------------------------------------------------------------------ sheet 106 v7, notices
+  /**
+   * His yes (2026-10-30): every notice and ask is one "option B" notice, one at a time (notices.ts), on its own
+   * see-through layer over the LIVE page (as the address bar's list is), so a video never stops for one. It drops from
+   * under what caused it: the frame says where that key is, the layer is placed there, exactly the notice's size.
+   */
+  private notices = new NoticeQueue((s) => this.noticeShow(s));
+  /** What the queue last said to show (the layer is told it again once it has loaded), and the window showing it. */
+  private noticeNow: NoticeShown | null = null;
+  private noticePane: Pane | null = null;
+  /** Each new placing has a number: a slower one never lands over a newer one. */
+  private noticeGen = 0;
+  private noticeAsk: { seq: number; done: (a: { left: number; right: number; bottom: number } | null) => void } | null = null;
+  private noticeAskSeq = 0;
+  /** The TV's own asks (link, asleep, setup) as a notice, kept in step with tvAsk. */
+  private tvNotice: { id: number; ask: string; err: string } | null = null;
+  /** The notices' layer for this window, made once and kept hidden. */
+  private noticeView(P: Pane = this.pane): WebContentsView | null {
+    const w = P.win;
+    if (!w || w.isDestroyed()) return null;
+    if (P.noticeV && !P.noticeV.webContents.isDestroyed()) return P.noticeV;
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.preloadPath), 'noticepreload.cjs'), backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    v.webContents.on('did-finish-load', () => { if (this.noticeNow && this.noticePane === P && v.getVisible()) v.webContents.send('notice:show', { ...this.noticeNow, fresh: true, sound: false }); });
+    void v.webContents.loadURL(`${this.o.origin}/notice.html`).catch(() => { /* its window closed while it loaded */ });
+    P.noticeV = v;
+    return v;
+  }
+  isNotice(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => x.noticeV && !x.noticeV.webContents.isDestroyed() && x.noticeV.webContents === sender);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  /** The queue's word: a new notice drops (the last one rises first), one changes in place, or none is left. */
+  private noticeShow(s: NoticeShown | null): void {
+    this.noticeNow = s;
+    const P = this.noticePane, v = P?.noticeV && !P.noticeV.webContents.isDestroyed() ? P.noticeV : null;
+    if (s && !s.fresh) { if (v && P!.noticeOn === s.notice.id) v.webContents.send('notice:show', s); return; }
+    const gen = ++this.noticeGen, up = Boolean(v?.getVisible());
+    if (up) v!.webContents.send('notice:show', { leave: true });
+    // It rises (0.3 s) before the next one is placed, so one never jumps sideways into the other.
+    setTimeout(() => {
+      if (gen !== this.noticeGen) return;
+      if (v && !v.webContents.isDestroyed()) v.setVisible(false);
+      if (P) P.noticeOn = null;
+      if (!this.noticeNow) { this.noticePane = null; return; }
+      void this.noticePlace(gen);
+    }, up ? 320 : 0);
+  }
+  /** Put the layer under the key it comes from and drop the notice in. */
+  private async noticePlace(gen: number): Promise<void> {
+    const P = this.pane, w = P.win, s0 = this.noticeNow;
+    if (!w || w.isDestroyed() || !s0) return;
+    const a = await this.noticeAnchor(P, s0.notice.from);
+    const s = this.noticeNow;
+    if (gen !== this.noticeGen || !s || w.isDestroyed()) return;
+    const v = this.noticeView(P);
+    if (!v) return;
+    v.setBounds(this.noticeBounds(w, a, s.notice.small === true));
+    w.contentView.addChildView(v);
+    v.setVisible(true);
+    P.noticeOn = s.notice.id; this.noticePane = P;
+    v.webContents.send('notice:show', { ...s, fresh: true, sound: s.notice.kind === 'need' });
+  }
+  /** Under the key: right-hand keys hang it from their right edge, left-hand ones (the shield) from their left. */
+  private noticeBounds(w: BrowserWindow, a: { left: number; right: number; bottom: number } | null, small: boolean, h?: number, wid?: number): Electron.Rectangle {
+    const [cw, ch] = w.getContentSize();
+    const W = wid ?? (small ? 300 : 356) + 32, H = h ?? (small ? 88 : 260);
+    const k = a ?? { left: cw - 140, right: cw - 110, bottom: 64 };
+    const x = (k.left + k.right) / 2 > cw / 2 ? k.right + 12 + 16 - W : k.left - 20 - 16;
+    const y = Math.max(0, Math.round(k.bottom - 6));
+    return { x: Math.max(0, Math.min(cw - W, Math.round(x))), y, width: Math.min(W, cw), height: Math.max(0, Math.min(H, ch - y)) };
+  }
+  /** Ask the frame where the key is (and pulse it); a frame that does not answer in 0.4 s gets the right-hand side. */
+  private noticeAnchor(P: Pane, from: NoticeFrom): Promise<{ left: number; right: number; bottom: number } | null> {
+    const w = P.win;
+    if (!w || w.isDestroyed()) return Promise.resolve(null);
+    if (this.noticeAsk) { this.noticeAsk.done(null); this.noticeAsk = null; }
+    return new Promise((done) => {
+      const seq = ++this.noticeAskSeq;
+      const t = setTimeout(() => { if (this.noticeAsk?.seq === seq) { this.noticeAsk = null; done(null); } }, 400);
+      this.noticeAsk = { seq, done: (a) => { clearTimeout(t); done(a); } };
+      w.webContents.send('browser:noticeFrom', { seq, from });
+    });
+  }
+  /** The frame's answer: the key's left and right edges and where the band (or a chip hanging from it) ends. */
+  noticeAt(m: unknown): void {
+    const a = this.noticeAsk, o = (m ?? {}) as Record<string, unknown>;
+    if (!a || o.seq !== a.seq) return;
+    this.noticeAsk = null;
+    const n = (x: unknown) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : NaN);
+    const r = { left: n(o.left), right: n(o.right), bottom: n(o.bottom) };
+    a.done(Object.values(r).every(Number.isFinite) ? r : null);
+  }
+  /** The window changed size: the notice moves with its key (no second drop). */
+  private async noticeFollow(): Promise<void> {
+    const P = this.noticePane, s = this.noticeNow, v = P?.noticeV;
+    if (!P || !s || !v || v.webContents.isDestroyed() || !v.getVisible() || !P.win || P.win.isDestroyed()) return;
+    const a = await this.noticeAnchor(P, s.notice.from);
+    if (!v.getVisible() || v.webContents.isDestroyed() || P.win.isDestroyed()) return;
+    const b = v.getBounds();
+    v.setBounds(this.noticeBounds(P.win, a, s.notice.small === true, b.height, b.width));
+  }
+  /** The notice drew this big: the layer is exactly that, so it never covers the page round it. */
+  noticeSize(wd: number, h: number): void {
+    const P = this.pane, w = P.win, v = P.noticeV;
+    if (!w || w.isDestroyed() || !v || v.webContents.isDestroyed() || this.noticePane !== P) return;
+    const [cw, ch] = w.getContentSize(), b = v.getBounds();
+    const width = Math.max(40, Math.min(cw, Math.round(wd))), height = Math.max(0, Math.min(ch - b.y, Math.round(h)));
+    // a wider notice than the guess keeps its right edge (it hangs from a right-hand key)
+    const x = width !== b.width && b.x + b.width >= cw / 2 ? Math.max(0, b.x + b.width - width) : b.x;
+    if (height !== b.height || width !== b.width) v.setBounds({ x, y: b.y, width, height });
+  }
+  /** A button on the notice. The TV's code is checked without the notice going (a wrong code stays, and shakes). */
+  noticeAct(id: number, act: string, value?: string): void {
+    if (act === 'code') { if (this.tvNotice?.id === id && typeof value === 'string') void this.tvAct('code:' + value.slice(0, 6)); return; }
+    this.notices.answer(id, act.slice(0, 40), typeof value === 'string' ? value.slice(0, 200) : undefined);
+  }
+  noticeHover(on: boolean): void { this.notices.hover(on); }
+  /** A download row on the notice: dragged out, or clicked open (only files on the notice showing). */
+  noticeFile(sender: Electron.WebContents, id: number, act: 'drag' | 'open'): void {
+    if (!this.notices.current?.files?.some((f) => f.id === id)) return;
+    if (act === 'drag') this.dlDrag(sender, id); else this.dlAct('open', id);
+  }
+  /** The TV's asks follow tvAsk: link (the code), asleep, setup; playing stays in the TV's own chip. */
+  private tvNoticeSync(): void {
+    const ask = this.tvAsk === 'playing' ? null : this.tvAsk, err = this.tvLinkErr, had = this.tvNotice;
+    if (had && had.ask !== ask) { this.tvNotice = null; this.notices.drop(had.id); }
+    if (!ask) return;
+    if (had && had.ask === ask) { if (had.err !== err) { had.err = err; this.notices.update(had.id, { err: err.slice(0, 200) }); } return; }
+    const name = this.tv?.name ?? this.tvName ?? 'your TV', Name = name === 'your TV' ? 'Your TV' : name;
+    const n: NoticeIn = ask === 'link'
+      ? { kind: 'need', from: 'menu', icon: 'tv', kick: Name, title: 'Link Samara to it', rows: [{ g: '', v: 'Type the code your TV is showing. Only this once.' }], code: true, ...(err ? { err } : {}),
+        keys: [{ label: 'Link', act: 'code' }, { label: 'Not now', act: 'nolink', plain: true }] }
+      : ask === 'asleep'
+        ? { kind: 'bad', from: 'menu', icon: 'tv', kick: Name, title: 'Didn\u2019t wake up', rows: [{ g: 'Try', v: 'Turn it on with its remote, then try again. Or send this window, which works with the TV asleep.' }],
+          keys: [{ label: 'Try again', act: 'retry' }, { label: 'Send window', act: 'send:window', plain: true }, { label: 'Close', act: 'close', plain: true }] }
+        : { kind: 'need', from: 'menu', icon: 'tv', kick: Name, title: 'Show this window there?', rows: [{ g: 'Once only', v: `Your Mac needs ${name} as a second screen. Samara opens the place to turn it on.` }],
+          keys: [{ label: 'Open Displays', act: 'displays' }, { label: 'Not now', act: 'close', plain: true }] };
+    const id = this.notices.push(cleanNotice(n), (act) => { if (this.tvNotice?.id === id) this.tvNotice = null; void this.tvAct(act); });
+    this.tvNotice = { id, ask, err };
   }
 
   /** Each showing has a number, so a fade that ends after a new showing never hides the new one. */
@@ -3823,11 +4027,11 @@ export class AangBrowser {
     p.checking = true;
     const r = await this.pinSeal.open(p.digits);
     p.digits = ''; p.checking = false;
-    if (r === 'gone') { this.afPin = null; this.vault.lockHard(); this.afBand('wrong'); this.note('Five wrong PINs: Bitwarden needs your master password again.'); void this.vaultKey(); return; }
+    if (r === 'gone') { this.afPin = null; this.vault.lockHard(); this.afBand('wrong'); this.note('', { kind: 'need', from: 'shield', icon: 'key', kick: 'Five wrong PINs', title: 'Master password again', rows: [{ g: 'Why', v: 'Bitwarden needs your master password again.' }] }); void this.vaultKey(); return; }
     if ('wrong' in r) { this.afBand('wrong'); return; }
     const ok = await this.vault.useSession(r.session);
     this.afPin = null;
-    if (!ok) { this.pinSeal.wipe(); this.afBand(); this.note('Bitwarden wants your master password again.'); void this.vaultKey(); return; }
+    if (!ok) { this.pinSeal.wipe(); this.afBand(); this.note('', { kind: 'need', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Master password again', rows: [{ g: 'Do this', v: 'Type it in the Bitwarden box that opens.' }] }); void this.vaultKey(); return; }
     this.afBand('open');
     void this.learnSites();
     if (p.then === 'save') { this.afSaveAsk(); return; }
@@ -3890,7 +4094,7 @@ export class AangBrowser {
     const ok = await this.vault.create(site, String(o.user ?? ''), o.pass);
     this.afSave = null;
     this.afBand(ok ? 'open' : undefined);
-    this.note(ok ? `Kept in your Bitwarden: ${site}.` : 'Bitwarden did not keep it. Try again from the key.');
+    this.note('', ok ? { from: 'shield', small: true, icon: 'key', kick: 'Kept in Bitwarden', title: site } : { kind: 'bad', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Did not keep it', rows: [{ g: 'Try', v: 'Again from the key.' }] });
     if (ok) void this.learnSites();
   }
   /** The address bar's key: what it shows now. `beat`: one moment to play (the call, opening, a wrong PIN). */
@@ -3988,7 +4192,7 @@ export class AangBrowser {
       void run<string>(wc, `(document.body && document.body.innerText || '').slice(0, 5000)`, { fallback: '' }).then((text) => {
         if (!text || !NETFLIX_REFUSED.test(text) || wc.isDestroyed() || wc.getURL() !== url) return;
         if (!this.onPaidFallback?.(url)) return;
-        this.note('Netflix would not play in this tab, so it opened in the video window.');
+        this.note('', { from: 'menu', icon: 'video', kick: 'Netflix', title: 'In the video window', rows: [{ g: 'Why', v: 'It would not play in this tab.' }] });
         if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
       });
     }, after);
@@ -4003,7 +4207,7 @@ export class AangBrowser {
     const paid = serviceFor(url);
     if (!paid?.ready || !this.onPaid) return false;
     if (!this.onPaid(url)) return false;
-    this.note(`${paid.label.charAt(0)}${paid.label.slice(1).toLowerCase()} opened in the paid-video window.`);
+    this.note('', { from: 'menu', icon: 'video', kick: paid.label, title: 'In the paid-video window' });
     return true;
   }
   /** The sync with the browser on his other machine (startSync). */
@@ -4174,20 +4378,25 @@ export class AangBrowser {
       this.marks = this.marks.slice(0, 5000);
       this.saveMarks();
     } catch (e) {
-      w.webContents.send('browser:download', { name: '', state: 'note', text: `Those bookmarks could not be read: ${(e as Error).message}` });
+      this.note('', { kind: 'bad', from: 'menu', icon: 'star', kick: 'Bookmarks', title: 'Could not be read', rows: [{ g: 'Why', v: (e as Error).message }] });
       return;
     }
     if (added) void this.fillMarkIcons();
-    w.webContents.send('browser:download', { name: '', state: 'note', text: added ? `Brought in ${added} bookmarks. The bar ones are on the shelf in the drawer.` : 'Nothing new in that file: you already have all of them.' });
+    this.note('', this.marksNotice(added, 'that file'));
     this.sendTabs();
   }
   /**
    * 2026-10-13, his ask: straight from Chrome or Safari on this machine, no export first. Only their bookmarks file is
    * read. Safari's needs macOS's Full Disk Access for Aang, which only he can give: the right page opens for him.
    */
+  /** Bookmarks brought in: big, with where the bar ones went; nothing new is small news. */
+  private marksNotice(added: number, from: string): Partial<NoticeIn> {
+    return added ? { from: 'menu', icon: 'star', kick: 'Bookmarks', title: `Brought in ${added}`, rows: [{ g: 'From', v: from }, { g: 'Where', v: 'The bar ones are on the shelf in the drawer.' }] }
+      : { from: 'menu', small: true, icon: 'star', kick: 'Nothing new', title: `You have all of ${from === 'that file' ? 'them' : from + '\u2019s'}` };
+  }
   async importFrom(source: 'chrome' | 'safari'): Promise<void> {
     const P = this.pane;
-    const say = (text: string) => { const w = P.win; if (w && !w.isDestroyed()) w.webContents.send('browser:download', { name: '', state: 'note', text }); };
+    const say = (o: Partial<NoticeIn>) => { if (P.win && !P.win.isDestroyed()) this.note('', { from: 'menu', icon: 'star', kick: 'Bookmarks', ...o }); };
     let found: Mark[] = [];
     try {
       if (source === 'chrome') {
@@ -4202,7 +4411,7 @@ export class AangBrowser {
             if (existsSync(f) && statSync(f).size < 20 * 1024 * 1024) found.push(...parseChromeBookmarks(readFileSync(f, 'utf8')));
           }
         }
-        if (!profiles.length) { say('Chrome is not on this computer, or it has no bookmarks yet.'); return; }
+        if (!profiles.length) { say({ kind: 'bad', title: 'Nothing from Chrome', rows: [{ g: 'Why', v: 'Chrome is not on this computer, or it has no bookmarks yet.' }] }); return; }
       } else {
         if (process.platform !== 'darwin') return;
         const f = path.join(app.getPath('home'), 'Library', 'Safari', 'Bookmarks.plist');
@@ -4211,9 +4420,9 @@ export class AangBrowser {
       }
     } catch (e) {
       if (source === 'safari') {
-        say('Safari keeps its bookmarks private. In the window that opens, turn on Aang under Full Disk Access, then press this again.');
+        say({ kind: 'need', kick: 'Safari', title: 'Keeps them private', rows: [{ g: 'Do this', v: 'In the window that opens, turn on Aang under Full Disk Access, then press this again.' }] });
         void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles');
-      } else say(`Chrome's bookmarks could not be read: ${(e as Error).message}`);
+      } else say({ kind: 'bad', title: 'Could not be read', rows: [{ g: 'Why', v: (e as Error).message }] });
       return;
     }
     const have = new Set(this.marks.map((m) => m.url));
@@ -4221,7 +4430,7 @@ export class AangBrowser {
     for (const m of found) if (!have.has(m.url)) { this.marks.push(m); have.add(m.url); added++; }
     this.marks = this.marks.slice(0, 5000);
     if (added) { this.saveMarks(); void this.fillMarkIcons(); }
-    say(added ? `Brought in ${added} bookmarks from ${source === 'chrome' ? 'Chrome' : 'Safari'}. The bar ones are on the shelf in the drawer.` : `Nothing new in ${source === 'chrome' ? 'Chrome' : 'Safari'}: you already have all of them.`);
+    say(this.marksNotice(added, source === 'chrome' ? 'Chrome' : 'Safari'));
     this.sendTabs();
   }
   /** The star in the slot: the page he is on goes onto the shelf (its panel then opens to name it). Already there: nothing
@@ -4714,13 +4923,13 @@ export class AangBrowser {
       return;
     }
     if (act === 'ungroup') { for (const t of own) t.trail = null; this.trails = this.trails.filter((x) => x.id !== id); this.changed(); return; }
-    if (act === 'stash') { this.stashTrail(id); this.changed(); this.note(`${tr.name} is in the Stash.`); return; }
+    if (act === 'stash') { this.stashTrail(id); this.changed(); this.note('', { from: 'tabs', small: true, icon: 'tabs', kick: 'In the Stash', title: tr.name }); return; }
     if (act === 'close') {
       this.lastClosed = { trail: { ...tr }, tabs: own.filter((t) => isWeb(t.url)).map((t) => ({ url: t.url, title: t.title })) };
       for (const t of own) this.close(t.id, false);
       this.trails = this.trails.filter((x) => x.id !== id);
       this.changed();
-      this.win?.webContents.send('browser:download', { name: '', state: 'note', text: `Closed ${tr.name} and its ${own.length} tabs.`, undo: 'trailclose' });
+      this.note('', { from: 'tabs', small: true, icon: 'tabs', kick: `Closed with ${own.length} tab${own.length === 1 ? '' : 's'}`, title: tr.name, keys: [{ label: 'Undo', act: 'undo' }] }, (act) => { if (act === 'undo') this.undoTrailClose(); });
     }
   }
   /** Undo for "close the trail": its pages come back, asleep, in a trail of the same name. */
@@ -5073,7 +5282,7 @@ export class AangBrowser {
       // Sheet 100: the magnifier on the trail's head, the quest log.
       case 'log': this.openMockLog(); break;
       // The broom (his rule): only when he presses it, and only exact duplicates.
-      case 'broom': { const n = st.sweep(); if (n) this.note(`Removed ${n} duplicate${n === 1 ? '' : 's'}.`); break; }
+      case 'broom': { const n = st.sweep(); if (n) this.note('', { from: 'tabs', small: true, icon: 'tabs', kick: 'Tidied', title: `Removed ${n} duplicate${n === 1 ? '' : 's'}` }); break; }
       case 'branchnew': if (known(a.sheet)) { const id = st.newBranch(); why = st.toBranch(a.sheet, id); this.freshBranch = id; } break;
       case 'branch': if (known(a.sheet)) why = st.toBranch(a.sheet, typeof a.to === 'number' ? a.to : null); break;
       case 'top': if (known(a.sheet)) why = st.toBranch(a.sheet, null); break;
@@ -5452,7 +5661,7 @@ export class AangBrowser {
         if (tuck) this.win.minimize();
         else if (set !== 'None') this.fillOrShrink(this.win);
       } break;
-      case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('This page is your home page now.'); this.sendTabs(); } break; }
+      case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('', { from: 'menu', small: true, kick: 'Home page', title: 'This page' }); this.sendTabs(); } break; }
       case 'star': this.toggleMark(); break;
       // The + key on the shelf in the floating tab list (his freeze, 2026-10-20): its name box opened INSIDE that
       // see-through layer, out of sight, and the layer hung over the page. Now the list slides away and the band opens
@@ -5460,7 +5669,7 @@ export class AangBrowser {
       case 'markadd': this.tray(false); this.win?.webContents.send('browser:tray', { open: false, mark: true }); break;
       case 'vault': void this.vaultKey(); break;
       case 'vaultcancel': this.vaultCancel(); break;
-      case 'vaultlock': this.vault.lock(); this.note('Bitwarden is locked.'); break;
+      case 'vaultlock': this.vault.lock(); this.note('', { from: 'shield', small: true, icon: 'key', kick: 'Bitwarden', title: 'Locked' }); break;
       case 'drawer-close': void this.drawer(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
@@ -5687,6 +5896,7 @@ export class AangBrowser {
 
   /** The rail and the band redraw from this. Plain data only. */
   private sendTabs(): void {
+    this.tvNoticeSync();
     // Sheet 100 v4: the MOCKUPS trail is there whenever there is any mockup, open or not.
     if (this.mockStore?.list.length && !this.trails.some((x) => x.id === MOCK_TRAIL)) this.mockTrail();
     // Sheet 100: an open quest log follows along, a moment later (so a burst of changes draws it once).
@@ -6037,7 +6247,10 @@ export class AangBrowser {
     const p = this.lastPane();
     if (!p) return Promise.resolve(null);
     this.pane = p;
-    return new Promise((done) => this.ask({ host: 'Claude', what: `Let Claude ${what.slice(0, 120)}?`, text: 'A Claude session driving its own tab in your browser wants to do this. It only happens if you say yes, and only this once.', yes: 'Allow once', no: 'No' }, done));
+    // Sheet 106 scene 7: from Claude's rune, Claude's own spark on a white gem.
+    const w = what.slice(0, 120).trim(), title = w.charAt(0).toUpperCase() + w.slice(1) + '?';
+    return new Promise((done) => this.ask({ host: 'Claude', what: title, kick: 'Claude \u00b7 Aang', from: 'rune', claude: true,
+      text: `${title.length > 30 ? `Let Claude ${w}? ` : ''}In its own tab in your browser. Only if you say yes, and only this once.`, yes: 'Allow once', no: 'No' }, done));
   }
 
   // ------------------------------------------------------------------ 6.25a: his view of Aang's pages

@@ -97,9 +97,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .bandchip .m{font:500 13px/1.45 var(--body);color:#4e3d28;margin:4px 0 0}
 .bandchip .keys{display:flex;gap:8px;margin-top:10px}
 .bandchip.site{left:200px;width:300px}
-/* Sheet 69: the keyboard ask. The share picker's paper tile, laid out as a row, the same pressed gold ring. */
-.bandchip.devchip{width:400px}
-.bandchip.devchip .q span:first-child{display:inline-grid;place-items:center}
+/* Sheet 69: the devices a site asks for, picked on a notice's parchment (sheet 106). The share picker's paper tile, as a row. */
 .dev{display:flex;align-items:center;gap:10px;width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:2px solid #6b5132;background:#fff6e4;
   cursor:pointer;text-align:left;font:700 13.5px/1.25 var(--body);color:#271c10;box-sizing:border-box}
 .dev:hover{background:#ffeec8}
@@ -167,9 +165,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .plate .lists{display:flex;gap:6px;margin:4px 0 8px}
 .plate .lists span{font:700 12px var(--body);letter-spacing:.2px;padding:3px 7px;border-radius:4px;border:2px solid var(--outline);background:var(--red);color:#2e0b06}
 .lever.red{background:linear-gradient(180deg,#7a2a1e,#3a1210)}
-.toast{position:absolute;right:160px;top:calc(100% + 8px);z-index:21;padding:8px 12px;border-radius:8px;font:600 13px var(--body);
-  color:var(--ink-text);background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.45)}
-.toast[hidden]{display:none}
 
 /* ---- polish (2026-10-11): presses on the way down, hover on everything ---- */
 .rnd:hover:not(.dim){filter:brightness(1.15)}
@@ -531,8 +526,6 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer .ffxw button:hover~button.on,.drawer .ffxw:hover button.on:not(:hover){color:#e6edff;padding-left:4px}
 .drawer .ffxw button.on::before,.drawer .ffxw button:hover::before{content:"";position:absolute;left:0;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
 .drawer .ffxw:hover button.on:not(:hover)::before{display:none}
-/* the toast's Undo */
-.toast .undo{margin-left:10px;background:none;border:none;color:#ffe28c;font:700 13px var(--body);cursor:pointer;text-decoration:underline}
 
 
 /* ---- 6.22b polish ---- */
@@ -1341,3 +1334,7 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 .drawer .mph .em img,.drawer .mph .em svg{display:block}
 .drawer .mph .em b{font:700 13px var(--display);color:#ffe28c}
 .drawer .mph .em:has(.plogo){background:#E9D2A6}
+
+/* Sheet 106 v7: the key a notice drops from pulses gold twice as it comes down. */
+.ntsrc{outline:3px solid var(--gold);outline-offset:2px;animation:ntsrcpulse .9s ease-in-out 2}
+@keyframes ntsrcpulse{50%{outline-color:transparent}}
