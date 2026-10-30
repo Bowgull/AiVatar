@@ -51,3 +51,23 @@ test('the old Samara is closed for sure before its insides move, and every reope
   assert.equal(s.match(/^\s*open -a "\$APP"\s*$/gm), null);
   assert.doesNotMatch(s, /trap 'open -a/);
 });
+
+// Oct 30 on his Mac: the new Samara took ~50 s to appear under load, the check at 40 s saw nothing and put it back.
+test('a slow start is kept; only a start that dies, or none at all in four minutes, goes back', () => {
+  const s = macUpdateScript(ok);
+  const watch = s.slice(s.indexOf('seen=0'), s.lastIndexOf('exit 0'));
+  const run = (alive: string) => {
+    const d = mkdtempSync(path.join(os.tmpdir(), 'mu-'));
+    execFileSync('mkdir', ['-p', path.join(d, 'RB/Samara.app/Contents'), path.join(d, 'APP/Contents'), path.join(d, 'BR')]);
+    writeFileSync(path.join(d, 'BR/installed.json'), '{"status":"trial"}');
+    // alive: one letter per check, y = running, n = not; the check after the last letter repeats it.
+    const out = execFileSync('bash', ['-c', `n=0; sleep() { n=$((n+1)); }; running() { c='${alive}'; i=$(( n <= \${#c} ? n : \${#c} )); [ "\${c:i-1:1}" = y ]; }
+      launch() { echo launched; }; BR='${d}/BR'; RB='${d}/RB'; APP='${d}/APP'; VERSION=1.0.0
+      ${watch}
+      echo kept`]).toString();
+    return out.includes('putting the old one back') ? 'back' : 'kept';
+  };
+  assert.equal(run('nny'), 'kept', 'appeared at the third look (~60 s): kept');
+  assert.equal(run('nnyyn'), 'back', 'started, then died before it was good: back');
+  assert.equal(run('n'), 'back', 'never started in four minutes: back');
+});

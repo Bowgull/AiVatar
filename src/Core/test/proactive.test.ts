@@ -337,8 +337,13 @@ test('a session he started himself gets the same two tiers, even while the game 
   await post({ hook_event_name: 'Notification', session_id: 'h2', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
   await new Promise(r => setTimeout(r, 200));
   // In Aang's words since 2026-10-29 (messages.ts; the plain line in a test): who, and what it wants.
+  // His pick (2026-10-30, the attention engine): even a session stuck on him waits while the game has focus, with a
+  // marker on Aang, and comes out when the game loses focus.
+  assert.equal(bubbles().filter(b => /^AangApp wants your OK/.test(b.text)).length, 0, 'not over the game');
+  c.send(JSON.stringify({ t: 'presence', quiet: false, foreground: 'explorer' }));
+  await new Promise(r => setTimeout(r, 300));
   const waiting = bubbles().find(b => /^AangApp wants your OK: needs permission/.test(b.text));
-  assert.ok(waiting, 'reaches him live, not held for the quiet-hold - it is not routine chatter');
+  assert.ok(waiting, 'it comes out once the game is not in front');
   assert.equal(waiting.blocking, true);
   assert.equal(waiting.jobCwd, undefined, 'no Panel tab for a session Aang did not launch');
 

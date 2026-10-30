@@ -220,12 +220,12 @@ app.whenReady().then(async () => {
   check('a branch travels as one attachment of its mockups, newest version of each', all.kind === 'mockups' && all.branch === 'Kept' && all.items.length === 2 && all.items.every((x: any) => x.kind === 'mockup') && new Set(all.items.map((x: any) => x.sheet)).size === 2, JSON.stringify(all.items.map((x: any) => [x.sheet, x.version])));
   check('the newest version of 45 in it is V2', all.items.find((x: any) => x.sheet === S45)?.version === 'V2');
   // Size caps: 1200 px wide at most; a picture still over 1.5 MB is dropped; notes at most 1500 characters.
-  const { fitShot } = await import('../../src/browser.ts'); const { nativeImage } = await import('electron'); const { notesFrom } = await import('../../src/mockups.ts');
+  const { fitShot } = await import('../../src/browser.ts'); const { shape } = await import('../../src/capture.ts'); const aang = (img: Electron.NativeImage) => shape(img, 0, { maxWidth: 1200, format: 'png' }); const { nativeImage } = await import('electron'); const { notesFrom } = await import('../../src/mockups.ts');
   const solid = nativeImage.createFromBitmap(Buffer.alloc(3000 * 2000 * 4, 0x80), { width: 3000, height: 2000 });
-  const fitted = fitShot(solid); const fw = fitted ? nativeImage.createFromDataURL(fitted).getSize().width : 0;
+  const fitted = fitShot(aang(solid)); const fw = fitted ? nativeImage.createFromDataURL(fitted).getSize().width : 0;
   check('a wide picture is cut to 1200 px', fw === 1200, String(fw));
   const noise = Buffer.alloc(1200 * 900 * 4); for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 256) | 0;
-  check('a picture over 1.5 MB is dropped, not sent', fitShot(nativeImage.createFromBitmap(noise, { width: 1200, height: 900 })) === null);
+  check('a picture over 1.5 MB is dropped, not sent', fitShot(aang(nativeImage.createFromBitmap(noise, { width: 1200, height: 900 }))) === null);
   check('notes are capped at 1500 characters', notesFrom(`<!-- ${'word '.repeat(1000)} --><p>${'more '.repeat(1000)}</p>`).length === 1500);
 
   // ---- 10. a branch Claude names in the .mockup file

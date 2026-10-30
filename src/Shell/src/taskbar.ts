@@ -18,6 +18,7 @@ import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { askHelper, askProxy, onHelperEvent } from './winedge.ts';
 import * as P from './taskbarplan.ts';
+import { capture } from './capture.ts';
 import { BUTTON_GLYPHS, TASK_GLYPH, glyphBitmap, icoFromPngs } from './taskbaricons.ts';
 import type { MemberWin } from './familywin.ts';
 
@@ -269,9 +270,8 @@ export class TaskbarPops {
       const r = lay.rects[i]!;
       if (r.width < 1 || r.height < 1) return;
       const cb = it.t.w.getContentBounds();
-      let img: Electron.NativeImage;
-      try { img = await it.t.w.webContents.capturePage({ x: Math.round(it.box.x - cb.x), y: Math.round(it.box.y - cb.y), width: it.box.width, height: it.box.height }); } catch { return; }
-      if (img.isEmpty()) return;
+      const img = (await capture(it.t.w, { rect: { x: it.box.x - cb.x, y: it.box.y - cb.y, width: it.box.width, height: it.box.height }, format: 'image', maxWidth: Infinity, scale: Infinity }))?.image;
+      if (!img) return;
       const sized = img.resize({ width: r.width, height: r.height, quality: 'best' });
       const s = sized.getSize(), bm = sized.toBitmap();
       if (bm.length !== s.width * s.height * 4) return;

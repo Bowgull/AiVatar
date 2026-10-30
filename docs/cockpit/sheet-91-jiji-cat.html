@@ -12,6 +12,11 @@
      at the plug and back at you (guilty), a blink, the tail tip swishes. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
+.page .keys{display:flex;gap:14px;justify-content:center;margin:16px 0 6px}
+.cap{font:500 13.5px/1.5 Figtree,sans-serif;color:#cdbb9a;max-width:760px;margin:0 0 12px}
+.kinds{border-collapse:collapse;font:500 13.5px/1.45 Figtree,sans-serif;color:#e8dcc4;max-width:1000px}
+.kinds th{font:700 11.5px Figtree,sans-serif;letter-spacing:.6px;color:#ffe28c;text-align:left;padding:6px 14px 6px 0;text-transform:uppercase}
+.kinds td{padding:7px 14px 7px 0;border-top:1px solid #3a2a1a;vertical-align:top}
   html,body{background:#17110c;margin:0}
   body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
   h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
@@ -33,9 +38,21 @@
 
 <h2>1 · THE PAGE</h2>
 <p class="sub">The cat sits on the cord, looks at the plug, then back at you, like it did nothing. It blinks, and its tail swishes. Only the words change between failures.</p>
-<div class="page"><canvas id="scene" width="640" height="320"></canvas><h3>This site isn't answering</h3><p>example.com took too long. It may be down for now.</p></div>
+<div class="page"><canvas id="scene" width="640" height="320"></canvas><h3>The site didn't answer</h3><p>example.com didn't respond. It may be down for a moment.</p>
+<div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button><button class="key sm" type="button">Go back<span class="k">Z</span></button></div></div>
 
-<h2>2 · THE CAT ON ITS OWN, AT 4X AND 2X</h2>
+<h2>2 · ONLY THE WORDS CHANGE</h2>
+<p class="cap">v2 (2026-10-30, his ask: "for a page couldn't load can we get the cat screen and then put the try again or whatever there instead"). Today's lines, the same cat for each. The security warning (a site pretending to be someone else) keeps its own serious plate, no cat.</p>
+<table class="kinds">
+<tr><th>When</th><th>Title</th><th>Line</th><th>Keys</th></tr>
+<tr><td>The site doesn't respond</td><td>The site didn't answer</td><td>example.com didn't respond. It may be down for a moment.</td><td>Try again · Go back</td></tr>
+<tr><td>No internet</td><td>You're offline</td><td>This computer isn't connected to the internet right now. Try again once it is.</td><td>Try again · Go back</td></tr>
+<tr><td>Nothing at that address</td><td>This address doesn't exist</td><td>No site answers at exampel.com. Check the spelling.</td><td>Try again · Go back</td></tr>
+<tr><td>The ad blocker stopped it</td><td>This page was blocked</td><td>The ad blocker stopped example.com. Turn ad blocking off for this site from the shield if you need it.</td><td>Try again · Go back</td></tr>
+<tr><td>Anything else</td><td>This page couldn't load</td><td>Something went wrong reaching example.com.</td><td>Try again · Go back</td></tr>
+</table>
+
+<h2>3 · THE CAT ON ITS OWN, AT 4X AND 2X</h2>
 <div class="row"><div><div class="sprite"><canvas id="big" width="96" height="128"></canvas></div><p class="lab">4X</p></div>
 <div><div class="sprite"><canvas id="small" width="48" height="64"></canvas></div><p class="lab">2X</p></div></div>
 

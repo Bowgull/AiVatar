@@ -104,23 +104,26 @@ printf '%s' ${q(installed)} > "$BR/installed.json"
 trap - EXIT
 launch
 echo "Update done: $VERSION. Samara is opening again."
-# The new Samara marks itself good once it has run a minute. Not running and never got there: it did not start, so
-# the old one goes back and this version is not offered again.
-for t in 40 60 120; do
+# The new Samara marks itself good once it has run a minute. The old one goes back only when the new one really failed:
+# it started and then died, or it never started at all in four minutes (2026-10-30, his Mac: under heavy load it took
+# about 50 s to appear, the old check looked at 40 s, saw nothing, and put a working update back).
+seen=0
+for t in 20 20 20 20 20 20 30 30 30 30; do
   sleep $t
-  grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && break
-  if ! running; then
-    if [ -d "$RB/Samara.app/Contents" ]; then
-      echo "The new Samara did not start; putting the old one back."
-      rm -rf "$APP/Contents"; mv "$RB/Samara.app/Contents" "$APP/Contents"; rm -rf "$RB/Samara.app"
-      if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
-      [ -n "$BUNDLE" ] && echo ${q(o.version)} >> "$BR/failed-updates.txt"
-      [ -n "$EV" ] && echo "$EV" >> "$BR/failed-engines.txt"
-      launch
-    fi
-    break
-  fi
+  grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && exit 0
+  if running; then seen=1; continue; fi
+  [ "$seen" = 1 ] && break
 done
+grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && exit 0
+running && exit 0
+if [ -d "$RB/Samara.app/Contents" ]; then
+  echo "The new Samara did not start; putting the old one back."
+  rm -rf "$APP/Contents"; mv "$RB/Samara.app/Contents" "$APP/Contents"; rm -rf "$RB/Samara.app"
+  if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
+  [ -n "$BUNDLE" ] && echo ${q(o.version)} >> "$BR/failed-updates.txt"
+  [ -n "$EV" ] && echo "$EV" >> "$BR/failed-engines.txt"
+  launch
+fi
 exit 0
 `;
 }

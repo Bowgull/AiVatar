@@ -54,7 +54,7 @@ export function isRisky(filename: string): boolean {
 /** A failed page in plain words (6.22b bug 3). Chromium's net error codes; anything else gets the general line. */
 export function failureWords(code: number, host: string): { title: string; text: string; retry: boolean } {
   const at = host || 'this address';
-  if (code === -106) return { title: "You're offline", text: "This PC isn't connected to the internet right now. Try again once it is.", retry: true };
+  if (code === -106) return { title: "You're offline", text: "This computer isn't connected to the internet right now. Try again once it is.", retry: true };
   if (code === -105 || code === -137) return { title: "This address doesn't exist", text: `No site answers at ${at}. Check the spelling.`, retry: true };
   if (code <= -200 && code > -300) return { title: "This site's security papers are wrong", text: `${at} could not prove it is who it says it is, so someone could be pretending to be it. Aang won't open it.`, retry: false };
   if ([-7, -118, -102, -109, -100, -101, -21, -15, -324].includes(code)) return { title: "The site didn't answer", text: `${at} didn't respond. It may be down for a moment.`, retry: true };

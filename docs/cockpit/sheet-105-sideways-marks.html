@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 105 - Marks when Aang is docked</title>
+<!-- Sheet 105 (2026-10-29), his report: "these icons when aang is docked sideways are ridiculous and don't look right at
+     all". Aang docked on the left edge of a screen, drawn by the same steps as the Mac app (macpet.js): his real frame
+     (idle_0), the real Claude marks (ClaudeMarks.cs pixel maps, 3 px), the same turn for the edge. A is today; B and C
+     are the two ways it could go. Every picture is at 2x. -->
+<link rel="stylesheet" href="sheet-53/sheet53.css">
+<style>
+.scr{image-rendering:pixelated;background:#1b1a19;border-radius:6px;display:block}
+.cap{font:500 14px/1.45 Figtree,sans-serif;color:#d8cab0;max-width:560px;margin:2px 0 0}
+.new{display:inline-block;font:800 10.5px Figtree,sans-serif;letter-spacing:1px;padding:2px 7px;border-radius:5px;background:#1d6b60;color:#fff;margin-left:8px;vertical-align:2px}
+</style>
+</head>
+<body>
+<h1>SHEET 105 &middot; MARKS WHEN AANG IS DOCKED</h1>
+<p class="lead">v2. You picked B: the mark turns with him and floats over his head. Here it is on every edge he can dock on.</p>
+<p class="real">His real frame and the real marks, turned the way the Mac app turns him (macpet.js): left, right, and upside down at the top.</p>
+
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Left edge</span>
+  <p class="cap2">Your pick, as on v1.</p></div>
+  <div class="row" data-e="left"></div></div>
+
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Right edge</span>
+  <p class="cap2">The mirror: he lies the other way, the mark turns with him.</p></div>
+  <div class="row" data-e="right"></div></div>
+
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Top edge</span>
+  <p class="cap2">He hangs upside down, so the mark does too. The question mark reads upside down.</p></div>
+  <div class="row" data-e="top"></div></div>
+
+<div class="look"><div class="lhead"><span class="L">B2</span><span class="nm">Top edge, mark kept readable</span><span class="new">OPTION</span>
+  <p class="cap2">Same spot under his head, but the mark itself stays the right way up.</p></div>
+  <div class="row" data-e="top" data-upright="1"></div></div>
+<script>
+const MARK = 60, ART_TOP = 78, ART_X = 88, ART_W = 50, S = 2;
+const SHAPES = {
+  question: ['...OOOOO...', '..OHHHFFO..', '.OHFFFFFSO.', '.OHFOOOFSO.', '.OOO..OFSO.', '......OFSO.', '.....OFFSO.', '....OFFSO..', '....OFSO...', '....OFSO...', '....OOOO...', '...........', '....OOOO...', '....OHSO...', '....OSSO...', '....OOOO...'],
+  done: ['..........OOO', '.........OHHO', '........OHHFO', '.......OHHFSO', '.OOO..OHHFSO.', 'OHHHOOHHFSO..', 'OFHHHHHFSO...', '.OFFHHFSO....', '..OFFFSO.....', '...OSSO......', '....OO.......'],
+};
+const COLOR = { question: '#b07cff', done: '#3fc4b4' };
+const mix = (h, t, k) => { const a = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); return 'rgb(' + a.map((v, i) => Math.round(v + (t[i] - v) * k)).join(',') + ')'; };
+function markOf(kind) {
+  const map = SHAPES[kind], F = COLOR[kind], px = 3;
+  const c = document.createElement('canvas'); c.width = (map[0].length + 1) * px; c.height = (map.length + 1) * px;
+  const m = c.getContext('2d');
+  const pal = { O: '#2a1a10', H: mix(F, [255, 255, 255], 0.55), F, S: mix(F, [40, 20, 10], 0.35) };
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') { m.fillStyle = 'rgba(0,0,0,.4)'; m.fillRect((x + 1) * px, (y + 1) * px, px, px); } }));
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { m.fillStyle = pal[ch]; m.fillRect(x * px, y * px, px, px); } }));
+  return { c, w: map[0].length * px, h: map.length * px };
+}
+// One picture: a strip of screen with its left edge, Aang docked on it with `show` px of him out, wearing `kind`.
+function shot(img, edge, show, kind, upright) {
+  const P = 230, TOPPAD = 30;
+  const cv = document.createElement('canvas'); cv.width = P * S; cv.height = P * S; cv.className = 'scr'; cv.style.width = P * S + 'px';
+  const o = cv.getContext('2d'); o.imageSmoothingEnabled = false; o.scale(S, S);
+  o.fillStyle = '#1b1a19'; o.fillRect(0, 0, P, P);
+  const up = document.createElement('canvas'); up.width = 224; up.height = MARK + show;
+  const g = up.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.drawImage(img, 0, MARK - ART_TOP);
+  const a = markOf(kind);
+  const mx = Math.round(ART_X + ART_W / 2 - a.w / 2), my = Math.round(MARK - 9 - a.h);
+  if (!upright) g.drawImage(a.c, mx, my);
+  // where the window sits on the panel, and the edge he is docked on
+  let ox = 0, oy = 0; o.fillStyle = '#0c0b0a';
+  if (edge === 'left') { ox = 0; oy = TOPPAD - ART_X + 40; o.fillRect(0, 0, 3, P); }
+  else if (edge === 'right') { ox = P - up.height; oy = TOPPAD - (224 - ART_X - ART_W) + 40; o.fillRect(P - 3, 0, 3, P); }
+  else { ox = Math.round(P / 2 - (224 - ART_X - ART_W / 2)); oy = 0; o.fillRect(0, 0, P, 3); }
+  o.save(); o.translate(ox, oy);
+  if (edge === 'left') o.transform(0, 1, -1, 0, up.height, 0);
+  else if (edge === 'right') o.transform(0, -1, 1, 0, 0, up.width);
+  else o.transform(-1, 0, 0, -1, up.width, up.height);
+  o.drawImage(up, 0, 0);
+  o.restore();
+  if (upright) {
+    // the same centre the turned mark would have, the mark itself upright
+    const cx = mx + a.w / 2, cy = my + a.h / 2;
+    const tx = ox + (up.width - cx), ty = oy + (up.height - cy);
+    o.drawImage(a.c, Math.round(tx - a.w / 2), Math.round(ty - a.h / 2));
+  }
+  return cv;
+}
+const img = new Image();
+img.onload = () => {
+  for (const row of document.querySelectorAll('.row[data-e]')) {
+    for (const [show, kind, label] of [[34, 'done', 'PEEKING, DONE TICK'], [34, 'question', 'PEEKING, QUESTION'], [90, 'question', 'SLID OUT, QUESTION']]) {
+      const cell = document.createElement('div'); cell.className = 'cell';
+      const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = label;
+      cell.append(lbl, shot(img, row.dataset.e, show, kind, row.dataset.upright === '1')); row.append(cell);
+    }
+  }
+};
+img.src = 'sheet-105/aang.png';
+</script>
+</body>
+</html>

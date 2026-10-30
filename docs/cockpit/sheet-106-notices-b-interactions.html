@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 106 - Option B, every interaction</title>
+<!-- Sheet 106 v5 (2026-10-30). His note on v4: "it still feels a bit cheap and slapped together", and yes to my list:
+     build the notices from Claude's plan card's own pieces (the dltray/uptray/upx tray: trayframe at 2x, the gold corner
+     caps, the band header strip, the parchment list, Samara's real keys), a pixel gem socket with a hard stepped ring and
+     no blur, the plan card's two fonts only, motion in hard steps (drop in 3, the gem up in 2, a 4-frame pixel twinkle),
+     a pixel tab joining each notice to the key it came from, teal for done, tighter sizes. Plus: "remember i do like to
+     drag and drop downloaded files a lot": every download notice's file picture is the handle you drag; a drop counts as
+     done and the notice goes. The eight interactions are unchanged; the plan card itself stays as it is. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:38px 0 12px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:640px;line-height:1.45}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  button.replay{background:none;border:none;font:700 13px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 6px;margin-left:6px}
+  button.replay:hover{color:#ffe28c}
+  /* A slice of Samara, as on sheet 90: the band, the address slot, the page. */
+  .win{position:relative;width:600px;height:320px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .bandbar{position:absolute;left:0;right:0;top:0;height:58px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;border-bottom:3px solid #120a05;z-index:3}
+  .slotbar{position:absolute;left:62px;right:62px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
+    display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;image-rendering:auto;z-index:4}
+  .slotbar .sh{width:20px;height:24px;background:url(../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none}
+  .band-r{position:absolute;right:14px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+    box-shadow:0 3px 0 #120a05;z-index:4;display:grid;place-items:center}
+  .band-l{position:absolute;left:14px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+    box-shadow:0 3px 0 #120a05;z-index:4}
+  .page{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#f6f3ee;overflow:hidden}
+  .page i{display:block;height:9px;border-radius:4px;background:#e2ddd4;margin:16px 22px 0}
+  .page i:nth-child(2){width:60%} .page i:nth-child(3){width:75%} .page i:nth-child(4){width:40%}
+
+
+  .win{width:640px;height:340px}
+  .slotbar{right:104px}
+  .dlkey{position:absolute;right:56px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;z-index:4;
+    background:linear-gradient(180deg,var(--plum),var(--plum-deep));box-shadow:0 3px 0 #120a05;display:grid;place-items:center}
+  .band-r{display:grid;place-items:center;color:#fff;font:800 14px var(--body)}
+  .src{outline:3px solid var(--gold);outline-offset:2px;animation:srcpulse .9s ease-in-out 2}
+  @keyframes srcpulse{50%{outline-color:transparent}}
+  .line{display:block;font:500 12.5px/1.5 var(--body);color:#b9a684;margin:8px 0 0;max-width:640px;min-height:38px}
+  .line b{display:inline;color:#ffe28c}
+  .grid{display:grid;grid-template-columns:repeat(2,640px);gap:34px 40px}
+
+  /* ---- the notice: Claude's plan card's own tray, smaller ---- */
+  .nt.dltray.uptray.upx{position:absolute;left:var(--x);right:auto;top:64px;width:356px;transform:none;z-index:5;animation:none}
+  .nt .uphd{margin:0 0 8px;padding:8px 12px 7px}
+  .nt .uphd small{font:700 12px var(--body)}
+  .nt .uphd b{font-size:16px}
+  .nt .uplist{margin:0 12px 8px;padding:6px 10px;max-height:none}
+  .nt .grp{margin:2px 0 1px}
+  .nt .grp+.v,.nt .v{font:600 13px/1.35 var(--body);color:#2a1c0c}
+  .nt .v+.grp{margin-top:6px}
+  .nt .upfoot{margin:0 12px}
+  .nt .key{padding:7px 14px 8px;font-size:13px}
+  .nt .count{margin-left:auto;font:700 12px var(--body);color:#f1e4cc;text-shadow:1px 1px 0 #000}
+  /* the small one: only the header strip */
+  .nt.small{width:300px;padding:0}
+  .nt.small .uphd{margin:0;border-bottom:none;box-shadow:none}
+  .nt.small .drain{position:absolute;left:0;bottom:-3px;height:3px;background:var(--gold);z-index:4}
+  @keyframes drain{from{width:100%}to{width:0}}
+  /* the gem: sheet 92's own round coloured gem, the icon in colour, so you see what it is at a glance */
+  .sock{position:relative;flex:none;width:40px;height:40px;border-radius:50%;border:3px solid #120A05;display:grid;place-items:center;box-sizing:border-box;
+    background:linear-gradient(180deg,var(--k),var(--kd));box-shadow:0 0 0 2px var(--gold),0 0 12px var(--glow)}
+  .sock.claude{background:#F6F2EA}
+  .sock.claude svg rect{fill:#D97757}
+  .sock .spark{position:absolute;width:4px;height:4px;border-radius:1px;background:#fff6c8;box-shadow:0 0 6px #ffe28c;opacity:0}
+  .kind-done{--k:#3FBFAE;--kd:#1f7a6e;--glow:rgba(63,191,174,.7)} .kind-need{--k:#4C9BE8;--kd:#1F5A9E;--glow:rgba(76,155,232,.75)} .kind-bad{--k:#E0553E;--kd:#8A2418;--glow:rgba(224,85,62,.75)}
+  .nt.small .drain{border-radius:2px}
+  /* v7 (his idea): a download's parchment holds the download tray's own rows, the file badge, name and size, and you
+     drag the file by its row, one file or several, so there is only one kind of download screen */
+  .nt .uplist.files{padding:4px 4px}
+  .nt .files .drow{padding:6px 8px 6px 8px}
+  .nt .files .drow .dt b{color:#2a1c0c;text-shadow:none}
+  .nt .files .drow .dt small{color:#7a5a36}
+  .nt .files .drow.hov{padding-left:36px;background:rgba(120,80,30,.14)}
+  .nt .files .drow.hov .dt b{color:#8a3e1c}
+  .nt .files .drow.hov::before{content:"";position:absolute;left:5px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .nt .files .drow{transition:padding-left .12s ease,background .12s ease}
+  /* the download tray, as Samara draws it today (browser.css .dltray, .drow): where each file is grabbed */
+  .dl.dltray{position:absolute;right:20px;left:auto;top:60px;width:340px;z-index:6;animation:none}
+  .dl .drow .fb{flex:none}
+  /* motion, smooth (his rule): it drops with a soft overshoot, the gem lifts, the sparkles drift out and fade */
+  .nt.drop{animation:ntdrop .38s cubic-bezier(.3,1.4,.6,1) both}
+  .nt.rise{animation:ntup .3s cubic-bezier(.5,0,.75,0) both}
+  @keyframes ntdrop{from{transform:translateY(-120%);opacity:.4}to{transform:translateY(0);opacity:1}}
+  @keyframes ntup{from{transform:translateY(0);opacity:1}to{transform:translateY(-130%);opacity:0}}
+  .nt.drop .sock{animation:gemup .5s .2s cubic-bezier(.3,1.8,.6,1) both}
+  @keyframes gemup{from{transform:translateY(10px) scale(.6)}}
+  .nt.drop .sock .spark{animation:spark .8s .45s ease-out both}
+  @keyframes spark{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
+  .nt.small.live .drain{animation:drain 4s linear both}
+  .key{transition:top .08s ease,box-shadow .08s ease}
+  .ghost{position:absolute;z-index:9;transition:left .7s ease,top .7s ease}
+  .tagline{position:absolute;z-index:9;font:700 11px var(--body);color:#2a1c00;background:var(--gold);border:2px solid #120A05;border-radius:5px;padding:2px 7px}
+  .cursor{position:absolute;z-index:10;width:14px;height:20px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px;image-rendering:pixelated;transition:left .6s ease,top .6s ease;display:none}
+  .cursor.on{display:block}
+  .all{border-collapse:collapse;font:500 13px/1.45 var(--body);color:#e8dcc4;max-width:1100px}
+  .all th{font:400 10px var(--label);letter-spacing:1.2px;color:#c9a35a;text-align:left;padding:6px 18px 6px 0}
+  .all td{padding:6px 18px 6px 0;border-top:1px solid #3a2a1a;vertical-align:top}
+  .kd{color:#6fd9c9;font-weight:700} .kn{color:#7fb6f0;font-weight:700} .kb{color:#f08a75;font-weight:700}
+  .rules{font:500 13.5px/1.6 var(--body);color:#e8dcc4;max-width:900px;margin:0;padding-left:18px}
+</style>
+</head>
+<body>
+<h1>Sheet 106 · Option B, every interaction</h1>
+<p class="lead">v7. Your idea: a download notice’s parchment holds the download tray’s own rows (the coloured file badge, the name, the size), and you drag the file out by its row, one file or several. One kind of download screen everywhere. Built from Claude’s plan card’s pieces, coloured round gems, soft corners, smooth motion.</p>
+
+<div class="grid" id="grid"></div>
+<h2>EVERY NOTICE SAMARA HAS TODAY, AS OPTION B</h2>
+<p class="sub">Samara's real lines (sorted on sheet 98), each with its kind, big or small, and what it drops from.</p>
+<table class="all">
+<tr><th>Line</th><th>Kind</th><th>Size</th><th>Drops from</th></tr>
+<tr><td>Downloaded tax-form.pdf to your Downloads.</td><td class="kd">Done</td><td>Small</td><td>Download key</td></tr>
+<tr><td>Kept in your Bitwarden: github.com.</td><td class="kd">Done</td><td>Small</td><td>Shield</td></tr>
+<tr><td>Home page saved. / This page is your home page now.</td><td class="kd">Done</td><td>Small</td><td>Menu</td></tr>
+<tr><td>Brought in 40 bookmarks. The bar ones are on the shelf in the drawer.</td><td class="kd">Done</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Closed Compare laptops and its 3 tabs. (Undo)</td><td class="kd">Done</td><td>Small, with Undo</td><td>Tab list</td></tr>
+<tr><td>Compare laptops is in the Stash. / Removed 2 duplicates.</td><td class="kd">Done</td><td>Small</td><td>Tab list</td></tr>
+<tr><td>Netflix would not play in this tab, so it opened in the video window.</td><td class="kd">Done</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Bitwarden wants your master password again. (and the five-wrong-PINs line)</td><td class="kn">Needs you</td><td>Big</td><td>Shield</td></tr>
+<tr><td>Sign in to Bitwarden once first, yourself.</td><td class="kn">Needs you</td><td>Big</td><td>Shield</td></tr>
+<tr><td>Safari keeps its bookmarks private. Turn on Aang under Full Disk Access, then press this again.</td><td class="kn">Needs you</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Link Samara to your TV (the TV's code)</td><td class="kn">Needs you</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Samara couldn't open your PIN. Reopen Samara, type your Mac password and pick Always Allow.</td><td class="kb">Went wrong</td><td>Big</td><td>Shield</td></tr>
+<tr><td>tax-form.pdf did not finish downloading.</td><td class="kb">Went wrong</td><td>Big, Try again</td><td>Download key</td></tr>
+<tr><td>Your TV didn't wake up.</td><td class="kb">Went wrong</td><td>Big, Try again</td><td>Menu</td></tr>
+<tr><td>Bitwarden did not answer. / Bitwarden did not keep it.</td><td class="kb">Went wrong</td><td>Big, Try again</td><td>Shield</td></tr>
+<tr><td>No saved login for bestbuy.ca. / No login box found on this page to fill.</td><td class="kb">Went wrong</td><td>Small</td><td>Shield</td></tr>
+<tr><td>Chrome didn't open. Open your bank there yourself.</td><td class="kb">Went wrong</td><td>Big</td><td>Shield</td></tr>
+<tr><td>That is not a web address.</td><td class="kb">Went wrong</td><td>Small</td><td>Address bar</td></tr>
+</table>
+
+<h2>EVERYTHING SAMARA CAN ASK YOU, AS OPTION B</h2>
+<p class="sub">Every ask is a "needs you": blue, the one sound, it stays until you answer. It drops from what it's about.</p>
+<table class="all">
+<tr><th>Ask</th><th>Buttons</th><th>Drops from</th></tr>
+<tr><td>A site wants your camera, microphone or both</td><td>Allow · No</td><td>Shield</td></tr>
+<tr><td>A site wants to open another app (Zoom, Spotify...)</td><td>Open it · No</td><td>Shield</td></tr>
+<tr><td>A risky download (a program from a site you don't know)</td><td>Download, trust this site · No</td><td>Download key</td></tr>
+<tr><td>A site wants your keyboard or another device (sheet 69)</td><td>Allow · No</td><td>Shield</td></tr>
+<tr><td>Claude wants to do something in its tab (open a checkout, send)</td><td>Allow once · No</td><td>Menu (Claude's rune)</td></tr>
+<tr><td>Link Samara to your TV</td><td>Link · Not now</td><td>Menu</td></tr>
+</table>
+<p class="sub" style="margin-top:12px">Keep their own look: Claude's plan card, the fake-site block, the cat page when a site won't load, the secret window's PIN.</p>
+
+<h2>CLAUDE'S PLAN CARD STAYS AS IT IS</h2>
+<p class="sub">His call (2026-10-30): the plan card is great and does not change. It is the one ask that keeps its own look. (This picture is from 1.23.0; its off-centre tick is fixed in 1.23.2.)</p>
+<img src="sheet-106/plan-today.png" alt="" style="width:365px;border:3px solid #120A05;border-radius:8px;image-rendering:auto">
+
+
+<h2>THE RULES IT FOLLOWS</h2>
+<ul class="rules">
+  <li>Drops from under whatever caused it: the download key, the shield, the menu.</li>
+  <li>Teal done, blue needs you, red went wrong. Only "needs you" plays a sound. Claude always shows its orange spark on a white gem.</li>
+  <li>Big ones stay until you click a button. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them.</li>
+  <li>A download notice holds the download tray's own rows (badge, name, size): drag a file out by its row, whether it's one file or several. One kind of download screen.</li>
+  <li>One at a time. More waiting shows a count ("1 of 3"); the next drops when you finish this one.</li>
+</ul>
+
+<script type="module">
+import { pixIcon } from '../../src/Shell/pages/pixicons.js';
+const icon = (n, s) => pixIcon(n, s) ?? document.createElement('span');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const DL = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg>';
+// a 4-frame pixel twinkle at 3x round the socket's corners
+const STAR = { big: ['..W..', '..Y..', 'WYWYW', '..Y..', '..W..'], small: ['.W.', 'WYW', '.W.'] };
+function twinkle(cv) {
+  const g = cv.getContext('2d'); let f = 0;
+  const put = (m, ox, oy) => m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = ch === 'W' ? '#fffbe8' : '#ffe28c'; g.fillRect(ox + x, oy + y, 1, 1); }));
+  const t = setInterval(() => { g.clearRect(0, 0, 28, 28); f++;
+    if (f === 1) { put(STAR.small, 4, 5); put(STAR.small, 21, 4); }
+    if (f === 2) { put(STAR.big, 19, 1); put(STAR.small, 2, 5); put(STAR.small, 23, 20); }
+    if (f === 3) { put(STAR.big, 1, 2); put(STAR.small, 22, 3); }
+    if (f >= 4) { clearInterval(t); } }, 110);
+}
+// where each source key is (its centre, for the tab) and where a notice from it sits
+const SRC = { dl: { cx: 568, x: 240 }, shield: { cx: 84, x: 30 }, menu: { cx: 610, x: 270 } };
+
+const SCENES = [
+  { title: '1 · A download, the big one', run: async (S) => {
+    S.say('A download finishes. The <b>download key</b> glows, the notice drops from under it, the gem lifts and sparkles. On its parchment: the file, as in your download tray.');
+    S.src('dl'); await wait(500);
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'Ready', files: [['pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now']], keys: [['Show in Finder'], ['Got it', 1]] });
+    await wait(2300); S.say('Grab the file <b>by its row</b>, the same as in the tray, and drag it into Finder, an email or Claude.');
+    await S.dragRow(p, 0, 110, 250, 'DROPPED IN FINDER'); S.say('Done with it: <b>Got it</b> and it goes back up.'); await wait(600);
+    await S.press(p, 1); await S.leave(p); await wait(1200); } },
+  { title: '2 · Needs you, with the one sound', run: async (S) => {
+    S.say('Your Mac asks for permission. The <b>shield</b> blinks, the notice drops from it, and this is the only kind that <b>plays a sound</b>.');
+    S.src('shield'); await wait(500);
+    const p = S.drop({ from: 'shield', kind: 'need', ic: 'key', kick: 'YOUR MAC NEEDS', title: 'A yes from you', rows: [['What to do', 'Pick Always Allow, and your logins come back.']], keys: [['Open it', 0], ['Later', 1]] });
+    S.sound(280, 250); await wait(3000); S.say('<b>Later</b> puts it back in the shield until you open it.'); await S.press(p, 1); await S.leave(p); await wait(1300); } },
+  { title: '3 · Went wrong', run: async (S) => {
+    S.say('The TV didn\u2019t answer. The notice drops from the <b>menu</b> (where Send to TV lives), red.');
+    S.src('menu'); await wait(500);
+    const p = S.drop({ from: 'menu', kind: 'bad', ic: 'wont', kick: 'THE TV', title: 'Didn\u2019t answer', rows: [['Try', 'Check it\u2019s on, then try again.']], keys: [['Try again', 0], ['Close', 1]] });
+    await wait(2800); S.say('<b>Try again</b> does it straight from the notice.'); await S.press(p, 0); await S.leave(p); await wait(1300); } },
+  { title: '4 · Small things, the quiet drop', run: async (S) => {
+    S.say('A page goes into a trail. Small news: just the header strip, no hop, no twinkle, no sound.');
+    S.src('menu'); await wait(500);
+    const p = S.drop({ from: 'menu', kind: 'done', ic: 'scroll', kick: 'ADDED TO', title: 'Tax season', small: true });
+    await wait(1500); S.say('The gold line drains: after <b>4 seconds</b> it slides back by itself.'); await wait(2700); await S.leave(p); await wait(1300); } },
+  { title: '5 · A small one waits while you look', run: async (S) => {
+    S.say('A small notice. Your mouse goes onto it: it <b>stops draining</b> and waits for you.');
+    S.src('menu'); await wait(400);
+    const p = S.drop({ from: 'menu', kind: 'done', ic: 'yes', kick: 'SAVED', title: 'Your home page', small: true });
+    await wait(700); S.cursor(420, 84); await wait(700); p.querySelector('.drain').style.animationPlayState = 'paused';
+    await wait(2400); S.say('Mouse off: it carries on and slides back by itself.'); S.cursor(560, 280); p.querySelector('.drain').style.animationPlayState = 'running';
+    await wait(2000); await S.leave(p); S.cursor(); await wait(1300); } },
+  { title: '6 · Three at once', run: async (S) => {
+    S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>, with a count.');
+    S.src('dl'); await wait(400);
+    let p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'Ready', files: [['pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now']], keys: [['Got it', 1]], count: '1 of 3' });
+    await wait(2200); await S.press(p, 0); await S.leave(p);
+    S.say('The <b>next one drops</b> from its own place, the shield, with its sound.'); S.src('shield'); await wait(300);
+    p = S.drop({ from: 'shield', kind: 'need', ic: 'key', kick: 'BITWARDEN', title: 'Save this login?', rows: [['For', 'github.com']], keys: [['Save', 0], ['Not now', 1]], count: '2 of 3' });
+    S.sound(280, 250); await wait(2200); await S.press(p, 1); await S.leave(p);
+    S.say('Then the last, from the menu.'); S.src('menu'); await wait(300);
+    p = S.drop({ from: 'menu', kind: 'bad', ic: 'wont', kick: 'THE TV', title: 'Didn\u2019t answer', rows: [['Try', 'Check it\u2019s on, then try again.']], keys: [['Try again', 0], ['Close', 1]], count: '3 of 3' });
+    await wait(2200); await S.press(p, 1); await S.leave(p); await wait(1200); } },
+  { title: '6b · Several downloads at once', run: async (S) => {
+    S.say('Three files finish close together. One notice, not three, with <b>a row for each file</b>: the same rows as one download, and as the tray.');
+    S.src('dl'); await wait(500);
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: '3 DOWNLOADS', title: 'All ready', files: [['pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now'], ['zip', 'receipts.zip', '4.1 MB · drive.google.com · now'], ['img', 'photo.png', '880 KB · reddit.com · now']], keys: [['Show in Finder'], ['Got it', 1]] });
+    await wait(2300); S.say('Grab exactly the one you want: <b>receipts.zip</b>, by its row.');
+    await S.dragRow(p, 1, 90, 260, 'DROPPED IN AN EMAIL'); await wait(500);
+    await S.press(p, 1); await S.leave(p); await wait(1200); } },
+  { title: '7 · Claude asks (the same family)', run: async (S) => {
+    S.say('Claude, working in your tabs, wants your OK. A <b>needs you</b>, from the <b>menu</b> where Claude\u2019s rune lives, with Claude\u2019s own spark.');
+    S.src('menu'); await wait(500);
+    const p = S.drop({ from: 'menu', kind: 'need', ic: 'claude', kick: 'CLAUDE \u00b7 AANG', title: 'Open the checkout?', rows: [['For', 'Compare laptops, on bestbuy.ca']], keys: [['Allow once', 0], ['No', 1]] });
+    S.sound(330, 260); await wait(3200); await S.press(p, 0); await S.leave(p); await wait(1300); } },
+  { title: '8 · The plan card, unchanged, for comparison', run: async (S) => {
+    S.say('Claude\u2019s plan card keeps its own look. The notices above are now its little siblings: same frame, corners, header, parchment and keys.');
+    const n = document.createElement('div'); n.className = 'nt dltray uptray upx kind-need'; n.style.setProperty('--x', '142px'); n.style.top = '62px';
+    n.innerHTML = `<div class="caps"></div><div class="uphd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>CLAUDE WANTS TO</small><b>Email castLabs</b></div></div>
+      <div class="uplist"><div class="grp">SITES</div><div class="it">mail.google.com</div><div class="grp">STEPS</div><div class="it">1 Open a new Gmail message</div></div>
+      <div class="upfoot"><button class="key primary sm">Go</button><button class="key sm">Change</button><button class="key sm" style="background:#C8602A">Not now</button></div>`;
+    S.win.append(n); await wait(6000); n.remove(); } },
+];
+
+function sceneBox(sc) {
+  const box = document.createElement('div');
+  box.innerHTML = `<p class="cap">${sc.title}<button class="replay" type="button">Replay</button></p>
+    <div class="win"><div class="bandbar"></div><div class="band-l"></div><div class="slotbar"><span class="sh"></span>samara.example</div>
+    <span class="dlkey">${DL}</span><div class="band-r">···</div><div class="page"><i></i><i></i><i></i><i></i></div><span class="cursor"></span></div><p class="line"></p>`;
+  const w = box.querySelector('.win');
+  const S = {
+    win: w,
+    say: (h) => { box.querySelector('.line').innerHTML = h; },
+    src: (which) => { const el = which === 'dl' ? w.querySelector('.dlkey') : which === 'shield' ? w.querySelector('.slotbar .sh') : w.querySelector('.band-r'); el.classList.remove('src'); void el.offsetWidth; el.classList.add('src'); },
+    drop: (o) => {
+      const src = SRC[o.from], x = o.x ?? src.x;
+      const n = document.createElement('div'); n.className = `nt dltray uptray upx kind-${o.kind}${o.small ? ' small' : ''}`; n.style.setProperty('--x', x + 'px');
+      const keys = o.keys ? `<div class="upfoot">${o.keys.map(([l, plain], i) => `<button class="key ${i === 0 && !plain ? 'primary ' : ''}sm" type="button">${l}</button>`).join('')}</div>` : '';
+      const files = o.files ? `<div class="uplist files">${o.files.map(([k, nm, m]) => `<div class="drow"><i class="fb ${k}"><b>${k.toUpperCase()}</b></i><span class="dt"><b>${nm}</b><small>${m}</small></span></div>`).join('')}</div>` : '';
+      const rows = o.rows ? `<div class="uplist">${o.rows.map(([g, v]) => `<div class="grp">${g}</div><div class="v">${v}</div>`).join('')}</div>` : '';
+      n.innerHTML = `<div class="caps"></div><div class="uphd"><span class="sock${o.ic === 'claude' ? ' claude' : ''}"><span class="ic"></span>${o.small ? '' : [[-16, -14, 2, -4], [18, -16, 30, -6], [-20, 10, -4, 26], [20, 12, 32, 28]].map(([dx, dy, l, t]) => `<i class="spark" style="left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px"></i>`).join('')}</span>
+        <div class="t"><small>${o.kick}</small><b>${o.title}</b></div>${o.count ? `<span class="count">${o.count}</span>` : ''}</div>${files}${rows}${keys}${o.small ? '<span class="drain"></span>' : ''}`;
+      n.querySelector('.ic').append(icon(o.ic, o.small ? 2 : 2));
+      w.append(n); void n.offsetWidth; n.classList.add('drop', 'live');
+      return n;
+    },
+    press: async (n, i) => { const b = n.querySelectorAll('.upfoot .key')[i]; if (!b) return; b.style.top = 'var(--lip)'; b.style.boxShadow = 'none'; await wait(200); },
+    leave: async (n) => { n.classList.remove('drop'); void n.offsetWidth; n.classList.add('rise'); await wait(240); n.remove(); },
+    sound: (x, y) => { const s = Object.assign(document.createElement('span'), { className: 'tagline', textContent: '\u266a the one sound' }); s.style.left = x + 'px'; s.style.top = y + 'px'; w.append(s); setTimeout(() => s.remove(), 1400); },
+    cursor: (x, y) => { const c = w.querySelector('.cursor'); if (x === undefined) { c.classList.remove('on'); return; } c.classList.add('on'); c.style.left = x + 'px'; c.style.top = y + 'px'; },
+    dragRow: async (n, i, tx, ty, said) => {
+      const row = n.querySelectorAll('.files .drow')[i], wr = w.getBoundingClientRect();
+      let r = row.getBoundingClientRect(); S.cursor(r.left - wr.left + 60, r.top - wr.top + 14); await wait(600);
+      row.classList.add('hov'); await wait(700); r = row.getBoundingClientRect();
+      const g = row.querySelector('.fb').cloneNode(true); g.classList.add('ghost'); g.style.left = (r.left - wr.left + 36) + 'px'; g.style.top = (r.top - wr.top + 4) + 'px'; g.style.opacity = '.9'; w.append(g);
+      void g.offsetWidth; g.style.left = tx + 'px'; g.style.top = ty + 'px'; S.cursor(tx + 12, ty + 18); await wait(800);
+      const t = Object.assign(document.createElement('span'), { className: 'tagline', textContent: said }); t.style.left = (tx - 20) + 'px'; t.style.top = (ty + 40) + 'px'; w.append(t);
+      await wait(1200); g.remove(); t.remove(); row.classList.remove('hov'); S.cursor();
+    },
+    drag: async (n, tx, ty, said) => {
+      const sock = n.querySelector('.sock'), r = sock.getBoundingClientRect(), wr = w.getBoundingClientRect();
+      const sx = r.left - wr.left, sy = r.top - wr.top;
+      S.cursor(sx + 14, sy + 16); await wait(500);
+      const g = sock.cloneNode(true); g.classList.add('ghost'); g.style.left = sx + 'px'; g.style.top = sy + 'px'; g.style.opacity = '.85'; g.querySelector('canvas')?.remove(); w.append(g);
+      void g.offsetWidth; g.style.left = tx + 'px'; g.style.top = ty + 'px'; S.cursor(tx + 14, ty + 16); await wait(950);
+      const t = Object.assign(document.createElement('span'), { className: 'tagline', textContent: said }); t.style.left = (tx - 10) + 'px'; t.style.top = (ty + 46) + 'px'; w.append(t);
+      await wait(1100); g.remove(); t.remove(); S.cursor();
+    },
+  };
+  let token = 0;
+  const loop = async () => { const me = ++token; for (;;) { for (const n of w.querySelectorAll('.nt,.ghost,.tagline')) n.remove(); S.cursor(); try { await sc.run(S); } catch { /* replayed */ } if (me !== token) return; await wait(800); } };
+  box.querySelector('.replay').addEventListener('click', loop);
+  setTimeout(loop, 300);
+  return box;
+}
+const grid = document.getElementById('grid');
+for (const sc of SCENES) grid.append(sceneBox(sc));
+</script>
+</body>
+</html>

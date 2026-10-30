@@ -613,7 +613,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .samaraplan .tq{flex:none;width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;position:relative}
 /* (The button is the 24 px target every pressable thing gets, cockpit.css; the 18 px box is drawn centred inside it.) */
 .samaraplan .tq::before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border:2px solid #120A05;border-radius:4px;box-sizing:border-box;
-  background:#3FBFAE url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='12' y='2' width='2' height='2'/%3E%3Crect x='10' y='4' width='2' height='2'/%3E%3Crect x='0' y='6' width='2' height='2'/%3E%3Crect x='8' y='6' width='2' height='2'/%3E%3Crect x='2' y='8' width='2' height='2'/%3E%3Crect x='6' y='8' width='2' height='2'/%3E%3Crect x='4' y='10' width='2' height='2'/%3E%3C/svg%3E") 0 0/14px 14px no-repeat;
+  background:#3FBFAE url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='8' y='0' width='2' height='2'/%3E%3Crect x='6' y='2' width='2' height='2'/%3E%3Crect x='0' y='4' width='2' height='2'/%3E%3Crect x='4' y='4' width='2' height='2'/%3E%3Crect x='2' y='6' width='2' height='2'/%3E%3C/svg%3E") center/10px 8px no-repeat;
   image-rendering:pixelated;box-shadow:0 0 5px rgba(63,191,174,.55),0 2px 0 rgba(60,30,8,.3)}
 .samaraplan .tq.off::before{background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 2px 0 rgba(60,30,8,.2)}
 .samaraplan .lt-item.off .lt-txt{opacity:.5;text-decoration:line-through}
