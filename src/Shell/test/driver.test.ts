@@ -66,3 +66,11 @@ test('find ranks whole words first, joins a split phrase, and keeps to its limit
   assert.ok(rankFind(lines, 'city', 15, 40).every((h) => h.length <= 40));
   assert.deepEqual(rankFind(lines, '   ', 6, 200), []);
 });
+
+test('find on a ranked list: "#1" is #1 only, with its own title and price (fair re-test 2, Amazon)', () => {
+  const lines = ['Best Sellers in Electronics', '#1', 'Blink Plus Plan with monthly auto-renewal', '$15.00', '#9', 'Smart plug', '$34.99', '#10', 'Tapo camera', '$34.98', '#11', 'Radio', '$49.99'];
+  const hits = rankFind(lines, '#1', 6, 260);
+  assert.equal(hits.length, 1, hits.join(' || '));
+  assert.ok(hits[0]!.includes('‹#1›') && hits[0]!.includes('$15.00') && !hits[0]!.includes('$34.99'), hits[0]);
+  assert.equal(rankFind(['Original author GitHub', 'Developer OpenJS Foundation', 'Release 15 July 2013'], 'Release, Developer', 6, 260).length, 2, 'several things, comma separated');
+});

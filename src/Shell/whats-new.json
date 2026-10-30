@@ -820,6 +820,11 @@
       "at": "2026-10-30T17:52:00-04:00",
       "text": "Updates show up within minutes, even after sleep or a Wi-Fi change.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T18:20:00-04:00",
+      "text": "Claude's page search no longer mixes up items in a list.",
+      "kind": "fix"
     }
   ]
 }
