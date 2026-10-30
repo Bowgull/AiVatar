@@ -19,7 +19,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
 import { plainOf, type Note } from './notes.ts';
-import type { LocalResult } from './local.ts';
 
 export const MAX_PER_DAY = 3;
 /** The slow timer, and the shortest gap between two reads whatever asks for them. */
@@ -35,8 +34,8 @@ export interface Notice { noteId: string; line: string; say: string; kind: Notic
 
 export interface NoticeDeps {
   notes: () => Note[];
-  /** askLocal, or a fake in the tests. */
-  ask: (prompt: string, opts: { system?: string; timeoutMs?: number; maxTokens?: number }) => Promise<LocalResult>;
+  /** The model engine's free models (models.ts), or a fake in the tests. */
+  ask: (prompt: string, opts: { system?: string; timeoutMs?: number; maxTokens?: number }) => Promise<{ ok: boolean; text: string }>;
   /** A game is running (gpu.ts gameRunning, or the pet's game-quiet). */
   gameRunning: () => Promise<boolean>;
   /** Hushed, muted, away from the PC, mid-answer: anything that means "not now". */
@@ -187,7 +186,7 @@ export class NoteNotice {
       const prompt = this.prompt(notes, now);
       if (!prompt) return null;
       this.reading = true; this.lastRead = now;
-      let r: LocalResult;
+      let r: { ok: boolean; text: string };
       try { r = await this.d.ask(prompt, { system: NOTICE_SYSTEM, maxTokens: 200, timeoutMs: 90_000 }); }
       finally { this.reading = false; }
       if (!r.ok) return null;
