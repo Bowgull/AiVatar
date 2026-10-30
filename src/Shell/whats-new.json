@@ -680,6 +680,11 @@
       "at": "2026-10-30T07:15:00-04:00",
       "text": "Claude's mark turns with Aang at every edge.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T09:10:00-04:00",
+      "text": "Updates no longer get stuck on an old copy.",
+      "kind": "fix"
     }
   ]
 }

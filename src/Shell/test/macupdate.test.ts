@@ -71,3 +71,18 @@ test('a slow start is kept; only a start that dies, or none at all in four minut
   assert.equal(run('nnyyn'), 'back', 'started, then died before it was good: back');
   assert.equal(run('n'), 'back', 'never started in four minutes: back');
 });
+
+// Oct 30 on his Mac: macOS refused to delete an old staged copy, prepare stopped half way, and a near-empty copy was left
+// marked as the new version. The old copy is moved aside (to the Trash) and the mark goes first.
+test('an old staged copy is moved aside, never half-deleted and left marked ready', () => {
+  const s = macUpdateScript(ok);
+  const prep = s.slice(s.indexOf('if [ "$PHASE" = "prepare" ]'), s.indexOf('# swap'));
+  assert.ok(prep.indexOf('rm -f "$STAGE/version"') < prep.indexOf('aside "$STAGE" staged'), 'the ready mark goes before anything else');
+  assert.match(prep, /aside "\$STAGE" staged/);
+  assert.match(s, /aside\(\) \{[^\n]*\.Trash/);
+  // the swap and the way back never delete inside an app bundle either
+  const swap = s.slice(s.indexOf('# swap'));
+  assert.doesNotMatch(swap, /rm -rf "\$(RB|APP|STAGE)/);
+  assert.match(prep, /could not be moved out of the way/);
+  assert.doesNotMatch(prep, /^\s*rm -rf "\$STAGE"; mkdir/m);
+});
