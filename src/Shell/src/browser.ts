@@ -5156,7 +5156,9 @@ export class AangBrowser {
     if (!st) return "This Samara has no Mockups trail.";
     const names = a.repo ? [...st.repos.entries()].filter(([, p]) => path.resolve(p) === path.resolve(a.repo)).map(([n]) => `@${n}/${a.sheet}`) : [];
     const keys = [a.sheet, ...names];
-    const mine = st.list.filter((x) => keys.includes(x.sheet));
+    // Sheet 107: a page shown from another folder (a worktree) may have joined the sheet it already was; its address finds it.
+    const found = new Set(st.list.filter((x) => keys.includes(x.sheet) || keys.includes(srcOf(x))).map((x) => x.sheet));
+    const mine = st.list.filter((x) => found.has(x.sheet));
     if (!mine.length) return 'That sheet is not in the Mockups trail yet: show it first (show_mockup).';
     const v = a.v === null ? mine.reduce((m, x) => (x.v > m.v ? x : m)) : mine.find((x) => x.v === a.v);
     if (!v) return `That sheet has no version ${a.v}.`;
