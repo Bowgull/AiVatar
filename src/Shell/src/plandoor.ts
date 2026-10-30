@@ -77,7 +77,8 @@ export function openPlanDoor(o: { keyFile: string; hooks: PlanDoorHooks; log: (s
   });
   srv.on('error', (e) => o.log('aang: the plan door would not open: ' + (e as Error).message));
   srv.listen(o.port ?? PLAN_DOOR_PORT, '127.0.0.1');
-  return () => srv.close();
+  // Its open connections go with it, so nothing keeps the process alive after (GitHub's Windows test run hung, 2026-10-30).
+  return () => { srv.close(); srv.closeAllConnections(); };
 }
 
 /** Samara's side (macmain.ts): the boot engine's plan hooks, knocking on Aang's door. */

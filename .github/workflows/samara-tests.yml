@@ -29,7 +29,7 @@ jobs:
           cp mac-pkg/package.json mac-pkg/package-lock.json .
           npm ci --ignore-scripts --no-audit --no-fund
       - name: Unit tests
-        run: node --no-warnings --test --test-timeout=30000 test/*.test.ts
+        run: node --no-warnings --test --test-force-exit --test-timeout=30000 test/*.test.ts
   pet:
     runs-on: windows-latest
     steps:
