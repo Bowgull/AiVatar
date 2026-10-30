@@ -1,4 +1,5 @@
 import { pixIcon } from './pixicons.js';
+import { catScene } from './catscene.js';
 import { projectIcon, topicIcon } from './mockicons.js';
 import { startRune } from './rune.js';
 import { openRail, railTabs } from './sitenotes.js';
@@ -10,6 +11,8 @@ const OTHER = window.aang?.platform === 'darwin'
   ? { label: 'Send to PC', title: 'Send to your PC. It stops playing here.', open: 'Open on PC' }
   : { label: 'Send to Mac', title: 'Send to the MacBook. It stops playing here.', open: 'Open on Mac' };
 const el = (id) => document.getElementById(id);
+/** Sheet 91 v2: the cat on the "page did not load" plate (catscene.js). */
+const failCat = catScene(el('failcat'));
 // The tab list floats in its own see-through layer above the live page (his ask, 2026-10-13: Twitch froze under the
 // old drawer, which showed a picture of the page). This same page, opened with ?tray, is that layer: only the list.
 const SOLO = new URLSearchParams(location.search).has('tray');
@@ -1428,6 +1431,11 @@ window.aang?.onBrowserTabs?.((s) => {
     el('failgo').hidden = !insecure;
     el('failretry').hidden = insecure || !f.retry;
   }
+  // Sheet 91 v2: the cat only for a page that did not load, and it moves only while it shows.
+  const cat = Boolean(f) && f.kind !== 'insecure';
+  el('failplate').classList.toggle('cat', cat);
+  el('failcat').hidden = !cat;
+  if (cat) failCat.start(); else failCat.stop();
   // A popup this page opened by itself was blocked: the shield glows blue, and its panel says what it was.
   const pop = t?.popup ?? null;
   lock.classList.toggle('popup', Boolean(pop) && !t?.blocked);
