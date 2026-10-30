@@ -665,6 +665,11 @@
       "at": "2026-10-30T06:15:00-04:00",
       "text": "Claude's plan card: tick centred, empty Change never says Go.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T06:58:00-04:00",
+      "text": "A slow start after an update no longer undoes it.",
+      "kind": "fix"
     }
   ]
 }
