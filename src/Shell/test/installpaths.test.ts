@@ -101,7 +101,7 @@ test('Mac stage: a failed build is not ready; a hand install (no release number)
   assert.ok(!st2.ready() && /waits for the next Samara release/.test(logs.join()));
 });
 
-test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, then staged; Restart now swaps once', async () => {
+test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, then staged; Restart now swaps once', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
   const p = macHome(), calls: string[] = [];
   const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
   const m = seal(engineManifest());
@@ -126,7 +126,7 @@ test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, the
   assert.deepEqual(calls.filter((c) => c === 'swap'), ['swap'], 'one swap for one staged Samara');
 });
 
-test('Mac engine: when castLabs wants a sign-in, the key asks; Terminal opens; once he is in, it signs and stages', async () => {
+test('Mac engine: when castLabs wants a sign-in, the key asks; Terminal opens; once he is in, it signs and stages', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
   const p = macHome(), calls: string[] = [];
   const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
   const m = seal(engineManifest());
