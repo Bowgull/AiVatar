@@ -54,6 +54,7 @@ import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.t
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
+import { HELD_OPS, NEW_CHAT_MAX, cardRows, cleanWhy, newChatLink, newPass, noteDid, pickText, reportLines, reportOf, type Chat, type Hand, type HandReport } from './askclaude.ts';
 import { pastSearches, searchQueryOf, topSites } from './recall.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 import { DRAINED, NoticeQueue, cleanNotice, plainNotice, type NoticeFrom, type NoticeIn, type NoticeShown } from './notices.ts';
@@ -248,6 +249,11 @@ interface Pane {
   /** Sheet 106 v7: Samara's notices, on their own layer over the live page; the one it is drawing now. */
   noticeV?: WebContentsView | null;
   noticeOn?: number | null;
+  /** Sheet 109: the hand card's layer (YOU HAVE IT / YOUR TURN / what Claude is told), and what it last drew. */
+  handV?: WebContentsView | null;
+  handLast?: string;
+  handH?: number;
+  handReady?: boolean;
   curtain: WebContentsView | null;
   curtainReady: Promise<unknown>;
   veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
@@ -418,6 +424,10 @@ const GESTURE_MS = 1000;
 const SIGN_IN = /(^|\.)(accounts\.google\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com|github\.com|discord\.com|id\.twitch\.tv|facebook\.com|x\.com|twitter\.com|steamcommunity\.com|paypal\.com|accounts\.spotify\.com|auth0\.com|okta\.com)$/i;
 /** Sheet 87, his pick: the secret window locks after 15 minutes without a key or a click in it. */
 const SECRET_IDLE_MS = 15 * 60_000;
+/** Sheet 109: a pass from Ask Claude lets that chat read the tab for a day. */
+const PASS_MS = 24 * 60 * 60_000;
+/** Sheet 109: browser_your_turn waits this long for him, inside the connector's own three minutes, then says he still has it. */
+const YOUR_TURN_MS = 170_000;
 /** Sheet 87 v12, his pick: what the secret window shows while everything is put away (casual; its search stays Yandex). */
 const SECRET_COVER = 'https://search.brave.com/';
 /**
@@ -823,6 +833,12 @@ export class AangBrowser {
   private menu: BrowserWindow | null = null;
   private menuFor: { tab: number; p: Electron.ContextMenuParams } | null = null;
   private menuItems: unknown[] | null = null;
+  /** Sheet 109: the chats Ask Claude's list showed, in its order (ask0 is the first). */
+  private menuChats: Chat[] = [];
+  /** Where the menu was put, so Claude's list beside it can grow it without moving it. */
+  private menuAt: { x: number; y: number; w: number } | null = null;
+  /** Sheet 109: passes handed to Claude with a pick, each for one tab: that chat may read the tab without asking again. */
+  private tabPasses = new Map<string, { tab: number; until: number }>();
   /** 6.25a: the pages Aang (and Claude sessions) drive, in hidden windows of their own. */
   readonly driver: Driver;
   /** Set by main: he pressed STOP on a job, so the brain stops that turn. */
@@ -839,6 +855,10 @@ export class AangBrowser {
   /** Right-click "Send to Aang" (sheet 62): the words, a picture, a link or the page go to his typing box. Null while Aang
    *  is not running (then the item is not in the menu). What it carries is checked again by sendtoaang.ts cleanSent. */
   onSendToAang: ((s: Record<string, unknown>, picture?: Electron.NativeImage) => void) | null = null;
+  /** Sheet 109: his Claude chats, last used first (the brain's list on this machine; on the Mac through Aang's door). */
+  claudeChats: (() => Promise<Chat[]>) | null = null;
+  /** Sheet 109: his pick into one of those chats. Null when it went; else why it did not. */
+  onAskClaude: ((session: string, text: string) => Promise<string | null>) | null = null;
   /** Told when Samara's last window has closed (the pop-out holding one of its tabs goes with it, 2026-10-21). */
   onLastClosed: (() => void) | null = null;
   /** A video or song started in one of his tabs (the pop-out gets ready ahead, popoutipc.ts). */
@@ -2041,7 +2061,7 @@ export class AangBrowser {
     if (this.tabs.some((t) => t.view?.webContents === wc)) return true;
     if (this.menu && !this.menu.isDestroyed() && this.menu.webContents === wc) return true;
     return this.panes.some((p) => {
-      try { return (this.alive(p) && p.win!.webContents === wc) || [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV].some((v) => v && !v.webContents.isDestroyed() && v.webContents === wc); } catch { return false; }
+      try { return (this.alive(p) && p.win!.webContents === wc) || [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV].some((v) => v && !v.webContents.isDestroyed() && v.webContents === wc); } catch { return false; }
     });
   }
   /** Locked: nothing of his is out, and the tabs open in the throwaway session (logged out). */
@@ -2284,8 +2304,8 @@ export class AangBrowser {
       this.pane = p;
       // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
       // window, and each close and reopen left four of them running (2026-10-30, stability check).
-      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
-      p.lightV = null; p.sugV = null; p.noticeV = null;
+      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
+      p.lightV = null; p.sugV = null; p.noticeV = null; p.handV = null;
       // A notice it was showing moves to the window left (next time one is placed).
       if (this.noticePane === p) { this.noticePane = null; if (this.noticeNow) setTimeout(() => { if (this.noticeNow && !this.noticePane) void this.noticePlace(++this.noticeGen); }, 0); }
       const others = this.panes.filter((x) => x !== p && this.alive(x));
@@ -3446,24 +3466,39 @@ export class AangBrowser {
     if (!w || w.isDestroyed() || !wc || tab.lent) return;
     // Sheet 62 (his pick, 2026-10-22): the items are built in sendtoaang.ts, with "Send to Aang" first in every menu.
     const items = pageMenuItems(p, {
-      send: Boolean(this.onSendToAang) && !tab.internal, other: this.onOpenOther ? OTHER_OPEN : null, popout: Boolean(this.onPlayInPopout),
+      ask: Boolean(this.onAskClaude) && !tab.internal && isWeb(tab.url), send: Boolean(this.onSendToAang) && !tab.internal, other: this.onOpenOther ? OTHER_OPEN : null, popout: Boolean(this.onPlayInPopout),
       popVideo: Boolean(this.popTab) && !tab.internal, canBack: wc.navigationHistory.canGoBack(), pageIsWeb: isWeb(tab.url),
     });
     this.menuFor = { tab: tab.id, p };
     this.menuItems = items;
+    this.menuAt = null;
+    this.menuChats = [];
     const m = this.ensureMenu();
     if (!m.webContents.isLoading()) m.webContents.send('pagemenu:items', items);
+    // Sheet 109: the chats are asked for as the menu opens, so the list is there by the time he points at Ask Claude.
+    if (items.some((x) => 'id' in x && x.id === 'askclaude')) {
+      const at = this.menuFor;
+      void (this.claudeChats?.() ?? Promise.resolve([])).catch(() => [] as Chat[]).then((list) => {
+        if (this.menuFor !== at || !this.menu || this.menu.isDestroyed()) return;
+        this.menuChats = list.slice(0, 4);
+        this.menu.webContents.send('pagemenu:chats', this.menuChats.map((c) => ({ name: c.name })));
+      });
+    }
   }
   private ensureMenu(): BrowserWindow {
     if (this.menu && !this.menu.isDestroyed()) return this.menu;
     const m = new BrowserWindow({
       frame: false, show: false, alwaysOnTop: true, resizable: false, movable: false, minimizable: false, maximizable: false,
-      fullscreenable: false, skipTaskbar: true, width: 220, height: 120, backgroundColor: '#3A2414', title: 'Menu',
+      // See-through (sheet 109): Ask Claude's list hangs beside the menu, outside its own wood.
+      fullscreenable: false, skipTaskbar: true, width: 220, height: 120, transparent: true, backgroundColor: '#00000000', hasShadow: false, title: 'Menu',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     lockDown(m.webContents);
     m.on('blur', () => this.hideMenu());
-    m.webContents.once('did-finish-load', () => { if (this.menuItems) m.webContents.send('pagemenu:items', this.menuItems); });
+    m.webContents.once('did-finish-load', () => {
+      if (this.menuItems) m.webContents.send('pagemenu:items', this.menuItems);
+      if (this.menuItems && this.menuChats.length) m.webContents.send('pagemenu:chats', this.menuChats.map((c) => ({ name: c.name })));
+    });
     void m.loadURL(`${this.o.origin}/pagemenu.html`);
     this.menu = m;
     return m;
@@ -3471,14 +3506,27 @@ export class AangBrowser {
   private hideMenu(): void { this.menuItems = null; if (this.menu && !this.menu.isDestroyed() && this.menu.isVisible()) this.menu.hide(); }
   isMenu(sender: Electron.WebContents): boolean { return Boolean(this.menu && !this.menu.isDestroyed() && sender === this.menu.webContents); }
   /** The menu measured itself: put it at the pointer, flipped so it never leaves the screen. */
-  menuSize(width: number, height: number): void {
+  menuSize(width: number, height: number, sub = 0): void {
     const m = this.menu;
     if (!m || m.isDestroyed() || !this.menuItems) return;
-    const w = Math.min(340, Math.max(160, Math.round(width))), h = Math.min(600, Math.max(30, Math.round(height)));
+    const h = Math.min(600, Math.max(30, Math.round(height)));
+    // Sheet 109: Claude's list opened beside the menu. The menu stays where it is; the list goes right, or left of it
+    // when the screen ends there.
+    if (this.menuAt && sub > 0) {
+      const at = this.menuAt, side = Math.min(360, Math.round(sub));
+      const a = screen.getDisplayNearestPoint({ x: at.x, y: at.y }).workArea;
+      const flip = at.x + at.w + side > a.x + a.width;
+      m.setBounds({ x: flip ? at.x - side : at.x, y: at.y, width: at.w + side, height: Math.min(h, a.y + a.height - at.y) });
+      m.webContents.send('pagemenu:flip', flip);
+      return;
+    }
+    if (this.menuAt) { m.setBounds({ x: this.menuAt.x, y: this.menuAt.y, width: this.menuAt.w, height: h }); return; }
+    const w = Math.min(340, Math.max(160, Math.round(width)));
     const pt = screen.getCursorScreenPoint();
     const a = screen.getDisplayNearestPoint(pt).workArea;
     const x = pt.x + w > a.x + a.width ? Math.max(a.x, pt.x - w) : pt.x;
     const y = pt.y + h > a.y + a.height ? Math.max(a.y, pt.y - h) : pt.y;
+    this.menuAt = { x, y, w };
     m.setBounds({ x, y, width: w, height: h });
     m.show();
     m.focus();
@@ -3507,6 +3555,7 @@ export class AangBrowser {
       case 'linkpop': if (isWeb(p.linkURL)) this.onPlayInPopout?.(p.linkURL); break;
       case 'vidpop': this.popTab?.(t.id); break;
       case 'toaang': void this.sendToAang(t, p); break;
+      case 'ask0': case 'ask1': case 'ask2': case 'ask3': case 'asknew': void this.askClaude(t, p, id === 'asknew' ? null : this.menuChats[Number(id.slice(3))] ?? null, id === 'asknew'); break;
       case 'linkother': if (isWeb(p.linkURL)) this.onOpenOther?.(p.linkURL); break;
       case 'openother': if (isWeb(t.url)) { this.onOpenOther?.(t.url); this.pauseMedia(t.id); } break;
       case 'imgsave': if (p.srcURL) wc.downloadURL(p.srcURL); break;
@@ -3520,6 +3569,34 @@ export class AangBrowser {
       case 'reload': wc.reload(); break;
       case 'learn': if (p.misspelledWord) wc.session.addWordToSpellCheckerDictionary(p.misspelledWord); break;
     }
+  }
+
+  /**
+   * Sheet 109: Ask Claude. Only the bit he picked, the tab's name and its address go, fenced as the page's own words
+   * (askclaude.ts pickText), with a pass for that tab: the chat that gets it may read the tab without asking him again.
+   * Into one of his chats through Aang (the aang-link mod slips it in, or starts a turn), or a new chat in the Claude app
+   * with it typed in, for him to send.
+   */
+  private async askClaude(t: Tab, p: Electron.ContextMenuParams, chat: Chat | null, fresh: boolean): Promise<void> {
+    const words = p.selectionText.replace(/\r\n?/g, '\n').trim();
+    if (!words || !isWeb(t.url)) return;
+    const pass = newPass();
+    const now = Date.now();
+    for (const [k, v] of this.tabPasses) if (v.until < now) this.tabPasses.delete(k);
+    this.tabPasses.set(pass, { tab: t.id, until: now + PASS_MS });
+    if (fresh) {
+      const home = path.join(os.homedir(), 'Handoff', 'aang');
+      void shell.openExternal(newChatLink(pickText({ words, title: t.title, url: t.url, tab: t.id, pass }, NEW_CHAT_MAX - 1200), existsSync(home) ? home : null));
+      return;
+    }
+    if (!chat || !this.onAskClaude) return;
+    const why = await this.onAskClaude(chat.id, pickText({ words, title: t.title, url: t.url, tab: t.id, pass })).catch((e) => (e as Error).message);
+    if (why) this.note('', { kind: 'bad', from: 'menu', small: true, claude: true, kick: 'Not sent', title: why.slice(0, 60) });
+  }
+  /** A pass from a pick, still good, for this tab. */
+  passOk(pass: unknown, tab?: number): boolean {
+    const v = typeof pass === 'string' ? this.tabPasses.get(pass) : undefined;
+    return Boolean(v && v.until > Date.now() && (tab === undefined || v.tab === tab));
   }
 
   /**
@@ -5837,6 +5914,7 @@ export class AangBrowser {
   /** The rail and the band redraw from this. Plain data only. */
   private sendTabs(): void {
     this.tvNoticeSync();
+    this.handPaint();
     // Sheet 100: an open quest log follows along, a moment later (so a burst of changes draws it once).
     if (this.tabs.some((t) => t.internal === 'mocklog') && !this.mockLogTimer) this.mockLogTimer = setTimeout(() => { this.mockLogTimer = null; this.pushMockLog(); }, 300);
     // A site's camera and microphone end when no tab is on it any more.
@@ -5884,7 +5962,8 @@ export class AangBrowser {
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || tr.mock || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),
       // His own tab being driven by a session: the band says so, with STOP (2026-10-14).
-      driving: (() => { const w = t?.view?.webContents; return w ? this.driver.drivingTab(w) : null; })(),
+      // Sheet 109: and whether he has it back for now (YOU HAVE IT): Take over and STOP make way while he does.
+      driving: (() => { const w = t?.view?.webContents; const d = w ? this.driver.drivingTab(w) : null; return d ? { ...d, hand: this.hands.get(d.page)?.mode ?? null } : null; })(),
       watching: this.watching === null ? null : (() => { const p = this.driver.page(this.watching!); const j = p ? this.driver.job(p.job) : undefined; return p && j ? { page: p.id, job: j.id, kind: j.kind, working: j.working, url: p.url, title: p.title } : null; })(),
       tidy: this.tidyState(),
       stash: this.stash.map((s) => ({ id: s.id, name: s.name, count: s.tabs.length })),
@@ -5941,6 +6020,29 @@ export class AangBrowser {
    * yes and asks again with allowed. Every answer is plain data; page text is marked as the page's own words.
    */
   async drive(op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
+    // Sheet 109: nothing acts on his tab while he has it (never under him).
+    const pg = Number(a?.page);
+    if (HELD_OPS.has(op) && Number.isInteger(pg) && this.hands.has(pg)) {
+      return { ok: false, error: `Joshua has the tab (page ${pg}): he took it over. Nothing is done there until he hands it back. Call browser_your_turn with page ${pg} to wait for him, or browser_take_back if he tells you in the chat that you can have it back.` };
+    }
+    let out: Record<string, unknown>;
+    if (op === 'yourturn' || op === 'takeback') {
+      if (!Number.isInteger(pg)) return { ok: false, error: 'page must be a number' };
+      if (op === 'yourturn') out = await this.yourTurn(pg, String(a?.why ?? ''));
+      else { const r = this.handEnd(pg, ''); out = r ? { ok: true, report: r } : { ok: true, none: true }; }
+      if (out.report) out = { ...out, report: reportLines(out.report as HandReport) };
+    } else out = await this.driveStep(op, a);
+    // He handed back while nobody waited: the session hears it with its next step.
+    const job = Number.isInteger(Number(a?.job)) && a?.job !== undefined ? Number(a.job) : this.driver.page(pg)?.job;
+    for (const [page, t] of this.handTold) {
+      if (t.job !== job) continue;
+      this.handTold.delete(page);
+      out = { ...out, handback: { page, ...reportLines(t.report) } };
+      break;
+    }
+    return out;
+  }
+  private async driveStep(op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
     const num = (k: string) => { const v = Number(a?.[k]); if (!Number.isInteger(v)) throw new Error(`${k} must be a number`); return v; };
     const d = this.driver;
     try {
@@ -6062,7 +6164,9 @@ export class AangBrowser {
           // ...and reading or driving his tab on a site that plan named: he already said yes to that site this session.
           const pj = d.job(num('job'));
           const inPlan = Boolean(pj?.allowed && [...pj.allowed].some((s) => site === s || site.endsWith('.' + s)));
-          if (a?.allowed !== true && !inPlan) return { ok: false, needs: 'lever', what: op === 'look' ? `read your tab on ${site}` : `drive your tab on ${site} while you watch (STOP ends it)` };
+          // ...or reading the tab he pointed Claude at (sheet 109: Ask Claude hands that chat a pass for it).
+          const passed = op === 'look' && this.passOk(a?.pass, t.id);
+          if (a?.allowed !== true && !inPlan && !passed) return { ok: false, needs: 'lever', what: op === 'look' ? `read your tab on ${site}` : `drive your tab on ${site} while you watch (STOP ends it)` };
           if (!t.view) this.wake(t); else this.thaw(t);
           const wc = t.view?.webContents;
           if (!wc) return { ok: false, error: 'that tab could not be woken' };
@@ -6197,12 +6301,167 @@ export class AangBrowser {
 
   // ------------------------------------------------------------------ 6.25a: his view of Aang's pages
   /** The drawer and the address bar: STOP a job, close it, watch one of its pages, or open a page as his own tab. */
+  // ------------------------------------------------------------------ sheet 109: handing his tab back and forth
+  /**
+   * His own tab, while a session drives it, can be his again for a while: by his Take over key on the band, or because
+   * Claude gave him the turn (a sign in, a send, a buy, or stuck: browser_your_turn, with one line). While he has it
+   * nothing acts on that tab (never under him); a card under the address bar has a note box and Hand back. He hands back
+   * there, or by telling Claude in the chat (browser_take_back). Either way Claude is told what changed: the page he is
+   * on, the names of the fields he filled (never what he typed), what he clicked, and his note.
+   */
+  private hands = new Map<number, Hand>();
+  /** Claude waiting in browser_your_turn, by page: answered when he hands back (null: the job ended). */
+  private handWait = new Map<number, (r: HandReport | null) => void>();
+  /** Handed back with no one waiting: told with the session's next step. */
+  private handTold = new Map<number, { job: number; report: HandReport }>();
+  /** Frame F: the card shows what Claude was told for a few seconds after he hands back. */
+  private handAfter: { tab: number; rows: [string, string][]; until: number } | null = null;
+  private handAfterT: NodeJS.Timeout | null = null;
+  /** The address bar's bottom right (window pixels), from the band: the card hangs from there. */
+  private handSpot: { x: number; y: number } | null = null;
+
+  /** He pressed Take over on the band, on the tab in front. Only that key takes over; his clicks in the page never do. */
+  private takeOver(job: number): void {
+    const wc = this.cur()?.view?.webContents;
+    const d = wc ? this.driver.drivingTab(wc) : null;
+    if (!d || d.job !== job || !d.working || this.hands.has(d.page)) return;
+    this.handStart(d.page, 'you', '');
+  }
+  private handStart(page: number, mode: 'you' | 'turn', why: string): Hand | null {
+    const p = this.driver.page(page);
+    if (!p?.borrowed) return null;
+    const h: Hand = { page, job: p.job, tab: p.borrowed.tab, mode, why, filled: [], clicked: [], at: Date.now() };
+    this.hands.set(page, h);
+    this.handTold.delete(page);
+    try { p.wc.send('tab:watchhim', true); } catch { /* gone */ }
+    this.sendTabs();
+    return h;
+  }
+  /** He handed back (the card's key, or Claude took it back when he said so in the chat). */
+  private handEnd(page: number, note: string): HandReport | null {
+    const h = this.hands.get(page);
+    if (!h) return null;
+    this.hands.delete(page);
+    const p = this.driver.page(page);
+    if (p) { try { p.wc.send('tab:watchhim', false); } catch { /* gone */ } }
+    const r = reportOf(h, p?.wc.getTitle() || p?.title || '', p?.wc.getURL() || p?.url || '', note);
+    const w = this.handWait.get(page);
+    if (w) { this.handWait.delete(page); w(r); } else this.handTold.set(page, { job: h.job, report: r });
+    // Frame F: what Claude is told, on the card for a few seconds.
+    this.handAfter = { tab: h.tab, rows: cardRows(r), until: Date.now() + 6000 };
+    if (this.handAfterT) clearTimeout(this.handAfterT);
+    this.handAfterT = setTimeout(() => { this.handAfter = null; this.handPaint(); }, 6100);
+    this.sendTabs();
+    return r;
+  }
+  /** The card's Hand back, from the layer it is on: the hand on that window's tab in front. */
+  handBack(sender: Electron.WebContents, note: unknown): void {
+    const P = this.panes.find((x) => x.handV && !x.handV.webContents.isDestroyed() && x.handV.webContents === sender);
+    if (!P) return;
+    const t = this.tabs.find((x) => x.id === P.active);
+    const h = t ? [...this.hands.values()].find((x) => x.tab === t.id) : undefined;
+    if (h) this.handEnd(h.page, String(note ?? '').slice(0, 300));
+  }
+  handSize(sender: Electron.WebContents, h: number): void {
+    const P = this.panes.find((x) => x.handV && !x.handV.webContents.isDestroyed() && x.handV.webContents === sender);
+    if (!P || !Number.isFinite(h) || h <= 0 || P.handH === Math.round(h)) return;
+    P.handH = Math.round(h);
+    this.handPlace(P);
+  }
+  /** The band says where its address bar ends. */
+  setHandSpot(x: number, y: number): void {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (this.handSpot?.x === x && this.handSpot?.y === y) return;
+    this.handSpot = { x, y };
+    this.handPaint();
+  }
+  /** A tab's page asks whether he has it (it then names what he fills and clicks; never values). */
+  handWatching(wc: Electron.WebContents): boolean { return [...this.hands.values()].some((h) => this.driver.page(h.page)?.wc === wc); }
+  handDid(wc: Electron.WebContents, m: unknown): void {
+    const h = [...this.hands.values()].find((x) => this.driver.page(x.page)?.wc === wc);
+    if (h && m && typeof m === 'object') noteDid(h, m as { kind?: unknown; name?: unknown });
+  }
+  private handView(P: Pane): WebContentsView | null {
+    const w = P.win;
+    if (!w || w.isDestroyed()) return null;
+    if (P.handV && !P.handV.webContents.isDestroyed()) return P.handV;
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.preloadPath), 'handpreload.cjs'), backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    v.webContents.on('did-finish-load', () => { P.handReady = true; P.handLast = ''; this.handPaint(); });
+    void v.webContents.loadURL(`${this.o.origin}/handcard.html`).catch(() => { /* its window closed while it loaded */ });
+    P.handV = v;
+    return v;
+  }
+  /** Card width plus the layer's room for the frame's caps and shadow (handcard.css). */
+  private handPlace(P: Pane): void {
+    const v = P.handV, w = P.win, s = this.handSpot;
+    if (!v || v.webContents.isDestroyed() || !w || w.isDestroyed() || !s) return;
+    const [cw, ch] = w.getContentSize();
+    const W = 330 + 24, H = (P.handH ?? 200) + 12 + 34;
+    // Hung under the address bar's end, 18 px down, its right edge 4 px in (the sheet's frames D to F).
+    const x = Math.max(0, Math.min(cw - W, Math.round(s.x - 4 - 330 - 12))), y = Math.round(s.y + 18 - 12);
+    v.setBounds({ x, y, width: W, height: Math.max(0, Math.min(H, ch - y)) });
+  }
+  /** Show the card for the tab in front of each window, or hide it. Cheap: only a change is sent. */
+  private handPaint(): void {
+    // A job that ended (STOP, done) takes its hands with it, and Claude's wait is answered.
+    for (const [page, h] of [...this.hands]) {
+      const j = this.driver.job(h.job);
+      if (this.driver.page(page) && j?.working) continue;
+      this.hands.delete(page);
+      const p = this.driver.page(page);
+      if (p) { try { p.wc.send('tab:watchhim', false); } catch { /* gone */ } }
+      const w = this.handWait.get(page); if (w) { this.handWait.delete(page); w(null); }
+      if (this.handAfter?.tab === h.tab) this.handAfter = null;
+    }
+    for (const P of this.panes) {
+      if (!P.win || P.win.isDestroyed()) continue;
+      const h = [...this.hands.values()].find((x) => x.tab === P.active);
+      const after = !h && this.handAfter && this.handAfter.tab === P.active && this.handAfter.until > Date.now() ? this.handAfter : null;
+      const show = !this.handSpot || P.drawerOpen || P.watching !== null ? null
+        : h ? { kick: h.mode === 'turn' ? 'YOUR TURN' : 'YOU HAVE IT', title: h.mode === 'turn' ? h.why || 'Your turn' : this.driver.job(h.job)?.name || 'Your tab', hand: true }
+        : after ? { kick: 'CLAUDE IS TOLD', title: 'What changed', rows: after.rows } : null;
+      const key = JSON.stringify(show);
+      if (key === P.handLast) continue;
+      P.handLast = key;
+      if (!show) { if (P.handV && !P.handV.webContents.isDestroyed()) { P.handV.webContents.send('hand:show', null); P.handV.setVisible(false); } continue; }
+      const v = this.handView(P);
+      if (!v) continue;
+      if (!P.handReady) { P.handLast = ''; continue; }   // drawn once it has loaded
+      this.handPlace(P);
+      P.win.contentView.addChildView(v);                                    // on top of the page
+      v.setVisible(true);
+      v.webContents.send('hand:show', show);
+    }
+  }
+  /** Claude gave him the turn: the card says why, and this waits (up to ~3 minutes) for him to hand back. */
+  private async yourTurn(page: number, why: string): Promise<Record<string, unknown>> {
+    const p = this.driver.page(page);
+    if (!p?.borrowed?.drive) return { ok: false, error: 'browser_your_turn is for his own tab you are driving (browser_drive_tab). In your own hidden pages, tell him in the chat instead.' };
+    if (!this.driver.job(p.job)?.working) return { ok: false, error: 'this job has ended' };
+    const h = this.hands.get(page);
+    if (!h) this.handStart(page, 'turn', cleanWhy(why) || 'Your turn');
+    else if (why && h.mode === 'turn') { h.why = cleanWhy(why); this.handPaint(); }
+    const prev = this.handWait.get(page);
+    if (prev) prev(null);
+    const r = await new Promise<HandReport | null | 'wait'>((done) => {
+      const t = setTimeout(() => { if (this.handWait.get(page) === f) { this.handWait.delete(page); done('wait'); } }, YOUR_TURN_MS);
+      const f = (x: HandReport | null) => { clearTimeout(t); done(x); };
+      this.handWait.set(page, f);
+    });
+    if (r === 'wait') return { ok: true, still: true };
+    if (!r) return { ok: false, error: 'Joshua pressed STOP (or the tab closed), so this job has ended' };
+    return { ok: true, report: r };
+  }
   driverAct(act: string, id: number): void {
     if (act === 'stop') this.driver.stop(id);   // only after he confirms it in the page (browser.js stopKey)
     else if (act === 'close') { if (this.watching !== null && this.driver.page(this.watching)?.job === id) this.unwatch(); this.driver.closeJob(id); }
     else if (act === 'watch') this.watch(id);
     else if (act === 'unwatch') this.unwatch();
     else if (act === 'open') { const p = this.driver.page(id); if (p && isWeb(p.url)) { this.unwatch(false); this.newTab(p.url); } }
+    else if (act === 'takeover') this.takeOver(id);
     this.sendTabs();
   }
   /** A live picture of one of Aang's pages in the page area: his own tab steps aside, nothing is handed over. */

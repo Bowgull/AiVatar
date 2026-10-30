@@ -136,6 +136,8 @@ app.whenReady().then(async () => {
     options: { mockupsAnywhere: gitHere },
     secret: true,
     plans,
+    // Sheet 109: Ask Claude's chats and picks go through Aang's door to the brain on this Mac.
+    claude: plans,
     mockupDoor: { offWhy: () => "Samara's Mockups trail on this Mac needs Apple's command line tools (git). Tell the user where the file is; they can install them with: xcode-select --install" },
     syncSend: (m) => toPc(m as never),
     updates: {

@@ -214,6 +214,7 @@ export type ToBody =
   | import('./claudemark.ts').MarkMsg
   /** C2: whether a claude.answer/send/pause/play/model was taken; `why` is the plain reason when it was not. */
   | { t: 'claude.said'; of: string; ok: boolean; why?: string }
+  | { t: 'claude.picked'; id: string; ok: boolean; why?: string }
   /** One quiet line beside his head (the cockpit's whisper size, 6.12): now playing, and the like.
    *  `controls: 'media'` adds back, play/pause and skip. */
   | { t: 'whisper'; text: string; controls?: 'media' }
@@ -686,6 +687,8 @@ export type FromBody =
   | { t: 'claude.answer'; id: string; decision?: 'allow' | 'always' | 'deny' | 'deny-message'; message?: string; answers?: Record<string, string> }
   /** A message to a session: `now` slips in at Claude's next step; `after` waits for the task in progress to be ticked. */
   | { t: 'claude.send'; session: string; text: string; when: 'now' | 'after' }
+  /** Sheet 109: Samara's Ask Claude, a pick (already fenced as the page's words) into a chat; answered with claude.picked. */
+  | { t: 'claude.pick'; id: string; session: string; text: string }
   | { t: 'claude.pause'; session: string }
   /** 2026-10-22: he X'd a finished job's card, opened it in Claude, or said Nice on its pop-out: it is read (the teal tick goes with the last). */
   | { t: 'claude.ackdone'; id: string }

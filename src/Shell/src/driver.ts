@@ -573,10 +573,10 @@ export class Driver {
   /** Is this page his tab, lent for reading only? */
   readOnly(pageId: number): boolean { const p = this.page(pageId); return !!p?.borrowed && !p.borrowed.drive; }
   /** The job driving one of his tabs, if any (the band's "CLAUDE IS DRIVING" and STOP). */
-  drivingTab(wc: WebContents): { job: number; kind: DriverKind; working: boolean } | null {
+  drivingTab(wc: WebContents): { job: number; page: number; kind: DriverKind; working: boolean } | null {
     const p = this.pages.find((x) => x.borrowed?.drive && x.wc === wc);
     const j = p ? this.job(p.job) : undefined;
-    return p && j ? { job: j.id, kind: j.kind, working: j.working } : null;
+    return p && j ? { job: j.id, page: p.id, kind: j.kind, working: j.working } : null;
   }
 
   private live(jobId: number): Job {

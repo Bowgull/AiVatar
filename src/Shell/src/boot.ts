@@ -17,6 +17,7 @@ import type { PopoutSettings } from './settings.ts';
 import type { SkipSettings } from './skip/settings.ts';
 import type { AdBlock } from './skip/ads.ts';
 import type { PlanMemory } from './claudeplan.ts';
+import type { Chat } from './askclaude.ts';
 import type { PlanStarted } from './claudedoor.ts';
 import type { EngineOptions, Source, UpdateEngine } from './updateengine.ts';
 import type { SyncMsg } from './bsync.ts';
@@ -106,6 +107,8 @@ export interface BrowserPlatform {
     started(p: PlanStarted): void;
     done(job: number): void;
   };
+  /** Sheet 109, Ask Claude: his Claude chats and a pick into one (the Mac's, through Aang's door; the PC sets its own). */
+  claude?: { chats(): Promise<Chat[]>; pick(session: string, text: string): Promise<string | null> };
   /** The mockup door for Claude sessions on this machine (the Mac's; the PC's come through the brain's drops). */
   mockupDoor?: { offWhy(): string | null };
   /** Samara's changes for the other machine (bsync.ts). */
@@ -252,6 +255,7 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   browser.onPlanAsk = (card) => bp.plans.ask(card);
   browser.onPlanStep = (id, at) => bp.plans.step(id, at);
   browser.onPlanDone = (job) => bp.plans.done(job);
+  if (bp.claude) { const c = bp.claude; browser.claudeChats = () => c.chats(); browser.onAskClaude = (s, t) => c.pick(s, t); }
   d.startClaudeDoor(() => browser, p.stateDir, { plans, onPlan: (x) => bp.plans.started(x) });
 
   // show_mockup from this machine's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).

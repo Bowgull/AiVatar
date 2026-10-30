@@ -198,6 +198,40 @@ try {
   }
 } catch { /* no autofill on this page */ }
 
+// Sheet 109 (2026-10-30): while he has his tab back from a Claude session (Take over, or Claude gave him the turn), the
+// names of the fields he fills and the labels of what he clicks go to Samara, so Claude can be told what changed. Names
+// only, never what he typed. Only his own presses (isTrusted), only the top page, only while Samara says he has the tab.
+try {
+  if (window === window.top) {
+    let watch = false;
+    ipcRenderer.invoke('tab:watchhim').then((v) => { watch = v === true; }, () => {});
+    ipcRenderer.on('tab:watchhim', (_e, v) => { watch = v === true; });
+    const words = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const fieldName = (el) => {
+      const lab = el.labels && el.labels[0] ? el.labels[0].textContent : '';
+      const by = el.getAttribute('aria-labelledby');
+      const byText = by ? by.split(/\s+/).map((id) => document.getElementById(id)?.textContent || '').join(' ') : '';
+      // A label around the box, or one just before it with no for= (common on hand-made forms).
+      const around = el.closest('label')?.textContent || '';
+      const prev = el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL' && !el.previousElementSibling.htmlFor ? el.previousElementSibling.textContent : '';
+      return words(lab || el.getAttribute('aria-label') || byText || around || prev || el.getAttribute('placeholder') || el.name || el.id || el.type);
+    };
+    document.addEventListener('change', (e) => {
+      const el = e.target;
+      if (!watch || !e.isTrusted || !(el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement)) return;
+      if (el instanceof HTMLInputElement && ['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)) return;
+      ipcRenderer.send('tab:did', { kind: 'fill', name: fieldName(el) });
+    }, true);
+    document.addEventListener('click', (e) => {
+      if (!watch || !e.isTrusted || !(e.target instanceof Element)) return;
+      const c = e.target.closest('button, a[href], [role=button], [role=link], [role=tab], [role=menuitem], [role=option], input[type=submit], input[type=button], summary');
+      if (!c) return;
+      const name = words(c.getAttribute('aria-label') || (c instanceof HTMLInputElement ? c.value : c.textContent) || c.getAttribute('title'));
+      if (name) ipcRenderer.send('tab:did', { kind: 'click', name });
+    }, true);
+  }
+} catch { /* nothing is named for Claude on this page */ }
+
 try {
   contextBridge.executeInMainWorld({
     func: () => {

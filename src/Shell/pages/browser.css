@@ -1345,3 +1345,13 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 /* Sheet 106 v7: the key a notice drops from pulses gold twice as it comes down. */
 .ntsrc{outline:3px solid var(--gold);outline-offset:2px;animation:ntsrcpulse .9s ease-in-out 2}
 @keyframes ntsrcpulse{50%{outline-color:transparent}}
+
+/* Sheet 109 (2026-10-30): his own tab while Claude drives it. Claude's gem in the band, Take over before STOP (the plan
+   card's gold key, small), and YOU HAVE IT in a cool light while he has the tab. */
+.slot .who .gem{display:grid;place-items:center;width:22px;height:22px;margin:-2px 0}
+.slot .who .gem svg{image-rendering:pixelated}
+.slot .who .takek{order:3;height:24px;margin-left:4px;padding:0 9px;border-radius:6px;border:2.5px solid var(--outline);cursor:pointer;position:relative;top:-1px;
+  font:700 12px var(--body);letter-spacing:.2px;color:#2a1c00;background:var(--gold);
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 var(--gold-light);display:inline-flex;align-items:center}
+.slot .who .takek:active{top:2px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 var(--gold-light)}
+.slot .who.you{color:#cfe7ff}

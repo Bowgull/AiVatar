@@ -4026,6 +4026,15 @@ export class Core {
         said(why);
         break;
       }
+      // Sheet 109 (2026-10-30): Ask Claude in Samara. His pick (the page's words, already fenced as data by the Shell, with
+      // the tab's name and address) goes into that chat as it is: not rewritten as his words (plainOut), since it is not
+      // his words. Only the Shell may send it; the answer says whether the chat took it.
+      case 'claude.pick': {
+        if (!this.shells.has(ws)) break;
+        const why = this.claudeJobs.send(String(m.session ?? '').slice(0, 100), String(m.text ?? ''), 'now');
+        this.send(ws, { t: 'claude.picked', id: String(m.id ?? '').slice(0, 40), ok: why === null, ...(why ? { why } : {}) });
+        break;
+      }
       // 9.D D7: a video from #capture, watched and diagnosed; an idea for Aang's plan.
       case 'video.watch': {
         const id = String(m.id ?? '').slice(0, 40), url = videoUrl(String(m.url ?? ''));

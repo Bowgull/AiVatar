@@ -2076,12 +2076,37 @@ window.aang?.onBrowserWatch?.((src) => {
   if (typeof src === 'string' && src.startsWith('data:image/')) { watchpic.src = src; watchpic.hidden = false; }
   else if (src === null) { watchpic.hidden = true; watchpic.removeAttribute('src'); }
 });
+// Sheet 109 (his decisions, 2026-10-30): on his own tab a Claude session drives, the band carries Claude's gem, and
+// Take over before STOP; after Take over (or when Claude gives him the turn) it says YOU HAVE IT, and the hand card
+// (its own layer) hangs from the address bar's end, so the band says where that is.
+const GEM_IC = '<svg viewBox="0 0 11 11" width="22" height="22" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h5v1H3zM1 1h2v1H1zM8 1h2v1H8zM0 3h1v5H0zM10 3h1v5H10zM1 2h1v1H1zM9 2h1v1H9zM1 8h1v1H1zM9 8h1v1H9zM1 9h2v1H1zM8 9h2v1H8zM3 10h5v1H3z" fill="#120A05"/><path d="M3 1h5v1H3zM2 2h7v1H2zM1 3h9v5H1zM2 8h7v1H2zM3 9h5v1H3z" fill="#F6F2EA"/><path d="M3 1h3v1H3zM2 2h2v1H2zM1 3h1v2H1z" fill="#ffffff"/><path d="M8 8h1v1H8zM6 9h2v1H6zM9 6h1v2H9z" fill="#cfc6b6"/><path d="M5 2h1v2H5zM5 7h1v2H5zM2 5h2v1H2zM7 5h2v1H7zM3 3h1v1H3zM7 3h1v1H7zM3 7h1v1H3zM7 7h1v1H7zM4 4h3v3H4z" fill="#D97757"/></svg>';
+function takeKey(jobId) {
+  const b = Object.assign(document.createElement('button'), { type: 'button', className: 'takek', textContent: 'Take over' });
+  b.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserDriver?.({ act: 'takeover', id: jobId }); });
+  return b;
+}
+let handSpotWas = '';
+function handSpot() {
+  const r = el('slot').getBoundingClientRect(), k = `${Math.round(r.right)},${Math.round(r.bottom)}`;
+  if (k !== handSpotWas) { handSpotWas = k; window.aang?.browserHandSpot?.({ x: Math.round(r.right), y: Math.round(r.bottom) }); }
+}
+window.addEventListener('resize', () => { if (state.driving?.hand) requestAnimationFrame(handSpot); });
 function paintWho() {
   const w = state.watching || state.driving, who = el('who');
+  who.classList.remove('you');
   if (!w) { who.hidden = true; who.replaceChildren(); return false; }
   who.hidden = false;
+  const mine = !state.watching && w.kind === 'claude';
+  if (mine && w.hand) {
+    who.classList.add('you');
+    who.replaceChildren(Object.assign(document.createElement('span'), { className: 'gem', innerHTML: GEM_IC }), 'YOU HAVE IT');
+    requestAnimationFrame(handSpot);
+    return true;
+  }
   const label = w.kind === 'claude' ? 'CLAUDE IS DRIVING' : 'AANG IS DRIVING';
-  who.replaceChildren(driverIcon(w.kind), label, ...(w.working ? [stopKey(w.job, true)] : []));
+  const icon = mine ? Object.assign(document.createElement('span'), { className: 'gem', innerHTML: GEM_IC }) : driverIcon(w.kind);
+  who.replaceChildren(icon, label, ...(mine && w.working ? [takeKey(w.job)] : []), ...(w.working ? [stopKey(w.job, true)] : []));
+  if (mine) requestAnimationFrame(handSpot);
   return true;
 }
 
