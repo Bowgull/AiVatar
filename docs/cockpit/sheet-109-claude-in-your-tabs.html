@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 109 - Claude in your tabs</title>
+<!-- Sheet 109 (2026-10-30, his decisions). He talks to Claude in the Claude app as now; Samara adds pointing and handover
+     only. Pointing: select, right-click, Ask Claude (last chat, 3 recent, New chat); the Mac shows Ask Claude only, the PC
+     shows Ask Claude and Send to Aang. Claude gets the selection plus the tab's name and address only. Handover: Claude
+     drives his own tab while he watches (CLAUDE IS DRIVING, STOP); he takes over only with Take over; Claude gives him the
+     turn at logins, sends, buys and when stuck, with one line; he hands back with Hand back and an optional note, or in
+     the chat; Claude is told what changed (never passwords).
+     A and B: Samara's real page menu (pagemenu.css) over a real capture of his tab. C to F: Samara's real band
+     (test/electron/sheet109-shot.ts), Claude really borrowing the tab; the new pieces use the plan card's own tray, note
+     box and keys. Northwind is a made-up company. Not built. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/pagemenu.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0;image-rendering:auto !important}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px;user-select:text}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1100px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:36px 0 6px}
+  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:900px;line-height:1.5}
+  .sub b{color:#ffe28c}
+  .pair{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .pair>div{width:720px}
+  .scene{position:relative;width:720px;height:600px;overflow:hidden;border:3px solid #120A05;border-radius:10px;
+    background:url(sheet-109/s-select.png) 0 0/720px 600px no-repeat}
+  .shot{display:block;width:1280px;border:3px solid #120A05;border-radius:10px}
+  .stack{position:relative;width:1286px}
+  .stack img{display:block;width:1280px;border:3px solid #120A05;border-radius:10px}
+  .stack img+img{position:absolute;left:0;top:0;opacity:0;transition:opacity .18s steps(3)}
+  .stack.on img+img{opacity:1}
+  button.replay{background:none;border:none;font:700 13px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 6px;margin-left:6px}
+  button.replay:hover{color:#ffe28c}
+
+  /* Samara's page menu, as pagemenu.css draws it. .on is the same look as its :hover (the glove). */
+  .pm{position:absolute;opacity:0;transform:translateY(-6px);transition:opacity .12s ease-out,transform .12s ease-out}
+  .pm.show{opacity:1;transform:none}
+  .pm button{cursor:default}
+  .pm button.on{color:#ffe28c;padding-left:34px}
+  .pm button.on::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;
+    background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .pm button.ic{justify-content:flex-start;align-items:center}
+  .pm button.ic span{flex:1}
+  .pm .gem{width:22px;height:22px;flex:none;margin:-3px 8px -3px -2px;image-rendering:pixelated}
+  .pm .aface{width:18px;height:18px;flex:none;margin:-2px 8px -2px 0;image-rendering:pixelated}
+  .pm .plus{width:18px;height:18px;flex:none;margin:-2px 10px -2px 0;image-rendering:pixelated}
+  .pm .arr{width:8px;height:12px;flex:none;margin-left:14px;image-rendering:pixelated}
+  .pm.sm{min-width:220px}
+  .pm button.open{color:#ffe28c}
+  .cur{position:absolute;z-index:9;width:14px;height:20px;image-rendering:pixelated;transition:left .35s ease,top .35s ease;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px}
+  .gets{margin:6px 0 0;padding:0;list-style:none;max-width:900px}
+  .gets li{font:500 13px/1.5 var(--body);color:#d8c8a6;margin:0 0 5px;padding-left:16px;position:relative}
+  .gets li::before{content:"";position:absolute;left:0;top:6px;width:6px;height:6px;background:var(--gold);border:1px solid #120A05}
+  .gets b{color:#ffe28c}
+</style>
+</head>
+<body>
+<h1>Sheet 109 · Claude in your tabs</h1>
+<p class="lead">You still talk to Claude in the Claude app. Samara only adds two things: pointing at a bit of a page, and handing your tab back and forth. Every band here is Samara's real band, with Claude really driving the tab. Northwind is made up.</p>
+
+<div class="pair">
+  <div>
+    <h2>A · MAC: SELECT, RIGHT-CLICK, ASK CLAUDE<button class="replay" type="button" data-for="a">Replay</button></h2>
+    <p class="sub">Ask Claude opens your <b>last chat</b>, <b>three recent ones</b>, and <b>New chat</b>.</p>
+    <div class="scene" id="a"></div>
+  </div>
+  <div>
+    <h2>B · PC: ASK CLAUDE AND SEND TO AANG<button class="replay" type="button" data-for="b">Replay</button></h2>
+    <p class="sub">Both at the top. Send to Aang stays as it is today.</p>
+    <div class="scene" id="b"></div>
+  </div>
+</div>
+<ul class="gets" style="margin-top:14px">
+  <li><b>Claude gets</b> the bit you picked, the tab's name and its address. Nothing else.</li>
+  <li><b>New chat</b> opens a new Claude Code session in the Claude app, in the Handoff/aang folder, with the bit already typed in. You press send.</li>
+  <li>Saying <b>"my Northwind tab"</b> in the chat still works.</li>
+</ul>
+
+<h2>C · CLAUDE DRIVES YOUR TAB, YOU WATCH</h2>
+<p class="sub">The band says so, with STOP as today. <b>Take over</b> sits before STOP. Clicking in the page does not take over.</p>
+<img class="shot" src="sheet-109/s-c-driving.png" alt="">
+
+<h2>D · AFTER TAKE OVER</h2>
+<p class="sub">The band says <b>YOU HAVE IT</b>. Claude's card hangs under it: a short note box, and <b>Hand back</b>.</p>
+<img class="shot" src="sheet-109/s-d-you.png" alt="">
+
+<h2>E · CLAUDE GIVES YOU THE TURN</h2>
+<p class="sub">At a sign in, a send, a buy, or when it's stuck. One line says why.</p>
+<img class="shot" src="sheet-109/s-e-turn.png" alt="">
+
+<h2>F · YOU HAND BACK, CLAUDE IS TOLD WHAT CHANGED<button class="replay" type="button" data-for="f">Replay</button></h2>
+<p class="sub">Hand back, or just tell Claude in the chat. Claude gets the page you're on, what you filled in (never passwords), what you clicked, and your note.</p>
+<div class="stack" id="f"><img src="sheet-109/s-e-note.png" alt=""><img src="sheet-109/s-f-told.png" alt=""></div>
+
+<script>
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Claude's mark: the white gem with its orange spark (sheet 106), 11 x 11 at 2x.
+const GEM = `<svg class="gem" viewBox="0 0 11 11" width="22" height="22" shape-rendering="crispEdges"><path d="M3 0h5v1H3zM1 1h2v1H1zM8 1h2v1H8zM0 3h1v5H0zM10 3h1v5H10zM1 2h1v1H1zM9 2h1v1H9zM1 8h1v1H1zM9 8h1v1H9zM1 9h2v1H1zM8 9h2v1H8zM3 10h5v1H3z" fill="#120A05"/><path d="M3 1h5v1H3zM2 2h7v1H2zM1 3h9v5H1zM2 8h7v1H2zM3 9h5v1H3z" fill="#F6F2EA"/><path d="M3 1h3v1H3zM2 2h2v1H2zM1 3h1v2H1z" fill="#ffffff"/><path d="M8 8h1v1H8zM6 9h2v1H6zM9 6h1v2H9z" fill="#cfc6b6"/><path d="M5 2h1v2H5zM5 7h1v2H5zM2 5h2v1H2zM7 5h2v1H7zM3 3h1v1H3zM7 3h1v1H7zM3 7h1v1H3zM7 7h1v1H7zM4 4h3v3H4z" fill="#D97757"/></svg>`;
+const ARR = `<svg class="arr" viewBox="0 0 4 6" width="8" height="12" shape-rendering="crispEdges"><path d="M0 0h1v6H0zM1 1h1v4H1zM2 2h1v2H2z" fill="#c4b294"/></svg>`;
+const PLUS = `<svg class="plus" viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges"><path d="M3 0h3v3h3v3H6v3H3V6H0V3h3z" fill="#120A05"/><path d="M4 1h1v3h3v1H5v3H4V5H1V4h3z" fill="#FFC43C"/></svg>`;
+const FACE = `<img class="aface" src="../../src/Shell/pages/art/aang-face.png" alt="">`;
+const row = (h) => h === '-' ? '<div class="sep"></div>' : h;
+const item = (label, { ic = '', key = '', arr = false } = {}) => `<button type="button" class="${ic ? 'ic' : ''}">${ic}<span>${label}</span>${key ? `<i>${key}</i>` : ''}${arr ? ARR : ''}</button>`;
+const SEARCH = item('Search for "You will own a group of o…"');
+const MENUS = {
+  a: [item('Ask Claude', { ic: GEM, arr: true }), '-', item('Copy', { key: 'CTRL C' }), SEARCH, '-', item('Back', { key: 'ALT ←' }), item('Reload', { key: 'CTRL R' })],
+  b: [item('Ask Claude', { ic: GEM, arr: true }), item('Send to Aang', { ic: FACE }), '-', item('Copy', { key: 'CTRL C' }), SEARCH, '-', item('Back', { key: 'ALT ←' }), item('Reload', { key: 'CTRL R' })],
+};
+const CHATS = [item('Northwind posting', { ic: GEM }), '-', item('Samara band fixes'), item('Couch Mode remote'), item('Weekend plans'), '-', item('New chat', { ic: PLUS })];
+// Right-click lands at the end of the picked words (the harness logs where they end).
+const AT = { x: 190, y: 384 };
+function scene(id) {
+  const s = document.getElementById(id);
+  s.innerHTML = `<div class="pm" role="menu">${MENUS[id].map(row).join('')}</div><div class="pm sm" role="menu">${CHATS.map(row).join('')}</div><span class="cur"></span>`;
+  const [m, sub] = s.querySelectorAll('.pm'), cur = s.querySelector('.cur');
+  m.style.left = AT.x + 'px'; m.style.top = AT.y + 'px';
+  const put = (x, y) => { cur.style.left = x + 'px'; cur.style.top = y + 'px'; };
+  const on = (b) => { s.querySelectorAll('.pm button.on').forEach((x) => { x.classList.remove('on'); if (b && x.parentNode !== b.parentNode) x.classList.add('open'); }); b?.classList.add('on'); };
+  return async () => {
+    m.classList.remove('show'); sub.classList.remove('show'); on(null); s.querySelectorAll('.open').forEach((x) => x.classList.remove('open'));
+    cur.style.transition = 'none'; put(AT.x - 2, AT.y - 4); void cur.offsetWidth; cur.style.transition = '';
+    await wait(700); m.classList.add('show'); await wait(500);
+    const ask = m.querySelector('button'); const ar = ask.getBoundingClientRect(), sr = s.getBoundingClientRect();
+    put(ar.right - sr.left - 40, ar.top - sr.top + 12); await wait(380); on(ask); await wait(300);
+    sub.style.left = Math.round(ar.right - sr.left + 2) + 'px'; sub.style.top = Math.round(ar.top - sr.top - 6) + 'px'; sub.classList.add('show');
+    await wait(450);
+    const first = sub.querySelector('button'), fr = first.getBoundingClientRect();
+    put(fr.right - sr.left - 8, fr.top - sr.top + 14); await wait(380); on(first); await wait(1300);
+    const last = [...sub.querySelectorAll('button')].pop(), lr = last.getBoundingClientRect();
+    put(lr.right - sr.left - 8, lr.top - sr.top + 14); await wait(380); on(last); await wait(1500);
+  };
+}
+const loops = {};
+for (const id of ['a', 'b']) {
+  const run = scene(id); let token = 0;
+  loops[id] = async () => { const me = ++token; for (;;) { await run(); if (me !== token) return; await wait(900); } };
+  loops[id]();
+}
+{ const f = document.getElementById('f'); let token = 0;
+  loops.f = async () => { const me = ++token; for (;;) { f.classList.remove('on'); await wait(2600); if (me !== token) return; f.classList.add('on'); await wait(3400); if (me !== token) return; } };
+  loops.f(); }
+document.querySelectorAll('button.replay').forEach((b) => b.addEventListener('click', () => loops[b.dataset.for]()));
+</script>
+</body>
+</html>
