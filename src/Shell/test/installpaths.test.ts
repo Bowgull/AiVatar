@@ -47,7 +47,8 @@ test('Mac script: an engine not signed for video is never put in; the video sign
   assert.match(s, /\[ -n "\$EV" \] && echo "\$EV" >> "\$BR\/failed-engines\.txt"/);
 });
 
-test('Mac script with an engine: the stage refuses to build when the engine is not signed (run for real)', () => {
+// Runs the Mac script for real: a Mac only (GitHub's Windows machine has no codesign; 2026-10-30, the release gate).
+test('Mac script with an engine: the stage refuses to build when the engine is not signed (run for real)', { skip: process.platform !== 'darwin' && 'the Mac script runs on a Mac' }, () => {
   const home = mkdtempSync(path.join(os.tmpdir(), 'ip-home-'));
   const app = path.join(home, 'castlabs', 'Electron.app'); mkdirSync(app, { recursive: true });
   const f = bashOk(macUpdateScript({ ...base, bundle: '', engine: { app, version: '44.9.3' } }));
@@ -111,7 +112,8 @@ test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, the
   const unzip = async (_zip: string, into: string) => { mkdirSync(path.join(into, 'Electron.app'), { recursive: true }); return true; };
   const e = new MacEngine(p, st, { fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', chrome: () => '150.0.1.1', pub: PUB });
   await e.check('test');
-  await new Promise((r) => setTimeout(r, 20));
+  // Until the background signing and staging land (a fixed 20 ms was too short on GitHub's machines, 2026-10-30), 3 s at most.
+  for (let i = 0; i < 150 && !(signed >= 1 && e.ready()); i++) await new Promise((r) => setTimeout(r, 20));
   assert.equal(signed, 1);
   const o = e.ready()!;
   assert.equal(o.version, '44.9.3'); assert.equal(o.title, "Samara's engine 44.9.3");
@@ -139,7 +141,7 @@ test('Mac engine: when castLabs wants a sign-in, the key asks; Terminal opens; o
   assert.deepEqual(await ue.go(), { ok: false, why: 'Sign in to castLabs first, so the new engine plays video.' });
   assert.ok(await ue.signin()); assert.equal(opened, 1); assert.equal(e.ready()?.signin, 'waiting');
   answer = 'ok'; watcher!(true);
-  await new Promise((r) => setTimeout(r, 20));
+  for (let i = 0; i < 150 && !(e.ready()?.signin === undefined && st.ready()); i++) await new Promise((r) => setTimeout(r, 20));
   assert.equal(e.ready()?.signin, undefined); assert.ok(st.ready(), 'signed and staged');
 });
 
