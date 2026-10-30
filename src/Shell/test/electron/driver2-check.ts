@@ -119,6 +119,7 @@ ${Array.from({ length: 30 }, () => '<button type="button">Play video</button>').
   const la = await tool('browser_read', { page: lp, all: true });
   check('all: true lists every link', linksIn(la.text) === 90, `${linksIn(la.text)} links`);
   const lf = await tool('browser_find', { page: lp, text: 'Story 77' });
+  check('an exact match comes alone, not with its neighbours as extra hits', !/2\) /.test(lf.text), lf.text);
   check('find reaches a link the short read left out', /Story 77/.test(lf.text), lf.text);
   await tool('browser_close', { page: lp });
   // A long job form: a plain read keeps every field, box, choice and the Next/Send buttons far below, drops the

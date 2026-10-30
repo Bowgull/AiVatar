@@ -294,21 +294,28 @@ export function line(p: Posting): string {
 
 /**
  * browser_find's lines (2026-10-30): whole-word matches first, then part of a word, then the words all within a line and
- * its neighbours (a phrase split across a table: "Initial release"). Each hit is the line with one line either side.
+ * its neighbours (a phrase split across a table: "Initial release"). When any whole-word match exists the others are
+ * left out: "#1" also matched "#10" to "#19" on Amazon, and the price line above #10 read as #1's (fair re-test 2).
+ * Each hit is one line before, the line itself marked with ‹ ›, and two after (a card's title and price). "a, b" looks
+ * for each.
  */
 export function rankFind(lines: string[], q: string, max: number, width: number): string[] {
-  const w = q.toLowerCase().trim();
-  if (!w) return [];
-  const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const whole = new RegExp(`(^|[^\\p{L}\\p{N}])${esc}($|[^\\p{L}\\p{N}])`, 'iu');
-  const words = w.split(/\s+/).filter(Boolean);
-  const scored: { i: number; s: number }[] = [];
-  lines.forEach((l, i) => {
-    const low = l.toLowerCase();
-    if (whole.test(l)) scored.push({ i, s: 3 });
-    else if (low.includes(w)) scored.push({ i, s: 2 });
-    else if (words.length > 1 && words.every((x) => `${lines[i - 1] ?? ''} ${l} ${lines[i + 1] ?? ''}`.toLowerCase().includes(x)) && words.some((x) => low.includes(x))) scored.push({ i, s: 1 });
-  });
-  scored.sort((a, b) => b.s - a.s || a.i - b.i);
-  return scored.slice(0, max).map(({ i }) => [lines[i - 1], lines[i], lines[i + 1]].filter(Boolean).join(' / ').slice(0, width));
+  const parts = q.split(',').map((x) => x.toLowerCase().trim()).filter(Boolean);
+  if (!parts.length) return [];
+  const scored = new Map<number, number>();
+  for (const w of parts) {
+    const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const whole = new RegExp(`(^|[^\\p{L}\\p{N}])${esc}($|[^\\p{L}\\p{N}])`, 'iu');
+    const words = w.split(/\s+/).filter(Boolean);
+    lines.forEach((l, i) => {
+      const low = l.toLowerCase();
+      const s = whole.test(l) ? 3 : low.includes(w) ? 2
+        : words.length > 1 && words.every((x) => `${lines[i - 1] ?? ''} ${l} ${lines[i + 1] ?? ''}`.toLowerCase().includes(x)) && words.some((x) => low.includes(x)) ? 1 : 0;
+      if (s > (scored.get(i) ?? 0)) scored.set(i, s);
+    });
+  }
+  let hits = [...scored].map(([i, s]) => ({ i, s }));
+  if (hits.some((h) => h.s === 3)) hits = hits.filter((h) => h.s === 3);
+  hits.sort((a, b) => b.s - a.s || a.i - b.i);
+  return hits.slice(0, max).map(({ i }) => [lines[i - 1], `‹${lines[i]}›`, lines[i + 1], lines[i + 2]].filter((x) => x !== undefined && x !== '').join(' / ').slice(0, width));
 }

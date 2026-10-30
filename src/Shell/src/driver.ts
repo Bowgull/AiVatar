@@ -1050,8 +1050,9 @@ export class Driver {
     const { wc } = this.wcOf(pageId);
     const r = await this.read(pageId);
     const st = await this.state(wc, null);
-    const ranked = rankFind(st.lines, w, more ? 15 : 6, more ? 300 : 200);
-    const its = r.items.filter((it) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(w)).slice(0, more ? 20 : 8);
+    const ranked = rankFind(st.lines, w, more ? 15 : 6, more ? 360 : 260);
+    const parts = w.split(',').map((x) => x.trim()).filter(Boolean);
+    const its = r.items.filter((it) => parts.some((x) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(x))).slice(0, more ? 20 : 8);
     return { lines: ranked, items: its };
   }
 
