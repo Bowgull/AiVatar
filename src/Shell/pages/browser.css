@@ -1319,23 +1319,25 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 .drawer .th.mock .mlog{order:2;flex:0 0 auto;width:28px;height:28px;padding:2px;margin-left:auto;border:none;border-radius:6px;background:none;cursor:pointer;display:grid;place-items:center}
 .drawer .th.mock .mlog:hover{background:rgba(255,196,60,.14)}
 .drawer .th.mock .mlog svg{display:block;image-rendering:pixelated}
-/* Sheet 107 (his pick, 2026-10-30): the one Mockups entry at the top of the tray, the sealed scroll on FFX blue, a gold
-   frame, white lettering, the gold NEW gem. The scroll is drawn at 16 x 14 and shown at 3x. */
+/* Sheet 107 (his picks, 2026-10-30): the one Mockups entry, the sealed scroll; v5 "plum is better": Samara's own plum
+   (its keys), a gold frame, gold lettering, the gold NEW gem. The scroll is drawn at 16 x 14 and shown at 3x. */
 .drawer .mq{flex:none;position:relative;display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;height:48px;margin:12px 0 10px;padding:0 12px 0 8px;border:3px solid var(--outline);border-radius:11px;cursor:pointer;
-  background:linear-gradient(180deg,#5b7fd8 0 3px,#2a4aa8 3px,#1b3283 50%,#0e1d55 calc(100% - 4px),#081239 calc(100% - 4px));
-  box-shadow:0 4px 0 var(--outline),inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease;text-align:left}
+  background:linear-gradient(180deg,var(--plum-edge) 0 3px,var(--plum) 3px 55%,var(--plum-deep) calc(100% - 4px),#1a0e2c calc(100% - 4px));
+  box-shadow:0 4px 0 var(--outline),inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3);transition:transform .15s ease,filter .15s ease;text-align:left}
 .drawer .mq[hidden]{display:none}
 /* At the bottom of the tray, just above the broom (his ask, 2026-10-30): it takes the free space above it, so the footer sits right under it. */
 .drawer .mq:not([hidden]){margin-top:auto}
 .drawer .mq:not([hidden]) + .tidyfoot{margin-top:0}
 .drawer .mq:hover{transform:translateY(-1px);filter:brightness(1.08)}
-.drawer .mq:active{transform:translateY(2px);box-shadow:0 2px 0 var(--outline),inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25)}
+.drawer .mq:active{transform:translateY(2px);box-shadow:0 2px 0 var(--outline),inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3)}
 .drawer .mq .pic{flex:none;width:32px;height:28px;display:grid;place-items:center}
 .drawer .mq .pic canvas{width:32px;height:28px;image-rendering:pixelated}
-.drawer .mq .nm{flex:1;font:700 14px var(--display);letter-spacing:1.4px;color:#fbfbff;text-shadow:0 2px 0 #071030;text-transform:uppercase}
+.drawer .mq .nm{flex:1;font:700 14px var(--display);letter-spacing:1.4px;color:var(--gold-light);text-shadow:0 2px 0 #1a0e2c;text-transform:uppercase}
 .drawer .mq .gem{flex:none;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:10px;font-size:11px;border:2px solid var(--outline);display:grid;place-items:center;
   font:800 12px var(--body);color:#2a1c00;background:radial-gradient(circle at 35% 30%,#ffe9a6,#FFC43C 55%,#c98a12);box-shadow:0 2px 0 var(--outline)}
 .drawer .mq .gem[hidden]{display:none}
+/* Sheet 107 v5: lit while he is in Mockups, with the ring a picked tab wears. */
+.drawer .mq.lit{filter:brightness(1.12);box-shadow:0 4px 0 var(--outline),0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 0 0 2px var(--gold-lit),inset 0 0 0 4px rgba(0,0,0,.2)}
 @media (prefers-reduced-motion:reduce){.drawer .mq{transition:none}}
 .drawer .bh .bi{flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px}
 .drawer .bh .bi svg,.drawer .bh .bi img{display:block;max-width:20px;max-height:20px}

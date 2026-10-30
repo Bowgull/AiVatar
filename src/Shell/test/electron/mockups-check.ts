@@ -106,7 +106,7 @@ app.whenReady().then(async () => {
   await lwc().executeJavaScript(`document.querySelector('.frame iframe').dataset.mark = 'kept'; true`);
   b.sendTabs(); b.mockLogSig = ''; b.pushMockLog(); await wait(600);
   check('a redraw keeps the same frame (the sheet is not reloaded)', (await lwc().executeJavaScript(`document.querySelector('.frame iframe')?.dataset.mark ?? ''`)) === 'kept');
-  check('the page has only its own doors', (await page(`return Object.keys(window.mocklog ?? {}).sort();`)).join() === 'get,leave,onData,onEsc,seen,send,stage');
+  check('the page has only its own doors', (await page(`return Object.keys(window.mocklog ?? {}).sort();`)).join() === 'get,leave,onData,onEsc,seen,send,stage,where');
 
   // A newer version: the same sheet's next version, shown at once.
   put(S45, sheet('Sheet 45 - Both ways', 'two')); const c2 = commit('two');
@@ -167,14 +167,26 @@ app.whenReady().then(async () => {
   look = await page(`const k = document.querySelector('#ptabs').firstElementChild; return { cls: k?.className, text: k?.textContent, lamp: k?.querySelector('img')?.getAttribute('src') };`);
   check('Back to Samara is first along the top, with the lantern', look.cls === 'leave' && look.text === 'Back to Samara' && String(look.lamp).includes('samara-lantern'), JSON.stringify(look));
   if (shots) { mkdirSync(shots, { recursive: true }); writeFileSync(path.join(shots, 'mockups-leave.png'), (await lwc().capturePage({ x: 0, y: 0, width: 900, height: 120 })).toPNG()); }
+  // Sheet 107 v5: Mockups is the plaque, never a row in the tab list; the plaque is lit while he is in it.
+  const keyLit = () => b.win.webContents.executeJavaScript(`document.getElementById('mqkey').classList.contains('lit')`);
+  const rowText = () => b.win.webContents.executeJavaScript(`[...document.querySelectorAll('#tabs .tp')].map((x) => x.textContent.trim()).join('|')`);
+  check('no Mockups row in the tab list, and the plaque is lit', !String(await rowText()).includes('Mockups') && (await keyLit()) === true, String(await rowText()));
+  await lwc().executeJavaScript(`[...document.querySelectorAll('.ptab')].find((x) => x.textContent.startsWith('Samara')).click(); true`); await wait(300);
+  await lwc().executeJavaScript(`[...document.querySelectorAll('.sh')].find((x) => x.textContent.startsWith('45')).click(); true`); await wait(500);
   await lwc().executeJavaScript(`document.querySelector('.leave').click(); true`); await wait(700);
-  check('it leaves Mockups for the tab he was on, and Mockups closes', b.cur()?.id === ex().id && !log(), String(b.cur()?.url));
-  b.openMockLog(); await until(() => Boolean(lwc()) && !lwc().isLoading(), 8000); await wait(900);
+  check('Back to Samara leaves Mockups for the tab he was on; the plaque rests', b.cur()?.id === ex().id && (await keyLit()) === false, String(b.cur()?.url));
+  await b.win.webContents.executeJavaScript(`document.getElementById('mqkey').click(); true`); await wait(700);
+  look = await page(`return { p: document.querySelector('.ptab.on')?.textContent, t: document.querySelector('.vbar .dt')?.textContent };`);
+  check('the plaque brings Mockups back where he left it (same project, same sheet)', b.cur()?.internal === 'mocklog' && String(look.p).startsWith('Samara') && String(look.t).startsWith('45'), JSON.stringify(look));
+  // Even when Mockups was rebuilt (it slept): Samara kept where he was.
+  b.mockLogLeave(); await wait(300); b.close(log().id, false); await wait(300); b.openMockLog(); await until(() => Boolean(lwc()) && !lwc().isLoading(), 8000); await wait(1200);
+  look = await page(`return { p: document.querySelector('.ptab.on')?.textContent, t: document.querySelector('.vbar .dt')?.textContent };`);
+  check('a rebuilt Mockups opens where he left it too', String(look.p).startsWith('Samara') && String(look.t).startsWith('45'), JSON.stringify(look));
   await lwc().executeJavaScript(`document.querySelector('.vbar > .mk')?.click(); true`); await wait(200);
   const esc = () => { lwc().sendInputEvent({ type: 'keyDown', keyCode: 'Escape' }); lwc().sendInputEvent({ type: 'keyUp', keyCode: 'Escape' }); };
   if (await lwc().executeJavaScript(`!!document.querySelector('.mmenu')`)) { esc(); await wait(400); check('Esc first closes the mark\'s menu, staying in Mockups', !!log() && (await lwc().executeJavaScript(`!document.querySelector('.mmenu')`)) === true); }
   esc(); await wait(700);
-  check('Esc leaves Mockups for the tab he was on', b.cur()?.id === ex().id && !log(), String(b.cur()?.url));
+  check('Esc leaves Mockups for the tab he was on', b.cur()?.id === ex().id && b.cur()?.internal !== 'mocklog', String(b.cur()?.url));
   b.openMockLog(); await until(() => Boolean(lwc()) && !lwc().isLoading(), 8000); await wait(900);
 
   if (shots) {
