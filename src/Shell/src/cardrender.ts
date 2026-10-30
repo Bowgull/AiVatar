@@ -4,6 +4,7 @@
 // screen at 2x and hands back a PNG. One window, reused; one card at a time.
 import { BrowserWindow, session } from 'electron';
 import { SAFE_WEB_PREFERENCES, lockDown } from './safety.ts';
+import { capture } from './capture.ts';
 
 export const CARD_KINDS = new Set(['job', 'needs', 'home', 'watched', 'quota', 'brief', 'inbox', 'week', 'email']);
 
@@ -57,9 +58,10 @@ export class CardRenderer {
     if (!m) return { ok: false, error: title.replace(/^failed:/, '') || 'it did not draw' };
     await new Promise((r) => setTimeout(r, 60));                 // one more frame, so the pictures are painted
     const css = { width: Math.min(700, Number(m[1])), height: Math.min(1200, Number(m[2])) };
-    const img = await wc.capturePage({ x: 0, y: 0, width: css.width * 2, height: css.height * 2 });
-    if (img.isEmpty()) return { ok: false, error: 'the picture came out empty' };
-    return { ok: true, png: img.toPNG().toString('base64') };
+    // Every pixel the card drew (it is laid out at 2x): no shrinking, PNG (capture.ts).
+    const shot = await capture(wc, { rect: { x: 0, y: 0, width: css.width * 2, height: css.height * 2 }, format: 'png', maxWidth: Infinity, scale: Infinity, ms: 4000 });
+    if (!shot) return { ok: false, error: 'the picture came out empty' };
+    return { ok: true, png: shot.base64() };
   }
 
   private window(): BrowserWindow {

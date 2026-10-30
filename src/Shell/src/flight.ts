@@ -6,6 +6,7 @@
 //   - a page that stopped answering, and how long until it answered again,
 //   - Samara's memory every 10 minutes, so a slow climb shows.
 // Only a site's name is ever written, never its full address (a log may be shared when something goes wrong).
+import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -40,6 +41,12 @@ export function memoryLine(metrics: Metric[]): string {
   return `memory ${Math.round(total / 1024)} MB in ${metrics.length} processes (${top})`;
 }
 
+/**
+ * Trouble as it happens, for whoever wants to act on it (the capture engine keeps a picture of his window): 'gone' when
+ * a page went away, 'hang' when a page stopped answering. Each with the page's webContents.
+ */
+export const trouble = new EventEmitter();
+
 /** Wire it into a running Samara. `log` is the app's own log line writer. */
 export function startFlight(app: Electron.App, dir: string, log: (s: string) => void): void {
   const was = lastRun(dir);
@@ -48,11 +55,12 @@ export function startFlight(app: Electron.App, dir: string, log: (s: string) => 
   app.on('render-process-gone', (_e, wc, d) => {
     let site = '?'; try { site = siteOf(wc.getURL()); } catch { /* gone */ }
     log(`flight: page gone (${d.reason}, code ${d.exitCode}) on ${site}`);
+    if (d.reason !== 'clean-exit') trouble.emit('gone', wc);
   });
   app.on('child-process-gone', (_e, d) => log(`flight: ${d.name || d.serviceName || d.type} process gone (${d.reason}, code ${d.exitCode})`));
   app.on('web-contents-created', (_e, wc) => {
     let since = 0;
-    wc.on('unresponsive', () => { since = Date.now(); log(`flight: page not answering on ${siteOf(wc.getURL())}`); });
+    wc.on('unresponsive', () => { since = Date.now(); log(`flight: page not answering on ${siteOf(wc.getURL())}`); trouble.emit('hang', wc); });
     wc.on('responsive', () => { if (since) log(`flight: page answering again on ${siteOf(wc.getURL())} after ${((Date.now() - since) / 1000).toFixed(1)} s`); since = 0; });
   });
   const mem = () => { try { log('flight: ' + memoryLine(app.getAppMetrics() as Metric[])); } catch { /* not now */ } };

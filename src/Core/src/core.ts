@@ -696,6 +696,17 @@ export class Core {
         this.lastFound = { png: r.png, url: String(r.url ?? ''), title: String(r.title ?? ''), video: r.video === true };
         return { ok: true, text: `That is the picture from ${String(r.title ?? 'the page')}${r.video ? ' (a video)' : ''}.`, image: { data: r.png, mimeType: 'image/png' } };
       }
+      // His pick (2026-10-30): Samara's whole window as he sees it (Samara's capture engine). His tabs are in it: asked once.
+      case 'window': {
+        let r = await this.requestDrive('window', { job }, 15_000);
+        if (r.needs === 'lever') {
+          if (!await this.askPermission('mcp__aang__browse_act', { what: String(r.what ?? 'see your Samara window') })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
+          r = await this.requestDrive('window', { job, allowed: true }, 15_000);
+        }
+        if (!r.ok || typeof r.window !== 'string') return fail(String(r.error ?? 'no picture came back'));
+        this.tainted = true;                                          // his tabs' words can be in the picture
+        return { ok: true, text: `That is his Samara window as he sees it (${String(r.size ?? '')}).`, image: { data: r.window, mimeType: 'image/jpeg' } };
+      }
       default: return fail('unknown step');
     }
   }
