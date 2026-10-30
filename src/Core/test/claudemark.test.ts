@@ -138,7 +138,8 @@ test('mark and card agree: hook sessions, with the stale rule', () => {
   agree('idle', { jobs: [], waits: [], hooks: [hook('H', 'idle', NOW)] }, { mark: 'none', ids: [] });
   // The same session known both ways is named once.
   agree('hook and job', { jobs: [job('X', 'working')], waits: [], hooks: [hook('X', 'working', NOW)] }, { mark: 'working', ids: ['X'] });
-  const mac = claudeNow({ now: NOW, jobs: [], waits: [], hooks: [hook('M', 'working', NOW, { host: 'mac' })] });
+  // A PC brain: `host` routes the click to the MacBook (a Mac brain has its machine on the row instead, sessionlist.test.ts).
+  const mac = claudeNow({ now: NOW, here: 'pc', jobs: [], waits: [], hooks: [hook('M', 'working', NOW, { host: 'mac' })] });
   assert.deepEqual(mac.working, { working: true, what: 'M', host: 'mac' });
 });
 
