@@ -670,6 +670,11 @@
       "at": "2026-10-30T06:58:00-04:00",
       "text": "A slow start after an update no longer undoes it.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T07:10:00-04:00",
+      "text": "A page that won't load shows Jiji the cat.",
+      "kind": "feature"
     }
   ]
 }
