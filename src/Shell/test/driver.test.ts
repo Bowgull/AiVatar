@@ -22,7 +22,7 @@ test('a job is named for its trail in capitals, short', () => {
 });
 
 // ---- driver v2 (2026-10-14): security checks stop the job, a person's pace, only what changed, what an action did.
-import { challengeOf, diffRead, paceFor, whatChanged } from '../src/driverrules.ts';
+import { challengeOf, challengeStops, diffRead, paceFor, whatChanged } from '../src/driverrules.ts';
 
 test('a security check or captcha is spotted, an ordinary page is not', () => {
   assert.ok(challengeOf({ url: 'https://www.linkedin.com/checkpoint/challenge/xyz' }));
@@ -30,6 +30,9 @@ test('a security check or captcha is spotted, an ordinary page is not', () => {
   assert.ok(challengeOf({ text: "Let's do a quick security check" }));
   assert.ok(challengeOf({ text: 'We noticed unusual activity on your account' }));
   assert.equal(challengeOf({ title: 'Product Designer jobs in Toronto', text: 'Apply now. Security clearance required.' }), null);
+  // A check on his job sites stops the whole session; anywhere else only that site (2026-10-30, Stack Overflow ended a read-only job).
+  for (const h of ['linkedin.com', 'www.linkedin.com', 'ca.indeed.com', 'glassdoor.ca']) assert.equal(challengeStops(h), 'job', h);
+  for (const h of ['stackoverflow.com', 'reddit.com', '127.0.0.1', '']) assert.equal(challengeStops(h), 'site', h);
 });
 test("a person's pace on the job sites only", () => {
   assert.deepEqual(paceFor('www.linkedin.com'), { least: 20, jitter: 40 });

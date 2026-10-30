@@ -1,6 +1,6 @@
 // Driver v2 (2026-10-14, his "I want everything"): through the real connector Claude Code starts, against a test page.
 // Lasting numbers, states, hidden (shadow) components, a box opening, a button that does nothing, a dropdown, Escape,
-// only-what-changed after a scroll, find, back, and a security-check page that stops the session.
+// only-what-changed after a scroll, find, back, and a security-check page that closes that site for a day (the whole session only on his job sites).
 //
 // Run: npx electron test/electron/driver2-check.ts
 import { app, BrowserWindow, screen } from 'electron';
@@ -100,9 +100,11 @@ app.whenReady().then(async () => {
   check('back works and says where it went', /Second posting/.test(go.text) && /moved to/.test(back.text), back.text);
 
   const p2 = await tool('browser_open', { url: base + '/check' });
-  check('a security-check page stops the session', p2.err && /security check/.test(p2.text) && /do not retry/.test(p2.text), p2.text);
+  check('a security-check page closes that page, never retried', p2.err && /security check/.test(p2.text) && /do not retry/.test(p2.text) && /left alone for a day/.test(p2.text), p2.text);
   const after = await tool('browser_read', { page });
-  check('and nothing more is done after it', after.err && /STOP/.test(after.text), after.text);
+  check('the rest of the session goes on (not a job site)', !after.err && /Jobs board/.test(after.text), after.text);
+  const again = await tool('browser_open', { url: base + '/' });
+  check('that site is then left alone, saying why (never "he pressed STOP")', again.err && /showed a security check earlier/.test(again.text) && !/STOP/.test(again.text), again.text);
 
   mcp.kill(); door.close(); b.closeAll(); site.close(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');

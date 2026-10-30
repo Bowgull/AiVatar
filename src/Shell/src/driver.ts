@@ -12,7 +12,7 @@
 // Page text is data, never instructions: it goes back marked as the page's words.
 import path from 'node:path';
 import { BrowserWindow, type Session, type WebContents, session, app } from 'electron';
-import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
+import { challengeLevel, challengeOf, challengeStops, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture } from './capture.ts';
@@ -27,7 +27,7 @@ export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
 export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string>;
-  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number; /** every site he allowed in the plan */ allowed?: Set<string>;
+  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; /** why it stopped, when it was not his STOP */ stopWhy?: string; steps?: string[]; step?: number; /** every site he allowed in the plan */ allowed?: Set<string>;
   /** He allowed this session to see his Samara window (browser_window / Aang's look): asked once per session. */ windowOk?: boolean }
 export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null; /** last time a tool used it */ used?: number; /** at rest: its timers slowed until it is used again */ resting?: boolean }
 
@@ -579,7 +579,7 @@ export class Driver {
   private live(jobId: number): Job {
     const j = this.job(jobId);
     if (!j) throw new Error('there is no such job');
-    if (j.stopped) throw new Error('Joshua pressed STOP on this job, so nothing more is done');
+    if (j.stopped) throw new Error(j.stopWhy ?? 'Joshua pressed STOP on this job, so nothing more is done');
     return j;
   }
 
@@ -600,6 +600,8 @@ export class Driver {
     if (l.length) throw new Error(`that site is on a list of fake or harmful sites (${l.join(', ')}), so it was not opened`);
     let site = ''; try { site = siteOf(new URL(url).hostname); } catch { /* checked above */ }
     if (j.denied?.has(site)) throw new Error('Joshua unticked that site in your plan, so it is never opened for this session');
+    const rest = this.resting(site);
+    if (rest) throw new Error(rest);
     if (j.sites && j.sites.size === 0 && site && !j.planned) j.sites.add(site);             // another task: its own first site
     // His login rule for the site wins: always signed in (and part of the job's sites), or never.
     const lr = this.loginRule(url);
@@ -623,7 +625,7 @@ export class Driver {
     // A link that wants a new window opens in this same page instead: his rule, only its own tabs, nothing pops up.
     // Every page it reaches, not just the first (AI lockdown G7, 2026-10-14): links, new windows and redirects all meet
     // the same refusals as browser_open (banks, this machine and home network, the fake-site lists).
-    const deniedSite = (u: string) => { try { return !!j.denied?.has(siteOf(new URL(u).hostname)); } catch { return false; } };
+    const deniedSite = (u: string) => { try { const s = siteOf(new URL(u).hostname); return !!j.denied?.has(s) || !!this.resting(s); } catch { return false; } };
     const stop = (u: string) => !isWeb(u) || !!this.why(u) || this.d.listed(u).length > 0 || deniedSite(u);
     wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
     // To another site: private details in the address are stopped (G2), and a signed-in page that leads outside its
@@ -696,16 +698,34 @@ export class Driver {
     return Math.round(wait / 1000);
   }
 
-  /** A site asking whether he is a bot: the job stops at once (never solved, never retried). */
+  /** Sites that showed a security check, left alone until then (his rule: leave that site for a day). */
+  private walled = new Map<string, number>();
+  private resting(site: string): string {
+    const until = this.walled.get(site) ?? 0;
+    if (until <= Date.now()) { this.walled.delete(site); return ''; }
+    const at = new Date(until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return `${site} showed a security check earlier, so it is left alone until tomorrow ${at}. Carry on with the other sites.`;
+  }
+
+  /** A site asking whether he is a bot: never solved, never retried. On his job sites the whole session stops; anywhere
+   *  else only that page closes and the site is left alone for a day (2026-10-30). */
   private checkChallenge(p: DPage, r: { title?: string; text?: string; url?: string; lines?: string[] }): void {
     const c = challengeOf({ title: r.title, url: r.url, text: r.text ?? (r.lines ?? []).slice(0, 30).join('\n') });
     if (!c) return;
     let host = ''; try { host = new URL(r.url ?? p.url).hostname.replace(/^www\./, ''); } catch { /* none */ }
     // A box to tick on an application form (BambooHR's "I'm not a robot") is his to click: the session goes on and
-    // says so. A whole security page, or any check on LinkedIn, Indeed or Glassdoor, stops everything (2026-10-14).
+    // says so. A whole security page stops the session on LinkedIn, Indeed or Glassdoor (2026-10-14), that site elsewhere.
     if (challengeLevel({ title: r.title, url: r.url, host }) === 'box') return;
-    this.stop(p.job);
-    throw new Error(`${host || 'the site'} is showing ${c}. This session is stopped: do not retry or try to get past it. Tell Joshua, and leave that site for a day.`);
+    const name = host || 'the site';
+    if (challengeStops(host) === 'job') {
+      const j = this.job(p.job);
+      if (j) j.stopWhy = `${name} showed ${c}, so Samara stopped this session (his rule for job sites). Nothing more is done: tell Joshua, and leave that site for a day.`;
+      this.stop(p.job);
+      throw new Error(`${name} is showing ${c}. This session is stopped: do not retry or try to get past it. Tell Joshua, and leave that site for a day.`);
+    }
+    if (host) this.walled.set(siteOf(host), Date.now() + KEEP_MS);
+    this.close(p.id);
+    throw new Error(`${name} is showing ${c}. That page is closed and ${name} is left alone for a day: do not retry or try to get past it. The rest of the session goes on; tell Joshua at the end.`);
   }
 
   /** The frames of a page that hold another site's page (a Greenhouse or Workday form): 1, 2, 3... */

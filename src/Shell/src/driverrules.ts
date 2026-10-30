@@ -204,6 +204,10 @@ export function sweepPlan(host: string, o: { path?: string; card?: string; spaci
   return { path, card, spacing: Math.max(least, Number(o.spacing) || 0) };
 }
 
+/** What a full-page check stops (2026-10-30, the measuring stick: Stack Overflow's check ended a whole read-only job):
+ *  on LinkedIn, Indeed and Glassdoor, where his own account is at stake, the whole session; anywhere else only that site. */
+export function challengeStops(host: string): 'job' | 'site' { return paceFor(host) ? 'job' : 'site'; }
+
 /** A full-page check (stop the session) or a box on a form for him to tick (keep going, say "needs Josh"). */
 export function challengeLevel(p: { title?: string; url?: string; host?: string }): 'page' | 'box' {
   if (paceFor(String(p.host ?? ''))) return 'page';
