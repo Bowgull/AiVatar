@@ -30,8 +30,10 @@ case "$PHASE" in prepare|swap) ;; *) echo "prepare or swap"; exit 2 ;; esac
 # Opening Samara again (2026-10-30, seen on his Mac on Oct 29: \`open -a\` answered -600 "procNotFound" while the old
 # Samara was still closing, and with \`set -e\` the script stopped there: Samara stayed closed for hours and the check
 # below never ran). Tried a few times, then the app's own program is started directly; never fatal.
+running() { pgrep -f "Applications/(Samara|Aang).app/Contents/MacOS/" >/dev/null 2>&1; }
 launch() {
-  for i in 1 2 3 4 5; do open -a "$APP" >/dev/null 2>&1 && return 0; sleep $i; done
+  # open -a can answer yes while it only woke the old Samara as it closed: it counts once Samara is seen running.
+  for i in 1 2 3 4 5; do open -a "$APP" >/dev/null 2>&1 && { for j in 1 2 3 4 5 6 7 8 9 10; do running && return 0; sleep 1; done; }; sleep $i; done
   BIN="$APP/Contents/MacOS/$(ls "$APP/Contents/MacOS" 2>/dev/null | head -1)"
   [ -x "$BIN" ] && { nohup "$BIN" >/dev/null 2>&1 & disown; return 0; }
   echo "Samara could not be opened again."; return 0
@@ -39,7 +41,6 @@ launch() {
 # Moves an app folder aside to the Trash (macOS 13 won't let Samara delete inside an app bundle); a plain delete only if
 # the Trash can't take it.
 aside() { [ -e "$1" ] || return 0; mv "$1" "$HOME/.Trash/Samara $2 $(date +%Y-%m-%d-%H%M%S)" 2>/dev/null || rm -rf "$1"; }
-running() { pgrep -f "Applications/(Samara|Aang).app/Contents/MacOS/" >/dev/null 2>&1; }
 [ "$PHASE" = "swap" ] && trap 'launch' EXIT
 sign_app() { codesign --force --deep -s "Samara on this Mac" "$1" >/dev/null 2>&1 || codesign --force --deep -s - "$1" >/dev/null 2>&1 || true; }
 npm_bin() { if [ -x "$NODE_DIR/bin/npm" ]; then echo "$NODE_DIR/bin/npm"; else command -v npm; fi; }
@@ -120,11 +121,12 @@ echo "Update done: $VERSION. Samara is opening again."
 seen=0
 for t in 20 20 20 20 20 20 30 30 30 30; do
   sleep $t
-  grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && exit 0
+  grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && { running || launch; exit 0; }
   if running; then seen=1; continue; fi
   [ "$seen" = 1 ] && break
 done
-grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && exit 0
+# Good or not, he is never left without Samara: a good install that is not running is opened again.
+grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && { running || launch; exit 0; }
 running && exit 0
 if [ -d "$RB/Samara.app/Contents" ]; then
   echo "The new Samara did not start; putting the old one back."

@@ -34,12 +34,12 @@ test('a phase it does not know does nothing', () => {
 // Oct 29 on his Mac: `open -a` said -600 while the old Samara was still closing, and Samara never came back.
 test('when macOS will not open Samara, its own program is started instead, and the script goes on', () => {
   const s = macUpdateScript(ok);
-  const fn = s.slice(s.indexOf('launch() {'), s.indexOf('running() {'));
+  const fn = s.slice(s.indexOf('running() {'), s.indexOf('aside() {'));
   const d = mkdtempSync(path.join(os.tmpdir(), 'mu-'));
   const app = path.join(d, 'Samara.app'), mark = path.join(d, 'started');
   execFileSync('mkdir', ['-p', path.join(app, 'Contents/MacOS')]);
   writeFileSync(path.join(app, 'Contents/MacOS/Electron'), `#!/bin/bash\ntouch '${mark}'\n`, { mode: 0o755 });
-  const out = execFileSync('bash', ['-c', `open() { return 1; }; sleep() { :; }; APP='${app}'\n${fn}\nlaunch; echo after`]).toString();
+  const out = execFileSync('bash', ['-c', `open() { return 1; }; sleep() { :; }; APP='${app}'\n${fn}\nrunning() { [ -f '${mark}' ]; }\nlaunch; echo after`]).toString();
   assert.match(out, /after/);
   for (let i = 0; i < 50 && !existsSync(mark); i++) execFileSync('bash', ['-c', 'command sleep 0.1']);
   assert.ok(existsSync(mark), 'the program itself was started');
@@ -85,4 +85,17 @@ test('an old staged copy is moved aside, never half-deleted and left marked read
   assert.doesNotMatch(swap, /rm -rf "\$(RB|APP|STAGE)/);
   assert.match(prep, /could not be moved out of the way/);
   assert.doesNotMatch(prep, /^\s*rm -rf "\$STAGE"; mkdir/m);
+});
+
+test('a good install that is not running is opened again, never left closed', () => {
+  const s = macUpdateScript(ok);
+  const watch = s.slice(s.indexOf('seen=0'), s.lastIndexOf('exit 0'));
+  const d = mkdtempSync(path.join(os.tmpdir(), 'mu-'));
+  execFileSync('mkdir', ['-p', path.join(d, 'BR'), path.join(d, 'RB/Samara.app/Contents'), path.join(d, 'APP/Contents')]);
+  writeFileSync(path.join(d, 'BR/installed.json'), '{"status":"good"}');
+  const out = execFileSync('bash', ['-c', `sleep() { :; }; running() { return 1; }; launch() { echo launched; }; BR='${d}/BR'; RB='${d}/RB'; APP='${d}/APP'; VERSION=1.0.0
+    ${watch}
+    echo end`]).toString();
+  assert.match(out, /launched/);
+  assert.doesNotMatch(out, /putting the old one back/);
 });
