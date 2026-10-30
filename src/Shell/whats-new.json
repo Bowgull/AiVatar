@@ -725,6 +725,26 @@
       "at": "2026-10-30T10:38:00-04:00",
       "text": "The Mockups key sits at the bottom, a size smaller.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T11:33:00-04:00",
+      "text": "Mac and PC start Samara the same way.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T11:34:00-04:00",
+      "text": "Claude's plan cards reach Aang's bubble on the Mac.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T11:35:00-04:00",
+      "text": "Pop-out videos on the Mac skip ads too.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T11:36:00-04:00",
+      "text": "An update always ends with Samara open.",
+      "kind": "fix"
     }
   ]
 }
