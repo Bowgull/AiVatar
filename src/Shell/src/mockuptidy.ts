@@ -15,7 +15,7 @@
 import path from 'node:path';
 
 /** One version line as mockups.json keeps it (the subset the tidy reads and writes). */
-export interface TidyVersion { id: number; sheet: string; title: string; commit: string; at: number; key: string; v: number; old?: boolean; seen?: number[] }
+export interface TidyVersion { id: number; sheet: string; title: string; commit: string; at: number; key: string; v: number; old?: boolean; seen?: number[]; src?: string }
 /** What the tidy keeps about a whole sheet. */
 export interface SheetMeta {
   /** When it went to the Archive (absent: not archived). */
@@ -32,6 +32,8 @@ export interface SheetMeta {
   decided?: boolean; dkey?: string;
   /** The last time he opened it (a tab showed it). */
   opened?: number;
+  /** Sheet 107: Claude sent it and he has not opened it in Mockups yet (NEW). */
+  fresh?: boolean;
 }
 export interface TidyReport { merged: number; folded: number; archived: number; gone: number; back: number }
 export const TIDY_KEEP = 3, TIDY_STALE_DAYS = 14, DAY = 86_400_000;
@@ -103,7 +105,8 @@ export function tidyMockups(inp: TidyIn): { versions: TidyVersion[]; meta: Recor
   const kept = new Map<string, TidyVersion>(), byCommit = new Map<string, TidyVersion>();
   const out: TidyVersion[] = [];
   for (const x of [...inp.versions].sort(newestFirst)) {
-    const k = x.sheet + '\n' + x.key, c = x.commit ? x.sheet + '\n' + x.commit : '';
+    // Sheet 107: one sheet can open from several addresses (src); each address's picture is its own line.
+    const at = x.src ?? x.sheet, k = x.sheet + '\n' + at + '\n' + x.key, c = x.commit ? x.sheet + '\n' + at + '\n' + x.commit : '';
     const into = kept.get(k) ?? (c ? byCommit.get(c) : undefined);
     if (into) {
       into.seen = [...new Set([...(into.seen ?? []), x.at, ...(x.seen ?? [])])].sort((a, b) => b - a).slice(0, 50);

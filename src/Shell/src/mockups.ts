@@ -15,10 +15,11 @@ import { createServer, type Server } from 'node:http';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
-import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { tidyMockups, type SheetMeta, type TidyReport } from './mockuptidy.ts';
+import { FILED, NO_TOPIC, branchHome, cleanTitle, fileOnce, projectFromSrc, projectName, sheetIdent } from './mockfiling.ts';
 
 /** The only folders a mockup page (or anything it links to) may come from. */
 export const MOCK_DIRS = ['docs/', 'src/Shell/pages/', 'assets/'];
@@ -115,7 +116,6 @@ export function findRepo(from: string): string | null {
 }
 
 /** The names Samara's own repo goes by: AiVatar (the Mac's clone, GitHub), AangApp (the PC's folder). */
-const SAMARA_REPOS = new Set(['aivatar', 'aangapp']);
 /** Sheet 100: a project's logo file name: Couch Mode is couch-mode. */
 export const logoSlug = (project: string): string => project.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'project';
 /** Where a repo usually keeps its logo; the first that is a PNG wins. */
@@ -211,7 +211,11 @@ export interface MockVersion {
   /** Sheet 79 (2026-10-23): the stage this version is at, one at a time, and who set it when. `said`: his words, when
    *  Claude approved it from the chat. `note`: what to fix. */
   stage?: MockStage; note?: string; said?: string; stageAt?: number; by?: 'you' | 'claude';
+  /** Sheet 107: the address this version opens from, when it is not the sheet's own (a live page, ?v=2, merged into it). */
+  src?: string;
 }
+/** Where a version opens from: its own address, else its sheet's. */
+export const srcOf = (x: { sheet: string; src?: string }): string => x.src ?? x.sheet;
 /** FIX (needs changes), OK (approved by his click), CHAT (approved: he said yes to Claude), BUILT (in Samara), PARK (a no). */
 export type MockStage = 'fix' | 'ok' | 'chat' | 'built' | 'park';
 export const MOCK_STAGES: MockStage[] = ['fix', 'ok', 'chat', 'built', 'park'];
@@ -324,9 +328,11 @@ export class MockStore {
         const rp = s?.repos && typeof s.repos === 'object' ? s.repos as Record<string, unknown> : {};
         for (const [k, v] of Object.entries(rp)) if (REPO_NAME_RE.test(k) && typeof v === 'string' && path.isAbsolute(v) && !v.startsWith('\\\\') && v.length <= 400) this.repos.set(k, v);
         // A live page has no commit (2026-10-22); every other version has one.
-        this.list = a.filter((x: Partial<MockVersion>) => Number.isInteger(x?.id) && typeof x?.sheet === 'string' && cleanSheet(x.sheet) && typeof x?.commit === 'string' && (COMMIT_RE.test(x.commit) || (x.commit === '' && sheetKind(x.sheet) === 'live'))
+        this.list = a.filter((x: Partial<MockVersion>) => Number.isInteger(x?.id) && typeof x?.sheet === 'string' && cleanSheet(x.sheet) && (x.src === undefined || cleanSheet(x.src))
+          && typeof x?.commit === 'string' && (COMMIT_RE.test(x.commit) || (x.commit === '' && sheetKind(x.src ?? x.sheet) === 'live'))
           && typeof x?.key === 'string' && Number.isFinite(x?.at) && Number.isInteger(x?.v))
           .map((x: MockVersion) => ({ id: x.id, sheet: x.sheet, title: String(x.title ?? '').slice(0, 80), commit: x.commit, at: Number(x.at), key: x.key.slice(0, 100), v: x.v,
+            ...(x.src && x.src !== x.sheet ? { src: x.src } : {}),
             ...(x.old === true ? { old: true } : {}), ...(Array.isArray(x.seen) ? { seen: x.seen.filter((n) => Number.isFinite(n)).slice(0, 50) } : {}),
             ...(MOCK_STAGES.includes(x.stage as MockStage) ? { stage: x.stage, stageAt: Number(x.stageAt) || 0, by: x.by === 'claude' ? 'claude' : 'you',
               ...(typeof x.note === 'string' && x.note ? { note: x.note.slice(0, 300) } : {}), ...(typeof x.said === 'string' && x.said ? { said: x.said.slice(0, 300) } : {}) } : {}) })).slice(-2000);
@@ -343,6 +349,7 @@ export class MockStore {
           if (typeof v.decided === 'boolean') m.decided = v.decided;
           if (typeof v.dkey === 'string') m.dkey = v.dkey.slice(0, 100);
           if (Number.isFinite(v.opened)) m.opened = Number(v.opened);
+          if (v.fresh === true) m.fresh = true;
           if (m.archived && !m.why) m.why = 'hand';
           this.meta.set(k, m);
         }
@@ -363,13 +370,36 @@ export class MockStore {
         }
         // Three levels only, whatever the file says: a parent that is itself a child is cut loose.
         for (const [, v] of this.places) if (v.parent && this.places.get(v.parent)?.parent) v.parent = null;
+        this.filed = s?.filed === FILED;
       }
     } catch (e) { console.error('shell: mockups: the history could not be read: ' + (e as Error).message); }
     this.seq = this.list.reduce((m, x) => Math.max(m, x.id), 0);
     this.branchSeq = this.branches.reduce((m, x) => Math.max(m, x.id), 0);
+    if (!this.filed) this.fileOnce();
+  }
+  /** Sheet 107 has filed this history once (real projects, topics inside, one sheet per number). */
+  private filed = false;
+  /**
+   * Sheet 107, once (his ask, 2026-10-30): every sheet in a real project and a topic, the same sheet arrived twice made
+   * one, "(v2)" out of titles (mockfiling.ts has the rules). The file as it was is copied beside it first, never deleted.
+   */
+  private fileOnce(): void {
+    this.filed = true;
+    if (!this.list.length) return;
+    try { const keep = this.file.replace(/\.json$/i, '') + '.before-107.json'; if (existsSync(this.file) && !existsSync(keep)) copyFileSync(this.file, keep); }
+    catch (e) { console.error('shell: mockups: no copy before filing, so not filed now: ' + (e as Error).message); this.filed = false; return; }
+    const { state, report } = fileOnce({ versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), meta: Object.fromEntries(this.meta) as Record<string, Record<string, unknown>>,
+      projects: Object.fromEntries(this.projects) });
+    this.list = state.versions;
+    this.branches = state.branches.map((b) => ({ ...b }));
+    this.places = new Map(Object.entries(state.places));
+    this.meta = new Map(Object.entries(state.meta) as [string, SheetMeta][]);
+    this.branchSeq = this.branches.reduce((m, x) => Math.max(m, x.id), this.branchSeq);
+    console.log(`shell: mockups: filed for sheet 107: ${report.merged} merged, ${report.moved} moved, ${report.topics} topics`);
+    this.save();
   }
   private save(): void {
-    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), projects: Object.fromEntries(this.projects), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt, stageLog: [...this.stageLog.values()] })); }
+    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, filed: this.filed ? FILED : 0, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos), projects: Object.fromEntries(this.projects), meta: Object.fromEntries(this.meta), tidiedAt: this.tidiedAt, stageLog: [...this.stageLog.values()] })); }
     catch (e) { console.error('shell: mockups: the history could not be saved: ' + (e as Error).message); }
   }
   /**
@@ -428,13 +458,12 @@ export class MockStore {
    * (couch-mode reads Couch Mode). Live pages are 'Live pages'.
    */
   projectOf(sheet: string): string {
+    // Sheet 107: projects are real projects only; its topic's project, else where its file lives (mockfiling.ts).
     const b = this.branches.find((x) => x.id === this.placeOf(sheet).branch);
-    if (b?.project) return b.project;
-    if (sheetKind(sheet) === 'live') return 'Live pages';
-    const repo = sheet.startsWith('@') ? splitRepoSheet(sheet)?.name ?? '' : '';
-    // Samara's own repo is AiVatar on the Mac and AangApp on the PC (and the PC's own sheets carry no repo): one project,
-    // Samara, on both machines (sheet 100, his pick).
-    return this.projects.get(repo) ?? (!repo || SAMARA_REPOS.has(repo.toLowerCase()) ? 'Samara' : readable(repo));
+    const named = projectName(b?.project);
+    if (named) return named;
+    const last = this.list.filter((x) => x.sheet === sheet).sort((p, q) => q.at - p.at || q.id - p.id)[0];
+    return projectFromSrc(last ? srcOf(last) : sheet, this.projects);
   }
   /**
    * The name a repo's sheets go by (@<name>/...): the one it already has, else its folder's name made plain, with -2, -3
@@ -509,18 +538,19 @@ export class MockStore {
     const target = parent ? (this.placeOf(parent).branch === null ? parent : null) : sheet;
     if (!target) return null;
     // Sheet 100: a topic is matched inside the sheet's own project (Couch Mode's "Launcher" is never Samara's), and a new
-    // one belongs to that project.
+    // one belongs to that project. Sheet 107: a project's name given as the topic is the project, and "samara-notices" is
+    // Samara's Notices (mockfiling.ts branchHome).
     // Claude may name the project (sheet 100 v4) and the icon that fits a new topic; a topic keeps the icon it has.
-    const proj = cleanBranch(o.project) ?? this.projectOf(target), here = (b: MockBranch) => (b.project ?? proj) === proj;
-    let id = this.branches.find((b) => b.name.toLowerCase() === n.toLowerCase() && here(b) && (b.project || this.sheetsIn(b.id).every((x) => this.projectOf(x) === proj)))?.id;
-    if (id === undefined) id = this.newBranch(n);
+    const h = branchHome(n, o.project);
+    const proj = projectName(o.project) ?? h.project ?? this.projectOf(target), topic = h.topic ?? NO_TOPIC;
+    let id = this.branches.find((b) => b.name.toLowerCase() === topic.toLowerCase() && (projectName(b.project) ?? proj) === proj)?.id;
+    if (id === undefined) id = this.newBranch(topic);
     const b = this.branches.find((x) => x.id === id)!;
     if (!b.project) b.project = proj;
     if (!b.icon && cleanIcon(o.icon)) b.icon = o.icon!;
     this.save();
     return this.toBranch(target, id) ? null : target;
   }
-  private sheetsIn(branch: number): string[] { return [...this.places].filter(([, v]) => v.branch === branch && !v.parent).map(([k]) => k); }
   /** Make a mockup the child of another. Three levels only: dropped on a child, it joins that child's parent instead. */
   toParent(sheet: string, parent: string): string {
     const top = this.places.get(parent)?.parent ?? parent;
@@ -528,22 +558,41 @@ export class MockStore {
     if (this.childrenOf(sheet).length) return 'it has children of its own';
     this.places.set(sheet, { branch: null, parent: top }); this.save(); return '';
   }
-  /** A version opened. Its V number counts the sheet's different pictures: the same picture again keeps its number. */
-  add(sheet: string, title: string, commit: string, key: string, at = Date.now()): MockVersion {
-    const mine = this.list.filter((x) => x.sheet === sheet);
-    const v = mine.find((x) => x.key === key)?.v ?? mine.reduce((m, x) => Math.max(m, x.v), 0) + 1;
-    const r: MockVersion = { id: ++this.seq, sheet, title: title.slice(0, 80), commit, at, key, v };
-    if (!this.places.has(sheet)) this.places.set(sheet, this.fileNew(sheet));
+  /**
+   * A version opened. Its V number counts the sheet's different pictures: the same picture again keeps its number.
+   * Sheet 107: one sheet per number per project, so a page that is already a sheet here under another address (a live
+   * page, ?v=2) joins that sheet as its next version and keeps its own address (src). `project`: the one Claude named.
+   */
+  add(sheet: string, title: string, commit: string, key: string, at = Date.now(), o: { project?: string | null } = {}): MockVersion {
+    const src = sheet, name = cleanTitle(title);
+    let canon = this.list.find((x) => srcOf(x) === src)?.sheet ?? src;
+    if (canon === src && !this.list.some((x) => x.sheet === src)) {
+      const proj = projectName(o.project) ?? this.projectOf(src), id = sheetIdent(proj, name, src);
+      const newest = (s: string) => this.list.filter((x) => x.sheet === s).sort((p, q) => q.at - p.at || q.id - p.id)[0]!;
+      const same = id ? [...new Set(this.list.map((x) => x.sheet))].find((s) => this.projectOf(s) === proj && sheetIdent(proj, newest(s).title, srcOf(newest(s))) === id) : undefined;
+      if (same) canon = same;
+    }
+    const mine = this.list.filter((x) => x.sheet === canon);
+    const v = mine.find((x) => x.key === key && srcOf(x) === src)?.v ?? mine.reduce((m, x) => Math.max(m, x.v), 0) + 1;
+    const r: MockVersion = { id: ++this.seq, sheet: canon, title: name.slice(0, 80), commit, at, key, v, ...(src !== canon ? { src } : {}) };
+    if (!this.places.has(canon)) this.places.set(canon, this.fileNew(canon));
     // Claude opened it again: an archived sheet comes back by itself, and it counts as opened.
-    const m = this.meta.get(sheet);
+    const m = this.meta.get(canon);
     if (m?.archived) { delete m.archived; delete m.why; delete m.by; }
-    this.meta.set(sheet, { ...(m ?? {}), opened: at });
+    this.meta.set(canon, { ...(m ?? {}), opened: at });
     this.list.push(r);
     const e = this.stageLog.get(key);
-    if (e && e.sheet === bareSheet(sheet) && !mine.some((x) => x.key === key && x.stage)) this.applyEntry(r, e);
+    if (e && e.sheet === bareSheet(canon) && !mine.some((x) => x.key === key && x.stage)) this.applyEntry(r, e);
     if (this.list.length > 2000) this.list.splice(0, this.list.length - 2000);
     this.save();
     return r;
+  }
+  /** Sheet 107: NEW on a sheet Claude just sent, until he opens it in Mockups. */
+  setFresh(sheet: string, on: boolean): void {
+    const m = this.meta.get(sheet);
+    if (on === Boolean(m?.fresh)) return;
+    if (on) this.meta.set(sheet, { ...(m ?? {}), fresh: true }); else if (m) delete m.fresh;
+    this.save();
   }
   get(id: number): MockVersion | undefined { return this.list.find((x) => x.id === id); }
   /**
@@ -554,7 +603,7 @@ export class MockStore {
     const out = new Map<number, number>();
     const keep = new Set<string>();
     for (const x of [...this.list].sort((a, b) => b.at - a.at || b.id - a.id)) {
-      const k = x.sheet + '\n' + x.key;
+      const k = x.sheet + '\n' + srcOf(x) + '\n' + x.key;
       if (keep.has(k)) out.set(x.id, x.v); else keep.add(k);
     }
     return out;
