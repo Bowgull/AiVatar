@@ -21,7 +21,7 @@ export function pcSamara(su: SamaraUpdates): Source {
   };
 }
 
-/** Sheet 105's lines for a new engine: video wins, so there are no tick boxes. */
+/** Sheet 108's lines for a new engine: video wins, so there are no tick boxes. */
 export function engineGroups(version: string, since: number, where: string, now = Date.now()): CardGroup[] {
   const days = Math.floor((now - since) / 86_400_000);
   return [{ name: "SAMARA'S ENGINE", items: [

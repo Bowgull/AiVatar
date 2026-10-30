@@ -273,7 +273,7 @@ export class MacEngine implements Source {
     void this.stage.build();
   }
 
-  /** Sheet 105: Terminal opens with castLabs' sign-in typed; once castLabs has him, the engine is signed. */
+  /** Sheet 108: Terminal opens with castLabs' sign-in typed; once castLabs has him, the engine is signed. */
   async signin(): Promise<boolean> {
     if (this.signinState !== 'ask') return false;
     const since = this.o.evs.loginStamp();
