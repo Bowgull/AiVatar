@@ -254,7 +254,7 @@ app.whenReady().then(async () => {
 
   // ---- the update engine (2026-10-30, updateengine.ts + macsource.ts): Samara's code from GitHub and new castLabs
   // engines, both sealed with his release key, built into one new Samara in the background; then his UPDATE key
-  // lights up (sheet 35, sheet 105). Restart now, overnight, put away, skip and go back are the engine's, one set of
+  // lights up (sheet 35, sheet 108). Restart now, overnight, put away, skip and go back are the engine's, one set of
   // rules for both machines. Samara no longer takes updates from the PC (his pick: GitHub, both machines).
   const paths = new MacPaths(LISTENER);
   const log = (t: string) => console.log('aang: ' + t);

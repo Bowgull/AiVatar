@@ -92,25 +92,25 @@ app.whenReady().then(async () => {
   check('after an overnight update: what changed, plain lines, no tick boxes', d.shown && d.name === 'Version 1.1.0: Gojo' && d.dots === 2 && d.boxes === 0, JSON.stringify(d));
   await js(`document.getElementById('updoneok').click()`); await wait(150);
   check('Got it closes it and says it was seen', (await js(`document.getElementById('updone').hidden`)) && acts.some((a) => a.act === 'seen'));
-  // Sheet 105 (his yes, 2026-10-30): the engine's own card, the castLabs sign-in key, the behind-Chrome line.
+  // Sheet 108 (his yes, 2026-10-30): the engine's own card, the castLabs sign-in key, the behind-Chrome line.
   const eng = { name: "SAMARA'S ENGINE", items: [{ text: "Chrome's newest security fixes.", note: 'castLabs 44.9.3, out 2 days ago.' }, { text: 'Netflix and Prime keep playing in your tabs.', note: 'Signed for video on this Mac.' }] };
   const base = { version: '44.9.3', since: Date.now(), title: "Samara's engine 44.9.3", canBack: true, overnight: false, groups: [eng] };
   b.setUpdate({ ...base, behind: "Your engine today is 6 weeks behind Chrome's security fixes. This one is 2 days behind." } as any); await wait(400);
   if (await js(`document.getElementById('uptray').hidden`)) { await js(`document.getElementById('upkey').click()`); await wait(200); }
   await js(`document.querySelector('#upskip2 [data-up=take], #upvers [data-up=home]')?.click()`); await wait(100);
   const e1 = await js(`({ kicker: document.getElementById('upkicker').textContent, note: document.getElementById('upnote').textContent, bold: [...document.querySelectorAll('#upnote b')].map(x => x.textContent), noteShown: !document.getElementById('upnote').hidden, kc: !document.getElementById('upkc').hidden, go: document.getElementById('upgo').textContent, boxes: document.querySelectorAll('#uplist .it.opt').length })`);
-  check('105: a new engine, no tick boxes, the behind-Chrome line with its times in bold', e1.kicker === 'UPDATE READY' && e1.go === 'Restart now' && e1.boxes === 0 && e1.noteShown && /6 weeks behind/.test(e1.note) && e1.bold.join('|') === '6 weeks|2 days' && !e1.kc, JSON.stringify(e1));
+  check('108: a new engine, no tick boxes, the behind-Chrome line with its times in bold', e1.kicker === 'UPDATE READY' && e1.go === 'Restart now' && e1.boxes === 0 && e1.noteShown && /6 weeks behind/.test(e1.note) && e1.bold.join('|') === '6 weeks|2 days' && !e1.kc, JSON.stringify(e1));
   b.setUpdate({ ...base, signin: 'ask' } as any); await wait(300);
   const e2 = await js(`({ kicker: document.getElementById('upkicker').textContent, note: document.getElementById('upnote').textContent, go: document.getElementById('upgo').textContent, dis: document.getElementById('upgo').disabled })`);
-  check('105: castLabs wants a sign-in: one key, the password line', e2.kicker === 'ONE STEP FROM YOU' && e2.go === 'Sign in to castLabs' && !e2.dis && /Your password goes to castLabs only, never to Samara or Aang\./.test(e2.note), JSON.stringify(e2));
+  check('108: castLabs wants a sign-in: one key, the password line', e2.kicker === 'ONE STEP FROM YOU' && e2.go === 'Sign in to castLabs' && !e2.dis && /Your password goes to castLabs only, never to Samara or Aang\./.test(e2.note), JSON.stringify(e2));
   const before = gone.length;
   await js(`document.getElementById('upgo').click()`); await wait(150);
-  check('105: the key asks for Terminal, never starts the update', acts.at(-1)?.act === 'castlabs' && gone.length === before, JSON.stringify(acts.at(-1)));
+  check('108: the key asks for Terminal, never starts the update', acts.at(-1)?.act === 'castlabs' && gone.length === before, JSON.stringify(acts.at(-1)));
   b.setUpdate({ ...base, signin: 'waiting' } as any); await wait(300);
   const e3 = await js(`({ kicker: document.getElementById('upkicker').textContent, go: document.getElementById('upgo').textContent, dis: document.getElementById('upgo').disabled, note: document.getElementById('upnote').textContent })`);
-  check('105: Samara waits while he signs in', e3.kicker === 'WAITING FOR CASTLABS' && e3.go === 'Signing in...' && e3.dis && /Finish in Terminal/.test(e3.note), JSON.stringify(e3));
+  check('108: Samara waits while he signs in', e3.kicker === 'WAITING FOR CASTLABS' && e3.go === 'Signing in...' && e3.dis && /Finish in Terminal/.test(e3.note), JSON.stringify(e3));
   b.setUpdate({ ...base } as any); await wait(300);
-  check('105: signed in, the key is Restart now again', await js(`document.getElementById('upgo').textContent === 'Restart now' && !document.getElementById('upgo').disabled && document.getElementById('upkicker').textContent === 'UPDATE READY'`));
+  check('108: signed in, the key is Restart now again', await js(`document.getElementById('upgo').textContent === 'Restart now' && !document.getElementById('upgo').disabled && document.getElementById('upkicker').textContent === 'UPDATE READY'`));
   (b as any).closeAll?.(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');
   setTimeout(() => app.exit(bad ? 1 : 0), 500);

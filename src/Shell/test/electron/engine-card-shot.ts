@@ -1,4 +1,4 @@
-// Sheet 105 (2026-10-30): the engine card on his UPDATE key, the castLabs sign-in key and the "behind Chrome" line,
+// Sheet 108 (2026-10-30): the engine card on his UPDATE key, the castLabs sign-in key and the "behind Chrome" line,
 // drawn by the REAL tray (sheet 35) with the new lines put in for the sheet only. Writes one picture per state.
 //
 // Run: npx electron test/electron/engine-card-shot.ts <out dir>

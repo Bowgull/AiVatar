@@ -2298,7 +2298,7 @@ function paintWho() {
     el('upback').hidden = u.canBack !== true;
     el('upnight').classList.toggle('on', u.overnight === true);
     const call = s.inCall === true;
-    // Sheet 105 (his yes, 2026-10-30): castLabs wants him to sign in before the new engine is signed for video (one key,
+    // Sheet 108 (his yes, 2026-10-30): castLabs wants him to sign in before the new engine is signed for video (one key,
     // Terminal opens with the sign-in typed), or Terminal is open; otherwise how far behind Chrome the engine is.
     const si = u.signin === 'ask' || u.signin === 'waiting' ? u.signin : '';
     el('upkicker').textContent = si === 'ask' ? 'ONE STEP FROM YOU' : si === 'waiting' ? 'WAITING FOR CASTLABS' : 'UPDATE READY';

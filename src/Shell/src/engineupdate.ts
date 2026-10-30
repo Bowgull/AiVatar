@@ -227,11 +227,11 @@ export class EngineUpdates {
       console.log('shell: engine update check: ' + (e as Error).message);
     } finally { this.busy = false; }
   }
-  /** Sheet 105: castLabs wants him to sign in ('ask'), or Terminal is open for it ('waiting'). */
+  /** Sheet 108: castLabs wants him to sign in ('ask'), or Terminal is open for it ('waiting'). */
   signin: 'ask' | 'waiting' | null = null;
   /** The engine waiting for that sign-in. */
   signinFor: { version: string; since: number } | null = null;
-  /** Sheet 105: how far behind Chrome, for the card's one line. */
+  /** Sheet 108: how far behind Chrome, for the card's one line. */
   behind = '';
   private pendingMajor = false;
   /** His click on "Sign in to castLabs": Terminal opens with the sign-in typed; once castLabs has him, it signs. */

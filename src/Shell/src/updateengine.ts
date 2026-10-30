@@ -74,10 +74,10 @@ export interface CardGroup { name: string; items: { text: string; note?: string;
 /** What a source has waiting for his key. */
 export interface Offer {
   version: string; since: number; title?: string; groups: CardGroup[]; canBack?: boolean; lines?: string[];
-  /** Sheet 105: castLabs wants him to sign in before the engine can be signed for video ('ask': the one key;
+  /** Sheet 108: castLabs wants him to sign in before the engine can be signed for video ('ask': the one key;
    *  'waiting': Terminal is open). While set, the key shows "Sign in to castLabs" instead of Restart now. */
   signin?: 'ask' | 'waiting';
-  /** Sheet 105: the one line under the lines ("Your engine today is 6 weeks behind Chrome's security fixes..."). */
+  /** Sheet 108: the one line under the lines ("Your engine today is 6 weeks behind Chrome's security fixes..."). */
   behind?: string;
 }
 /**
@@ -97,7 +97,7 @@ export interface Source {
   back(): boolean;
   /** "Check for updates": what was put away comes back, and a look right now. */
   checkNow(): void;
-  /** Sheet 105, the engine only: his click on "Sign in to castLabs". */
+  /** Sheet 108, the engine only: his click on "Sign in to castLabs". */
   signin?(): Promise<boolean>;
 }
 
@@ -179,7 +179,7 @@ export class UpdateEngine {
     return true;
   }
 
-  /** Sheet 105: his click on "Sign in to castLabs" (Terminal opens with castLabs' sign-in typed). */
+  /** Sheet 108: his click on "Sign in to castLabs" (Terminal opens with castLabs' sign-in typed). */
   async signin(): Promise<boolean> {
     const s = this.o.sources.find((x) => x.signin && x.ready()?.signin === 'ask');
     const ok = s ? await s.signin!() : false;
