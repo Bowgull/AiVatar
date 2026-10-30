@@ -2566,11 +2566,14 @@ export class AangBrowser {
     });
   }
   /** A woken tab is on screen: what it held back (his video) may play now, if he is looking at it. */
+  /** A woken tab is silent until he clicks or presses a key in it (2026-10-30, his report: a woken YouTube tab played
+   *  for a moment, at whatever volume he had left; the mute used to lift on a timer). */
+  private wakeHush = new Set<number>();
   private wokeUp(t: Tab, seq = t.wakeSeq): void {
     if (!t.waking || seq !== t.wakeSeq) return;
     t.waking = false;
     const wc = t.view?.webContents;
-    if (wc && !wc.isDestroyed()) wc.setAudioMuted(t.muted);
+    if (wc && !wc.isDestroyed() && !this.wakeHush.has(t.id)) wc.setAudioMuted(t.muted);
     if (wc && !wc.isDestroyed() && this.seen(t)) { try { wc.send('tab:shown', true); } catch { /* gone */ } }   // only what he started plays
   }
 
@@ -2598,7 +2601,8 @@ export class AangBrowser {
     tab.phase = 'waiting'; tab.waking = tab.slept === true; tab.slept = false;
     // Silent while it wakes: a player that sets itself up again can start for a moment before it is paused (filmed).
     tab.wakeSeq = (tab.wakeSeq ?? 0) + 1;
-    if (tab.waking) { const seq = tab.wakeSeq; wc.setAudioMuted(true); setTimeout(() => this.wokeUp(tab, seq), 10_000); }
+    if (tab.waking) { const seq = tab.wakeSeq; wc.setAudioMuted(true); this.wakeHush.add(tab.id); setTimeout(() => this.wokeUp(tab, seq), 10_000); }
+    else this.wakeHush.delete(tab.id);
     // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
@@ -2611,7 +2615,11 @@ export class AangBrowser {
     // opens as a real small window that keeps its link to the page (Sign in with Google needs that). One a page opens
     // by itself is blocked, unless he allowed popups on that site; a chip offers that.
     on('input-event', (_e, i) => {
-      if (i.type === 'mouseDown' || i.type === 'keyDown') { this.lastGesture.set(tab.id, Date.now()); this.lastInput = Date.now(); }
+      if (i.type === 'mouseDown' || i.type === 'keyDown') {
+        this.lastGesture.set(tab.id, Date.now()); this.lastInput = Date.now();
+        // His first click or key in a woken tab lets its sound back (it stayed hushed until then).
+        if (this.wakeHush.delete(tab.id) && !wc.isDestroyed()) wc.setAudioMuted(tab.muted);
+      }
       // (2026-10-14, his rule: a click never closes the tab list; only his mouse leaving it does.)
     });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
@@ -4671,6 +4679,8 @@ export class AangBrowser {
     if (!t?.view || t.internal || t.crashed || t.blocked || t.failed || t.lent || !this.inTab(t)) return null;
     this.thaw(t);                                      // the pop-out gets a running page
     t.lent = true;
+    // Sent to the pop-out by him: a woken tab's hush ends there.
+    if (this.wakeHush.delete(t.id) && t.view && !t.view.webContents.isDestroyed()) t.view.webContents.setAudioMuted(t.muted);
     // A still of the picture for the tab page while it plays in the pop-out (taken before the view leaves the window).
     t.lentShot = '';
     void capture(t.view, { ms: 800, quality: 78 }).then((shot) => {

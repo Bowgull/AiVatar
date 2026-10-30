@@ -63,6 +63,31 @@ try {
 // Anything else waits for his click on the page itself, silent videos too (previews, muted ads, a tab Samara
 // reopened). A tab he is not looking at never starts playing; one he opened behind starts when he goes to it.
 // This only pauses: the page's own play button is untouched, and a click a moment ago always wins.
+// Play is refused before it starts, the way Chrome blocks autoplay (2026-10-30, his report: "a video does still play
+// briefly when i wake it on youtube", the pause below only came after it had started). In the page's own world, before
+// its scripts run: play() goes through only when he is clicking or pressing a key in the page right now, or once the
+// Shell says this page may play. Anything else is kept and refused (the site shows its paused player); what was kept
+// starts the moment it may.
+let mainPlay = () => {};
+try {
+  contextBridge.executeInMainWorld({ func: () => {
+    const P = HTMLMediaElement.prototype, real = P.play, wanted = new Set();
+    let ok = false;
+    P.play = function () {
+      const ua = navigator.userActivation;
+      if (ok || (ua && ua.isActive)) return real.call(this);
+      wanted.add(this);
+      return Promise.reject(new DOMException('Samara waits for your click.', 'NotAllowedError'));
+    };
+    Object.defineProperty(window, '__samaraMayPlay', { configurable: false, value: (allow) => {
+      ok = allow === true;
+      if (!ok) { wanted.clear(); return; }
+      for (const m of wanted) { try { real.call(m).catch(() => {}); } catch { /* gone */ } }
+      wanted.clear();
+    } });
+  } });
+  mainPlay = (allow) => { try { contextBridge.executeInMainWorld({ func: (v) => window.__samaraMayPlay?.(v), args: [allow] }); } catch { /* the page went away */ } };
+} catch { /* an engine without it: the pause below still holds */ }
 try {
   // Asked without waiting (2026-10-20): a page must never stall on the answer (a waiting question held pages up for
   // seconds). Until it comes, nothing starts by itself; what the answer allows then starts at once.
@@ -73,11 +98,12 @@ try {
   ipcRenderer.invoke('tab:mayplay').then((a) => {
     ok = !a || a.ok !== false; shown = !a || a.shown !== false; hold = Boolean(a && a.hold); known = true;
     if (hold) { early.clear(); return; }
-    if (ok && shown) playAll(early); else if (ok) { for (const m of early) held.add(m); early.clear(); } else early.clear();
-  }, () => { ok = true; known = true; playAll(early); });   // no Shell to ask (a test): the page plays as anywhere
+    if (ok && shown) { mainPlay(true); playAll(early); } else if (ok) { for (const m of early) held.add(m); early.clear(); } else early.clear();
+  }, () => { ok = true; known = true; mainPlay(true); playAll(early); });   // no Shell to ask (a test): the page plays as anywhere
   ipcRenderer.on('tab:shown', (_e, v) => {
     shown = v !== false;
-    if (!shown) { held.clear(); return; }
+    if (!shown) { held.clear(); mainPlay(false); return; }
+    if (ok && !hold) mainPlay(true);
     playAll(held);
   });
   window.addEventListener('play', (e) => {
