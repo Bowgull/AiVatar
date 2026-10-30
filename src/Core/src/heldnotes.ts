@@ -1,4 +1,5 @@
 import type { ToBody } from './protocol.ts';
+import { shortTime } from './clock.ts';
 
 // Held notices (2026-10-28, his notice review: "all 17"). Aang holds what he says on his own while Joshua is hushed,
 // muted, quiet (a game, a call, the Shadow window) or in Claude, and says it once that ends. Two things were wrong:
@@ -50,7 +51,7 @@ export function fresh(h: Held, now: number, brief = false): boolean {
 /** "Earlier, at 2:10 pm: " for a line that waited more than ten minutes, else ''. Toronto time, his clock. */
 export function earlier(at: number, now: number): string {
   if (now - at < 10 * 60_000) return '';
-  const t = new Date(at).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  const t = shortTime(at);
   return `Earlier, at ${t}: `;
 }
 

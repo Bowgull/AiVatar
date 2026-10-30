@@ -18,6 +18,7 @@ import os from 'node:os';
 import { copyFileSync, existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 import { tidyMockups, type SheetMeta, type TidyReport } from './mockuptidy.ts';
 import { FILED, NO_TOPIC, branchHome, cleanTitle, fileOnce, projectFromSrc, projectName, sheetIdent } from './mockfiling.ts';
 
@@ -322,8 +323,8 @@ export class MockStore {
   constructor(file: string) {
     this.file = file;
     try {
-      if (existsSync(file)) {
-        const s = JSON.parse(readFileSync(file, 'utf8'));
+      const s = readJson<any>(file, null, undefined, { onBroken: (e) => console.error('shell: mockups: the history could not be read: ' + e.message) });
+      if (s !== null) {
         const a = Array.isArray(s?.versions) ? s.versions : [];
         const rp = s?.repos && typeof s.repos === 'object' ? s.repos as Record<string, unknown> : {};
         for (const [k, v] of Object.entries(rp)) if (REPO_NAME_RE.test(k) && typeof v === 'string' && path.isAbsolute(v) && !v.startsWith('\\\\') && v.length <= 400) this.repos.set(k, v);

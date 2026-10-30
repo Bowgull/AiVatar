@@ -9,9 +9,9 @@
 // Where they live: hotkeys.json in the Shell's state folder. The pop-out's key keeps its own old file too
 // (popout-hotkey.json, hotkey.ts), because the Mac reads it from there. They do not sync to the Mac: Samara's sync
 // (bsync.ts) carries the browser's settings, and these are the PC's keyboard (number pad, Ctrl), not Samara's.
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 // hotkey.ts's own two (it imports Electron, which a plain test cannot load): the pop-out's default and its file.
 const POPOUT_DEFAULT = 'Control+Shift+V';
@@ -118,13 +118,13 @@ export function readKeys(stateDir: string): Record<KeyId, string> {
   const out = Object.fromEntries(KEY_IDS.map((k) => [k, KEYS[k].def])) as Record<KeyId, string>;
   try {
     const f = keysFile(stateDir);
-    const j = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8').replace(/^﻿/, '')) : {};
+    const j = readJson<Record<string, unknown>>(f, {});
     for (const k of KEY_IDS) { const v = validAccelerator(j?.[k]); if (v.ok) out[k] = v.acc; }
   } catch { /* a mangled file means the defaults, never no keys */ }
   // The pop-out's key has lived in its own file since sheet 4; that one wins.
   try {
     const f = popoutFile(stateDir);
-    if (existsSync(f)) { const v = validAccelerator(JSON.parse(readFileSync(f, 'utf8')).hotkey); if (v.ok) out.popout = v.acc; }
+    const v = validAccelerator(readJson<{ hotkey?: unknown }>(f, {}).hotkey); if (v.ok) out.popout = v.acc;
   } catch { /* the default */ }
   // Two the same (a hand-edited file): the later one goes back to its default.
   for (const k of KEY_IDS) if (ourClash(k, out[k], out) && out[k] !== KEYS[k].def) out[k] = KEYS[k].def;

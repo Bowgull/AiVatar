@@ -22,9 +22,9 @@
 // Opened from the wheel's Music slot, from asking Aang ("show the music player") and from Aang's right-click menu
 // ("Music player"). main.ts only creates this and passes messages: see wireMiniPlayer at the bottom.
 import { BrowserWindow, ipcMain, screen } from 'electron';
-import { readFileSync, writeFileSync } from 'node:fs';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { softEdge } from './winedge.ts';
+import { readJson, saveJson } from './store.ts';
 import type { FamilyHooks } from './familywin.ts';
 import { checkPlayerCmd, readPrefs, springAt, readDevices, DEVICE_ID, PICTURES, type PlayerCmd, type PlayerPrefs, type PlayerDevice } from './playercmd.ts';
 
@@ -83,9 +83,7 @@ export class MiniPlayer {
 
   constructor(o: MiniPlayerOptions) {
     this.o = o;
-    let raw: unknown = null;
-    try { if (o.prefsFile) raw = JSON.parse(readFileSync(o.prefsFile, 'utf8')); } catch { /* first run */ }
-    this.prefs = readPrefs(raw);
+    this.prefs = readPrefs(o.prefsFile ? readJson<unknown>(o.prefsFile, null) : null);   // first run: null
     this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null, devices: this.devs, devicesError: this.devErr }),
       (kind, v) => this.choose(kind, v), (open) => { this.menuOpen = open; this.send('player:ui', this.ui()); },
       () => { this.devs = null; this.devErr = null; this.o.onDevices?.(); });
@@ -338,7 +336,7 @@ export class MiniPlayer {
   }
   private savePrefs(): void {
     if (!this.o.prefsFile) return;
-    try { writeFileSync(this.o.prefsFile, JSON.stringify(this.prefs)); } catch { /* kept for this run */ }
+    saveJson(this.o.prefsFile, this.prefs);   // failed: kept for this run
   }
 
   dispose(): void { this.close(); this.menu.dispose(); players.delete(this); }

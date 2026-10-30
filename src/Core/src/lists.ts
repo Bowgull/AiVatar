@@ -1,8 +1,8 @@
 // The grocery list and recipe filing, decided in plain code: no model is asked, so using them costs no quota.
 // Pure apart from the small file the list is kept in.
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 // ------------------------------------------------------------------ what he typed
 
@@ -50,8 +50,7 @@ export class Grocery {
   private readonly file: string;
   constructor(dir: string) {
     this.file = path.join(dir, 'lists.json');
-    try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(r?.grocery?.items)) this.s = { items: r.grocery.items, nextId: r.grocery.nextId ?? 1, messageId: r.grocery.messageId, channelId: r.grocery.channelId }; } }
-    catch { this.s = { items: [], nextId: 1 }; }
+    this.s = readJson(this.file, this.s, (r: any) => (Array.isArray(r?.grocery?.items) ? { items: r.grocery.items, nextId: r.grocery.nextId ?? 1, messageId: r.grocery.messageId, channelId: r.grocery.channelId } : null));
   }
   private save() { try { writeFileAtomic(this.file, JSON.stringify({ grocery: this.s }, null, 2)); } catch { /* best effort */ } }
 

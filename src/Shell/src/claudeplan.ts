@@ -4,9 +4,9 @@
 // no Aang yet. He can untick sites and type a change. A plan he allowed before (same task, no new sites) just goes.
 // What he allows becomes the session's fence: his login only where his rules allow it, unticked sites never opened.
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 import { siteKey } from './siterules.ts';
 import type { AangBrowser } from './browser.ts';
 
@@ -52,7 +52,8 @@ export class PlanMemory {
   private readonly file: string;
   constructor(stateDir: string) {
     this.file = path.join(stateDir, 'claude-plans.json');
-    try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(j)) this.list = j.filter((x) => x && typeof x.task === 'string' && Array.isArray(x.sites)); } } catch { /* start empty */ }
+    const j = readJson<unknown>(this.file, null);   // none or broken: start empty
+    if (Array.isArray(j)) this.list = j.filter((x) => x && typeof x.task === 'string' && Array.isArray(x.sites));
   }
   /** Same task, and every site already allowed for it. */
   known(p: PlanAsk): boolean {

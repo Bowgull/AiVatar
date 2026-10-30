@@ -3,9 +3,11 @@
 //    honest answer and #log in Discord is a receipt book. It records what happened, not what he said happened.
 //  - UndoStack: the last few things that can be put back (a file change, something remembered or forgotten, a
 //    reminder). In memory only: a restart forgets the stack, but file changes keep their own copies on disk.
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { dayKey, homeClock } from './clock.ts';
+import { openLog } from './log.ts';
 
 export interface ActionRec {
   ts: string; tool: string; did: string; ok: boolean; note: string;
@@ -20,8 +22,8 @@ export interface ActionRec {
   req?: string;
 }
 
-const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit', hour12: true });
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+const clock = (iso: string) => homeClock(iso, { hour: 'numeric', minute: '2-digit', hour12: true }, 'en-CA');
+const day = (iso: string) => dayKey(iso);
 
 /** One line, plain: "2:31 pm  wrote …/notes.txt". A failure says so and why. */
 export function formatAction(r: ActionRec, withDay = false): string {
@@ -58,7 +60,7 @@ export class ActionLog {
   add(r: Omit<ActionRec, 'ts'>, now = new Date()): ActionRec {
     const rec: ActionRec = { ts: now.toISOString(), ...r, did: r.did.slice(0, 200), note: (r.note ?? '').replace(/\s+/g, ' ').slice(0, 160) };
     this.load().push(rec);
-    try { mkdirSync(path.dirname(this.file), { recursive: true }); appendFileSync(this.file, JSON.stringify(rec) + '\n'); } catch { /* best effort */ }
+    openLog('actions', this.file).json(rec);
     return rec;
   }
 

@@ -12,9 +12,9 @@
 //   - SIGNED. What the mod is handed carries HMAC(key, nonce, folder, id, 'start', body), the same lock as every other
 //     item on the link (claudelink.ts), with the nonce of that very request.
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export const sha256Hex = (s: string): string => createHash('sha256').update(s, 'utf8').digest('hex');
 
@@ -148,8 +148,8 @@ export const doorFile = (stateDir: string) => path.join(stateDir, 'c6-door.json'
 export function readDoor(stateDir: string): DoorFile {
   try {
     const f = doorFile(stateDir);
-    if (!existsSync(f)) return { door: 'prefill', at: 0 };
-    const j = JSON.parse(readFileSync(f, 'utf8'));
+    const j = readJson<any>(f, null);
+    if (!j) return { door: 'prefill', at: 0 };
     const door: Door = j?.door === 'link' || j?.door === 'door2' ? j.door : 'prefill';
     const a = j?.door2Args;
     const door2Args = a && typeof a.folder === 'string' && typeof a.prompt === 'string' && /^\w{1,40}$/.test(a.folder) && /^\w{1,40}$/.test(a.prompt) ? { folder: a.folder, prompt: a.prompt } : undefined;

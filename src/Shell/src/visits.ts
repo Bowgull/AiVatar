@@ -1,8 +1,8 @@
 // The browser's History (his design, 2026-10-12): every page he opened, kept 90 days, only on this PC.
 // One small JSON file in the Shell's own state folder, written atomically and at most every few seconds.
 // Plain functions over a list, so they can be tested without Electron.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export interface Visit { url: string; title: string; at: number }
 
@@ -106,11 +106,9 @@ export class Visits {
   constructor(file: string) {
     this.file = file;
     try {
-      if (existsSync(file)) {
-        const a = JSON.parse(readFileSync(file, 'utf8'));
-        if (Array.isArray(a)) this.list = prune(a.filter((v: Partial<Visit>) => typeof v?.url === 'string' && counts(v.url) && !neverKeep(v.url) && Number.isFinite(v.at))
-          .map((v: Visit) => ({ url: v.url, title: String(v.title ?? '').slice(0, 300), at: Number(v.at) })).sort((x, y) => x.at - y.at), Date.now());
-      }
+      const a = readJson<unknown>(file, null);
+      if (Array.isArray(a)) this.list = prune(a.filter((v: Partial<Visit>) => typeof v?.url === 'string' && counts(v.url) && !neverKeep(v.url) && Number.isFinite(v.at))
+        .map((v: Visit) => ({ url: v.url, title: String(v.title ?? '').slice(0, 300), at: Number(v.at) })).sort((x, y) => x.at - y.at), Date.now());
     } catch { /* none yet */ }
   }
   /** M6: told of each change, so the other machine's browser gets it too. */

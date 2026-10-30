@@ -19,8 +19,9 @@ import type { Rubric } from './jobs.ts';
 import type { ChipTone, ListIcon, StructuredList } from './protocol.ts';
 import { plainCommand, stripScaffolding } from './plain.ts';
 
-const TZ = 'America/Toronto';
+const TZ = HOME_TZ;
 import { LAT, LON, describeWeatherCode, fetchDayWeather } from './weather.ts';
+import { HOME_TZ } from './clock.ts';
 export { describeWeatherCode, fetchDayWeather };
 
 

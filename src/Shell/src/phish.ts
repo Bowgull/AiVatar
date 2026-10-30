@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export const PHISH_LISTS = [
   // 2026-10-30: OpenPhish's feed moved to GitHub (the old address redirects there), and URLhaus's own download answers
@@ -85,7 +86,7 @@ export class PhishCheck {
   async start(fetcher: typeof fetch = fetch): Promise<void> {
     try { mkdirSync(this.dir, { recursive: true }); } catch { /* checked on write */ }
     const file = (l: { name: string }) => path.join(this.dir, `${l.name.toLowerCase()}.txt`);
-    const when = (l: { name: string }) => { try { return Number(JSON.parse(readFileSync(file(l) + '.when', 'utf8')).at) || 0; } catch { return 0; } };
+    const when = (l: { name: string }) => Number(readJson<{ at?: unknown }>(file(l) + '.when', {}).at) || 0;
     // The index is current when it was made from exactly these list files.
     const stamp = () => JSON.stringify(PHISH_LISTS.map((l) => { try { return [l.name, statSync(file(l)).size, when(l)]; } catch { return [l.name, 0, 0]; } }));
     const idx = path.join(this.dir, 'index-v1.bin');

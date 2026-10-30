@@ -11,9 +11,10 @@
 //  - His details (name, emails, phone, address) are kept sealed with the Keychain too, and travel only to his other
 //    machine over his own link, never anywhere else.
 import { createCipheriv, createDecipheriv, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 /** His PIN is 4 to 8 numbers, his pick (sheet 83, 2026-10-23); PINs set before then are 4. */
 export const PIN_MIN = 4;
@@ -82,7 +83,7 @@ export class DetailsStore {
   open(): void {
     if (this.opened) return;
     this.opened = true;
-    try { const j = JSON.parse(readFileSync(this.file, 'utf8')); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; if (t) this.d = cleanDetails(JSON.parse(t)); } catch { /* none yet */ }
+    try { const j = readJson<any>(this.file, null); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; if (t) this.d = cleanDetails(JSON.parse(t)); } catch { /* none yet */ }
   }
   get(): Details { this.open(); return { ...this.d, emails: [...this.d.emails] }; }
   set(d: unknown): Details {
@@ -106,7 +107,7 @@ export class PinSeal {
   private len: number | null = null;   // how many numbers his PIN has (read once, so typing it never waits on the Keychain)
   constructor(file: string) { this.file = file; }
   private read(): { salt: string; iv: string; tag: string; ct: string; check: string; tries: number; len?: number } | null {
-    try { const j = JSON.parse(readFileSync(this.file, 'utf8')); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; return t ? JSON.parse(t) : null; } catch { return null; }
+    try { const j = readJson<any>(this.file, null); const t = typeof j?.sealed === 'string' ? openText(j.sealed) : null; return t ? JSON.parse(t) : null; } catch { return null; }
   }
   /** How many numbers his PIN has (4 for one set before he could choose). */
   length(): number {
@@ -116,7 +117,7 @@ export class PinSeal {
   private write(o: object): boolean { const s = lockText(JSON.stringify(o)); if (!s) return false; try { writeFileAtomic(this.file, JSON.stringify({ v: 1, sealed: s })); return true; } catch { return false; } }
   has(): boolean { return existsSync(this.file) && this.read() !== null; }
   /** His PIN is here but the Mac's Keychain would not open it (the box after an update was refused or missed). */
-  unreadable(): boolean { try { return typeof JSON.parse(readFileSync(this.file, 'utf8'))?.sealed === 'string' && this.read() === null; } catch { return false; } }
+  unreadable(): boolean { try { return typeof readJson<any>(this.file, null)?.sealed === 'string' && this.read() === null; } catch { return false; } }
   /** False when this machine cannot keep it safely (no Keychain), or the PIN is not 4 digits. */
   async seal(pin: string, session: string): Promise<boolean> {
     if (!pinOk(pin) || !session) return false;

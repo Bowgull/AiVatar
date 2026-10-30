@@ -16,12 +16,13 @@
 //
 // Keys go from narrow to broad and each is pulled towards the broader one (shrinkage, k = 3), so a label seen once
 // leans on its kind, and a kind seen once leans on the seed priors below.
-import { appendFile, readFileSync } from 'node:fs';
+import { appendFile } from 'node:fs';
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { estOf, shrink } from './progressmath.ts';
 import type { Est } from './progressmath.ts';
+import { readJson } from './store.ts';
 
 export type Src = 'task' | 'agent' | 'ci-run' | 'ci-step' | 'cmd' | 'turn' | 'phase';
 export interface Sample {
@@ -298,10 +299,8 @@ export class PlanStore {
   constructor(file: string | null) {
     this.file = file;
     if (!file) return;
-    try {
-      const o = JSON.parse(readFileSync(file, 'utf8'));
-      if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) { const p = readPlan(v); if (p) this.plans[k] = p; }
-    } catch { /* none yet */ }
+    const o = readJson<unknown>(file, null);   // null: none yet
+    if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) { const p = readPlan(v); if (p) this.plans[k] = p; }
   }
   get(project: string): StoredPlan | null { return this.plans[project] ?? null; }
   set(project: string, plan: StoredPlan): void {

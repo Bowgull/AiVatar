@@ -9,6 +9,7 @@
 //   - Nothing here acts. It only reads. The model is shown these facts as read by code, beside its own reading.
 import type { Part } from './google.ts';
 import * as chrono from 'chrono-node';
+import { dayKey, fullMoment, HOME_TZ, shortTimeUpper } from './clock.ts';
 
 // ------------------------------------------------------------------ time zones
 
@@ -129,7 +130,7 @@ export function parseIcsTime(l: IcsLine): IcsTime | null {
   if (t[7] === 'Z') return { iso: new Date(Date.UTC(y, mo - 1, d, h, mi, s)).toISOString(), tzWritten: 'UTC', zone: 'UTC', raw };
   const tzid = l.params.TZID ?? '';
   // A "floating" time (no zone at all) means the same wall time wherever he is: his own zone.
-  const zone = tzid ? zoneOf(tzid) : 'America/Toronto';
+  const zone = tzid ? zoneOf(tzid) : HOME_TZ;
   if (!zone) return { tzWritten: tzid, zone: null, raw, note: `the invite uses a time zone Aang does not know for sure ("${tzid.slice(0, 60)}")` };
   const r = zonedToUtc(y, mo, d, h, mi, s, zone);
   return { iso: new Date(r.ms).toISOString(), tzWritten: tzid || '(none: your own time)', zone, raw, ...(r.note ? { note: r.note } : {}) };
@@ -299,9 +300,9 @@ export interface FoundDate {
   pm?: string;
 }
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const torontoDay = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+const torontoDay = (ms: number) => dayKey(ms);
 const sayDay = (key: string) => new Date(key + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-const sayMoment = (ms: number) => new Date(ms).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const sayMoment = (ms: number) => fullMoment(ms);
 
 /**
  * Dates and times written in words ("Thursday at 2", "Oct 16 at 2pm", "tomorrow"), read against the day the email was
@@ -311,7 +312,7 @@ const sayMoment = (ms: number) => new Date(ms).toLocaleString('en-US', { timeZon
 export function findDates(text: string, sent: Date): FoundDate[] {
   // Old messages quoted under "On ... wrote:" are older news; links are not dates.
   const body = text.split(/\n(?:On .{5,200} wrote:|-{2,}\s*Original Message\s*-{2,}|From: .+\nSent: )/i)[0]!.replace(/https?:\/\/\S+/g, ' ');
-  const ref = { instant: sent, timezone: offsetAt(sent.getTime(), 'America/Toronto') };
+  const ref = { instant: sent, timezone: offsetAt(sent.getTime(), HOME_TZ) };
   const sentDay = sayDay(torontoDay(sent.getTime()));
   const out: FoundDate[] = [];
   for (const r of chrono.casual.parse(body, ref, { forwardDate: true }).slice(0, 12)) {
@@ -336,7 +337,7 @@ export function findDates(text: string, sent: Date): FoundDate[] {
         const h = st.get('hour')!;
         const am = h === 12 ? ms - 12 * 3_600_000 : ms, pm = h === 12 ? ms : ms + 12 * 3_600_000;
         unsure.push('am or pm is not written');
-        out.push({ text: raw, means: `${sayMoment(am)} OR ${new Date(pm).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' })}, Toronto time`, unsure, am: new Date(am).toISOString(), pm: new Date(pm).toISOString() });
+        out.push({ text: raw, means: `${sayMoment(am)} OR ${shortTimeUpper(pm)}, Toronto time`, unsure, am: new Date(am).toISOString(), pm: new Date(pm).toISOString() });
       }
     } else {
       const part = /\b(morning|afternoon|evening|tonight|noon|lunch|end of (?:the )?day|eod)\b/i.exec(raw)?.[1];
@@ -400,8 +401,8 @@ export function sayTime(t: IcsTime | null): string {
   if (t.date) return `${new Date(t.date + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} (all day)`;
   if (!t.iso) return `NOT SURE: ${t.note ?? 'the time could not be read'} (as written: ${t.raw})`;
   const d = new Date(t.iso);
-  const here = d.toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Toronto time';
-  const there = t.zone && t.zone !== 'America/Toronto' && offsetAt(d.getTime(), t.zone) !== offsetAt(d.getTime(), 'America/Toronto')
+  const here = fullMoment(d) + ' Toronto time';
+  const there = t.zone && t.zone !== HOME_TZ && offsetAt(d.getTime(), t.zone) !== offsetAt(d.getTime(), HOME_TZ)
     ? ` (${d.toLocaleString('en-US', { timeZone: t.zone, hour: 'numeric', minute: '2-digit', weekday: 'short' })} where it was written, ${t.zone})` : '';
   return here + there + (t.note ? ` [${t.note}]` : '');
 }

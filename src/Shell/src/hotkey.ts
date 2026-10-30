@@ -7,8 +7,8 @@
 // not give us is reported rather than failing silently: the usual reason is that something else
 // already has it, and in a game that is easy to do by accident.
 import { globalShortcut } from 'electron';
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { readJson } from './store.ts';
 
 /** Sheet 4 shows Ctrl, Shift, V. Chosen to be unlikely to clash with anything in WoW. */
 export const DEFAULT_HOTKEY = 'Control+Shift+V';
@@ -19,8 +19,7 @@ export const hotkeyFile = (stateDir: string) => path.join(stateDir, 'popout-hotk
 export function chosenHotkey(stateDir: string): string {
   try {
     const f = hotkeyFile(stateDir);
-    if (!existsSync(f)) return DEFAULT_HOTKEY;
-    const k = String(JSON.parse(readFileSync(f, 'utf8')).hotkey ?? '').trim();
+    const k = String(readJson<{ hotkey?: unknown }>(f, {}).hotkey ?? '').trim();
     return k || DEFAULT_HOTKEY;
   } catch { return DEFAULT_HOTKEY; }
 }

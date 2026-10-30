@@ -5,11 +5,14 @@
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
 import { app, globalShortcut, Menu, nativeImage, net } from 'electron';
-import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { MacEngine, MacPaths, MacSamara, MacStage } from './macsource.ts';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
+import { readJson, saveJson, saveText } from './store.ts';
+import { openLog } from './log.ts';
+import { utcStamp } from './clock.ts';
 import { samaraBase, samaraBrowser, type Platform, type SamaraBooted } from './boot.ts';
 import { bootDeps } from './bootdeps.ts';
 import { planDoorClient } from './plandoor.ts';
@@ -30,11 +33,11 @@ const SYNC_PORT = 47832;   // the brain's hook port on the PC
 const CARD_PORT = 47843;
 
 app.setName('Aang');
-// Started from the Dock there is no terminal: what it says goes to a log beside its settings (aang.log, kept small).
+// Started from the Dock there is no terminal: what it says goes to a log beside its settings (aang.log, kept small:
+// emptied past 2 MB).
 {
-  const logFile = path.join(app.getPath('userData'), 'aang.log');
-  try { if (statSync(logFile).size > 2_000_000) writeFileSync(logFile, ''); } catch { /* none yet */ }
-  const write = (s: string) => { try { appendFileSync(logFile, new Date().toISOString().slice(0, 19).replace('T', ' ') + ' ' + s + '\n'); } catch { /* best effort */ } };
+  const log = openLog('aang', path.join(app.getPath('userData'), 'aang.log'), { maxBytes: 2_000_000, clear: true });
+  const write = (s: string) => { log.line(utcStamp() + ' ' + s); };
   console.log = (...a: unknown[]) => write(a.map(String).join(' '));
   console.error = (...a: unknown[]) => write(a.map(String).join(' '));
 }
@@ -87,7 +90,7 @@ app.whenReady().then(async () => {
   // His pop-out switches and skips, read once at start (the Mac has no live switch for them yet).
   const popSettings = readSettings(stateDir);
   let skipSettings: SkipSettings = DEFAULT_SKIPS;
-  try { const f = path.join(stateDir, 'skips.json'); if (existsSync(f)) skipSettings = withDefaults(JSON.parse(readFileSync(f, 'utf8'))); } catch { /* defaults */ }
+  try { const raw = readJson<unknown>(path.join(stateDir, 'skips.json'), null); if (raw !== null) skipSettings = withDefaults(raw); } catch { /* defaults */ }
   let ws: WebSocket | null = null;
   const toPc = (m: Record<string, unknown>, otherwise?: string): void => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); else if (otherwise) log(otherwise); };
   // Paid video (2026-10-13): Netflix, Crave, Disney+, Prime and Crunchyroll play in the castLabs window, signed for
@@ -143,7 +146,7 @@ app.whenReady().then(async () => {
       prefsFile: paths.prefs, changelog: paths.changelog,
       inGame: () => false,
       // The script closes Samara itself; what to say the next time it opens is kept first (overnight only).
-      beforeGo: (w) => { if (w.overnight) { try { writeFileSync(paths.night, JSON.stringify({ version: samara?.installed().version, title: w.title, lines: w.lines })); } catch { /* best effort */ } } },
+      beforeGo: (w) => { if (w.overnight) { try { saveJson(paths.night, { version: samara?.installed().version, title: w.title, lines: w.lines }); } catch { /* best effort */ } } },
       restart: () => { /* the Mac's script restarts Samara */ },
       seen: () => { try { unlinkSync(paths.night); } catch { /* gone */ } },
     },
@@ -200,7 +203,7 @@ app.whenReady().then(async () => {
   const asked = path.join(stateDir, 'asked-default.flag');
   if (!existsSync(asked)) {
     try { app.setAsDefaultProtocolClient('http'); app.setAsDefaultProtocolClient('https'); } catch { /* he can set it in System Settings */ }
-    try { writeFileSync(asked, new Date().toISOString()); } catch { /* asked again next time */ }
+    saveText(asked, new Date().toISOString());   // failed: asked again next time
   }
 
   const markGood = () => samara?.markGood();
@@ -224,13 +227,13 @@ app.whenReady().then(async () => {
         : i.status === 'trial' ? 'it started but had not run a minute yet' : ok ? 'installed and running' : 'the update stopped part way (see its log)';
       let aangLog = ''; try { aangLog = readFileSync(path.join(app.getPath('userData'), 'aang.log'), 'utf8').split('\n').slice(-200).join('\n'); } catch { /* none */ }
       ws.send(JSON.stringify({ t: 'update.report', ok, version: i.version, outcome, installed: i, failed: [], updateLog: text.slice(-60_000), aangLog }));
-      writeFileSync(UPSENT, String(ran));
+      if (!saveText(UPSENT, String(ran))) return;
       log(`sent the update report (${outcome})`);
     } catch { /* no update has run */ }
   };
   setTimeout(reportUpdate, 75_000);
   // After an overnight update: once, by the ... key, what it did.
-  try { const n = JSON.parse(readFileSync(paths.night, 'utf8')); if (samara && n.version === samara.installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
+  try { const n = readJson<any>(paths.night, null); if (n && samara && n.version === samara.installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
 
   // ---- the sync, through the brain on the PC
   const read = (f: string) => { try { return readFileSync(path.join(LISTENER, f), 'utf8').trim(); } catch { return ''; } };

@@ -1,9 +1,9 @@
 // The browser's downloads (his design, 2026-10-12). Every file the browser saved, newest last, kept 200 deep for the
 // Downloads page. The tray in the band shows only this run's newest 5, and its key shows only while there is
 // something in it: it hides when the browser closes, after an hour with no new download, or on Clear list.
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export interface Dl { id: number; name: string; file: string; site: string; size: number; at: number; state: 'going' | 'done' | 'stopped' | 'failed' }
 
@@ -41,13 +41,11 @@ export class Downloads {
   constructor(fileName: string) {
     this.fileName = fileName;
     try {
-      if (existsSync(fileName)) {
-        const a = JSON.parse(readFileSync(fileName, 'utf8'));
-        if (Array.isArray(a)) this.list = a.filter((d: Partial<Dl>) => Number.isInteger(d?.id) && typeof d?.file === 'string' && path.isAbsolute(d.file) && typeof d?.name === 'string')
-          // A download still coming in when the browser closed never finished.
-          .map((d: Dl) => ({ id: d.id, name: d.name.slice(0, 260), file: d.file, site: String(d.site ?? '').slice(0, 200), size: Number(d.size) || 0, at: Number(d.at) || 0,
-            state: d.state === 'going' ? 'failed' : (['done', 'stopped', 'failed'].includes(d.state) ? d.state : 'failed') as Dl['state'] })).slice(-KEEP);
-      }
+      const a = readJson<unknown>(fileName, null);
+      if (Array.isArray(a)) this.list = a.filter((d: Partial<Dl>) => Number.isInteger(d?.id) && typeof d?.file === 'string' && path.isAbsolute(d.file) && typeof d?.name === 'string')
+        // A download still coming in when the browser closed never finished.
+        .map((d: Dl) => ({ id: d.id, name: d.name.slice(0, 260), file: d.file, site: String(d.site ?? '').slice(0, 200), size: Number(d.size) || 0, at: Number(d.at) || 0,
+          state: d.state === 'going' ? 'failed' : (['done', 'stopped', 'failed'].includes(d.state) ? d.state : 'failed') as Dl['state'] })).slice(-KEEP);
     } catch { /* none yet */ }
     this.seq = this.list.reduce((m, d) => Math.max(m, d.id), 0);
   }

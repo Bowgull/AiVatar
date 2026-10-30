@@ -2,6 +2,7 @@
 // waiting on him, then today, then the other email WITH its subject. One builder for the PC and for the Mac (which sends
 // the brief when Shadow is off), so the two can never say it differently. Plain data in, plain data out; every word
 // goes onto the card as text.
+import { dayKey as homeDayKey, fullMoment, shortTime } from './clock.ts';
 export interface BriefInput {
   day?: string;
   events?: { title?: string; start?: string | null; allDay?: boolean; where?: string }[];
@@ -15,7 +16,7 @@ const s = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim()
 /** Times written out with am or pm, in Toronto: never a bare "2:00" that could be read two ways. */
 export const atToronto = (iso: unknown): string => {
   const d = new Date(String(iso ?? ''));
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  return Number.isNaN(d.getTime()) ? '' : shortTime(d);
 };
 
 /**
@@ -24,7 +25,7 @@ export const atToronto = (iso: unknown): string => {
  * UTC ("sent at 16:39 UTC"). Toronto time always.
  */
 export function nowNote(d: Date = new Date()): string {
-  const when = d.toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const when = fullMoment(d);
   return `<now>${when}, Toronto time (Joshua is in Toronto).</now>`;
 }
 
@@ -32,7 +33,7 @@ export function nowNote(d: Date = new Date()): string {
 export function mailDate(raw: string): string {
   const ms = Date.parse(String(raw ?? ''));
   if (!Number.isFinite(ms)) return String(raw ?? '');
-  return new Date(ms).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Toronto time';
+  return fullMoment(ms) + ' Toronto time';
 }
 
 /** Sheet 21 board 2b: the inbox card. Names only (never the address), subjects as written, JOB where his hunt knows them. */
@@ -47,7 +48,7 @@ export function inboxCardData(rows: { from: string; subject: string; unread: boo
  * read as that date (noon UTC, never shifted into the day before). Every time says am or pm.
  */
 export function weekCardData(events: { summary?: string; location?: string; start?: { dateTime?: string; date?: string } }[], from: Date, days: number): Record<string, unknown> {
-  const dayKey = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+  const dayKey = (d: Date) => homeDayKey(d);
   const nameOf = (key: string) => new Date(key + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', weekday: 'long' }).toUpperCase();
   const short = (key: string) => new Date(key + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', month: 'short', day: 'numeric' });
   const keys: string[] = [];

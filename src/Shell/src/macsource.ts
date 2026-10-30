@@ -18,6 +18,7 @@ import { behindMs, behindWords, chromeStable, downloadEngine, enginePlatform, la
 import { Evs } from './evs.ts';
 import { engineGroups } from './pcsource.ts';
 import { macUpdateScript } from './macupdate.ts';
+import { readJson, saveJson } from './store.ts';
 import { VersionLists, isVersion, newer, plain, type Offer, type Source } from './updateengine.ts';
 
 type Fetch = Parameters<typeof ghLatest>[0];
@@ -37,8 +38,10 @@ export class MacPaths {
 }
 
 export function readInstalled(file: string): Installed {
-  try { const j = JSON.parse(readFileSync(file, 'utf8')); return { version: String(j.version ?? ''), commit: String(j.commit ?? ''), status: String(j.status ?? ''), ...(typeof j.engine === 'string' ? { engine: j.engine } : {}) }; }
-  catch { return { version: '', commit: '', status: '' }; }
+  return readJson<Installed>(file, { version: '', commit: '', status: '' }, (r) => {
+    const j = r as Record<string, unknown>;
+    return { version: String(j.version ?? ''), commit: String(j.commit ?? ''), status: String(j.status ?? ''), ...(typeof j.engine === 'string' ? { engine: j.engine } : {}) };
+  });
 }
 
 /** How a script is run (tests swap this): 'prepare' waits and says how it ended; 'swap' is let go. */
@@ -137,7 +140,7 @@ export class MacSamara implements Source {
     const i = this.installed();
     if (i.status !== 'trial') return;
     if (`${i.version}|${i.commit}|${i.engine ?? ''}` !== this.startedAs) return;
-    try { writeFileSync(this.p.installed, JSON.stringify({ ...i, status: 'good' })); this.o.log(`update: ${i.version}${i.engine ? ' on engine ' + i.engine : ''} is good`); } catch { /* next start */ }
+    if (saveJson(this.p.installed, { ...i, status: 'good' })) this.o.log(`update: ${i.version}${i.engine ? ' on engine ' + i.engine : ''} is good`);   // failed: next start
   }
   private changelog(m: Manifest): void {
     try { let had = ''; try { had = readFileSync(this.p.changelog, 'utf8'); } catch { /* first */ } const now = withSection(had, m); if (now !== had) writeFileSync(this.p.changelog, now); } catch { /* best effort */ }

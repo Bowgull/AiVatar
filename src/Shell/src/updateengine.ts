@@ -4,8 +4,9 @@
 // once: his UPDATE key, overnight (2-5 am, idle half an hour, never in a call or a game), skip, put away, trial and
 // going back. Before today the overnight rule was written three times (main.ts twice, macmain.ts once).
 // Its own file, with no Electron, so the rules are tested on their own (test/updateengine.test.ts).
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
+import { readFileSync } from 'node:fs';
+import { saveText } from './store.ts';
+import { openLog } from './log.ts';
 
 // ---------------------------------------------------------------- versions
 /** "44.5.1+wvcus" -> "44.5.1". */
@@ -57,7 +58,7 @@ export class VersionLists {
   private readonly filedFile: string;
   constructor(skipFile: string, filedFile: string) { this.skipFile = skipFile; this.filedFile = filedFile; }
   private read(f: string): string[] { try { return readFileSync(f, 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } }
-  private add(f: string, v: string): void { try { mkdirSync(path.dirname(f), { recursive: true }); appendFileSync(f, plain(v) + '\n'); } catch { /* best effort */ } }
+  private add(f: string, v: string): void { openLog('list:' + f, f).line(plain(v)); }
   skipped(v: string): boolean { return this.read(this.skipFile).includes(plain(v)); }
   filed(v: string): boolean { return this.read(this.filedFile).includes(plain(v)); }
   /** Not to be offered: skipped for good, failed, or put away. */
@@ -65,7 +66,7 @@ export class VersionLists {
   skip(v: string): void { this.add(this.skipFile, v); }
   file(v: string): void { this.add(this.filedFile, v); }
   /** "Check for updates": what was put away comes back. */
-  unfile(): void { try { writeFileSync(this.filedFile, ''); } catch { /* none */ } }
+  unfile(): void { saveText(this.filedFile, ''); }
 }
 
 // ---------------------------------------------------------------- the engine

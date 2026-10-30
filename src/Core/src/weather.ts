@@ -1,6 +1,7 @@
 // Weather from Open-Meteo (free, no key, no account), shared by the PC and the Mac: the Mac's morning brief needs it
 // when Shadow is off (his pick, 2026-10-13), and the Mac is sent only small files.
-const TZ = 'America/Toronto';
+import { HOME_TZ } from './clock.ts';
+const TZ = HOME_TZ;
 export const LAT = 43.65, LON = -79.38; // Toronto, from Joshua's profile
 
 const WMO: Record<number, string> = {

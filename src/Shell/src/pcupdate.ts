@@ -11,6 +11,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { readJson, saveJson, saveText } from './store.ts';
 import { LATEST_API, RELEASES, RELEASE_KEY, download, isVersion, latest, newer, withSection, type Manifest } from './ghrelease.ts';
 
 export interface SamaraVersion { version: string; dir: string }
@@ -38,18 +39,18 @@ export class SamaraUpdates {
 
   private file(n: string) { return path.join(this.o.root, n); }
   pointer(): Pointer | null {
-    try {
-      const p = JSON.parse(readFileSync(this.file('current.json'), 'utf8')) as Pointer;
+    return readJson<Pointer | null>(this.file('current.json'), null, (r) => {
+      const p = r as Pointer;
       return isVersion(p.version) && p.dir === `versions/${p.version}` && (p.status === 'trial' || p.status === 'good') ? p : null;
-    } catch { return null; }
+    });
   }
   private writePointer(p: Pointer | null): void {
     const f = this.file('current.json');
     if (!p) { rmSync(f, { force: true }); return; }
-    writeFileSync(f + '.tmp', JSON.stringify(p)); renameSync(f + '.tmp', f);
+    if (!saveJson(f, p)) throw new Error('could not write ' + f);   // the caller must not think it is pointed at
   }
   private list(n: string): string[] { try { return readFileSync(this.file(n), 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } }
-  private add(n: string, v: string): void { mkdirSync(this.o.root, { recursive: true }); writeFileSync(this.file(n), [...this.list(n), v].join('\n') + '\n'); }
+  private add(n: string, v: string): void { if (!saveText(this.file(n), [...this.list(n), v].join('\n') + '\n')) throw new Error('could not write ' + this.file(n)); }
   /** The version running now: its folder's, or none (the code folder, before the first release). */
   running(): string { return path.resolve(this.o.codeDir).toLowerCase().startsWith(path.resolve(this.o.root, 'versions').toLowerCase()) ? path.basename(path.resolve(this.o.codeDir)) : ''; }
 

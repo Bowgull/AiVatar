@@ -45,6 +45,7 @@ export function checkManifest(text: string, sigB64: string, pub: string = RELEAS
 
 // One comparison for every source (updateengine.ts).
 import { isVersion, newer } from './updateengine.ts';
+import { longDate } from './clock.ts';
 export { isVersion, newer };
 
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer>; body?: ReadableStream<Uint8Array> | null }>;
@@ -124,7 +125,7 @@ export function listen(fetchFn: Fetch, onNudge: () => void, url = NUDGE): () => 
 export const titleOf = (m: { version: string; name?: string }): string => (m.name ? `Version ${m.version}: ${m.name}` : `Version ${m.version}`);
 /** A version's section in "Every version" (Samara Changelog.md), the same shape the PC has always written. */
 export function changelogSection(m: Manifest): string {
-  const day = new Date(Date.parse(m.at) || Date.now()).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
+  const day = longDate(Date.parse(m.at) || Date.now());
   const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
   const lines = m.items.length ? m.items.map((i) => `- ${tag(i.kind)}: ${i.text}`) : m.notes.length ? m.notes.map((n) => `- ${n}`) : ['- Small fixes to keep things running smoothly.'];
   return `## ${titleOf(m)}\n*${day}*\n\n${lines.join('\n')}\n\n`;

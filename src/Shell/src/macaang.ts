@@ -13,7 +13,7 @@
 // Run: electron src/macaang.ts   (the LaunchAgent com.aang.pet does this)
 import { app, BrowserWindow, Menu, Tray, clipboard, globalShortcut, ipcMain, nativeImage, screen, shell, systemPreferences } from 'electron';
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
@@ -27,6 +27,7 @@ import { HotkeyKeeper } from './hotkeys.ts';
 import { bubbleAt, headOf, inputAt, type PetAt } from './anchor.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson, saveJson } from './store.ts';
 import { appName, macBodyAnswers } from './macbody.ts';
 import { openTestDoor } from './macdoor.ts';
 import { claudeMessage, claudeOpenTarget } from './claudewire.ts';
@@ -242,7 +243,6 @@ let lastWeek = 0, lastLevel = 'ok', lastFive = 0, lastWeekResetsAt = 0;
 let muted = false;
 let ackWait: { id: string; timer: NodeJS.Timeout } | null = null;
 const HISTORY_FILE = () => path.join(app.getPath('userData'), 'history.json');
-const readJson = (f: string): unknown => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
 
 /** bubble.ts places itself by these; the box goes up by its height while it is open (main.ts bubbleBox). */
 function bubbleBox(size: { width: number; height: number }): Electron.Rectangle {
@@ -274,7 +274,7 @@ function openTypeBox(keys = true): void {
   link.send({ t: 'poked' });
   setPose('out');
   input.open(inputAt(petAt(), { width: 268, height: 112 }), {
-    maxH: Math.round(display().workArea.height * 0.66), history: readJson(HISTORY_FILE()) ?? [], mode: inputMode,
+    maxH: Math.round(display().workArea.height * 0.66), history: readJson<unknown>(HISTORY_FILE(), null) ?? [], mode: inputMode,
     week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt, starters: [],
   });
   bubble?.send('bubble:recall', 'recent');
@@ -647,7 +647,7 @@ app.whenReady().then(async () => {
     toBrain: (m) => link.send(m as never),
   });
 
-  const saved = readJson(SETTINGS()) as { x?: number; y?: number; docked?: boolean; edge?: string; along?: number; screen?: number } | null;
+  const saved = readJson<unknown>(SETTINGS(), null) as { x?: number; y?: number; docked?: boolean; edge?: string; along?: number; screen?: number } | null;
   screenId = Number.isFinite(saved?.screen) ? Number(saved!.screen) : null;
   const b = display().bounds;
   petX = Number.isFinite(saved?.x) ? Math.max(b.x - ART.x, Math.min(b.x + b.width - ART.x - ART.w, Number(saved!.x))) : b.x + b.width - 330;
@@ -987,7 +987,7 @@ ipcMain.on('input:submit', (e, a) => {
   bubble?.send('brain:message', { t: 'asked', text: a.text });
   input?.close();
 });
-ipcMain.on('input:history', (e, list) => { if (fromInput(e) && Array.isArray(list)) { try { mkdirSync(app.getPath('userData'), { recursive: true }); writeFileSync(HISTORY_FILE(), JSON.stringify(list.filter((x) => typeof x === 'string').slice(-50))); } catch { /* next time */ } } });
+ipcMain.on('input:history', (e, list) => { if (fromInput(e) && Array.isArray(list)) saveJson(HISTORY_FILE(), list.filter((x) => typeof x === 'string').slice(-50)); /* failed: next time */ });
 ipcMain.on('input:close', (e) => { if (fromInput(e)) { input?.close(); lastTouch = Date.now(); } });
 ipcMain.on('input:stop', (e) => { if (fromInput(e)) link.send({ t: 'stop' }); });
 ipcMain.on('input:mode', (e, m) => { if (fromInput(e) && typeof m === 'string' && ['auto', 'quick', 'smart', 'deep'].includes(m)) { inputMode = m; link.send({ t: 'mode', mode: m as never }); } });

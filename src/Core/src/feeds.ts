@@ -3,9 +3,9 @@
 //  - Apex patch notes: Steam's public news feed for app 1172470 (no key).
 //  - The Apex ranked map, only when he asks: apexlegendsapi.com with a key HE gets (sent in a header, never the address).
 // Feed text is the sites' own words: shown as text, never instructions. Nothing here is ever told to a model.
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export interface Creator { id: string; name: string }
 export interface Upload { videoId: string; title: string; channel: string; published: string }
@@ -54,8 +54,7 @@ export class Feeds {
   private readonly file: string;
   constructor(dir: string) {
     this.file = path.join(dir, 'gaming-feeds.json');
-    let s: Partial<FeedState> = {};
-    try { if (existsSync(this.file)) s = JSON.parse(readFileSync(this.file, 'utf8')); } catch { /* fresh */ }
+    const s = readJson<Partial<FeedState>>(this.file, {}, (j) => (typeof j === 'object' ? j as Partial<FeedState> : null));   // fresh
     this.s = { creators: Array.isArray(s.creators) ? s.creators : [HISWATTSON], seenVideos: s.seenVideos ?? [], seenNews: s.seenNews ?? [], primed: s.primed ?? [] };
   }
   private save() { try { writeFileAtomic(this.file, JSON.stringify(this.s, null, 2)); } catch { /* next time */ } }

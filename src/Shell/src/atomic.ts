@@ -4,20 +4,41 @@
 // a file write is concerned. Writing in place can leave a truncated file, and every loader here treats a
 // file it cannot parse as empty - so a kill mid-write would silently lose all of Joshua's reminders.
 // Write to a temporary file, flush it to disk, then rename over the target: a rename is atomic.
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, statSync, writeSync } from 'node:fs';
-import { mkdir, open, rename, rm } from 'node:fs/promises';
+//
+// ONE FILE, TWO COPIES (store engine, 2026-10-30): src/Core/src/atomic.ts and src/Shell/src/atomic.ts are the same
+// file, byte for byte, because the brain and Samara ship as separate bundles. They had drifted (only Samara's had the
+// newest-write-wins guard). Edit Core's, copy it over; test/twins.test.ts in both suites fails if they differ.
+import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, statSync, writeSync } from 'node:fs';
+import { chmod, mkdir, open, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /** Per file: the newest write asked for. A slower background write never lands over a newer one. */
 const latest = new Map<string, number>();
 let seq = 0;
 
-export function writeFileAtomic(file: string, data: string | Uint8Array): void {
+export interface AtomicOpts {
+  /**
+   * File permissions for the new file (Mac only; Windows ignores them). Left out, a file that already exists keeps
+   * its own: a rename swaps in a new file, which would otherwise come with the default permissions.
+   */
+  mode?: number;
+}
+
+const posix = process.platform !== 'win32';
+const modeFor = (file: string, o?: AtomicOpts): number | null => {
+  if (!posix) return null;
+  if (o?.mode !== undefined) return o.mode;
+  try { return statSync(file).mode & 0o777; } catch { return null; }   // new file: the default
+};
+
+export function writeFileAtomic(file: string, data: string | Uint8Array, o?: AtomicOpts): void {
   latest.set(file, ++seq);
   mkdirSync(path.dirname(file), { recursive: true });
+  const mode = modeFor(file, o);
   const tmp = `${file}.${process.pid}.tmp`;
   const fd = openSync(tmp, 'w');
   try { if (typeof data === 'string') writeSync(fd, data); else writeSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
+  if (mode !== null) { try { chmodSync(tmp, mode); } catch { /* keeps the default */ } }
   renameSync(tmp, file);
 }
 
@@ -26,14 +47,16 @@ export function writeFileAtomic(file: string, data: string | Uint8Array): void {
  * waiting for the disk to confirm (fsync) froze Samara's main thread up to 1.3 s per save on the Mac's slow disk, and the
  * tab list is saved every few seconds while he browses. For files saved often; a save on quit stays writeFileAtomic.
  */
-export async function writeFileAtomicSoon(file: string, data: string | Uint8Array): Promise<void> {
+export async function writeFileAtomicSoon(file: string, data: string | Uint8Array, o?: AtomicOpts): Promise<void> {
   const me = ++seq;
   latest.set(file, me);
   const tmp = `${file}.${process.pid}.${me}.tmp`;
   await mkdir(path.dirname(file), { recursive: true });
+  const mode = !posix ? null : o?.mode ?? await stat(file).then((s) => s.mode & 0o777, () => null);
   const fd = await open(tmp, 'w');
   try { await fd.writeFile(data); await fd.sync(); } finally { await fd.close(); }
   if (latest.get(file) !== me) { await rm(tmp, { force: true }); return; }   // a newer save came meanwhile: it wins
+  if (mode !== null) await chmod(tmp, mode).catch(() => { /* keeps the default */ });
   await rename(tmp, file);
 }
 
@@ -74,11 +97,11 @@ export const writeFailureCount = (file: string): number => writeFailures.get(fil
  * nothing, and it bounds the space at twice the limit rather than leaving it unbounded.
  *
  * Call before appending. Never throws: a file that could not be rotated is still worth writing to.
+ * `old` is where the previous generation goes (default `<file>.1`).
  */
-export function rotateIfBig(file: string, limitBytes: number): void {
+export function rotateIfBig(file: string, limitBytes: number, old = `${file}.1`): void {
   try {
     if (!existsSync(file) || statSync(file).size <= limitBytes) return;
-    const old = `${file}.1`;
     try { rmSync(old, { force: true }); } catch { /* no previous generation */ }
     // A rename can fail if something else holds the file. Losing one generation beats growing forever.
     try { renameSync(file, old); } catch { try { rmSync(file, { force: true }); } catch { /* keep going */ } }

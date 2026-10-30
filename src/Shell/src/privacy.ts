@@ -11,11 +11,12 @@
 // Chromium's own switch (test-third-party-cookie-phaseout) blocks these cookies too, measured here 2026-10-26, but
 // nothing can be let through with it (a granted requestStorageAccess still sent no cookie), so a sign-in it broke would
 // stay broken. This way a sign-in can always be let through.
-import { appendFileSync, mkdirSync, readFileSync, statSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { Session } from 'electron';
 import { getDomain } from 'tldts-experimental';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
+import { openLog, type Log } from './log.ts';
 
 /** A host's site (eTLD+1, the public suffix list's, the same Chromium uses), or the host itself (an IP, localhost). */
 export function siteOfHost(host: string): string {
@@ -90,7 +91,7 @@ export interface PrivacyNote { at: string; kind: string; site: string; inside?: 
  */
 export class CookieWall {
   private readonly file: string;
-  private readonly log: string;
+  private readonly log: Log;
   /** Hidden site → the pages it may keep cookies inside ('*' for every page). */
   private readonly pairs = new Map<string, Set<string>>();
   /** Off for one session (the PC's sync tests, Claude's own tabs never): everything passes as before. */
@@ -105,15 +106,10 @@ export class CookieWall {
   constructor(dir: string) {
     this.file = path.join(dir, 'cookie-pass.json');
     this.keptFile = path.join(dir, 'cookie-kept-names.json');
-    try {
-      const j = JSON.parse(readFileSync(this.keptFile, 'utf8')) as Record<string, string[]>;
-      for (const [k, v] of Object.entries(j)) if (Array.isArray(v)) this.kept.set(k, new Set(v.filter((x) => typeof x === 'string').slice(0, 50)));
-    } catch { /* none yet */ }
-    this.log = path.join(dir, 'privacy-log.jsonl');
-    try {
-      const j = JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, string[]>;
-      for (const [k, v] of Object.entries(j)) if (Array.isArray(v)) this.pairs.set(k, new Set(v.filter((x) => typeof x === 'string')));
-    } catch { /* none yet */ }
+    for (const [k, v] of Object.entries(readJson<Record<string, unknown>>(this.keptFile, {}))) if (Array.isArray(v)) this.kept.set(k, new Set(v.filter((x) => typeof x === 'string').slice(0, 50)));
+    const log = path.join(dir, 'privacy-log.jsonl');
+    this.log = openLog('privacy', log, { maxBytes: 1_000_000, old: log.replace(/\.jsonl$/, '.old.jsonl') });
+    for (const [k, v] of Object.entries(readJson<Record<string, unknown>>(this.file, {}))) if (Array.isArray(v)) this.pairs.set(k, new Set(v.filter((x) => typeof x === 'string')));
   }
   /** May this hidden site keep its cookies inside this page? */
   passes(hiddenSite: string, pageSite: string, url: string): boolean {
@@ -156,11 +152,7 @@ export class CookieWall {
   }
   /** One line in the privacy log, kept to about 1 MB (the older half goes to privacy-log.old.jsonl). */
   note(n: Omit<PrivacyNote, 'at'>): void {
-    try {
-      mkdirSync(path.dirname(this.log), { recursive: true });
-      try { if (statSync(this.log).size > 1_000_000) renameSync(this.log, this.log.replace(/\.jsonl$/, '.old.jsonl')); } catch { /* new */ }
-      appendFileSync(this.log, JSON.stringify({ at: new Date().toISOString(), ...n }) + '\n');
-    } catch { /* the log is a help, never in the way */ }
+    this.log.json({ at: new Date().toISOString(), ...n });   // the log is a help, never in the way: it never throws
   }
 }
 

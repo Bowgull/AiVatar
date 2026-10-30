@@ -16,7 +16,7 @@ import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, 
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell } from 'electron';
 import { SamaraUpdates, samaraRoot } from './pcupdate.ts';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -35,6 +35,9 @@ import { EngineUpdates, onCastlabs } from './engineupdate.ts';
 import { pcEngine, pcSamara } from './pcsource.ts';
 import type { UpdateEngine } from './updateengine.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson, saveJson } from './store.ts';
+import { openLog } from './log.ts';
+import { localStamp } from './clock.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
 import { AangMenu, avoidRect } from './aangmenu.ts';
@@ -79,15 +82,10 @@ const SHELL_HOME = process.env.AANG_SHELL_HOME && existsSync(process.env.AANG_SH
 // Samara on its own (his ask, 2026-10-20): this process holds his browser, so it is no longer tied to the pet. It may
 // outlive him, so it writes its own log instead of a pipe the pet holds (a pipe that would break when he closes).
 {
-  const LOG = path.join(STATE_DIR, 'shell.log');
-  let n = 0;
+  const log = openLog('shell', path.join(STATE_DIR, 'shell.log'), { maxBytes: 1024 * 1024, checkEvery: 200 });
   const write = (lvl: string, a: unknown[]) => {
     try {
-      if (++n % 200 === 0 && existsSync(LOG) && statSync(LOG).size > 1024 * 1024) { try { unlinkSync(LOG + '.1'); } catch { /* none */ } renameSync(LOG, LOG + '.1'); }
-      const d = new Date(), z = (x: number) => String(x).padStart(2, '0');
-      const when = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
-      appendFileSync(LOG, `${when} ${lvl}${a.map((x) => (typeof x === 'string' ? x : x instanceof Error ? x.stack ?? x.message : JSON.stringify(x))).join(' ')}
-`);
+      log.line(`${localStamp()} ${lvl}${a.map((x) => (typeof x === 'string' ? x : x instanceof Error ? x.stack ?? x.message : JSON.stringify(x))).join(' ')}`);
     } catch { /* a lost log line never stops Samara */ }
   };
   for (const s of [process.stdout, process.stderr]) s?.on?.('error', () => { /* nobody reading: fine */ });
@@ -254,9 +252,6 @@ let lastWeek = 0, lastLevel = 'ok';
 
 /** His Up-arrow history, shared with the old box so it carries over. */
 const HISTORY_FILE = () => path.join(STATE_DIR, 'input-history.json');
-function readJson(file: string): unknown {
-  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
-}
 
 /**
  * Ctrl+Plus, with the new front end on.
@@ -287,7 +282,7 @@ function prefillBox(text: string): void {
 
 function openTypeBox(dock: { x: number; y: number } | null = null): void {
   if (!input) return;
-  const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
+  const body = readJson<unknown>(path.join(STATE_DIR, 'body.json'), null) as Record<string, unknown> | null;
   // Opened any way other than a click on a message, it is not a reply to that message any more.
   if (!dock) dockedTurn = null;
   // 2026-10-21: he is about to type, so the brain gets the lane ready now (its process started, its cache warm if it went
@@ -298,7 +293,7 @@ function openTypeBox(dock: { x: number; y: number } | null = null): void {
   const area = petAt ? screen.getDisplayNearestPoint({ x: petAt.sprite.x, y: petAt.sprite.y }).workArea : screen.getPrimaryDisplay().workArea;
   input.open(at, {
     maxH: Math.round(area.height * 0.66),
-    history: readJson(HISTORY_FILE()) ?? [],
+    history: readJson<unknown>(HISTORY_FILE(), null) ?? [],
     mode: inputMode,
     saving: body?.Saving === true,
     week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt,
@@ -349,7 +344,8 @@ let settings: PopoutSettings = readSettings(STATE_DIR);
 let skipSettings: SkipSettings = DEFAULT_SKIPS;
 try {
   const f = path.join(STATE_DIR, 'skips.json');
-  if (existsSync(f)) skipSettings = withDefaults(JSON.parse(readFileSync(f, 'utf8')));
+  const raw = readJson<unknown>(f, null);
+  if (raw !== null) skipSettings = withDefaults(raw);
 } catch { /* an unreadable file means the defaults, never a refusal to start */ }
 /** The separate castLabs process that plays paid video (step 6.4). */
 let drm: DrmRuntime | null = null;
@@ -839,7 +835,7 @@ app.whenReady().then(async () => {
         log: process.env.AANG_TASKBAR_LOG ? (s) => console.log('shell: taskbar: ' + s) : undefined,
       }));
       input.window();
-      const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
+      const body = readJson<unknown>(path.join(STATE_DIR, 'body.json'), null) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
       // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
       // Ctrl+Plus and Snipit: taken below, once Snipit exists, and only while Aang is running.
@@ -1364,8 +1360,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('input:history', (e, list) => {
     if (!fromInput(e) || !Array.isArray(list)) return;
-    try { writeFileSync(HISTORY_FILE(), JSON.stringify(list.filter((x) => typeof x === 'string').slice(-50))); }
-    catch (err) { console.error('shell: history not saved: ' + (err as Error).message); }
+    if (!saveJson(HISTORY_FILE(), list.filter((x) => typeof x === 'string').slice(-50))) console.error('shell: history not saved');
   });
   ipcMain.on('input:close', (e) => { if (fromInput(e)) input?.close(); });
   ipcMain.on('input:stop', (e) => { if (fromInput(e)) link?.send({ t: 'stop' }); });
@@ -1706,7 +1701,7 @@ let engineUpdates: EngineUpdates | null = null;
 /** The engine's update source, told what to say after an overnight update. */
 let engineSrc: ReturnType<typeof pcEngine> | null = null;
 const updatePrefsFile = path.join(STATE_DIR, 'update-prefs.json');
-function updatePrefs(): { overnight: boolean } { try { return { overnight: JSON.parse(readFileSync(updatePrefsFile, 'utf8')).overnight === true }; } catch { return { overnight: false }; } }
+function updatePrefs(): { overnight: boolean } { return { overnight: readJson<{ overnight?: unknown }>(updatePrefsFile, {}).overnight === true }; }
 /** Samara's own update from GitHub (2026-10-29, his pick: the PC like the Mac), set up once the browser is. */
 let samaraUpdates: SamaraUpdates | null = null;
 /** The update engine: both sources, one key (updateengine.ts). */

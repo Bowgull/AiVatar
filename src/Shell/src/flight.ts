@@ -7,8 +7,9 @@
 //   - Samara's memory every 10 minutes, so a slow climb shows.
 // Only a site's name is ever written, never its full address (a log may be shared when something goes wrong).
 import { EventEmitter } from 'node:events';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
+import { readJson, saveJson } from './store.ts';
 
 /** "www.youtube.com/watch?v=..." -> "www.youtube.com"; anything that is not a web page -> its kind only. */
 export function siteOf(url: string): string {
@@ -21,12 +22,13 @@ export function lastRun(dir: string, now = Date.now(), pid = process.pid): strin
   let said: string | null = null;
   if (existsSync(f)) {
     try {
-      const m = JSON.parse(readFileSync(f, 'utf8')) as { at?: number; pid?: number };
+      const m = readJson<{ at?: number; pid?: number } | null>(f, null);
+      if (!m) throw new Error('broken');
       const at = typeof m.at === 'number' ? new Date(m.at).toISOString().slice(0, 16).replace('T', ' ') : 'an unknown time';
       said = `last run (started ${at}) did not close cleanly: it crashed, was killed, or the computer went off`;
     } catch { said = 'last run did not close cleanly'; }
   }
-  try { writeFileSync(f, JSON.stringify({ at: now, pid })); } catch { /* best effort */ }
+  saveJson(f, { at: now, pid });
   return said;
 }
 export function closedCleanly(dir: string): void { try { rmSync(path.join(dir, 'running.json'), { force: true }); } catch { /* best effort */ } }

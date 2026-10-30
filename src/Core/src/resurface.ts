@@ -4,8 +4,9 @@
 // "relevant" means a day he named has come: "He has a dentist appointment on Thursday at 2pm", learned on Monday, is
 // said back on Thursday morning (or an hour before 2pm). Once per fact, at most three a day, and through announce(),
 // so hush, quiet and mute all hold it as they hold anything else.
+import { HOME_TZ } from './clock.ts';
 
-const TZ = 'America/Toronto';
+const TZ = HOME_TZ;
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 

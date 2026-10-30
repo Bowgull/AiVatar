@@ -3,13 +3,14 @@
 // the links, the files); the model only adds two things in its own words, the summary and what the sender asks him,
 // and those are labelled as Aang's reading. Anything code is not sure of is a CHECK row, with why.
 import type { EmailFacts, IcsTime } from './emailfacts.ts';
+import { HOME_TZ } from './clock.ts';
 
 export interface SeenEmail { id: string; fromName: string; fromEmail: string; subject: string; sentMs: number; facts: EmailFacts }
 export interface CardRow { icon: 'cal' | 'pin' | 'call' | 'video' | 'file' | 'ask' | 'check'; w: string; m: string }
 export type EmailAct = 'book' | 'drive' | 'transcripts' | 'prep' | 'reply' | 'files';
 
 const s = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
-const TZ = 'America/Toronto';
+const TZ = HOME_TZ;
 const dayOf = (ms: number) => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
 const timeOf = (ms: number) => new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).toLowerCase();
 

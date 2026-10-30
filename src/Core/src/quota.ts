@@ -1,10 +1,10 @@
 // Live account usage from the stream's rate_limit_event, and Joshua's rule: warn at 40% of the week,
 // offer to save quota at 50% (opt-in, switch in and out any time). Utilization is account-level, so it
 // already includes anyone else using the account.
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import type { QuotaLevel } from './protocol.ts';
+import { readJson } from './store.ts';
 
 export interface Quota {
   five: number;
@@ -52,16 +52,15 @@ export class QuotaPolicy {
   constructor(stateDir?: string) {
     if (!stateDir) return;
     this.file = path.join(stateDir, 'saving.json');
-    try {
-      if (!existsSync(this.file)) return;
-      const j = JSON.parse(readFileSync(this.file, 'utf8').replace(/^﻿/, ''));
+    {
+      const j = readJson<any>(this.file, {});   // an unreadable file just means the default: not saving
       this.saving = j.saving === true;
       this.declined = j.declined === true;
       // The one-time notices are remembered too, or a restart would say "you've used 88% of your
       // week" all over again, which at 4 to 22 restarts a day is the same nagging by another name.
       this.warned = j.warned === true;
       this.offered = j.offered === true;
-    } catch { /* an unreadable file just means the default: not saving */ }
+    }
   }
 
   private remember(): void {

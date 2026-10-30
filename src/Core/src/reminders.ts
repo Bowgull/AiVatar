@@ -2,9 +2,10 @@
 //
 // They are written to disk the moment they are made, so a restart (or a power cut, which has happened here)
 // never loses one, and anything that came due while the Core was down is delivered as soon as it is back.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
 import path from 'node:path';
+import { homeTime } from './clock.ts';
+import { readJson } from './store.ts';
 
 export interface Reminder {
   id: string;
@@ -36,7 +37,7 @@ export function describeWhen(at: number, now = Date.now()): string {
   if (mins < 60) return `in ${mins} minutes`;
   const h = Math.round(mins / 60);
   if (h < 24) return `in about ${h} hour${h === 1 ? '' : 's'}`;
-  return `on ${new Date(at).toLocaleString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: true })}`;
+  return `on ${homeTime(at, { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: true }, 'en-CA')}`;
 }
 
 export class Reminders {
@@ -54,11 +55,8 @@ export class Reminders {
   }
 
   private load(): void {
-    try {
-      if (!existsSync(this.file)) return;
-      const raw = JSON.parse(readFileSync(this.file, 'utf8'));
-      if (Array.isArray(raw)) this.items = raw.filter(r => r && typeof r.at === 'number' && typeof r.text === 'string');
-    } catch { this.items = []; }   // a corrupt file must not stop the Core from starting
+    // A corrupt file must not stop the Core from starting.
+    this.items = readJson(this.file, this.items, (raw) => (Array.isArray(raw) ? raw.filter(r => r && typeof r.at === 'number' && typeof r.text === 'string') : null));
   }
 
   private save(): void {

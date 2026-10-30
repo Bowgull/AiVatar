@@ -2,8 +2,8 @@
 // site and remembered; Forget in the shield takes it back. Kept on this machine only: the devices are plugged in here.
 //
 // A device is known by its maker and model number (and serial, when it has one), never by Chromium's per-run id.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export interface KnownDevice { key: string; name: string }
 /** The parts of an Electron HIDDevice this needs. */
@@ -19,9 +19,7 @@ export class DeviceOk {
   constructor(file: string) {
     this.file = file;
     try {
-      if (!existsSync(file)) return;
-      const j = JSON.parse(readFileSync(file, 'utf8'));
-      for (const [host, list] of Object.entries(j ?? {})) {
+      for (const [host, list] of Object.entries(readJson<Record<string, unknown>>(file, {}))) {
         if (!/^[a-z0-9.-]+$/.test(host) || !Array.isArray(list)) continue;
         const ok = (list as KnownDevice[]).filter((d) => typeof d?.key === 'string' && /^\d+:\d+:/.test(d.key) && typeof d?.name === 'string').slice(0, 20);
         if (ok.length) this.sites.set(host, ok.map((d) => ({ key: d.key.slice(0, 100), name: d.name.slice(0, 60) })));

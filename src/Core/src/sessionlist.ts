@@ -8,10 +8,11 @@
 // One session, one row: the same id from several sources is merged, the best source saying its state (the link mod
 // knows best, then the hooks, then a launch record, then the desk) and every source kept in `sources`. Each row says
 // which machine it is on, from where its news came, not from where the brain runs.
-import { readFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Job, WaitItem } from './claudelink.ts';
+import { readJson } from './store.ts';
 
 export type Machine = 'mac' | 'pc';
 /** What the session is doing, by his words: working, waiting on him (with what), done (unread), paused, failed. */
@@ -185,10 +186,7 @@ export class DeskJobs {
     try { m = statSync(this.file).mtimeMs; } catch { this.seen = -1; this.jobs = []; return []; }
     if (m === this.seen) return this.jobs;
     this.seen = m;
-    try {
-      const a: unknown = JSON.parse(readFileSync(this.file, 'utf8'));
-      this.jobs = Array.isArray(a) ? a.filter((j): j is DeskJobLike => !!j && typeof j.session === 'string' && typeof j.at === 'number') : [];
-    } catch { this.jobs = []; }
+    this.jobs = readJson<DeskJobLike[]>(this.file, [], (a) => (Array.isArray(a) ? a.filter((j): j is DeskJobLike => !!j && typeof j.session === 'string' && typeof j.at === 'number') : null));
     return this.jobs;
   }
 }

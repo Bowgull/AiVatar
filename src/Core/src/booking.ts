@@ -7,6 +7,7 @@
 //   - After it is booked, the event is read back from Google and compared field by field with what he approved.
 import type { EmailFacts, FoundDate, Invite } from './emailfacts.ts';
 import type { CalEvent } from './google.ts';
+import { HOME_TZ } from './clock.ts';
 
 export type Answer = 'accept' | 'decline' | 'maybe' | 'add';
 /** What is about to happen, all of it from code. */
@@ -25,7 +26,7 @@ export interface Plan {
   doubts: string[];
 }
 
-const TZ = 'America/Toronto';
+const TZ = HOME_TZ;
 const RESPONSE: Record<Exclude<Answer, 'add'>, string> = { accept: 'accepted', decline: 'declined', maybe: 'tentative' };
 export const responseOf = (a: Answer) => (a === 'add' ? null : RESPONSE[a]);
 

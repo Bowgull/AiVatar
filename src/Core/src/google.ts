@@ -1,7 +1,8 @@
 // Gmail and Calendar over plain REST. The sign-in (tools/google-setup.cmd) leaves the tokens in %APPDATA%\Aang\google.json.
 // The network call is injected so tests never touch Google. This file only moves bytes; every rule about what may be
 // sent lives in mail.ts.
-import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
+import { readJson, saveJson } from './store.ts';
 
 export type Fetch = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<any>; text(): Promise<string> }>;
 
@@ -44,11 +45,8 @@ export class Google {
     let mtime = 0; try { mtime = statSync(this.file).mtimeMs; } catch { /* not there */ }
     if (this.t && mtime <= this.readAt) return this.t;
     this.t = null; this.readAt = mtime;
-    try {
-      if (!existsSync(this.file)) return null;
-      const j = JSON.parse(readFileSync(this.file, 'utf8'));
-      if (j?.clientId && j?.clientSecret && j?.refreshToken) this.t = j as Tokens;
-    } catch { /* unreadable: treated as not signed in */ }
+    // Unreadable: treated as not signed in.
+    this.t = readJson<Tokens | null>(this.file, null, (j: any) => (j?.clientId && j?.clientSecret && j?.refreshToken ? j as Tokens : null));
     return this.t;
   }
 
@@ -94,7 +92,7 @@ export class Google {
     // This was the one pre-existing type error in this file.
     const fresh = String(j.access_token);
     t.accessToken = fresh; t.expiresAt = this.now() + (Number(j.expires_in) || 3600) * 1000 - 60_000;
-    try { writeFileSync(this.file, JSON.stringify(t, null, 2)); } catch { /* it just refreshes again next time */ }   // in place, so the owner-only ACL stays
+    saveJson(this.file, t, { pretty: true, ownerOnly: true });   // owner-only: the Windows ACL stays (in place), the Mac keeps 600; a failure just refreshes again next time
     return fresh;
   }
 

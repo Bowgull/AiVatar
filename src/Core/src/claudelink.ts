@@ -18,7 +18,7 @@
 // Nothing here approves on its own: an answer exists only because Joshua gave it (answer() below), and the mod's own
 // dialog keeps working beside it, whichever he answers first wins.
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFileSync, unlinkSync } from 'node:fs';
+import { unlinkSync } from 'node:fs';
 import type http from 'node:http';
 import path from 'node:path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
@@ -36,6 +36,7 @@ import { calibration } from './progressmath.ts';
 import { normFolder, startBody } from './jobstart.ts';
 import type { Start, StartBook } from './jobstart.ts';
 import type { PlanV3 } from './progressmath.ts';
+import { readJson } from './store.ts';
 
 // ------------------------------------------------------------------ the key and the MAC
 
@@ -384,8 +385,8 @@ export class JobTracker {
   }
   private loadUnread(): void {
     if (!this.unreadPath) return;
-    let raw: unknown;
-    try { raw = JSON.parse(readFileSync(this.unreadPath, 'utf8')); } catch { return; }   // none yet
+    const raw = readJson<unknown>(this.unreadPath, null);
+    if (raw === null) return;   // none yet
     for (const x of Array.isArray(raw) ? raw.slice(-50) : []) {   // trimmed to the newest MAX_UNREAD below
       if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id || !Number.isFinite(x.doneAt)) continue;
       this.unread.set(cut(x.id, 100), { id: cut(x.id, 100), project: cut(x.project, 80), title: cut(x.title, 80), open: typeof x.open === 'string' ? cut(x.open, 200) : null,

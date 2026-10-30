@@ -7,13 +7,14 @@
 //     Claude window) and Claude's answer is posted back. It is all there when he opens the session later.
 //   - Claude Code's own settings apply (his allow-list). Anything it would have to ASK about is not asked from the
 //     phone yet (that is the PIN step, 9.A1): it is refused, and the post says it waits for him at a computer.
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { writeFileAtomic } from './atomic.ts';
 import { MODELS } from './route.ts';
 import type { Gateway } from './discord.ts';
+import { readJson } from './store.ts';
 
 // updatedAt and last (2026-10-30): the brain's sessions engine reads this file (sessionlist.ts DeskJobs) for its one list.
 interface Job { session: string; cwd: string; thread: string; title: string; at: number; card?: string; state?: 'working' | 'waiting' | 'done'; updatedAt?: number; last?: string }
@@ -30,7 +31,7 @@ export class MacJobs {
   constructor(o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void; draw?: Draw }) {
     this.o = o;
     this.file = path.join(o.dir, 'jobs.json');
-    try { if (existsSync(this.file)) { const a = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(a)) this.jobs = a; } } catch { /* none */ }
+    this.jobs = readJson(this.file, this.jobs, (a) => (Array.isArray(a) ? a : null));
   }
   private save() { this.jobs = this.jobs.slice(-60); try { writeFileAtomic(this.file, JSON.stringify(this.jobs)); } catch { /* next time */ } }
   /** The job a Discord thread belongs to, if it is one of these. */

@@ -14,10 +14,11 @@
 //  3. ONLY AS AN IMAGE. What comes back is a stranger's file. It is size-capped, must say it is an image,
 //     and reaches the page as a data URL drawn by <img>, where an SVG cannot run anything.
 import { lookup, resolveTxt } from 'node:dns/promises';
-import { existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { isIP } from 'node:net';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 /** Addresses from these belong to people, not companies: always the letter, never a lookup. */
 const PERSONAL = new Set(['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
@@ -83,7 +84,7 @@ export class Logos {
     this.resolve = resolve ?? ((n) => lookup(n, { all: true }));
     this.now = now;
     this.file = path.join(dir, 'logos.json');
-    try { if (existsSync(this.file)) this.data = JSON.parse(readFileSync(this.file, 'utf8')) ?? {}; } catch { this.data = {}; }
+    this.data = readJson(this.file, {});
   }
 
   /** What is kept for a domain: a data URL, null for "has none", undefined for "not looked up yet". */
