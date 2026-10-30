@@ -139,10 +139,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .plantray .prow img{width:18px;height:18px;border-radius:3px;flex:none}
 .plantray .prow.off .nm{opacity:.5;text-decoration:line-through}
 .plantray .num{width:20px;text-align:center;font:400 11px var(--label);color:#8a3e1c;flex:none}
-.plantray .tq{flex:none;width:17px;height:17px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;cursor:pointer;padding:0;
-  background:#3FBFAE;box-shadow:0 0 6px rgba(159,240,230,.9),0 2px 0 rgba(0,0,0,.35)}
-.plantray .tq::after{content:"";position:absolute;left:4px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
-.plantray .tq.off{background:#cdb78c;box-shadow:0 2px 0 rgba(0,0,0,.35)}.plantray .tq.off::after{display:none}
+.plantray .tq{flex:none;width:18px;height:18px;border:2px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;cursor:pointer;padding:0;
+  /* (2026-10-30, his catch: the tick sat up and right and blurred. Whole pixels now: a pixel tick, centred in the box.) */
+  background:#3FBFAE url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='8' y='0' width='2' height='2'/%3E%3Crect x='6' y='2' width='2' height='2'/%3E%3Crect x='0' y='4' width='2' height='2'/%3E%3Crect x='4' y='4' width='2' height='2'/%3E%3Crect x='2' y='6' width='2' height='2'/%3E%3C/svg%3E") center/10px 8px no-repeat;image-rendering:pixelated;box-shadow:0 0 6px rgba(159,240,230,.9),0 2px 0 rgba(0,0,0,.35)}
+.plantray .tq.off{background:#cdb78c;box-shadow:0 2px 0 rgba(0,0,0,.35)}
 .planwont{display:flex;gap:8px;align-items:center;margin:0 14px 10px;font:600 12.5px var(--body);color:#f0c9a8}
 .planwont[hidden]{display:none}
 .plannote{display:block;width:calc(100% - 24px);box-sizing:border-box;margin:0 12px 10px;padding:8px 10px;border-radius:8px;border:2px solid #120A05;resize:none;

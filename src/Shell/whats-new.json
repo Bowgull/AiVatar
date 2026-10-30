@@ -660,6 +660,11 @@
       "at": "2026-10-30T05:33:00-04:00",
       "text": "Sleeping tabs never freeze while you look at them.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T07:10:00-04:00",
+      "text": "Claude's plan card: tick centred, empty Change never says Go.",
+      "kind": "fix"
     }
   ]
 }
