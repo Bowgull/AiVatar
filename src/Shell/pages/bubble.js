@@ -1081,6 +1081,8 @@ function answer(choice) {
   // For consent, saying yes means asking the same thing again with `once`, so what was asked has to
   // travel with the answer. The bubble is the only place that still knows it.
   // Sheet 37: a plan with a typed change sends the change; the sites he kept travel with any answer.
+  // Change opened and nothing typed: "Send changes" must never count as Go, by click, key or hold (2026-10-30, his catch).
+  if (asking.samara && choice === 'go') { const n = document.getElementById('plannote'); if (n && !n.hidden && !n.value.trim()) { n.focus(); return; } }
   const planAns = asking.samara ? planAnswer(choice) : null;
   if (planAns) choice = planAns.choice;
   window.aang?.answerAsk?.({

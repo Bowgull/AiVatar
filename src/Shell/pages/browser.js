@@ -2391,6 +2391,8 @@ el('planchange').addEventListener('click', () => { el('plannote').hidden = false
 el('plango').addEventListener('click', () => {
   if (!planCard) return;
   const note = el('plannote').hidden ? '' : el('plannote').value.trim();
+  // Change opened and nothing typed: "Send changes" must never count as Go (2026-10-30, his catch).
+  if (!el('plannote').hidden && !note) { el('plannote').focus(); return; }
   window.aang?.browserPlanReply?.(planCard.id, { go: !note, change: !!note, keep: [...planKeep], note });
   paintPlanTray(null);
 });
