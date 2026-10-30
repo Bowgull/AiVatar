@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-export const TWINS = ['atomic.ts', 'store.ts', 'log.ts', 'clock.ts'];
+export const TWINS = ['atomic.ts', 'store.ts', 'log.ts', 'clock.ts', 'scheduler.ts'];
 
 test('the shared engines are the same file in Core and Shell', () => {
   for (const f of TWINS) {

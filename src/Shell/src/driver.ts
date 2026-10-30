@@ -22,6 +22,7 @@ import { reachesIn, talksToAI } from './driverrules.ts';
 import { blockAds, guardRequests } from './skip/ads.ts';
 import { existsSync, statSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
+import { sched } from './sched.ts';
 export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
@@ -429,6 +430,7 @@ const BEST_MEDIA_JS = `(() => {
     src: tag === 'video' ? (best.currentSrc || '') : '', video: tag === 'video' || tag === 'iframe' };
 })()`;
 
+let drivers = 0;
 export class Driver {
   private readonly d: DriverDeps;
   readonly jobs: Job[] = [];
@@ -442,8 +444,10 @@ export class Driver {
   private lastNav = new Map<string, number>();
   constructor(d: DriverDeps) {
     this.d = d;
-    setInterval(() => this.sweep(), 10 * 60_000).unref?.();
-    setInterval(() => this.rest(), 60_000).unref?.();
+    // On the scheduler (2026-10-30); each browser (and the secret window) has its own driver, so its own names.
+    const n = ++drivers;
+    sched.every(`driver${n}.sweep`, 10 * 60_000, () => this.sweep());
+    sched.every(`driver${n}.rest`, 60_000, () => this.rest());
   }
   /**
    * Pages Claude has not touched for 2 minutes rest (2026-10-20, the speed plan): their timers slow right down, so a

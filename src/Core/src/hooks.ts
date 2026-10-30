@@ -198,6 +198,8 @@ export class HookServer {
 
   /** M6: GET /mac-look from this PC only: the Mac browser's window and log, saved for Claude. Null: no such door. */
   look: (() => Promise<Record<string, unknown> | null>) | null = null;
+  /** GET /jobs: the scheduler's list (what runs when), for diagnostics. This PC only, like /mac-look. */
+  jobs: (() => unknown) | null = null;
 
   /**
    * DNS rebinding (2026-10-14, code audit M5): a web page can point its own name at 127.0.0.1 and talk to this door
@@ -226,6 +228,10 @@ export class HookServer {
     }
     if (req.method === 'GET' && req.url === '/mac-look' && this.look && !req.headers.origin && isLoopback(req.socket.remoteAddress ?? '')) {
       void this.look().then(r => res.writeHead(r ? 200 : 503, { 'Content-Type': 'application/json' }).end(JSON.stringify(r ?? { error: 'the Mac browser is not connected' })), () => res.writeHead(500).end());
+      return;
+    }
+    if (req.method === 'GET' && req.url === '/jobs' && this.jobs && !req.headers.origin && isLoopback(req.socket.remoteAddress ?? '')) {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(this.jobs()));
       return;
     }
     if (req.method === 'GET' && req.url?.startsWith('/mac-setup')) {

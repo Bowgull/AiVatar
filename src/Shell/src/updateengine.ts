@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { saveText } from './store.ts';
 import { openLog } from './log.ts';
+import { sched } from './sched.ts';
 
 // ---------------------------------------------------------------- versions
 /** "44.5.1+wvcus" -> "44.5.1". */
@@ -121,7 +122,6 @@ export interface EngineOptions {
 export const TICK_MS = 10 * 60_000;
 
 export class UpdateEngine {
-  private timers: NodeJS.Timeout[] = [];
   private going = false;
   private readonly o: EngineOptions;
   constructor(o: EngineOptions) { this.o = o; }
@@ -195,14 +195,16 @@ export class UpdateEngine {
     for (const s of this.o.sources) if (!s.onKey && s.ready() && quietNow(m)) { const r = await s.go(); if (r.ok) this.o.log?.(`update: ${s.id} put in quietly`); }
   }
 
-  /** Checks on start (half a minute in), every hour, and when asked (the release nudge, his check). */
+  /**
+   * Checks on start (half a minute in), every hour, and when asked (the release nudge, his check). On the scheduler
+   * (2026-10-30): the checks wait out a call or a game (a check can download and build); the tick does its own deciding.
+   */
   start(): void {
-    this.timers.push(setTimeout(() => void this.checkAll('start'), 30_000));
-    this.timers.push(setInterval(() => void this.checkAll('hourly'), 60 * 60_000));
-    this.timers.push(setInterval(() => void this.tick(), TICK_MS));
-    for (const t of this.timers) t.unref?.();
+    let first = true;
+    sched.every('update.check', 60 * 60_000, () => this.checkAll(first ? (first = false, 'start') : 'hourly'), { first: 30_000, quiet: true });
+    sched.every('update.tick', TICK_MS, () => this.tick());
   }
-  stop(): void { this.timers.forEach(clearTimeout); this.timers = []; }
+  stop(): void { sched.cancel('update.check'); sched.cancel('update.tick'); }
   async checkAll(why: string): Promise<void> {
     for (const s of this.o.sources) { try { await s.check(why); } catch (e) { this.o.log?.(`update: ${s.id} check: ${(e as Error).message}`); } }
     this.show();

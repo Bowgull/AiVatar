@@ -85,6 +85,7 @@ import { SessionNames } from './claudenames.ts';
 import { TranscriptScan } from './claudescan.ts';
 import type { Ask as PlainAsk } from './plainwords.ts';
 import { Reminders } from './reminders.ts';
+import { describeJobs, Scheduler } from './scheduler.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
 import { clearReadCache, looksVisual, readWindow } from './screen.ts';
@@ -2016,7 +2017,6 @@ export class Core {
   // ---- 9.D D8: 🎮 gaming feeds
   private feedsStore: Feeds | null = null;
   private get feeds(): Feeds { return this.feedsStore ??= new Feeds(this.cfg.stateDir); }
-  private readonly feedTimers: NodeJS.Timeout[] = [];
   private feedTick = 0;
   private async feedText(url: string): Promise<string> {
     const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 Aang', 'Accept-Language': 'en' }, signal: AbortSignal.timeout(20_000) });
@@ -2323,7 +2323,6 @@ export class Core {
    * The stale rule is about time passing with nothing said, so no event will ever arrive to re-check it: a hook session
    * that died mid-turn would hold the mark up for good. A look once a minute lets it go (only a change is sent).
    */
-  private busyTimer: NodeJS.Timeout | null = null;
   /**
    * The jobs list to the Shell, as fast as it changes (2026-10-21, supercharged: claudelink.ts LinkPusher). It was a
    * flat 80 ms coalesce; now it goes on the next turn of the event loop, and only rapid tool chatter is spaced 16 ms
@@ -2465,13 +2464,13 @@ export class Core {
   /** Which window Joshua is in. Memory only, never written to disk. */
   readonly activity = new ActivityLog();
   readonly reminders: Reminders;
+  /** Every background job (scheduler.ts). GET /jobs on the hook port lists them. */
+  readonly sched: Scheduler;
   /** Which Claude session each lane is in, so six reboots a day do not read as amnesia. */
   readonly sessions: SessionStore;
   /** What Aang may do without asking again. */
   readonly trust: TrustStore;
   private hookServer: HookServer | null = null;
-  private checkpointTimer: NodeJS.Timeout | null = null;
-  private briefTimer: NodeJS.Timeout | null = null;
   /**
    * The morning brief, once a day. 2026-10-22 (his pick: "when I first sit down"; he is up at 6 or before): from 5:00
    * Toronto time it comes the moment he is at the PC (also checked when the pet says he sat down); if he is not at the
@@ -2507,16 +2506,10 @@ export class Core {
       this.announce(t, card ? { brief: card } : {});
     }).catch(() => { /* tried again in ten minutes */ }).finally(() => { this.briefBusy = false; });
   }
-  private factTimer: NodeJS.Timeout | null = null;
-  private timerTick: NodeJS.Timeout | null = null;
 
   /** Set by index.ts: what to do when the Body asks the Core to stop. The Core does not decide how the
    *  process exits, and importing the shutdown path here would be circular. */
   onShutdownRequest?: () => void;
-  private backupTimer: NodeJS.Timeout | null = null;
-  private nudgeTimer: NodeJS.Timeout | null = null;
-  private watchTimer: NodeJS.Timeout | null = null;
-  private sweepTimer: NodeJS.Timeout | null = null;
 
   /**
    * 7: the addon check and the weekly sweep.
@@ -2635,7 +2628,15 @@ export class Core {
     // forget didn't stick" and repeated it, and telling him the block was a snapshot fixed it one run in two.
     // It travels with the messages instead - see withKnown.
     this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
-    this.reminders = new Reminders(cfg.stateDir);
+    // The scheduler engine (2026-10-30): every background job of the brain on one list, with one "he is busy" (the
+    // presence verdict: a game, a call, full screen, Focus, the Shadow window) and catch-up across restarts.
+    this.sched = new Scheduler({
+      file: path.join(cfg.stateDir, 'scheduler.json'),
+      quietNow: () => (this.bodyQuiet ? this.lastVerdict || 'busy' : ''),
+      idleSeconds: () => (this.atDesk ? 0 : Infinity),
+      log: l => console.log(l),
+    });
+    this.reminders = new Reminders(cfg.stateDir, this.sched);
     this.sessions = new SessionStore(cfg.stateDir);
     this.trust = new TrustStore(cfg.stateDir);
     this.actions = new ActionLog(cfg.stateDir);
@@ -2821,6 +2822,7 @@ export class Core {
   private applyDesk(active: boolean): void {
     const was = this.atDesk; this.atDesk = active;
     if (active) this.saidAway = false;
+    if (was && !active) this.sched.wake();             // jobs waiting for him to step away
     // Back (sheet 102): one line with what went to his phone meanwhile, a row each; nothing is sent again.
     if (!was && active && this.awayLog.length) {
       // Not what he has dealt with in Claude meanwhile (fix 3): a question answered there, or news of a session he saw.
@@ -3051,7 +3053,7 @@ export class Core {
     // His ask (2026-10-21): the sessions already running show at once, even before their mods reach this brain.
     if (this.cfg.scanTranscripts) { this.claudeScan = new TranscriptScan(this.claudeJobs, { selfCwd: () => this.selfCwd() }); this.claudeScan.start(); }
     // 2026-10-21: the stale rule for the mark (claudeState) needs a look as time passes, not only on events.
-    this.busyTimer = setInterval(() => this.pushClaudeWorking(), 60_000); this.busyTimer.unref?.();
+    this.sched.every('claude.working', 60_000, () => this.pushClaudeWorking());
     // Plain words (2026-10-21): every new ask is rewritten in the background; the card shows Claude's own summary
     // until then, and keeps it if the rewrite fails.
     // A question Claude ended its reply on is already in words: rewritten as if it were a permission, it lost what it was
@@ -3060,6 +3062,8 @@ export class Core {
     // M6: the Mac's browser syncs with this PC's through here (bsynchub.ts).
     this.hookServer.upgrade = (req, socket, head) => this.bsync.upgrade(req, socket, head);
     // His yes (2026-10-13): Claude may look at the Mac browser's window. Saved in the Aang folder, on this PC only.
+    // The scheduler's list, for diagnostics: curl http://127.0.0.1:<port+1>/jobs
+    this.hookServer.jobs = () => { const now = Date.now(), list = this.sched.list(); return { now, lines: describeJobs(list, now), jobs: list }; };
     this.hookServer.look = async () => {
       const r = await this.bsync.look();
       if (!r) return null;
@@ -3085,15 +3089,13 @@ export class Core {
     catch (e) { console.error('hook endpoint could not start:', (e as Error).message); this.hookServer = null; }
     // Fold the memory journal back into the database every few minutes; a Shadow session runs four
     // hours and ends with a hard shutdown, so do not leave it all for a clean stop that may never come.
-    this.checkpointTimer = setInterval(() => this.memory.checkpoint(), 5 * 60_000);
-    this.checkpointTimer.unref?.();
+    this.sched.every('memory.checkpoint', 5 * 60_000, () => this.memory.checkpoint());
     // Leaves this machine every time he starts (2026-09-28), not on a schedule he might never reach - Shadow's
     // reboots are unpredictable, so "back up nightly" would often just not happen; "back up at start" always
     // does. Deferred a few seconds so it can never delay the very first message getting through.
-    setTimeout(() => this.runBackup(), 5_000).unref?.();
     // And every 24 hours while he stays up (his ask, 2026-10-13): the brain can run for days without a restart,
     // and a backup that only happens at start would then not happen at all.
-    setInterval(() => this.runBackup(), 24 * 3_600_000).unref?.();
+    this.sched.every('backup', 24 * 3_600_000, () => this.runBackup(), { first: 5_000 });
     // Something happened to his memory on the way up: it was missing, or damaged and restored, or
     // built from nothing. He says so himself rather than leaving it in a log, because the failure
     // this replaces was Aang starting with no memory at all and talking to Joshua as a stranger
@@ -3114,45 +3116,41 @@ export class Core {
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
     // At the desk it arrives as the card (sheet 13); away, Discord draws its own card (sheet 21), the text riding along.
-    this.briefTimer = setInterval(() => this.briefIfDue(), 10 * 60_000);
+    this.sched.every('brief', 10 * 60_000, () => this.briefIfDue());
     // Facts read out of his documents, offered one at a time when he is not busy and not in a game.
     // offerFact() does the deciding; this only gives it a chance to. Five minutes because none of these
     // is urgent - they came out of documents he already has - and a question at a bad moment costs far
     // more than the same question later.
     // Sheet 17 timers ring on the dot from armTimers (one timeout for the next one due). This is only a backstop, every
     // 30 s, not every second with no timers at all (2026-10-29, fix 11).
-    this.timerTick = setInterval(() => this.fireTimers(), 30_000);
+    this.sched.every('timers.backstop', 30_000, () => this.fireTimers());
     this.armTimers();
     // E7: leave-by and Join reminders, every five minutes (only when he has a TomTom key or a call is near).
-    this.feedTimers.push(setInterval(() => { void this.tripTick().catch(() => {}); }, 5 * 60_000));
-    this.timerTick.unref?.();
-    this.factTimer = setInterval(() => this.offerFact(), 5 * 60_000);
-    // 2026-10-22: Qwen looks over his notes on a slow timer (notenotice.ts); first look ten minutes after start.
-    this.feedTimers.push(setTimeout(() => void this.noteNotice.check(), 10 * 60_000), setInterval(() => void this.noteNotice.check(), NOTICE_EVERY_MS));
-    // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look).
-    this.feedTimers.push(setTimeout(() => void this.checkFeeds(true), 2 * 60_000), setInterval(() => void this.checkFeeds(++this.feedTick % 6 === 0), 20 * 60_000));
-    for (const t of this.feedTimers) t.unref?.();
-    this.factTimer.unref?.();
+    this.sched.every('trips', 5 * 60_000, () => this.tripTick().catch(() => {}));
+    // Held while he is busy (the scheduler's quiet): an offer at a bad moment costs more than the same offer later.
+    this.sched.every('facts', 5 * 60_000, () => this.offerFact(), { quiet: true });
+    // 2026-10-22: Qwen looks over his notes on a slow timer (notenotice.ts); first look ten minutes after start. Quiet:
+    // Qwen fills the graphics card, so never during a game.
+    this.sched.every('notes.notice', NOTICE_EVERY_MS, () => this.noteNotice.check(), { first: 10 * 60_000, quiet: true });
+    // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look). Waits out a game or call.
+    let feedFirst = true;
+    this.sched.every('feeds', 20 * 60_000, () => this.checkFeeds(feedFirst ? (feedFirst = false, true) : ++this.feedTick % 6 === 0), { first: 2 * 60_000, quiet: true });
     // The vault backup, silent and daily (his call, 2026-10-12). Checked hourly; autoBackup() saves once a day
-    // has passed since the last save and something changed.
-    this.backupTimer = setInterval(() => { void this.autoBackup(); }, 60 * 60_000);
-    this.backupTimer.unref?.();
-    this.briefTimer.unref?.();
+    // has passed since the last save and something changed. Not mid-game (it zips), and caught up after a restart.
+    this.sched.every('vault.backup', 60 * 60_000, () => this.autoBackup(), { quiet: true, catchUp: true });
     // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
-    this.nudgeTimer = setInterval(() => { this.nudge(); this.checkStaleLaunches(); }, 10 * 60_000);
-    this.nudgeTimer.unref?.();
+    this.sched.every('nudge', 10 * 60_000, () => { this.nudge(); this.checkStaleLaunches(); });
 
     // 7: the watch. Addons when he starts (his answer, asked directly), the sweep once a week.
     //
     // Both are delayed and both are guarded by a date written down rather than by the timer, so six
     // restarts on a Monday sweep once and a day of restarts nags once. The delay matters: startup is
     // when he is most likely to be waiting for Aang to be useful, and neither of these is urgent.
-    this.watchTimer = setTimeout(() => { void this.runWatch(); }, 90_000);
-    this.watchTimer.unref?.();
     // Checked hourly rather than weekly, because a machine that reboots every four hours never reaches
-    // a weekly timer. The week key is what actually stops it running twice.
-    this.sweepTimer = setInterval(() => { void this.runWatch(); }, 60 * 60_000);
-    this.sweepTimer.unref?.();
+    // a weekly timer. The week key is what actually stops it running twice. Never during a game or a call.
+    this.sched.every('watch', 60 * 60_000, () => this.runWatch(), { first: 90_000, quiet: true });
+    // The Mac's update offer, while the Mac is linked (was a timer made with every Core, started or not).
+    this.sched.every('mac.offer', 5 * 60_000, () => { if (this.bsync.macConnected) void this.macOfferNow(r => this.bsync.tellMac(r)); });
     // ...and once now: a session left "working" in launched.json when he last shut down is exactly the kind
     // that will never speak again, and it should not be showing as live while he waits ten minutes for a sweep.
     this.checkStaleLaunches();
@@ -3180,22 +3178,14 @@ export class Core {
     this.replies.close();
     this.claudePusher.close();
     this.claudeScan?.stop();
-    if (this.busyTimer) { clearInterval(this.busyTimer); this.busyTimer = null; }
     // A turn still active when the Core is asked to stop had a live TURN_TIMEOUT_MS watchdog with nothing
     // ever clearing it (found 2026-09-24, diagnosing a stalled test: the timer is now unref'd so it can never
     // block process exit on its own, but it should also just not fire at all against a Core that is gone).
     if (this.active?.watchdog) clearTimeout(this.active.watchdog);
     if (this.permission !== null) this.answerPermission(this.permission, 'no');
-    if (this.checkpointTimer) clearInterval(this.checkpointTimer);
-    if (this.briefTimer) clearInterval(this.briefTimer);
     this._addonDesk?.stop();
-    if (this.factTimer) clearInterval(this.factTimer);
-    for (const t of this.feedTimers) clearTimeout(t);
-    if (this.backupTimer) clearInterval(this.backupTimer);
-    if (this.nudgeTimer) clearInterval(this.nudgeTimer);
-    if (this.watchTimer) clearTimeout(this.watchTimer);
-    if (this.sweepTimer) clearInterval(this.sweepTimer);
     this.reminders.stop();
+    this.sched.stop();                                 // every job above, and the catch-up times saved
     await this.hookServer?.stop(); this.hookServer = null;
     this.webLane?.close(); this.webLane = null;
     for (const l of this.lanes.values()) l.close();
@@ -3635,7 +3625,6 @@ export class Core {
     console.log(`update key: sent the Mac update ${r.version} (${Math.round(script.length / 1024)} KB)`);
   }
   /** Every few minutes while the Mac is connected: a change made here lights its key without waiting for a reconnect. */
-  private macUpdateTimer = setInterval(() => { if (this.bsync.macConnected) void this.macOfferNow(r => this.bsync.tellMac(r)); }, 5 * 60_000).unref();
   /** The moment Claude marks a version finished (mac-ship), the Mac hears of it, not up to five minutes later. */
   private watchMacShip(): void {
     watchFile(path.join(this.cfg.dataDir, 'mac-ship'), { interval: 2000, persistent: false }, () => {
@@ -4895,13 +4884,13 @@ export class Core {
    * Sheet 67 v2: ring exactly on time. One timeout armed for the earliest end (or a finished timer's going); the 1 s tick
    * stays as a backstop (a sleeping PC, a clock change). Re-armed on every change.
    */
-  private timerArm: NodeJS.Timeout | null = null;
+  private timerArm: (() => void) | null = null;
   private armTimers(): void {
-    if (this.timerArm) { clearTimeout(this.timerArm); this.timerArm = null; }
+    this.timerArm?.(); this.timerArm = null;
     const at = this.timers.nextAt();
     if (at === null) return;
-    this.timerArm = setTimeout(() => { this.timerArm = null; this.fireTimers(); }, Math.min(0x7fffffff, Math.max(0, at - Date.now())));
-    this.timerArm.unref?.();
+    // A one-shot on the scheduler (2026-10-30): on the dot, never quiet-held (a timer he set rings in a game too).
+    this.timerArm = this.sched.at(at, () => { this.timerArm = null; this.fireTimers(); }, { name: 'timers.ring' });
   }
   private fireTimers(): void {
     const due = this.timers.due();
@@ -5180,7 +5169,9 @@ export class Core {
 
   private setSilent(quiet: boolean, muted: boolean): void {
     const was = this.bodyQuiet || this.muted;
+    const wasQuiet = this.bodyQuiet;
     this.bodyQuiet = quiet; this.muted = muted;
+    if (wasQuiet && !quiet) this.sched.wake();        // background jobs held for the game or call go now
     if (!was || quiet || muted) return;
     // Back through announce() (2026-10-28), not straight to the desktop: so each is stored and can be replied to,
     // keeps its card, and goes to Discord instead if he has walked away since.

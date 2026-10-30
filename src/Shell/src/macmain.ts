@@ -13,6 +13,7 @@ import { WebSocket } from 'ws';
 import { readJson, saveJson, saveText } from './store.ts';
 import { openLog } from './log.ts';
 import { utcStamp } from './clock.ts';
+import { sched } from './sched.ts';
 import { samaraBase, samaraBrowser, type Platform, type SamaraBooted } from './boot.ts';
 import { bootDeps } from './bootdeps.ts';
 import { planDoorClient } from './plandoor.ts';
@@ -238,6 +239,7 @@ app.whenReady().then(async () => {
   // ---- the sync, through the brain on the PC
   const read = (f: string) => { try { return readFileSync(path.join(LISTENER, f), 'utf8').trim(); } catch { return ''; } };
   const key = read('bsync.key'), shadow = read('shadow');
+  let retry = 15_000;
   const connect = () => {
     if (!key || !/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(shadow)) { console.log('aang: no sync key or PC address yet; run the Mac setup again'); return; }
     const s = new WebSocket(`ws://${shadow}:${SYNC_PORT}/bsync`, { headers: { 'x-aang-key': key }, maxPayload: 64 * 1024 * 1024 });
@@ -257,8 +259,10 @@ app.whenReady().then(async () => {
         }).catch((e: Error) => console.error('aang: look: ' + e.message));
       }
     });
-    s.on('open', () => { if (process.uptime() > 75) reportUpdate(); });
-    s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); setTimeout(connect, 15_000); } });
+    s.on('open', () => { retry = 15_000; if (process.uptime() > 75) reportUpdate(); });
+    // On the scheduler (2026-10-30): 15 s, then longer each miss up to 2 minutes, while the PC is off (it was every
+    // 15 s for as long as the PC stayed off). Back to 15 s once it answers.
+    s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); sched.at(Date.now() + retry, connect, { name: 'bsync.reconnect' }); retry = Math.min(retry * 2, 2 * 60_000); } });
     s.on('error', () => { /* close follows */ });
   };
   connect();

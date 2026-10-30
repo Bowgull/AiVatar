@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { readJson } from './store.ts';
+import { sched } from './sched.ts';
 
 export const PHISH_LISTS = [
   // 2026-10-30: OpenPhish's feed moved to GitHub (the old address redirects there), and URLhaus's own download answers
@@ -80,6 +81,7 @@ export class PhishCheck {
   private lists: Index[] = [];
   private readonly dir: string;
   ready = false;
+  private refreshing = false;
   constructor(stateDir: string) { this.dir = path.join(stateDir, 'phish'); }
 
   /** Use what is kept at once (even if old), then fetch lists older than a day and index them in the background. */
@@ -93,17 +95,33 @@ export class PhishCheck {
     if (!this.load(idx, stamp())) await this.rebuild(file, idx, stamp());
     this.ready = true;
     console.log(`shell: phishing lists: ${this.count(['domains'])} domains, ${this.count(['urls'])} addresses`);
-    // Fresh lists: fetched one at a time, and the index made again once at the end, softly.
-    let changed = false;
-    for (const l of PHISH_LISTS) {
-      if (Date.now() - when(l) <= KEEP_MS && existsSync(file(l))) continue;
-      try {
-        const r = await fetcher(l.url, { signal: AbortSignal.timeout(30_000) });
-        if (r.ok) { writeFileAtomic(file(l), await r.text()); writeFileAtomic(file(l) + '.when', JSON.stringify({ at: Date.now() })); changed = true; }
-        else console.error(`shell: phishing list ${l.name} said ${r.status}`);
-      } catch (e) { console.error(`shell: phishing list ${l.name} did not load: ${(e as Error).message}`); }
-    }
-    if (changed) { await this.rebuild(file, idx, stamp()); console.log(`shell: phishing lists refreshed: ${this.count(['domains'])} domains, ${this.count(['urls'])} addresses`); }
+    // Fresh lists now (unless he is busy), then a look every hour for a Samara left running (before, only at start):
+    // a list is fetched only once it is a day old, so the hourly look is a few file reads. Held during a call or a game.
+    const quiet = Boolean(sched.quietNow());
+    if (!quiet) await this.refresh(fetcher);
+    sched.every('phish.lists', 3_600_000, () => this.refresh(fetcher), { quiet: true, first: quiet ? 0 : 3_600_000 });
+  }
+
+  /** Fetch the lists older than a day, one at a time, and make the index again once at the end, softly. */
+  async refresh(fetcher: typeof fetch = fetch): Promise<void> {
+    if (this.refreshing) return;
+    this.refreshing = true;
+    try {
+      const file = (l: { name: string }) => path.join(this.dir, `${l.name.toLowerCase()}.txt`);
+      const when = (l: { name: string }) => Number(readJson<{ at?: unknown }>(file(l) + '.when', {}).at) || 0;
+      const stamp = () => JSON.stringify(PHISH_LISTS.map((l) => { try { return [l.name, statSync(file(l)).size, when(l)]; } catch { return [l.name, 0, 0]; } }));
+      const idx = path.join(this.dir, 'index-v1.bin');
+      let changed = false;
+      for (const l of PHISH_LISTS) {
+        if (Date.now() - when(l) <= KEEP_MS && existsSync(file(l))) continue;
+        try {
+          const r = await fetcher(l.url, { signal: AbortSignal.timeout(30_000) });
+          if (r.ok) { writeFileAtomic(file(l), await r.text()); writeFileAtomic(file(l) + '.when', JSON.stringify({ at: Date.now() })); changed = true; }
+          else console.error(`shell: phishing list ${l.name} said ${r.status}`);
+        } catch (e) { console.error(`shell: phishing list ${l.name} did not load: ${(e as Error).message}`); }
+      }
+      if (changed) { await this.rebuild(file, idx, stamp()); console.log(`shell: phishing lists refreshed: ${this.count(['domains'])} domains, ${this.count(['urls'])} addresses`); }
+    } finally { this.refreshing = false; }
   }
 
   /** The kept index, if it was made from these list files. */

@@ -38,6 +38,7 @@ import { writeFileAtomic } from './atomic.ts';
 import { readJson, saveJson } from './store.ts';
 import { openLog } from './log.ts';
 import { localStamp } from './clock.ts';
+import { sched } from './sched.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
 import { AangMenu, avoidRect } from './aangmenu.ts';
@@ -506,7 +507,7 @@ const link = new CoreLink({
     }
     if (m.t === 'ack' && ackWait && m.id === ackWait.id) { clearTimeout(ackWait.timer); ackWait = null; }
     // Parity with the old pet (2026-10-11). The pet's gate: in a game, Esc belongs to the game.
-    if (m.t === 'bubble.state') { gameQuiet = m.quiet === true; bubbleMuted = m.muted === true; bubbleHidden = m.hidden === true; timerWins?.calm(gameQuiet); }
+    if (m.t === 'bubble.state') { const was = gameQuiet; gameQuiet = m.quiet === true; if (was && !gameQuiet) sched.wake(); bubbleMuted = m.muted === true; bubbleHidden = m.hidden === true; timerWins?.calm(gameQuiet); }
     // He clicked away from everything of ours (the pet's mouse hook saw it): the bubble lets go, as the old one did.
     // A click away from everything of Aang's (the pet watches the mouse). His ask, 2026-10-13: an accidentally opened
     // typing box closes on it too, keeping the draft, even when it never got the keyboard and so never lost it.

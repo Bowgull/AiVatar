@@ -85,6 +85,7 @@ const lockKey = (key: string): string => { try { return process.platform === 'wi
 const unlockKey = (locked: string): string => { try { return safeStorage.decryptString(Buffer.from(locked, 'base64')); } catch { return ''; } };
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
+import { sched } from './sched.ts';
 import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, guardRequests, privacyHooks, type AdBlock } from './skip/ads.ts';
@@ -674,6 +675,8 @@ export class AangBrowser {
     if (this.drawerOpen && t?.view && !t.lent) t.view.setVisible(false);
   }
   private timers: NodeJS.Timeout[] = [];
+  /** This browser's jobs on the scheduler (the secret window has its own). */
+  private get jobNames(): string[] { const w = this.o.secret ? 'secret' : 'browser'; return [`${w}.snapshot`, `${w}.sleep-idle`, `${w}.lock`]; }
   private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
   private readonly file: string;
@@ -1191,6 +1194,7 @@ export class AangBrowser {
     console.log(`shell: browser: ${on ? 'a call started' : 'no call now'}`);
     try { if (on) writeFileAtomic(this.callFile, JSON.stringify({ since: new Date().toISOString() })); else unlinkSync(this.callFile); } catch { /* best effort */ }
     this.onCall?.(on);
+    if (!on) sched.wake();                            // background jobs held for the call go now
   }
   /** 6.28: a tested engine waiting for his Restart now (the update key), or null. */
   private update: UpdateCard | null = null;
@@ -2317,6 +2321,7 @@ export class AangBrowser {
       this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false; this.pane.runeV = null; this.pane.runeOn = false;
       this.panes = []; this.focused = null; this.quitting = false;
       this.timers.forEach(clearInterval); this.timers = [];
+      for (const j of this.jobNames) sched.cancel(j);
       try { this.onLastClosed?.(); } catch { /* the browser is closed either way */ }
     });
     w.once('ready-to-show', () => { if (this.o.secret) fadeIn(w); else bringFront(w); });
@@ -2347,10 +2352,15 @@ export class AangBrowser {
     });
     void w.loadURL(`${this.o.origin}/browser.html`);
     // The continuous snapshot, and putting idle tabs to sleep: once for the whole browser.
-    if (first) this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => { void this.sleepIdle(); }, 60_000),
-      setInterval(() => { void this.lookForLogin(); }, 1500));
+    // On the scheduler (2026-10-30), never quiet-held: the snapshot is his tabs surviving a crash, the lock is safety.
+    // The login look stays a plain 1.5 s poll: it drives what the page shows.
+    if (first) {
+      sched.every(this.jobNames[0]!, 8000, () => this.snapshot());
+      sched.every(this.jobNames[1]!, 60_000, () => this.sleepIdle());
+      this.timers.push(setInterval(() => { void this.lookForLogin(); }, 1500));
+    }
     // Sheet 87: 15 minutes without a key or a click in the secret window locks it.
-    if (first && this.o.secret) this.timers.push(setInterval(() => { if (!this.locked && Date.now() - this.lastInput > SECRET_IDLE_MS) void this.lock(); }, 30_000));
+    if (first && this.o.secret) sched.every(this.jobNames[2]!, 30_000, () => { if (!this.locked && Date.now() - this.lastInput > SECRET_IDLE_MS) void this.lock(); });
   }
 
   /**
@@ -5912,6 +5922,8 @@ export class AangBrowser {
   private quitting = false;
   /** A Samara window is open (what keeps the Shell running when Aang is off). */
   hasWindow(): boolean { return this.panes.some((p) => this.alive(p)); }
+  /** A Samara window fills the screen (a video, F11): the scheduler holds heavy background jobs. */
+  get fullScreen(): boolean { return this.panes.some((p) => this.alive(p) && p.win?.isFullScreen() === true); }
   /** The Samara window he used last (the Claude job's bar under the lantern goes on it, taskbar.ts), or null. */
   frontWindow(): BrowserWindow | null { const p = this.lastPane(); return p?.win && !p.win.isDestroyed() ? p.win : null; }
   closeAll(): void {

@@ -10,6 +10,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { readJson, saveJson } from './store.ts';
+import { sched } from './sched.ts';
 
 /** "www.youtube.com/watch?v=..." -> "www.youtube.com"; anything that is not a web page -> its kind only. */
 export function siteOf(url: string): string {
@@ -66,6 +67,5 @@ export function startFlight(app: Electron.App, dir: string, log: (s: string) => 
     wc.on('responsive', () => { if (since) log(`flight: page answering again on ${siteOf(wc.getURL())} after ${((Date.now() - since) / 1000).toFixed(1)} s`); since = 0; });
   });
   const mem = () => { try { log('flight: ' + memoryLine(app.getAppMetrics() as Metric[])); } catch { /* not now */ } };
-  setTimeout(mem, 60_000).unref();
-  setInterval(mem, 10 * 60_000).unref();
+  sched.every('flight.memory', 10 * 60_000, mem, { first: 60_000 });
 }
