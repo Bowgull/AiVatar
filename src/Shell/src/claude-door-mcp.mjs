@@ -134,6 +134,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, down: { type: 'boolean' } }, required: ['page'] } },
   { name: 'browser_picture', description: 'A picture of the page as it looks (about 1,400 tokens). Only when the words are not enough: icons with no names, a layout question, a canvas. marks: true draws each control\'s number on it, so you can see which number is which.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, marks: { type: 'boolean' } }, required: ['page'] } },
+  { name: 'browser_window', description: "A picture of Joshua's own Samara window as he sees it: the tab bar, the page, the curtain, open menus, and the pop-out if a video plays in it (about 1,500 tokens each). For checking how Samara itself looks or behaves (a glitch, a fix you made), not for reading pages: use browser_read for that. His tabs are in it, so the first one in a session asks him.",
+    inputSchema: { type: 'object', properties: { task: { type: 'string' } } } },
   { name: 'browser_note', description: "Your notes for a site, kept for your next session there (what worked, where things are, what to avoid), up to 1500 characters. Give text to save (replaces the old note; empty text deletes it); leave text out to read it. Opening a page on that site shows the note automatically. Never put anything from Joshua's private data in a note.",
     inputSchema: { type: 'object', properties: { site: { type: 'string', description: 'e.g. linkedin.com' }, text: { type: 'string' } }, required: ['site'] } },
   { name: 'browser_close', description: 'Close one of your pages when you are done with it.',
@@ -181,6 +183,14 @@ async function call(name, a) {
     if (op === 'tabs') return text(WORDS((r.tabs || []).map((t) => `tab ${t.tab}${t.active ? ' (he is looking at it)' : ''}: ${t.title}${t.url ? ' - ' + t.url : ''}`).join('\n') || '(no web tabs open)'));
     return text(`His tab is lent to you as page ${r.page}: ${WORDS(`${r.title} (${r.url})`)}\n${op === 'look' ? 'Read-only: read, find, extract or picture it.' : 'You may act in it; he is watching.'}`);
   }
+  if (name === 'browser_window') {
+    const j = await myJob(a.task);
+    if (j === null) return text("Could not start a session in Samara.", true);
+    const r = await step('window', { job: j });
+    if (!r.ok) return text(r.error, true);
+    const pics = [r.window, r.popout].filter((x) => typeof x === 'string').map((data) => ({ type: 'image', data, mimeType: 'image/jpeg' }));
+    return { content: [...pics, { type: 'text', text: `His Samara window (${r.size})${r.popout ? '; the second picture is the pop-out' : ''}.${r.missing ? ` ${r.missing} part(s) gave no picture in time (a page that is busy or hung shows as blank).` : ''}` }] };
+  }
   if (name === 'browser_plan') return plan(a);
   if (name === 'browser_batch') return batch(a);
   const page = Number(a.page);
@@ -201,7 +211,7 @@ async function call(name, a) {
   }
   if (name === 'browser_record') {
     const r = await step('record', { page, stop: a.stop === true });
-    return r.ok ? text(r.started ? 'Recording. Call again with stop: true to save.' : `Saved ${r.seconds} s of video: ${r.file}`) : text(r.error, true);
+    return r.ok ? text(r.started ? `Recording${r.sound ? ' with sound' : ''}. Call again with stop: true to save.` : `Saved ${r.seconds} s of video: ${r.file}`) : text(r.error, true);
   }
   if (name === 'browser_read') {
     const r = await step('read', { page, ...(Number.isInteger(a.within) ? { within: a.within } : {}), changes: a.changes === true });

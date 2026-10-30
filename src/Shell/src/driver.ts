@@ -14,6 +14,9 @@ import path from 'node:path';
 import { BrowserWindow, type Session, type WebContents, session, app } from 'electron';
 import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
+import { run, within } from './page.ts';
+import { SIZES, capture } from './capture.ts';
+import { Recorder } from './record.ts';
 import { READERS, READER_JS, type Reader } from './readers.ts';
 import { reachesIn, talksToAI } from './driverrules.ts';
 import { blockAds, guardRequests } from './skip/ads.ts';
@@ -23,7 +26,8 @@ export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
 export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string>;
-  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number; /** every site he allowed in the plan */ allowed?: Set<string> }
+  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number; /** every site he allowed in the plan */ allowed?: Set<string>;
+  /** He allowed this session to see his Samara window (browser_window / Aang's look): asked once per session. */ windowOk?: boolean }
 export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null; /** last time a tool used it */ used?: number; /** at rest: its timers slowed until it is used again */ resting?: boolean }
 
 export interface DriverDeps {
@@ -46,6 +50,11 @@ export interface DriverDeps {
 const MAX_PAGES_PER_JOB = 12, MAX_PAGES = 20, KEEP_MS = 24 * 3_600_000;
 const W = 1280, H = 900;
 const WORLD = 1061;   // an isolated script world of our own: the page cannot see or change what runs here
+/** How long a driving step waits for a page to answer before it says so (page.ts): a hung page never holds a Claude tool
+ *  for the connector's whole 180 s. */
+const ASK_MS = 12_000;
+/** One question to a driven page, in Samara's own world, with a deadline; it throws a plain reason when the page is too slow. */
+const ask = (wc: WebContents, code: string, ms = ASK_MS): Promise<any> => run(wc, code, { world: WORLD, ms });
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
 /** Why a driving session may never open this address, or '' (AI lockdown G7 and G13). */
@@ -667,7 +676,7 @@ export class Driver {
       wc.on('dom-ready', fin); wc.on('did-stop-loading', fin); wc.on('did-fail-load', fin);
     });
     // With a deadline: a call made while a page is being swapped can otherwise never answer.
-    if (!wc.isDestroyed()) await Promise.race([wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: QUIET_JS }]).catch(() => {}), new Promise((r) => setTimeout(r, 2500))]);
+    if (!wc.isDestroyed()) await ask(wc, QUIET_JS, 2500).catch(() => {});
   }
 
   /** His person's pace on LinkedIn, Indeed and Glassdoor: waits before a page load there if the last was too recent. */
@@ -700,7 +709,7 @@ export class Driver {
     try { return wc.mainFrame.framesInSubtree.filter((f) => f !== wc.mainFrame && f.parent === wc.mainFrame && /^https?:/i.test(f.url)).slice(0, 6); } catch { return []; }
   }
   private async state(wc: WebContents, n: number | null): Promise<PageState> {
-    return await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: STATE_JS(n) }]) as PageState;
+    return await ask(wc, STATE_JS(n)) as PageState;
   }
   /** What an action did, in words; says plainly when nothing visible changed. The cursor landing on the button just
    *  clicked is not a change (a dead button must never read as done); on a field it is the point, so it stays. */
@@ -726,7 +735,7 @@ export class Driver {
    */
   async read(pageId: number, o: { within?: number; changes?: boolean } = {}): Promise<{ title: string; url: string; text: string; more: boolean; unchanged?: { lines: number; controls: number }; items: (ReadItem & { weight: Weight; value?: string; view?: boolean })[] }> {
     const { p, wc } = this.wcOf(pageId);
-    const r = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: 7000 }) }]) as { title: string; url: string; text: string; more: boolean; hidden: number; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
+    const r = await ask(wc, READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: 7000 })) as { title: string; url: string; text: string; more: boolean; hidden: number; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
     this.checkChallenge(p, r);
     // Frames holding another site's page (application forms): their controls numbered 10001+, 20001+, their words after.
     if (!o.within) {
@@ -739,7 +748,7 @@ export class Driver {
           r.text += '\n\n[This page has a CAPTCHA box. Joshua ticks it himself: fill everything else and tell him exactly what remains.]';
           continue;
         }
-        const words = await Promise.race([fs[k]!.executeJavaScript(`(() => { ${DEEP} return __lines(document.body).slice(0, 120).join('\\n').slice(0, 3000); })()`).catch(() => ''), new Promise((res) => setTimeout(() => res(''), 1500))]) as string;
+        const words = await within(fs[k]!.executeJavaScript(`(() => { ${DEEP} return __lines(document.body).slice(0, 120).join('\\n').slice(0, 3000); })()`) as Promise<string>, 1500, '');
         if (!words) continue;
         let fh = ''; try { fh = new URL(fs[k]!.url).hostname; } catch { /* none */ }
         const head = `[A frame from ${fh}. To use anything in it, open its own address with browser_open: ${fs[k]!.url.slice(0, 300)}]`;
@@ -765,7 +774,7 @@ export class Driver {
   async jobCards(pageId: number): Promise<{ jobs: Record<string, string>[] }> {
     const { p, wc } = this.wcOf(pageId);
     this.checkChallenge(p, await this.state(wc, null));
-    return { jobs: await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: JOBS_JS }]) as Record<string, string>[] };
+    return { jobs: await ask(wc, JOBS_JS) as Record<string, string>[] };
   }
 
   /**
@@ -779,12 +788,12 @@ export class Driver {
     for (let round = 0; round < 15 && all.size < max; round++) {
       const st = await this.state(wc, null);
       this.checkChallenge(p, st);
-      const got = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: JOBS_JS }]) as Record<string, string>[];
+      const got = await ask(wc, JOBS_JS) as Record<string, string>[];
       const before = all.size;
       for (const j of got) { const key = j.url || `${j.title}|${j.company}|${j.location}`; if (!all.has(key)) all.set(key, j); }
       still = all.size === before ? still + 1 : 0;
       if (still >= 2) { end = true; break; }
-      const moved = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SCROLL_LIST_JS }]) as boolean;
+      const moved = await ask(wc, SCROLL_LIST_JS) as boolean;
       if (!moved) { still++; if (still >= 2) { end = true; break; } }
       scrolls++;
       await this.settle(wc);
@@ -816,11 +825,11 @@ export class Driver {
         const j = this.job(p.job);
         if (!j || j.stopped || wc.isDestroyed()) { s.stopped = 'stopped (STOP was pressed or the page closed)'; break; }
         const path = plan.path.replace('{q}', encodeURIComponent(kw).replace(/%20/g, '+'));
-        let r = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SEARCH_JS(path, plan.card) }]).catch(() => ({ status: 0, blocked: false, cards: [] })) as { status: number; blocked: boolean; cards: { text: string; url: string }[]; error?: string };
+        let r = await ask(wc, SEARCH_JS(path, plan.card), 30_000).catch(() => ({ status: 0, blocked: false, cards: [] })) as { status: number; blocked: boolean; cards: { text: string; url: string }[]; error?: string };
         if (r.blocked) {
           s.coverage[kw] = `pushed back (${r.status || 'check page'}), waiting 90 s`;
           await new Promise((res) => setTimeout(res, 90_000));
-          r = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SEARCH_JS(path, plan.card) }]).catch(() => ({ status: 0, blocked: true, cards: [] })) as typeof r;
+          r = await ask(wc, SEARCH_JS(path, plan.card), 30_000).catch(() => ({ status: 0, blocked: true, cards: [] })) as typeof r;
           if (r.blocked) { s.coverage[kw] = `blocked (${r.status || 'check page'})`; s.stopped = `${host} pushed back twice, so this board was stopped. Try it again in a later sweep.`; break; }
         }
         s.coverage[kw] = r.status === 200 ? r.cards.length : `error ${r.status || r.error || ''}`.trim();
@@ -866,7 +875,7 @@ export class Driver {
       if (!dbg.isAttached()) { dbg.attach('1.3'); mine = true; }
       // The field is found through our own registry (AI lockdown G4): a one-time mark, put on and taken off by us.
       const mark = 'u' + Math.random().toString(36).slice(2, 12);
-      const marked = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: `(() => { ${DEEP} const e = __byN(${Number(n)}); if (!e) return false; e.setAttribute('data-aang-up', '${mark}'); return true; })()` }]);
+      const marked = await ask(wc, `(() => { ${DEEP} const e = __byN(${Number(n)}); if (!e) return false; e.setAttribute('data-aang-up', '${mark}'); return true; })()`);
       if (!marked) throw new Error(`file field ${n} is not on the page any more`);
       // Found by the browser itself, never by running the page's own scripts (code audit L8): a page cannot hand back
       // a different field than the one he was asked about.
@@ -970,48 +979,38 @@ export class Driver {
     const short = (u: string) => { try { const x = new URL(u); return x.origin + x.pathname + (x.search ? '?' + x.search.slice(1, 60) + (x.search.length > 61 ? '...' : '') : ''); } catch { return u.slice(0, 120); } };
     return { lines: hit.slice(-Math.min(80, Math.max(1, Number(o.limit) || 30))).map((r) => `${r.method} ${r.failed ? 'FAILED ' + r.failed : r.status || '...'} ${r.type} ${short(r.url)}`), total: hit.length, started };
   }
-  /** A recording of what happens in a page: start, act, stop; saved as a short video in his Videos folder. */
-  private recs = new Map<number, { timer: NodeJS.Timeout; win: BrowserWindow; frames: number }>();
-  async startRecording(pageId: number): Promise<void> {
+  /** A recording of what happens in a page: start, act, stop; saved as a short video in his Videos folder (record.ts:
+   *  the browser's own tab capture, real frames and sound, written to the file as it goes). */
+  private recs = new Map<number, { rec: Recorder; cap: NodeJS.Timeout }>();
+  async startRecording(pageId: number): Promise<{ how: string; sound: boolean }> {
     const { p, wc } = this.wcOf(pageId);
-    if (this.recs.has(p.id)) return;
-    // A hidden page of our own draws each frame onto a canvas and records it with the browser's own video recorder.
-    const win = new BrowserWindow({ show: false, width: 400, height: 300, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, offscreen: true } });
-    await win.loadURL('data:text/html,<canvas id="c" width="1280" height="800"></canvas>');
-    await win.webContents.executeJavaScript(`window.__rec = (() => { const c = document.getElementById('c'), g = c.getContext('2d'); const s = c.captureStream(0); const tr = s.getVideoTracks()[0]; const r = new MediaRecorder(s, { mimeType: 'video/webm;codecs=vp9' }); const parts = []; r.ondataavailable = (e) => parts.push(e.data); r.start(); return { r, parts, draw: async (src) => { const i = new Image(); i.src = src; await i.decode(); if (c.width !== i.naturalWidth) { c.width = i.naturalWidth; c.height = i.naturalHeight; } g.drawImage(i, 0, 0); tr.requestFrame(); } }; })(); true`);
-    if (p.win) try { wc.setFrameRate(10); } catch { /* fine */ }
-    let busy = false;
-    const timer = setInterval(() => {
-      if (busy || wc.isDestroyed() || win.isDestroyed()) return;
-      busy = true;
-      void wc.capturePage().then((img) => { if (img.isEmpty()) return; const sized = img.getSize().width > 1280 ? img.resize({ width: 1280 }) : img; const r = this.recs.get(p.id); if (r) r.frames++; return win.webContents.executeJavaScript(`window.__rec.draw(${JSON.stringify('data:image/jpeg;base64,' + sized.toJPEG(70).toString('base64'))})`); }).catch(() => {}).finally(() => { busy = false; });
-    }, 250);
-    this.recs.set(p.id, { timer, win, frames: 0 });
-    setTimeout(() => void this.stopRecording(p.id, false).catch(() => {}), 120_000).unref();   // never longer than two minutes
+    const was = this.recs.get(p.id);
+    if (was) return { how: was.rec.how ?? 'tab', sound: false };
+    const rec = new Recorder(path.join(app.getPath('videos'), 'Samara'));
+    // An off-screen page draws only as often as it is told: smooth while it is recorded.
+    if (p.win) try { wc.setFrameRate(30); } catch { /* fine */ }
+    const r = await rec.start(wc);
+    const cap = setTimeout(() => void this.stopRecording(p.id, false).catch(() => {}), 120_000);   // never longer than two minutes
+    cap.unref();
+    this.recs.set(p.id, { rec, cap });
+    return r;
   }
   async stopRecording(pageId: number, discard = false): Promise<{ file: string; seconds: number } | null> {
     const r = this.recs.get(pageId);
     if (!r) return null;
     this.recs.delete(pageId);
-    clearInterval(r.timer);
+    clearTimeout(r.cap);
     const p = this.pages.find((x) => x.id === pageId);
     if (p?.win) try { p.wc.setFrameRate(2); } catch { /* gone */ }
-    try {
-      const b64 = await r.win.webContents.executeJavaScript(`new Promise((res) => { const x = window.__rec; x.r.onstop = async () => { const b = new Blob(x.parts, { type: 'video/webm' }); const buf = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < buf.length; i += 32768) s += String.fromCharCode(...buf.subarray(i, i + 32768)); res(btoa(s)); }; x.r.stop(); })`) as string;
-      if (discard || !b64) return null;
-      const dir = path.join(app.getPath('videos'), 'Samara');
-      mkdirSync(dir, { recursive: true });
-      const file = path.join(dir, `samara-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`);
-      writeFileSync(file, Buffer.from(b64, 'base64'));
-      return { file, seconds: Math.round(r.frames / 4) };
-    } finally { try { r.win.destroy(); } catch { /* gone */ } }
+    const out = await r.rec.stop(discard);
+    return out ? { file: out.file, seconds: out.seconds } : null;
   }
   describeFile(file: string): string { return String(file ?? '').replace(/\\/g, '/').split('/').pop() ?? 'a file'; }
 
   /** Every field of a form, to read back before anything is submitted. within: a control in that form. */
   async form(pageId: number, within?: number): Promise<{ fields: { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string }[] }> {
     const { wc } = this.wcOf(pageId);
-    const fields = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: FORM_JS(Number.isInteger(within) ? within! : null) }]) as { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string }[];
+    const fields = await ask(wc, FORM_JS(Number.isInteger(within) ? within! : null)) as { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string }[];
     return { fields };
   }
 
@@ -1038,7 +1037,7 @@ export class Driver {
     const limit = Math.min(15_000, Math.max(500, Number(ms) || 8000)), start = Date.now();
     const code = `(document.body ? document.body.innerText : '').toLowerCase().includes(${JSON.stringify(w)})`;
     while (Date.now() - start < limit) {
-      const here = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code }]).catch(() => false) === true;
+      const here = await ask(wc, code).catch(() => false) === true;
       if (here !== gone) return { found: true, waited: Math.round((Date.now() - start) / 100) / 10, title: p.title, url: p.url };
       await new Promise((r) => setTimeout(r, 250));
     }
@@ -1049,7 +1048,7 @@ export class Driver {
   async extract(pageId: number, kind: string): Promise<{ title: string; url: string; lines: string[]; more: boolean }> {
     if (!(READERS as readonly string[]).includes(kind)) throw new Error(`no reader called ${kind}: use one of ${READERS.join(', ')}`);
     const { wc } = this.wcOf(pageId);
-    const r = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: READER_JS(kind as Reader, 6000) }]) as { title: string; url: string; lines: string[]; more: boolean };
+    const r = await ask(wc, READER_JS(kind as Reader, 6000)) as { title: string; url: string; lines: string[]; more: boolean };
     return { ...r, ...warnings(0, r.lines.join('\n')) };
   }
 
@@ -1071,7 +1070,7 @@ export class Driver {
 
   /** Where a control is on the page, scrolled into view. */
   private async spot(wc: WebContents, n: number): Promise<{ x: number; y: number; w: number; h: number; left: number; top: number } | null> {
-    return await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SPOT_JS(n) }]) as { x: number; y: number; w: number; h: number; left: number; top: number } | null;
+    return await ask(wc, SPOT_JS(n)) as { x: number; y: number; w: number; h: number; left: number; top: number } | null;
   }
 
   /** Click a numbered control, the way a mouse would, inside the page (never on Windows itself). */
@@ -1084,7 +1083,7 @@ export class Driver {
     if (!at) throw new Error(`control ${n} is not on the page any more; read the page again`);
     // Judged again at the moment of the click, from what the control is now, never from what the page said before
     // (AI lockdown G4/G5, 2026-10-14): a page that swaps a harmless button for Send, or lays one over it, is caught.
-    const now = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: CHECK_JS(n, at.x, at.y) }]) as { gone?: boolean; covered?: boolean; item?: ReadItem & { formSearch?: boolean }; sendsTo?: string };
+    const now = await ask(wc, CHECK_JS(n, at.x, at.y)) as { gone?: boolean; covered?: boolean; item?: ReadItem & { formSearch?: boolean }; sendsTo?: string };
     if (!now || now.gone) throw new Error(`control ${n} is not on the page any more; read the page again`);
     if (now.covered) throw new Error(`something on the page is lying over control ${n}, so it was not pressed. Read the page again`);
     const w = weigh(now.item as ReadItem);
@@ -1137,7 +1136,7 @@ export class Driver {
   async choose(pageId: number, n: number, option: string): Promise<{ title: string; url: string; changed: string[]; options?: string[] }> {
     const { p, wc } = this.wcOf(pageId);
     const before = await this.state(wc, n);
-    const r = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SELECT_JS(n, option) }]) as { gone?: boolean; native?: boolean; found?: boolean; picked?: string; options?: string[] };
+    const r = await ask(wc, SELECT_JS(n, option)) as { gone?: boolean; native?: boolean; found?: boolean; picked?: string; options?: string[] };
     if (r.gone) throw new Error(`control ${n} is not on the page any more; read the page again`);
     if (r.native && !r.found) return { title: p.title, url: p.url, changed: [`no option matches "${option}"`], options: r.options };
     if (!r.native) {
@@ -1177,7 +1176,7 @@ export class Driver {
   async type(pageId: number, n: number, text: string, enter: boolean): Promise<{ title: string; url: string; changed: string[] }> {
     const { p, wc } = this.wcOf(pageId);
     const focusJs = (k: number) => `(() => { ${DEEP} const e = __byN(${Number(k)}); if (!e) return false; e.scrollIntoView({ block: 'center' }); e.focus(); if (e.select) e.select(); return true; })()`;
-    const ok = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: focusJs(n) }]);
+    const ok = await ask(wc, focusJs(n));
     if (!ok) throw new Error(`field ${n} is not on the page any more; read the page again`);
     const before = await this.state(wc, n);
     wc.insertText(String(text).slice(0, 500));
@@ -1194,7 +1193,7 @@ export class Driver {
 
   async scroll(pageId: number, down: boolean): Promise<void> {
     const { wc } = this.wcOf(pageId);
-    await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: `window.scrollBy(0, ${down ? '' : '-'}Math.round(innerHeight * 0.85))` }]);
+    await ask(wc, `window.scrollBy(0, ${down ? '' : '-'}Math.round(innerHeight * 0.85))`);
     await new Promise((r) => setTimeout(r, 400));
   }
 
@@ -1203,28 +1202,26 @@ export class Driver {
     const { wc } = this.wcOf(pageId);
     if (what === 'marks') {
       await this.read(pageId);
-      await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: MARKS_JS(true) }]);
-      try { return await this.picture(pageId, 'view'); } finally { await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: MARKS_JS(false) }]).catch(() => {}); }
+      await ask(wc, MARKS_JS(true));
+      try { return await this.picture(pageId, 'view'); } finally { await ask(wc, MARKS_JS(false)).catch(() => {}); }
     }
     let rect: { x: number; y: number; width: number; height: number } | undefined;
     let video = false;
     if (what === 'best') {
-      const m = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: BEST_MEDIA_JS }]) as { left: number; top: number; w: number; h: number; video: boolean } | null;
-      if (m) { await new Promise((r) => setTimeout(r, 400)); const again = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: BEST_MEDIA_JS }]) as typeof m; const b = again ?? m; rect = { x: b.left, y: b.top, width: b.w, height: b.h }; video = b.video; }
+      const m = await ask(wc, BEST_MEDIA_JS) as { left: number; top: number; w: number; h: number; video: boolean } | null;
+      if (m) { await new Promise((r) => setTimeout(r, 400)); const again = await ask(wc, BEST_MEDIA_JS) as typeof m; const b = again ?? m; rect = { x: b.left, y: b.top, width: b.w, height: b.h }; video = b.video; }
     } else if (typeof what === 'number') {
-      const at = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SPOT_JS(what) }]) as { left: number; top: number; w: number; h: number } | null;
+      const at = await ask(wc, SPOT_JS(what)) as { left: number; top: number; w: number; h: number } | null;
       if (!at) throw new Error(`control ${what} is not on the page any more`);
       await new Promise((r) => setTimeout(r, 300));
       rect = { x: Math.max(0, at.left), y: Math.max(0, at.top), width: Math.min(W, at.w), height: Math.min(H, at.h) };
     }
     wc.invalidate();
     await new Promise((r) => setTimeout(r, 150));
-    const img = await wc.capturePage(rect && rect.width > 4 && rect.height > 4 ? rect : undefined);
-    if (img.isEmpty()) throw new Error('the page gave no picture');
-    const s = img.getSize();
-    const fit = s.width > 1600 ? img.resize({ width: 1600, quality: 'good' }) : img;
-    const f = fit.getSize();
-    return { png: fit.toPNG(), video, width: f.width, height: f.height };
+    // Claude's size (capture.ts): at most 1280 wide, about 1,500 tokens for a full view; a hung page answers in 5 s.
+    const shot = await capture(wc, { ...(rect && rect.width > 4 && rect.height > 4 ? { rect } : {}), maxWidth: SIZES.claude, format: 'png', ms: 5000 });
+    if (!shot) throw new Error('the page gave no picture (it may be busy, or still drawing)');
+    return { png: shot.data, video, width: shot.width, height: shot.height };
   }
 
   close(pageId: number): void {
@@ -1258,7 +1255,7 @@ export class Driver {
   async glance(pageId: number): Promise<string | null> {
     const p = this.page(pageId);
     if (!p) return null;
-    try { const img = await p.wc.capturePage(); if (img.isEmpty()) return null; return 'data:image/jpeg;base64,' + img.toJPEG(80).toString('base64'); } catch { return null; }
+    return (await capture(p.wc, { maxWidth: Infinity, quality: 80, ms: 1500 }))?.dataUrl() ?? null;
   }
   /** He is watching this page (or stopped): lay it out at the size of his page area, so the picture is not stretched,
    *  and paint it smoothly; back to small and slow when he looks away. */

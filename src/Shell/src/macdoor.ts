@@ -12,6 +12,7 @@
 // Locked like Aang's other doors: loopback only, no browser page (an Origin header is refused), and a key made fresh
 // each run in his own folder, readable by his account only. AANG_TEST_DOOR=0 keeps it shut.
 import { BrowserWindow } from 'electron';
+import { capture } from './capture.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { writeFileSync, chmodSync } from 'node:fs';
@@ -50,8 +51,9 @@ export function openTestDoor(o: { keyFile: string; pet: DoorPet; log: (s: string
       }
       if (req.method === 'GET' && u.pathname === '/shot') {
         const w = win(u.searchParams.get('id')); if (!w) { json(res, 404, { error: 'no such window' }); return; }
-        const img = await w.webContents.capturePage();
-        res.writeHead(200, { 'content-type': 'image/png' }).end(img.toPNG());
+        const shot = await capture(w, { format: 'png', maxWidth: Infinity, scale: Infinity });
+        if (!shot) { json(res, 503, { error: 'the window gave no picture' }); return; }
+        res.writeHead(200, { 'content-type': 'image/png' }).end(shot.data);
         return;
       }
       if (req.method === 'GET' && u.pathname === '/text') {
