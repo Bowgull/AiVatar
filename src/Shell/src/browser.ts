@@ -157,6 +157,10 @@ interface Tab {
   leftShot?: string; waking?: boolean;
   /** Frozen (2026-10-23, Edge's sleeping tabs): its timers and network stop, the page stays; it thaws instantly. */
   frozen?: boolean;
+  /** A freeze was asked for and may still land (2026-10-30): a thaw must undo it even before it is marked frozen. */
+  freezing?: boolean;
+  /** Which wake this is: a timer left from an earlier wake of the same tab must not end this one (2026-10-30). */
+  wakeSeq?: number;
   /** It was put to sleep (not a brand-new tab): when it wakes it comes back quietly, paused at his spot. */
   slept?: boolean;
   /** Where its main video was when it went quiet (his ask, 2026-10-23): a woken tab comes back paused right there. */
@@ -837,6 +841,14 @@ export class AangBrowser {
       powerMonitor.on('suspend', () => { void this.lock(); });
       powerMonitor.on('lock-screen', () => { void this.lock(); });
     }
+    // The computer sleeping is not him ignoring his tabs (2026-10-30, stability check): time asleep never counts toward
+    // freezing or sleeping a tab, else every tab went to sleep at once the moment he came back.
+    powerMonitor.on('suspend', () => { this.suspendedAt = Date.now(); });
+    powerMonitor.on('resume', () => {
+      const gap = this.suspendedAt ? Date.now() - this.suspendedAt : 0; this.suspendedAt = 0;
+      if (gap > 0) for (const t of this.tabs) t.lastSeen += gap;
+      this.idleQuietUntil = Date.now() + 90_000;
+    });
     // Sheet 87: what the secret window shares with normal Samara (settings, autofill, site rules); the rest is its own.
     const sd = o.sharedDir ?? o.stateDir;
     if (!o.secret) {
@@ -1617,7 +1629,7 @@ export class AangBrowser {
     // Opened before its page had loaded (his first hover right after start): slide out once it has.
     v.webContents.on('did-finish-load', () => { this.pane = P; this.sendTabs(); v.webContents.send('browser:tray', { size: this.tabSize }); if (P.trayOn) v.webContents.send('browser:tray', { open: true, hy: P.trayAt.hy, size: this.tabSize }); else this.warmTray(P, v); });
     v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
-    void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`);
+    void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`).catch(() => { /* its window closed while it loaded */ });
     this.trayV = v;
     return v;
   }
@@ -2207,6 +2219,10 @@ export class AangBrowser {
     w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === p.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true'), 500, null); });
     w.on('closed', () => {
       this.pane = p;
+      // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
+      // window, and each close and reopen left four of them running (2026-10-30, stability check).
+      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
+      p.lightV = null; p.sugV = null;
       const others = this.panes.filter((x) => x !== p && this.alive(x));
       // Quitting: this window's tabs stay in the snapshot already taken; nothing is dropped or saved again.
       if (others.length && this.quitting) { p.win = null; p.trayV = null; p.trayOn = false; p.runeV = null; p.runeOn = false; this.panes = others; if (this.focused === p) this.focused = null; this.pane = others[others.length - 1]!; return; }
@@ -2471,19 +2487,19 @@ export class AangBrowser {
     if (!t || !this.inTab(t)) return;
     t.drawn = true;
     if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
-    if (t.waking && typeof t.videoAt === 'number') { const at = t.videoAt; t.videoAt = undefined; void sender.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_BACK_JS(at) }]).catch(() => {}); }
+    if (t.waking && typeof t.videoAt === 'number') { const at = t.videoAt; t.videoAt = undefined; void askPage(sender, VIDEO_BACK_JS(at)); }
     if (!t.waking) { if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS); return; }
     // Woken from sleep (2026-10-23, filmed): its last picture stays until the page has stopped moving, then one soft fade.
-    const P = this.pane;
-    void within(sender.executeJavaScriptInIsolatedWorld(1004, [{ code: SETTLED_JS }]) as Promise<boolean>, 4000, false).then(() => {
+    const P = this.pane, seq = t.wakeSeq;
+    void within(askPage<boolean>(sender, SETTLED_JS), 4000, false).then(() => {
       this.pane = P;
       if (this.veil?.tab === t.id) this.veilDown(WAKE_FADE_MS);
-      setTimeout(() => this.wokeUp(t), WAKE_FADE_MS + 150);
+      setTimeout(() => this.wokeUp(t, seq), WAKE_FADE_MS + 150);
     });
   }
   /** A woken tab is on screen: what it held back (his video) may play now, if he is looking at it. */
-  private wokeUp(t: Tab): void {
-    if (!t.waking) return;
+  private wokeUp(t: Tab, seq = t.wakeSeq): void {
+    if (!t.waking || seq !== t.wakeSeq) return;
     t.waking = false;
     const wc = t.view?.webContents;
     if (wc && !wc.isDestroyed()) wc.setAudioMuted(t.muted);
@@ -2513,7 +2529,8 @@ export class AangBrowser {
     // counts as loading at once, so the curtain (with its own last picture) covers it, and nothing plays until it shows.
     tab.phase = 'waiting'; tab.waking = tab.slept === true; tab.slept = false;
     // Silent while it wakes: a player that sets itself up again can start for a moment before it is paused (filmed).
-    if (tab.waking) { wc.setAudioMuted(true); setTimeout(() => this.wokeUp(tab), 10_000); }
+    tab.wakeSeq = (tab.wakeSeq ?? 0) + 1;
+    if (tab.waking) { const seq = tab.wakeSeq; wc.setAudioMuted(true); setTimeout(() => this.wokeUp(tab, seq), 10_000); }
     // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
@@ -2693,7 +2710,8 @@ export class AangBrowser {
       this.sendTabs();
     });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
-    on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
+    // Nothing it was doing carries on (2026-10-30): a tab that crashed while playing no longer counts as playing.
+    on('render-process-gone', () => { tab.crashed = true; tab.loading = false; tab.audible = false; tab.frozen = false; tab.freezing = false; tab.waking = false; this.place(); this.sendTabs(); });
     // The keys work wherever the keyboard is, page or frame.
     // Not while it is lent to the popout: Ctrl+W there must not close a tab in here.
     on('before-input-event', (e, input) => { if (this.afKey(tab, input)) { e.preventDefault(); return; } if (!tab.lent && this.key(input)) e.preventDefault(); });
@@ -2971,20 +2989,36 @@ export class AangBrowser {
     if (!wc || wc.isDestroyed() || Boolean(t.frozen) === on) return;
     const dbg = wc.debugger;
     if (dbg.isAttached()) return;
-    if (on) { const at = await within(wc.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_AT_JS }]) as Promise<number | null>, 800, null); if (typeof at === 'number') t.videoAt = at; }
+    if (on) {
+      t.freezing = true;
+      const at = await within(askPage<number | null>(wc, VIDEO_AT_JS), 800, null); if (typeof at === 'number') t.videoAt = at;
+      // He may have come back to it while its spot was read (2026-10-30, stability check): never freeze the tab in front.
+      if (!t.freezing || !this.mayRest(t) || wc.isDestroyed() || dbg.isAttached()) { t.freezing = false; return; }
+    }
     try {
       dbg.attach('1.3');
-      await within(dbg.sendCommand('Page.setWebLifecycleState', { state: on ? 'frozen' : 'active' }), 1500, null);
-      t.frozen = on;
+      // Marked only when Chromium answered: a slow thaw on the busy Mac used to count as done and left the page dead.
+      const answered = await within(dbg.sendCommand('Page.setWebLifecycleState', { state: on ? 'frozen' : 'active' }).then(() => true), 1500, false);
+      if (answered) t.frozen = on;
+      // A freeze that did not answer in time may still land: it is undone, so a page never stays frozen unmarked.
+      // Picked while it froze: thawed again at once, before the channel is let go.
+      if (on && (!answered || !t.freezing || !this.mayRest(t))) { await within(dbg.sendCommand('Page.setWebLifecycleState', { state: 'active' }).then(() => true), 1500, false); t.frozen = false; }
     } catch { /* this page will not: it stays as it was */ }
-    finally { try { if (dbg.isAttached()) dbg.detach(); } catch { /* gone */ } }
+    finally { t.freezing = false; try { if (dbg.isAttached()) dbg.detach(); } catch { /* gone */ } }
   }
-  thaw(t: Tab): void { if (t.frozen) void this.freeze(t, false); }
+  /** Out of sight and quiet: a tab that may be frozen or put to sleep right now. */
+  private mayRest(t: Tab): boolean {
+    return Boolean(t.view) && !t.lent && !t.call && !t.internal && !t.audible && !t.crashed && !this.panes.some((p) => p.active === t.id);
+  }
+  /** A freeze still under way is called off (it backs out, or thaws the page itself); a frozen page thaws. */
+  thaw(t: Tab): void { if (t.freezing) { t.freezing = false; return; } if (t.frozen) void this.freeze(t, false); }
   /** Before a tab sleeps: his spot in its video (a frozen page told it as it froze), and its picture if none is kept. */
   async rest(t: Tab): Promise<void> {
     if (!t.view) return;
-    if (!t.frozen) { const at = await within(t.view.webContents.executeJavaScriptInIsolatedWorld(1003, [{ code: VIDEO_AT_JS }]) as Promise<number | null>, 800, null); if (typeof at === 'number') t.videoAt = at; }
+    if (!t.frozen) { const at = await within(askPage<number | null>(t.view.webContents, VIDEO_AT_JS), 800, null); if (typeof at === 'number') t.videoAt = at; }
     if (!t.leftShot) { const shot = await this.shotOf(t); if (shot) t.leftShot = shot; }
+    // He may have picked it while its spot and picture were taken: the tab in front is never put to sleep (2026-10-30).
+    if (!this.mayRest(t)) return;
     this.sleep(t);
   }
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
@@ -3009,6 +3043,16 @@ export class AangBrowser {
    * sleep, the one unseen longest first, a few at a time until it is comfortable; and any tab unseen for 8 hours.
    */
   private async sleepIdle(): Promise<void> {
+    // One round at a time (2026-10-30): a round over many tabs on the busy Mac can outlast the minute between rounds.
+    if (this.idleBusy || Date.now() < this.idleQuietUntil) return;
+    this.idleBusy = true;
+    try { await this.sleepIdleRound(); } finally { this.idleBusy = false; }
+  }
+  private idleBusy = false;
+  /** Just back from the computer sleeping: no tidying for a minute and a half while everything wakes. */
+  private idleQuietUntil = 0;
+  private suspendedAt = 0;
+  private async sleepIdleRound(): Promise<void> {
     const now = Date.now();
     // Sheet 100 v4 (his pick, 2026-10-28: "Tuck away old ones"): a mockup tab he has not looked at in 3 days closes by
     // itself. It is still in the Mockups tab. Never the one in front, never one that arrived and was not seen yet.
@@ -3521,7 +3565,7 @@ export class AangBrowser {
     lockDown(v.webContents);
     v.setBackgroundColor('#00000000');
     v.setVisible(false);
-    void v.webContents.loadURL(`${this.o.origin}/light.html`);
+    void v.webContents.loadURL(`${this.o.origin}/light.html`).catch(() => { /* its window closed while it loaded */ });
     this.pane.lightV = v;
     return v;
   }
@@ -3546,7 +3590,7 @@ export class AangBrowser {
     v.setBackgroundColor('#00000000');
     v.setVisible(false);
     v.webContents.on('did-finish-load', () => { if (P.sugLast && v.getVisible()) v.webContents.send('suggest:show', { ...P.sugLast, first: true }); });
-    void v.webContents.loadURL(`${this.o.origin}/suggest.html`);
+    void v.webContents.loadURL(`${this.o.origin}/suggest.html`).catch(() => { /* its window closed while it loaded */ });
     P.sugV = v;
     return v;
   }
@@ -4278,7 +4322,7 @@ export class AangBrowser {
     });
     // Opened before its page had loaded (a click right after start): open once it has.
     v.webContents.on('did-finish-load', () => { this.pane = P; if (P.runeOn) this.placeRune(); });
-    void v.webContents.loadURL(`${this.o.origin}/runelayer.html`);
+    void v.webContents.loadURL(`${this.o.origin}/runelayer.html`).catch(() => { /* its window closed while it loaded */ });
     P.runeV = v;
     return v;
   }
@@ -5385,7 +5429,7 @@ export class AangBrowser {
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
       // A look-alike: the real site, typed fresh, never the link that led here.
-      case 'phishreal': if (t?.blocked?.real) { const u = 'https://' + t.blocked.real + '/'; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
+      case 'phishreal': if (t?.blocked?.real) { const u = 'https://' + t.blocked.real + '/'; t.blocked = null; this.place(); if (wc && !wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); } break;
       // A failed page: try again; or, with no secure version, open the plain one and remember the site.
       case 'failretry': if (t?.failed && wc) { const u = t.failed.url; t.failed = null; this.place(); void wc.loadURL(this.secured(t, u)).catch(() => {}); } break;
       case 'httpok': if (t?.failed?.kind === 'insecure' && wc) {

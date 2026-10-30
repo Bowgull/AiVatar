@@ -13,6 +13,7 @@ import { PlanMemory } from './claudeplan.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { isRisky } from './secure.ts';
+import { startFlight } from './flight.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell } from 'electron';
 import { listen as ghListen, titleOf } from './ghrelease.ts';
 import { SamaraUpdates, samaraRoot } from './pcupdate.ts';
@@ -695,6 +696,7 @@ app.on('browser-window-created', (_e, w) => {
 });
 
 app.whenReady().then(async () => {
+  startFlight(app, app.getPath('userData'), (s) => console.error(s));
   // No Electron menu bar. Aang's windows are his own look, and File/Edit/View is not it. It also
   // removes the built-in reload and developer-tools shortcuts from every window he draws.
   Menu.setApplicationMenu(null);

@@ -20,7 +20,17 @@ DIR="$HOME/Library/Application Support/AangListener"; BR="$DIR/browser"; APP="$H
 RB="$BR/rollback"; STAGE="$BR/staged"; NODE_DIR="$DIR/node"
 LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 case "$PHASE" in prepare|swap) ;; *) echo "prepare or swap"; exit 2 ;; esac
-[ "$PHASE" = "swap" ] && trap 'open -a "$APP" >/dev/null 2>&1 || true' EXIT
+# Opening Samara again (2026-10-30, seen on his Mac on Oct 29: \`open -a\` answered -600 "procNotFound" while the old
+# Samara was still closing, and with \`set -e\` the script stopped there: Samara stayed closed for hours and the check
+# below never ran). Tried a few times, then the app's own program is started directly; never fatal.
+launch() {
+  for i in 1 2 3 4 5; do open -a "$APP" >/dev/null 2>&1 && return 0; sleep $i; done
+  BIN="$APP/Contents/MacOS/$(ls "$APP/Contents/MacOS" 2>/dev/null | head -1)"
+  [ -x "$BIN" ] && { nohup "$BIN" >/dev/null 2>&1 & disown; return 0; }
+  echo "Samara could not be opened again."; return 0
+}
+running() { pgrep -f "Applications/(Samara|Aang).app/Contents/MacOS/" >/dev/null 2>&1; }
+[ "$PHASE" = "swap" ] && trap 'launch' EXIT
 sign_app() { codesign --force --deep -s "Samara on this Mac" "$1" >/dev/null 2>&1 || codesign --force --deep -s - "$1" >/dev/null 2>&1 || true; }
 npm_bin() { if [ -x "$NODE_DIR/bin/npm" ]; then echo "$NODE_DIR/bin/npm"; else command -v npm; fi; }
 
@@ -56,7 +66,10 @@ fi
 # swap
 [ -d "$STAGE/Samara.app/Contents" ] && [ "$(cat "$STAGE/version" 2>/dev/null)" = "$VERSION" ] || { echo "Nothing ready to put in."; exit 1; }
 osascript -e 'quit app id "com.aang.browser"' >/dev/null 2>&1 || true
-for i in $(seq 1 40); do pgrep -f "Applications/(Samara|Aang).app/Contents/MacOS/" >/dev/null 2>&1 || break; sleep 0.5; done
+# A busy Mac can take more than 20 s to close it. Its insides are never moved while it still runs: asked, then told.
+for i in $(seq 1 120); do running || break; sleep 0.5; done
+if running; then pkill -TERM -f "Applications/(Samara|Aang).app/Contents/MacOS/" 2>/dev/null || true; for i in $(seq 1 20); do running || break; sleep 0.5; done; fi
+if running; then pkill -KILL -f "Applications/(Samara|Aang).app/Contents/MacOS/" 2>/dev/null || true; sleep 1; fi
 # Only what is INSIDE Samara.app changes places, never the folder: the Dock's pin follows the folder.
 rm -rf "$RB/Samara.app"; mkdir -p "$RB/Samara.app"
 mv "$APP/Contents" "$RB/Samara.app/Contents"
@@ -66,20 +79,20 @@ printf '%s' ${q(installed)} > "$BR/installed.json"
 "$LSR" -u "$RB/Samara.app" >/dev/null 2>&1 || true; "$LSR" -f "$APP" >/dev/null 2>&1 || true
 rm -f "$BUNDLE"
 trap - EXIT
-open -a "$APP"
+launch
 echo "Update done: $VERSION. Samara is opening again."
 # The new Samara marks itself good once it has run a minute. Not running and never got there: it did not start, so
 # the old one goes back and this version is not offered again.
 for t in 40 60 120; do
   sleep $t
   grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && break
-  if ! pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1; then
+  if ! running; then
     if [ -d "$RB/Samara.app/Contents" ]; then
       echo "The new Samara did not start; putting the old one back."
       rm -rf "$APP/Contents"; mv "$RB/Samara.app/Contents" "$APP/Contents"; rm -rf "$RB/Samara.app"
       if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
       echo "$VERSION" >> "$BR/failed-updates.txt"
-      open -a "$APP"
+      launch
     fi
     break
   fi

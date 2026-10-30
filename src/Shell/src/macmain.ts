@@ -5,6 +5,7 @@
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
 import { startClaudeDoor } from './claudedoor.ts';
+import { startFlight } from './flight.ts';
 import { app, globalShortcut, ipcMain, Menu, nativeImage, net, powerMonitor, session } from 'electron';
 import { denyPermissions } from './safety.ts';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
@@ -64,9 +65,13 @@ const openUrl = (u: string) => {
 // A link he clicked while Aang is his default browser. It can arrive before the app is ready.
 app.on('open-url', (e, u) => { e.preventDefault(); openUrl(u); });
 
-if (!app.requestSingleInstanceLock()) app.quit();
+// A second copy only hands over and leaves: nothing below may start in it (its servers and window raced the first one's).
+const solo = app.requestSingleInstanceLock();
+if (!solo) app.quit();
 
 app.whenReady().then(async () => {
+  if (!solo) return;
+  startFlight(app, app.getPath('userData'), (s) => console.error(s));
   // Nothing outside the tabs (the popout, Aang's cards) may use the camera, mic, location or the rest (code audit,
   // 2026-10-14); the tabs keep their own ask-per-site rules.
   denyPermissions(session.defaultSession, []);
