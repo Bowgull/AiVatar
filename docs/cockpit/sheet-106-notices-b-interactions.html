@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <title>Sheet 106 - Option B, every interaction</title>
-<!-- Sheet 106 (2026-10-30). His pick: sheet 92 option B, "Item get", as it is (animation and all). His ask: "show me all
-     interactions of what option B will look like now, I want to make sure it makes sense". Built from sheet 92's own B
-     (the same plaque, drop, gem lift and sparkle, copied, not redrawn) with his answers of the same day: it drops next to
-     what caused it; sheet 98's rules (done stays until dismissed, one sound only for needs-you, one at a time with a
-     count); small things get a quieter drop that slides back by itself. Every scene plays on a loop; Replay restarts it. -->
+<!-- Sheet 106 v5 (2026-10-30). His note on v4: "it still feels a bit cheap and slapped together", and yes to my list:
+     build the notices from Claude's plan card's own pieces (the dltray/uptray/upx tray: trayframe at 2x, the gold corner
+     caps, the band header strip, the parchment list, Samara's real keys), a pixel gem socket with a hard stepped ring and
+     no blur, the plan card's two fonts only, motion in hard steps (drop in 3, the gem up in 2, a 4-frame pixel twinkle),
+     a pixel tab joining each notice to the key it came from, teal for done, tighter sizes. Plus: "remember i do like to
+     drag and drop downloaded files a lot": every download notice's file picture is the handle you drag; a drop counts as
+     done and the notice goes. The eight interactions are unchanged; the plan card itself stays as it is. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
@@ -17,11 +19,10 @@
   .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1150px;line-height:1.5}
   h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:38px 0 12px}
   .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
-  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:600px;line-height:1.45}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:640px;line-height:1.45}
   .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
   button.replay{background:none;border:none;font:700 13px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 6px;margin-left:6px}
   button.replay:hover{color:#ffe28c}
-
   /* A slice of Samara, as on sheet 90: the band, the address slot, the page. */
   .win{position:relative;width:600px;height:320px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
     background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
@@ -37,155 +38,71 @@
   .page i{display:block;height:9px;border-radius:4px;background:#e2ddd4;margin:16px 22px 0}
   .page i:nth-child(2){width:60%} .page i:nth-child(3){width:75%} .page i:nth-child(4){width:40%}
 
-  /* The three kinds, one colour each, carried by the icon's plate (never by the whole box). */
-  :root{--done:#6FB34A;--done-deep:#3E7A2A;--need:#4C9BE8;--need-deep:#1F5A9E;--bad:#E0553E;--bad-deep:#8A2418}
 
-  /* ---------- A · the game text box (Stardew's wooden dialogue, Zelda's typing letters) ---------- */
-  .tb{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:450px;z-index:6;display:flex;gap:12px;padding:10px 14px 12px 10px;
-    background:linear-gradient(180deg,#F0DCB4,var(--parch1) 50%,var(--parch2));border:3px solid #120A05;border-radius:10px;
-    box-shadow:0 0 0 4px #6b4322,0 0 0 7px #120A05,0 10px 0 rgba(0,0,0,.35);color:var(--ink-text)}
-  .tb::before,.tb::after{content:"";position:absolute;top:-10px;width:14px;height:14px;background:url(../../src/Shell/pages/art/browser/cap3_tl.png) 0 0/14px 14px;image-rendering:pixelated}
-  .tb::before{left:-10px} .tb::after{right:-10px;background-image:url(../../src/Shell/pages/art/browser/cap3_tr.png)}
-  .tb .face{flex:none;width:52px;height:52px;border-radius:7px;border:3px solid #120A05;display:grid;place-items:center;box-shadow:inset 0 3px 0 rgba(0,0,0,.45),inset 0 -2px 0 rgba(255,255,255,.18)}
-  .tb .who{font:400 10px var(--label);letter-spacing:1.2px;color:#8a3e1c;margin:1px 0 3px}
-  .tb .say{font:600 14px/1.4 var(--body);min-height:40px}
-  .tb .more{position:absolute;right:12px;bottom:6px;width:0;height:0;border:6px solid transparent;border-top:7px solid #8a3e1c;animation:bob .7s ease-in-out infinite;opacity:0}
-  .tb.done-typing .more{opacity:1}
-  .tb .btn{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:6px;border:2px solid #120A05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));font:800 12.5px var(--body);color:#2a1c00;box-shadow:0 2px 0 #120A05}
-  @keyframes bob{50%{transform:translateY(3px)}}
-  .tb.in{animation:tbin .26s cubic-bezier(.3,1.5,.6,1) both}
-  @keyframes tbin{from{transform:translate(-50%,40px);opacity:0}}
-
-  /* ---------- B · item get (the banner that drops when Link finds something) ---------- */
-  .ig{position:absolute;left:50%;top:58px;transform:translateX(-50%);z-index:2;width:400px;padding:12px 18px 14px 74px;
-    background:linear-gradient(180deg,#3a2414,var(--wood-plaque));border:3px solid #120A05;border-top:none;border-radius:0 0 12px 12px;
-    box-shadow:inset 0 0 0 2px rgba(255,196,60,.35),0 8px 0 rgba(0,0,0,.4);color:#efe4cc}
-  .ig .gem{position:absolute;left:14px;top:9px;width:46px;height:46px;border-radius:50%;border:3px solid #120A05;display:grid;place-items:center;
-    box-shadow:0 0 0 2px var(--gold),0 0 18px var(--glow,rgba(255,196,60,.7))}
-  .ig .t{font:700 15px var(--display);color:var(--gold-light);text-shadow:0 2px 0 #000;letter-spacing:.3px}
-  .ig .m{font:500 13px/1.4 var(--body);color:#d8c8a6;margin-top:2px}
-  .ig .btn{display:inline-block;margin-top:7px;padding:3px 10px;border-radius:6px;border:2px solid #120A05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));font:800 12.5px var(--body);color:#2a1c00;box-shadow:0 2px 0 #120A05}
-  .ig .spark{position:absolute;width:4px;height:4px;background:#fff6c8;box-shadow:0 0 6px #ffe28c;opacity:0}
-  .ig.in{animation:igin 4.6s cubic-bezier(.3,1.4,.6,1) both}
-  .ig.in .gem{animation:lift .5s .2s cubic-bezier(.3,1.8,.6,1) both}
-  .ig.in .spark{animation:spark .7s .45s ease-out both}
-  @keyframes igin{0%{transform:translate(-50%,-110%)}8%{transform:translate(-50%,0)}88%{transform:translate(-50%,0)}100%{transform:translate(-50%,-110%)}}
-  @keyframes lift{from{transform:translateY(14px) scale(.6)}}
-  @keyframes spark{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
-  .ig.stay{animation:none;transform:translateX(-50%)}
-
-  /* ---------- C · the lantern tag (a paper tag hung from the band, lit by Samara's lantern) ---------- */
-  .lt{position:absolute;right:58px;top:52px;z-index:6;transform-origin:50% 0;width:270px}
-  .lt .cord{position:absolute;left:50%;top:0;width:2px;height:18px;background:#120A05;margin-left:-1px}
-  .lt .lamp{position:absolute;left:50%;top:12px;margin-left:-16px;width:32px;height:32px;background:url(../../src/Shell/pages/art/samara/samara-lantern-32.png) 0 0/32px 32px;image-rendering:pixelated;
-    filter:drop-shadow(0 0 8px var(--glow,rgba(255,196,60,.9)));z-index:2}
-  .lt .tag{position:relative;margin-top:38px;padding:12px 14px 12px;background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid #120A05;border-radius:8px;
-    box-shadow:0 6px 0 rgba(0,0,0,.4),0 0 26px var(--glow,rgba(255,196,60,.35));color:var(--ink-text);display:flex;gap:10px;align-items:flex-start}
-  .lt .tag::before{content:"";position:absolute;left:50%;top:-8px;margin-left:-6px;width:12px;height:12px;border-radius:50%;background:#2a1a0e;border:2px solid #120A05}
-  .lt .q{font:800 14px var(--body)} .lt .m{font:500 12.5px/1.4 var(--body);color:#4e3d28;margin-top:2px}
-  .lt .btn{display:inline-block;margin-top:7px;padding:3px 10px;border-radius:6px;border:2px solid #120A05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));font:800 12.5px var(--body);color:#2a1c00;box-shadow:0 2px 0 #120A05}
-  .lt.in{animation:ltin 1.6s ease-out both}
-  .lt.in .lamp{animation:flick 1.8s steps(1) infinite}
-  @keyframes ltin{0%{transform:translateY(-120%) rotate(0)}22%{transform:translateY(0) rotate(5deg)}45%{transform:rotate(-3deg)}65%{transform:rotate(1.5deg)}100%{transform:rotate(0)}}
-  @keyframes flick{0%,100%{filter:drop-shadow(0 0 8px var(--glow))}40%{filter:drop-shadow(0 0 5px var(--glow))}70%{filter:drop-shadow(0 0 10px var(--glow))}}
-
-  .kind-done{--k:var(--done);--kd:var(--done-deep);--glow:rgba(111,179,74,.75)}
-  .kind-need{--k:var(--need);--kd:var(--need-deep);--glow:rgba(76,155,232,.8)}
-  .kind-bad{--k:var(--bad);--kd:var(--bad-deep);--glow:rgba(224,85,62,.8)}
-  .face,.gem,.pl{background:linear-gradient(180deg,var(--k),var(--kd))}
-  .pl{flex:none;width:30px;height:30px;border-radius:6px;border:2px solid #120A05;display:grid;place-items:center}
-
-  .kinds{display:flex;gap:10px;margin:8px 0 0}
-  .kinds button{font:700 12.5px var(--body);padding:4px 10px;border-radius:6px;border:2px solid #120A05;cursor:pointer;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6);box-shadow:0 2px 0 #000}
-  .kinds button[data-k=done]{background:var(--done-deep)} .kinds button[data-k=need]{background:var(--need-deep)} .kinds button[data-k=bad]{background:var(--bad-deep)}
-  .kinds button[aria-pressed=true]{outline:2px solid var(--gold);outline-offset:2px}
-
-  /* placement dots */
-  .spot{position:absolute;z-index:7;font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:var(--gold);border:2px solid #120A05;border-radius:5px;padding:2px 6px}
-  .mini{position:absolute;z-index:6;width:250px;display:flex;gap:9px;padding:8px 10px;background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid #120A05;border-radius:8px;
-    box-shadow:0 0 0 3px #6b4322,0 0 0 5px #120A05,0 6px 0 rgba(0,0,0,.35);color:var(--ink-text);font:600 13px/1.35 var(--body)}
-  .mini .face{width:30px;height:30px;border-width:2px;border-radius:6px}
-  .arrowup{position:absolute;width:0;height:0;border:8px solid transparent;border-bottom:9px solid #120A05;top:-20px}
-
-  /* ---- what the interactions add to 92's B ---- */
-  .win{width:640px;height:330px}
-  .scene{margin:0 0 6px}
-  .line{display:block;font:500 12.5px/1.5 var(--body);color:#b9a684;margin:8px 0 0;max-width:640px;min-height:38px}
-  .line b{display:inline}
-  .line b{color:#ffe28c}
-  /* the band's own keys a notice can come from */
+  .win{width:640px;height:340px}
+  .slotbar{right:104px}
   .dlkey{position:absolute;right:56px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;z-index:4;
     background:linear-gradient(180deg,var(--plum),var(--plum-deep));box-shadow:0 3px 0 #120a05;display:grid;place-items:center}
-  .slotbar{right:104px}
-  .src{outline:3px solid var(--gold);outline-offset:2px;animation:srcpulse .9s steps(2) 2}
+  .band-r{display:grid;place-items:center;color:#fff;font:800 14px var(--body)}
+  .src{outline:3px solid var(--gold);outline-offset:2px;animation:srcpulse .6s steps(2) 2}
   @keyframes srcpulse{50%{outline-color:transparent}}
-  /* B placed under what caused it, instead of the middle: the same drop, only its x changes */
-  .ig.at{left:var(--x);transform:none}
-  .ig.at.in{animation:igdrop .32s cubic-bezier(.3,1.4,.6,1) both}
-  .ig.at.out{animation:igup .28s ease-in both}
-  @keyframes igdrop{from{transform:translateY(-110%)}to{transform:translateY(0)}}
-  @keyframes igup{from{transform:translateY(0)}to{transform:translateY(-110%)}}
-  .ig.at.in .gem{animation:lift .5s .2s cubic-bezier(.3,1.8,.6,1) both}
-  .ig.at.in .spark{animation:spark .7s .45s ease-out both}
-  /* v4, borrowed from Claude's plan card (his pick, 2026-10-30): the words sit on parchment inside the dark frame, with
-     the plan card's small section labels */
-  .ig .paper{background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid #120A05;border-radius:8px;padding:7px 11px 8px;
-    box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 2px 0 rgba(0,0,0,.35)}
-  .ig .paper .lbl{font:400 9.5px var(--label);letter-spacing:1.2px;color:#8a3e1c;margin:0 0 2px}
-  .ig .paper .lbl+.lbl,.ig .paper .v+.lbl{margin-top:6px}
-  .ig .paper .t{font:700 14.5px var(--display);color:#2a1c0c;text-shadow:none}
-  .ig .paper .m{font:500 12.5px/1.4 var(--body);color:#4e3d28;margin-top:1px}
-  .ig .paper .v{font:700 13px var(--body);color:#2a1c0c}
-  .ig.small .paper{padding:5px 9px 6px}
-  .ig.small .paper .t{font-size:12.5px}
-  .ig.kind-need .paper .lbl.claude{color:#D97757}
-  /* Claude is always Claude: its orange spark on a white gem; the kind's colour stays in the glow */
-  .ig .gem.claude{background:#F6F2EA}
-  .ig .gem.claude svg rect{fill:#D97757}
-  .ig .n{position:absolute;right:14px;bottom:12px;font:400 9.5px var(--label);letter-spacing:1px;color:#c9a35a}
-  .ig .keys{display:flex;gap:8px;margin-top:7px}
-  .ig .btn.ghost{background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#fff}
-  .ig .btn.pressed{transform:translateY(2px);box-shadow:0 0 0 #120A05}
-  /* the quiet one: smaller, no lift, no sparkle, no sound, goes back by itself */
-  .ig.small{width:300px;padding:8px 14px 10px 56px}
-  .ig.small .gem{width:32px;height:32px;left:12px;top:7px;box-shadow:0 0 0 2px var(--gold)}
-  .ig.small .t{font-size:13px}
-  .ig.small .m{font-size:12px}
-  .ig.small.in .gem{animation:none}
-  .ig.small .spark{display:none}
-  .ig.small .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--gold);opacity:.7}
-  .ig.small.in .bar{animation:drain 4s linear both}
-  @keyframes drain{from{width:100%}to{width:0}}
-  /* the one sound, shown */
-  .sound{position:absolute;z-index:8;font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:var(--gold);border:2px solid #120A05;border-radius:5px;padding:3px 7px;opacity:0}
-  .sound.on{animation:snd 1.4s steps(4) both}
-  @keyframes snd{0%{opacity:0}10%,80%{opacity:1}100%{opacity:0}}
-  .cursor{position:absolute;z-index:9;width:14px;height:20px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px;image-rendering:pixelated;transition:left .5s ease,top .5s ease;opacity:0}
-  .cursor.on{opacity:1}
+  .line{display:block;font:500 12.5px/1.5 var(--body);color:#b9a684;margin:8px 0 0;max-width:640px;min-height:38px}
+  .line b{display:inline;color:#ffe28c}
   .grid{display:grid;grid-template-columns:repeat(2,640px);gap:34px 40px}
+
+  /* ---- the notice: Claude's plan card's own tray, smaller ---- */
+  .nt.dltray.uptray.upx{position:absolute;left:var(--x);right:auto;top:64px;width:356px;transform:none;z-index:5;animation:none}
+  .nt .uphd{margin:0 0 8px;padding:8px 12px 7px}
+  .nt .uphd small{font:700 12px var(--body)}
+  .nt .uphd b{font-size:16px}
+  .nt .uplist{margin:0 12px 8px;padding:6px 10px;max-height:none}
+  .nt .grp{margin:2px 0 1px}
+  .nt .grp+.v,.nt .v{font:600 13px/1.35 var(--body);color:#2a1c0c}
+  .nt .v+.grp{margin-top:6px}
+  .nt .upfoot{margin:0 12px}
+  .nt .key{padding:7px 14px 8px;font-size:13px}
+  .nt .count{margin-left:auto;font:700 12px var(--body);color:#f1e4cc;text-shadow:1px 1px 0 #000}
+  /* the small one: only the header strip */
+  .nt.small{width:300px;padding:0}
+  .nt.small .uphd{margin:0;border-bottom:none;box-shadow:none}
+  .nt.small .drain{position:absolute;left:0;bottom:-3px;height:3px;background:var(--gold);z-index:4}
+  .nt.small.live .drain{animation:drain 4s steps(16) both}
+  @keyframes drain{from{width:100%}to{width:0}}
+  /* the pixel tab that joins it to the key it came from */
+  .nt .tab{position:absolute;top:-14px;width:14px;height:12px;margin-left:-7px;background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/64px 128px;
+    border:3px solid #120A05;border-bottom:none;image-rendering:pixelated;z-index:4}
+  /* the gem socket: Samara's recessed frame, a hard stepped ring in the kind's colour, no blur */
+  .sock{position:relative;flex:none;width:40px;height:40px;box-sizing:border-box;border-style:solid;border-width:6px;
+    border-image:url(../../src/Shell/pages/art/browser/recess.png) 4 repeat;background:#0f0a0d;display:grid;place-items:center;image-rendering:pixelated;
+    box-shadow:0 0 0 2px var(--k),0 0 0 4px #120A05}
+  .sock.claude{background:#F6F2EA}
+  .sock.claude svg rect{fill:#D97757}
+  .sock.drag{cursor:grab}
+  .sock canvas{position:absolute;left:-28px;top:-28px;width:84px;height:84px;pointer-events:none}
+  .kind-done{--k:#3FBFAE} .kind-need{--k:#4C9BE8} .kind-bad{--k:#E0553E}
+  /* motion, in hard steps */
+  .nt.drop{animation:ntdrop .24s steps(3,end) both}
+  .nt.rise{animation:ntup .2s steps(2,end) both}
+  @keyframes ntdrop{from{transform:translateY(-120%)}to{transform:translateY(0)}}
+  @keyframes ntup{from{transform:translateY(0)}to{transform:translateY(-130%)}}
+  .nt.drop .sock .ic{animation:gemup .2s .24s steps(2,end) both}
+  @keyframes gemup{from{transform:translateY(8px)}to{transform:translateY(0)}}
+  .ghost{position:absolute;z-index:9;transition:left .8s steps(8),top .8s steps(8)}
+  .tagline{position:absolute;z-index:9;font:700 11px var(--body);color:#2a1c00;background:var(--gold);border:2px solid #120A05;border-radius:5px;padding:2px 7px}
+  .cursor{position:absolute;z-index:10;width:14px;height:20px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px;image-rendering:pixelated;transition:left .8s steps(8),top .8s steps(8);display:none}
+  .cursor.on{display:block}
   .all{border-collapse:collapse;font:500 13px/1.45 var(--body);color:#e8dcc4;max-width:1100px}
   .all th{font:400 10px var(--label);letter-spacing:1.2px;color:#c9a35a;text-align:left;padding:6px 18px 6px 0}
   .all td{padding:6px 18px 6px 0;border-top:1px solid #3a2a1a;vertical-align:top}
-  .kd{color:#9bd27a;font-weight:700} .kn{color:#7fb6f0;font-weight:700} .kb{color:#f08a75;font-weight:700}
-  .ig.plan{width:440px;padding:12px 16px 14px 74px}
-  .ig.plan .kk{font:400 10px var(--label);letter-spacing:1.2px;color:#D97757;margin:0 0 2px}
-  .ig.plan .grp{font:400 9.5px var(--label);letter-spacing:1.2px;color:#c9a35a;margin:9px 0 3px}
-  .ig.plan .prow{display:flex;align-items:center;gap:8px;font:600 12.5px/1.4 var(--body);color:#e8dcc4;margin:3px 0}
-  .ig.plan .site{flex:1}
-  .ig.plan .num{width:16px;font:400 10px var(--label);color:#c9a35a}
-  .ig.plan .tq{flex:none;width:18px;height:18px;border:2px solid #120A05;border-radius:4px;box-sizing:border-box;
-    background:#3FBFAE url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='8' y='0' width='2' height='2'/%3E%3Crect x='6' y='2' width='2' height='2'/%3E%3Crect x='0' y='4' width='2' height='2'/%3E%3Crect x='4' y='4' width='2' height='2'/%3E%3Crect x='2' y='6' width='2' height='2'/%3E%3C/svg%3E") center/10px 8px no-repeat;image-rendering:pixelated}
-  .ig.plan .wont{font:500 12px/1.4 var(--body);color:#f0c9a8;margin:9px 0 0}
-  .ig .btn.burnt{background:#C8602A;color:#fff2e4}
+  .kd{color:#6fd9c9;font-weight:700} .kn{color:#7fb6f0;font-weight:700} .kb{color:#f08a75;font-weight:700}
   .rules{font:500 13.5px/1.6 var(--body);color:#e8dcc4;max-width:900px;margin:0;padding-left:18px}
 </style>
 </head>
 <body>
 <h1>Sheet 106 · Option B, every interaction</h1>
-<p class="lead">Sheet 92's option B, exactly as you picked it: the same dark plaque, the drop, the gem lifting, the sparkle. Here it is doing every job a notice has. Each scene loops; Replay starts it again. v2: Samara's real download key, plain click buttons, Claude always on a white gem, dragging a download out, and every notice and ask. v3: Claude's plan card stays as it is. v4: the words sit on the plan card's parchment, with its small section labels.</p>
+<p class="lead">v5. The same eight interactions, now built from Claude's plan card's own pieces: its pixel frame and gold corners, the wood header, the parchment, Samara's real keys. The gem sits in a pixel socket, everything moves in hard steps like a game, a small tab joins each notice to the key it came from, and every download can be dragged straight off its notice.</p>
 
 <div class="grid" id="grid"></div>
-
 <h2>EVERY NOTICE SAMARA HAS TODAY, AS OPTION B</h2>
 <p class="sub">Samara's real lines (sorted on sheet 98), each with its kind, big or small, and what it drops from.</p>
 <table class="all">
@@ -221,114 +138,134 @@
 <tr><td>Claude wants to do something in its tab (open a checkout, send)</td><td>Allow once · No</td><td>Menu (Claude's rune)</td></tr>
 <tr><td>Link Samara to your TV</td><td>Link · Not now</td><td>Menu</td></tr>
 </table>
-<p class="sub" style="margin-top:12px">Keep their own look: Claude's plan card (below), the fake-site block, the cat page when a site won't load, the secret window's PIN.</p>
+<p class="sub" style="margin-top:12px">Keep their own look: Claude's plan card, the fake-site block, the cat page when a site won't load, the secret window's PIN.</p>
 
 <h2>CLAUDE'S PLAN CARD STAYS AS IT IS</h2>
 <p class="sub">His call (2026-10-30): the plan card is great and does not change. It is the one ask that keeps its own look. (This picture is from 1.23.0; its off-centre tick is fixed in 1.23.2.)</p>
 <img src="sheet-106/plan-today.png" alt="" style="width:365px;border:3px solid #120A05;border-radius:8px;image-rendering:auto">
 
+
 <h2>THE RULES IT FOLLOWS</h2>
 <ul class="rules">
-  <li>Drops from under whatever caused it: the download key, the shield, the menu.</li>
-  <li>Green done, blue needs you, red went wrong. Only "needs you" plays a sound.</li>
-  <li>Big ones stay until you click a button. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them. A download's picture can be dragged out.</li>
-  <li>Claude's notices always show Claude's own orange spark on a white gem.</li>
-  <li>One at a time. More waiting shows a count ("1 OF 3"); the next drops when you finish this one.</li>
+  <li>Drops from under whatever caused it, joined to it by a small tab: the download key, the shield, the menu.</li>
+  <li>Teal done, blue needs you, red went wrong. Only "needs you" plays a sound. Claude always shows its orange spark on a white socket.</li>
+  <li>Big ones stay until you click a button. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them.</li>
+  <li>Every download's picture is a handle: drag it into Finder, an email or a chat. Dropping it counts as done.</li>
+  <li>One at a time. More waiting shows a count ("1 of 3"); the next drops when you finish this one.</li>
 </ul>
 
 <script type="module">
 import { pixIcon } from '../../src/Shell/pages/pixicons.js';
 const icon = (n, s) => pixIcon(n, s) ?? document.createElement('span');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const DL = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg>';
+// a 4-frame pixel twinkle at 3x round the socket's corners
+const STAR = { big: ['..W..', '..Y..', 'WYWYW', '..Y..', '..W..'], small: ['.W.', 'WYW', '.W.'] };
+function twinkle(cv) {
+  const g = cv.getContext('2d'); let f = 0;
+  const put = (m, ox, oy) => m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = ch === 'W' ? '#fffbe8' : '#ffe28c'; g.fillRect(ox + x, oy + y, 1, 1); }));
+  const t = setInterval(() => { g.clearRect(0, 0, 28, 28); f++;
+    if (f === 1) { put(STAR.small, 4, 5); put(STAR.small, 21, 4); }
+    if (f === 2) { put(STAR.big, 19, 1); put(STAR.small, 2, 5); put(STAR.small, 23, 20); }
+    if (f === 3) { put(STAR.big, 1, 2); put(STAR.small, 22, 3); }
+    if (f >= 4) { clearInterval(t); } }, 110);
+}
+// where each source key is (its centre, for the tab) and where a notice from it sits
+const SRC = { dl: { cx: 568, x: 240 }, shield: { cx: 84, x: 30 }, menu: { cx: 610, x: 270 } };
 
 const SCENES = [
-  { id: 'done', title: '1 · Done, a big one', run: async (S) => {
-    S.say('A download finishes. The <b>download key</b> blinks, the plaque drops from under it, the gem lifts and sparkles.');
+  { title: '1 · A download, the big one', run: async (S) => {
+    S.say('A download finishes. The <b>download key</b> blinks, the notice drops from under it in three steps, the file hops up, a pixel twinkle.');
     S.src('dl'); await wait(500);
-    const p = S.drop({ kind: 'done', ic: 'yes', x: 86, rows: [['DOWNLOADED', 'tax-form.pdf'], ['SAVED IN', 'Downloads']], keys: [['Got it', 'A']] });
-    await wait(2600); S.say('It <b>stays</b> until you press a key, so you can’t miss it.'); await wait(2200);
-    await S.press(p, 0); S.say('<b>Got it</b>: it slides back up into the band.'); await S.leave(p); await wait(1200); } },
-  { id: 'need', title: '2 · Needs you, with the one sound', run: async (S) => {
-    S.say('Your Mac asks for permission. The <b>shield</b> blinks, the plaque drops, and this is the only kind that <b>plays a sound</b>.');
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads'], ['Size', '212 KB']], keys: [['Show in Finder'], ['Got it', 1]], drag: true });
+    await wait(2200); S.say('Grab the file and <b>drag it out</b>: into Finder, an email, a chat. Dropping it counts as done.');
+    await S.drag(p, 120, 250, 'DROPPED IN AN EMAIL'); S.say('Dropped: the notice goes back up on its own.'); await S.leave(p); await wait(1300); } },
+  { title: '2 · Needs you, with the one sound', run: async (S) => {
+    S.say('Your Mac asks for permission. The <b>shield</b> blinks, the notice drops from it, and this is the only kind that <b>plays a sound</b>.');
     S.src('shield'); await wait(500);
-    const p = S.drop({ kind: 'need', ic: 'key', x: 30, lbl: 'YOUR MAC', t: 'Your Mac needs a yes', m: 'Pick Always Allow so your logins come back.', keys: [['Open it', 'A'], ['Later', 'Z', 1]] });
-    S.sound(250, 200); await wait(3200); S.say('Two keys: do it now, or <b>Later</b>. Later puts it back in the shield until you open it.'); await wait(1800);
-    await S.press(p, 1); await S.leave(p); await wait(1400); } },
-  { id: 'bad', title: '3 · Went wrong', run: async (S) => {
-    S.say('The TV didn’t answer. The plaque drops from the <b>menu</b> (where Send to TV lives), red.');
+    const p = S.drop({ from: 'shield', kind: 'need', ic: 'key', kick: 'YOUR MAC NEEDS', title: 'A yes from you', rows: [['What to do', 'Pick Always Allow, and your logins come back.']], keys: [['Open it', 0], ['Later', 1]] });
+    S.sound(280, 250); await wait(3000); S.say('<b>Later</b> puts it back in the shield until you open it.'); await S.press(p, 1); await S.leave(p); await wait(1300); } },
+  { title: '3 · Went wrong', run: async (S) => {
+    S.say('The TV didn\u2019t answer. The notice drops from the <b>menu</b> (where Send to TV lives), red.');
     S.src('menu'); await wait(500);
-    const p = S.drop({ kind: 'bad', ic: 'wont', x: 128, lbl: 'THE TV', t: 'The TV didn’t answer', m: 'Check it’s on, then try again.', keys: [['Try again', 'A'], ['Close', 'Z', 1]] });
-    await wait(3000); S.say('<b>Try again</b> does it straight from the notice.'); await wait(1600);
-    await S.press(p, 0); await S.leave(p); await wait(1400); } },
-  { id: 'small', title: '4 · Small things, the quiet drop', run: async (S) => {
-    S.say('A photo saves. Small news: a <b>smaller plaque</b>, no lift, no sparkle, no sound.');
-    S.src('dl'); await wait(500);
-    const p = S.drop({ kind: 'done', ic: 'yes', x: 212, lbl: 'SAVED', t: 'photo.png', m: 'In your Downloads.', small: true });
-    await wait(1600); S.say('The gold line drains: after <b>4 seconds</b> it slides back by itself.'); await wait(2600); await S.leave(p); await wait(1500); } },
-  { id: 'hover', title: '5 · A small one waits, and you can drag the file out', run: async (S) => {
-    S.say('Your mouse goes onto a small notice: it <b>stops draining</b> and waits.');
+    const p = S.drop({ from: 'menu', kind: 'bad', ic: 'wont', kick: 'THE TV', title: 'Didn\u2019t answer', rows: [['Try', 'Check it\u2019s on, then try again.']], keys: [['Try again', 0], ['Close', 1]] });
+    await wait(2800); S.say('<b>Try again</b> does it straight from the notice.'); await S.press(p, 0); await S.leave(p); await wait(1300); } },
+  { title: '4 · Small things, the quiet drop', run: async (S) => {
+    S.say('A page goes into a trail. Small news: just the header strip, no hop, no twinkle, no sound.');
+    S.src('menu'); await wait(500);
+    const p = S.drop({ from: 'menu', kind: 'done', ic: 'scroll', kick: 'ADDED TO', title: 'Tax season', small: true });
+    await wait(1500); S.say('The gold line drains in steps: after <b>4 seconds</b> it slides back by itself.'); await wait(2700); await S.leave(p); await wait(1300); } },
+  { title: '5 · A small download waits, and drags out', run: async (S) => {
+    S.say('A small download notice. Your mouse goes onto it: it <b>stops draining</b> and waits.');
     S.src('dl'); await wait(400);
-    const p = S.drop({ kind: 'done', ic: 'yes', x: 212, lbl: 'SAVED', t: 'invoice.pdf', m: 'In your Downloads.', small: true });
-    await wait(900); S.cursor(330, 100); await wait(700); p.querySelector('.bar').style.animationPlayState = 'paused';
-    await wait(1600); S.say('Grab the file\u2019s picture and <b>drag it out</b>: into Finder, an email, a chat. The same as dragging from the download tray.');
-    const ghost = p.querySelector('.gem').cloneNode(true); ghost.style.cssText = 'position:absolute;z-index:9;left:250px;top:76px;transition:left .9s ease,top .9s ease;opacity:.85';
-    w.append(ghost); S.cursor(262, 92); await wait(500); ghost.style.left = '120px'; ghost.style.top = '232px'; S.cursor(132, 248); await wait(1200);
-    const drop = Object.assign(document.createElement('span'), { className: 'sound on', textContent: 'DROPPED IN FINDER' }); drop.style.cssText = 'left:90px;top:282px;opacity:1;animation:none'; w.append(drop);
-    await wait(1400); ghost.remove(); drop.remove();
-    S.say('Mouse off: it carries on and slides back.'); S.cursor(560, 260); p.querySelector('.bar').style.animationPlayState = 'running';
-    await wait(2000); await S.leave(p); S.cursor(); await wait(1300); } },
-  { id: 'queue', title: '6 · Three at once', run: async (S) => {
-    S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>: the first shows "1 OF 3".');
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'SAVED', title: 'invoice.pdf', small: true, drag: true, x: 296 });
+    await wait(700); S.cursor(330, 84); await wait(700); p.querySelector('.drain').style.animationPlayState = 'paused';
+    await wait(1200); S.say('Drag the file straight off it into Finder. Dropped: done, it goes.');
+    await S.drag(p, 110, 250, 'DROPPED IN FINDER'); await S.leave(p); S.cursor(); await wait(1300); } },
+  { title: '6 · Three at once', run: async (S) => {
+    S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>, with a count.');
     S.src('dl'); await wait(400);
-    let p = S.drop({ kind: 'done', ic: 'yes', x: 86, rows: [['DOWNLOADED', 'tax-form.pdf'], ['SAVED IN', 'Downloads']], keys: [['Got it', 'A']], n: '1 OF 3' });
-    await wait(2400); await S.press(p, 0); await S.leave(p);
-    S.say('Done with it: the <b>next one drops</b> from its own place, the shield, with its sound.'); S.src('shield'); await wait(300);
-    p = S.drop({ kind: 'need', ic: 'key', x: 30, lbl: 'BITWARDEN', t: 'Save your login here?', m: 'Bitwarden can keep it for next time.', keys: [['Save', 'A'], ['Not now', 'Z', 1]], n: '2 OF 3' });
-    S.sound(250, 200); await wait(2400); await S.press(p, 1); await S.leave(p);
+    let p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads']], keys: [['Got it', 1]], count: '1 of 3', drag: true });
+    await wait(2200); await S.press(p, 0); await S.leave(p);
+    S.say('The <b>next one drops</b> from its own place, the shield, with its sound.'); S.src('shield'); await wait(300);
+    p = S.drop({ from: 'shield', kind: 'need', ic: 'key', kick: 'BITWARDEN', title: 'Save this login?', rows: [['For', 'github.com']], keys: [['Save', 0], ['Not now', 1]], count: '2 of 3' });
+    S.sound(280, 250); await wait(2200); await S.press(p, 1); await S.leave(p);
     S.say('Then the last, from the menu.'); S.src('menu'); await wait(300);
-    p = S.drop({ kind: 'bad', ic: 'wont', x: 128, lbl: 'THE TV', t: 'The TV didn’t answer', m: 'Check it’s on, then try again.', keys: [['Try again', 'A'], ['Close', 'Z', 1]], n: '3 OF 3' });
-    await wait(2400); await S.press(p, 1); await S.leave(p); await wait(1200); } },
-  { id: 'claude', title: '7 · Claude asks (the same family)', run: async (S) => {
-    S.say('Claude, working in your tabs, wants your OK. It’s a <b>needs you</b>, so it looks and sounds the same, from the <b>menu</b> where Claude’s rune lives.');
+    p = S.drop({ from: 'menu', kind: 'bad', ic: 'wont', kick: 'THE TV', title: 'Didn\u2019t answer', rows: [['Try', 'Check it\u2019s on, then try again.']], keys: [['Try again', 0], ['Close', 1]], count: '3 of 3' });
+    await wait(2200); await S.press(p, 1); await S.leave(p); await wait(1200); } },
+  { title: '7 · Claude asks (the same family)', run: async (S) => {
+    S.say('Claude, working in your tabs, wants your OK. A <b>needs you</b>, from the <b>menu</b> where Claude\u2019s rune lives, with Claude\u2019s own spark.');
     S.src('menu'); await wait(500);
-    const p = S.drop({ kind: 'need', ic: 'claude', x: 128, lbl: 'CLAUDE · AANG', t: 'Claude wants to open the checkout', m: 'For Compare laptops, on bestbuy.ca.', keys: [['Allow once', 'A'], ['No', 'Z', 1]] });
-    S.sound(330, 210); await wait(3600); await S.press(p, 0); await S.leave(p); await wait(1400); } },
+    const p = S.drop({ from: 'menu', kind: 'need', ic: 'claude', kick: 'CLAUDE \u00b7 AANG', title: 'Open the checkout?', rows: [['For', 'Compare laptops, on bestbuy.ca']], keys: [['Allow once', 0], ['No', 1]] });
+    S.sound(330, 260); await wait(3200); await S.press(p, 0); await S.leave(p); await wait(1300); } },
+  { title: '8 · The plan card, unchanged, for comparison', run: async (S) => {
+    S.say('Claude\u2019s plan card keeps its own look. The notices above are now its little siblings: same frame, corners, header, parchment and keys.');
+    const n = document.createElement('div'); n.className = 'nt dltray uptray upx kind-need'; n.style.setProperty('--x', '142px'); n.style.top = '62px';
+    n.innerHTML = `<div class="caps"></div><div class="uphd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>CLAUDE WANTS TO</small><b>Email castLabs</b></div></div>
+      <div class="uplist"><div class="grp">SITES</div><div class="it">mail.google.com</div><div class="grp">STEPS</div><div class="it">1 Open a new Gmail message</div></div>
+      <div class="upfoot"><button class="key primary sm">Go</button><button class="key sm">Change</button><button class="key sm" style="background:#C8602A">Not now</button></div>`;
+    S.win.append(n); await wait(6000); n.remove(); } },
 ];
 
 function sceneBox(sc) {
-  const box = document.createElement('div'); box.className = 'scene';
+  const box = document.createElement('div');
   box.innerHTML = `<p class="cap">${sc.title}<button class="replay" type="button">Replay</button></p>
     <div class="win"><div class="bandbar"></div><div class="band-l"></div><div class="slotbar"><span class="sh"></span>samara.example</div>
-    <span class="dlkey"></span><div class="band-r"></div><div class="page"><i></i><i></i><i></i><i></i></div>
-    <span class="sound">♪ THE ONE SOUND</span><span class="cursor"></span></div><p class="line"></p>`;
+    <span class="dlkey">${DL}</span><div class="band-r">···</div><div class="page"><i></i><i></i><i></i><i></i></div><span class="cursor"></span></div><p class="line"></p>`;
   const w = box.querySelector('.win');
-  w.querySelector('.dlkey').innerHTML = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg>';
-  w.querySelector('.band-r').append(Object.assign(document.createElement('span'), { textContent: '···', style: 'color:#fff;font:800 14px var(--body)' }));
   const S = {
+    win: w,
     say: (h) => { box.querySelector('.line').innerHTML = h; },
     src: (which) => { const el = which === 'dl' ? w.querySelector('.dlkey') : which === 'shield' ? w.querySelector('.slotbar .sh') : w.querySelector('.band-r'); el.classList.remove('src'); void el.offsetWidth; el.classList.add('src'); },
     drop: (o) => {
-      const n = document.createElement('div'); n.className = `ig at kind-${o.kind}${o.small ? ' small' : ''}`; n.style.setProperty('--x', o.x + 'px');
-      const gem = document.createElement('span'); gem.className = 'gem' + (o.ic === 'claude' ? ' claude' : ''); gem.append(icon(o.ic, o.small ? 2 : 3)); n.append(gem);
-      if (!o.small) for (const [dx, dy, l, t] of [[-16, -14, 22, 14], [18, -16, 48, 10], [-20, 10, 18, 44], [20, 12, 52, 46]]) {
-        const sp = document.createElement('i'); sp.className = 'spark'; sp.style.cssText = `left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px`; n.append(sp); }
-      const paper = o.rows
-        ? o.rows.map(([l, v]) => `<div class="lbl">${l}</div><div class="v">${v}</div>`).join('')
-        : `${o.lbl ? `<div class="lbl${o.ic === 'claude' ? ' claude' : ''}">${o.lbl}</div>` : ''}<div class="t">${o.t}</div>${o.m ? `<div class="m">${o.m}</div>` : ''}`;
-      n.insertAdjacentHTML('beforeend', `<div class="paper">${paper}</div>`);
-      if (o.keys) { const k = document.createElement('div'); k.className = 'keys'; for (const [l, key, ghost] of o.keys) k.insertAdjacentHTML('beforeend', `<span class="btn${ghost ? ' ghost' : ''}">${l}</span>`); n.append(k); }
-      if (o.n) n.insertAdjacentHTML('beforeend', `<span class="n">${o.n}</span>`);
-      if (o.small) n.insertAdjacentHTML('beforeend', '<span class="bar"></span>');
-      w.append(n); void n.offsetWidth; n.classList.add('in'); return n;
+      const src = SRC[o.from], x = o.x ?? src.x;
+      const n = document.createElement('div'); n.className = `nt dltray uptray upx kind-${o.kind}${o.small ? ' small' : ''}`; n.style.setProperty('--x', x + 'px');
+      const keys = o.keys ? `<div class="upfoot">${o.keys.map(([l, plain], i) => `<button class="key ${i === 0 && !plain ? 'primary ' : ''}sm" type="button">${l}</button>`).join('')}</div>` : '';
+      const rows = o.rows ? `<div class="uplist">${o.rows.map(([g, v]) => `<div class="grp">${g}</div><div class="v">${v}</div>`).join('')}</div>` : '';
+      n.innerHTML = `<div class="caps"></div><span class="tab" style="left:${src.cx - x}px"></span>
+        <div class="uphd"><span class="sock${o.ic === 'claude' ? ' claude' : ''}${o.drag ? ' drag' : ''}"><span class="ic"></span><canvas width="28" height="28"></canvas></span>
+        <div class="t"><small>${o.kick}</small><b>${o.title}</b></div>${o.count ? `<span class="count">${o.count}</span>` : ''}</div>${rows}${keys}${o.small ? '<span class="drain"></span>' : ''}`;
+      n.querySelector('.ic').append(icon(o.ic, o.small ? 2 : 2));
+      w.append(n); void n.offsetWidth; n.classList.add('drop', 'live');
+      if (!o.small) setTimeout(() => twinkle(n.querySelector('canvas')), 440);
+      return n;
     },
-    press: async (n, i) => { const b = n.querySelectorAll('.keys .btn')[i]; if (!b) return; b.classList.add('pressed'); await wait(220); },
-    leave: async (n) => { n.classList.remove('in'); void n.offsetWidth; n.classList.add('out'); await wait(320); n.remove(); },
-    sound: (x, y) => { const s = w.querySelector('.sound'); s.style.left = x + 'px'; s.style.top = y + 'px'; s.classList.remove('on'); void s.offsetWidth; s.classList.add('on'); },
+    press: async (n, i) => { const b = n.querySelectorAll('.upfoot .key')[i]; if (!b) return; b.style.top = 'var(--lip)'; b.style.boxShadow = 'none'; await wait(200); },
+    leave: async (n) => { n.classList.remove('drop'); void n.offsetWidth; n.classList.add('rise'); await wait(240); n.remove(); },
+    sound: (x, y) => { const s = Object.assign(document.createElement('span'), { className: 'tagline', textContent: '\u266a the one sound' }); s.style.left = x + 'px'; s.style.top = y + 'px'; w.append(s); setTimeout(() => s.remove(), 1400); },
     cursor: (x, y) => { const c = w.querySelector('.cursor'); if (x === undefined) { c.classList.remove('on'); return; } c.classList.add('on'); c.style.left = x + 'px'; c.style.top = y + 'px'; },
-    key: (k) => { const s = w.querySelector('.sound'); s.textContent = 'KEY ' + k.toUpperCase(); s.style.left = '470px'; s.style.top = '280px'; s.classList.remove('on'); void s.offsetWidth; s.classList.add('on'); setTimeout(() => { s.textContent = '♪ THE ONE SOUND'; }, 1500); },
+    drag: async (n, tx, ty, said) => {
+      const sock = n.querySelector('.sock'), r = sock.getBoundingClientRect(), wr = w.getBoundingClientRect();
+      const sx = r.left - wr.left, sy = r.top - wr.top;
+      S.cursor(sx + 14, sy + 16); await wait(500);
+      const g = sock.cloneNode(true); g.classList.add('ghost'); g.style.left = sx + 'px'; g.style.top = sy + 'px'; g.style.opacity = '.85'; g.querySelector('canvas')?.remove(); w.append(g);
+      void g.offsetWidth; g.style.left = tx + 'px'; g.style.top = ty + 'px'; S.cursor(tx + 14, ty + 16); await wait(950);
+      const t = Object.assign(document.createElement('span'), { className: 'tagline', textContent: said }); t.style.left = (tx - 10) + 'px'; t.style.top = (ty + 46) + 'px'; w.append(t);
+      await wait(1100); g.remove(); t.remove(); S.cursor();
+    },
   };
   let token = 0;
-  const loop = async () => { const me = ++token; for (;;) { for (const n of w.querySelectorAll('.ig')) n.remove(); S.cursor(); try { await sc.run(S); } catch { /* replayed */ } if (me !== token) return; await wait(900); } };
+  const loop = async () => { const me = ++token; for (;;) { for (const n of w.querySelectorAll('.nt,.ghost,.tagline')) n.remove(); S.cursor(); try { await sc.run(S); } catch { /* replayed */ } if (me !== token) return; await wait(800); } };
   box.querySelector('.replay').addEventListener('click', loop);
   setTimeout(loop, 300);
   return box;
