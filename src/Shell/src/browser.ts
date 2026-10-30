@@ -6066,6 +6066,10 @@ export class AangBrowser {
           if (!t.view) this.wake(t); else this.thaw(t);
           const wc = t.view?.webContents;
           if (!wc) return { ok: false, error: 'that tab could not be woken' };
+          // A tab that was asleep has no address until its page starts loading again: borrowing it in the same instant
+          // read a blank address and refused (2026-10-30, the borrow-a-tab check broke once idle tabs slept sooner).
+          if (!wc.getURL()) await new Promise<void>((res) => { const done = () => { clearTimeout(to); wc.off('did-navigate', done); wc.off('did-fail-load', done); res(); }; const to = setTimeout(done, 10_000); wc.once('did-navigate', done); wc.once('did-fail-load', done); });
+          if (wc.isDestroyed() || !wc.getURL()) return { ok: false, error: 'that tab was asleep and did not wake in time: ask again in a moment' };
           const r = d.borrow(num('job'), wc, t.id, op === 'drivetab');
           this.sendTabs();
           return { ok: true, ...r, yours: true };
