@@ -4,6 +4,7 @@
 // what only one machine has (the Mac's secret window and mockup door, the PC's repo and playback) stays its own.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { samaraBase, samaraBrowser, type BootDeps, type BrowserPlatform, type Platform } from '../src/boot.ts';
 
 type Rec = { calls: [string, ...unknown[]][]; quit: (() => void)[]; frame: Map<string, (s: { send: (...a: unknown[]) => void }, a: Record<string, unknown>) => void>; browsers: any[]; folder: string[]; files: Map<string, string> };
@@ -141,7 +142,7 @@ for (const [machine, hooks] of [['mac', mac], ['pc', pc]] as const) {
     const d = deps(r);
     const base = await samaraBase(p, d);
     r.folder.push('a.url', 'b.mockup', 'c.mockmark', 'browser.flag', 'junk.txt');
-    r.files.set(p.stateDir + '/open-urls/a.url', 'https://linked.example/');
+    r.files.set(path.join(p.stateDir, 'open-urls', 'a.url'), 'https://linked.example/');   // the machine's own separator (Windows: \\)
     const s = samaraBrowser(base, p, bp, d);
     const b = r.browsers[0];
     assert.equal(base.browser(), b);

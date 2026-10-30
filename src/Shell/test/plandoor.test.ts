@@ -27,7 +27,7 @@ test('a card goes to the bubble and his answer comes back to Samara', async () =
   assert.equal(shown.id, 'samara:3');
   assert.deepEqual(shown.steps, ['Open the board', 'Read it']);
   assert.deepEqual(a, { go: false, change: true, keep: ['jobs.example'], note: 'only the first page' });
-  assert.equal(statSync(d.keyFile).mode & 0o777, 0o600, 'the key is his alone');
+  if (process.platform !== 'win32') assert.equal(statSync(d.keyFile).mode & 0o777, 0o600, 'the key is his alone');   // Windows has no such modes
   d.close();
 });
 
