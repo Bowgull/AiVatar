@@ -2887,8 +2887,34 @@ sealed class PetWindow : Form
         int dy = ay + by * (bob - rise);
         var saved = g.Save();
         g.ResetTransform();
+        // Sheet 105 B: turned with him at an edge, about its own centre; a change of edge turns it smoothly into place.
+        float angle = MarkAngle(ClaudeMarks.EdgeAngle(docked ? dock : DockEdge.None));
+        if (angle != 0f)
+        {
+            float cy = dy - ClaudeMarks.Size(kind).H * px / 2f;
+            g.TranslateTransform(dx, cy); g.RotateTransform(angle); g.TranslateTransform(-dx, -cy);
+        }
         ClaudeMarks.Draw(g, kind, dx, dy, px);
         g.Restore(saved);
+    }
+
+    // The mark's turn between edges (sheet 105 B, "smooth motion"): 260 ms, quick then settling, the short way round.
+    const double MarkTurnMs = 260;
+    float markTurnFrom, markTurnTo; DateTime markTurnAt = DateTime.MinValue; bool markTurnSet;
+    float MarkAngle(float target)
+    {
+        var now = DateTime.UtcNow;
+        float Shown() { var u = Math.Min(1.0, (now - markTurnAt).TotalMilliseconds / MarkTurnMs); var e = 1 - Math.Pow(1 - u, 3); return (float)(markTurnFrom + (markTurnTo - markTurnFrom) * e); }
+        if (!markTurnSet) { markTurnSet = true; markTurnFrom = markTurnTo = target; markTurnAt = DateTime.MinValue; return target; }
+        float at = Shown();
+        float d = target - markTurnTo; d -= 360f * (float)Math.Round(d / 360f);
+        if (Math.Abs(d) > 0.01f)
+        {
+            float to = at + (((target - at) % 360f + 540f) % 360f - 180f);
+            markTurnFrom = at; markTurnTo = to; markTurnAt = now; at = Shown();
+        }
+        float r = ((at % 360f) + 360f) % 360f;
+        return r < 0.01f || r > 359.99f ? 0f : r;   // upright: no turn at all, pixels exact
     }
 
     static float EaseOutBack(float t) { const float c1 = 1.9f, c3 = c1 + 1; var u = t - 1; return 1 + c3 * u * u * u + c1 * u * u; }

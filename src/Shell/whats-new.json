@@ -675,6 +675,11 @@
       "at": "2026-10-30T07:10:00-04:00",
       "text": "A page that won't load shows Jiji the cat.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T07:25:00-04:00",
+      "text": "Claude's mark turns with Aang at every edge.",
+      "kind": "fix"
     }
   ]
 }
