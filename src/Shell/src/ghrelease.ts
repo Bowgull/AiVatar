@@ -43,15 +43,9 @@ export function checkManifest(text: string, sigB64: string, pub: string = RELEAS
   return { v: 1, app: 'samara', version: m.version!, commit: m.commit!, at: String(m.at ?? ''), notes, name, items, bundle: { file: b.file, sha256: b.sha256, bytes: b.bytes } };
 }
 
-export const isVersion = (v: unknown): v is string => typeof v === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v);
-/** Is a newer than b? A version that is not x.y.z (a hand install, the PC's old fingerprints) is older than any release. */
-export function newer(a: string, b: string): boolean {
-  if (!isVersion(a)) return false;
-  if (!isVersion(b)) return true;
-  const x = a.split('.').map(Number), y = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i]! > y[i]!;
-  return false;
-}
+// One comparison for every source (updateengine.ts).
+import { isVersion, newer } from './updateengine.ts';
+export { isVersion, newer };
 
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer>; body?: ReadableStream<Uint8Array> | null }>;
 

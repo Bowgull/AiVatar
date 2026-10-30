@@ -2,20 +2,27 @@
 // The same steps as the PC-made script (src/Core/src/macsetup.ts, build_app and the swap), only Samara's own part, and
 // from a bundle this Samara already checked against his release seal. Made here, by the running Samara, never fetched.
 //
-//   prepare  the new Samara made beside the old one, in the background (a clone of this one, the new code put in)
+//   prepare  the new Samara made beside the old one, in the background (a clone of this one, the new code put in;
+//            or, for a new engine, castLabs' engine already signed for video, with this Samara's own insides put in)
 //   swap     Restart now (or overnight): Samara closes, the insides change places, the old ones kept in rollback/,
 //            Samara opens again; if the new one does not start, the old one goes back by itself.
 
-export interface MacUpdate { bundle: string; version: string; commit: string }
+/** bundle: Samara's new code (a sealed release), or '' when only the engine changes. engine: castLabs' Electron.app,
+ *  already checked against its seal and signed for video (evs.ts), when the engine changes. One script either way. */
+export interface MacUpdate { bundle: string; version: string; commit: string; engine?: { app: string; version: string } }
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
 export function macUpdateScript(o: MacUpdate): string {
-  if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(o.version) || !/^[0-9a-f]{40}$/.test(o.commit) || !o.bundle.endsWith('.tgz')) throw new Error('not a release');
-  const installed = JSON.stringify({ version: o.version, commit: o.commit.slice(0, 12), status: 'trial', from: 'github' });
+  const e = o.engine;
+  if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(o.version) || !/^[0-9a-f]{12,40}$/.test(o.commit)) throw new Error('not a release');
+  if (o.bundle ? !o.bundle.endsWith('.tgz') : !e) throw new Error('not a release');
+  if (e && (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(e.version) || !e.app.endsWith('/Electron.app'))) throw new Error('not an engine');
+  const installed = JSON.stringify({ version: o.version, commit: o.commit.slice(0, 12), status: 'trial', from: 'github', ...(e ? { engine: e.version } : {}) });
+  const stage = e ? `${o.version}+${e.version}` : o.version;
   return `#!/bin/bash
 # Samara ${o.version} from GitHub, sealed with his release key. Written by Samara itself (src/Shell/src/macupdate.ts).
 set -e
-PHASE="$1"; VERSION=${q(o.version)}; BUNDLE=${q(o.bundle)}
+PHASE="$1"; VERSION=${q(stage)}; BUNDLE=${q(o.bundle)}; ENGINE=${q(e?.app ?? '')}; EV=${q(e?.version ?? '')}
 DIR="$HOME/Library/Application Support/AangListener"; BR="$DIR/browser"; APP="$HOME/Applications/Samara.app"
 RB="$BR/rollback"; STAGE="$BR/staged"; NODE_DIR="$DIR/node"
 LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
@@ -35,14 +42,29 @@ sign_app() { codesign --force --deep -s "Samara on this Mac" "$1" >/dev/null 2>&
 npm_bin() { if [ -x "$NODE_DIR/bin/npm" ]; then echo "$NODE_DIR/bin/npm"; else command -v npm; fi; }
 
 if [ "$PHASE" = "prepare" ]; then
-  [ -f "$BUNDLE" ] || { echo "The release bundle is missing."; exit 1; }
+  [ -z "$BUNDLE" ] || [ -f "$BUNDLE" ] || { echo "The release bundle is missing."; exit 1; }
+  [ -z "$ENGINE" ] || [ -f "$ENGINE/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig" ] || { echo "The new engine is not signed for video."; exit 1; }
   rm -rf "$STAGE"; mkdir -p "$STAGE"; NEWAPP="$STAGE/Samara.app"
-  # A copy-on-write clone of the Samara here (instant on the Mac's disk): the engine, the icon and the signature stay.
-  cp -cR "$APP" "$NEWAPP" 2>/dev/null || ditto "$APP" "$NEWAPP"
-  RES="$NEWAPP/Contents/Resources"
+  if [ -n "$ENGINE" ]; then
+    # A new engine: castLabs' own app (signed for video), with this Samara's insides (its code and libraries) put in,
+    # and the same name and identity as before, so his logins, history and default-browser choice carry over.
+    ditto "$ENGINE" "$NEWAPP"; RES="$NEWAPP/Contents/Resources"; mkdir -p "$RES/app"
+    ditto "$APP/Contents/Resources/app" "$RES/app"; printf '%s' "castlabs-$EV" > "$RES/aang-engine"
+    PL="$NEWAPP/Contents/Info.plist"; PB=/usr/libexec/PlistBuddy
+    $PB -c "Set :CFBundleName Aang" -c "Set :CFBundleIdentifier com.aang.browser" "$PL"
+    $PB -c "Set :CFBundleDisplayName Samara" "$PL" >/dev/null 2>&1 || $PB -c "Add :CFBundleDisplayName string Samara" "$PL"
+    $PB -c "Delete :CFBundleURLTypes" "$PL" >/dev/null 2>&1 || true
+    $PB -c "Add :CFBundleURLTypes array" -c "Add :CFBundleURLTypes:0 dict" -c "Add :CFBundleURLTypes:0:CFBundleURLName string Web site URL" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string http" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:1 string https" "$PL"
+  else
+    # A copy-on-write clone of the Samara here (instant on the Mac's disk): the engine, the icon and the signature stay.
+    cp -cR "$APP" "$NEWAPP" 2>/dev/null || ditto "$APP" "$NEWAPP"
+    RES="$NEWAPP/Contents/Resources"
+  fi
   OLDLOCK="$(shasum -a 256 "$RES/app/package-lock.json" 2>/dev/null | cut -d' ' -f1)"
-  rm -rf "$RES/app/src" "$RES/app/pages" "$RES/app/drm" "$RES/app/claude-link"
-  tar -xzf "$BUNDLE" -C "$RES/app"
+  if [ -n "$BUNDLE" ]; then
+    rm -rf "$RES/app/src" "$RES/app/pages" "$RES/app/drm" "$RES/app/claude-link"
+    tar -xzf "$BUNDLE" -C "$RES/app"
+  fi
   NEWLOCK="$(shasum -a 256 "$RES/app/package-lock.json" | cut -d' ' -f1)"
   if [ "$OLDLOCK" != "$NEWLOCK" ] || [ ! -d "$RES/app/node_modules" ]; then
     NPM="$(npm_bin)"; [ -n "$NPM" ] || { echo "No npm on this Mac to install the browser's libraries."; exit 1; }
@@ -55,6 +77,7 @@ if [ "$PHASE" = "prepare" ]; then
     for s in 16 32 128 256 512; do d=$((s*2)); cp "$SI/samara-unlit-$s.png" "$IS/icon_$s"x"$s.png"; cp "$SI/samara-unlit-$d.png" "$IS/icon_$s"x"$s@2x.png"; done
     iconutil -c icns "$IS" -o "$RES/electron.icns" >/dev/null 2>&1 || true
   fi
+  # castLabs' video signature first, then the Mac's own (castLabs' order): the video one is already in the engine.
   sign_app "$NEWAPP"
   codesign --verify --deep "$NEWAPP" >/dev/null 2>&1 || true
   # Not an app macOS should know: the Dock could take it for his Samara and show a second one.
@@ -77,7 +100,7 @@ mv "$STAGE/Samara.app/Contents" "$APP/Contents"; rm -rf "$STAGE"
 cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
 printf '%s' ${q(installed)} > "$BR/installed.json"
 "$LSR" -u "$RB/Samara.app" >/dev/null 2>&1 || true; "$LSR" -f "$APP" >/dev/null 2>&1 || true
-rm -f "$BUNDLE"
+[ -n "$BUNDLE" ] && rm -f "$BUNDLE"
 trap - EXIT
 launch
 echo "Update done: $VERSION. Samara is opening again."
@@ -91,7 +114,8 @@ for t in 40 60 120; do
       echo "The new Samara did not start; putting the old one back."
       rm -rf "$APP/Contents"; mv "$RB/Samara.app/Contents" "$APP/Contents"; rm -rf "$RB/Samara.app"
       if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
-      echo "$VERSION" >> "$BR/failed-updates.txt"
+      [ -n "$BUNDLE" ] && echo ${q(o.version)} >> "$BR/failed-updates.txt"
+      [ -n "$EV" ] && echo "$EV" >> "$BR/failed-engines.txt"
       launch
     fi
     break
