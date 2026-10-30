@@ -795,6 +795,11 @@
       "at": "2026-10-30T15:16:00-04:00",
       "text": "Every mockup lands in its project and topic, never Other.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T15:31:00-04:00",
+      "text": "Claude's short page reads are short in every mode.",
+      "kind": "fix"
     }
   ]
 }
