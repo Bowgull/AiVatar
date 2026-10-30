@@ -157,11 +157,12 @@ const formPart = (i) => i.kind !== 'link' && (i.kind !== 'button' || /checked|un
  * The short list (2026-10-30, the deep research): every form part, the first links and other buttons on screen, and
  * repeats folded into one line. Off-screen buttons were most of a CBC read (60 video buttons, 6,517 characters).
  */
-const brief = (items, base) => {
+const brief = (items, base, part = false) => {
   let k = 0; const seen = new Map(); const out = [];
   for (const i of items) {
     const form = formPart(i);
-    if (!form && (i.view === false || k >= BRIEF_LINKS)) continue;
+    // A part of the page (within) is often below the screen: there the first 40 count wherever they sit.
+    if (!form && ((!part && i.view === false) || k >= BRIEF_LINKS)) continue;
     const key = form ? null : `${i.kind}|${i.label}|${i.kind === 'link' ? shortHref(i.href, base) : ''}`;
     if (key && seen.has(key)) { seen.get(key).times++; continue; }
     if (!form) k++;
@@ -258,8 +259,9 @@ async function call(name, a) {
     // full list of links made one news page 20,000 characters, 7 times what Claude in Chrome spent (measuring stick, 2026-10-30).
     // controls: true trims the same way: Claude picks it as "the short read", and on CBC it was every link, 22,500
     // characters (re-run, 2026-10-30). all: true is the one way to every link.
-    const full = a.all === true || Number.isInteger(a.within) || a.changes === true;
-    const shown = full ? (r.items || []) : brief(r.items || [], r.url);
+    // within trims too (the fair re-test, 2026-10-30: one part of The Verge was ~200 links, 17,000 tokens).
+    const full = a.all === true || a.changes === true;
+    const shown = full ? (r.items || []) : brief(r.items || [], r.url, Number.isInteger(a.within));
     const left = (r.items || []).length - shown.reduce((n, i) => n + (i.times || 1), 0);
     const items = shown.map(line).join('\n') + (left > 0 ? `\n(${left} more links and buttons, off screen or past the first 40, left out. browser_find finds any of them by its words; browser_read with all: true lists them all.)` : '');
     const same = r.unchanged ? `\n(${r.unchanged.lines} lines and ${r.unchanged.controls} controls are the same as your last read, not repeated.)` : '';
