@@ -1,8 +1,8 @@
 // Dragging, smoother (his ask, 2026-10-21): the tab drawer's drag and drop, driven with pointer events made inside the
 // page (never real mouse or keys). Onto a row makes a child; sliding right or left in a gap changes the depth; loops and bad
 // ids are refused; several picked tabs move together in order; a folded trail opens while hovered; Esc puts it back; a
-// plain click still only switches; a trail moves by its heading; a mockup dropped on a mockup becomes its child (history
-// kept) and slides back out; a plain tab never goes into MOCKUPS; mockup rows wear Claude's icon. One picture mid-drag.
+// plain click still only switches; a trail moves by its heading; (sheet 107: mockups
+// left the tray for Mockups, so nothing of theirs is dragged any more). One picture mid-drag.
 //
 // Run: npx electron test/electron/drag-check.ts [picture.png]
 import { app, BrowserWindow, screen } from 'electron';
@@ -187,31 +187,5 @@ app.whenReady().then(async () => {
     const ids = b.trails.map((x: any) => x.id);
     check('dragging T2 by its heading puts it before T1', ids.indexOf(T2) < ids.indexOf(T1), JSON.stringify(ids));
   }
-  // ---- 9. the MOCKUPS trail
-  {
-    await b.openMockup(S45, '45 · Both ways'); await b.openMockup(S46, '46 · One cockpit');
-    await until(() => b.tabs.filter((t: any) => t.mock).length === 2); await wait(600);
-    const M45 = b.tabs.find((t: any) => t.mock?.sheet === S45).id, M46 = b.tabs.find((t: any) => t.mock?.sheet === S46).id;
-    check('both mockups are top level to start', b.mockStore.placeOf(S46).parent === null && b.mockStore.placeOf(S45).parent === null);
-    const icons = JSON.parse(await js(`JSON.stringify([...document.querySelectorAll('#tabs .tp[data-mock]')].map((r) => r.querySelector('img.fi')?.getAttribute('src')))`));
-    check('every mockup row wears Claude\'s icon', icons.length === 2 && icons.every((s: string) => s === 'art/claude-icon.png'), JSON.stringify(icons));
-    const versions = b.mockStore.list.length;
-    await drag((await at(row(M46)))!, (await at(row(M45)))!);
-    check('a mockup dropped on another becomes its child', b.mockStore.placeOf(S46).parent === S45, JSON.stringify(b.mockStore.placeOf(S46)));
-    const saved = JSON.parse(readFileSync(path.join(st, 'mockups.json'), 'utf8'));
-    check('the history is kept, and the tree is saved', b.mockStore.list.length === versions && saved.versions.length === versions && JSON.stringify(saved.places).includes(S46), JSON.stringify(saved.places));
-    check('the drawer draws it as a child', await js(`document.querySelector('${row(M46)}').classList.contains('kid')`) === true);
-    // Slide it back out: just under 45, one step to the left.
-    const p46 = await at(row(M46)), p45 = await at(row(M45));
-    await drag(p46!, { x: p46!.x - 26, y: p45!.bottom + 4 });
-    check('slid left out from under 45: top level again, history kept', b.mockStore.placeOf(S46).parent === null && b.mockStore.list.length === versions, JSON.stringify(b.mockStore.placeOf(S46)));
-    // The old rules: a plain tab never goes in; a mockup never comes out.
-    await drag((await at(row(C)))!, (await at(row(M45)))!);
-    { const pc = await at(row(C)), pm = await at(row(M45)); await drag(pc!, { x: pc!.x, y: pm!.bottom + 4 }); }
-    check('a plain tab is never taken into MOCKUPS', tab(C).trail !== -1 && b.mockStore.placeOf(S45).parent === null);
-    await drag((await at(row(M45)))!, (await at(head(T2), 0.5, 0.5))!);
-    check('a mockup is never taken out of MOCKUPS', tab(M45).trail === -1);
-  }
-
   console.log(bad ? `${bad} FAILED` : 'ALL PASS'); app.exit(bad ? 1 : 0);
 });

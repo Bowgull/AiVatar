@@ -92,12 +92,24 @@
     font:800 12px var(--body);color:#2a1c00;background:radial-gradient(circle at 35% 30%,#ffe9a6,#FFC43C 55%,#c98a12);box-shadow:0 2px 0 #120A05}
   .mq .fan{position:relative;width:48px;height:42px}
   .mq .fan img{position:absolute;width:26px;height:26px;border:2px solid #120A05;border-radius:6px;background:#0B0718;box-shadow:0 2px 0 rgba(0,0,0,.5)}
+  /* v4: the way out, back to Samara: the scroll plaque's FFX blue and gold, the lantern on it */
+  .leave{flex:none;align-self:flex-start;display:flex;align-items:center;gap:9px;height:44px;margin:0 6px 0 0;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:10px;cursor:pointer;
+    background:linear-gradient(180deg,#5b7fd8 0 3px,#2a4aa8 3px,#1b3283 50%,#0e1d55 calc(100% - 4px),#081239 calc(100% - 4px));
+    box-shadow:0 3px 0 #120A05,inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease}
+  .leave:hover{transform:translateY(-1px);filter:brightness(1.08)}
+  .leave i{width:0;height:0;border:7px solid transparent;border-right:8px solid #e9d9a8;border-left:0;filter:drop-shadow(0 2px 0 #071030)}
+  .leave img{width:32px;height:32px;image-rendering:pixelated}
+  .leave span{font:700 13px var(--display);letter-spacing:1.4px;color:#fbfbff;text-shadow:0 2px 0 #071030;text-transform:uppercase}
+  .leave.big{height:62px;padding:0 18px 0 12px;border-radius:11px}
+  .leave.big img{width:48px;height:48px}
+  .leave.big span{font-size:16px}
+  .outs{display:flex;gap:40px;align-items:center}
   .rules{font:500 13.5px/1.6 var(--body);color:#e8dcc4;max-width:960px;margin:0;padding-left:18px}
 </style>
 </head>
 <body>
 <h1>Sheet 107 · Mockups, one place</h1>
-<p class="lead">v3: one Mockups entry in your left tray, the sealed scroll, in three colours. One way in: <b>Mockups</b>, a single tab in your trail. Inside, a tab for each project with its logo, topics as sub headings, a Done section in every project, and the sheet itself opens right there at its true size. The old mockup list in the trail goes.</p>
+<p class="lead">v4: a plain way out. <b>Back to Samara</b> sits first along the top of Mockups, in the scroll's own blue and gold; it takes you back to the tab you were on. Esc does the same, and so does any tab in your tray (section 2b).<br>v3: one Mockups entry in your left tray, the sealed scroll, in three colours. One way in: <b>Mockups</b>, a single tab in your trail. Inside, a tab for each project with its logo, topics as sub headings, a Done section in every project, and the sheet itself opens right there at its true size. The old mockup list in the trail goes.</p>
 
 <h2>1 · THE ONE MOCKUPS ENTRY IN YOUR LEFT TRAY (v3: THE SEALED SCROLL, THREE COLOURS)</h2>
 <p class="sub">Your picks: one entry only, the sealed scroll, and it doesn't have to be brown. It opens the Mockups menu below; nothing else leads there. Three colourways from the things you like: Samara's plum keys, the plan card's parchment, and FFX's deep blue menus, each trimmed in gold.</p>
@@ -115,6 +127,13 @@
     <div class="view"><div class="vbar"><button class="back" type="button"><i></i>Notices</button><div class="dt"><span class="num">106</span><span id="vt">Notices B, every interaction</span><span class="tag1">NEW</span></div>
       <div class="vs"><b>v5</b><b>v6</b><b class="on">v7</b></div><span class="mk ok" style="margin-left:8px">OPEN</span></div>
       <div class="frame"><iframe src="sheet-106-notices-b-interactions.html" title="sheet 106 at true size"></iframe></div></div></div>
+</div>
+
+<h2>2b · GETTING OUT (v4)</h2>
+<p class="sub">Back to Samara leaves Mockups and puts you on the tab you were on before you came in (a new tab if that one is gone). Esc leaves too, unless a sheet's own menu is open. Clicking any tab in your tray also leaves. The small "◀ Notices" inside a sheet is different: it only closes the sheet and stays in Mockups.</p>
+<div class="outs">
+  <button class="leave big" type="button"><i></i><img src="../../src/Shell/pages/art/samara/samara-lantern-64.png" alt=""><span>Back to Samara</span></button>
+  <ul class="rules"><li><b>Click it:</b> back to the tab you were on.</li><li><b>Esc:</b> the same.</li><li><b>Any tab in your tray:</b> you go there.</li></ul>
 </div>
 
 <h2>3 · A NEW MOCKUP FROM CLAUDE</h2>
@@ -149,6 +168,7 @@ const tabs = document.getElementById('ptabs'), list = document.getElementById('l
 let cur = 'samara';
 function paint() {
   tabs.replaceChildren();
+  tabs.insertAdjacentHTML('beforeend', '<button class="leave" type="button"><i></i><img src="../../src/Shell/pages/art/samara/samara-lantern-64.png" alt=""><span>Back to Samara</span></button>');
   for (const [k, p] of Object.entries(P)) {
     const n = p.topics.reduce((a, t) => a + t[1].length, 0) + p.done.length, nw = p.topics.reduce((a, t) => a + t[1].filter((s) => s[4]).length, 0);
     const b = document.createElement('div'); b.className = 'ptab' + (k === cur ? ' on' : ''); b.append(em(p));

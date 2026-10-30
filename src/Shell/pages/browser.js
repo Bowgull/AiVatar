@@ -208,8 +208,8 @@ el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
 el('m-history').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('history'); });
-// Sheet 47: the MOCKUPS trail comes back with its history open, even after he closed it.
-el('m-mockups').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('mockups'); });
+// Sheet 107 (his pick, 2026-10-30: "I only need the one"): the one way to Mockups, its plaque at the top of the tray.
+el('mqkey').addEventListener('click', () => window.aang?.browserMockup?.({ act: 'log' }));
 el('m-downloads').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('downloads'); });
 // ---- Trail clean up: the broom at the bottom of the drawer, the panel just above it
 el('broom').addEventListener('click', () => window.aang?.browserAct?.('tidy'));
@@ -437,21 +437,6 @@ window.aang?.onBrowserFrozen?.((src) => {
 });
 el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : openDrawer()));
 
-// ---- A mockup arrived (his ask, 2026-10-22: "when a mockup arrives the tab has a little very small breathing
-// notification letting me know, maybe just the arrow breathes a bit"). With the drawer shut, only the handle's arrow
-// breathes, four soft breaths of 1.6 s (browser.css .breathe), then rests; opening the drawer stops it at once. With
-// reduced motion it is a still gold dot on the handle until he opens the drawer. In the drawer (the tray layer) the new
-// mockup's row glows gold twice when he opens it. Each arrival is told once (mockNew.n); one from before this page
-// opened only counts while it is fresh.
-let mockSeen = null;
-function mockArrived(m) {
-  if (!m || !Number.isFinite(m.n) || m.n === mockSeen) return;
-  const first = mockSeen === null;
-  mockSeen = m.n;
-  if (SOLO) { if (Date.now() - Number(m.at) < 10 * 60_000) glowRow(String(m.sheet ?? '')); return; }
-  if ((first && Date.now() - Number(m.at) > 15_000) || drawerOpen) return;
-  breathe(true);
-}
 let newSeen = 0;
 function newTabsArrived(n) {
   if (SOLO) return;
@@ -468,13 +453,6 @@ function breathe(on) {
 }
 // The breaths end by themselves (the reduced-motion dot stays until the drawer opens).
 el('drawerkey').addEventListener('animationend', (e) => { if (e.animationName === 'hbreathe') breathe(false); });
-// (Timers, not animation frames: the list may be drawn while its layer is still out of sight.)
-function glowRow(sheet, tries = 0) {
-  const r = sheet && document.querySelector(`#tabs .tp[data-mock="${CSS.escape(sheet)}"]`);
-  if (!r) { if (sheet && tries < 10) setTimeout(() => glowRow(sheet, tries + 1), 80); return; }
-  r.classList.remove('mfresh'); void r.offsetWidth; r.classList.add('mfresh');
-  setTimeout(() => r.classList.remove('mfresh'), 3400);
-}
 // His ask (2026-10-12): resting the mouse on the handle opens the drawer, as other apps do. A short wait, so
 // passing over it on the way somewhere does nothing; dragging a tab onto it opens it too.
 let hoverOpen = 0;
@@ -793,8 +771,7 @@ function paintTabs() {
   const trails = Array.isArray(state.trails) ? state.trails : [];
   const live = state.tabs.filter((t) => !t.done);
   const groups = [{ id: null, tabs: live.filter((t) => t.trail == null) }];
-  // Sheet 100 v4 (his pick): the MOCKUPS trail stays even with no mockup open, so ALL MOCKUPS is always there.
-  for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length || tr.mock) groups.push({ id: tr.id, trail: tr, tabs }); }
+  for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length && !tr.mock) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
     const dup = Boolean(state.tidy?.dup?.includes(t.id));
@@ -814,8 +791,6 @@ function paintTabs() {
   };
   const want = [];
   for (const g of groups) {
-    // Sheet 47: the MOCKUPS trail draws its own family tree and its history.
-    if (g.trail?.mock) { want.push(...mockNodes(g, rowFor)); continue; }
     if (g.id !== null) want.push(headFor(g.trail, g.tabs.length));
     const inGroup = new Set(g.tabs.map((t) => t.id));
     // Only inside a trail does a tab sit under the one it came from; loose tabs are a flat list.
@@ -1294,7 +1269,7 @@ window.aang?.onBrowserTabs?.((s) => {
   if (!document.documentElement.classList.contains('tsize-' + size)) { document.documentElement.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); document.documentElement.classList.add('tsize-' + size); }
   railTabs(s);
   paintMarks(s.marks);
-  el('m-mockups').hidden = !s.mockups;
+  paintMockKey(s.mockups);
   el('m-sitenotes').hidden = s.notes === false;
   paintTidy();
   paintStash();
@@ -1313,7 +1288,6 @@ window.aang?.onBrowserTabs?.((s) => {
   if (menuOpen) paintMenu();
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
-  mockArrived(s.mockNew);
   // New tabs opened from links while the list was closed: the arrow breathes and a small +1 sits under it (his ask).
   newTabsArrived(Number(s.newTabs) || 0);
   // Where he asked to go shows at once, dimmed, until the page arrives (only for his own typed or opened addresses).
@@ -1499,127 +1473,30 @@ function fixNote(id, at) {
   box.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
   box.addEventListener('blur', () => done(box.value.trim() !== ''));
 }
-const mockEls = { head: null, from: null, hist: null, tidy: null, list: null, listSig: '', branches: new Map(), projs: new Map() };
-const freshDone = new Set();
-/** Type a new name in place (the trail name's own box): Enter keeps it, Esc leaves it. */
-function renameIn(nm, value, max, save) {
-  const box = Object.assign(document.createElement('input'), { value, maxLength: max, spellcheck: false });
-  box.setAttribute('aria-label', 'Name');
-  const done = (keep) => { if (keep && box.value.trim() && box.value.trim() !== value) save(box.value); box.replaceWith(nm); };
-  box.addEventListener('keydown', (k) => { k.stopPropagation(); if (k.key === 'Enter') done(true); if (k.key === 'Escape') done(false); });
-  box.addEventListener('blur', () => done(true));
-  nm.replaceWith(box); box.focus(); box.select();
-}
-/** A branch's sub-heading: a fold chevron, its name (click to rename), how many, and its menu. */
-/** Sheet 100 v4: a project's small heading over its open mockups, its emblem and its name. */
-function projHead(name) {
-  let h = mockEls.projs.get(name);
-  if (!h) { h = document.createElement('div'); mockEls.projs.set(name, h); }
-  h.className = 'mph';
-  const em = Object.assign(document.createElement('span'), { className: 'em' }); em.append(projectIcon(name || 'Samara', true, state.mockups?.logos));
-  h.replaceChildren(em, Object.assign(document.createElement('span'), { className: 'pn', textContent: name || 'Samara' }));
-  return h;
-}
-function branchHead(b, n) {
-  let h = mockEls.branches.get(b.id);
-  if (!h) { h = document.createElement('div'); mockEls.branches.set(b.id, h); }
-  if (h.querySelector('input')) return h;
-  h.className = 'bh' + (b.folded ? ' folded' : '');
-  h.dataset.branch = String(b.id);
-  const chev = Object.assign(document.createElement('button'), { type: 'button', className: 'chev', title: b.folded ? 'Unfold' : 'Fold' });
-  chev.setAttribute('aria-label', b.folded ? 'Unfold this branch' : 'Fold this branch');
-  chev.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'bfold', id: b.id }); });
-  const nm = Object.assign(document.createElement('span'), { className: 'nm', textContent: b.name, title: 'Click to rename' });
-  nm.addEventListener('click', (e) => { e.stopPropagation(); renameIn(nm, b.name, 40, (name) => window.aang?.browserMockup?.({ act: 'brename', id: b.id, name })); });
-  const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Branch options' });
-  more.addEventListener('click', (e) => { e.stopPropagation(); branchMenu(b, e.clientX, e.clientY); });
-  // Sheet 100 v3: the topic wears its icon here too, the same one as in the quest log.
-  const ic = Object.assign(document.createElement('span'), { className: 'bi' }); ic.append(topicIcon(b.name, b.icon));
-  h.replaceChildren(chev, ic, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
-  if (state.mockups?.fresh === b.id && !freshDone.has(b.id)) { freshDone.add(b.id); setTimeout(() => { if (nm.isConnected) nm.click(); }, 0); }
-  return h;
-}
-function branchMenu(b, x, y) {
-  closeTabMenu();
-  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
-  const item = (label, go, cls = '') => {
-    const btn = Object.assign(document.createElement('button'), { type: 'button', className: cls, textContent: label });
-    btn.setAttribute('role', 'menuitem');
-    btn.addEventListener('click', () => { closeTabMenu(); go(); });
-    m.append(btn);
-  };
-  item('Rename', () => mockEls.branches.get(b.id)?.querySelector('.nm')?.click());
-  item(b.folded ? 'Unfold' : 'Fold', () => window.aang?.browserMockup?.({ act: 'bfold', id: b.id }));
-  if (state.mockups?.toAang) { item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendbranch', id: b.id })); aangFaceOn(m); }
-  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
-  item('Delete branch (its mockups stay)', () => window.aang?.browserMockup?.({ act: 'bdelete', id: b.id }), 'danger');
-  placeMenu(m, x, y);
-}
-/** The MOCKUPS trail: its head, its tabs as a tree, then HISTORY. */
-function mockNodes(g, rowFor) {
-  const tr = g.trail, mk = state.mockups || {}, out = [];
-  const h = mockEls.head ?? (mockEls.head = document.createElement('div'));
-  h.className = 'th mock' + (tr.collapsed ? ' shut' : '');
-  h.dataset.trail = String(tr.id);
-  const ic = Object.assign(document.createElement('span'), { className: 'who-ic' });
-  ic.append(Object.assign(document.createElement('img'), { src: 'art/claude-icon.png', alt: '' }));
-  const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Mockups options' });
-  more.addEventListener('click', (e) => { e.stopPropagation(); trailMenu(tr, e.clientX, e.clientY); });
-  const n = g.tabs.length;
-  // No TIDY key of its own here (2026-10-22, his catch): the one broom at the foot of the drawer tidies the mockups too.
-  h.replaceChildren(ic, Object.assign(document.createElement('span'), { className: 'nm', textContent: 'MOCKUPS' }), Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
-  out.push(h);
-  if (tr.collapsed) return out;
-  // Newest on top (his ask, 2026-10-23): the latest arrival first, in each branch.
-  const tabs = [...g.tabs].sort((a, b) => (Number(b.mock?.at) || 0) - (Number(a.mock?.at) || 0)), open = new Set(tabs.map((t) => t.mock?.sheet));
-  // Its place in the tree rides on the row for dragging (2026-10-21): the parent sheet, the branch, and how many children.
-  const row = (t, kid) => {
-    const r = rowFor(t, kid); r.dataset.mock = t.mock?.sheet ?? '';
-    // Arrived and not looked at yet (his ask, 2026-10-23): a soft steady glow until he opens it.
-    r.classList.toggle('unseen', t.mock?.unseen === true);
-    r.dataset.psheet = kid ? t.mock?.parent ?? '' : '';
-    r.dataset.mbranch = t.mock?.branch == null ? '' : String(t.mock.branch);
-    r.dataset.kids = String(Number(t.mock?.kids) || 0);
-    return r;
-  };
-  const isTop = (t) => !t.mock?.parent || !open.has(t.mock.parent);
-  const group = (proj, branch) => {
-    const r = [];
-    for (const t of tabs) if (isTop(t) && (t.mock?.project ?? '') === proj && (t.mock?.branch ?? null) === branch) { r.push(row(t, false)); for (const k of tabs) if (k.mock?.parent && k.mock.parent === t.mock?.sheet) r.push(row(k, true)); }
-    return r;
-  };
-  // Sheet 100 v4 (his pick): open mockups by project, then topic, as in the Mockups tab. Newest project first.
-  const projects = [...new Set(tabs.map((t) => t.mock?.project ?? ''))];
-  for (const proj of projects) {
-    out.push(projHead(proj));
-    out.push(...group(proj, null));
-    for (const b of mk.branches ?? []) {
-      const c = tabs.filter((t) => (t.mock?.project ?? '') === proj && (t.mock?.branch ?? null) === b.id).length;
-      if (!c) continue;
-      out.push(branchHead(b, c));
-      if (!b.folded) out.push(...group(proj, b.id));
-    }
-  }
-  // Sheet 100 v3 (his pick, 2026-10-28: "as a tab but something I can get into from the left rail trail section"): the
-  // way in to every mockup, the quest log's book and how many sheets there are. It opens the Mockups tab.
-  const qrow = mockEls.hist ?? (mockEls.hist = Object.assign(document.createElement('button'), { type: 'button', className: 'mquest' }));
-  if (!qrow.dataset.wired) { qrow.dataset.wired = '1'; qrow.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'log' })); }
-  const sheets = Number(mk.sheets) || 0;
-  qrow.replaceChildren(Object.assign(document.createElement('span'), { className: 'qi' }), Object.assign(document.createElement('span'), { className: 'qn', textContent: 'ALL MOCKUPS' }),
-    Object.assign(document.createElement('span'), { className: 'qc', textContent: `${sheets} SHEET${sheets === 1 ? '' : 'S'}` }));
-  qrow.firstChild.append(pixIcon('log', 2));
-  out.push(qrow);
-  return out;
-}
 /**
- * The history list (2026-10-22, organised: his ask "organize the mockups in Samara too, it seems to be getting out of
- * control"). By project, then branch, ONE ROW PER SHEET (its number in a chip, its name, a PICKED mark when decided, how
- * many versions); a click unfolds its versions, newest first, the newest three out and the older ones in their own fold;
- * its lettered children under it. Then the ARCHIVE (folded): every sheet the tidy or he put away, why, and a Restore key.
- * Folding is the page's own (no round trip): a grid row that springs from 0fr to 1fr, so nothing jumps.
- * Rebuilt only when the Shell's data changed; a fold keeps its state across rebuilds.
+ * Sheet 107 (his pick, 2026-10-30): the one Mockups entry, the sealed scroll on FFX blue with gold trim; its gold gem
+ * says how many sheets Claude sent that he has not opened yet. The scroll is drawn for it, pixel by pixel, at 3x.
  */
-/** A fold: its body springs open and shut (grid rows 0fr to 1fr). Returns [wrapper, inner box]. */
+function paintMockKey(mk) {
+  const key = el('mqkey');
+  key.hidden = !mk;
+  if (!mk) return;
+  if (!key.dataset.drawn) {
+    key.dataset.drawn = '1';
+    const c = key.querySelector('canvas'), g = c.getContext('2d');
+    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    R(3, 2, 10, 10, '#120A05'); R(4, 3, 8, 8, '#F0DCB4');                      // the sheet
+    for (const y of [5, 7, 9]) R(5, y, 5, 1, '#c9a46a');                         // its lines
+    R(1, 1, 14, 3, '#120A05'); R(2, 2, 12, 1, '#e2c58e'); R(1, 2, 1, 1, '#9a7a48'); R(14, 2, 1, 1, '#9a7a48');   // the top roll
+    R(1, 10, 14, 3, '#120A05'); R(2, 11, 12, 1, '#e2c58e');                     // the bottom roll
+    R(10, 8, 4, 4, '#120A05'); R(11, 9, 2, 2, '#C8322A'); R(11, 9, 1, 1, '#f07a6a');   // the wax seal
+    R(11, 12, 1, 2, '#8A1E18'); R(13, 12, 1, 2, '#8A1E18');                     // its ribbon tails
+  }
+  const n = Number(mk.fresh) || 0, gem = key.querySelector('.gem');
+  gem.hidden = n < 1;
+  gem.textContent = String(n);
+  key.setAttribute('aria-label', n ? `Mockups, ${n} new` : 'Mockups');
+}
 // ---- dragging, smoother (his ask, 2026-10-21: "make it easier to drag and drop into trails in general and make parent
 // child relationships easier with just a mouse move"). The browser's own drag and drop gave no say over each frame, so
 // this is pointer events:
@@ -1646,7 +1523,7 @@ function dgKey(n) {
   if (n.dataset.tab) return 't' + n.dataset.tab;
   if (n.matches('.th[data-trail]')) return 'h' + n.dataset.trail;
   if (n.dataset.branch) return 'b' + n.dataset.branch;
-  return n.id || (n.classList.contains('mquest') ? 'mh' : '');
+  return n.id || '';
 }
 function rowSpots() {
   const m = new Map();
