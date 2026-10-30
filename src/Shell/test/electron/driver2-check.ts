@@ -112,6 +112,14 @@ app.whenReady().then(async () => {
   const lf = await tool('browser_find', { page: lp, text: 'Story 77' });
   check('find reaches a link the short read left out', /Story 77/.test(lf.text), lf.text);
   await tool('browser_close', { page: lp });
+  // Open and find in one call: the lines come back and the page closes itself; no match keeps it open.
+  const of = await tool('browser_open', { url: base + '/links', find: 'Story 77' });
+  const ofPage = Number(/page (\d+)/i.exec(of.text)?.[1]);
+  check('open with find gives the lines and closes the page', /Story 77/.test(of.text) && /Closed again/.test(of.text) && (await tool('browser_read', { page: ofPage })).err, of.text);
+  const nf = await tool('browser_open', { url: base + '/links', find: 'Nothing like this' });
+  const nfPage = Number(/page (\d+)/i.exec(nf.text)?.[1]);
+  check('nothing found: the page stays open to read', /still open/.test(nf.text) && !(await tool('browser_read', { page: nfPage })).err, nf.text);
+  await tool('browser_close', { page: nfPage });
 
   const p2 = await tool('browser_open', { url: base + '/check' });
   check('a security-check page closes that page, never retried', p2.err && /security check/.test(p2.text) && /do not retry/.test(p2.text) && /left alone for a day/.test(p2.text), p2.text);

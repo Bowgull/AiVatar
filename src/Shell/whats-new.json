@@ -800,6 +800,11 @@
       "at": "2026-10-30T15:17:00-04:00",
       "text": "Claude's short page reads are short in every mode.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T16:04:00-04:00",
+      "text": "Claude opens and searches a page in one step.",
+      "kind": "fix"
     }
   ]
 }
