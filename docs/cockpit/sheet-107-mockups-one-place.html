@@ -76,6 +76,14 @@
   .mq{position:relative;display:flex;align-items:center;gap:12px;height:62px;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:11px;cursor:pointer;
     background:linear-gradient(180deg,#7a4f26 0 3px,#4d3016 3px calc(100% - 4px),#24160a calc(100% - 4px));
     box-shadow:0 4px 0 #120A05,inset 0 0 0 2px #c9a35a,inset 0 0 0 4px rgba(0,0,0,.35);transition:transform .15s ease,filter .15s ease}
+  .mq.plum{background:linear-gradient(180deg,var(--plum-edge) 0 3px,var(--plum) 3px 55%,var(--plum-deep) calc(100% - 4px),#1a0e2c calc(100% - 4px));
+    box-shadow:0 4px 0 #120A05,inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3),0 0 14px rgba(150,110,200,.35)}
+  .mq.parch{background:linear-gradient(180deg,#F8E7C4 0 3px,#F0DCB4 3px,var(--parch1) 50%,var(--parch2) calc(100% - 4px),#b8975e calc(100% - 4px));
+    box-shadow:0 4px 0 #120A05,inset 0 0 0 2px var(--gold-deep),inset 0 0 0 4px rgba(120,80,30,.18)}
+  .mq.parch .nm{color:#3a2410;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+  .mq.ffx{background:linear-gradient(180deg,#5b7fd8 0 3px,#2a4aa8 3px,#1b3283 50%,#0e1d55 calc(100% - 4px),#081239 calc(100% - 4px));
+    box-shadow:0 4px 0 #120A05,inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25)}
+  .mq.ffx .nm{color:#fbfbff;text-shadow:0 2px 0 #071030}
   .mq:hover{transform:translateY(-1px);filter:brightness(1.08)}
   .mq .pic{flex:none;width:48px;height:42px;display:grid;place-items:center;position:relative}
   .mq .pic canvas{width:48px;height:42px;image-rendering:pixelated}
@@ -89,17 +97,14 @@
 </head>
 <body>
 <h1>Sheet 107 · Mockups, one place</h1>
-<p class="lead">v2: Mockups is a styled plaque at the top of your left tray, three looks to pick from. One way in: <b>Mockups</b>, a single tab in your trail. Inside, a tab for each project with its logo, topics as sub headings, a Done section in every project, and the sheet itself opens right there at its true size. The old mockup list in the trail goes.</p>
+<p class="lead">v3: one Mockups entry in your left tray, the sealed scroll, in three colours. One way in: <b>Mockups</b>, a single tab in your trail. Inside, a tab for each project with its logo, topics as sub headings, a Done section in every project, and the sheet itself opens right there at its true size. The old mockup list in the trail goes.</p>
 
-<h2>1 · MOCKUPS IN THE LEFT TRAY (v2: THREE LOOKS, PICK ONE)</h2>
-<p class="sub">Your note: Mockups lives in the left-hand tray itself, with a bit of styling, and the book icon was generic. Each look is its own plaque pinned at the top of the tray, above your trails, with a picture drawn for it. The gold gem says how many new sheets are waiting.</p>
+<h2>1 · THE ONE MOCKUPS ENTRY IN YOUR LEFT TRAY (v3: THE SEALED SCROLL, THREE COLOURS)</h2>
+<p class="sub">Your picks: one entry only, the sealed scroll, and it doesn't have to be brown. It opens the Mockups menu below; nothing else leads there. Three colourways from the things you like: Samara's plum keys, the plan card's parchment, and FFX's deep blue menus, each trimmed in gold.</p>
 <div class="opts">
-  <div><p class="olab">A · The sealed scroll</p><div class="tray"><div class="mq" data-ic="scroll"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div>
-    <p class="sub">A rolled quest scroll with a wax seal, like a quest you get handed in a game.</p></div>
-  <div><p class="olab">B · Your projects' logos</p><div class="tray"><div class="mq" data-ic="fan"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div>
-    <p class="sub">The logos of your projects fanned like cards: it says "everything I'm making" at a glance.</p></div>
-  <div><p class="olab">C · The quest board</p><div class="tray"><div class="mq" data-ic="board"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div>
-    <p class="sub">A little cork board with sheets pinned on it, pins in the mark colours. A quest board for your designs.</p></div>
+  <div><p class="olab">1 · Plum, like Samara's keys</p><div class="tray"><div class="mq plum" data-ic="scroll"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div><p class="sub">The same purple as the address bar keys and the UPDATE key, gold trim, the scroll lit gold.</p></div>
+  <div><p class="olab">2 · Parchment, like the plan card</p><div class="tray"><div class="mq parch" data-ic="scroll"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div><p class="sub">The plan card's paper with dark ink lettering and a gold frame: it reads as "the papers".</p></div>
+  <div><p class="olab">3 · FFX blue</p><div class="tray"><div class="mq ffx" data-ic="scroll"></div><div class="tsep">TRAILS</div><div class="trow2">Tax season</div><div class="trow2">Waymark runs</div><div class="trow2">Couch Mode</div></div><p class="sub">The deep blue of Final Fantasy X's menus, white lettering, a gold frame.</p></div>
 </div>
 
 <h2>2 · INSIDE MOCKUPS</h2>
