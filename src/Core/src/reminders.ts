@@ -6,6 +6,7 @@ import { writeFileAtomic } from './atomic.ts';
 import path from 'node:path';
 import { homeTime } from './clock.ts';
 import { readJson } from './store.ts';
+import { Scheduler } from './scheduler.ts';
 
 export interface Reminder {
   id: string;
@@ -42,14 +43,17 @@ export function describeWhen(at: number, now = Date.now()): string {
 
 export class Reminders {
   private items: Reminder[] = [];
-  private timer: NodeJS.Timeout | null = null;
+  private alarm: (() => void) | null = null;
   private seq = 0;
   private readonly file: string;
+  private readonly sched: Scheduler;
 
   /** Called for each reminder that comes due. */
   onDue: (r: Reminder) => void = () => {};
 
-  constructor(stateDir: string) {
+  /** `sched`: the brain's scheduler (the next one due is a one-shot on it); left out, a scheduler of its own. */
+  constructor(stateDir: string, sched?: Scheduler) {
+    this.sched = sched ?? new Scheduler();
     this.file = path.join(stateDir, 'reminders.json');
     this.load();
   }
@@ -94,7 +98,7 @@ export class Reminders {
   start(now = Date.now()): void { this.arm(now); }
 
   private arm(now = Date.now()): void {
-    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    this.alarm?.(); this.alarm = null;
     const due = this.items.filter(r => r.at <= now);
     if (due.length) {
       this.items = this.items.filter(r => r.at > now);
@@ -103,11 +107,10 @@ export class Reminders {
     }
     const next = this.list(now)[0];
     if (!next) return;
-    // setTimeout tops out near 24.8 days; wake up sooner and re-arm rather than trusting a huge delay.
-    const wait = Math.min(next.at - now, 60_000);
-    this.timer = setTimeout(() => this.arm(), Math.max(wait, 20));
-    this.timer.unref?.();
+    // A one-shot on the scheduler (2026-10-30). It looks at the wall clock at least once a minute, as this did, so a
+    // sleeping computer or a huge delay never makes one late. Never quiet-held: a reminder is his, it rings in a game.
+    this.alarm = this.sched.at(Math.max(next.at, now + 20), () => { this.alarm = null; this.arm(); }, { name: 'reminders.next' });
   }
 
-  stop(): void { if (this.timer) { clearTimeout(this.timer); this.timer = null; } }
+  stop(): void { this.alarm?.(); this.alarm = null; }
 }

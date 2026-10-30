@@ -18,6 +18,7 @@ import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import type { Session } from 'electron';
 import { reportWriteFailure, writeFileAtomic } from '../atomic.ts';
+import { sched } from '../sched.ts';
 
 /** uBlock Origin's own lists, which is where the work on YouTube actually happens. */
 export const LISTS = [
@@ -114,7 +115,8 @@ async function fetchLists(): Promise<{ text: string; got: number }> {
   const missed: string[] = [];
   for (const url of LISTS) {
     try {
-      const r = await fetch(url);
+      // A stuck download used to hold the refresh forever (no time limit, 2026-10-30): one minute per list.
+      const r = await fetch(url, { signal: AbortSignal.timeout(60_000) });
       if (!r.ok) { missed.push(`${url} said ${r.status}`); continue; }
       text += '\n' + await r.text();
       got++;
@@ -125,6 +127,16 @@ async function fetchLists(): Promise<{ text: string; got: number }> {
   if (missed.length) console.error(`shell: ${missed.length} block list(s) did not load: ${missed.join('; ')}`);
   return { text, got };
 }
+/**
+ * Fresh lists for everyone who asks within ten minutes (the default session, the browser and the secret window each
+ * keep a blocker, and each used to download all five lists on its own).
+ */
+let shared: { at: number; lists: Promise<{ text: string; got: number }> } | null = null;
+function freshLists(): Promise<{ text: string; got: number }> {
+  if (!shared || Date.now() - shared.at > 10 * 60_000) shared = { at: Date.now(), lists: fetchLists() };
+  return shared.lists;
+}
+let adJobs = 0;
 /** The engine built from these lists in a worker thread, as the bytes the kept copy holds. */
 function buildAway(text: string, cosmetic: boolean): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
@@ -146,12 +158,13 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
   // The kept lists are used at once, even a day old (2026-10-22, his Mac: the first start of each day waited on five
   // downloads and a 1.8 s rebuild before the window could appear). Old lists still block nearly everything; fresh ones
   // are fetched and built in the background and swapped in. A cache left by a run where a list failed counts as old.
-  let text = '', got = 0, stale = true;
+  let text = '', got = 0, stale = true, age = 0;
   try {
     if (existsSync(cache)) {
       const when = JSON.parse(readFileSync(whenFile, 'utf8'));
       text = readFileSync(cache, 'utf8'); got = Number(when.lists) || 0;
-      stale = Date.now() - when.at >= KEEP_MS || got !== LISTS.length;
+      age = Math.max(0, Date.now() - (Number(when.at) || 0));
+      stale = age >= KEEP_MS || got !== LISTS.length;
     }
   } catch { text = ''; got = 0; }
   // The very first start has nothing kept: that one has to wait for the lists.
@@ -195,25 +208,27 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
       pauseMany: (hosts: string[], p: boolean) => { for (const h of hosts) { if (p) paused.add(h); else paused.delete(h); } pauseRules(blocker!, hosts, p); },
     };
     // Fresh lists, quietly: fetched, built in the worker, then the new engine takes over with the same paused sites.
-    if (stale) {
-      void (async () => {
-        const f = await fetchLists();
-        if (!f.got || f.got < got || !f.text.trim()) return;      // never swap in fewer lists than are blocking now
-        keep(f.text, f.got);
-        const now = [...paused];
-        const k = keyOf(withPauses(f.text, now));
-        if (k === key) return;
-        const bytes = await buildAway(withPauses(f.text, now), cosmetic);
-        const next = ElectronBlocker.deserialize(bytes);
-        // Sites paused or let go while it was building: told to the new engine the slow way.
-        const added = [...paused].filter((h) => !now.includes(h)), gone = now.filter((h) => !paused.has(h));
-        pauseRules(next, added, true); pauseRules(next, gone, false);
-        if (on) { try { blocker!.disableBlockingInSession(session); } catch { /* fine */ } next.enableBlockingInSession(session); if (opts.guard) guardRequests(session, opts.guard, next); }
-        blocker = next; key = k; ab.lists = f.got;
-        keepEngine(bytes, k);
-        console.log(`shell: ad lists refreshed (${f.got} lists)`);
-      })().catch((e) => console.error('shell: the ad lists could not be refreshed: ' + (e as Error).message));
-    }
+    // On the scheduler (2026-10-30): at start when stale, then once a day for a Samara left running (before, only at
+    // start), held while he is in a call, a game or full screen.
+    const refresh = async () => {
+      const f = await freshLists();
+      if (!f.got || f.got < got || !f.text.trim()) return;      // never swap in fewer lists than are blocking now
+      keep(f.text, f.got);
+      const now = [...paused];
+      const k = keyOf(withPauses(f.text, now));
+      if (k === key) return;
+      const bytes = await buildAway(withPauses(f.text, now), cosmetic);
+      const next = ElectronBlocker.deserialize(bytes);
+      // Sites paused or let go while it was building: told to the new engine the slow way.
+      const added = [...paused].filter((h) => !now.includes(h)), gone = now.filter((h) => !paused.has(h));
+      pauseRules(next, added, true); pauseRules(next, gone, false);
+      if (on) { try { blocker!.disableBlockingInSession(session); } catch { /* fine */ } next.enableBlockingInSession(session); if (opts.guard) guardRequests(session, opts.guard, next); }
+      blocker = next; key = k; ab.lists = f.got;
+      keepEngine(bytes, k);
+      console.log(`shell: ad lists refreshed (${f.got} lists)`);
+    };
+    sched.every(`ads.lists.${++adJobs}`, KEEP_MS, () => refresh().catch((e) => console.error('shell: the ad lists could not be refreshed: ' + (e as Error).message)),
+      { quiet: true, first: stale ? 0 : KEEP_MS - age });
     return ab;
   } catch (e) {
     console.error('shell: the ad blocker would not start, so ads are not being blocked: ' + (e as Error).message);

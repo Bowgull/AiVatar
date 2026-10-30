@@ -56,7 +56,7 @@ const listener = path.join(home, 'Library', 'Application Support', 'AangListener
 if (process.platform === 'darwin' && process.env.AANG_BRAIN_UPDATE !== '0' && path.resolve(import.meta.dirname, '..') === path.join(listener, 'core')) {
   const { BrainUpdates } = await import('./brainupdate.ts');
   const bu = new BrainUpdates({
-    home: listener, fetch: fetch as never, log: console.log, exit: () => { void shutdown('brain update'); },
+    home: listener, fetch: fetch as never, log: console.log, exit: () => { void shutdown('brain update'); }, sched: core.sched,
     away: () => { const r = core.macReading(); return r ? { idle: r.idle, call: r.mic || r.cam } : null; },
   });
   const v = bu.started();

@@ -24,6 +24,7 @@ export interface Choices { lock: boolean; closeBackdoors: boolean }
 /** `fixed`: castLabs would only sign this engine as it came, so his tick boxes are not offered (2026-10-23). */
 export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean; fixed?: boolean }
 import { newer, plain } from './updateengine.ts';
+import { sched } from './sched.ts';
 export { newer, plain };
 export interface UpdateOptions {
   shellDir: string; stateDir: string;
@@ -131,12 +132,12 @@ export class EngineUpdates {
   /** Check for updates now (Samara's ... menu): what was put away comes back, and a look right now. */
   async checkNow(): Promise<void> { try { unlinkSync(this.filedFile()); } catch { /* none */ } await this.check(); }
 
-  /** Ten minutes after start, then once a day. */
+  /** Ten minutes after start, then once a day (the scheduler; held through a call or a game, then run). */
   start(): void {
     this.trialCheck();
-    this.timers.push(setTimeout(() => void this.check(), 10 * 60_000), setInterval(() => void this.check(), DAY));
+    sched.every('engine.check', DAY, () => this.check(), { first: 10 * 60_000, quiet: true });
   }
-  stop(): void { this.timers.forEach(clearTimeout); this.timers = []; }
+  stop(): void { this.timers.forEach(clearTimeout); this.timers = []; sched.cancel('engine.check'); }
 
   /** Running on a trial engine for five minutes means it works: mark it good and tidy old engines away. */
   private trialCheck(): void {

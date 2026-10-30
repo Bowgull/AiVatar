@@ -15,6 +15,7 @@ import { spawn } from 'node:child_process';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { createWriteStream, existsSync, readFileSync, renameSync, rmSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
 import { readJson, saveJson } from './store.ts';
+import { Scheduler } from './scheduler.ts';
 import path from 'node:path';
 
 /** His release key's public half (src/Shell/release-key.pub; a test keeps the two the same). */
@@ -95,6 +96,8 @@ export interface BrainUpdateOptions {
   pub?: string;
   /** Starts the watchdog (tests swap this). */
   watchdog?: (script: string) => void;
+  /** The brain's scheduler (core.sched); left out, one of its own. */
+  sched?: Scheduler;
 }
 
 export class BrainUpdates {
@@ -214,9 +217,13 @@ export class BrainUpdates {
   }
 
   /** Half a minute after start, then hourly; the quiet rule looked at every ten minutes. */
+  /** On the scheduler (2026-10-30); the swap keeps its own away-and-no-call rule. */
   start(): void {
-    this.timers.push(setTimeout(() => void this.check(), 30_000), setInterval(() => void this.check(), 60 * 60_000), setInterval(() => this.swapIfQuiet(), 10 * 60_000));
-    for (const t of this.timers) t.unref?.();
+    const s = this.sched;
+    s.every('brain.check', 60 * 60_000, () => this.check(), { first: 30_000 });
+    s.every('brain.swap', 10 * 60_000, () => { this.swapIfQuiet(); });
   }
-  stop(): void { this.timers.forEach(clearTimeout); this.timers = []; }
+  stop(): void { this.timers.forEach(clearTimeout); this.timers = []; this.sched.cancel('brain.check'); this.sched.cancel('brain.swap'); }
+  private schedOwn: Scheduler | null = null;
+  private get sched(): Scheduler { return this.o.sched ?? (this.schedOwn ??= new Scheduler()); }
 }

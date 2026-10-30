@@ -21,6 +21,8 @@ import type { PlanStarted } from './claudedoor.ts';
 import type { EngineOptions, Source, UpdateEngine } from './updateengine.ts';
 import type { SyncMsg } from './bsync.ts';
 import { serviceFor } from './services.ts';
+import { sched } from './sched.ts';
+import { describeJobs } from './scheduler.ts';
 
 type Box = { x: number; y: number; width: number; height: number };
 type MockDrop = NonNullable<ReturnType<BootDeps['takeMockupFile']>>;
@@ -153,6 +155,11 @@ export interface SamaraBooted extends SamaraBase {
  */
 export async function samaraBase(p: Platform, d: BootDeps): Promise<SamaraBase> {
   d.startFlight(p.stateDir, (s) => p.log(s));
+  // The scheduler engine (2026-10-30): catch-up times kept with Samara's state; idle from the system.
+  sched.useFile(path.join(p.stateDir, 'scheduler.json'));
+  sched.idleSeconds = () => d.idleSeconds();
+  // What runs when, in the log (for diagnostics): five minutes in, then every six hours.
+  sched.every('scheduler.list', 6 * 3_600_000, () => p.log('scheduler:\n  ' + describeJobs(sched.list(), Date.now()).join('\n  ')), { first: 5 * 60_000 });
   // Nothing outside the tabs (the pop-out, Aang's cards) may use the camera, mic, location or the rest (code audit,
   // 2026-10-14); the tabs keep their own ask-per-site rules.
   d.denyPermissions();
@@ -277,6 +284,9 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   // The update engine (2026-10-30, updateengine.ts): Samara's code from GitHub and the castLabs engine, one set of rules
   // for both machines behind his UPDATE key (sheet 35, sheet 108).
   const u = bp.updates;
+  // The one "he is busy" for Samara's background jobs: a call in Samara, a game or full screen as the brain sees it (the
+  // PC's gameQuiet; the Mac has no game rule), or a Samara window full screen.
+  sched.quietNow = () => (browser.inCall === true ? 'call' : u.inGame() ? 'game' : browser.fullScreen === true ? 'full screen' : '');
   const overnight = (): boolean => { try { return JSON.parse(d.readText(u.prefsFile)).overnight === true; } catch { return false; } };
   let updates: UpdateEngine | null = null;
   const show = () => updates?.show();
@@ -305,6 +315,6 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   ue.start();
   d.ghListen(() => void ue.checkAll('nudge'));
 
-  d.onQuit(() => { browser.closeAll(); pages.close(); });
+  d.onQuit(() => { browser.closeAll(); pages.close(); sched.stop(); });
   return { ...base, browserNow: browser, plans, updates: ue, openSecret, secret: () => secret, takeDrops };
 }
