@@ -103,6 +103,7 @@ function draw() {
     list.append(d);
   }
   drawView(p);
+  tellWhere();
 }
 
 let frameSrc = '';
@@ -202,9 +203,23 @@ function leaveKey() {
   return leave;
 }
 
+// Sheet 107 v5 (his pick: "back where I left it"): Samara keeps where he is (project, sheet, version, and the last sheet
+// Claude sent that it covers), so a Mockups that slept or was rebuilt opens right there.
+let told = '', started = false;
+function tellWhere() {
+  const k = JSON.stringify([pick.p, pick.s, pick.v, focusN]);
+  if (k === told || !pick.p) return;
+  told = k;
+  window.mocklog?.where(pick.p, pick.s, pick.v, focusN);
+}
 function take(d) {
   if (!d) return;
   tree = d;
+  if (!started) {
+    started = true;
+    const w = d.was;
+    if (w && (!d.focus || d.focus.n === w.n)) { focusN = w.n ?? null; pick.p = w.p; pick.s = w.s; pick.v = w.v; }
+  }
   // A new sheet from Claude (or one picked elsewhere): Mockups opens right on it, in its project's tab.
   if (d.focus && d.focus.n !== focusN) {
     focusN = d.focus.n;

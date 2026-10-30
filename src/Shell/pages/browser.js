@@ -769,7 +769,8 @@ function paintTabs() {
   const flipWas = performance.now() < flipUntil ? rowSpots() : null;
   const open = new Set(state.tabs.map((t) => t.id));
   const trails = Array.isArray(state.trails) ? state.trails : [];
-  const live = state.tabs.filter((t) => !t.done);
+  // Sheet 107 v5 (his pick): Mockups is the plaque, never a row in the tab list.
+  const live = state.tabs.filter((t) => !t.done && !t.mocklog);
   const groups = [{ id: null, tabs: live.filter((t) => t.trail == null) }];
   for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length && !tr.mock) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
@@ -1496,6 +1497,10 @@ function paintMockKey(mk) {
   gem.hidden = n < 1;
   gem.textContent = String(n);
   key.setAttribute('aria-label', n ? `Mockups, ${n} new` : 'Mockups');
+  // Sheet 107 v5: lit like a picked tab while he is in Mockups.
+  const on = state.tabs.some((t) => t.mocklog && t.id === state.active);
+  key.classList.toggle('lit', on);
+  key.setAttribute('aria-pressed', String(on));
 }
 // ---- dragging, smoother (his ask, 2026-10-21: "make it easier to drag and drop into trails in general and make parent
 // child relationships easier with just a mouse move"). The browser's own drag and drop gave no say over each frame, so

@@ -1336,6 +1336,8 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 .drawer .mq .gem{flex:none;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:10px;font-size:11px;border:2px solid var(--outline);display:grid;place-items:center;
   font:800 12px var(--body);color:#2a1c00;background:radial-gradient(circle at 35% 30%,#ffe9a6,#FFC43C 55%,#c98a12);box-shadow:0 2px 0 var(--outline)}
 .drawer .mq .gem[hidden]{display:none}
+/* Sheet 107 v5: lit while he is in Mockups, with the ring a picked tab wears. */
+.drawer .mq.lit{filter:brightness(1.12);box-shadow:0 4px 0 var(--outline),0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 0 0 2px var(--gold-lit),inset 0 0 0 4px rgba(0,0,0,.2)}
 @media (prefers-reduced-motion:reduce){.drawer .mq{transition:none}}
 .drawer .bh .bi{flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px}
 .drawer .bh .bi svg,.drawer .bh .bi img{display:block;max-width:20px;max-height:20px}

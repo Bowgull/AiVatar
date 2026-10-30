@@ -5353,22 +5353,24 @@ export class AangBrowser {
   private mockFrom: number | null = null;
   /**
    * Sheet 107 v4 (his ask, 2026-10-30: "a way to get out of mockups and back to my regular samara"): Back to Samara, or
-   * Esc. Mockups closes and he is back on the tab he was on (the newest of his own tabs if that one is gone, else a new one).
+   * Esc: he is back on the tab he was on (the newest of his own tabs if that one is gone, else a new one). Sheet 107 v5:
+   * Mockups stays where he left it (same project, same sheet) for the plaque to bring back; it is not a tab in his list.
    */
   mockLogLeave(): void {
     const log = this.tabs.find((x) => x.internal === 'mocklog');
     if (!log) return;
     const mine = (x: Tab) => x !== log && !x.done && x.pane === log.pane;
     const back = this.tabs.find((x) => x.id === this.mockFrom && mine(x)) ?? [...this.tabs].filter((x) => mine(x) && !x.internal).sort((a, b) => b.lastSeen - a.lastSeen)[0];
-    // Coming back later starts from the list, not the sheet Claude sent last.
-    this.mockFrom = null; this.mockFocus = null;
+    this.mockFrom = null;
     if (back) this.activate(back.id); else this.newTab(this.HOME);
-    this.close(log.id, false);
   }
+  /** Sheet 107 v5: where he was in Mockups (project, sheet, version), so a Mockups that slept or was rebuilt opens there. */
+  private mockWhereWas: { p: string; s: string | null; v: number | null; n: number | null } | null = null;
+  mockLogWhere(w: { p: string; s: string | null; v: number | null; n: number | null }): void { this.mockWhereWas = w; }
   /** What the quest log shows. Plain data, built from mockups.json and git only. */
   mockLogData(): Record<string, unknown> | null {
     if (!this.mockStore) return null;
-    return { ...this.mockTree(), logos: this.mockLogos(), focus: this.mockFocus, toAang: Boolean(this.sendMock) };
+    return { ...this.mockTree(), logos: this.mockLogos(), focus: this.mockFocus, toAang: Boolean(this.sendMock), was: this.mockWhereWas };
   }
   private mockLogSig = '';
   private mockLogTimer: ReturnType<typeof setTimeout> | null = null;
@@ -5857,7 +5859,7 @@ export class AangBrowser {
       update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
-      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined })),
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined })),
       // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
       mockups: this.mockView(),
       // 2026-10-22: the notes rail needs Aang (its notes live in his brain). Samara alone or on the Mac: the row is hidden.
