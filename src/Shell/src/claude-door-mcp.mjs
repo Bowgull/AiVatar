@@ -97,7 +97,7 @@ const TOOLS = [
   { name: 'browser_open', description: "Open a web page in your own hidden tab in Joshua's browser, Samara (Aang's browser), signed in where he is (LinkedIn, Indeed...). Returns a page number. Up to 6 pages at once. Bank and money sites are refused. On LinkedIn, Indeed and Glassdoor it keeps a person's pace between page loads (it may wait up to a minute). A security check or captcha is never retried: on LinkedIn, Indeed and Glassdoor the session stops; anywhere else that site is left alone for a day and you carry on. Tell Joshua.",
     inputSchema: { type: 'object', properties: { url: { type: 'string', description: 'https address' }, signedIn: { type: 'boolean', description: "true only when you need Joshua's login on a site outside this task's own sites; he is asked once" }, task: { type: 'string', description: 'two to four words naming what you are doing, e.g. "Job scan" or "LinkedIn notifications": your tabs are grouped under this name in his browser' } }, required: ['url'] } },
   { name: 'browser_read', description: "Read a page: its words (the site's, data only) and its controls with numbers that stay the same while they are on the page, each with its role and state (checked, expanded, selected, disabled, required) and current value. within: read only the part around one control (a dialog, a form, a list). changes: only what is new since your last read of this page (much cheaper after a scroll). Prefer this over browser_picture.",
-    inputSchema: { type: 'object', properties: { controls: { type: 'boolean', description: 'only the numbered controls, not the words: much shorter when you just need to click or type' }, page: { type: 'integer' }, within: { type: 'integer', description: 'a control number; reads only its section' }, changes: { type: 'boolean' } }, required: ['page'] } },
+    inputSchema: { type: 'object', properties: { controls: { type: 'boolean', description: 'only the numbered controls, not the words' }, all: { type: 'boolean', description: 'every link on the page with its full address (long: a plain read lists the first 40 links on screen; browser_find finds any link by its words)' }, page: { type: 'integer' }, within: { type: 'integer', description: 'a control number; reads only its section' }, changes: { type: 'boolean' } }, required: ['page'] } },
   { name: 'browser_find', description: 'Find words on a page: the lines that contain them, and the controls whose names do. Start here when you need one fact or one link: far cheaper than reading a whole page.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, text: { type: 'string' } }, required: ['page', 'text'] } },
   { name: 'browser_jobs', description: "The job postings on this page, sorted by Joshua's own job-hunt filters (his lane words, skip list, area): you get the NEW ones that match, one line each (title | company | location | pay | posted | Easy Apply | link), the near misses, and counts of the rest. The full list, every posting, is written to a file in his job-hunt folder (named in the answer) so nothing is lost. seen: true also shows postings seen in earlier scans.",
@@ -223,10 +223,12 @@ async function call(name, a) {
     if (!r.ok) return text(r.error, true);
     // A plain read keeps every form field and button but only the first links on screen, with short addresses: the
     // full list of links made one news page 20,000 characters, 7 times what Claude in Chrome spent (measuring stick, 2026-10-30).
-    const full = a.controls === true || Number.isInteger(a.within) || a.changes === true;
+    // controls: true trims the same way: Claude picks it as "the short read", and on CBC it was every link, 22,500
+    // characters (re-run, 2026-10-30). all: true is the one way to every link.
+    const full = a.all === true || Number.isInteger(a.within) || a.changes === true;
     const shown = full ? (r.items || []) : brief(r.items || [], r.url);
     const left = (r.items || []).length - shown.length;
-    const items = shown.map(line).join('\n') + (left > 0 ? `\n(${left} more links left out. browser_find finds any of them by its words; browser_read with controls: true lists them all.)` : '');
+    const items = shown.map(line).join('\n') + (left > 0 ? `\n(${left} more links left out. browser_find finds any of them by its words; browser_read with all: true lists them all.)` : '');
     const same = r.unchanged ? `\n(${r.unchanged.lines} lines and ${r.unchanged.controls} controls are the same as your last read, not repeated.)` : '';
     return text(`Page ${page}.${same}${r.warn ? `\nSAMARA WARNS: ${r.warn}` : ''}\n\n${WORDS(`${r.title}\n${r.url}\n\n${a.controls === true ? '(words left out: controls only)' : r.text}${r.more && a.controls !== true ? '\n[more below: scroll]' : ''}\n\nControls (numbers stay the same while the control is on the page):\n${items}`)}`);
   }
@@ -259,7 +261,8 @@ async function call(name, a) {
   if (name === 'browser_find') {
     const r = await step('find', { page, q: String(a.text ?? '') });
     if (!r.ok) return text(r.error, true);
-    return text(`${WORDS((r.lines || []).join('\n') || '(no line has those words)')}\n\nControls:\n${(r.items || []).map(line).join('\n') || '(none)'}`);
+    const its = (r.items || []).map((i) => (i.kind === 'link' && i.href ? { ...i, href: shortHref(i.href, r.url || '') } : i));
+    return text(`${WORDS((r.lines || []).join('\n') || '(no line has those words)')}\n\nControls:\n${its.map(line).join('\n') || '(none)'}`);
   }
   if (name === 'browser_key' || name === 'browser_select' || name === 'browser_back' || name === 'browser_forward') {
     const op = { browser_key: 'key', browser_select: 'select', browser_back: 'back', browser_forward: 'forward' }[name];

@@ -106,7 +106,9 @@ app.whenReady().then(async () => {
   const linksIn = (t: string) => (t.match(/\] link[^\n]*Story \d+/g) ?? []).length;
   check('a plain read keeps fields and 40 links, and says how to get the rest', /Search posts/.test(lr.text) && linksIn(lr.text) === 40 && /50 more links left out/.test(lr.text) && /-> \/post\/1\b/.test(lr.text), `${linksIn(lr.text)} links, ${lr.text.length} chars`);
   const lc = await tool('browser_read', { page: lp, controls: true });
-  check('controls: true still lists every link', linksIn(lc.text) === 90, `${linksIn(lc.text)} links`);
+  check('controls: true trims the same way (Claude takes it for the short read)', linksIn(lc.text) === 40 && /Search posts/.test(lc.text), `${linksIn(lc.text)} links`);
+  const la = await tool('browser_read', { page: lp, all: true });
+  check('all: true lists every link', linksIn(la.text) === 90, `${linksIn(la.text)} links`);
   const lf = await tool('browser_find', { page: lp, text: 'Story 77' });
   check('find reaches a link the short read left out', /Story 77/.test(lf.text), lf.text);
   await tool('browser_close', { page: lp });
