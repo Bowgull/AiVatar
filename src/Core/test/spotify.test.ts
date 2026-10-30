@@ -74,7 +74,7 @@ test('not signed in: it says how, and nothing is asked or requested', async () =
   const core: any = new Core({ testDoor: true, port: 48062, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.spotifyFetch = async () => { throw new Error('no network in tests'); };
   await core.start();
-  try { const r = await core.doers().playMusic('x'); assert.equal(r.ok, false); assert.match(r.detail, /spotify-setup\.cmd/); }
+  try { const r = await core.doers().playMusic('x'); assert.equal(r.ok, false); assert.match(r.detail, /spotify-setup(\.cmd|-mac\.mjs)/); }
   finally { await core.stop(); }
 });
 

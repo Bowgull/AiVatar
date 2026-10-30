@@ -18,7 +18,7 @@ let hb = /cat > "\$DIR\/heartbeat\.sh" <<'HEARTBEAT'\n([\s\S]*?)HEARTBEAT\n/.exe
 // The Mac's curl is /usr/bin/curl; on this PC it is wherever Git Bash keeps it. Nothing else changes.
 hb = hb.replace('/usr/bin/curl', 'curl');
 writeFileSync(path.join(dir, 'heartbeat.sh'), hb);
-writeFileSync(path.join(dir, 'alive.curl'), `url = "http://127.0.0.1:48421/alive?k=${KEY}"\n`);
+writeFileSync(path.join(dir, 'alive.curl'), `url = "http://127.0.0.1:48421/alive"\nheader = "x-aang-key: ${KEY}"\n`);
 const state = () => { try { return readFileSync(path.join(dir, 'shadow.state'), 'utf8').trim(); } catch { return '(none)'; } };
 
 let desk = true;

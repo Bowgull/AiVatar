@@ -16,11 +16,13 @@ export interface RunResult { ok: boolean; output: string }
 
 export function runCommand(command: string, cwd: string, timeoutMs = TIMEOUT_MS): Promise<RunResult> {
   return new Promise(resolve => {
-    // PowerShell, because that is the shell on this machine, and -NoProfile so his profile cannot change
-    // what a command means.
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
-      cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    // PowerShell on the PC, with -NoProfile so his profile cannot change what a command means. The Mac (2026-10-28):
+    // zsh with -f, its own "no profile" (none of his .zshrc and friends is read).
+    const child = process.platform === 'darwin'
+      ? spawn('/bin/zsh', ['-f', '-c', command], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+      : spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
+        cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+      });
     let out = '', err = '', done = false;
     const finish = (ok: boolean, text: string) => {
       if (done) return;

@@ -12,6 +12,7 @@
 //   MediaMux: the ONE `media.now` stream the Shell sees, from whichever source is chosen.
 import type { MediaNow } from './media.ts';
 import { MediaState } from './media.ts';
+import { SPOTIFY_SETUP } from './spotify.ts';
 
 export type DeviceKind = 'phone' | 'computer' | 'speaker' | 'tv' | 'car' | 'other';
 /** Spotify's device types, folded into the player's six pixel icons. */
@@ -162,7 +163,7 @@ export class ConnectPoller {
       const err = (e ?? {}) as PollerError;
       if (err.kind === 'none' || err.kind === 'signin') {
         this.dead = true;
-        this.o.onNote(err.kind === 'none' ? 'Spotify isn’t connected (tools\\spotify-setup.cmd)' : 'Spotify sign-in expired (run tools\\spotify-setup.cmd)');
+        this.o.onNote(err.kind === 'none' ? `Spotify isn’t connected (${SPOTIFY_SETUP})` : `Spotify sign-in expired (run ${SPOTIFY_SETUP})`);
         this.o.onState(null);
       } else if (err.kind === 'rate') {
         next = Math.max(this.o.everyMs, Math.round((err.retryAfter ?? 30) * 1000));

@@ -72,7 +72,9 @@ export class SessionStore {
     if (!id) return;
     const existing = this.data[lane];
     if (existing?.id === id) {
-      // same conversation, just touched: keep the file fresh so the age cap measures inactivity
+      // same conversation, just touched: keep the file fresh so the age cap measures inactivity. At most once a
+      // minute (2026-10-28): a resumed lane touches it on every streamed message, which was a disk write per chunk.
+      if (now.getTime() - Date.parse(existing.savedAt) < 60_000) return;
       existing.savedAt = now.toISOString();
       this.save();
       return;

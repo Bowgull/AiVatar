@@ -57,7 +57,8 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
   if (opts.startedAt !== undefined) on('session.usage', () => ({ value: { startedAt: opts.startedAt!, rateLimits: [] } as never }))
   if (opts.mcp) on('mcp.call', ($, e) => { const x = e as unknown as { server: string; tool: string; args: unknown }; mcpCalls.push(x); return { value: opts.mcp!(x.server, x.tool, x.args) as never } })
   const starts: string[] = []
-  on('fs.read', ($, e) => (String(e.path).endsWith('link.key') ? { value: opts.key ?? KEY } : { deny: 'no such file' }))
+  const reads: string[] = []
+  on('fs.read', ($, e) => { reads.push(String(e.path)); return String(e.path).endsWith('link.key') ? { value: opts.key ?? KEY } : { deny: 'no such file' } })
   // The session's tools (2026-10-21): TodoWrite unless a test says otherwise; what the mod registers is kept.
   const registered: Record<string, unknown>[] = []
   on('tool.list', () => ({ value: (opts.tools ?? ['Bash', 'TodoWrite']).map(name => ({ name, description: '', mcp: false })) }))
@@ -140,7 +141,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     }
     return reply({ items: [] })
   }
-  return { seen, clock, events, posts, quiet, until, count, registered, mockups, starts, mcpCalls }
+  return { seen, clock, events, posts, quiet, until, count, registered, mockups, starts, mcpCalls, reads }
 }
 
 const start = { cwd: 'C:\\code\\Waymark', surface: null, isInteractive: true } as const
@@ -150,6 +151,16 @@ test('his "yes" from Aang, with the right MAC, approves', async ($, on) => {
   await $.session.start(start)
   await quiet()
   const r = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'npm test' }, permission_suggestions: [] })
+  expect(r.decision).toEqual({ behavior: 'allow' })
+  expect(seen).toContain('/link/event')
+})
+
+test('on the Mac the key is read from a POSIX path, so the link works there too', async ($, on) => {
+  const { seen, quiet, reads } = brain(on, { answer: JSON.stringify({ decision: 'allow' }), env: { USERPROFILE: '', HOME: '/Users/T' } })
+  await $.session.start({ ...start, cwd: '/Users/T/code/Waymark' })
+  await quiet()
+  const r = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'npm test' }, permission_suggestions: [] })
+  expect(reads).toContain('/Users/T/Documents/Aang/link.key')
   expect(r.decision).toEqual({ behavior: 'allow' })
   expect(seen).toContain('/link/event')
 })

@@ -127,7 +127,9 @@ test('2.13 opening a program or a script asks every time, even after "open files
 });
 
 test('2.19 his own tools may not read Aang\'s settings folder, where the Google token is', async () => {
-  const state = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang');
+  const state = process.env.AANG_STATE_DIR ?? (process.platform === 'darwin'
+    ? path.join(home, 'Library', 'Application Support', 'Aang')
+    : path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang'));
   assert.ok(offLimits(path.join(state, 'google.json')));
   const c = core('read files');
   assert.equal(await c.askPermission('Read', { file_path: path.join(state, 'google.json') }), false);

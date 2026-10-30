@@ -63,8 +63,11 @@ export class TrustStore {
   revokeAll(): void { this.data = {}; this.save(); }
 }
 
-/** Files that run code when opened (S2 2.13). Opening one asks every time, never on an earlier yes. */
-export const RUNNABLE = /\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|cpl|jar|reg|lnk|url|py|pyw|sh)$/i;
+/**
+ * Files that run code when opened (S2 2.13). Opening one asks every time, never on an earlier yes. The Mac's kinds
+ * too (2026-10-28): an app bundle, a double-clickable script, an installer, a disk image, AppleScript and Automator.
+ */
+export const RUNNABLE = /\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|cpl|jar|reg|lnk|url|py|pyw|sh|app|command|tool|pkg|mpkg|dmg|scpt|scptd|applescript|workflow|zsh|bash|rb|pl|terminal|webloc|inetloc)\/?$/i;
 
 /** The command with its leading "cd somewhere;" scaffolding taken off, as programOf reads it. */
 function withoutCd(command: string): string {
@@ -176,6 +179,9 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
       if (/^(rm|del|rmdir|rd|format|diskpart|reg|shutdown|takeown|icacls|winget|choco|npm|pip|curl|wget|stop-process|taskkill|kill)$/.test(program)) return null;
       // S2 2.3: scheduling something or changing an environment variable makes it outlive this turn. Ask every time.
       if (/^(schtasks|setx|at|register-scheduledtask|new-scheduledtask|set-itemproperty|new-itemproperty)$/.test(program)) return null;
+      // The Mac's (2026-10-28): acting as the administrator, installing, start-up and system settings, the Keychain,
+      // AppleScript (it can drive any app), taking a download's quarantine off, and a shell starting another shell.
+      if (/^(sudo|su|doas|brew|port|installer|softwareupdate|launchctl|crontab|defaults|plutil|osascript|automator|security|xattr|spctl|csrutil|diskutil|pmset|networksetup|scutil|dscl|chmod|chown|killall|pkill|reboot|halt|sh|bash|zsh|dash|fish|eval|exec|nohup)$/.test(program)) return null;
       // S2 2.4: a trusted program is trusted on its own. Chained, piped, redirected or substituted, the
       // line is something else and asks every time (the Gemini CLI bug).
       if (chained(s('command'))) return null;

@@ -177,7 +177,9 @@ test('quiet hours run overnight, and the day allows five that make a sound', () 
 test('what Aang says on his own is told apart from a reply', () => {
   assert.equal(kindOf({ text: 'hi' }), 'reply');
   assert.equal(kindOf({ text: 'Reminder: stretch', proactive: true }), 'reminder');
-  assert.equal(kindOf({ text: 'Need input in Claude', proactive: true, asked: true }), 'asked');
+  // 2026-10-28 review R14: a Claude session that needs him is its own kind (loud even at night); other asked news is not.
+  assert.equal(kindOf({ text: 'Need input in Claude', proactive: true, asked: true }), 'needs');
+  assert.equal(kindOf({ text: 'Waymark is done', proactive: true, asked: true }), 'asked');
   assert.equal(kindOf({ text: 'You have used 44%', proactive: true }), 'other');
 });
 

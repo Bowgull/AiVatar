@@ -30,8 +30,9 @@ export function mentionedDay(text: string, said: Date): Mention | null {
   const base = torontoDay(said);
   let day: string | null = null;
   if (/\b(today|tonight|this (morning|afternoon|evening))\b/.test(t)) day = base;
-  else if (/\btomorrow\b/.test(t)) day = addDays(base, 1);
+  // The longer phrase first (2026-10-28): "day after tomorrow" also contains "tomorrow", so it was read as tomorrow.
   else if (/\bday after tomorrow\b/.test(t)) day = addDays(base, 2);
+  else if (/\btomorrow\b/.test(t)) day = addDays(base, 1);
   else {
     const w = /\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/.exec(t);
     if (w) {

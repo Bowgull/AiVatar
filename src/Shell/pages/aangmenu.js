@@ -26,6 +26,8 @@ const ICONS = {
   warn: ['....OO....', '...OOOO...', '...O..O...', '..OO..OO..', '..O....O..', '.OO.OO.OO.', '.O..OO..O.', 'OO......OO', 'O...OO...O', 'OOOOOOOOOO', '..........'],
   // Sheet 59 (2026-10-22): the Music player row, a pixel quaver
   music: ['....OOOOOO.', '....OOOOOO.', '....O....O.', '....O....O.', '....O....O.', '....O....O.', '..OOO..OOO.', '.OOOO.OOOO.', '.OOOO.OOOO.', '..OO...OO..', '...........'],
+  // Sheet 101 (2026-10-28): Go to the PC / Go to the Mac, a screen with an arrow going into it.
+  gopc: ['OOOOOOOOOOO', 'O.........O', 'O...O.....O', 'O....O....O', 'O.OOOOO...O', 'O....O....O', 'O...O.....O', 'O.........O', 'OOOOOOOOOOO', '....OOO....', '..OOOOOOO..'],
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
 };
 const N = 11;
@@ -56,6 +58,12 @@ const MODELS = [
 ];
 const clock = (ms) => { const d = new Date(ms); return `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
+/** A row this machine cannot do yet (the Mac's `soon` list). @param {any} s @param {string} id */
+// The Mac's own sizes (sheet 103): the stylesheet's html.mac rules.
+if (/Mac/i.test(navigator.platform)) document.documentElement.classList.add('mac');
+const soon = (s, id) => Array.isArray(s.soon) && s.soon.includes(id);
+/** A row this machine leaves out altogether (the Mac's `gone` list). @param {any} s @param {string} id */
+const gone = (s, id) => Array.isArray(s.gone) && s.gone.includes(id);
 function mainRows(s) {
   const jobs = Number(s.jobsRunning) || 0, hushed = Number(s.hushedUntil) > Date.now();
   return [
@@ -63,13 +71,16 @@ function mainRows(s) {
     { id: 'jobs', ic: 'claude', t: 'Claude jobs', tag: jobs > 0 ? `${jobs} RUNNING` : '' },
     { id: 'claudejob', ic: 'claude', t: 'Start a Claude job' },
     { id: 'hunt', ic: 'hunt', t: 'Job hunt now' },
-    { id: 'player', ic: 'music', t: 'Music player' },
+    // The Mac (2026-10-28): rows it cannot do yet are dim, never a pick that does nothing (s.soon lists them).
+    { id: 'player', ic: 'music', t: 'Music player', off: soon(s, 'player') },
     '-',
     { sub: 'hush', ic: 'hush', t: 'Hush', tag: hushed ? `UNTIL ${clock(Number(s.hushedUntil))}` : '' },
     '-',
     { sub: 'dock', ic: 'dock', t: 'Dock' },
     { id: 'comeback', ic: 'back2', t: 'Come back', off: !s.docked },
-    { id: 'hide', ic: 'hide', t: 'Hide' },
+    { id: 'hide', ic: 'hide', t: s.hidden ? 'Show Aang' : 'Hide' },
+    // Sheet 101 (2026-10-28): only where there is another machine to go to; dim while it is not on.
+    ...(s.other === 'pc' || s.other === 'mac' ? [{ id: 'gopc', ic: 'gopc', t: s.other === 'pc' ? 'Go to the PC' : 'Go to the Mac', off: s.otherOn !== true }] : []),
     '-',
     { sub: 'model', ic: 'model', t: 'Model', tag: MODEL_TAG[s.model] ?? 'AUTO' },
     { id: 'saving', ic: 'quota', t: 'Save quota', tick: !!s.saving },
@@ -90,11 +101,11 @@ function subRows(which, s) {
       { id: 'hush.off', t: 'Stop hushing now', off: !hushed },
       '-',
       { id: 'mute', t: 'Mute: nothing unprompted', tick: !!s.muted },
-      '-',
-      { head: 'QUIET IN GAMES' },
-      { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto' },
-      { id: 'quiet.always', t: 'Always', tick: q === 'always' },
-      { id: 'quiet.never', t: 'Never', tick: q === 'never' },
+      // Not on the Mac (his call, 2026-10-28): no games there; calls, Shadow and full screen keep him quiet by themselves.
+      ...(gone(s, 'quiet') ? [] : ['-', { head: 'QUIET IN GAMES' },
+        { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto', off: soon(s, 'quiet') },
+        { id: 'quiet.always', t: 'Always', tick: q === 'always', off: soon(s, 'quiet') },
+        { id: 'quiet.never', t: 'Never', tick: q === 'never', off: soon(s, 'quiet') }]),
       // Sheet 60 (2026-10-22): the one switch for all of "Aang notices things in your notes".
       '-',
       { head: 'YOUR NOTES' },
@@ -104,7 +115,7 @@ function subRows(which, s) {
   }
   if (which === 'dock') {
     const d = s.docked ? s.dock : 'none';
-    return ['bottom', 'left', 'right', 'top'].map((e) => ({ id: 'dock.' + e, t: e[0].toUpperCase() + e.slice(1), tick: d === e }));
+    return ['bottom', 'left', 'right', 'top'].map((e) => ({ id: 'dock.' + e, t: e[0].toUpperCase() + e.slice(1), tick: d === e, off: soon(s, 'dock.' + e) }));
   }
   const list = Array.isArray(s.models) && s.models.length ? s.models : MODELS;
   return list.filter((m) => m && typeof m.id === 'string').map((m) => ({ id: 'model.' + m.id, t: String(m.label ?? m.id), tick: s.model === m.id }));
@@ -281,7 +292,9 @@ function keysMenu() {
   const rr = T('span', 'kr'); rr.append(T('span', 'hint', 'HOLD'));
   reset.append(T('span', 'lab', 'Put them all back to the defaults'), rr);
   m.append(reset);
-  m.append(T('div', 'note', 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Ctrl+C and Esc only listen while his bubble is up, so they are fixed.'));
+  m.append(T('div', 'note', /Mac/i.test(navigator.platform)
+    ? 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Esc only listens while his bubble is up, so it is fixed.'
+    : 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Ctrl+C and Esc only listen while his bubble is up, so they are fixed.'));
   // it grows and shrinks (the hold's line, the warning, the glove's nudge): kept on the screen, and the window's shape with it
   const ro = new ResizeObserver(() => { if (sub === m) relayout(); else ro.disconnect(); });
   ro.observe(m);

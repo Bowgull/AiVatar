@@ -8,6 +8,9 @@ interface Tokens { clientId: string; refreshToken: string; accessToken?: string;
 export type Kind = 'track' | 'playlist' | 'artist' | 'album';
 export interface Pick { kind: Kind; uri: string; name: string; by: string }
 
+/** The sign-in step for this machine (the Mac has its own, tools/spotify-setup-mac.mjs). */
+export const SPOTIFY_SETUP = process.platform === 'darwin' ? 'node tools/spotify-setup-mac.mjs' : 'tools\\spotify-setup.cmd';
+
 export class SpotifyError extends Error {
   readonly kind: 'none' | 'signin' | 'device' | 'premium' | 'rate' | 'api';
   /** For 'rate' (a 429): how long Spotify asked us to wait, in seconds. */
@@ -50,13 +53,13 @@ export class Spotify {
 
   private async token(): Promise<string> {
     const t = this.load();
-    if (!t) throw new SpotifyError('Spotify is not connected. Run tools\\spotify-setup.cmd once.', 'none');
+    if (!t) throw new SpotifyError('Spotify is not connected. Run ' + SPOTIFY_SETUP + ' once.', 'none');
     if (t.accessToken && (t.expiresAt ?? 0) > this.now()) return t.accessToken;
     const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: t.refreshToken, client_id: t.clientId }).toString();
     const r = await this.fetcher('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.access_token) {
-      if (j?.error === 'invalid_grant') { this.t = null; throw new SpotifyError('The Spotify sign-in has expired. Run tools\\spotify-setup.cmd again.', 'signin'); }
+      if (j?.error === 'invalid_grant') { this.t = null; throw new SpotifyError('The Spotify sign-in has expired. Run ' + SPOTIFY_SETUP + ' again.', 'signin'); }
       throw new SpotifyError(`Spotify would not refresh the sign-in (${r.status}).`);
     }
     t.accessToken = j.access_token; t.expiresAt = this.now() + (Number(j.expires_in) || 3600) * 1000 - 60_000;
@@ -74,7 +77,7 @@ export class Spotify {
       const ra = Number((r as { headers?: { get?: (n: string) => string | null } }).headers?.get?.('retry-after'));
       throw new SpotifyError('Spotify asked to slow down.', 'rate', Number.isFinite(ra) && ra > 0 ? Math.min(3600, ra) : 30);
     }
-    if (r.status === 401) { if (this.t) this.t.expiresAt = 0; throw new SpotifyError('Spotify turned the sign-in down. Run tools\\spotify-setup.cmd again.', 'signin'); }
+    if (r.status === 401) { if (this.t) this.t.expiresAt = 0; throw new SpotifyError('Spotify turned the sign-in down. Run ' + SPOTIFY_SETUP + ' again.', 'signin'); }
     if (r.status === 403) throw new SpotifyError('Spotify only lets Premium accounts be controlled like this.', 'premium');
     if (r.status === 404 && /device/i.test(String(j?.error?.message ?? ''))) throw new SpotifyError('No Spotify is open to play on.', 'device');
     if (!r.ok) throw new SpotifyError(`Spotify said ${r.status}: ${String(j?.error?.message ?? text).slice(0, 160)}`);

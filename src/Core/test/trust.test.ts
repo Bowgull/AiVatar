@@ -115,6 +115,8 @@ test('an app only the Start menu knows is found too', { skip: !existsSync(path.j
 test('a packaged app with no .exe anywhere is still found, the way its own Start Menu tile is', () => {
   const hit = findApp('claude');
   if (!hit) return;                                   // not installed on whatever machine runs this suite
+  // On the Mac (2026-10-28) it is a plain app bundle in the Applications folder.
+  if (process.platform === 'darwin') { assert.match(hit.target, /Claude\.app$/); assert.equal(hit.name, 'Claude'); return; }
   assert.match(hit.target, /^shell:AppsFolder\\/i);
   assert.equal(hit.name, 'Claude');
 });

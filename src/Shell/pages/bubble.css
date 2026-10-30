@@ -182,6 +182,8 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .rlist .plaque.tone-careful{color:var(--orange)} .rlist .plaque.tone-stop{color:var(--red)}
 .rlist .lrow{display:flex;align-items:center;gap:10px;padding:7px 2px}
 .rlist .lrow+.lrow{border-top:3px solid rgba(90,60,25,.22)}
+.rlist .lrow.tap{cursor:pointer}
+.rlist .lrow.tap:hover .lt{text-decoration:underline;text-underline-offset:3px}
 .rlist .lmid{flex:1;min-width:0}
 .rlist .lt{font:700 14.5px/1.35 var(--body);color:#271c10}
 .rlist .ls{font:500 12.5px var(--body);color:#5a4834;margin-top:1px}
@@ -557,6 +559,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .lt-date{flex:1;min-width:0}
 .lt-date small{display:block;font:700 12.5px var(--body);letter-spacing:.2px;color:var(--gold)}
 .lt-date b{display:block;font:700 26px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+.lt-date b.long{font-size:21px;white-space:nowrap}
 .lt-date span{display:block;font:italic 500 13px var(--body);color:#c9b48c;margin-top:4px}
 .lt-lamp{display:flex;gap:4px;padding:6px;border-radius:10px;flex:none;
   background:radial-gradient(ellipse at 50% 30%,rgba(255,196,90,.2),rgba(0,0,0,0) 70%),#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
@@ -1074,6 +1077,8 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble:not(.cockpit) .ckpins .ctag img{display:none}
 #bubble:not(.cockpit) .ckpins .ctag::before{content:"CLAUDE \00b7  ";white-space:pre;display:inline-block;padding-left:22px;background:url(art/claude-icon.png) 0 50%/16px 16px no-repeat}
 #bubble:not(.cockpit) .ckpins .q{margin:0 0 6px;font:800 17px/1.3 Figtree,sans-serif;color:#1c1208}
+/* What a plain question is about (2026-10-29), in the tag's ink above Claude's own words. */
+.ckpins .about{margin:0 0 3px;font:600 13px/1.35 Figtree,sans-serif;color:#6b4a26}
 #bubble:not(.cockpit) .ckpins .glove{display:flex;flex-direction:column;margin:8px 0 2px}
 #bubble:not(.cockpit) .ckpins .opt{display:flex;align-items:flex-start;gap:9px;margin:0 0 7px 30px;padding:8px 11px;border-radius:7px;background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48;color:#21160a}
 #bubble:not(.cockpit) .ckpins .opt .lab{font:700 14.5px/1.3 Figtree,sans-serif;color:#21160a}
@@ -1200,3 +1205,16 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .nkeys[hidden]{display:none}
 .bignote.npaper .np-in{min-height:260px}
 .nkeys{flex-wrap:nowrap;gap:8px}.nkeys .key{font-size:12.5px;padding:8px 12px 9px;white-space:nowrap}
+
+/* Sheet 104 (his yes, 2026-10-28): the boxes inside the bubble take the bubble's own pixel edge. A 7x7 frame drawn at
+   exactly 2x (art/frames/*.svg: stepped corners, a dark outline, a light inner edge, the fill), stretched by its middle
+   pixel only, never by a fraction. Not in the lantern look, which keeps its own glass. */
+#bubble:not(.lantern) .lt-slip{border:6px solid transparent;border-image:url(art/frames/slip.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated;filter:drop-shadow(0 2px 0 rgba(90,60,25,.25))}
+#bubble:not(.lantern) .lt-lamp{border:6px solid transparent;border-image:url(art/frames/lamp.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated}
+#bubble:not(.lantern) .lt-part.now{border-radius:0;box-shadow:inset 0 0 0 2px #c89a3c}
+#bubble .lt-tile{border:6px solid transparent;border-image:url(art/frames/tile.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated}
+#bubble .bchip{border:6px solid transparent;border-image:url(art/frames/chip.svg) 3 fill / 6px stretch;border-radius:0;background:none;padding:3px 9px 4px;image-rendering:pixelated}
+#bubble .bchip.on{border-image-source:url(art/frames/chip-on.svg);background:none;color:#fff}
+#bubble .bchip.add{border-image-source:url(art/frames/chip-add.svg)}
+/* Look back's day papers too (sheet 104 showed them framed), in the wood look the scroll-back wears. */
+#bubble .lookback .lt-slip, #bubble .lb-list .lt-slip{border:6px solid transparent;border-image:url(art/frames/slip.svg) 3 fill / 6px stretch;border-radius:0;background:none;box-shadow:none;image-rendering:pixelated;filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}

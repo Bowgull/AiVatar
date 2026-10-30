@@ -58,6 +58,19 @@ test('using a session keeps it alive; the cap measures inactivity, not total age
   assert.equal(new SessionStore(dir).get('quick'), 'same-id');
 });
 
+test('touching the same session many times a minute writes the file once, not per streamed chunk (2026-10-28)', () => {
+  const dir = tmp();
+  const s = new SessionStore(dir);
+  const t0 = new Date('2026-10-28T13:00:00Z');
+  s.set('smart', 'sid', t0);
+  const file = path.join(dir, 'sessions.json');
+  const first = readFileSync(file, 'utf8');
+  for (let i = 1; i <= 50; i++) s.set('smart', 'sid', new Date(t0.getTime() + i * 100));
+  assert.equal(readFileSync(file, 'utf8'), first, 'no rewrite within the minute');
+  s.set('smart', 'sid', new Date(t0.getTime() + 61_000));
+  assert.notEqual(readFileSync(file, 'utf8'), first, 'still kept fresh after a minute');
+});
+
 test('a corrupt or half-written file does not stop the Core from starting', () => {
   for (const junk of ['{ not json', '[]', 'null', '{"quick":{"id":42}}', '{"quick":"just-a-string"}']) {
     const dir = tmp();

@@ -23,8 +23,8 @@ test('M2: /alive says the brain is up and whether he is at this PC, nothing more
     // Over Tailscale it needs the key, like a hook (only checkable when this PC is on the tailnet).
     if (s.tailnet) {
       assert.equal((await fetch(`http://${s.tailnet}:48401/alive`)).status, 403);
-      assert.equal((await fetch(`http://${s.tailnet}:48401/alive?k=nope`)).status, 403);
-      assert.equal((await fetch(`http://${s.tailnet}:48401/alive?k=${KEY}`)).status, 200);
+      assert.equal((await fetch(`http://${s.tailnet}:48401/alive`, { headers: { 'x-aang-key': 'nope' } })).status, 403);
+      assert.equal((await fetch(`http://${s.tailnet}:48401/alive`, { headers: { 'x-aang-key': KEY } })).status, 200);
     }
   } finally { await s.stop(); }
 });

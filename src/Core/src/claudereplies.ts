@@ -30,7 +30,7 @@ export interface TurnEnd {
   host?: 'mac';
 }
 
-export interface ReplyLine { session: string; project: string; text: string; host?: 'mac' }
+export interface ReplyLine { session: string; project: string; text: string; host?: 'mac'; /** The reply itself, for the message engine (messages.ts). */ words?: string; /** Its title, as he named the session. */ name?: string }
 /** A turn end's words, offered to the plain-question check (plainquestion.ts) before the "replied" line is said. */
 export interface ReplyWords { session: string; project: string; words: string; host?: 'mac' }
 
@@ -124,7 +124,7 @@ export class ReplyNotifier {
     let said = p.end.words ?? '';
     if (!said) { try { said = this.words(session); } catch { said = ''; } }
     const words = said ? firstSentence(said) : '';
-    const line = () => { this.say({ session, project: p.end.project, text: words ? `${name} replied: ${words}` : `${name} replied.`, ...(p.end.host ? { host: p.end.host } : {}) }); };
+    const line = () => { this.say({ session, project: p.end.project, text: words ? `${name} replied: ${words}` : `${name} replied.`, name, ...(said ? { words: said } : {}), ...(p.end.host ? { host: p.end.host } : {}) }); };
     if (!this.question || !said) { line(); return; }
     // A question to him becomes its card instead of the line. The check may take Qwen a few seconds: if he typed in
     // that session meanwhile, neither is said (he is already at it).

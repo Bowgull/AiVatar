@@ -140,5 +140,6 @@ export function tintRim(skin, kind) {
   rim.setAttribute('filter', 'url(#ktf)');
 }
 
-/** How long the mouse rests on the bubble before the answer keys come (sheet 64 section 4). */
-export const KEYS_AFTER_MS = 1500;
+/** How long the mouse rests on the bubble before the answer keys come (sheet 64 section 4). 1.5 s felt slow and
+ *  unnatural (his report, 2026-10-28): 0.7 s still guards a pointer passing over, and answers a real rest. */
+export const KEYS_AFTER_MS = 700;

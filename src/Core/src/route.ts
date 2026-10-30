@@ -68,7 +68,7 @@ export type Channel = 'desktop' | 'discord';
  * else - a fact, a question, his stuff, anything to do, even a bare "yes" (it usually answers something just asked)
  * - goes to Smart. Quick was answering "my home address is ..." without the tool to save it.
  */
-export const SMALL_TALK = /^\s*(?:(?:hey|hi|hiya|hello|yo|sup|morning|evening|afternoon|good (?:morning|night|evening|afternoon)|gm|gn|night|nite|thanks?(?: (?:you|so much|a lot))?|thx|ty|tysm|cheers|lol|lmao|haha+|hehe+|nice|cool|sweet|awesome|bye|later|cya|see ya|how are (?:you|ya|u)|how'?s it going|how you doing|what'?s up|wassup|whats good|checking in|love you|gg)(?:,? (?:bud|buddy|man|aang|dude|bro|pal|my guy|my man|homie))?[\s!.?~]*)+$/i;
+export const SMALL_TALK = /^\s*(?:(?:hey|hi|hiya|hello|yo|sup|morning|evening|afternoon|good (?:morning|night|evening|afternoon)|gm|gn|night|nite|thanks?(?: (?:you|so much|a lot))?|thx|ty|tysm|cheers|lol|lmao|haha+|hehe+|nice|cool|sweet|awesome|bye|later|cya|see ya|how are (?:you|ya|u)|how'?s it going|how you doing|what'?s up|wassup|whats good|checking in|love you|gg)(?:,? (?:bud|buddy|man|aang|dude|bro|pal|my guy|my man|homie))?[\s!.?~,]*)+$/i;
 export const isSmallTalk = (text: string) => text.length <= 80 && SMALL_TALK.test(text);
 
 export function pickLane(text: string, mode: Mode, saving: boolean, once: boolean, channel: Channel = 'desktop'): Choice {

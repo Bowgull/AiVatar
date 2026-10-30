@@ -71,7 +71,7 @@ export class Bubble {
       // game; 'screen-saver' would sit over Windows' own alerts, which is not Aang's place.
       w.setAlwaysOnTop(true, 'pop-up-menu');
       // Visible on every desktop, because he switches desktops and Aang is not a per-desktop thing.
-      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
       lockDown(w.webContents);
       denyPermissions(w.webContents.session);
       // THE MOUSE PASSES STRAIGHT THROUGH, except over the drawn bubble.
@@ -151,7 +151,7 @@ export class Bubble {
       if (key === this.lastPointer) return;
       this.lastPointer = key;
       w.webContents.send('bubble:pointer', { x, y });
-    }, 60);
+    }, 30);   // 2026-10-28 motion audit: 60 ms made a hover feel late; one cursor read is cheap
     this.pointerTimer.unref?.();
   }
   private stopPointer(): void {
@@ -180,6 +180,8 @@ export class Bubble {
     this.win.setIgnoreMouseEvents(!on, { forward: true });
   }
   private clickable = false;
+  /** The mouse is on its drawn panel and it takes clicks (the Mac's click-away helper asks, macaang.ts). */
+  get takesClicks(): boolean { return this.clickable; }
 
   /**
    * His report (2026-10-22): "+ New note" closed the bubble and no note opened. The Shell had reloaded the bubble's page

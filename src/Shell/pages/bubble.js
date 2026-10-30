@@ -477,8 +477,13 @@ function paintList() {
   if (box.hidden) return;
   const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   if (replyList.header?.text) box.append(T('span', 'plaque tone-' + (replyList.header.tone ?? 'normal'), replyList.header.text));
-  for (const it of replyList.items ?? []) {
+  for (const [i, it] of (replyList.items ?? []).entries()) {
     const row = T('div', 'lrow');
+    // Sheet 102 (2026-10-28): a row of "while you were busy" opens that one, as it would have come; a row of "welcome
+    // back" opens Look back, where what went to the phone is kept. Nothing is sent again.
+    const held = Array.isArray(replyList.held) ? replyList.held[i] : null;
+    if (held && typeof held === 'object') { row.classList.add('tap'); row.onclick = () => onBrain(held); }
+    else if (it.look) { row.classList.add('tap'); row.onclick = () => { try { recall('back'); } catch { /* nothing to show */ } }; }
     const mid = T('div', 'lmid');
     mid.append(T('div', 'lt', it.title ?? ''));
     if (it.subtitle) mid.append(T('div', 'ls', it.subtitle));
@@ -1224,6 +1229,8 @@ function showBrief(b) {
   const date = T('div', 'lt-date');
   date.append(T('small', '', hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING'),
     T('b', '', String(b.day ?? '').split(',')[0] || now.toLocaleDateString('en-CA', { weekday: 'long' })));
+  // A long day name ("Wednesday") ran past the card's edge on the Mac (2026-10-28): a size down rather than cut off.
+  const dayEl = date.querySelector('b'); if (dayEl && (dayEl.textContent ?? '').length >= 8) dayEl.classList.add('long');
   const rest = String(b.day ?? '').split(',').slice(1).join(',').trim();
   const wet = b.rainFrom ? `${b.rainIsSnow ? 'Snow' : 'Rain'} from ${b.rainFrom}, ${b.rainIsSnow ? 'dress warm' : 'bring a jacket'}.` : '';
   const sky = !wet && b.weather ? `${b.weather.words.charAt(0).toUpperCase() + b.weather.words.slice(1)}, ${b.weather.low} to ${b.weather.high}.` : '';
@@ -1231,7 +1238,8 @@ function showBrief(b) {
   top.append(date);
   if (Array.isArray(b.parts) && b.parts.length) {
     const lamp = T('div', 'lt-lamp');
-    const nowPart = hour < 12 ? 'morn' : hour < 18 ? 'aftn' : 'eve';
+    // The same hours as the greeting above (2026-10-28: "Good evening" at 5 pm with AFTN lit).
+    const nowPart = hour < 12 ? 'morn' : hour < 17 ? 'aftn' : 'eve';
     for (const p of b.parts) {
       const c = T('div', 'lt-part' + (p.part === nowPart ? ' now' : ''));
       c.append(T('i', '', PART[p.part] ?? ''));
@@ -1307,7 +1315,7 @@ function showBrief(b) {
   // Sheet 65: the Addons slip under Today (addonslip.js). Update ticked sends the ids still ticked; Not now folds it away.
   const addons = addonsSlip(b.addons, { update: (ids) => window.aang?.addonsUpdate?.(ids), later: () => { fit(); reportSize(); } });
   if (addons) body.append(addons);
-  if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', 'Nothing needs you this morning.')); body.append(s); }
+  if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', `Nothing needs you ${hour < 12 ? 'this morning' : hour < 17 ? 'this afternoon' : 'tonight'}.`)); body.append(s); }
   card.append(body);
 
   // the keys: Got it, and the most useful next thing; the week's meter on the right
@@ -1854,11 +1862,19 @@ function onBrain(m) {
     if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) askGone(); }
     return;
   }
+  // Claude news he has seen in Claude (fix 3, 2026-10-29): the line held through a call or Shadow is dropped.
+  if (m.t === 'claude.seen' && Array.isArray(m.sessions)) { if (heldMsg && m.sessions.includes(heldMsg.session)) heldMsg = null; return; }
   if (m.t === 'bubble.state') {
     const wasQuiet = quiet;
     quiet = m.quiet === true; muted = m.muted === true; petHidden = m.hidden === true;
     if (wasQuiet && !quiet) { releaseHeldAsks(); claudeWaiting(claude?.waiting() ?? false, true); }
-    if (!quiet) heldMsg = null;          // the pet says the held one itself, through pet.say
+    // The PC pet says the held one itself, through pet.say. The Mac has no such pet (2026-10-29 notices map, gap 1: the
+    // held line was dropped there), so it comes out here.
+    if (!quiet && heldMsg && /Mac/i.test(navigator.platform) && !muted && !petHidden) {
+      const h = heldMsg; heldMsg = null;
+      window.dispatchEvent(new CustomEvent('aang:say', { detail: { ...h, proactive: false, fromPet: true } }));
+    }
+    if (!quiet) heldMsg = null;
     return;
   }
 
@@ -1992,7 +2008,7 @@ function onBrain(m) {
     who.hidden = !who.textContent || cockpit;
     if (cockpit) bubble.classList.add('lantern');
     paintChange(!m.stream);
-    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC', m.face);
+    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, /Mac/i.test(navigator.platform) !== macSession ? 'MAC' : 'PC', m.face);   // a remote session is the other machine (fix 10)
     // 2026-10-21: the dots stay until a word of the answer is actually on the paper (a first chunk can be half a word),
     // so between thinking and answering there is never a moment of empty bubble.
     reveal.tick();
@@ -2074,8 +2090,10 @@ function onBrain(m) {
   }
   // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.
   if (m.t === 'timer.setup') {
+    if (reading) leaveReading(false, true);
     if (cockpit) { cockCommit(); live = { skip: true }; }
     closeBoard();
+    setSpeaker(null);
     reveal.start('', false);
     who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
     scroller.hidden = true; working.hidden = true; tools.hidden = true;
@@ -2358,12 +2376,16 @@ let boardOpen = false, boardPage = 0, pullingNote = false;
 let editingNote = null;
 const PER_PAGE = 6;
 function openBoard() {
+  // Out of Look back first (2026-10-28, a real-click test: Notes from the wheel did nothing while Look back was up).
+  if (reading) leaveReading(false, true);
   if (cockpit) { cockCommit(); live = { skip: true }; }
   reveal.start('', false);
   who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
   scroller.hidden = true; working.hidden = true; tools.hidden = true;
   bubble.classList.remove('whisper');
   bubble.classList.add('wide', 'widest');
+  // Not a Claude message: Claude's name, chip and Open Claude from an earlier one must not sit over the board (2026-10-28).
+  setSpeaker(null);
   boardOpen = true; editingNote = null; boardPage = 0;
   showBoard();
   bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
@@ -2529,7 +2551,14 @@ function openNote(id, focusTitle = false) {
     const part = /** @type {HTMLElement} */ (e.target).closest?.('.ntitle') ? 'title' : 'body';
     const m = openMenu(menuHost, { x: 0, y: 0 }, paper, n, 'board', (what) => {
       if (what === 'delete') { window.aang?.notesDelete?.(n.id); notesAll = notesAll.filter((x) => x.id !== n.id); showBoard(); }
-      else if (what === 'out') { paper.flush(); const r = bubble.getBoundingClientRect(); window.aang?.notesPull?.({ phase: 'start', id: n.id, x: window.screenX + r.left - 240, y: window.screenY + r.top + 20 }); window.aang?.notesPull?.({ phase: 'end', id: n.id, x: window.screenX + r.left - 240, y: window.screenY + r.top + 20 }); showBoard(); }
+      else if (what === 'out') {
+        paper.flush(); const r = bubble.getBoundingClientRect();
+        // Left of the bubble, but never past the left edge of the bubble's own screen (2026-10-28: with a second screen to
+        // the left, "Stick on screen" put the note on the other screen): then it goes right of the bubble instead.
+        const left = window.screenX + r.left - 240, sx = Math.max(left, (window.screen.availLeft ?? 0) + 8) === left ? left : window.screenX + r.right + 12;
+        const at = { id: n.id, x: sx, y: window.screenY + r.top + 20 };
+        window.aang?.notesPull?.({ phase: 'start', ...at }); window.aang?.notesPull?.({ phase: 'end', ...at }); showBoard();
+      }
     }, part);
     fit(); reportSize();
     const watch = new MutationObserver(() => { if (!menuHost.contains(m)) { watch.disconnect(); fit(); reportSize(); } });

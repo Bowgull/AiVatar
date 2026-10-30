@@ -234,8 +234,10 @@ export class HotkeyKeeper {
 
   /** Every row the menu shows, his choices filled in. */
   list(): KeyRow[] {
-    const rows: KeyRow[] = KEY_IDS.map((k) => ({ id: k, label: KEYS[k].label, acc: this.now[k], chips: chips(this.now[k]), words: words(this.now[k]), group: KEYS[k].group, ...(KEYS[k].fresh ? { fresh: true } : {}) }));
-    return [...rows, ...FIXED.map((f) => ({ label: f.label, acc: f.acc, chips: chips(f.acc), words: words(f.acc), group: 'up' as const, fixed: true }))];
+    // The Mac (his call, 2026-10-28): no Snip, the pop-out key is Samara's own, and the bubble's Ctrl+C is not wired.
+    const mac = process.platform === 'darwin';
+    const rows: KeyRow[] = KEY_IDS.filter((k) => !(mac && (k === 'snip' || k === 'popout'))).map((k) => ({ id: k, label: KEYS[k].label, acc: this.now[k], chips: chips(this.now[k]), words: words(this.now[k]), group: KEYS[k].group, ...(KEYS[k].fresh ? { fresh: true } : {}) }));
+    return [...rows, ...FIXED.filter((f) => !(mac && f.acc === 'Control+C')).map((f) => ({ label: f.label, acc: f.acc, chips: chips(f.acc), words: words(f.acc), group: 'up' as const, fixed: true }))];
   }
 
   /** Quitting: let everything go. */

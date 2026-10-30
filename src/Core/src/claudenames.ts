@@ -8,6 +8,7 @@
 // Only those three fields are ever read here; the rest of the file (settings, connectors) is left alone and never kept.
 // A session he started in a terminal has no record: it keeps its folder's name and has no link.
 import { readdir, readFile, stat } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 export interface SessionName { title: string; open: string }
@@ -104,6 +105,9 @@ export class SessionNames {
 }
 
 function defaultRoot(): string | null {
+  // The Mac (2026-10-28): the app keeps the same records under ~/Library/Application Support/Claude/claude-code-sessions,
+  // so the folder above it stands in for Claude-Data and "Claude" for the install.
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support');
   const base = process.env.LOCALAPPDATA;
   return base ? path.join(base, 'Claude-Data') : null;
 }

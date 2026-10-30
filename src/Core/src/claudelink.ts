@@ -120,12 +120,14 @@ export interface Job {
    * stays in the bubble until he X's it or opens it (`ack`), or a new turn starts in that session.
    */
   unread?: boolean;
+  /** What it did, in Aang's words (messages.ts, 2026-10-29): the done card and the tick's list say this. */
+  said?: string;
   /** When it finished, for an unread one. */
   doneAt?: number;
 }
 
 /** What is kept of a finished, unread job (2026-10-22): enough to draw its done card after the session itself is gone. */
-export interface DoneNote { id: string; project: string; title: string; open: string | null; task: string; doneAt: number }
+export interface DoneNote { id: string; project: string; title: string; open: string | null; task: string; doneAt: number; said?: string }
 /** Where the unread finished jobs are kept, so a brain restart keeps them. */
 export const unreadFile = (dataDir: string) => path.join(dataDir, 'claude-unread.json');
 /** 2026-10-22 (his yes): at most three finished jobs in the list; a fourth reads the oldest by itself. */
@@ -170,6 +172,8 @@ export interface WaitItem {
    * (the signed inbox, the mod's $.prompt.submit), and it goes the moment he types anything in that session.
    */
   reply?: true;
+  /** What it is about, in Aang's words (messages.ts, 2026-10-29): "Drafted a Reddit post about your Elite paddles". */
+  about?: string;
 }
 
 export type Decision = 'allow' | 'always' | 'deny' | 'deny-message';
@@ -315,6 +319,12 @@ export class JobTracker {
   private readonly planW = new Map<string, number>();
   /** Per session: the working clock at the turn's start, for the turn's own history line. */
   private readonly turnW = new Map<string, number>();
+  /** Each session's last finished turn: how long it worked, and when it ended. */
+  private readonly lastTurn = new Map<string, { ms: number; at: number }>();
+  /** How long a session's last turn worked, if it ended in the last ten minutes. */
+  turnMs(session: string, now = Date.now()): number | null { const x = this.lastTurn.get(session); return x && now - x.at < 600_000 ? x.ms : null; }
+  /** What he asked a session, as the link last saw it (the job's prompt). */
+  askedOf(session: string): string { return this.jobs.get(session)?.prompt ?? ''; }
   /** Per session: the mod's load (gen) and the last event number seen, to spot a lost or doubled event (v3 plumbing). */
   private readonly seqs = new Map<string, { gen: string; seq: number }>();
   private clock(session: string, now = Date.now()): ProgressKeeper {
@@ -379,7 +389,7 @@ export class JobTracker {
     for (const x of Array.isArray(raw) ? raw.slice(-50) : []) {   // trimmed to the newest MAX_UNREAD below
       if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id || !Number.isFinite(x.doneAt)) continue;
       this.unread.set(cut(x.id, 100), { id: cut(x.id, 100), project: cut(x.project, 80), title: cut(x.title, 80), open: typeof x.open === 'string' ? cut(x.open, 200) : null,
-        task: cut(x.task, 200), doneAt: Number(x.doneAt) });
+        task: cut(x.task, 200), doneAt: Number(x.doneAt), ...(typeof x.said === 'string' && x.said ? { said: cut(x.said, 240) } : {}) });
     }
     if (this.trimUnread(Date.now())) this.saveUnread();
   }
@@ -393,13 +403,30 @@ export class JobTracker {
     this.onChange('jobs', true);
     return true;
   }
+  /** What a finished job did, in Aang's words, for its done card (messages.ts). Kept while it is unread. */
+  setSaid(session: string, said: string): void {
+    const u = this.unread.get(session), j = this.jobs.get(session);
+    if (!said || (!u && !j)) return;
+    if (u) { u.said = cut(said, 240); this.saveUnread(); }
+    if (j) j.said = cut(said, 240);
+    this.onChange('jobs');
+  }
+  /** Every finished job is read (2026-10-29, his pick: the Claude app stayed in front 5 s, so he has seen them). Their ids. */
+  ackAll(): string[] {
+    const ids = [...this.unread.keys()];
+    if (!ids.length) return ids;
+    this.unread.clear();
+    this.saveUnread();
+    this.onChange('jobs', true);
+    return ids;
+  }
   /** A finished, unread job whose session is gone: just enough of a job for its done card. */
   private lightJob(u: DoneNote): Job {
     const n = this.names?.of(u.id);
     return { id: u.id, machine: 'pc', cwd: '', project: u.project, model: '', phase: 'ended', startedAt: u.doneAt, lastActivity: u.doneAt,
       prompt: u.task, tasks: [], current: null, percent: null, etaMs: null, progress: null, failed: false, plan: null, ci: [],
       activity: { now: '', since: u.doneAt, agents: [], tool: null, pips: 0, aliveAt: u.doneAt, stallMs: 60_000 },
-      usage: null, title: n?.title || u.title || u.project, open: n?.open ?? u.open, held: 0, finished: true, source: 'link', unread: true, doneAt: u.doneAt };
+      usage: null, title: n?.title || u.title || u.project, open: n?.open ?? u.open, held: 0, finished: true, source: 'link', unread: true, doneAt: u.doneAt, ...(u.said ? { said: u.said } : {}) };
   }
 
   /** One event from a session's mod. Anything malformed is ignored, never thrown. */
@@ -473,6 +500,8 @@ export class JobTracker {
         if (w0 !== undefined) {
           const ms = clock.w(t) - w0;
           if (ms >= 5000) this.hist.add({ at: t, src: 'turn', p: j.project, key: 'turn', ms, ok: ev?.aborted !== true && ev?.reason !== 'error' });
+          this.lastTurn.set(session, { ms, at: t });           // for "is this worth telling him" (messages.ts, 2026-10-29)
+          while (this.lastTurn.size > 60) this.lastTurn.delete(this.lastTurn.keys().next().value as string);
           this.turnW.delete(session);
         }
         if (!helpers) clock.stop(t);
@@ -769,6 +798,13 @@ export class JobTracker {
   }
 
   /** The plain words for a waiting item, if it is still waiting. Option lines only fit a single question. */
+  /** The one line saying what a plain question is about, if it is still waiting. */
+  setAbout(id: string, about: string): void {
+    const w = this.waits.get(id);
+    if (!w || !about) return;
+    w.about = about.slice(0, 240);
+    this.onChange('wait');
+  }
   setPlain(id: string, plain: string, options: string[] = []): void {
     const w = this.waits.get(id);
     if (!w) return;
