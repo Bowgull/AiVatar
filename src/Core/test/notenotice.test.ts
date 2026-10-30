@@ -64,7 +64,8 @@ test('notice: Claude in front holds the line at the FrontGate, it comes out afte
   await nn.check(true);
   assert.equal(sent.length, 0); assert.equal(gate.holding, 1);
   inClaude = false;
-  const { lines } = gate.moved();
+  assert.equal(gate.moved(), true);
+  const lines = gate.queue.take().map(h => h.msg);
   assert.equal(lines.length, 1);
   assert.equal((lines[0] as { kind?: string }).kind, 'note.notice');
 });

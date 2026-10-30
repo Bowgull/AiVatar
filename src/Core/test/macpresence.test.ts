@@ -53,7 +53,7 @@ sleep 5
   assert.equal(p.start(), true);
   await new Promise(res => setTimeout(res, 2500));
   p.stop();
-  assert.deepEqual(presence, [{ foreground: 'Claude', quiet: false, shadow: false }, { foreground: 'FaceTime', quiet: true, shadow: false }, { foreground: 'FaceTime', quiet: false, shadow: false }]);
+  assert.deepEqual(presence, [{ foreground: 'Claude', quiet: false, why: '', shadow: false }, { foreground: 'FaceTime', quiet: true, why: 'call', shadow: false }, { foreground: 'FaceTime', quiet: false, why: '', shadow: false }]);
   assert.deepEqual(desk, [true, false], 'at the Mac, then away after 400 s idle');
 });
 

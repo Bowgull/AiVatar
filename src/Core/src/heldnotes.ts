@@ -5,7 +5,7 @@ import type { ToBody } from './protocol.ts';
 //   - nothing held knew when it arrived, so "X just posted" could come out four hours later as if new (R2);
 //   - a full queue dropped the OLDEST first, and the oldest was often the most important (the morning brief pushed
 //     out by video posts) (R8).
-// One rule for every hold queue (core.ts hold, claudefront.ts FrontGate): each entry carries its time and its tier;
+// One rule for the one hold queue (attention.ts HoldQueue, 2026-10-30): each entry carries its time and its tier;
 // a full queue drops the least important first (oldest among equals); on release, anything past its tier's age is
 // dropped, and a reminder that waited says when it was due instead.
 

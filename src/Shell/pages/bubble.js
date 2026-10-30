@@ -73,9 +73,6 @@ function releaseHeldAsks() {
 }
 /** He hid Aang (the Clippy rule): nothing unprompted until he brings him back. The pet says so. */
 let petHidden = false;
-/** The proactive message the pet is holding for him while he is in a game, kept whole (a brief stays a card). */
-let heldMsg = null;
-const heldRank = (m) => (m.blocking ? 3 : m.done ? 2 : 1);
 /** C4: the jobs strip and the pinned Claude card (claudejobs.js), started with the cockpit below. */
 let claude = null;
 /** A Claude card is up in the closed bubble: it waits for his answer like any question (never in a game or hidden). */
@@ -1834,18 +1831,15 @@ function onBrain(m) {
     return;
   }
 
-  // Parity with the old pet (2026-10-11): the pet's gate, applied to what Aang starts himself, the same rule
-  // the pet uses (PetWindow, case "bubble"). Muted and hidden drop it unless it is truly blocking; in a game
-  // it is HELD by the pet as an icon, glow and sound, and comes back here as a `pet.say` when he comes out.
+  // Parity with the old pet (2026-10-11): muted and hidden drop what Aang starts himself unless it is truly blocking.
+  // Busy (a game, a call, full screen, Focus, Shadow) is not held here any more (2026-10-30): the brain holds it in its
+  // one queue (attention.ts) and sends it as one bundle when busy ends, so this page keeps nothing of its own.
   if (m.t === 'bubble' && typeof m.text === 'string' && m.proactive && !m.stream) {
     if ((muted || petHidden) && !m.blocking) return;
-    if (quiet) { if (!heldMsg || heldRank(m) >= heldRank(heldMsg)) heldMsg = m; return; }
   }
-  // A line the pet says itself, or the held message coming out. Shown like a reply, with no question above it.
+  // A line the pet says itself. Shown like a reply, with no question above it.
   if (m.t === 'pet.say' && typeof m.text === 'string' && m.text) {
-    const whole = heldMsg && heldMsg.text === m.text ? heldMsg : null;
-    if (whole) heldMsg = null;
-    const say = whole ? { ...whole, proactive: false, fromPet: true } : { t: 'bubble', text: m.text, stream: false, fromPet: true, hold: m.hold, focus: m.focus, host: m.host, link: m.link, greet: m.greet === true };
+    const say = { t: 'bubble', text: m.text, stream: false, fromPet: true, hold: m.hold, focus: m.focus, host: m.host, link: m.link, greet: m.greet === true };
     // 2026-10-21: his hello on sliding out. Remembered so a click that opens the chat box can tell it is showing.
     greetText = m.greet === true ? m.text : '';
     window.dispatchEvent(new CustomEvent('aang:say', { detail: say }));
@@ -1862,19 +1856,12 @@ function onBrain(m) {
     if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) askGone(); }
     return;
   }
-  // Claude news he has seen in Claude (fix 3, 2026-10-29): the line held through a call or Shadow is dropped.
-  if (m.t === 'claude.seen' && Array.isArray(m.sessions)) { if (heldMsg && m.sessions.includes(heldMsg.session)) heldMsg = null; return; }
+  // Claude news he has seen in Claude (fix 3, 2026-10-29): the brain drops its held copies; nothing is held here.
+  if (m.t === 'claude.seen' && Array.isArray(m.sessions)) return;
   if (m.t === 'bubble.state') {
     const wasQuiet = quiet;
     quiet = m.quiet === true; muted = m.muted === true; petHidden = m.hidden === true;
     if (wasQuiet && !quiet) { releaseHeldAsks(); claudeWaiting(claude?.waiting() ?? false, true); }
-    // The PC pet says the held one itself, through pet.say. The Mac has no such pet (2026-10-29 notices map, gap 1: the
-    // held line was dropped there), so it comes out here.
-    if (!quiet && heldMsg && /Mac/i.test(navigator.platform) && !muted && !petHidden) {
-      const h = heldMsg; heldMsg = null;
-      window.dispatchEvent(new CustomEvent('aang:say', { detail: { ...h, proactive: false, fromPet: true } }));
-    }
-    if (!quiet) heldMsg = null;
     return;
   }
 

@@ -240,8 +240,10 @@ export type ToBody =
       notice?: { noteId: string; line: string };
       /** The weekly sweep as a card (6.15b), with where its note was written. */
       research?: import('./watch.ts').ResearchCard & { file?: string };
-      /** Something he asked to be told about: shown even in quiet mode. */
+      /** Something he asked to be told about: held with a marker while he is busy (attention.ts, 2026-10-30). */
       asked?: boolean;
+      /** Away: should his phone buzz for it. The brain decides (attention.ts Buzz); Discord only posts. */
+      buzz?: boolean;
       /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
       focus?: string; link?: string;
       /** A Claude Code job this update is about (its folder): lets Discord remember the message so a reply continues that job. */
@@ -365,6 +367,10 @@ export type ToBody =
   | { t: 'away.reply'; text: string }
   | { t: 'puton.reply'; text: string }
   | { t: 'away.set' }
+  /** The attention engine (attention.ts, 2026-10-30): what the brain decided from the pet's readings. The pet draws it. */
+  | { t: 'presence.verdict'; quiet: boolean; why: string }
+  /** Things held while he is busy that he asked about: a marker on Aang (count 0: none). Clicking it sends held.open. */
+  | { t: 'held'; count: number; tier: 1 | 2 | 3; blocking: boolean; done: boolean }
   | { t: 'gaming.post'; kind: 'upload' | 'news'; videoId?: string; title: string; channel?: string; thumb?: string; link?: string; summary?: string }
   | { t: 'video.card'; id: string; ok: boolean; by?: string; title?: string; author?: string; seconds?: number | null; from?: string; d?: unknown; why?: string }
   | { t: 'action.list'; actions: { name: string; label: string; description: string; params: unknown }[] }
@@ -447,7 +453,13 @@ export type FromBody =
       bubble?: boolean }
   /** The Body: whether Joshua has touched the keyboard or mouse lately, sent when that changes. */
   | { t: 'desk'; active: boolean }
-  | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number }
+  | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number;
+      /** The pet's raw readings (attention.ts Reading): with them, the brain decides busy and away, not the pet. */
+      reading?: Record<string, unknown> }
+  /** The pet's raw readings on their own, every few seconds (idle time moves without anything else changing). */
+  | { t: 'reading'; reading: Record<string, unknown> }
+  /** He clicked the marker of what was held while he was busy: show it now. */
+  | { t: 'held.open' }
   | { t: 'poked' }
   /**
    * The pop-out says playback changed (step 6.8). Sent ONLY when it changes: started, paused, resumed,

@@ -7,7 +7,8 @@ import type { ToBody } from '../src/protocol.ts';
 function gate() {
   let fg = 'explorer';
   const g = new FrontGate(() => fg === 'Claude');
-  return { g, go: (p: string) => { fg = p; return g.moved(); } };
+  // What leaving Claude lets out of the one hold queue (attention.ts): the brain takes it when nothing else is in the way.
+  return { g, go: (p: string) => { fg = p; const left = g.moved(); return { left, lines: left ? g.queue.take().map(h => h.msg!) : [] }; } };
 }
 const line = (text: string, proactive = true): ToBody => ({ t: 'bubble', text, stream: false, proactive });
 
@@ -44,18 +45,18 @@ test('in Claude: the waiting list still reaches the Shell, marked quiet so nothi
 
 test('leaving Claude: the held lines come out in order (the mark was already live)', () => {
   const { g, go } = gate();
-  assert.deepEqual(go('Claude'), { mark: null, lines: [] });
+  assert.deepEqual(go('Claude'), { left: false, lines: [] });
   g.pass(line('one'));
   g.pass({ t: 'whisper', text: 'Now playing: a' });
   g.pass({ t: 'whisper', text: 'Now playing: b' });
   g.pass(line('two'));
   g.pass({ t: 'claude.mark', mark: 'question', sound: 'needs-you', what: 'Waymark' });
   g.pass({ t: 'claude.mark', mark: 'permission', flash: 'complete', sound: 'needs-you', what: 'Aang' });
-  assert.deepEqual(go('Claude'), { mark: null, lines: [] }, 'staying in Claude releases nothing');
+  assert.deepEqual(go('Claude'), { left: false, lines: [] }, 'staying in Claude releases nothing');
   const out = go('Code');
-  assert.equal(out.mark, null, 'the mark went out live while he was in Claude');
+  assert.equal(out.left, true);
   assert.deepEqual(out.lines.map(m => (m as { text: string }).text), ['one', 'Now playing: b', 'two'], 'only the latest whisper');
-  assert.deepEqual(go('Code'), { mark: null, lines: [] }, 'nothing twice');
+  assert.deepEqual(go('Code'), { left: false, lines: [] }, 'nothing twice');
   assert.equal(g.holding, 0);
 });
 
@@ -69,7 +70,7 @@ test('a mark sent after he left supersedes the one held', () => {
   assert.equal(g.pass(m), m);
 });
 
-test('the hold is capped, oldest first out', () => {
+test('the hold is capped, the least important first out', () => {
   const { g, go } = gate();
   go('Claude');
   for (let i = 0; i < FRONT_HOLD_MAX + 3; i++) g.pass(line('n' + i));
@@ -87,7 +88,9 @@ test('a held "waiting on you" line he answered in Claude meanwhile is dropped, n
   const news = line('HisWattson posted a video');
   for (const m of [asked, still, news]) assert.equal(g.pass(m), null);
   fg = 'explorer';
-  const out = g.moved(m => m.t === 'bubble' && m.session === 'sess-answered');
-  assert.deepEqual(out.lines, [still, news]);
+  assert.equal(g.moved(), true);
+  const out = g.queue.take(h => h.msg?.t === 'bubble' && h.msg.session === 'sess-answered').map(h => h.msg);
+  // Most important first: the session still waiting on him (tier 1) before the video (tier 3).
+  assert.deepEqual(out, [still, news]);
   assert.equal(g.holding, 0);
 });

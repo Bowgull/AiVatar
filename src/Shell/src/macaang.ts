@@ -333,6 +333,14 @@ const link = new CoreLink({
       if (noteWins) { noteWins.cats = own; noteWins.sync(m.notes as NoteData[]); }
     }
     if (m.t === 'bubble.state') { busyNow = m.quiet === true; onCall = m.call === true; }
+    // What was held while he is busy and he asked about (attention.ts): a glow on him until it comes out or he clicks him.
+    if (m.t === 'held') {
+      const n = Number(m.count) || 0, was = heldMarker;
+      heldMarker = n > 0;
+      if (heldMarker) pet?.webContents.send('pet:state', { glow: m.blocking === true ? 'held-blocking' : m.done === true ? 'held-done' : 'held' });
+      else if (was && !liveAsk) pet?.webContents.send('pet:state', { glow: 'off' });
+      return;
+    }
     if (m.t === 'drop.done' && typeof m.path === 'string') lastDropPath = m.path;
     if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
     // A timer ran out: its three wood knocks (sheet 67), even when everything else is quiet; muting still silences it.
@@ -409,6 +417,8 @@ function macSnip(): void { execFile('/usr/sbin/screencapture', ['-i', '-c'], () 
 let busyNow = false;
 /** On a call (mic or camera in use): timers glow without their knocks. */
 let onCall = false;
+/** The brain holds something he asked about while he is busy: he glows, and a click on him shows it. */
+let heldMarker = false;
 /** What a wheel slot does (the wheel, and the test door's slot pick). */
 let wheelPick: (slot: string) => void = () => {};
 let snipper: Snipper | null = null;
@@ -689,6 +699,8 @@ ipcMain.on('pet:click', (e, where) => {
   lastTouch = Date.now();
   if (process.env.AANG_PET_TRACE) console.log(`aang: click on ${where}, box ${input?.visible ? 'open' : 'shut'}`);
   if (where === 'mark' && markNow) { bubble?.send('brain:message', { t: 'mark.click' }); setPose('more'); return; }
+  // Something waits that he asked about: the click shows it, busy or not (the brain sends it as one bundle).
+  if (heldMarker) { heldMarker = false; pet?.webContents.send('pet:state', { glow: 'off' }); link.send({ t: 'held.open' }); if (docked && pose === 'peek') setPose('more'); return; }
   if (input?.visible) { input.close(); return; }
   openTypeBox();
 });
