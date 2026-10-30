@@ -128,14 +128,35 @@ function draw() {
   else if (edge === 'top') out.setTransform(-1, 0, 0, -1, up.width, up.height);
   out.drawImage(up, 0, 0);
   out.setTransform(1, 0, 0, 1, 0, 0);
-  // The mark stays upright whichever way he is turned (it is a sign, not part of him), centred where it would sit
-  // above his head.
+  // Sheet 105 B (his pick, 2026-10-30): the mark turns with him on every edge, floating over his head as when he
+  // stands, and when the edge changes it turns into place smoothly instead of jumping. Pulled out, he is upright again.
   const kind = flash && performance.now() < flashUntil ? flash : mark;
   if (kind && SHAPES[kind] && show > 0) {
     const a = markOf(kind);
     const [cx, cy] = turned(ART_X + ART_W / 2, MARK - 9 - a.h / 2 + (room - show));
-    out.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(cy - a.h / 2));
+    out.save();
+    out.translate(Math.round(cx), Math.round(cy));
+    const ang = markAngle(performance.now()), off = Math.abs(Math.atan2(Math.sin(ang), Math.cos(ang)));
+    if (off > 1e-3) out.rotate(ang);                                          // upright: no turn at all, pixels exact
+    out.drawImage(a.c, -Math.round(a.w / 2), -Math.round(a.h / 2));
+    out.restore();
   }
+}
+/** Which way up the mark is on each edge (the same turn he gets above), and the turn between two edges. */
+const EDGE_ANGLE = { bottom: 0, left: Math.PI / 2, right: -Math.PI / 2, top: Math.PI };
+const TURN_MS = 260;
+let turnFrom = 0, turnTo = 0, turnAt = -Infinity;
+function markAngle(now) {
+  const u = Math.min(1, (now - turnAt) / TURN_MS), e = 1 - (1 - u) ** 3;   // ease out: quick, then settles
+  return turnFrom + (turnTo - turnFrom) * e;
+}
+function turnMarkTo(to) {
+  // The first edge he is told (Samara starting with him docked) is where he already is: no turn on start.
+  if (turnAt === -Infinity) { turnFrom = turnTo = to; turnAt = -TURN_MS; return; }
+  const now = performance.now(), at = markAngle(now);
+  let d = to - at; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;   // the short way round
+  if (Math.abs(d) < 1e-3) return;
+  turnFrom = at; turnTo = at + d; turnAt = now;
 }
 /** A point of his upright drawing, on the window's canvas. */
 function turned(x, y) {
@@ -163,6 +184,8 @@ function tick(now) {
   // The haze breathes between frames too, at 15 a second: a 4 s breath of pixel haze needs no more, and this Mac is old
   // (60 a second cost ~20% of a core, 2026-10-28; 20 a second for as long as a question waits, 2026-10-29 fix 11).
   else if (glow && now - lastGlow >= 66) { lastGlow = now; draw(); }
+  else if (mark && now - turnAt < TURN_MS + 40) draw();                 // the mark turning to a new edge
+
   requestAnimationFrame(tick);
 }
 
@@ -180,7 +203,7 @@ window.pet?.onState((s) => {
     // The window is MARK plus `room` (macaang.ts placePet); the canvas follows it, one to one.
     room = Number.isFinite(s.room) ? Math.max(show, Math.min(126, Math.round(s.room))) : show;
   }
-  if (typeof s.edge === 'string') edge = ['left', 'right', 'top'].includes(s.edge) ? s.edge : 'bottom';
+  if (typeof s.edge === 'string') { edge = ['left', 'right', 'top'].includes(s.edge) ? s.edge : 'bottom'; turnMarkTo(EDGE_ANGLE[edge]); }
   if (Number.isFinite(s.show) || typeof s.edge === 'string') {
     const h = MARK + Math.max(1, room), side = edge === 'left' || edge === 'right';
     if (up.height !== h) { up.height = h; g.imageSmoothingEnabled = false; }
