@@ -2,140 +2,201 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Sheet 92 - Notices, Item get</title>
-<!-- Sheet 92 v2 (2026-10-30). His pick: option B, "Item get" (a dark plaque drops out of the band, like "You got the
-     Hookshot!", and its icon lifts with a sparkle). His answers: it drops next to what caused it; sheet 98's rules stay
-     (teal done, blue needs you, red went wrong, a sound only for needs-you, one at a time with a count, done stays until
-     he dismisses it); small things get a quieter drop. v1 was web boxes (parked as slop); this one is built only from
-     Samara's own pixel art: the tray frame (art/browser/trayframe.png at 2x), the velvet, the recess, the file and shield
-     pictures, his pixel icons, sparkles drawn pixel by pixel at 3x. The band is a real Samara window (sheet-92/backdrop.png). -->
+<title>Sheet 92 - Samara's notices</title>
+<!-- Sheet 92 (2026-10-27). His ask: "redesign the notifications in samara, right now it's BORING and doesn't follow any
+     kind of design language", "or that thing that said couldn't be saved on this mac, I've seen a few of these, I want an
+     overhaul". Today every notice is one plain parchment box under the toolbar (.toast), the same for good news, a
+     problem and something that needs him. His picks: the little pop-up notes; the feel and the place "show me".
+     Three feels, each drawn only from Samara's own pieces (the band's wood, the parchment of the asks, the gold caps, the
+     lantern, pixicons.js, the outline #120A05), each with the three kinds a notice can be: done, needs you, went wrong.
+     Then three places on the window. Every message is written plain, the Keychain one included. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
-  html,body{background:#17110c;margin:0}
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0}
   body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px}
   h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
-  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1000px;line-height:1.5}
-  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:36px 0 10px}
-  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 14px;max-width:820px;line-height:1.5}
-  img,canvas{image-rendering:pixelated}
-  /* The plaque: Samara's tray frame at 2x round the velvet, a recessed tile for the picture. */
-  .plaque{position:relative;display:flex;align-items:center;gap:14px;width:470px;box-sizing:border-box;padding:6px 10px 8px 8px;
-    border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
-    background:#1b1220 url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px}
-  .plaque .tile{position:relative;flex:none;width:56px;height:56px;box-sizing:border-box;border-style:solid;border-width:6px;
-    border-image:url(../../src/Shell/pages/art/browser/recess.png) 4 repeat;background:#0f0a0d;display:grid;place-items:center}
-  .plaque .tile img{width:36px;height:36px}
-  .plaque .tile .lift{position:relative;top:-6px}
-  .plaque .tile canvas{position:absolute;left:-34px;top:-34px;width:112px;height:112px;pointer-events:none}
-  .plaque .w{flex:1;min-width:0}
-  .plaque .kick{font:400 10px var(--label);letter-spacing:1.2px;margin:0 0 3px}
-  .plaque .t{font:800 15.5px/1.25 var(--body);color:#fbe7bf;text-shadow:0 2px 0 #000;margin:0 0 2px}
-  .plaque .m{font:500 13px/1.4 var(--body);color:#cdbb9a;margin:0}
-  .plaque .n{position:absolute;right:8px;top:4px;font:400 9px var(--label);color:#9c8662;letter-spacing:1px}
-  .plaque .keys{display:flex;flex-direction:column;gap:6px;flex:none}
-  .done .kick{color:#3FBFAE} .need .kick{color:#6FA3FF} .bad .kick{color:#FF6B5B}
-  /* the coloured strip under the frame's top edge says the kind at a glance, in whole pixels */
-  .plaque::before{content:"";position:absolute;left:0;right:0;top:-2px;height:4px}
-  .done::before{background:#3FBFAE} .need::before{background:#6FA3FF} .bad::before{background:#FF6B5B}
-  .small{width:330px;padding:3px 10px 5px 6px;gap:10px}
-  .small .tile{width:40px;height:40px;border-width:4px}
-  .small .tile img{width:24px;height:24px}
-  .small .t{font-size:14px}
-  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
-  .lab{font:400 10px var(--label);letter-spacing:1px;color:#c9a35a;margin:8px 0 0}
-  /* the drop, frame by frame: a strip of band with the plaque coming out from under it */
-  .strip{display:flex;gap:14px}
-  .fr{width:300px;height:150px;overflow:hidden;position:relative;background:#e9e3d6;border:3px solid #120A05}
-  .fr .band{position:absolute;left:0;right:0;top:0;height:26px;background:url(../../src/Shell/pages/art/browser/band.png) 0 0/128px 52px;z-index:2;border-bottom:3px solid #120A05}
-  .fr .plaque{position:absolute;left:12px;width:276px;padding:3px 6px 5px 4px;gap:8px;transform-origin:0 0}
-  .fr .plaque .w,.fr .plaque .keys,.fr .plaque .n{display:none}
-  .fr .plaque .tile{width:44px;height:44px}
-  .fr .plaque .tile img{width:28px;height:28px}
-  .scene{position:relative;width:1440px;max-width:100%}
-  .scene img.bg{display:block;width:1440px;border:3px solid #120A05}
-  .scene .plaque{position:absolute}
-  .scene .tail{position:absolute;width:12px;height:12px;background:url(../../src/Shell/pages/art/browser/trayframe.png) 0 0/24px 24px}
-  .pagetext{position:absolute;left:63px;top:98px;width:1344px;height:754px;box-sizing:border-box;padding:110px 0 0 330px;font:17px/1.6 Georgia,serif;color:#222;pointer-events:none}
-  .pagetext h1{font:700 30px Georgia,serif;color:#222;text-shadow:none;margin:0 0 16px;max-width:700px}
-  .pagetext p{max-width:700px;margin:0 0 14px}
-  .rules{font:500 13.5px/1.6 var(--body);color:#e8dcc4;max-width:900px;margin:0;padding-left:18px}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1150px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:38px 0 12px}
+  .cap{font:700 13px var(--body);color:#ffe28c;margin:0 0 3px}
+  .sub{font:500 12.5px var(--body);color:#b9a684;margin:0 0 10px;max-width:600px;line-height:1.45}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  button.replay{background:none;border:none;font:700 13px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 6px;margin-left:6px}
+  button.replay:hover{color:#ffe28c}
+
+  /* A slice of Samara, as on sheet 90: the band, the address slot, the page. */
+  .win{position:relative;width:600px;height:320px;border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #120a05,0 12px 26px rgba(0,0,0,.55);
+    background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .bandbar{position:absolute;left:0;right:0;top:0;height:58px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;border-bottom:3px solid #120a05;z-index:3}
+  .slotbar{position:absolute;left:62px;right:62px;top:13px;height:32px;border-radius:9px;background:#0B0718;border:3px solid #120A05;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);
+    display:flex;align-items:center;gap:8px;padding:0 10px;font:600 13px var(--body);color:#efe4cc;image-rendering:auto;z-index:4}
+  .slotbar .sh{width:20px;height:24px;background:url(../../src/Shell/pages/art/browser/shield_rest.png) center/contain no-repeat;image-rendering:pixelated;flex:none}
+  .band-r{position:absolute;right:14px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+    box-shadow:0 3px 0 #120a05;z-index:4;display:grid;place-items:center}
+  .band-l{position:absolute;left:14px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+    box-shadow:0 3px 0 #120a05;z-index:4}
+  .page{position:absolute;left:12px;right:12px;top:66px;bottom:12px;border-radius:14px;background:#f6f3ee;overflow:hidden}
+  .page i{display:block;height:9px;border-radius:4px;background:#e2ddd4;margin:16px 22px 0}
+  .page i:nth-child(2){width:60%} .page i:nth-child(3){width:75%} .page i:nth-child(4){width:40%}
+
+  /* The three kinds, one colour each, carried by the icon's plate (never by the whole box). */
+  :root{--done:#6FB34A;--done-deep:#3E7A2A;--need:#4C9BE8;--need-deep:#1F5A9E;--bad:#E0553E;--bad-deep:#8A2418}
+
+  /* ---------- A · the game text box (Stardew's wooden dialogue, Zelda's typing letters) ---------- */
+  .tb{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:450px;z-index:6;display:flex;gap:12px;padding:10px 14px 12px 10px;
+    background:linear-gradient(180deg,#F0DCB4,var(--parch1) 50%,var(--parch2));border:3px solid #120A05;border-radius:10px;
+    box-shadow:0 0 0 4px #6b4322,0 0 0 7px #120A05,0 10px 0 rgba(0,0,0,.35);color:var(--ink-text)}
+  .tb::before,.tb::after{content:"";position:absolute;top:-10px;width:14px;height:14px;background:url(../../src/Shell/pages/art/browser/cap3_tl.png) 0 0/14px 14px;image-rendering:pixelated}
+  .tb::before{left:-10px} .tb::after{right:-10px;background-image:url(../../src/Shell/pages/art/browser/cap3_tr.png)}
+  .tb .face{flex:none;width:52px;height:52px;border-radius:7px;border:3px solid #120A05;display:grid;place-items:center;box-shadow:inset 0 3px 0 rgba(0,0,0,.45),inset 0 -2px 0 rgba(255,255,255,.18)}
+  .tb .who{font:400 10px var(--label);letter-spacing:1.2px;color:#8a3e1c;margin:1px 0 3px}
+  .tb .say{font:600 14px/1.4 var(--body);min-height:40px}
+  .tb .more{position:absolute;right:12px;bottom:6px;width:0;height:0;border:6px solid transparent;border-top:7px solid #8a3e1c;animation:bob .7s ease-in-out infinite;opacity:0}
+  .tb.done-typing .more{opacity:1}
+  .tb .btn{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:6px;border:2px solid #120A05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));font:800 12.5px var(--body);color:#2a1c00;box-shadow:0 2px 0 #120A05}
+  @keyframes bob{50%{transform:translateY(3px)}}
+  .tb.in{animation:tbin .26s cubic-bezier(.3,1.5,.6,1) both}
+  @keyframes tbin{from{transform:translate(-50%,40px);opacity:0}}
+
+  /* ---------- B · item get (the banner that drops when Link finds something) ---------- */
+  .ig{position:absolute;left:50%;top:58px;transform:translateX(-50%);z-index:2;width:400px;padding:12px 18px 14px 74px;
+    background:linear-gradient(180deg,#3a2414,var(--wood-plaque));border:3px solid #120A05;border-top:none;border-radius:0 0 12px 12px;
+    box-shadow:inset 0 0 0 2px rgba(255,196,60,.35),0 8px 0 rgba(0,0,0,.4);color:#efe4cc}
+  .ig .gem{position:absolute;left:14px;top:9px;width:46px;height:46px;border-radius:50%;border:3px solid #120A05;display:grid;place-items:center;
+    box-shadow:0 0 0 2px var(--gold),0 0 18px var(--glow,rgba(255,196,60,.7))}
+  .ig .t{font:700 15px var(--display);color:var(--gold-light);text-shadow:0 2px 0 #000;letter-spacing:.3px}
+  .ig .m{font:500 13px/1.4 var(--body);color:#d8c8a6;margin-top:2px}
+  .ig .btn{display:inline-block;margin-top:7px;padding:3px 10px;border-radius:6px;border:2px solid #120A05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));font:800 12.5px var(--body);color:#2a1c00;box-shadow:0 2px 0 #120A05}
+  .ig .spark{position:absolute;width:4px;height:4px;background:#fff6c8;box-shadow:0 0 6px #ffe28c;opacity:0}
+  .ig.in{animation:igin 4.6s cubic-bezier(.3,1.4,.6,1) both}
+  .ig.in .gem{animation:lift .5s .2s cubic-bezier(.3,1.8,.6,1) both}
+  .ig.in .spark{animation:spark .7s .45s ease-out both}
+  @keyframes igin{0%{transform:translate(-50%,-110%)}8%{transform:translate(-50%,0)}88%{transform:translate(-50%,0)}100%{transform:translate(-50%,-110%)}}
+  @keyframes lift{from{transform:translateY(14px) scale(.6)}}
+  @keyframes spark{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
+  .ig.stay{animation:none;transform:translateX(-50%)}
+
+  /* ---------- C · the lantern tag (a paper tag hung from the band, lit by Samara's lantern) ---------- */
+  .lt{position:absolute;right:58px;top:52px;z-index:6;transform-origin:50% 0;width:270px}
+  .lt .cord{position:absolute;left:50%;top:0;width:2px;height:18px;background:#120A05;margin-left:-1px}
+  .lt .lamp{position:absolute;left:50%;top:12px;margin-left:-16px;width:32px;height:32px;background:url(../../src/Shell/pages/art/samara/samara-lantern-32.png) 0 0/32px 32px;image-rendering:pixelated;
+    filter:drop-shadow(0 0 8px var(--glow,rgba(255,196,60,.9)));z-index:2}
+  .lt .tag{position:relative;margin-top:38px;padding:12px 14px 12px;background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid #120A05;border-radius:8px;
+    box-shadow:0 6px 0 rgba(0,0,0,.4),0 0 26px var(--glow,rgba(255,196,60,.35));color:var(--ink-text);display:flex;gap:10px;align-items:flex-start}
+  .lt .tag::before{content:"";position:absolute;left:50%;top:-8px;margin-left:-6px;width:12px;height:12px;border-radius:50%;background:#2a1a0e;border:2px solid #120A05}
+  .lt .q{font:800 14px var(--body)} .lt .m{font:500 12.5px/1.4 var(--body);color:#4e3d28;margin-top:2px}
+  .lt .btn{display:inline-block;margin-top:7px;padding:3px 10px;border-radius:6px;border:2px solid #120A05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));font:800 12.5px var(--body);color:#2a1c00;box-shadow:0 2px 0 #120A05}
+  .lt.in{animation:ltin 1.6s ease-out both}
+  .lt.in .lamp{animation:flick 1.8s steps(1) infinite}
+  @keyframes ltin{0%{transform:translateY(-120%) rotate(0)}22%{transform:translateY(0) rotate(5deg)}45%{transform:rotate(-3deg)}65%{transform:rotate(1.5deg)}100%{transform:rotate(0)}}
+  @keyframes flick{0%,100%{filter:drop-shadow(0 0 8px var(--glow))}40%{filter:drop-shadow(0 0 5px var(--glow))}70%{filter:drop-shadow(0 0 10px var(--glow))}}
+
+  .kind-done{--k:var(--done);--kd:var(--done-deep);--glow:rgba(111,179,74,.75)}
+  .kind-need{--k:var(--need);--kd:var(--need-deep);--glow:rgba(76,155,232,.8)}
+  .kind-bad{--k:var(--bad);--kd:var(--bad-deep);--glow:rgba(224,85,62,.8)}
+  .face,.gem,.pl{background:linear-gradient(180deg,var(--k),var(--kd))}
+  .pl{flex:none;width:30px;height:30px;border-radius:6px;border:2px solid #120A05;display:grid;place-items:center}
+
+  .kinds{display:flex;gap:10px;margin:8px 0 0}
+  .kinds button{font:700 12.5px var(--body);padding:4px 10px;border-radius:6px;border:2px solid #120A05;cursor:pointer;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6);box-shadow:0 2px 0 #000}
+  .kinds button[data-k=done]{background:var(--done-deep)} .kinds button[data-k=need]{background:var(--need-deep)} .kinds button[data-k=bad]{background:var(--bad-deep)}
+  .kinds button[aria-pressed=true]{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* placement dots */
+  .spot{position:absolute;z-index:7;font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:var(--gold);border:2px solid #120A05;border-radius:5px;padding:2px 6px}
+  .mini{position:absolute;z-index:6;width:250px;display:flex;gap:9px;padding:8px 10px;background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid #120A05;border-radius:8px;
+    box-shadow:0 0 0 3px #6b4322,0 0 0 5px #120A05,0 6px 0 rgba(0,0,0,.35);color:var(--ink-text);font:600 13px/1.35 var(--body)}
+  .mini .face{width:30px;height:30px;border-width:2px;border-radius:6px}
+  .arrowup{position:absolute;width:0;height:0;border:8px solid transparent;border-bottom:9px solid #120A05;top:-20px}
 </style>
 </head>
 <body>
-<h1>SHEET 92 &middot; NOTICES, ITEM GET</h1>
-<p class="lead">v2. Your pick, option B: a dark plaque drops out of the band and its picture lifts with a sparkle, like getting an item. It drops next to what caused it. Drawn only from Samara's own pixel art.</p>
+<h1>Sheet 92 · Samara's notices</h1>
+<p class="lead">Today every notice is the same plain box under the toolbar, whether it's good news, a problem or something that needs you. Here are three new looks, each in Samara's own wood, parchment and pixel art. Each one has three kinds: <b style="color:var(--done)">done</b>, <b style="color:var(--need)">needs you</b>, <b style="color:var(--bad)">went wrong</b>. Tap a kind to see it play.</p>
 
-<h2>1 · THE THREE KINDS, FULL MOMENT</h2>
-<p class="sub">Teal for done, blue when it needs you, red when something went wrong. Only "needs you" makes a sound. One at a time, with a count; a done one stays until you dismiss it.</p>
+<h2>FEEL A · GAME TEXT BOX</h2>
+<p class="cap">A wooden dialogue box, like Stardew and Zelda. The letters type in, and a little arrow bobs when it's done.</p>
+<p class="sub">The icon's plate carries the colour of the kind. It fades after 6 seconds; a "needs you" stays until you act.</p>
+<div class="win" id="winA"><div class="bandbar"></div><div class="band-l"></div><div class="slotbar"><span class="sh"></span>github.com</div><div class="band-r"></div><div class="page"><i></i><i></i><i></i><i></i></div></div>
+<div class="kinds" data-for="A"><button data-k="done">Done</button><button data-k="need">Needs you</button><button data-k="bad">Went wrong</button></div>
+
+<h2>FEEL B · ITEM GET</h2>
+<p class="cap">A dark plaque drops out of the band, like "You got the Hookshot!". The icon lifts up with a sparkle, then it slides back.</p>
+<p class="sub">The biggest moment of the three. Best for things worth celebrating, a bit loud for small stuff.</p>
+<div class="win" id="winB"><div class="bandbar"></div><div class="band-l"></div><div class="slotbar"><span class="sh"></span>github.com</div><div class="band-r"></div><div class="page"><i></i><i></i><i></i><i></i></div></div>
+<div class="kinds" data-for="B"><button data-k="done">Done</button><button data-k="need">Needs you</button><button data-k="bad">Went wrong</button></div>
+
+<h2>FEEL C · LANTERN TAG</h2>
+<p class="cap">A paper tag swings down on a cord from the band, lit by Samara's lantern. The lantern glows in the kind's colour and flickers.</p>
+<p class="sub">The quietest of the three. Ties notices to Samara's lantern icon.</p>
+<div class="win" id="winC"><div class="bandbar"></div><div class="band-l"></div><div class="slotbar"><span class="sh"></span>github.com</div><div class="band-r"></div><div class="page"><i></i><i></i><i></i><i></i></div></div>
+<div class="kinds" data-for="C"><button data-k="done">Done</button><button data-k="need">Needs you</button><button data-k="bad">Went wrong</button></div>
+
+<h2>WHERE · THREE PLACES</h2>
 <div class="row">
-  <div><div class="plaque done"><div class="tile"><img class="lift" src="../../src/Shell/pages/art/browser/file_pdf.png" alt=""><canvas class="spark" width="28" height="28" data-f="2"></canvas></div>
-    <div class="w"><p class="kick">DOWNLOADED</p><p class="t">tax-form.pdf</p><p class="m">It's in your Downloads.</p></div>
-    <div class="keys"><button class="key sm" type="button">Got it<span class="k">A</span></button></div><span class="n">1 OF 3</span></div><p class="lab">DONE</p></div>
-  <div><div class="plaque need"><div class="tile"><img class="lift" src="../../src/Shell/pages/art/browser/shield_rest.png" alt=""><canvas class="spark" width="28" height="28" data-f="2"></canvas></div>
-    <div class="w"><p class="kick">NEEDS YOU</p><p class="t">Your Mac needs a yes</p><p class="m">Pick Always Allow so your logins come back.</p></div>
-    <div class="keys"><button class="key primary sm" type="button">Open it<span class="k">A</span></button><button class="key sm" type="button">Later<span class="k">Z</span></button></div><span class="n">2 OF 3</span></div><p class="lab">NEEDS YOU · WITH THE ONE SOUND</p></div>
-  <div><div class="plaque bad"><div class="tile"><img class="lift" src="../../src/Shell/pages/art/browser/shield_bad.png" alt=""><canvas class="spark" width="28" height="28" data-f="2" data-c="#FF9A8C"></canvas></div>
-    <div class="w"><p class="kick">WENT WRONG</p><p class="t">The download stopped</p><p class="m">tax-form.pdf didn't finish. Try it again.</p></div>
-    <div class="keys"><button class="key primary sm" type="button">Try again<span class="k">A</span></button></div><span class="n">3 OF 3</span></div><p class="lab">WENT WRONG</p></div>
+  <div><p class="cap">1 · Bottom middle</p><p class="sub">Where game dialogue lives. Never covers tabs or the address.</p>
+    <div class="win" style="width:420px;height:250px"><div class="bandbar"></div><div class="slotbar"><span class="sh"></span></div><div class="page"><i></i><i></i><i></i></div>
+      <div class="mini kind-done" style="left:85px;bottom:22px"><span class="face" data-ic="yes"></span><span>Saved to Downloads.</span></div></div></div>
+  <div><p class="cap">2 · Under the toolbar, right</p><p class="sub">Where they are today. Close to your eyes, but can cover the page's top.</p>
+    <div class="win" style="width:420px;height:250px"><div class="bandbar"></div><div class="slotbar"><span class="sh"></span></div><div class="page"><i></i><i></i><i></i></div>
+      <div class="mini kind-done" style="right:16px;top:70px"><span class="face" data-ic="yes"></span><span>Saved to Downloads.</span></div></div></div>
+  <div><p class="cap">3 · Next to what caused it</p><p class="sub">A download note points at the tray, a PIN note at the lock. You learn where things live.</p>
+    <div class="win" style="width:420px;height:250px"><div class="bandbar"></div><div class="slotbar" style="right:62px"><span class="sh"></span></div><div class="band-r"></div><div class="page"><i></i><i></i><i></i></div>
+      <div class="mini kind-done" style="right:10px;top:72px"><span class="arrowup" style="right:22px"></span><span class="face" data-ic="yes"></span><span>Saved to Downloads.</span></div></div></div>
 </div>
 
-<h2>2 · THE MOMENT, FRAME BY FRAME</h2>
-<p class="sub">It drops out from under the band in three steps, the picture hops up, the sparkle twinkles twice, then everything settles. About half a second, in whole-pixel steps.</p>
-<div class="strip" id="strip"></div>
-
-<h2>3 · SMALL THINGS, A QUIETER DROP</h2>
-<p class="sub">Routine news (a download saved, a page added to a trail) drops the same way but smaller: no hop, no sparkle, no sound. It slides back by itself after a few seconds.</p>
-<div class="row">
-  <div><div class="plaque small done"><div class="tile"><img src="../../src/Shell/pages/art/browser/file_img.png" alt=""></div>
-    <div class="w"><p class="kick">SAVED</p><p class="t">photo.png is in Downloads</p></div></div><p class="lab">SMALL · DONE</p></div>
-  <div><div class="plaque small done"><div class="tile"><img src="../../src/Shell/pages/art/browser/file_doc.png" alt=""></div>
-    <div class="w"><p class="kick">ADDED</p><p class="t">Page added to Tax season</p></div></div><p class="lab">SMALL · DONE</p></div>
-</div>
-
-<h2>4 · NEXT TO WHAT CAUSED IT</h2>
-<p class="sub">A login notice drops from the shield; a download notice drops from the download key, which shows by the menu while something downloads. You learn where things live. The band is a real Samara window.</p>
-<div class="scene" id="scene"><img class="bg" src="sheet-92/backdrop.png" alt="">
-<div class="pagetext"><h1>Filing your taxes this year</h1><p>Gather your slips, check last year, and keep every receipt in one folder. Most people can file online in under an hour, and the forms are the same as last year with a few new lines for working from home.</p><p>If you moved, update your address first. If you started a side job, keep the invoices together; you will need the totals, not every page.</p></div></div>
-
-<h2>5 · RULES (FROM SHEET 98, UNCHANGED)</h2>
-<ul class="rules">
-  <li>Teal done, blue needs you, red went wrong, the same as the rune.</li>
-  <li>A sound only for "needs you".</li>
-  <li>One at a time, with a count ("2 OF 3").</li>
-  <li>A done one stays until you dismiss it; small ones slide back by themselves.</li>
-</ul>
-
-<script>
-// Sparkles, pixel by pixel at 3x: four-point stars in two sizes, two twinkle frames.
-const STAR = { big: ['..W..', '..Y..', 'WYWYW', '..Y..', '..W..'], small: ['.W.', 'WYW', '.W.'] };
-function sparkle(cv, f, tone) {
-  const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
-  const put = (map, ox, oy) => map.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = ch === 'W' ? '#fffbe8' : (tone || '#ffe28c'); g.fillRect(ox + x, oy + y, 1, 1); }));
-  // the tile is canvas pixels 7 to 21: the stars twinkle round its corners, at 4x
-  if (f === 1) { put(STAR.small, 3, 5); put(STAR.small, 21, 4); }
-  if (f === 2) { put(STAR.big, 19, 1); put(STAR.small, 2, 5); put(STAR.small, 23, 19); }
-  if (f === 3) { put(STAR.big, 1, 2); put(STAR.small, 22, 3); put(STAR.small, 3, 21); }
+<script type="module">
+import { pixIcon } from '../../src/Shell/pages/pixicons.js';
+// What each kind says, written plain. "needs you" is the Keychain message that started this sheet, rewritten.
+const SAY = {
+  done: { who: 'DOWNLOADS', ic: 'yes', t: 'Saved to Downloads', m: 'tax-form.pdf is in your Downloads folder.' },
+  need: { who: 'YOUR MAC', ic: 'key', t: 'Your Mac needs a yes', m: 'Quit and reopen Samara, then pick Always Allow. Your PIN and logins come back.', btn: 'Quit and reopen' },
+  bad:  { who: 'THE TV', ic: 'wont', t: 'The TV didn’t answer', m: 'Check it’s on, then try Send to TV again.' },
+};
+const icon = (n, s) => pixIcon(n, s) ?? document.createElement('span');
+const wins = { A: document.getElementById('winA'), B: document.getElementById('winB'), C: document.getElementById('winC') };
+let typing = null;
+function show(look, k) {
+  const w = wins[look], s = SAY[k];
+  w.querySelector('.note-live')?.remove();
+  const n = document.createElement('div');
+  n.className = 'note-live kind-' + k;
+  if (look === 'A') {
+    n.classList.add('tb');
+    const face = document.createElement('span'); face.className = 'face'; face.append(icon(s.ic, 3));
+    const body = document.createElement('div'); body.style.flex = '1';
+    body.innerHTML = `<div class="who">${s.who}</div><div class="say"></div>`;
+    n.append(face, body, Object.assign(document.createElement('span'), { className: 'more' }));
+    w.append(n); n.classList.add('in');
+    const say = body.querySelector('.say'), full = s.t + '. ' + s.m;
+    clearInterval(typing); let i = 0;
+    typing = setInterval(() => { say.textContent = full.slice(0, ++i); if (i >= full.length) { clearInterval(typing); n.classList.add('done-typing');
+      if (s.btn) say.append(document.createElement('br'), Object.assign(document.createElement('span'), { className: 'btn', textContent: s.btn })); } }, 22);
+  } else if (look === 'B') {
+    n.classList.add('ig');
+    const gem = document.createElement('span'); gem.className = 'gem'; gem.append(icon(s.ic, 3));
+    n.append(gem);
+    for (const [dx, dy, l, t] of [[-16, -14, 22, 14], [18, -16, 48, 10], [-20, 10, 18, 44], [20, 12, 52, 46]]) {
+      const sp = document.createElement('i'); sp.className = 'spark'; sp.style.cssText = `left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px`; n.append(sp);
+    }
+    n.insertAdjacentHTML('beforeend', `<div class="t">${s.t}</div><div class="m">${s.m}</div>${s.btn ? `<span class="btn">${s.btn}</span>` : ''}`);
+    w.append(n);
+    if (k === 'need') n.classList.add('stay'); else n.classList.add('in');
+  } else {
+    n.classList.add('lt');
+    n.innerHTML = `<span class="cord"></span><span class="lamp"></span><div class="tag"><span class="pl"></span><div><div class="q">${s.t}</div><div class="m">${s.m}</div>${s.btn ? `<span class="btn">${s.btn}</span>` : ''}</div></div>`;
+    n.querySelector('.pl').append(icon(s.ic, 2));
+    w.append(n); n.classList.add('in');
+  }
 }
-for (const c of document.querySelectorAll('canvas.spark')) sparkle(c, Number(c.dataset.f), c.dataset.c);
-
-// The frame strip.
-const PDF = '../../src/Shell/pages/art/browser/file_pdf.png';
-const frames = [['UNDER THE BAND', -40, 0, 0], ['DROP', -14, 0, 0], ['DOWN', 30, 0, 0], ['HOP + SPARKLE', 30, 6, 2], ['TWINKLE', 30, 4, 3], ['SETTLED', 34, 0, 0]];
-const strip = document.getElementById('strip');
-for (const [lab, y, hop, sp] of frames) {
-  const wrap = document.createElement('div');
-  wrap.innerHTML = `<div class="fr"><div class="band"></div><div class="plaque done" style="top:${y}px"><div class="tile"><img src="${PDF}" alt="" style="position:relative;top:${-hop}px"><canvas class="spark" width="28" height="28"></canvas></div></div></div><p class="lab">${lab}</p>`;
-  strip.append(wrap);
-  sparkle(wrap.querySelector('canvas'), sp);
+for (const g of document.querySelectorAll('.kinds')) {
+  for (const b of g.querySelectorAll('button')) b.addEventListener('click', () => {
+    for (const x of g.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+    show(g.dataset.for, b.dataset.k);
+  });
+  g.querySelector('[data-k=need]').click();
 }
-strip.style.flexWrap = 'wrap';
-
-// The scene: plaques hanging from the real band's download tray and shield.
-const scene = document.getElementById('scene');
-const hang = (html, left, top) => { const d = document.createElement('div'); d.innerHTML = html; const p = d.firstElementChild; p.style.left = left + 'px'; p.style.top = top + 'px'; scene.append(p); };
-hang(`<div class="plaque need"><div class="tile"><img class="lift" src="../../src/Shell/pages/art/browser/shield_rest.png" alt=""><canvas class="spark" width="28" height="28"></canvas></div><div class="w"><p class="kick">NEEDS YOU</p><p class="t">Save your login for this site?</p><p class="m">Bitwarden can keep it for next time.</p></div><div class="keys"><button class="key primary sm">Save<span class="k">A</span></button><button class="key sm">Not now<span class="k">Z</span></button></div><span class="n">1 OF 2</span></div>`, 196, 62);
-hang(`<div class="plaque done"><div class="tile"><img class="lift" src="../../src/Shell/pages/art/browser/file_pdf.png" alt=""><canvas class="spark" width="28" height="28"></canvas></div><div class="w"><p class="kick">DOWNLOADED</p><p class="t">tax-form.pdf</p><p class="m">It's in your Downloads.</p></div><div class="keys"><button class="key sm">Got it<span class="k">A</span></button></div><span class="n">2 OF 2</span></div>`, 960, 62);
-for (const c of scene.querySelectorAll('canvas.spark')) sparkle(c, 2);
+for (const t of document.querySelectorAll('[data-ic]')) t.append(icon(t.dataset.ic, 2));
 </script>
 </body>
 </html>
