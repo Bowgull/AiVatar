@@ -40,7 +40,8 @@ test('leaving Claude drops a held line that went stale while he was in there', (
   t = 2 * 3_600_000;
   assert.equal(gate.pass({ t: 'bubble', text: 'Reminder: call', stream: false, proactive: true, reminder: 'r1' } as never), null);
   inClaude = false;
-  assert.deepEqual(gate.moved().lines.map((m) => (m as { text: string }).text), ['Reminder: call']);
+  assert.equal(gate.moved(), true, 'he just left Claude');
+  assert.deepEqual(gate.queue.take().map((h) => (h.msg as { text: string }).text), ['Reminder: call']);
 });
 
 test('three held at once come out as one bubble, a row each, the whole message behind each row (sheet 102)', async () => {

@@ -660,6 +660,26 @@
       "at": "2026-10-30T05:33:00-04:00",
       "text": "Sleeping tabs never freeze while you look at them.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T06:15:00-04:00",
+      "text": "Claude's plan card: tick centred, empty Change never says Go.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T06:58:00-04:00",
+      "text": "A slow start after an update no longer undoes it.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T07:10:00-04:00",
+      "text": "A page that won't load shows Jiji the cat.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T07:15:00-04:00",
+      "text": "Claude's mark turns with Aang at every edge.",
+      "kind": "fix"
     }
   ]
 }

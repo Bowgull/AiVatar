@@ -6,6 +6,7 @@
 //   - every request from that page that is not the picture itself is cancelled, so nothing reaches the internet;
 //   - one picture at a time, a deadline on each, and the hidden window is closed after a minute with nothing to draw.
 import { BrowserWindow, session } from 'electron';
+import { capture } from './capture.ts';
 
 const SIZE = 32;
 const MAX_BYTES = 64 * 1024;
@@ -46,8 +47,8 @@ async function draw(svg: Buffer): Promise<string | null> {
     const done = await Promise.race([loaded.then(() => true, () => false), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]);
     if (!done) return null;
     await new Promise((r) => setTimeout(r, 60));               // one paint after load
-    const img = await Promise.race([w.webContents.capturePage({ x: 0, y: 0, width: SIZE, height: SIZE }), new Promise<null>((r) => setTimeout(() => r(null), 2000))]);
-    if (!img || img.isEmpty()) return null;
+    const img = (await capture(w, { rect: { x: 0, y: 0, width: SIZE, height: SIZE }, format: 'image', maxWidth: Infinity, scale: Infinity, ms: 2000 }))?.image;
+    if (!img) return null;
     const pic = img.getSize().width === SIZE ? img : img.resize({ width: SIZE, height: SIZE, quality: 'best' });
     // Drew nothing (a broken or empty SVG): no picture rather than a blank square.
     const px = pic.toBitmap();

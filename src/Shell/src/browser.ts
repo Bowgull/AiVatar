@@ -28,6 +28,11 @@ import { connect as netConnect } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import { run, within } from './page.ts';
+import { SIZES, capture, captureWindow, type CaptureOpts, type Shot, type WindowShot } from './capture.ts';
+import { trouble } from './flight.ts';
+/** How many trouble pictures are kept (the newest). */
+const TROUBLE_KEEP = 12;
 import { CastSession, DEFAULT_PLAYER, airplayNames, findRemoteTvs, findTvs } from './tv.ts';
 import { KEY, ensureCert, remote, startPairing, type TvTarget } from './tvremote.ts';
 import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, copyProtected, plainMedia, seekPageJs, tvAppLink, tvSteps, twitchMedia, twitchOf, youTubeId, youTubeOnTv, type TvAppLink } from './tvmedia.ts';
@@ -501,33 +506,23 @@ function hexOf(c: unknown): string | undefined {
   return m ? '#' + m.slice(1, 4).map((x) => Math.min(255, Number(x)).toString(16).padStart(2, '0')).join('') : undefined;
 }
 /** The soft fade between pages (his pick, option 5): fade length, when a slow site dims, when a page counts as instant. */
-/**
- * A quick question to a page's own world, asked now even while it is still loading (2026-10-24, speed check): the
- * webContents form waits for the page to finish, so the password look every 1.5 s piled up on a page that keeps loading
- * (Twitch), each one a listener left waiting (the "11 did-stop-loading listeners" warning in the log).
- */
-const askPage = <T>(wc: Electron.WebContents, code: string): Promise<T | null> => {
-  try { const f = wc.mainFrame; if (!f || f.isDestroyed()) return Promise.resolve(null); return f.executeJavaScript(code) as Promise<T>; } catch { return Promise.resolve(null); }
-};
 const VEIL_FADE_MS = 250, VEIL_DIM_MS = 1500, VEIL_INSTANT_MS = 300, VEIL_MAX_MS = 8000;
 /** A woken page's picture fades out a little slower: one soft change instead of a page rebuilding (2026-10-23). */
 const WAKE_FADE_MS = 350;
 
-/** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
-function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
-}
+/** Autofill and password fill run in a world of their own: the page cannot see or change the fill (page.ts adds the deadline). */
+const FILL_WORLD = 1001;
 
 /**
  * A picture for Aang (Send to Aang, 2026-10-21): at most 1200 px wide, as a PNG data URL, and dropped (null) when it
  * would still be over 1.5 MB. A huge picture is never sent.
  */
-export function fitShot(img: Electron.NativeImage | null, maxW = SHOT_MAX_W, maxBytes = SHOT_MAX_BYTES): string | null {
-  if (!img || img.isEmpty()) return null;
-  const fit = img.getSize().width > maxW ? img.resize({ width: maxW, quality: 'good' }) : img;
-  const url = 'data:image/png;base64,' + fit.toPNG().toString('base64');
-  return url.length <= maxBytes ? url : null;
+export function fitShot(shot: Shot | null, maxBytes = SHOT_MAX_BYTES): string | null {
+  const url = shot?.dataUrl() ?? '';
+  return url && url.length <= maxBytes ? url : null;
 }
+/** How a picture for Aang is taken (capture.ts): his size, PNG. */
+const AANG_SHOT = { maxWidth: SHOT_MAX_W, format: 'png', ms: 3000 } as const;
 
 /** Sheet 37: a Claude session's plan, as shown to him. */
 export interface PlanCard {
@@ -602,21 +597,57 @@ export class AangBrowser {
   async look(): Promise<{ frame: string | null; page: string | null; size: string }> {
     const w = this.win;
     if (!w || w.isDestroyed()) return { frame: null, page: null, size: 'the window is closed' };
-    const img = await within(w.webContents.capturePage(), 2000, null);
+    // The whole window as he sees it (capture.ts): the frame and every view shown in it, not the frame alone.
+    const img = await captureWindow(w, { format: 'png', ms: 2000 });
     const t = this.cur();
     const b = w.getBounds();
-    return { frame: img && !img.isEmpty() ? img.toPNG().toString('base64') : null, page: t ? await this.shotOf(t) : null, size: `${b.width}x${b.height} at ${b.x},${b.y}; drawer ${this.drawerOpen ? 'open' : 'shut'}; ${this.tabs.length} tabs` };
+    return { frame: img ? img.base64() : null, page: t ? await this.shotOf(t) : null, size: `${b.width}x${b.height} at ${b.x},${b.y}; drawer ${this.drawerOpen ? 'open' : 'shut'}; ${this.tabs.length} tabs` };
+  }
+
+  /**
+   * His pick (2026-10-30): Samara's whole window as he sees it (the tab bar, the page, the curtain, the open list), and
+   * the pop-out too while a video plays in it. Drawn by Samara itself (capture.ts), kept on this computer.
+   */
+  async seeWindow(o: CaptureOpts = {}): Promise<{ window: WindowShot | null; popout: WindowShot | null; size: string }> {
+    const P = this.lastPane();
+    const w = P?.win;
+    const lent = this.tabs.find((t) => t.lent && t.view)?.view;
+    const pop = lent ? BrowserWindow.getAllWindows().find((x) => !x.isDestroyed() && x !== w && x.isVisible() && x.contentView.children.includes(lent)) : undefined;
+    const [window, popout] = await Promise.all([w && !w.isDestroyed() ? captureWindow(w, o) : null, pop ? captureWindow(pop, o) : null]);
+    const b = w && !w.isDestroyed() ? w.getBounds() : null;
+    const size = b ? `${b.width}x${b.height}; ${this.paneTabs(P).length} tabs${pop ? '; a video in the pop-out' : ''}${w!.isMinimized() ? '; minimized' : ''}` : 'no Samara window is open';
+    return { window, popout, size };
+  }
+  /** A page went away or stopped answering: one picture of his window as it was, kept for finding out why (his pick). */
+  private troubleAt = 0;
+  private troubleShot(kind: 'gone' | 'hang', wc: Electron.WebContents): void {
+    if (this.o.secret || Date.now() - this.troubleAt < 60_000) return;              // the secret window is never kept
+    const t = this.tabs.find((x) => x.view && !x.view.webContents.isDestroyed() && x.view.webContents === wc);
+    if (!t || !this.alive(this.paneOfTab(t))) return;                               // only his own tabs, in a window
+    this.troubleAt = Date.now();
+    let site = 'page'; try { site = new URL(t.url).hostname.replace(/[^a-z0-9.-]/gi, '') || 'page'; } catch { /* none */ }
+    // A page that went away shows its plate after a moment: that is what he saw.
+    setTimeout(() => {
+      const w = this.paneOfTab(t)?.win;
+      if (!w || w.isDestroyed()) return;
+      void captureWindow(w, { ms: 1500, quality: 70 }).then((shot) => {
+        if (!shot) return;
+        const dir = path.join(this.o.stateDir, 'trouble');
+        mkdirSync(dir, { recursive: true });
+        const name = `${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${kind}-${site.slice(0, 40)}.jpg`;
+        writeFileSync(path.join(dir, name), shot.data);
+        // The newest few are kept; the folder never grows.
+        for (const old of readdirSync(dir).filter((f) => f.endsWith('.jpg')).sort().slice(0, -TROUBLE_KEEP)) try { unlinkSync(path.join(dir, old)); } catch { /* next time */ }
+        console.error(`flight: picture of the window kept (trouble/${name}${shot.missing.length ? `, ${shot.missing.length} part(s) gave none` : ''})`);
+      }).catch(() => { /* no picture this time */ });
+    }, kind === 'gone' ? 1500 : 0);
   }
 
   private async shotOf(t: Tab): Promise<string | null> {
     if (!t.view || t.crashed || t.blocked || t.failed || t.lent) return null;
     try {
-      const img = await within(t.view.webContents.capturePage(), 600, null);
-      if (!img || img.isEmpty()) return null;
-      // At the page's own size on screen: a high-DPI picture is four times the bytes for nothing he can see.
-      const b = t.view.getBounds();
-      const fit = img.getSize().width > b.width * 1.25 && b.width > 0 ? img.resize({ width: b.width, quality: 'good' }) : img;
-      return 'data:image/jpeg;base64,' + fit.toJPEG(80).toString('base64');
+      // At the page's own size on screen (capture.ts): it is shown over the page, so never smaller than that.
+      return (await capture(t.view, { ms: 600, maxWidth: Infinity, quality: 80 }))?.dataUrl() ?? null;
     } catch { return null; }
   }
   /** The mouse is heading for something that will cover the page: take its picture now. */
@@ -748,7 +779,7 @@ export class AangBrowser {
     // The brand line, read once from Samara's own world in a page (a page cannot change what that world sees).
     if (!this.brands) wc.once('dom-ready', () => {
       if (this.brands || !/^https:/.test(wc.getURL())) return;
-      wc.executeJavaScriptInIsolatedWorld(999, [{ code: 'JSON.stringify((navigator.userAgentData && navigator.userAgentData.brands) || [])' }]).then((j: string) => {
+      run<string>(wc, 'JSON.stringify((navigator.userAgentData && navigator.userAgentData.brands) || [])', { world: 999, ms: 3000 }).then((j) => {
         const list = JSON.parse(String(j)) as { brand: string; version: string }[];
         if (Array.isArray(list) && list.length && list.every((x) => typeof x.brand === 'string' && /^\d+$/.test(String(x.version)))) this.brands = list.map((x) => `"${x.brand.replace(/"/g, '')}";v="${x.version}"`).join(', ');
       }).catch(() => { /* the next page tells it */ });
@@ -837,6 +868,8 @@ export class AangBrowser {
   private whenOpen: (() => void)[] = [];
   constructor(o: BrowserOptions) {
     this.o = o;
+    trouble.on('gone', (wc: Electron.WebContents) => this.troubleShot('gone', wc));
+    trouble.on('hang', (wc: Electron.WebContents) => this.troubleShot('hang', wc));
     this.ses = electronSession.fromPartition(o.secret ? 'aang-secret-guest' : 'persist:aang-browser');
     if (o.secret) {
       this.keptSes = electronSession.fromPartition('persist:aang-secret');
@@ -1805,7 +1838,7 @@ export class AangBrowser {
   private async tvSend(t: Tab): Promise<void> {
     const say = (s: string) => console.log(`shell: TV: ${s}`);
     const wc = t.view?.webContents, live = Boolean(wc && !wc.isDestroyed());
-    const v = live ? await within(askPage<{ at: number }>(wc!, PAGE_VIDEO_JS), 1500, null) : null;
+    const v = live ? await run<{ at: number } | null>(wc!, PAGE_VIDEO_JS, { ms: 1500, fallback: null }) : null;
     const at = v?.at ?? 0;
     const a = tvAppLink(t.url, at);
     say(`send from ${hostOf(t.url)}: ${a ? 'the TV\'s ' + a.app : copyProtected(t.url) ? 'the whole window' : 'just the video'}`);
@@ -1857,7 +1890,7 @@ export class AangBrowser {
     clearTimeout(two);
     console.log(`shell: TV: playing in the TV's ${a.app}`);
     const wc = t?.view?.webContents;
-    if (c.pause && wc && !wc.isDestroyed()) void askPage(wc, PAUSE_PAGE_JS);
+    if (c.pause && wc && !wc.isDestroyed()) void run(wc, PAUSE_PAGE_JS, { fallback: null });
     this.tv = { kind: 'app', tab: tabId, name: this.tvName, title: (t?.title || '').slice(0, 200), site: hostOf(t?.url ?? ''), app: a.app };
     this.tvStep = null;
     this.sendTabs();
@@ -1882,7 +1915,7 @@ export class AangBrowser {
     const tv = tvs.find((x) => /yeet/i.test(x.name)) ?? tvs[0];
     if (!tv) { this.note('Your TV is not answering for videos. Turn it on, then try again (The whole window works with it asleep).'); return; }
     this.tvName = tv.name;
-    const v = live ? await within(askPage<{ src: string; at: number; live: boolean; paused: boolean; poster: string; title: string }>(wc!, PAGE_VIDEO_JS), 2000, null) : null;
+    const v = live ? await run<{ src: string; at: number; live: boolean; paused: boolean; poster: string; title: string } | null>(wc!, PAGE_VIDEO_JS, { ms: 2000, fallback: null }) : null;
     const title = (t.title || v?.title || '').slice(0, 200), site = hostOf(t.url);
     const cast = new CastSession(tv);
     try {
@@ -1910,7 +1943,7 @@ export class AangBrowser {
         await cast.load(media);
       }
     } catch (e) { cast.close(); say(`failed: ${(e as Error).message}`); this.note(`${tv.name} could not play it: ${(e as Error).message}.`); return; }
-    if (live) void askPage(wc!, PAUSE_PAGE_JS);
+    if (live) void run(wc!, PAUSE_PAGE_JS, { fallback: null });
     this.tv = { kind: 'video', tab: t.id, name: tv.name, title, site, cast };
     cast.on('ended', () => { if (this.tv?.cast === cast) { this.tv = null; this.tvAsk = null; this.sendTabs(); } });
     this.sendTabs();
@@ -1967,7 +2000,7 @@ export class AangBrowser {
       const at = bringBack ? await tv.cast.where() : 0;
       tv.cast.stop();
       const wc = this.tabs.find((x) => x.id === tv.tab)?.view?.webContents;
-      if (bringBack && wc && !wc.isDestroyed()) { void askPage(wc, seekPageJs(at)); this.activate(tv.tab); }
+      if (bringBack && wc && !wc.isDestroyed()) { void run(wc, seekPageJs(at), { fallback: null }); this.activate(tv.tab); }
     } else if (tv.kind === 'window' && tv.win && !tv.win.isDestroyed()) {
       const w = tv.win;
       const done = () => { if (!w.isDestroyed() && tv.back) w.setBounds(tv.back, true); };
@@ -2220,7 +2253,7 @@ export class AangBrowser {
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { this.pane = p; if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
-    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === p.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true'), 500, null); });
+    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === p.fullTab); if (t?.view) void run(t.view.webContents, 'document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', { ms: 500, fallback: null }); });
     w.on('closed', () => {
       this.pane = p;
       // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
@@ -2458,7 +2491,7 @@ export class AangBrowser {
     this.pane = P;
     if (this.veil?.nav !== nav) return;                         // the new page drew first: a plain switch
     if (!v.webContents || v.webContents.isDestroyed()) { if (this.veil?.nav === nav) this.veil = null; return; }   // the window closed meanwhile
-    const ok = await within(v.webContents.executeJavaScript(`curtainShow(${JSON.stringify(shot)})`), 400, false);
+    const ok = await run(v.webContents, `curtainShow(${JSON.stringify(shot)})`, { ms: 400, fallback: false });
     this.pane = P;
     const vl = this.veil;
     if (!ok || vl?.nav !== nav || !t.view || t.id !== this.active || this.drawerOpen) { if (vl?.nav === nav) this.veil = null; return; }
@@ -2467,7 +2500,7 @@ export class AangBrowser {
     this.raiseTray();                                           // but never over the open tab list
     v.setVisible(true);
     vl.up = true;
-    vl.dimT = setTimeout(() => { if (P.veil?.nav === nav) void v.webContents.executeJavaScript('curtainDim()').catch(() => {}); }, VEIL_DIM_MS);
+    vl.dimT = setTimeout(() => { if (P.veil?.nav === nav) void run(v.webContents, 'curtainDim()', { fallback: null }); }, VEIL_DIM_MS);
     vl.capT = setTimeout(() => { this.pane = P; if (this.veil?.nav === nav) this.veilDown(VEIL_FADE_MS); }, VEIL_MAX_MS);
   }
   private veilDown(fade: number): void {
@@ -2481,7 +2514,7 @@ export class AangBrowser {
     // A page that came at once just switches: fading it would only add a wait that was not there.
     const ms = Date.now() - vl.at < VEIL_INSTANT_MS ? 0 : fade;
     if (!ms) { v.setVisible(false); return; }
-    void v.webContents.executeJavaScript(`curtainFade(${ms})`).catch(() => {});
+    void run(v.webContents, `curtainFade(${ms})`, { fallback: null });
     const P = this.pane;
     setTimeout(() => { if (!P.veil?.up) v.setVisible(false); }, ms + 30);
   }
@@ -2491,11 +2524,11 @@ export class AangBrowser {
     if (!t || !this.inTab(t)) return;
     t.drawn = true;
     if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
-    if (t.waking && typeof t.videoAt === 'number') { const at = t.videoAt; t.videoAt = undefined; void askPage(sender, VIDEO_BACK_JS(at)); }
+    if (t.waking && typeof t.videoAt === 'number') { const at = t.videoAt; t.videoAt = undefined; void run(sender, VIDEO_BACK_JS(at), { fallback: null }); }
     if (!t.waking) { if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS); return; }
     // Woken from sleep (2026-10-23, filmed): its last picture stays until the page has stopped moving, then one soft fade.
     const P = this.pane, seq = t.wakeSeq;
-    void within(askPage<boolean>(sender, SETTLED_JS), 4000, false).then(() => {
+    void run<boolean>(sender, SETTLED_JS, { ms: 4000, fallback: false }).then(() => {
       this.pane = P;
       if (this.veil?.tab === t.id) this.veilDown(WAKE_FADE_MS);
       setTimeout(() => this.wokeUp(t, seq), WAKE_FADE_MS + 150);
@@ -2739,10 +2772,10 @@ export class AangBrowser {
       return;
     }
     if (back > 0) {
-      // WebFrameMain's run does not wait for the page to finish loading the way webContents.executeJavaScript does.
+      // The page engine's main-world run does not wait for the page to finish loading (page.ts).
       let placed = -1;
-      wc.once('dom-ready', () => { void wc.mainFrame.executeJavaScript(`(scrollTo(0, ${back}), scrollY)`).then((y) => { placed = Number(y); }, () => {}); });
-      wc.once('did-finish-load', () => { void wc.mainFrame.executeJavaScript(`(scrollY === ${placed} || scrollY === 0) && scrollTo(0, ${back})`).catch(() => {}); });
+      wc.once('dom-ready', () => { void run(wc, `(scrollTo(0, ${back}), scrollY)`, { fallback: null }).then((y) => { if (y !== null) placed = Number(y); }); });
+      wc.once('did-finish-load', () => { void run(wc, `(scrollY === ${placed} || scrollY === 0) && scrollTo(0, ${back})`, { fallback: null }); });
     }
     void wc.loadURL(to).catch(() => {});
   }
@@ -2995,7 +3028,7 @@ export class AangBrowser {
     if (dbg.isAttached()) return;
     if (on) {
       t.freezing = true;
-      const at = await within(askPage<number | null>(wc, VIDEO_AT_JS), 800, null); if (typeof at === 'number') t.videoAt = at;
+      const at = await run<number | null>(wc, VIDEO_AT_JS, { ms: 800, fallback: null }); if (typeof at === 'number') t.videoAt = at;
       // He may have come back to it while its spot was read (2026-10-30, stability check): never freeze the tab in front.
       if (!t.freezing || !this.mayRest(t) || wc.isDestroyed() || dbg.isAttached()) { t.freezing = false; return; }
     }
@@ -3019,7 +3052,7 @@ export class AangBrowser {
   /** Before a tab sleeps: his spot in its video (a frozen page told it as it froze), and its picture if none is kept. */
   async rest(t: Tab): Promise<void> {
     if (!t.view) return;
-    if (!t.frozen) { const at = await within(askPage<number | null>(t.view.webContents, VIDEO_AT_JS), 800, null); if (typeof at === 'number') t.videoAt = at; }
+    if (!t.frozen) { const at = await run<number | null>(t.view.webContents, VIDEO_AT_JS, { ms: 800, fallback: null }); if (typeof at === 'number') t.videoAt = at; }
     if (!t.leftShot) { const shot = await this.shotOf(t); if (shot) t.leftShot = shot; }
     // He may have picked it while its spot and picture were taken: the tab in front is never put to sleep (2026-10-30).
     if (!this.mayRest(t)) return;
@@ -3435,7 +3468,7 @@ export class AangBrowser {
     if (kind === 'words') { this.onSendToAang?.({ ...base, text: p.selectionText, title: t.title }); return; }
     if (kind === 'link') { this.onSendToAang?.({ ...base, url: p.linkURL, title: p.linkText || '', site: hostOf(p.linkURL) || site, icon: this.faviconFor(p.linkURL) || base.icon }); return; }
     if (kind === 'page') {
-      const text = await within(askPage<string>(wc, 'String(document.body ? document.body.innerText : "").slice(0, 6000)'), 1500, '');
+      const text = await run<string>(wc, 'String(document.body ? document.body.innerText : "").slice(0, 6000)', { ms: 1500, fallback: '' });
       this.onSendToAang?.({ ...base, title: wc.getTitle() || t.title, text: typeof text === 'string' ? text : '' });
       return;
     }
@@ -3468,7 +3501,7 @@ export class AangBrowser {
     const wc = t?.view?.webContents;
     let has = false;
     if (wc && !t!.crashed && !t!.blocked && !t!.failed && !t!.lent && t!.url.startsWith('https:')) {
-      has = await within(askPage<boolean>(wc, "!!document.querySelector('input[type=password]')"), 800, false) === true;
+      has = await run<boolean>(wc, "!!document.querySelector('input[type=password]')", { ms: 800, fallback: false }) === true;
     }
     // His pick: the key shows only where Bitwarden has a login for this site. Until the vault has been opened once
     // there is no list yet, so it shows on any login page, plain, so he can open it the first time.
@@ -3545,7 +3578,7 @@ export class AangBrowser {
     if (host !== f.host || !wc.getURL().startsWith('https:')) { this.note('The page changed, so nothing was filled. Click the key again.'); return; }
     const s = await this.vault.secret(id);
     if (!s) { this.note('Bitwarden did not give that login back. Try the key again.'); return; }
-    const did = await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillScript(s.username, s.password) }]) as Promise<number>, 2000, 0);
+    const did = await run<number>(wc, fillScript(s.username, s.password), { world: FILL_WORLD, ms: 2000, fallback: 0 });
     if (!did) this.note('No login box found on this page to fill.');
   }
   vaultCancel(): void { this.vaultFor = null; this.win?.webContents.send('browser:vault', null); }
@@ -3735,14 +3768,14 @@ export class AangBrowser {
       const l = a.logins[a.login];
       const s = l ? await this.vault.secret(l.id) : null;
       if (!s || this.af !== a) return;
-      await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillScript(s.username, s.password) }]) as Promise<number>, 2000, 0);
+      await run<number>(wc, fillScript(s.username, s.password), { world: FILL_WORLD, ms: 2000, fallback: 0 });
     } else {
       const d = this.details.get(), values: Partial<Record<FieldKind, string>> = {};
       for (const k of DETAIL_KINDS) { const v = detailFor(d, k, k === 'email' ? a.email : 0); if (v) values[k] = v; }
       // Tab fills the box he is in; his click on the light fills the form, and the fill itself finds the form's boxes
       // (never the page's own list of them) and skips any he cannot see (finding 2).
       const whole = !one;
-      await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillDetailsScript(values, whole) }]) as Promise<number>, 2000, 0);
+      await run<number>(wc, fillDetailsScript(values, whole), { world: FILL_WORLD, ms: 2000, fallback: 0 });
     }
     this.afSound('fill');
     a.empty = false;
@@ -3830,7 +3863,7 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.id === s.tab), wc = t?.view?.webContents;
     if (!wc || wc.isDestroyed()) { this.afSave = null; return; }
     // Still a password box on the page: it did not work (a wrong password is never offered).
-    const still = await within(askPage<boolean>(wc, "!!document.querySelector('input[type=password]')"), 800, false);
+    const still = await run<boolean>(wc, "!!document.querySelector('input[type=password]')", { ms: 800, fallback: false });
     if (still) { this.afSave = null; return; }
     if (this.vault.current()) {
       const logins = await this.vault.loginsFor('https://' + s.host);
@@ -3952,7 +3985,7 @@ export class AangBrowser {
     for (const after of [10_000, 25_000]) setTimeout(() => {
       const wc = tab.view?.webContents;
       if (!wc || wc.isDestroyed() || wc.getURL() !== url) return;
-      void askPage<string>(wc, `(document.body && document.body.innerText || '').slice(0, 5000)`).then((text) => {
+      void run<string>(wc, `(document.body && document.body.innerText || '').slice(0, 5000)`, { fallback: '' }).then((text) => {
         if (!text || !NETFLIX_REFUSED.test(text) || wc.isDestroyed() || wc.getURL() !== url) return;
         if (!this.onPaidFallback?.(url)) return;
         this.note('Netflix would not play in this tab, so it opened in the video window.');
@@ -4425,10 +4458,9 @@ export class AangBrowser {
     t.lent = true;
     // A still of the picture for the tab page while it plays in the pop-out (taken before the view leaves the window).
     t.lentShot = '';
-    void within(t.view.webContents.capturePage(), 800, null).then((img) => {
-      if (!img || img.isEmpty() || !t.lent) return;
-      const small = img.getSize().width > 1280 ? img.resize({ width: 1280, quality: 'good' }) : img;
-      t.lentShot = 'data:image/jpeg;base64,' + small.toJPEG(78).toString('base64');
+    void capture(t.view, { ms: 800, quality: 78 }).then((shot) => {
+      if (!shot || !t.lent) return;
+      t.lentShot = shot.dataUrl();
       this.sendTabs();
     });
     try { this.win?.contentView.removeChildView(t.view); } catch { /* not shown */ }
@@ -4552,7 +4584,7 @@ export class AangBrowser {
    *  itself, against his "nothing plays until I click". */
   pauseMedia(id: number): void {
     const wc = this.tabs.find((x) => x.id === id)?.view?.webContents;
-    if (wc) void within(askPage(wc, "document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true"), 800, null);
+    if (wc) void run(wc, "document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true", { ms: 800, fallback: null });
   }
 
   // ------------------------------------------------------------------ trails and the done shelf (sheet 3 section 3)
@@ -4921,14 +4953,14 @@ export class AangBrowser {
       if (loaded) {
         await new Promise((r) => setTimeout(r, 700));
         // The sheet's first big picture, not its heading: that is what tells one version from another.
-        const box = await within(w.webContents.executeJavaScript(`(() => { const el = [...document.querySelectorAll('img,canvas,svg,figure,iframe,.win,.frame,.shot')]
+        const box = await run(w.webContents, `(() => { const el = [...document.querySelectorAll('img,canvas,svg,figure,iframe,.win,.frame,.shot')]
           .find((e) => { const b = e.getBoundingClientRect(); return b.width >= 300 && b.height >= 160; });
           if (!el) return null; el.scrollIntoView({ block: 'start' }); window.scrollBy(0, -16); const b = el.getBoundingClientRect();
-          const W = Math.min(1280, Math.max(b.width + 32, 640)); return { x: Math.max(0, Math.round(b.left - 16)), y: Math.max(0, Math.round(b.top)), width: Math.round(W), height: Math.round(W * 0.625) }; })()`, true), 3000, null) as Electron.Rectangle | null;
+          const W = Math.min(1280, Math.max(b.width + 32, 640)); return { x: Math.max(0, Math.round(b.left - 16)), y: Math.max(0, Math.round(b.top)), width: Math.round(W), height: Math.round(W * 0.625) }; })()`, { gesture: true, ms: 3000, fallback: null }) as Electron.Rectangle | null;
         await new Promise((r) => setTimeout(r, 300));
         const rect = box ? { x: box.x, y: box.y, width: Math.min(box.width, 1280 - box.x), height: Math.min(box.height, 800 - box.y) } : undefined;
-        const img = await within(rect ? w.webContents.capturePage(rect) : w.webContents.capturePage(), 3000, null);
-        if (img && !img.isEmpty()) {
+        const img = (await capture(w, { ...(rect ? { rect } : {}), ms: 3000, format: 'image', maxWidth: Infinity }))?.image;
+        if (img) {
           mkdirSync(this.mockThumbs, { recursive: true });
           writeFileSync(path.join(this.mockThumbs, thumbKey(x.key) + '.png'), img.resize({ width: 320, height: 200, quality: 'best' }).toPNG());
           this.sendTabs();
@@ -4945,14 +4977,14 @@ export class AangBrowser {
   private async mockShot(ver: MockVersion): Promise<string | null> {
     const t = this.tabs.find((x) => x.mock?.sheet === ver.sheet && x.mock.key === ver.key && x.view && !x.crashed && !x.lent && !x.loading);
     // A tab hidden under the drawer gives an empty picture: then the hidden page below takes it.
-    if (t?.view) { const shot = fitShot(await within(t.view.webContents.capturePage(), 3000, null)); if (shot) return shot; }
+    if (t?.view) { const shot = fitShot(await capture(t.view, AANG_SHOT)); if (shot) return shot; }
     const w = new BrowserWindow({ show: false, width: 1280, height: 860, webPreferences: { ...SAFE_WEB_PREFERENCES, partition: 'aang-mockshot', offscreen: true } });
     try {
       lockDown(w.webContents);
       const loaded = await within(w.loadURL(this.mockServer!.url(ver.commit, ver.sheet)).then(() => true), 8000, false);
       if (!loaded) return null;
       await new Promise((r) => setTimeout(r, 500));
-      return fitShot(await within(w.webContents.capturePage(), 3000, null));
+      return fitShot(await capture(w, AANG_SHOT));
     } catch { return null; }
     finally { if (!w.isDestroyed()) w.destroy(); }
   }
@@ -5581,7 +5613,7 @@ export class AangBrowser {
       if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
       if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
       const wc = t.view.webContents;
-      const got = await within(askPage<[number, string]>(wc, PAGE_LOOK_JS), 800, null);
+      const got = await run<[number, string] | null>(wc, PAGE_LOOK_JS, { ms: 800, fallback: null });
       if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
       try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
     }));
@@ -5822,7 +5854,7 @@ export class AangBrowser {
         }
         case 'record': {
           if (a?.stop === true) { const r = await d.stopRecording(num('page')); return r ? { ok: true, ...r } : { ok: false, error: 'that page is not being recorded' }; }
-          await d.startRecording(num('page')); return { ok: true, started: true };
+          return { ok: true, started: true, ...(await d.startRecording(num('page'))) };
         }
         case 'upload': {
           const page = num('page'), n = num('n'), file = String(a?.file ?? '');
@@ -5895,6 +5927,17 @@ export class AangBrowser {
           const r = await d.picture(num('page'), what);
           const p = d.page(num('page'));
           return { ok: true, png: r.png.toString('base64'), video: r.video, width: r.width, height: r.height, url: p?.url ?? '', title: p?.title ?? '' };
+        }
+        // His pick (2026-10-30): Samara's whole window as he sees it, for Claude and Aang. His own tabs are in it, so the
+        // first look in a session asks him; after his OK that session may look again.
+        case 'window': {
+          const j = d.job(num('job'));
+          if (!j) return { ok: false, error: 'no such session' };
+          if (!j.windowOk && a?.allowed !== true) return { ok: false, needs: 'lever', what: 'see your Samara window (a picture of it as you see it, kept on this computer)' };
+          j.windowOk = true;
+          const r = await this.seeWindow({ maxWidth: SIZES.claude, quality: 75, ms: 2500 });
+          if (!r.window && !r.popout) return { ok: false, error: r.size === 'no Samara window is open' ? 'no Samara window is open' : 'the window gave no picture' };
+          return { ok: true, size: r.size, window: r.window?.base64() ?? null, popout: r.popout?.base64() ?? null, missing: [...(r.window?.missing ?? []), ...(r.popout?.missing ?? [])].length };
         }
         case 'close': d.close(num('page')); return { ok: true };
         default: return { ok: false, error: 'unknown step' };

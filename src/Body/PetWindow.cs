@@ -47,7 +47,17 @@ sealed class PetWindow : Form
     ToolStripMenuItem coreItem = null!, shellItem = null!, autostartItem = null!;
     ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!, seeWindowItem = null!;
 
-    string? heldText;               // latest proactive message waiting for quiet mode to end
+    string? heldText;               // latest proactive message waiting for quiet mode to end (an older brain only)
+    /// <summary>The brain's busy verdict (attention.ts, 2026-10-30): once it has said, it decides, and the pet only
+    /// draws it. Null while there is no brain, or an older one that does not send it: then the pet's own rule stands.</summary>
+    bool? brainQuiet;
+    /// <summary>The marker shows what the brain holds for him while he is busy (attention.ts "held"); a click shows it.</summary>
+    bool brainHeld;
+    /// <summary>The raw readings sent to the brain: mic and camera are read every 5 s, full screen every poll.</summary>
+    bool micOn, camOn, fullOn;
+    int readingPolls;
+    /// <summary>The pet holds a proactive line itself only for a brain that does not decide busy yet.</summary>
+    bool PetHolds => quiet && brainQuiet == null;
     string? heldJobCwd;             // the held message's job, if it has one - clicking the marker opens its Panel tab
     bool urgent;                    // Avatar State: something is glowing/waved, not just marked
     Color urgentColor = Theme.AvatarGlow;       // which tier is glowing: white-blue = blocking, terracotta = a job done
@@ -308,13 +318,13 @@ sealed class PetWindow : Form
             // brain that comes back sends the true mark on hello (core.ts), from the one list the card reads.
             if (!up)
             {
-                if (IsHandleCreated) BeginInvoke(() => { claudeMark = "none"; claudeFlash = null; claudeWorking = false; dirty = true; });
+                if (IsHandleCreated) BeginInvoke(() => { claudeMark = "none"; claudeFlash = null; claudeWorking = false; brainQuiet = null; if (brainHeld) { brainHeld = false; ClearBadge(); } ApplyQuiet(); dirty = true; });
                 return;
             }
             if (saving) _ = link.SendAsync(new { t = "saving", on = true });
             _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
             sentWindow = ""; sentDesk = null;                                      // resend after a reconnect
-            _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
+            _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd, reading = Reading() });
             // 6.10b. Position is only sent when it CHANGES, so a Shell that started later - or restarted,
             // which it does on its own - would otherwise know nothing about where Aang is until he is next
             // dragged. The pet does not move just because something reconnected.
@@ -786,9 +796,11 @@ sealed class PetWindow : Form
                     // no sound (Tier 3, quieter than urgent); only something truly blocking gets the full Avatar
                     // State treatment (Tier 2) - none of them ever pop him fully out over your play.
                     var focus = Str(m, "focus"); var host = Str(m, "host");
-                    if (proactive && quiet && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); break; }
-                    if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, ClaudeMarks.ColorOf("complete"), focus, host)) TriggerDone(); break; }
-                    if (proactive && quiet) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); break; }
+                    // 2026-10-30: the brain holds these itself now (attention.ts) and sends a "held" marker; the pet's own
+                    // hold is only for an older brain that does not send its busy verdict.
+                    if (proactive && PetHolds && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); break; }
+                    if (proactive && PetHolds && done) { if (Hold(text, jobCwd, 2, ClaudeMarks.ColorOf("complete"), focus, host)) TriggerDone(); break; }
+                    if (proactive && PetHolds) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); break; }
                     if (peeking) Reveal(greet: false);
                     Wake();
                     ExitExpanded(collapse: false);
@@ -930,6 +942,25 @@ sealed class PetWindow : Form
                 case "quiet.toggle":
                     forcedQuiet = quiet ? false : true; ApplyQuiet();
                     break;
+                // The brain's busy verdict (attention.ts, 2026-10-30): the one rule for both machines. The pet draws it.
+                case "presence.verdict":
+                    brainQuiet = Bool(m, "quiet");
+                    { var q = brainQuiet.Value; UpdateQuietMenu(); if (q != quiet) { quiet = q; Log.Write($"quiet={quiet} (the brain: {Str(m, "why")})"); PlayRest(); if (!quiet && !peeking && heldText != null) ReleaseHeld(); dirty = true; SendBubbleState(); } }
+                    break;
+                // What the brain holds for him while he is busy, that he asked about: the marker (the Stardew mailbox
+                // flag), in the colour of the most pressing one. A click on him shows them (held.open).
+                case "held":
+                {
+                    var n = (int)Num(m, "count");
+                    if (n <= 0) { if (brainHeld) { brainHeld = false; ClearBadge(); dirty = true; } break; }
+                    var blockingHeld = Bool(m, "blocking"); var doneHeld = Bool(m, "done");
+                    var rank = blockingHeld ? 3 : doneHeld ? 2 : 1;
+                    var color = blockingHeld ? Theme.AvatarGlow : doneHeld ? ClaudeMarks.ColorOf("complete") : Theme.Gold;
+                    var fresh = !badge || rank > heldRank;
+                    if (Hold("", null, rank, color)) { heldText = null; brainHeld = true; if (fresh && rank == 3) TriggerUrgent(); else if (fresh && rank == 2) TriggerDone(); }
+                    dirty = true;
+                    break;
+                }
                 // 9.D D9: he stepped away (the wheel's Away, or Discord). Away now; the first touch of the PC after a few
                 // seconds' grace (the click that chose Away must not count) brings him back.
                 case "away.set":
@@ -1006,9 +1037,9 @@ sealed class PetWindow : Form
             if (proactive && cfg.Muted && !blocking) return false;
             if (proactive && hiddenByUser && !blocking) return false;
             if (proactive && hiddenByUser && blocking) { hiddenByUser = false; Show(); SendBubbleState(); }
-            if (proactive && quiet && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); return false; }
-            if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, ClaudeMarks.ColorOf("complete"), focus, host)) TriggerDone(); return false; }
-            if (proactive && quiet) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); return false; }
+            if (proactive && PetHolds && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); return false; }
+            if (proactive && PetHolds && done) { if (Hold(text, jobCwd, 2, ClaudeMarks.ColorOf("complete"), focus, host)) TriggerDone(); return false; }
+            if (proactive && PetHolds) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); return false; }
             if (peeking) Reveal(greet: false);
             if (anim.State is "idle" or "think" or "talk") glanceUntil = DateTime.UtcNow.AddMilliseconds(GlanceMs);
             // At the desk, a session stuck on him leaves the quiet marker (4.4), exactly as before.
@@ -1100,6 +1131,7 @@ sealed class PetWindow : Form
         if (!cfg.SeeActiveWindow) foregroundHwnd = 0;
         var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         if (wow != autoQuiet) { autoQuiet = wow; ApplyQuiet(); }
+        ReportReading();
         SendBubbleState();
         ReportWindow();
         ReportDesk();
@@ -1142,7 +1174,7 @@ sealed class PetWindow : Form
         var key = foreground + "\u0000" + foregroundTitle + "\u0000" + foregroundHwnd;
         if (key == sentWindow || now - windowSentAt < TimeSpan.FromMilliseconds(500)) return;
         sentWindow = key; windowSentAt = now;
-        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
+        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd, reading = Reading() });
     }
 
     /// <summary>The foreground window's title. Read every poll, because it changes without the window
@@ -1194,10 +1226,42 @@ sealed class PetWindow : Form
         catch { return ""; }
     }
 
+    /// <summary>
+    /// The raw readings for the brain (attention.ts): the app in front, idle seconds, mic, camera, full screen, his game
+    /// list and the tray's Quiet mode. Focus Assist has no public reading on Windows, so it is sent as unknown.
+    /// </summary>
+    object Reading() => new
+    {
+        front = foreground, idle = (int)Win32.IdleFor().TotalSeconds, mic = micOn, cam = camOn, full = fullOn, focus = (bool?)null,
+        games = cfg.QuietProcessPrefixes, forced = forcedQuiet switch { null => "auto", true => "always", false => "never" },
+    };
+
+    /// <summary>Every 5 s (idle time moves with nothing else changing), and at once when a call or full screen starts or ends.</summary>
+    void ReportReading()
+    {
+        var full = Readings.FullScreen();
+        var changed = full != fullOn;
+        fullOn = full;
+        if (++readingPolls >= 10)
+        {
+            readingPolls = 0;
+            var mic = Readings.InUse("microphone"); var cam = Readings.InUse("webcam");
+            changed |= mic != micOn || cam != camOn;
+            micOn = mic; camOn = cam;
+            if (link.IsConnected) _ = link.SendAsync(new { t = "reading", reading = Reading() });
+            return;
+        }
+        if (changed && link.IsConnected) _ = link.SendAsync(new { t = "reading", reading = Reading() });
+    }
+
     void ApplyQuiet()
     {
-        var q = forcedQuiet ?? autoQuiet;
+        // The brain's verdict once it has one (it read the same tray setting and game list); the pet's own rule only
+        // without a brain that decides.
+        var q = brainQuiet ?? forcedQuiet ?? autoQuiet;
         UpdateQuietMenu();
+        // The tray's Quiet mode or the game list changed what the brain should decide: it hears at once.
+        if (brainQuiet != null && link.IsConnected) _ = link.SendAsync(new { t = "reading", reading = Reading() });
         if (q == quiet) return;
         quiet = q;
         Log.Write($"quiet={quiet} foreground={foreground}");
@@ -1209,7 +1273,7 @@ sealed class PetWindow : Form
         PlayRest();
         if (!quiet && !peeking && heldText != null) ReleaseHeld();
         dirty = true;
-        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
+        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd, reading = Reading() });
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -1507,6 +1571,8 @@ sealed class PetWindow : Form
         // the Shell's speech bubble shows what Claude is doing. Worked out here from the mark as drawn, because a tucked
         // click never reached the Shell's old guess from the cursor (it became "come up and type" below).
         if (NewFrontEnd && MarkHitBox().Contains(e.Location)) { MarkClicked(); return; }
+        // What the brain holds for him while he is busy: the click shows it now, as one bundle (attention.ts).
+        if (badge && brainHeld) { brainHeld = false; ClearBadge(); dirty = true; _ = link.SendAsync(new { t = "held.open" }); return; }
         // A waiting Claude session: the icon takes him to it (here or on the Mac), not to the bubble.
         if (dock != DockEdge.None && peeking && badge && GoToHeldSession()) return;
         // The old front end only: with the new one, a click on HIM is the chat box (the mark has its own click above).
@@ -2887,8 +2953,34 @@ sealed class PetWindow : Form
         int dy = ay + by * (bob - rise);
         var saved = g.Save();
         g.ResetTransform();
+        // Sheet 105 B: turned with him at an edge, about its own centre; a change of edge turns it smoothly into place.
+        float angle = MarkAngle(ClaudeMarks.EdgeAngle(docked ? dock : DockEdge.None));
+        if (angle != 0f)
+        {
+            float cy = dy - ClaudeMarks.Size(kind).H * px / 2f;
+            g.TranslateTransform(dx, cy); g.RotateTransform(angle); g.TranslateTransform(-dx, -cy);
+        }
         ClaudeMarks.Draw(g, kind, dx, dy, px);
         g.Restore(saved);
+    }
+
+    // The mark's turn between edges (sheet 105 B, "smooth motion"): 260 ms, quick then settling, the short way round.
+    const double MarkTurnMs = 260;
+    float markTurnFrom, markTurnTo; DateTime markTurnAt = DateTime.MinValue; bool markTurnSet;
+    float MarkAngle(float target)
+    {
+        var now = DateTime.UtcNow;
+        float Shown() { var u = Math.Min(1.0, (now - markTurnAt).TotalMilliseconds / MarkTurnMs); var e = 1 - Math.Pow(1 - u, 3); return (float)(markTurnFrom + (markTurnTo - markTurnFrom) * e); }
+        if (!markTurnSet) { markTurnSet = true; markTurnFrom = markTurnTo = target; markTurnAt = DateTime.MinValue; return target; }
+        float at = Shown();
+        float d = target - markTurnTo; d -= 360f * (float)Math.Round(d / 360f);
+        if (Math.Abs(d) > 0.01f)
+        {
+            float to = at + (((target - at) % 360f + 540f) % 360f - 180f);
+            markTurnFrom = at; markTurnTo = to; markTurnAt = now; at = Shown();
+        }
+        float r = ((at % 360f) + 360f) % 360f;
+        return r < 0.01f || r > 359.99f ? 0f : r;   // upright: no turn at all, pixels exact
     }
 
     static float EaseOutBack(float t) { const float c1 = 1.9f, c3 = c1 + 1; var u = t - 1; return 1 + c3 * u * u * u + c1 * u * u; }

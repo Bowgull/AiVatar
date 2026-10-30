@@ -117,6 +117,15 @@ static class ClaudeMarks
     /// shadow too), plus two art pixels for the bob and a finger that lands a touch off - but nothing extra on the side
     /// that faces his head (bx, by from Anchor point away from it), so a click on his head is always a click on him.
     /// </summary>
+    /// <summary>A mark's size in its own pixels (columns, rows).</summary>
+    public static (int W, int H) Size(string kind) => (Shapes[kind][0].Length, Shapes[kind].Length);
+
+    /// <summary>
+    /// Sheet 105 B (his pick, 2026-10-30): which way up the mark is at each edge, the same turn he gets (Docking.Rotation:
+    /// left 90 clockwise, right 90 anticlockwise, top 180), so it floats over his head the way it does when he stands.
+    /// </summary>
+    public static float EdgeAngle(DockEdge e) => e switch { DockEdge.Left => 90f, DockEdge.Right => -90f, DockEdge.Top => 180f, _ => 0f };
+
     public static Rectangle HitBox(string kind, int cx, int bottom, int px, int bx = 0, int by = -1)
     {
         var map = Shapes[kind];
