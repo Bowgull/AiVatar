@@ -760,6 +760,16 @@
       "at": "2026-10-30T12:08:00-04:00",
       "text": "A woken tab stays silent until you press play.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T12:36:00-04:00",
+      "text": "Aang asks his AI one steady way, with time limits.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T12:37:00-04:00",
+      "text": "Aang keeps one list of your Claude sessions.",
+      "kind": "fix"
     }
   ]
 }
