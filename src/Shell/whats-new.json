@@ -775,6 +775,11 @@
       "at": "2026-10-30T13:03:00-04:00",
       "text": "Your settings and lists save safely, even in a power cut.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T13:27:00-04:00",
+      "text": "Background chores wait while you're in a call or a game.",
+      "kind": "fix"
     }
   ]
 }
