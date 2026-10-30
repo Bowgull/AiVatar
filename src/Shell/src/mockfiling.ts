@@ -31,6 +31,7 @@ export function projectName(name: unknown): string | null {
   if (typeof name !== 'string') return null;
   const w = words(name);
   if (!w || w === 'live pages') return null;
+  if (isSamaraRepo(name.trim())) return 'Samara';            // AiVatar-update and the other worktrees, the PC's AangApp
   return PROJECT_WORDS[w] ?? plainName(name);
 }
 /** Is this project name one Mockups knows by name (or Samara's repo by another name)? */

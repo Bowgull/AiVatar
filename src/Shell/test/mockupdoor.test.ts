@@ -50,3 +50,11 @@ test('a page served from a folder is filed as its file; a page nothing serves st
   const c2 = checkAsk({ url: `http://127.0.0.1:${port}/docs/sheet-1.html` });
   assert.ok(c2.ok && c2.drop.url, 'nothing listening: shown live, as before');
 });
+
+test('a live page from a dev server files under the repo the session works in (2026-10-30)', () => {
+  const r = repo();
+  const c = checkAsk({ cwd: path.join(r, 'docs'), url: 'http://127.0.0.1:1/never-served', branch: 'Motion' });
+  assert.ok(c.ok && c.drop.url && c.drop.project === path.basename(r), JSON.stringify(c));
+  const own = checkAsk({ cwd: r, url: 'http://127.0.0.1:1/never-served', branch: 'Motion', project: 'Waymark' });
+  assert.ok(own.ok && own.drop.project === 'Waymark', 'a project it names wins');
+});

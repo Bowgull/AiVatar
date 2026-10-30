@@ -325,10 +325,11 @@ export const MOCKUP_TOOL_SCHEMA = {
     path: { type: 'string', description: 'An .html file in your repo (relative to your folder, or absolute), committed.' },
     url: { type: 'string', description: 'Instead of path: a page on this computer, http://127.0.0.1:<port>/... or http://localhost:<port>/...' },
     title: { type: 'string', description: 'A short name for it in the trail ("Waymark motion").' },
-    branch: { type: 'string', description: 'The topic inside the project to file it in ("Top bar", "TV"), 1-40 characters.' },
+    branch: { type: 'string', description: 'Required: the topic inside the project to file it in ("Top bar", "TV"), 1-40 characters.' },
     project: { type: 'string', description: 'The real project it belongs to ("Samara", "Aang", "Waymark", "Couch Mode", "Showcase", or a new one), 1-40 characters, never a topic. Default: its repo\'s project (AiVatar is Samara: name Aang for Aang\'s sheets).' },
     icon: { type: 'string', enum: MOCKUP_ICONS, description: 'The icon that fits the topic best (used when the topic is new): bar a window\'s top bar, shield safety, tv, claude, bell notices, key logins, globe web, cog settings, log a book, keyboard typing, tabs, fire, pad games, scroll writing, star, post a signpost, video, camera, mic, cal dates, letter mail, moon night, ads, popup.' },
   },
+  required: ['branch'],
 }
 /**
  * mockup_mark (sheet 79, his interview 2026-10-23): the marks in Samara's Mockups trail, for every Claude session. No
@@ -382,6 +383,7 @@ export function mockupArgs(input: Record<string, unknown>): { ok: true; body: Re
     if (!ok) return { ok: false, error: 'url must be a page on this computer: http://127.0.0.1:<port>/... or http://localhost:<port>/...' }
   }
   const title = safeLine(input.title, 80), branch = safeLine(input.branch, 40), project = safeLine(input.project, 40)
+  if (!branch) return { ok: false, error: 'Give branch: the topic inside its project ("Top bar", "TV"), 1 to 40 characters, so it is filed in its place and never under Other.' }
   const icon = typeof input.icon === 'string' && MOCKUP_ICONS.includes(input.icon) ? input.icon : ''
   return { ok: true, body: { ...(p ? { path: p } : { url: u }), ...(title ? { title } : {}), ...(branch ? { branch } : {}), ...(project ? { project } : {}), ...(icon ? { icon } : {}) } }
 }

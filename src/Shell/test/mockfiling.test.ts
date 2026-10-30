@@ -75,6 +75,7 @@ function picture(st: FileState): string[] {
 test('names: projects are real projects, topics read plainly', () => {
   assert.equal(projectName('couch-mode'), 'Couch Mode');
   assert.equal(projectName('AiVatar Fixes'), 'Samara');
+  for (const n of ['AiVatar-update', 'AiVatar', 'AangApp', 'aivatar-sched']) assert.equal(projectName(n), 'Samara', n);   // every worktree of Samara's repo
   assert.equal(projectName('Live pages'), null);
   assert.equal(projectName('anti-slop'), 'Anti-slop');
   assert.equal(projectName('my-new-app'), 'My new app');

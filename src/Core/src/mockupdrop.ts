@@ -90,11 +90,17 @@ export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HO
   const branchNote = ask.branch !== undefined && ask.branch !== null && ask.branch !== '' && !branch ? ' (the branch name was not 1 to 40 characters, so it was left out)' : '';
   const hasPath = typeof ask.path === 'string' && ask.path.trim() !== '', hasUrl = typeof ask.url === 'string' && ask.url.trim() !== '';
   if (hasPath === hasUrl) return { ok: false, message: 'Pass either path (an .html file in your repo) or url (a page on http://127.0.0.1 or localhost), not both.' };
+  // Every mockup names its topic, so none lands under Other (2026-10-30, as Samara's own door on the Mac).
+  if (!branch) return { ok: false, message: "Give branch: the topic inside its project (\"Top bar\", \"TV\"), 1 to 40 characters, so it is filed in its place and never under Other. Then call show_mockup again." };
   let body: Record<string, string>;
   if (hasUrl) {
     const u = cleanLiveUrl(String(ask.url).trim());
     if (!u) return { ok: false, message: 'url must be a page on this computer: http://127.0.0.1, http://localhost or http://[::1] (any port), with no user name.' };
     body = { url: u };
+    // A live page has no file to say whose it is: the project the session works in (Samara turns the repo's name into it).
+    const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
+    const own = cwd && path.isAbsolute(cwd) && existsSync(cwd) ? repoOf(cwd) : null;
+    if (own && path.basename(own).length <= 40) body.project = path.basename(own);
   } else {
     const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
     const raw = String(ask.path).trim();

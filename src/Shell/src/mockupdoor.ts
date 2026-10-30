@@ -65,6 +65,7 @@ export function repoOf(dir: string): string | null {
   }
   return null;
 }
+export const NEED_TOPIC = "Give branch: the topic inside its project (\"Top bar\", \"TV\"), 1 to 40 characters, so it is filed in its place and never under Other. Then call show_mockup again.";
 const inside = (p: string, dir: string) => { const r = path.relative(dir, p); return r === '' || (!!r && !r.startsWith('..') && !path.isAbsolute(r)); };
 // eslint-disable-next-line no-control-regex
 const cleanTitle = (t: unknown) => (typeof t === 'string' ? t.slice(0, 1000).replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim() : '');
@@ -76,6 +77,7 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
   const project = typeof ask.project === 'string' && ask.project ? cleanBranch(ask.project) : null, icon = cleanIcon(ask.icon);
   const hasPath = typeof ask.path === 'string' && ask.path.trim() !== '', hasUrl = typeof ask.url === 'string' && ask.url.trim() !== '';
   if (hasPath === hasUrl) return { ok: false, message: 'Pass either path (an .html file in your repo) or url (a page on http://127.0.0.1 or localhost), not both.' };
+  const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
   if (hasUrl) {
     const u = cleanLive(String(ask.url).trim());
     if (!u) return { ok: false, message: 'url must be a page on this computer: http://127.0.0.1, http://localhost or http://[::1] (any port), with no user name.' };
@@ -83,9 +85,11 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
     // file when it sits in a git repo, so it keeps working after the server stops. A real dev server stays live.
     const f = servedFile(u);
     if (f) { const c = checkAsk({ path: f, title: ask.title, branch: ask.branch, project: ask.project, icon: ask.icon }); if (c.ok) return c; }
-    return { ok: true, drop: { path: '', repo: null, url: u, title, branch, project, icon }, name: u };
+    // A live page has no file to say whose it is: it belongs to the project the session works in (2026-10-30, his
+    // "close the gaps": a Waymark dev server used to land in Other).
+    const own = project ?? (cwd && path.isAbsolute(cwd) && existsSync(cwd) ? (() => { const r = repoOf(cwd); return r ? cleanBranch(path.basename(r)) : null; })() : null);
+    return { ok: true, drop: { path: '', repo: null, url: u, title, branch, project: own, icon }, name: u };
   }
-  const cwd = typeof ask.cwd === 'string' ? ask.cwd : '';
   const raw = String(ask.path).trim();
   if (raw.length > 1000 || raw.startsWith('//') || raw.startsWith('\\\\')) return { ok: false, message: 'path must be a file in a git repo.' };
   // 2026-10-28 (his "mockups aren't being sent organized correctly"): the repo is the FILE's, not the session's. A session
@@ -160,6 +164,8 @@ export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promi
         try { ask = JSON.parse(body); } catch { json(400, { ok: false, message: 'Not a request.' }); return; }
         const off = why();
         if (off) { json(200, { ok: false, message: off }); return; }
+        // Every mockup names its topic, so none lands under Other (2026-10-30; old sessions' mods included).
+        if (!(typeof ask.branch === 'string' && cleanBranch(ask.branch))) { json(200, { ok: false, message: NEED_TOPIC }); return; }
         const c = checkAsk(ask);
         if (!c.ok) { json(200, c); return; }
         busy = busy.then(() => open(c.drop).then((v) => json(200, v
