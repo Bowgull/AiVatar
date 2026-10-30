@@ -745,6 +745,16 @@
       "at": "2026-10-30T11:36:00-04:00",
       "text": "An update always ends with Samara open.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T11:54:00-04:00",
+      "text": "The Mockups key is plum, and it is its own tab.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T11:55:00-04:00",
+      "text": "Mockups opens where you left it.",
+      "kind": "fix"
     }
   ]
 }
