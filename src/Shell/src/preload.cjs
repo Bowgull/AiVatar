@@ -305,6 +305,9 @@ contextBridge.exposeInMainWorld('aang', {
   onPageMenu(fn) { const h = (_e, items) => fn(items); ipcRenderer.on('pagemenu:items', h); return () => ipcRenderer.removeListener('pagemenu:items', h); },
   pageMenuPick: id => ipcRenderer.send('pagemenu:pick', id),
   pageMenuSize: r => ipcRenderer.send('pagemenu:size', r),
+  // Sheet 109: the chats for Ask Claude's list, and whether that list hangs on the left.
+  onPageMenuChats(fn) { const h = (_e, list) => fn(list); ipcRenderer.on('pagemenu:chats', h); return () => ipcRenderer.removeListener('pagemenu:chats', h); },
+  onPageMenuFlip(fn) { const h = (_e, on) => fn(on); ipcRenderer.on('pagemenu:flip', h); return () => ipcRenderer.removeListener('pagemenu:flip', h); },
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
   onBrowserChangelog(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:changelog', h); return () => ipcRenderer.removeListener('browser:changelog', h); },
   onBrowserUpdateWhy(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:updatewhy', h); return () => ipcRenderer.removeListener('browser:updatewhy', h); },
@@ -315,6 +318,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserDl: a => ipcRenderer.send('browser:dl', a),
   /** 6.25a: Aang's own pages: stop, close, watch, unwatch or open one ({act, id}). */
   browserDriver: a => ipcRenderer.send('browser:driver', a),
+  browserHandSpot: r => ipcRenderer.send('browser:handspot', r),
   onBrowserWatch(fn) { const h = (_e, src) => fn(src); ipcRenderer.on('browser:watch', h); return () => ipcRenderer.removeListener('browser:watch', h); },
   browserDlDrag: id => ipcRenderer.send('browser:dldrag', id),
   browserDlHello: () => ipcRenderer.send('browser:dlhello'),

@@ -38,6 +38,7 @@ import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import { PinSnips } from './pinsnip.ts';
 import { openPlanDoor, PLAN_WAIT_MS } from './plandoor.ts';
 import { PlanRows } from './planrows.ts';
+import { PickReplies, chatsFrom } from './askclaude.ts';
 import type { PlanAnswer } from './browser.ts';
 
 const HERE = import.meta.dirname;
@@ -96,6 +97,9 @@ let hidden = false;
 let lastTouch = Date.now();
 let slide: { from: number; to: number; at: number } | null = null;
 let markNow: string | null = null;
+/** Sheet 109: Claude's jobs as the brain last sent them, for Samara's Ask Claude list; and its picks waiting on the brain. */
+let lastJobs: unknown = [];
+const picks = new PickReplies();
 /** His window is taking the mouse (the pointer is on him). */
 let mouseOn = false;
 /** The mouse is held on him and the wheel is up: his window keeps the mouse until it is let go, wherever it goes. */
@@ -299,6 +303,8 @@ const link = new CoreLink({
   port: PORT,
   stateDir: STATE_DIR,
   onMessage: (m) => {
+    if (m.t === 'claude.jobs') lastJobs = (m as { jobs?: unknown }).jobs ?? [];
+    if (picks.got(m as never)) return;
     if (m.t === 'claude.mark') {
       markNow = typeof m.mark === 'string' && m.mark !== 'none' ? m.mark : null;
       pet?.webContents.send('pet:state', { mark: markNow, ...(typeof m.flash === 'string' ? { flash: m.flash } : {}) });
@@ -609,6 +615,9 @@ app.whenReady().then(async () => {
       step: (id, at) => bubble?.send('brain:message', { t: 'plan.step', id, at }),
       started: (p2) => planRows.started(p2),
       done: (job) => planRows.done(job),
+      // Sheet 109: Samara's Ask Claude. The chats the brain can reach on this Mac, and his pick into one.
+      chats: () => chatsFrom(lastJobs),
+      pick: (session, text) => picks.ask((m) => link.send(m as never), session, text),
     },
   });
   app.on('before-quit', closePlans);

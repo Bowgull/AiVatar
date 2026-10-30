@@ -28,6 +28,7 @@ import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.t
 import { watchOwnClicks } from './clickaway.ts';
 import { Snipper } from './snip.ts';
 import { SendDesk } from './sendtoaang.ts';
+import { PickReplies, chatsFrom } from './askclaude.ts';
 import { PinSnips } from './pinsnip.ts';
 import { AangBrowser, type PlanAnswer } from './browser.ts';
 import type { MockSend, MockSendItem } from './mockups.ts';
@@ -155,6 +156,8 @@ let menuNotesNotice = true;
  * the brain's last job and wait lists so a freshly torn-off job draws at once instead of waiting for the next update.
  */
 let jobPops: JobPops | null = null, lastJobs: unknown = [], lastWaits: unknown = [];
+/** Sheet 109: Ask Claude's picks waiting on the brain's answer. */
+const picks = new PickReplies();
 /** The window family (familywire.ts): the way back from click-through goes through it (1b). */
 let family: FamilyHost | null = null;
 let wheel: Wheel | null = null;
@@ -407,6 +410,8 @@ const link = new CoreLink({
     }
     // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
+    // Sheet 109: the brain's answer to an Ask Claude pick.
+    if (picks.got(m as never)) return;
     taskbarHear?.(m as Record<string, unknown>);
     if (playerHears?.(m as Record<string, unknown>)) return;
     // Sheet 52 (2026-10-21): the torn-off job windows follow the same lists, so a job on his desktop stays live.
@@ -1614,6 +1619,8 @@ setInterval(() => {
     }
   }
   if (aangBrowser) aangBrowser.onSendToAang = up ? sendToAang : null;
+  // Sheet 109: Ask Claude stays in the menu (New chat needs no Aang); its chats are the brain's, while Aang runs.
+  if (aangBrowser) { aangBrowser.claudeChats = async () => (up ? chatsFrom(lastJobs) : []); aangBrowser.onAskClaude = (s, t) => picks.ask((m) => link.send(m as never), s, t); }
   if (aangBrowser) aangBrowser.onSendMockup = up ? sendMockupToAang : null;
   // Newer code waiting for Samara to close (see freshen): its last window just went.
   if (mainStale && up && !samaraOpen()) freshShell();

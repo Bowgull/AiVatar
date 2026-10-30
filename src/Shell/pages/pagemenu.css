@@ -25,3 +25,16 @@ html,body{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/br
 /* Send to Aang carries Aang's face (cleanup 2026-10-22, his rule: a name carries its icon); 18 px = the art at 1x. */
 .pm button.toaang{justify-content:flex-start;align-items:center}
 .pm .aface{width:18px;height:18px;flex:none;margin:-2px 8px -2px 0;image-rendering:pixelated}
+
+/* Sheet 109 (2026-10-30): the window is see-through, so Ask Claude's list can hang beside the menu (pagemenu.js). */
+html,body{background:none}
+body{position:relative;display:block;min-height:100%;overflow:visible}
+.pm.sm{position:absolute;top:0;min-width:220px}
+.pm.sm[hidden]{display:none}
+.pm button.ic{justify-content:flex-start;align-items:center}
+.pm button.ic span{flex:1}
+.pm .gem{width:22px;height:22px;flex:none;margin:-3px 8px -3px -2px;image-rendering:pixelated}
+.pm .plus{width:18px;height:18px;flex:none;margin:-2px 10px -2px 0;image-rendering:pixelated}
+.pm .arr{width:8px;height:12px;flex:none;margin-left:14px;image-rendering:pixelated}
+.pm button[aria-haspopup]{justify-content:flex-start;align-items:center}
+.pm button.open{color:#ffe28c}

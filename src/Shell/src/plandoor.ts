@@ -6,6 +6,8 @@
 //   POST /step  {card, at}       the live checklist moved on (at null: done)
 //   POST /row   {plan started}   sheet 41: a row in his scroll-back
 //   POST /done  {job}            that plan's job finished
+//   POST /chats                  sheet 109: his Claude chats for Ask Claude, last used first: {chats}
+//   POST /pick  {session, text}  sheet 109: his pick into one of them, through the brain: {why} (null: it went)
 // Locked like Aang's other doors: loopback only, no browser page (an Origin header is refused), and a key made fresh each
 // run in his own folder, readable by his account only. Nobody there (Aang not running): Samara's band shows the card.
 import http from 'node:http';
@@ -13,6 +15,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import type { PlanAnswer, PlanCard } from './browser.ts';
 import type { PlanStarted } from './claudedoor.ts';
+import type { Chat } from './askclaude.ts';
 
 export const PLAN_DOOR_PORT = 47857;
 /** Five minutes unanswered means no answer (the PC's rule, main.ts onPlanAsk). */
@@ -24,6 +27,9 @@ export interface PlanDoorHooks {
   step(card: string, at: number | null): void;
   started(p: PlanStarted): void;
   done(job: number): void;
+  /** Sheet 109 (Ask Claude): the chats the brain can reach, and a pick into one. */
+  chats?(): Chat[];
+  pick?(session: string, text: string): Promise<string | null>;
 }
 
 const str = (x: unknown, n: number) => String(x ?? '').slice(0, n);
@@ -72,6 +78,13 @@ export function openPlanDoor(o: { keyFile: string; hooks: PlanDoorHooks; log: (s
         ok(); return;
       }
       if (url === '/done') { const job = Number(b.job); if (Number.isInteger(job)) o.hooks.done(job); ok(); return; }
+      if (url === '/chats') { ok({ chats: o.hooks.chats?.() ?? [] }); return; }
+      if (url === '/pick') {
+        const session = str(b.session, 100), text = str(b.text, 4000);
+        if (!/^[\w-]{1,100}$/.test(session) || !text.trim()) { res.writeHead(400).end(); return; }
+        void (o.hooks.pick?.(session, text) ?? Promise.resolve('Aang cannot send to Claude here')).then((why) => ok({ why }), (e) => ok({ why: String((e as Error)?.message ?? e).slice(0, 120) }));
+        return;
+      }
       res.writeHead(404).end();
     });
   });
@@ -84,6 +97,7 @@ export function openPlanDoor(o: { keyFile: string; hooks: PlanDoorHooks; log: (s
 /** Samara's side (macmain.ts): the boot engine's plan hooks, knocking on Aang's door. */
 export function planDoorClient(o: { keyFile: string; log: (s: string) => void; port?: number; waitMs?: number }): {
   ask(card: PlanCard): Promise<PlanAnswer | null>; step(card: string, at: number | null): void; started(p: PlanStarted): void; done(job: number): void;
+  chats(): Promise<Chat[]>; pick(session: string, text: string): Promise<string | null>;
 } {
   const post = (where: string, body: unknown, ms: number): Promise<Record<string, unknown> | null> => new Promise((done) => {
     let key = '';
@@ -112,5 +126,15 @@ export function planDoorClient(o: { keyFile: string; log: (s: string) => void; p
     step: (card, at) => quiet('/step', { card, at }),
     started: (p) => quiet('/row', p),
     done: (job) => quiet('/done', { job }),
+    chats: async () => {
+      const r = await post('/chats', {}, 1500);
+      return (Array.isArray(r?.chats) ? r.chats as unknown[] : []).slice(0, 4).map((c) => (c && typeof c === 'object' ? c : {}) as Record<string, unknown>)
+        .filter((c) => typeof c.id === 'string' && /^[\w-]{1,100}$/.test(c.id)).map((c) => ({ id: String(c.id), name: str(c.name, 40) || 'Claude' }));
+    },
+    pick: async (session, text) => {
+      const r = await post('/pick', { session, text }, 10_000);
+      if (!r) return 'Aang is not running';
+      return r.why === null || r.why === undefined ? null : str(r.why, 120);
+    },
   };
 }

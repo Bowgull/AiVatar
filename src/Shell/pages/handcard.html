@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 109 (2026-10-30, his decisions): the card that hangs under the address bar while he has his tab (YOU HAVE IT,
+     or YOUR TURN with Claude's one line), with a note box for Claude and Hand back; and, after he hands back, what Claude
+     was told. It is the plan card's own tray (browser.css .upx), on its own see-through layer over the live page so he
+     can keep using the page under it. The page's words in it (its name, field names, labels) arrive as plain data and
+     are drawn with textContent. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Samara hand card</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="browser.css">
+<link rel="stylesheet" href="handcard.css">
+</head>
+<body>
+<div class="dltray uptray upx hand" id="hand" role="dialog" aria-label="Your tab" hidden>
+  <div class="caps" aria-hidden="true"></div>
+  <div class="uphd"><span class="gem" id="gem"></span><div class="t"><small id="kick"></small><b id="title"></b></div></div>
+  <div class="uplist" id="list" hidden></div>
+  <textarea class="plannote" id="note" rows="2" maxlength="300" placeholder="A note for Claude" hidden></textarea>
+  <div class="upfoot" id="foot" hidden><button class="key primary sm" id="back" type="button">Hand back</button></div>
+</div>
+<script src="handcard.js"></script>
+</body>
+</html>

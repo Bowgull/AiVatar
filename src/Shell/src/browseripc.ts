@@ -27,6 +27,12 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   // save card's Save, from the frame only.
   ipcMain.on('tab:field', (e, m) => { if (top(e)) b(e)?.afField(e.sender, m); });
   ipcMain.on('tab:cred', (e, m) => { if (top(e)) b(e)?.afCred(e.sender, m); });
+  // Sheet 109: while he has his tab back from a session, its top page names the fields he fills and what he clicks (never
+  // values); it asks whether to, as it starts. The hand card's Hand back (with his note) and its height, from its layer.
+  ipcMain.on('tab:did', (e, m) => { if (top(e)) b(e)?.handDid(e.sender, m); });
+  ipcMain.handle('tab:watchhim', (e) => { try { return top(e) ? b(e)?.handWatching(e.sender) === true : false; } catch { return false; } });
+  ipcMain.on('hand:back', (e, note) => { if (top(e)) b(e)?.handBack(e.sender, typeof note === 'string' ? note.slice(0, 300) : ''); });
+  ipcMain.on('hand:size', (e, h) => { if (top(e)) b(e)?.handSize(e.sender, Number(h)); });
   ipcMain.on('light:pick', (e) => { if (top(e) && b(e)?.isLight(e.sender)) void b(e).afPick(false); });
   ipcMain.on('light:flick', (e, d) => { if (top(e) && b(e)?.isLight(e.sender) && (d === 1 || d === -1)) b(e).afFlick(d); });
   ipcMain.on('browser:afsavego', (e, m) => { if (top(e) && b(e)?.isMainFrame(e.sender)) void b(e).afSaveGo(m); });
@@ -36,6 +42,8 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.handle('tab:mayplay', (e) => { try { return b(e)?.mayPlay(e.sender) ?? { ok: true, shown: true }; } catch { return { ok: true, shown: true }; } });
   // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.
   ipcMain.on('browser:driver', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.act === 'string' && Number.isInteger(a.id)) b(e).driverAct(a.act.slice(0, 10), a.id); });
+  // Sheet 109: where the address bar ends, so the hand card hangs from it.
+  ipcMain.on('browser:handspot', (e, r) => { if ((top(e) && b(e)?.isFrame(e.sender)) && r) b(e).setHandSpot(Math.round(Number(r.x)), Math.round(Number(r.y))); });
   ipcMain.on('browser:act', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && typeof a === 'string') b(e).act(a); });
   // Option + drag anywhere on the frame moves the window (2026-10-23): only the frame, only screen numbers.
   ipcMain.on('browser:windrag', (e, m) => { if ((top(e) && b(e)?.isFrame(e.sender)) && m && typeof m.phase === 'string' && Number.isFinite(m.x) && Number.isFinite(m.y)) b(e).winDrag(e.sender, m.phase, Math.round(m.x), Math.round(m.y)); });
@@ -91,7 +99,7 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   });
   ipcMain.on('browser:find', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.text === 'string') b(e).find(a.text, a.next === true, a.back === true); });
   ipcMain.on('pagemenu:pick', (e, id) => { if (b(e)?.isMenu(e.sender)) b(e).menuPick(typeof id === 'string' ? id.slice(0, 20) : ''); });
-  ipcMain.on('pagemenu:size', (e, r) => { if (b(e)?.isMenu(e.sender) && r) b(e).menuSize(Number(r.w) || 0, Number(r.h) || 0); });
+  ipcMain.on('pagemenu:size', (e, r) => { if (b(e)?.isMenu(e.sender) && r) b(e).menuSize(Number(r.w) || 0, Number(r.h) || 0, Number(r.sub) || 0); });
   // 6.23: his master password goes from the frame straight to the vault, once. Never logged, never to the brain.
   ipcMain.on('browser:vaultunlock', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.pw === 'string' && a.pw.length <= 1024) void b(e).vaultUnlock(a.pw); });
   ipcMain.on('browser:vaultpick', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a.id === 'string') void b(e).vaultPick(a.id.slice(0, 64)); });

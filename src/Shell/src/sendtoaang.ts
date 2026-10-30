@@ -74,8 +74,8 @@ export interface MenuParams {
   misspelledWord: string; dictionarySuggestions: string[];
   editFlags: { canCut: boolean; canCopy: boolean; canPaste: boolean; canSelectAll: boolean };
 }
-export type MenuItem = { id: string; label: string; key?: string; off?: boolean } | { sep: true };
-export interface MenuHas { send: boolean; other: string | null; popout: boolean; popVideo: boolean; canBack: boolean; pageIsWeb: boolean }
+export type MenuItem = { id: string; label: string; key?: string; off?: boolean; sub?: boolean } | { sep: true };
+export interface MenuHas { /** Sheet 109: Ask Claude on a selection */ ask?: boolean; send: boolean; other: string | null; popout: boolean; popVideo: boolean; canBack: boolean; pageIsWeb: boolean }
 
 /** What "Send to Aang" would send for this right-click: the words, the picture, the link, or the page (empty space). */
 export function sendKindFor(p: MenuParams, pageIsWeb: boolean): SendKind | null {
@@ -95,7 +95,12 @@ export function pageMenuItems(p: MenuParams, has: MenuHas): MenuItem[] {
   const items: MenuItem[] = [];
   const sep = () => { if (items.length && !('sep' in items[items.length - 1]!)) items.push({ sep: true }); };
   const isWeb = (u: string) => Boolean(webUrl(u));
-  if (has.send && sendKindFor(p, has.pageIsWeb)) { items.push({ id: 'toaang', label: 'Send to Aang' }); sep(); }
+  // Sheet 109 (his pick, 2026-10-30): on a selection, Ask Claude first (its own list of chats beside it); on the PC Send
+  // to Aang right under it, the two together at the top.
+  const picked = sendKindFor(p, has.pageIsWeb) === 'words';
+  if (has.ask && picked) items.push({ id: 'askclaude', label: 'Ask Claude', sub: true });
+  if (has.send && sendKindFor(p, has.pageIsWeb)) items.push({ id: 'toaang', label: 'Send to Aang' });
+  sep();
   // His picks (2026-10-20): save the link, save the picture, play in the pop-out.
   if (p.linkURL && isWeb(p.linkURL)) {
     items.push({ id: 'linktab', label: 'Open link in new tab' }, ...(has.other ? [{ id: 'linkother', label: has.other.replace('Open', 'Open link') }] : []),
