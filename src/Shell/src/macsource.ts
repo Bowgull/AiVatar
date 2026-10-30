@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { download as ghDownload, latest as ghLatest, titleOf, withSection, type Manifest } from './ghrelease.ts';
-import { behindMs, behindWords, chromeStable, downloadEngine, enginePlatform, latestEngine, type EngineManifest } from './enginerelease.ts';
+import { behindMs, behindWords, chromeStable, downloadEngine, enginePlatform, latestEngine, type EngineManifest, type EnginePlatform } from './enginerelease.ts';
 import { Evs } from './evs.ts';
 import { engineGroups } from './pcsource.ts';
 import { macUpdateScript } from './macupdate.ts';
@@ -213,10 +213,10 @@ export class MacEngine implements Source {
   readonly lists: VersionLists;
   private readonly p: MacPaths;
   private readonly stage: MacStage;
-  private readonly o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs: Evs; have: () => string; chrome: () => string; unzip?: Unzip; pub?: string };
-  constructor(p: MacPaths, stage: MacStage, o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs?: Evs; have?: () => string; chrome?: () => string; unzip?: Unzip; pub?: string }) {
+  private readonly o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs: Evs; have: () => string; chrome: () => string; unzip?: Unzip; pub?: string; plat: () => EnginePlatform | null };
+  constructor(p: MacPaths, stage: MacStage, o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs?: Evs; have?: () => string; chrome?: () => string; unzip?: Unzip; pub?: string; plat?: () => EnginePlatform | null }) {
     this.p = p; this.stage = stage;
-    this.o = { ...o, evs: o.evs ?? new Evs({ log: o.log }), have: o.have ?? (() => plain(process.versions.electron)), chrome: o.chrome ?? (() => process.versions.chrome) };
+    this.o = { ...o, evs: o.evs ?? new Evs({ log: o.log }), have: o.have ?? (() => plain(process.versions.electron)), chrome: o.chrome ?? (() => process.versions.chrome), plat: o.plat ?? (() => enginePlatform()) };
     this.lists = new VersionLists(path.join(p.br, 'failed-engines.txt'), path.join(p.br, 'filed-engines.txt'));
   }
   private get engines(): string { return path.join(this.p.br, 'engines'); }
@@ -232,7 +232,7 @@ export class MacEngine implements Source {
   }
 
   async check(why: string): Promise<void> {
-    const plat = enginePlatform();
+    const plat = this.o.plat();
     if (this.busy || !plat || this.signinState === 'waiting') return;
     this.busy = true;
     try {

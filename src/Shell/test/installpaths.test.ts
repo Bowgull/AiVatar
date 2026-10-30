@@ -110,7 +110,7 @@ test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, the
   let signed = 0;
   const evs = { sign: async () => { signed++; return 'ok'; }, loginStamp: () => 0, openSignin: async () => true, watchSignin: () => () => {} } as unknown as Evs;
   const unzip = async (_zip: string, into: string) => { mkdirSync(path.join(into, 'Electron.app'), { recursive: true }); return true; };
-  const e = new MacEngine(p, st, { fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', chrome: () => '150.0.1.1', pub: PUB });
+  const e = new MacEngine(p, st, { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', chrome: () => '150.0.1.1', pub: PUB });
   await e.check('test');
   // Until the background signing and staging land (a fixed 20 ms was too short on GitHub's machines, 2026-10-30), 3 s at most.
   for (let i = 0; i < 150 && !(signed >= 1 && e.ready()); i++) await new Promise((r) => setTimeout(r, 20));
@@ -134,7 +134,7 @@ test('Mac engine: when castLabs wants a sign-in, the key asks; Terminal opens; o
   let answer: 'signin' | 'ok' = 'signin', opened = 0, watcher: ((ok: boolean) => void) | null = null;
   const evs = { sign: async () => answer, loginStamp: () => 0, openSignin: async () => { opened++; return true; }, watchSignin: (_s: number, done: (ok: boolean) => void) => { watcher = done; return () => {}; } } as unknown as Evs;
   const unzip = async (_z: string, into: string) => { mkdirSync(path.join(into, 'Electron.app'), { recursive: true }); return true; };
-  const e = new MacEngine(p, st, { fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', pub: PUB });
+  const e = new MacEngine(p, st, { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', pub: PUB });
   await e.check('test');
   assert.equal(e.ready()?.signin, 'ask');
   const ue = new UpdateEngine({ sources: [e], moment: () => ({ now: new Date(), idleSeconds: 0, inCall: false, inGame: false }), overnight: () => true, changed: () => {}, restart: () => {} });
