@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { dropMockup, cleanLiveUrl, cleanTitle } from '../src/mockupdrop.ts';
@@ -37,7 +37,7 @@ test('a committed page in the session repo becomes a .mockup with its repo; titl
   assert.equal(r.ok, true, r.message);
   const [d] = drops();
   assert.equal(d.path, 'docs/motion.html');
-  assert.equal(path.resolve(d.repo).toLowerCase(), path.resolve(way).toLowerCase());
+  assert.equal(realpathSync.native(d.repo).toLowerCase(), realpathSync.native(way).toLowerCase());   // the Mac's /var is /private/var
   assert.equal(d.title.length, 80);
   assert.equal(d.branch, 'Waymark');
   assert.equal(drops().length, 1);
@@ -48,28 +48,28 @@ test('files in no repo, hidden folders, non-pages, missing and uncommitted files
   clear();
   // 2026-10-28: a page in ANOTHER repo is no longer refused (it files under that repo); see the test after this one.
   for (const p of ['../outside.html', path.join(tmp, 'outside.html'), '.hidden/x.html', 'notes.txt', 'docs/nope.html', 'docs/new.html', '\\\\server\\share\\x.html']) {
-    const r = await dropMockup(state, { cwd: way, path: p }, home);
+    const r = await dropMockup(state, { cwd: way, path: p, branch: 'T' }, home);
     assert.equal(r.ok, false, `${p} should be refused`);
   }
-  assert.match((await dropMockup(state, { cwd: way, path: 'docs/new.html' }, home)).message, /not committed/);
-  assert.equal((await dropMockup(state, { cwd: tmp, path: 'outside.html' }, home)).ok, false, 'a folder that is not a git repo');
-  assert.equal((await dropMockup(state, { cwd: 'relative/dir', path: 'docs/motion.html' }, home)).ok, false, 'no known folder');
+  assert.match((await dropMockup(state, { cwd: way, path: 'docs/new.html', branch: 'T' }, home)).message, /not committed/);
+  assert.equal((await dropMockup(state, { cwd: tmp, path: 'outside.html', branch: 'T' }, home)).ok, false, 'a folder that is not a git repo');
+  assert.equal((await dropMockup(state, { cwd: 'relative/dir', path: 'docs/motion.html', branch: 'T' }, home)).ok, false, 'no known folder');
   assert.equal(drops().length, 0);
 });
 
 test('a page in another repo is filed under that repo, from any session folder (2026-10-28)', async () => {
   clear();
-  const r = await dropMockup(state, { cwd: tmp, path: path.join(home, 'docs', 'cockpit', 'sheet-1.html') }, home);
+  const r = await dropMockup(state, { cwd: tmp, path: path.join(home, 'docs', 'cockpit', 'sheet-1.html'), branch: 'T' }, home);
   assert.equal(r.ok, true, r.message);
   assert.equal(drops().length, 1);
 });
 
 test('in AangApp itself only the mockup folders, written the old way (a repo path only)', async () => {
   clear();
-  assert.equal((await dropMockup(state, { cwd: home, path: 'src/Core/src/x.html' }, home)).ok, false);
-  const r = await dropMockup(state, { cwd: home, path: 'docs/cockpit/sheet-1.html' }, home);
+  assert.equal((await dropMockup(state, { cwd: home, path: 'src/Core/src/x.html', branch: 'T' }, home)).ok, false);
+  const r = await dropMockup(state, { cwd: home, path: 'docs/cockpit/sheet-1.html', branch: 'T' }, home);
   assert.equal(r.ok, true, r.message);
-  assert.deepEqual(drops(), [{ path: 'docs/cockpit/sheet-1.html' }]);
+  assert.deepEqual(drops(), [{ path: 'docs/cockpit/sheet-1.html', branch: 'T' }]);
 });
 
 test('a live page must be on this computer; exactly one of path or url', async () => {
@@ -80,10 +80,16 @@ test('a live page must be on this computer; exactly one of path or url', async (
   assert.equal((await dropMockup(state, { cwd: way, url: 'https://example.com/' }, home)).ok, false);
   assert.equal((await dropMockup(state, { cwd: way, url: 'http://127.0.0.1:5/', path: 'docs/motion.html' }, home)).ok, false);
   assert.equal((await dropMockup(state, { cwd: way }, home)).ok, false);
-  const r = await dropMockup(state, { url: 'http://127.0.0.1:5173/rec', title: 'Motion\n\u0007take 2', branch: 'x'.repeat(41) }, home);
+  // No topic (or one too long to keep) is refused, so nothing lands under Other (2026-10-30).
+  for (const branch of [undefined, '', 'x'.repeat(41)]) assert.match((await dropMockup(state, { url: 'http://127.0.0.1:5173/rec', branch }, home)).message, /Give branch/);
+  assert.deepEqual(drops(), []);
+  const r = await dropMockup(state, { url: 'http://127.0.0.1:5173/rec', title: 'Motion\n\u0007take 2', branch: 'Motion' }, home);
   assert.equal(r.ok, true);
-  assert.match(r.message, /branch name/);
-  assert.deepEqual(drops(), [{ url: 'http://127.0.0.1:5173/rec', title: 'Motion take 2' }]);
+  assert.deepEqual(drops(), [{ url: 'http://127.0.0.1:5173/rec', title: 'Motion take 2', branch: 'Motion' }]);
+  // A live page belongs to the repo the session works in.
+  clear();
+  assert.equal((await dropMockup(state, { cwd: path.join(way, 'src'), url: 'http://127.0.0.1:5173/', branch: 'Motion' }, home)).ok, true);
+  assert.equal(drops()[0].project, path.basename(way));
   assert.equal(cleanTitle('  a \t b  '), 'a b');
 });
 
@@ -105,7 +111,7 @@ test('the door: /link/mockup answers only a signed request, with the folder the 
     rq.on('error', fail); rq.end(body);
   });
   try {
-    const body = JSON.stringify({ session: 's1', cwd: 'C:\\somewhere\\else', path: 'docs/motion.html', title: 'Motion' });
+    const body = JSON.stringify({ session: 's1', cwd: 'C:\\somewhere\\else', path: 'docs/motion.html', title: 'Motion', branch: 'Motion' });
     assert.equal((await post(body, false)).code, 403, 'unsigned');
     assert.equal(asked.length, 0);
     const r = await post(body);

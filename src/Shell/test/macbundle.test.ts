@@ -131,7 +131,9 @@ test('the door answers only signed requests, proves its key, and opens the page'
     assert.equal(hello.status, 200);
     assert.equal(((await hello.json()) as { proof: string }).proof, mac('hello', n), 'it proves it holds the key');
     assert.equal((await call('GET', `/hello?n=${n}`, '', false)).status, 403, 'unsigned: refused');
-    const body = JSON.stringify({ cwd: r, path: 'docs/sheet-1.html', title: '01 · One' });
+    const none = await call('POST', '/mockup', JSON.stringify({ cwd: r, path: 'docs/sheet-1.html', title: '01 · One' }));
+    assert.match(((await none.json()) as { message: string }).message, /Give branch/, 'no topic: refused, so nothing lands under Other');
+    const body = JSON.stringify({ cwd: r, path: 'docs/sheet-1.html', title: '01 · One', branch: 'One' });
     assert.equal((await call('POST', '/mockup', body, true, { origin: 'https://evil.example' })).status, 403, 'a web page: refused');
     const ok = await call('POST', '/mockup', body);
     const j = (await ok.json()) as { ok: boolean; message: string };

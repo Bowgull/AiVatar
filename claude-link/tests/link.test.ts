@@ -692,7 +692,9 @@ test('show_mockup (2026-10-22): registered in every session, one prompt line, th
   // Checked here first: one of path or url, a url on this computer only. Nothing goes to the brain for a bad call.
   expect(mockupArgs({}).ok).toBe(false)
   expect(mockupArgs({ path: 'a.html', url: 'http://127.0.0.1:1/' }).ok).toBe(false)
-  for (const url of ['https://example.com/', 'http://127.0.0.1.evil.example/', 'http://u:p@localhost/', 'file:///C:/x.html']) expect(mockupArgs({ url }).ok).toBe(false)
+  for (const url of ['https://example.com/', 'http://127.0.0.1.evil.example/', 'http://u:p@localhost/', 'file:///C:/x.html']) expect(mockupArgs({ url, branch: 'T' }).ok).toBe(false)
+  // No topic: refused here, so nothing lands under Other (2026-10-30).
+  expect(mockupArgs({ path: 'a.html' })).toMatchObject({ ok: false, error: expect.stringMatching(/Give branch/) })
   const bad = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'https://example.com/x' } as never)
   expect(bad).toMatchObject({ isError: true })
   expect(mockups).toHaveLength(0)
@@ -710,7 +712,7 @@ test('show_mockup with Aang down says so and sends nothing', async ($, on) => {
   const { quiet, mockups } = brain(on, { tools: ['Bash'], down: true })
   await $.session.start(start)
   await quiet()
-  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'http://127.0.0.1:5173/rec' } as never)
+  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'http://127.0.0.1:5173/rec', branch: 'Motion' } as never)
   expect(r).toMatchObject({ isError: true })
   expect(String((r as { result: unknown }).result)).toMatch(/not running/)
   expect(mockups).toHaveLength(0)
