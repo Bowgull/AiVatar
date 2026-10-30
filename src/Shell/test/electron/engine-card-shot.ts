@@ -45,7 +45,7 @@ app.whenReady().then(async () => {
   const open = () => js(`(() => { const t = document.getElementById('uptray'); if (t.hidden) document.getElementById('upkey').click(); })()`);
 
   // 1. A new engine, ready: the engine's lines, and how far behind Chrome today's engine is.
-  b.setUpdate({ version: '44.9.3', since: Date.now() - 1.3 * 86_400_000, title: 'Version 1.24.0: Gojo', canBack: true, overnight: true, groups: [engine] });
+  b.setUpdate({ version: '44.9.3', since: Date.now() - 1.3 * 86_400_000, title: "Samara's engine 44.9.3", canBack: true, overnight: true, groups: [engine] });
   await wait(1200); await open(); await wait(600); await wait(2000);
   await para('Your engine today is <b>6 weeks behind</b> Chrome\'s security fixes. This one is <b>2 days</b> behind.');
   await shot('1-ready.png');
