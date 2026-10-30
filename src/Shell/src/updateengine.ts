@@ -196,12 +196,13 @@ export class UpdateEngine {
   }
 
   /**
-   * Checks on start (half a minute in), every hour, and when asked (the release nudge, his check). On the scheduler
+   * Checks on start (half a minute in), every 15 minutes (it was an hour: a lost nudge left the UPDATE key away that
+   * long, 2026-10-30), and when asked (the release nudge, his check). On the scheduler
    * (2026-10-30): the checks wait out a call or a game (a check can download and build); the tick does its own deciding.
    */
   start(): void {
     let first = true;
-    sched.every('update.check', 60 * 60_000, () => this.checkAll(first ? (first = false, 'start') : 'hourly'), { first: 30_000, quiet: true });
+    sched.every('update.check', 15 * 60_000, () => this.checkAll(first ? (first = false, 'start') : 'regular'), { first: 30_000, quiet: true });
     sched.every('update.tick', TICK_MS, () => this.tick());
   }
   stop(): void { sched.cancel('update.check'); sched.cancel('update.tick'); }
