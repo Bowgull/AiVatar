@@ -221,6 +221,9 @@ window.pet?.onState((s) => {
   if (s.glow === 'timer') { glow = AVATAR; glowAt = performance.now(); }
   // His own question waiting in the bubble (2026-10-28): the needs-you blue, the same as Claude's permission.
   if (s.glow === 'ask') { glow = COLOR.permission; glowAt = performance.now(); }
+  // Held while he is busy (attention.ts, his pick 2026-10-30): what he asked about waits as a glow on him, in the colour
+  // the PC pet's marker uses (a session stuck on him blue, a finished job teal, anything else gold). A click shows it.
+  if (s.glow === 'held-blocking' || s.glow === 'held-done' || s.glow === 'held') { glow = s.glow === 'held-blocking' ? COLOR.permission : s.glow === 'held-done' ? COLOR.complete : '#ffc43c'; glowAt = performance.now(); }
   if (s.glow === 'off') glow = mark && GLOWS.has(mark) ? COLOR[mark] : null;
   if (s.flash && SHAPES[s.flash]) { flash = s.flash; flashUntil = performance.now() + (s.flash === 'step' ? 1800 : 4000); }
   draw();
