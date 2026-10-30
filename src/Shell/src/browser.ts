@@ -2742,7 +2742,10 @@ export class AangBrowser {
       // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
       // video plays in its own window, the show goes there and this tab steps back to where it was.
       if (main && /^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) { if (this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; } this.watchPlays(tab, u); }
-      tab.url = u; if (main && !tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, wc.getTitle()); this.changed();
+      // Only the page's own move changes its address (2026-10-30, his catch: Gmail's compose showed contacts.google.com, a
+      // frame inside it).
+      if (!main) return;
+      tab.url = u; if (!tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, wc.getTitle()); this.changed();
     });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });

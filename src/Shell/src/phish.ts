@@ -15,8 +15,9 @@ import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 
 export const PHISH_LISTS = [
-  { name: 'OPENPHISH', url: 'https://openphish.com/feed.txt', kind: 'urls' as const },
-  { name: 'URLHAUS', url: 'https://urlhaus.abuse.ch/downloads/text_online/', kind: 'urls' as const },
+  // 2026-10-30: OpenPhish's feed moved to GitHub (the old address redirects there), and URLhaus's own download answers
+  // 410 Gone: its data still arrives through MALWARE FILTER below, which is built from URLhaus.
+  { name: 'OPENPHISH', url: 'https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt', kind: 'urls' as const },
   { name: 'PHISHING.DATABASE', url: 'https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt', kind: 'domains' as const },
   // 2026-10-14 (security plan, extra shields): two more free lists, refreshed every 12 hours, adding PhishTank and
   // IPThreat on top of the sources above. Same check, same red plate, nothing sent anywhere.
