@@ -12,7 +12,7 @@
 // Page text is data, never instructions: it goes back marked as the page's words.
 import path from 'node:path';
 import { BrowserWindow, type Session, type WebContents, session, app } from 'electron';
-import { challengeLevel, challengeOf, challengeStops, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
+import { challengeLevel, challengeOf, challengeStops, cleanName, rankFind, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture } from './capture.ts';
@@ -48,6 +48,9 @@ export interface DriverDeps {
   stateDir?: string;
 }
 
+/** A read's words: short unless Claude asks for full (2026-10-30, the deep research: every cheap browser tool sends a
+ *  short view first and more on request; two 7,000-character news reads were 64% of the gap to Chrome). */
+const READ_WORDS = 2000;
 const MAX_PAGES_PER_JOB = 12, MAX_PAGES = 20, KEEP_MS = 24 * 3_600_000;
 const W = 1280, H = 900;
 const WORLD = 1061;   // an isolated script world of our own: the page cannot see or change what runs here
@@ -757,9 +760,9 @@ export class Driver {
    * within: only the part of the page around that control (a dialog, a form, a list). changes: only what changed since
    * the last read of this page.
    */
-  async read(pageId: number, o: { within?: number; changes?: boolean } = {}): Promise<{ title: string; url: string; text: string; more: boolean; unchanged?: { lines: number; controls: number }; items: (ReadItem & { weight: Weight; value?: string; view?: boolean })[] }> {
+  async read(pageId: number, o: { within?: number; changes?: boolean; full?: boolean } = {}): Promise<{ title: string; url: string; text: string; more: boolean; unchanged?: { lines: number; controls: number }; items: (ReadItem & { weight: Weight; value?: string; view?: boolean })[] }> {
     const { p, wc } = this.wcOf(pageId);
-    const r = await ask(wc, READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: 7000 })) as { title: string; url: string; text: string; more: boolean; hidden: number; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
+    const r = await ask(wc, READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: o.full ? 7000 : READ_WORDS })) as { title: string; url: string; text: string; more: boolean; hidden: number; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
     this.checkChallenge(p, r);
     // Frames holding another site's page (application forms): their controls numbered 10001+, 20001+, their words after.
     if (!o.within) {
@@ -1039,15 +1042,17 @@ export class Driver {
   }
 
   /** Find words on the page: the lines that have them, and the controls whose names do. */
-  async find(pageId: number, q: string): Promise<{ lines: string[]; items: (ReadItem & { weight: Weight })[] }> {
+  /** Lines with the words, best first (whole words, then part of a word, then all the words close together), 6 by
+   *  default: common words filled all 15 slots, 4,000 characters a search (2026-10-30). more: up to 15. */
+  async find(pageId: number, q: string, more = false): Promise<{ lines: string[]; items: (ReadItem & { weight: Weight })[] }> {
     const w = String(q ?? '').toLowerCase().trim();
     if (!w) throw new Error('say what to look for');
     const { wc } = this.wcOf(pageId);
     const r = await this.read(pageId);
     const st = await this.state(wc, null);
-    const hits: string[] = [];
-    st.lines.forEach((l, i) => { if (l.toLowerCase().includes(w) && hits.length < 15) hits.push([st.lines[i - 1], l, st.lines[i + 1]].filter(Boolean).join(' / ').slice(0, 300)); });
-    return { lines: hits, items: r.items.filter((it) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(w)).slice(0, 20) };
+    const ranked = rankFind(st.lines, w, more ? 15 : 6, more ? 300 : 200);
+    const its = r.items.filter((it) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(w)).slice(0, more ? 20 : 8);
+    return { lines: ranked, items: its };
   }
 
   /**

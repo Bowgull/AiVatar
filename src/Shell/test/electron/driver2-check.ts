@@ -47,6 +47,12 @@ app.whenReady().then(async () => {
   const site = http.createServer((q, r) => {
     const body = q.url === '/second' ? '<!doctype html><title>Second posting</title><body>UX Lead</body>'
       : q.url === '/links' ? `<!doctype html><title>Many links</title><body><input aria-label="Search posts">${Array.from({ length: 90 }, (_, i) => `<a href="/post/${i + 1}">Story ${i + 1}</a><br>`).join('')}</body>`
+      : q.url === '/form' ? `<!doctype html><title>Apply</title><body><h1>Apply</h1><p>${'About the role. '.repeat(400)}</p>
+<div style="height:3000px"></div><form><label>Full name <input name="name" required></label><label>Email <input type="email" name="email"></label>
+<label><input type="checkbox" name="agree"> I agree</label><label><input type="radio" name="w" value="r"> Remote</label>
+<select name="loc"><option>Toronto</option></select><textarea name="note"></textarea><input type="file" name="cv">
+${Array.from({ length: 30 }, () => '<button type="button">Play video</button>').join('')}<button type="button">Share clip</button>
+<button type="button">Next</button><button type="submit">Send application</button></form></body>`
       : q.url === '/check' ? '<!doctype html><title>Just a moment...</title><body>Checking your browser</body>' : APP;
     r.writeHead(200, { 'Content-Type': 'text/html' }).end(body);
   });
@@ -104,7 +110,7 @@ app.whenReady().then(async () => {
   const lp = Number(/page (\d+)/i.exec((await tool('browser_open', { url: base + '/links' })).text)?.[1]);
   const lr = await tool('browser_read', { page: lp });
   const linksIn = (t: string) => (t.match(/\] link[^\n]*Story \d+/g) ?? []).length;
-  check('a plain read keeps fields and 40 links, and says how to get the rest', /Search posts/.test(lr.text) && linksIn(lr.text) === 40 && /50 more links left out/.test(lr.text) && /-> \/post\/1\b/.test(lr.text), `${linksIn(lr.text)} links, ${lr.text.length} chars`);
+  check('a plain read keeps fields and 40 links, and says how to get the rest', /Search posts/.test(lr.text) && linksIn(lr.text) === 40 && /50 more links and buttons/.test(lr.text) && /-> \/post\/1\b/.test(lr.text), `${linksIn(lr.text)} links, ${lr.text.length} chars`);
   const lc = await tool('browser_read', { page: lp, controls: true });
   check('controls: true trims the same way (Claude takes it for the short read)', linksIn(lc.text) === 40 && /Search posts/.test(lc.text), `${linksIn(lc.text)} links`);
   const la = await tool('browser_read', { page: lp, all: true });
@@ -112,6 +118,19 @@ app.whenReady().then(async () => {
   const lf = await tool('browser_find', { page: lp, text: 'Story 77' });
   check('find reaches a link the short read left out', /Story 77/.test(lf.text), lf.text);
   await tool('browser_close', { page: lp });
+  // A long job form: a plain read keeps every field, box, choice and the Next/Send buttons far below, drops the
+  // off-screen video buttons, and gives 2,000 characters of words (full: true for all).
+  const fp = Number(/page (\d+)/i.exec((await tool('browser_open', { url: base + '/form' })).text)?.[1]);
+  const fr = await tool('browser_read', { page: fp });
+  const has = (re: RegExp) => re.test(fr.text);
+  const ctl = fr.text.slice(fr.text.indexOf('Controls'));
+  check('a long form keeps every field, box, choice and its Next and Send buttons', /text\/input \{required\}/.test(ctl) && (ctl.match(/\{unchecked\}/g) ?? []).length === 2 && /\] select/.test(ctl) && /text\/textarea/.test(ctl) && /file\/input/.test(ctl) && /button: Next/.test(ctl) && /Send application/.test(ctl), ctl.slice(0, 900));
+  check('off-screen video buttons are left out (a button that sends, like Share, stays: it asks Joshua)', !/Play video/.test(fr.text), fr.text.slice(-600));
+  const words = (t: string) => (/About the role/.exec(t) ? t.split('About the role.').length - 1 : 0);
+  const ff = await tool('browser_read', { page: fp, full: true });
+  check('a plain read gives the first 2,000 characters of words and says full: true gives more', words(fr.text) < 140 && /full: true/.test(fr.text) && words(ff.text) > words(fr.text) * 2, `${words(fr.text)} vs ${words(ff.text)}`);
+  await tool('browser_close', { page: fp });
+
   // Open and find in one call: the lines come back and the page closes itself; no match keeps it open.
   const of = await tool('browser_open', { url: base + '/links', find: 'Story 77' });
   const ofPage = Number(/page (\d+)/i.exec(of.text)?.[1]);
