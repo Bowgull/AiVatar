@@ -2298,7 +2298,19 @@ function paintWho() {
     el('upback').hidden = u.canBack !== true;
     el('upnight').classList.toggle('on', u.overnight === true);
     const call = s.inCall === true;
-    el('upgo').disabled = call;
+    // Sheet 105 (his yes, 2026-10-30): castLabs wants him to sign in before the new engine is signed for video (one key,
+    // Terminal opens with the sign-in typed), or Terminal is open; otherwise how far behind Chrome the engine is.
+    const si = u.signin === 'ask' || u.signin === 'waiting' ? u.signin : '';
+    el('upkicker').textContent = si === 'ask' ? 'ONE STEP FROM YOU' : si === 'waiting' ? 'WAITING FOR CASTLABS' : 'UPDATE READY';
+    const note = el('upnote');
+    note.replaceChildren();
+    if (si === 'ask') note.append('castLabs wants you to sign in before it signs this engine for video. Terminal opens with the sign-in typed. ', T2('b', '', 'Your password goes to castLabs only'), ', never to Samara or Aang.');
+    else if (si === 'waiting') note.append("Finish in Terminal. Samara signs the engine by itself the moment you're in.");
+    else if (typeof u.behind === 'string' && u.behind) for (const part of u.behind.slice(0, 200).split(/(\d+ weeks?|\d+ days?|less than a day)/)) if (part) note.append(/^(\d+ (weeks?|days?)|less than a day)$/.test(part) ? T2('b', '', part) : part);
+    note.hidden = !note.childNodes.length;
+    el('upkc').hidden = window.aang?.platform !== 'darwin' || !note.hidden;
+    el('upgo').textContent = si === 'ask' ? 'Sign in to castLabs' : si === 'waiting' ? 'Signing in...' : 'Restart now';
+    el('upgo').disabled = call || si === 'waiting';
     el('upwhy').hidden = !call;
     if (call) el('upwhy').textContent = "You're in a call. Restart when it's over.";
     if (shownFor !== u.version) {
@@ -2309,7 +2321,11 @@ function paintWho() {
   });
   key.addEventListener('click', (e) => { e.stopPropagation(); if (tray.hidden) { closeMenu(); closeDrawer(); closeDl(); view('main'); tray.hidden = false; key.setAttribute('aria-expanded', 'true'); place(tray, key); freeze('up'); } else close(); });
   el('uplater').addEventListener('click', close);
-  const go = () => { el('upgo').disabled = true; window.aang?.browserUpdateGo?.({ ...choices }); };
+  const go = () => {
+    el('upgo').disabled = true;
+    if (cur?.signin === 'ask') { window.aang?.browserUpdateAct?.({ act: 'castlabs' }); return; }
+    window.aang?.browserUpdateGo?.({ ...choices });
+  };
   el('upgo').addEventListener('click', go);
   el('upmore').addEventListener('click', (e) => { e.stopPropagation(); const m = el('upmenu'); m.hidden = !m.hidden; el('upmore').setAttribute('aria-expanded', String(!m.hidden)); el('upsafe').hidden = true; });
   const act = (a, extra = {}) => window.aang?.browserUpdateAct?.({ act: a, ...extra });
