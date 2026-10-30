@@ -46,6 +46,7 @@ app.whenReady().then(async () => {
   (screen as any).getCursorScreenPoint = () => ({ x: -20000, y: 500 });
   const site = http.createServer((q, r) => {
     const body = q.url === '/second' ? '<!doctype html><title>Second posting</title><body>UX Lead</body>'
+      : q.url === '/links' ? `<!doctype html><title>Many links</title><body><input aria-label="Search posts">${Array.from({ length: 90 }, (_, i) => `<a href="/post/${i + 1}">Story ${i + 1}</a><br>`).join('')}</body>`
       : q.url === '/check' ? '<!doctype html><title>Just a moment...</title><body>Checking your browser</body>' : APP;
     r.writeHead(200, { 'Content-Type': 'text/html' }).end(body);
   });
@@ -98,6 +99,17 @@ app.whenReady().then(async () => {
   const go = await tool('browser_click', { page, n: num(r1.text, 'Next posting') });
   const back = await tool('browser_back', { page });
   check('back works and says where it went', /Second posting/.test(go.text) && /moved to/.test(back.text), back.text);
+
+  // A plain read lists every field but only the first 40 links, with short addresses (measuring stick: 7x Chrome's tokens).
+  const lp = Number(/page (\d+)/i.exec((await tool('browser_open', { url: base + '/links' })).text)?.[1]);
+  const lr = await tool('browser_read', { page: lp });
+  const linksIn = (t: string) => (t.match(/\] link[^\n]*Story \d+/g) ?? []).length;
+  check('a plain read keeps fields and 40 links, and says how to get the rest', /Search posts/.test(lr.text) && linksIn(lr.text) === 40 && /50 more links left out/.test(lr.text) && /-> \/post\/1\b/.test(lr.text), `${linksIn(lr.text)} links, ${lr.text.length} chars`);
+  const lc = await tool('browser_read', { page: lp, controls: true });
+  check('controls: true still lists every link', linksIn(lc.text) === 90, `${linksIn(lc.text)} links`);
+  const lf = await tool('browser_find', { page: lp, text: 'Story 77' });
+  check('find reaches a link the short read left out', /Story 77/.test(lf.text), lf.text);
+  await tool('browser_close', { page: lp });
 
   const p2 = await tool('browser_open', { url: base + '/check' });
   check('a security-check page closes that page, never retried', p2.err && /security check/.test(p2.text) && /do not retry/.test(p2.text) && /left alone for a day/.test(p2.text), p2.text);

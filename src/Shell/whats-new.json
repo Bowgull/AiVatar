@@ -780,6 +780,16 @@
       "at": "2026-10-30T13:27:00-04:00",
       "text": "Background chores wait while you're in a call or a game.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T14:30:00-04:00",
+      "text": "One site's bot check no longer stops Claude's whole task.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T14:38:00-04:00",
+      "text": "Claude's page reads are shorter, so they cost less.",
+      "kind": "fix"
     }
   ]
 }
