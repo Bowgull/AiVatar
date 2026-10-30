@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 105 - Marks when Aang is on his side</title>
+<!-- Sheet 105 (2026-10-29), his report: "these icons when aang is docked sideways are ridiculous and don't look right at
+     all". Aang docked on the left edge of a screen, drawn by the same steps as the Mac app (macpet.js): his real frame
+     (idle_0), the real Claude marks (ClaudeMarks.cs pixel maps, 3 px), the same turn for the edge. A is today; B and C
+     are the two ways it could go. Every picture is at 2x. -->
+<link rel="stylesheet" href="sheet-53/sheet53.css">
+<style>
+.scr{image-rendering:pixelated;background:#1b1a19;border-radius:6px;display:block}
+.cap{font:500 14px/1.45 Figtree,sans-serif;color:#d8cab0;max-width:560px;margin:2px 0 0}
+.new{display:inline-block;font:800 10.5px Figtree,sans-serif;letter-spacing:1px;padding:2px 7px;border-radius:5px;background:#1d6b60;color:#fff;margin-left:8px;vertical-align:2px}
+</style>
+</head>
+<body>
+<h1>SHEET 105 &middot; MARKS WHEN AANG IS ON HIS SIDE</h1>
+<p class="lead">Docked on a side edge, Aang lies sideways but his mark stays standing up next to his head. Here are three ways to draw it.</p>
+<p class="real">His real frame and the real marks, drawn the way the Mac app draws them. Shown at the left edge; the right edge is the mirror.</p>
+
+<div class="look"><div class="lhead"><span class="L">A</span><span class="nm">Today</span>
+  <p class="cap2">The mark stands upright beside his face, so it looks stuck to the side of his head.</p></div>
+  <div class="row" data-v="A"></div></div>
+
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Turned with him</span><span class="new">OPTION</span>
+  <p class="cap2">The mark turns with him and floats over his head, the same as when he stands at the bottom. It reads as part of him.</p></div>
+  <div class="row" data-v="B"></div></div>
+
+<div class="look"><div class="lhead"><span class="L">C</span><span class="nm">Standing, above him</span><span class="new">OPTION</span>
+  <p class="cap2">The mark stays upright but moves above him against the edge, like a flag on the wall. Easy to read, never on his face.</p></div>
+  <div class="row" data-v="C"></div></div>
+
+<script>
+const MARK = 60, ART_TOP = 78, ART_X = 88, ART_W = 50, S = 2;
+const SHAPES = {
+  question: ['...OOOOO...', '..OHHHFFO..', '.OHFFFFFSO.', '.OHFOOOFSO.', '.OOO..OFSO.', '......OFSO.', '.....OFFSO.', '....OFFSO..', '....OFSO...', '....OFSO...', '....OOOO...', '...........', '....OOOO...', '....OHSO...', '....OSSO...', '....OOOO...'],
+  done: ['..........OOO', '.........OHHO', '........OHHFO', '.......OHHFSO', '.OOO..OHHFSO.', 'OHHHOOHHFSO..', 'OFHHHHHFSO...', '.OFFHHFSO....', '..OFFFSO.....', '...OSSO......', '....OO.......'],
+};
+const COLOR = { question: '#b07cff', done: '#3fc4b4' };
+const mix = (h, t, k) => { const a = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); return 'rgb(' + a.map((v, i) => Math.round(v + (t[i] - v) * k)).join(',') + ')'; };
+function markOf(kind) {
+  const map = SHAPES[kind], F = COLOR[kind], px = 3;
+  const c = document.createElement('canvas'); c.width = (map[0].length + 1) * px; c.height = (map.length + 1) * px;
+  const m = c.getContext('2d');
+  const pal = { O: '#2a1a10', H: mix(F, [255, 255, 255], 0.55), F, S: mix(F, [40, 20, 10], 0.35) };
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') { m.fillStyle = 'rgba(0,0,0,.4)'; m.fillRect((x + 1) * px, (y + 1) * px, px, px); } }));
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { m.fillStyle = pal[ch]; m.fillRect(x * px, y * px, px, px); } }));
+  return { c, w: map[0].length * px, h: map.length * px };
+}
+// One picture: a strip of screen with its left edge, Aang docked on it with `show` px of him out, wearing `kind`.
+function shot(img, v, show, kind) {
+  const W = 260, H = 230, along = 0, TOPPAD = 40;
+  const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; cv.className = 'scr';
+  cv.style.width = W * S + 'px';
+  const o = cv.getContext('2d'); o.imageSmoothingEnabled = false; o.scale(S, S);
+  o.fillStyle = '#1b1a19'; o.fillRect(0, 0, W, H);
+  // the screen edge he is docked on
+  o.fillStyle = '#0c0b0a'; o.fillRect(0, 0, 3, H);
+  // his upright drawing (macpet.js draw): MARK above, the frame, clipped at `show`
+  const up = document.createElement('canvas'); up.width = 224; up.height = MARK + show;
+  const g = up.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.drawImage(img, 0, MARK - ART_TOP);
+  const a = markOf(kind);
+  if (v === 'B') g.drawImage(a.c, Math.round(ART_X + ART_W / 2 - a.w / 2), Math.round(MARK - 9 - a.h));
+  // turned for the left edge: (x, y) -> (H - y, x), placed at the edge, `TOPPAD` down the strip
+  o.save(); o.translate(0, TOPPAD + along);
+  o.save(); o.setTransform(1, 0, 0, 1, 0, 0); o.restore();
+  o.transform(0, 1, -1, 0, up.height, 0);
+  o.drawImage(up, 0, 0);
+  o.restore();
+  // his art on screen: x 0..show, y ART_X..ART_X+ART_W (from the strip's top)
+  const ax = 0, ay = TOPPAD + ART_X, aw = show, ah = ART_W;
+  if (v === 'A') {
+    // today: where it would sit above his head, turned, but upright
+    const cx = up.height - (MARK - 9 - a.h / 2), cy = TOPPAD + ART_X + ART_W / 2;
+    o.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(cy - a.h / 2));
+  } else if (v === 'C') {
+    // upright, above his visible part, against the edge
+    const cx = Math.max(6 + a.w / 2, aw / 2), top = ay - 8 - a.h;
+    o.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(top));
+  }
+  return cv;
+}
+const img = new Image();
+img.onload = () => {
+  for (const row of document.querySelectorAll('.row[data-v]')) {
+    const v = row.dataset.v;
+    for (const [show, kind, label] of [[34, 'done', 'PEEKING, DONE TICK'], [34, 'question', 'PEEKING, QUESTION'], [90, 'question', 'SLID OUT, QUESTION']]) {
+      const cell = document.createElement('div'); cell.className = 'cell';
+      const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = label;
+      cell.append(lbl, shot(img, v, show, kind)); row.append(cell);
+    }
+  }
+};
+img.src = 'sheet-105/aang.png';
+</script>
+</body>
+</html>
