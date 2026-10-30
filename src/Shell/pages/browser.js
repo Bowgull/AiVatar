@@ -38,7 +38,7 @@ function report() {
   if (!pushed) baseMargin = parseFloat(getComputedStyle(page).marginTop) || 0;
   const natural = r0.top - pushed;
   let need = 0;
-  for (const id of ['askchip', 'sharechip', 'devchip', 'vaultchip', 'tvchip', 'toast']) { const x = el(id); if (x && !x.hidden) need = Math.max(need, Math.ceil(x.getBoundingClientRect().bottom + 8 - natural)); }
+  for (const id of ['sharechip', 'vaultchip', 'tvchip']) { const x = el(id); if (x && !x.hidden) need = Math.max(need, Math.ceil(x.getBoundingClientRect().bottom + 8 - natural)); }
   if (need !== pushed) { pushed = need; page.style.marginTop = need ? (baseMargin + need) + 'px' : ''; }
   const r = page.getBoundingClientRect();
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
@@ -1123,20 +1123,8 @@ function paintMarks(list) {
 /** A site with no icon: its first letter, carved, so a key is never blank. */
 function letter(name) { const s = document.createElement('i'); s.className = 'bm-letter'; s.textContent = (String(name).match(/[a-z0-9]/i)?.[0] ?? '?').toUpperCase(); return s; }
 
-// ---- 6.22: a website's ask, hanging from the band. For this call only; there is no "always" for these.
-let askId = null;
-window.aang?.onBrowserAsk?.((a) => {
-  if (!a || !Number.isInteger(a.id)) return;
-  askId = a.id;
-  el('askq').textContent = a.what || 'Allow this?';
-  el('askm').textContent = a.text || `${a.host || 'This site'} wants it for what you are doing now. You are asked again next time.`;
-  el('askyes').firstChild.textContent = a.yes || 'Allow for this call';
-  el('askno').firstChild.textContent = a.no || 'No';
-  el('askchip').hidden = false;
-});
-const answerAsk = (allow) => { if (askId === null) return; window.aang?.browserAskReply?.({ id: askId, allow }); askId = null; el('askchip').hidden = true; };
-el('askyes').addEventListener('click', () => answerAsk(true));
-el('askno').addEventListener('click', () => answerAsk(false));
+// 6.22's website asks (camera, another app, a risky download) and sheet 69's device ask are notices now (sheet 106 v7),
+// on Samara's notice layer: notice.js.
 
 // ---- 6.24: the screen-share picker. He picks one screen or one window; nothing is shared until he clicks Share.
 let shareId = null, sharePick = null;
@@ -1180,43 +1168,6 @@ el('shareyes').addEventListener('click', () => answerShare(true));
 el('shareno').addEventListener('click', () => answerShare(false));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shareId !== null) { answerShare(false); e.preventDefault(); } });
 
-// ---- Sheet 69: a site asks for a keyboard or mouse. He picks one of the devices listed, then Connect; Esc or Cancel = no.
-let devId = null, devPick = null;
-for (const s of document.querySelectorAll('#devchip [data-pix]')) { const svg = pixIcon(s.dataset.pix, 2); if (svg) s.append(svg); }
-window.aang?.onBrowserDevAsk?.((a) => {
-  if (!a || !Number.isInteger(a.id)) return;
-  if (a.gone) { if (devId === a.id) { devId = null; devPick = null; el('devchip').hidden = true; } return; }
-  if (devId !== a.id) devPick = null;
-  devId = a.id;
-  const list = Array.isArray(a.devices) ? a.devices : [];
-  // The one he allowed last time comes up already picked (a new device beside it still needs his click).
-  if (!list.some((d) => d.id === devPick)) devPick = list.length === 1 ? String(list[0].id) : (list.some((d) => d.id === a.picked) ? String(a.picked) : null);
-  el('devm').textContent = list.length ? `${a.host || 'This site'} wants to talk to one device. Pick it.` : `${a.host || 'This site'} wants a keyboard or mouse. None that it can use is plugged in.`;
-  const box = el('devlist');
-  box.replaceChildren();
-  for (const d of list) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'dev'; b.setAttribute('aria-pressed', String(String(d.id) === devPick));
-    const ic = pixIcon('keyboard', 2);
-    const t = document.createElement('span'); t.className = 't';
-    t.append(String(d.name ?? ''), Object.assign(document.createElement('small'), { textContent: String(d.how ?? '') }));
-    if (ic) b.append(ic);
-    b.append(t);
-    b.addEventListener('click', () => { devPick = String(d.id); box.querySelectorAll('.dev').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); el('devyes').disabled = false; });
-    b.addEventListener('dblclick', () => { devPick = String(d.id); answerDev(true); });
-    box.append(b);
-  }
-  el('devyes').disabled = !devPick;
-  el('devchip').hidden = false;
-});
-const answerDev = (yes) => {
-  if (devId === null) return;
-  window.aang?.browserDevReply?.({ id: devId, device: yes ? devPick : null });
-  devId = null; devPick = null; el('devchip').hidden = true;
-};
-el('devyes').addEventListener('click', () => answerDev(true));
-el('devno').addEventListener('click', () => answerDev(false));
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && devId !== null) { answerDev(false); e.preventDefault(); } });
 
 // ---- the SECURE plaque's panel: let ads through on one site, or block them again
 lock.addEventListener('click', (e) => {
@@ -1284,21 +1235,25 @@ new MutationObserver(() => { const open = !el('sitepanel').hidden; if (open === 
 el('popopen').addEventListener('click', () => { window.aang?.browserAct?.('popupopen'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 el('popallow').addEventListener('click', () => { window.aang?.browserAct?.('popupallow'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 
-// ---- a finished download, said once in the band
-window.aang?.onBrowserDownload?.((d) => {
-  if (!d) return;
-  const t = el('toast');
-  if (d.state === 'completed') tap(1.4);
-  if (d.quiet) return;   // the tray says it now
-  if (d.undo === 'trailclose') {
-    t.replaceChildren(String(d.text ?? ''), Object.assign(document.createElement('button'), { type: 'button', className: 'undo', textContent: 'Undo', onclick: () => { window.aang?.browserAct?.('trailundo'); t.hidden = true; } }));
-    t.hidden = false;
-    setTimeout(() => { t.hidden = true; }, 8000);
-    return;
-  }
-  t.textContent = d.state === 'note' ? String(d.text ?? '') : d.state === 'completed' ? `Downloaded ${d.name} to your Downloads. Windows checks it before it opens.` : `${d.name} did not finish downloading.`;
-  t.hidden = false;
-  setTimeout(() => { t.hidden = true; }, 6000);
+// ---- a finished download: the little wood tap (the notice itself is on Samara's notice layer, sheet 106)
+window.aang?.onBrowserDownload?.((d) => { if (d?.state === 'completed') tap(1.4); });
+// ---- Sheet 106 v7: a notice drops from under what caused it. Samara asks where that key is; it pulses gold twice.
+const NOTICE_KEY = { dl: 'dlkey', shield: 'lock', menu: 'menukey', slot: 'slot', tabs: 'drawerkey', rune: 'runeslot' };
+window.aang?.onBrowserNoticeFrom?.(async (m) => {
+  if (!m || !Number.isInteger(m.seq)) return;
+  let k = el(NOTICE_KEY[m.from] ?? 'menukey');
+  // A key still popping in (the download key, as its first download starts): measured where it lands, 0.3 s at most.
+  const moving = k ? k.getAnimations().map((a) => a.finished.catch(() => null)) : [];
+  if (moving.length) await Promise.race([Promise.all(moving), new Promise((r) => setTimeout(r, 300))]);
+  let r = k?.getBoundingClientRect();
+  if (!k || k.hidden || !r || r.width < 4) { k = el('menukey'); r = k.getBoundingClientRect(); }
+  // under the band, or under a chip hanging from it (the PIN, a share, the TV playing)
+  let bottom = el('band').getBoundingClientRect().bottom;
+  for (const id of ['sharechip', 'vaultchip', 'tvchip', 'afsavechip']) { const x = el(id); if (x && !x.hidden) bottom = Math.max(bottom, x.getBoundingClientRect().bottom + 4); }
+  window.aang?.browserNoticeAt?.({ seq: m.seq, left: r.left, right: r.right, bottom });
+  const lit = m.from === 'slot' ? el('slot') : k;
+  lit.classList.remove('ntsrc'); void lit.offsetWidth; lit.classList.add('ntsrc');
+  setTimeout(() => lit.classList.remove('ntsrc'), 1900);
 });
 
 // ---- the red plate's lever: held, never one click (sheet 3 section 6)
@@ -2112,7 +2067,8 @@ window.aang?.onBrowserDls?.((d) => {
   dlkey.tabIndex = show ? 0 : -1;
   if (!show) { dlkey.classList.remove('glow'); closeDl(); return; }
   paintDls();
-  if (d.pop) { dlkey.classList.add('glow'); openDl(true); }
+  // Sheet 106: a finished download is a notice dropping from this key now; the key only glows (the tray opens on a click).
+  if (d.pop) { dlkey.classList.add('glow'); setTimeout(() => dlkey.classList.remove('glow'), 1600); }
 });
 window.aang?.browserDlHello?.();
 
@@ -2542,7 +2498,8 @@ if (!SOLO) {
     tvkey.setAttribute('aria-label', tvkey.title);
     tvkey.hidden = !on;
     // the ask: setting yeet up as a second screen, what is playing there, the code (sheet 99), or the TV asleep
-    const ask = tv?.ask ?? null;
+    // Sheet 106 v7: the code, the TV asleep and the once-only setup are notices now; only what is playing stays here.
+    const ask = tv?.ask === 'playing' ? 'playing' : null;
     if (!ask) { chip.hidden = true; was = null; return; }
     const name = tv.name || 'your TV';
     const faces = chip.querySelector('.faces');
