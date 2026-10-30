@@ -22,7 +22,7 @@ test('a job is named for its trail in capitals, short', () => {
 });
 
 // ---- driver v2 (2026-10-14): security checks stop the job, a person's pace, only what changed, what an action did.
-import { challengeOf, challengeStops, diffRead, paceFor, whatChanged } from '../src/driverrules.ts';
+import { challengeOf, challengeStops, diffRead, paceFor, rankFind, whatChanged } from '../src/driverrules.ts';
 
 test('a security check or captcha is spotted, an ordinary page is not', () => {
   assert.ok(challengeOf({ url: 'https://www.linkedin.com/checkpoint/challenge/xyz' }));
@@ -54,4 +54,15 @@ test('an action that changed nothing says so; real changes are named', () => {
   assert.match(whatChanged(s, { ...s, dialogs: ['Apply to Lumen'] }).join(), /a box opened: "Apply to Lumen"/);
   assert.match(whatChanged({ ...s, el: { n: 4, state: 'unchecked' } }, { ...s, el: { n: 4, state: 'checked' } }).join(), /control 4 is now checked/);
   assert.match(whatChanged(s, { ...s, url: 'v' }).join(), /moved to v/);
+});
+
+test('find ranks whole words first, joins a split phrase, and keeps to its limit (2026-10-30)', () => {
+  const lines = ['Cityscape gallery', 'The city of Toronto', 'Initial', 'release 15 July 2013', ...Array.from({ length: 20 }, (_, i) => `city line ${i}`)];
+  const hits = rankFind(lines, 'city', 6, 200);
+  assert.equal(hits.length, 6);
+  assert.ok(hits[0]!.includes('The city of Toronto'), hits[0]);
+  assert.ok(!hits.includes('Cityscape gallery / The city of Toronto'), 'a part-word match comes after the whole-word ones');
+  assert.ok(rankFind(lines, 'initial release', 6, 200).some((h) => h.includes('15 July 2013')), 'a phrase split across two lines is found');
+  assert.ok(rankFind(lines, 'city', 15, 40).every((h) => h.length <= 40));
+  assert.deepEqual(rankFind(lines, '   ', 6, 200), []);
 });

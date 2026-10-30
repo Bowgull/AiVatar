@@ -291,3 +291,24 @@ export function line(p: Posting): string {
   const t = p.title || String(p.text ?? '').split(' | ')[0] || '';
   return [t, p.company, p.location, p.salary, p.posted, p.easyApply ? 'Easy Apply' : '', p.url, ...(p.flags ?? []).map((f) => `[${f}]`)].filter(Boolean).map((x) => String(x).replace(/\s+/g, ' ').trim()).join(' | ').slice(0, 260);
 }
+
+/**
+ * browser_find's lines (2026-10-30): whole-word matches first, then part of a word, then the words all within a line and
+ * its neighbours (a phrase split across a table: "Initial release"). Each hit is the line with one line either side.
+ */
+export function rankFind(lines: string[], q: string, max: number, width: number): string[] {
+  const w = q.toLowerCase().trim();
+  if (!w) return [];
+  const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const whole = new RegExp(`(^|[^\\p{L}\\p{N}])${esc}($|[^\\p{L}\\p{N}])`, 'iu');
+  const words = w.split(/\s+/).filter(Boolean);
+  const scored: { i: number; s: number }[] = [];
+  lines.forEach((l, i) => {
+    const low = l.toLowerCase();
+    if (whole.test(l)) scored.push({ i, s: 3 });
+    else if (low.includes(w)) scored.push({ i, s: 2 });
+    else if (words.length > 1 && words.every((x) => `${lines[i - 1] ?? ''} ${l} ${lines[i + 1] ?? ''}`.toLowerCase().includes(x)) && words.some((x) => low.includes(x))) scored.push({ i, s: 1 });
+  });
+  scored.sort((a, b) => b.s - a.s || a.i - b.i);
+  return scored.slice(0, max).map(({ i }) => [lines[i - 1], lines[i], lines[i + 1]].filter(Boolean).join(' / ').slice(0, width));
+}

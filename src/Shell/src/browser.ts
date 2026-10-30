@@ -5980,8 +5980,8 @@ export class AangBrowser {
           this.setSiteNote(host, String(a.text));
           return { ok: true, site: host, saved: true };
         }
-        case 'read': return { ok: true, ...(await d.read(num('page'), { ...(Number.isInteger(Number(a?.within)) && a?.within !== undefined ? { within: Number(a.within) } : {}), changes: a?.changes === true })) };
-        case 'find': return { ok: true, ...(await d.find(num('page'), String(a?.q ?? '').slice(0, 200))) };
+        case 'read': return { ok: true, ...(await d.read(num('page'), { ...(Number.isInteger(Number(a?.within)) && a?.within !== undefined ? { within: Number(a.within) } : {}), changes: a?.changes === true, full: a?.full === true })) };
+        case 'find': return { ok: true, ...(await d.find(num('page'), String(a?.q ?? '').slice(0, 200), a?.more === true)) };
         case 'waitfor': return { ok: true, ...(await d.waitFor(num('page'), String(a?.text ?? '').slice(0, 200), a?.gone === true, Number(a?.ms) || 8000)) };
         case 'jobs': return { ok: true, ...(await d.jobCards(num('page'))) };
         case 'sweep': return { ok: true, ...d.startSweep(num('page'), { keywords: Array.isArray(a?.keywords) ? (a.keywords as unknown[]).map(String) : [], ...(a?.path ? { path: String(a.path) } : {}), ...(a?.card ? { card: String(a.card) } : {}), ...(Number(a?.spacing) ? { spacing: Number(a.spacing) } : {}) }) };
