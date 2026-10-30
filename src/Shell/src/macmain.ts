@@ -4,28 +4,18 @@
 // tabs, history and logins. Money sites never travel. When the PC is off it works on its own and catches up later.
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
-import { startClaudeDoor } from './claudedoor.ts';
-import { startFlight } from './flight.ts';
-import { app, globalShortcut, ipcMain, Menu, nativeImage, net, powerMonitor, session } from 'electron';
-import { denyPermissions } from './safety.ts';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
-import { startMockupDoor } from './mockupdoor.ts';
-import { takeMockupFile } from './mockups.ts';
-import { listen as ghListen } from './ghrelease.ts';
+import { app, globalShortcut, Menu, nativeImage, net } from 'electron';
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
 import { MacEngine, MacPaths, MacSamara, MacStage } from './macsource.ts';
-import { UpdateEngine } from './updateengine.ts';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
-import { servePages } from './pageserver.ts';
-import { AangBrowser } from './browser.ts';
-import { wireBrowser } from './browseripc.ts';
-import { DrmRuntime } from './drmrunner.ts';
+import { samaraBase, samaraBrowser, type Platform, type SamaraBooted } from './boot.ts';
+import { bootDeps } from './bootdeps.ts';
+import { planDoorClient } from './plandoor.ts';
+import type { DrmRuntime } from './drmrunner.ts';
 import { onCastlabs } from './engineupdate.ts';
-import { Popout, popoutFile } from './popout.ts';
-import { wirePopout } from './popoutipc.ts';
 import { readSettings } from './settings.ts';
-import { FindSkips } from './skip/find.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import { holdHotkey } from './hotkey.ts';
 import { serviceFor } from './services.ts';
@@ -51,15 +41,12 @@ app.setName('Aang');
 process.on('uncaughtException', (e) => console.error('aang: ' + e.stack));
 process.on('unhandledRejection', (e) => console.error('aang: ' + String((e as Error)?.stack ?? e)));
 
-let browser: AangBrowser | null = null;
-/** Sheet 87: the secret window, a browser of its own, made the first time he presses ⇧⌘N in Samara. */
-let secret: AangBrowser | null = null;
-/** Sheet 87: the menu's hidden ⇧⌘N, set once the browser is up. */
-let openSecretRef: (() => void) | null = null;
+/** Samara, once the boot engine has started it (boot.ts). */
+let boot: SamaraBooted | null = null;
 const waiting: string[] = [];
 const openUrl = (u: string) => {
   try { const x = new URL(u); if (x.protocol !== 'http:' && x.protocol !== 'https:') return; } catch { return; }
-  if (browser) browser.open(u); else waiting.push(u);
+  if (boot) boot.browserNow.open(u); else waiting.push(u);
 };
 // A link he clicked while Aang is his default browser. It can arrive before the app is ready.
 app.on('open-url', (e, u) => { e.preventDefault(); openUrl(u); });
@@ -70,16 +57,12 @@ if (!solo) app.quit();
 
 app.whenReady().then(async () => {
   if (!solo) return;
-  startFlight(app, app.getPath('userData'), (s) => console.error(s));
-  // Nothing outside the tabs (the popout, Aang's cards) may use the camera, mic, location or the rest (code audit,
-  // 2026-10-14); the tabs keep their own ask-per-site rules.
-  denyPermissions(session.defaultSession, []);
   // The Mac's own menu, so Cmd+C, Cmd+V, Cmd+Q and the rest work as on every Mac app.
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     // View > Enter Full Screen (Ctrl+Cmd+F), as on every Mac app (2026-10-23, his ask: "act like any other window").
     { role: 'appMenu' }, { role: 'editMenu' },
     // Sheet 87: ⇧⌘N opens the secret window whatever has the keyboard (the band too). Hidden: no sign of it in the menus.
-    { label: 'View', submenu: [{ role: 'togglefullscreen' }, { label: 'New secret window', accelerator: 'Shift+Command+N', visible: false, acceleratorWorksWhenHidden: true, click: () => openSecretRef?.() }] },
+    { label: 'View', submenu: [{ role: 'togglefullscreen' }, { label: 'New secret window', accelerator: 'Shift+Command+N', visible: false, acceleratorWorksWhenHidden: true, click: () => boot?.openSecret() }] },
     { role: 'windowMenu' },
   ]));
   // His picks (2026-10-14): the lantern is lit while Samara runs; the app's own icon (the Dock when it is closed) is
@@ -94,70 +77,91 @@ app.whenReady().then(async () => {
   let dimmed = false;
   app.on('before-quit', (e) => { if (dimmed || !app.dock) return; e.preventDefault(); dimmed = true; play(9, 0, () => setTimeout(() => app.quit(), 30)); });
 
-  // Every button, menu and page of the browser, the same wiring as on the PC.
-  wireBrowser(() => browser, () => secret);
   // castLabs' engine: Widevine must be loaded before a paid page asks for it (castLabs' own rule).
   if (onCastlabs()) {
     try { const c = (await import('electron') as any).components; await Promise.race([c.whenReady(), new Promise((r) => setTimeout(r, 15_000))]); console.log('aang: widevine ' + JSON.stringify(c.status())); }
     catch (e) { console.error('aang: widevine did not load: ' + (e as Error).message); }
   }
   const stateDir = app.getPath('userData');
-  const pages = await servePages(path.join(HERE, '..', 'pages'));
+  const log = (t: string) => console.log('aang: ' + t);
+  // His pop-out switches and skips, read once at start (the Mac has no live switch for them yet).
+  const popSettings = readSettings(stateDir);
+  let skipSettings: SkipSettings = DEFAULT_SKIPS;
+  try { const f = path.join(stateDir, 'skips.json'); if (existsSync(f)) skipSettings = withDefaults(JSON.parse(readFileSync(f, 'utf8'))); } catch { /* defaults */ }
+  let ws: WebSocket | null = null;
+  const toPc = (m: Record<string, unknown>, otherwise?: string): void => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); else if (otherwise) log(otherwise); };
+  // Paid video (2026-10-13): Netflix, Crave, Disney+, Prime and Crunchyroll play in the castLabs window, signed for
+  // streaming on his own free castLabs account. One engine (his yes, 2026-10-13): Aang.app is built on castLabs' engine,
+  // so paid video plays right in the tab; only an Aang.app on the stock engine still sends it to the separate window.
+  // Netflix was the exception on this Mac (his report, 2026-10-14: error E100 in Samara's own tab). 2026-10-25: the
+  // video signature checks valid, and Netflix now gets Samara's honest name; it plays in the tab, and the paid-video
+  // window (castLabs' own untouched app) is only its fallback.
+  const paidWindow = (drm: DrmRuntime, url: string): boolean => {
+    const why = drm.open(url, 'narrow');
+    if (why) { console.error('aang: ' + why); return false; }
+    return true;
+  };
+  const paidAway = (drm: DrmRuntime, url: string): boolean => (serviceFor(url)?.ready && !onCastlabs() ? paidWindow(drm, url) : false);
+
+  // ---- the boot engine (boot.ts): everything of Samara's the same way as on the PC. Only the Dock, the menu, the
+  // default-browser ask, the PC link and the front desk's card door are the Mac's own.
+  const deps = bootDeps(log);
+  const platform: Platform = {
+    name: 'mac', here: HERE, stateDir, log,
+    settings: () => popSettings, skips: () => skipSettings,
+    drm: { shellDir: path.join(HERE, '..') },
+    paidPop: (url, s) => paidAway(s.drm, url),
+    other: {
+      open: (url) => toPc({ t: 'open.onpc', url }, 'the PC is not reachable, so it was not opened there'),
+      // "Send to PC": through the brain, which puts it in the PC's pop-out.
+      send: (url) => toPc({ t: 'watch.topc', url }, 'the PC is not reachable, so it was not sent'),
+    },
+  };
+  const base = await samaraBase(platform, deps);
   // The MOCKUPS trail on the Mac (2026-10-22): there is no AangApp repo here, but pages from the Mac's own Claude
   // sessions (their repos, or live local pages) land in it. It reads versions with git, so it is on only when Apple's
   // git is really installed: the /usr/bin/git stand-in would otherwise pop macOS's "install developer tools" window.
   const gitHere = ['/Library/Developer/CommandLineTools/usr/bin/git', '/Applications/Xcode.app/Contents/Developer/usr/bin/git'].some((f) => existsSync(f));
-  browser = new AangBrowser({
-    origin: pages.origin, stateDir, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
-    settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
-    mockupsAnywhere: gitHere,
-  });
-  // Sheet 87 (his "go", 2026-10-25): ⇧⌘N opens the secret window. Its own folder (tabs, bookmarks, history), its own
-  // kept logins, normal Samara's settings and autofill. No door, no sync, no mockups, nothing of it in normal Samara.
-  const openSecret = (): void => {
-    if (!secret) {
-      const dir = path.join(stateDir, 'secret');
-      try { mkdirSync(dir, { recursive: true, mode: 0o700 }); } catch (e) { console.error('aang: the secret window has no folder: ' + (e as Error).message); return; }
-      secret = new AangBrowser({
-        origin: pages.origin, stateDir: dir, sharedDir: stateDir, secret: true, phish: browser!.phishCheck, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
-        settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
-      });
-      secret.onSecret = openSecret;
-      // Its settings are normal Samara's: Settings opens there.
-      secret.onSettings = () => { const b = browser; if (!b) return; const had = b.hasWindow(); b.open(); setTimeout(() => b.openSettings(), had ? 0 : 1500); };
-      secret.onPaid = (u) => browser?.onPaid?.(u) ?? false;
-      secret.onPaidFallback = (u) => browser?.onPaidFallback?.(u) ?? false;
-      app.on('before-quit', () => secret?.closeAll());
-    }
-    secret.open();
-  };
-  browser.onSecret = openSecret;
-  openSecretRef = openSecret;
-  // 6.25a: Claude sessions on this Mac drive the browser through its own door (claudedoor.ts).
-  startClaudeDoor(() => browser, stateDir);
-  // show_mockup from this Mac's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).
-  const closeMockDoor = startMockupDoor(stateDir, (d) => browser?.openMockupDrop(d) ?? Promise.resolve(null),
-    () => (browser?.mockupsOn ? null : "Samara's Mockups trail on this Mac needs Apple's command line tools (git). Tell the user where the file is; they can install them with: xcode-select --install"),
-    undefined, { list: () => browser?.mockStages() ?? [], set: (a) => browser?.mockMark(a) ?? 'Samara is not open yet.' });
-  app.on('before-quit', () => closeMockDoor());
-  // A .mockup file left in Samara's open-urls folder (the same small JSON tools/open-mockup.mjs leaves on the PC). Only
-  // .mockup files; takeMockupFile checks each one and deletes it whatever it says.
-  {
-    const dir = path.join(stateDir, 'open-urls');
-    const take = () => {
-      let names: string[] = [];
-      try { names = readdirSync(dir).sort(); } catch { return; }
-      for (const n of names) if (n.endsWith('.mockup')) { const m = takeMockupFile(path.join(dir, n)); if (m && browser?.mockupsOn) void browser.openMockupDrop(m); }
-    };
-    try { mkdirSync(dir, { recursive: true }); watch(dir, () => setTimeout(take, 60)); } catch (e) { console.error('aang: cannot watch for mockups: ' + (e as Error).message); }
-    take();
-  }
+  // The update engine's Mac half (macsource.ts): Samara's code from GitHub and new castLabs engines, built into one new
+  // Samara in the background. The Mac's script closes and restarts Samara itself.
+  const paths = new MacPaths(LISTENER);
+  let samara = null as MacSamara | null;
+  // Sheet 37 on the Mac: plan cards go to Aang's bubble (the plan door, plandoor.ts), else Samara's band.
+  const plans = planDoorClient({ keyFile: path.join(stateDir, 'plan-door.key'), log: (s) => console.log(s) });
+  boot = samaraBrowser(base, platform, {
+    options: { mockupsAnywhere: gitHere },
+    secret: true,
+    plans,
+    mockupDoor: { offWhy: () => "Samara's Mockups trail on this Mac needs Apple's command line tools (git). Tell the user where the file is; they can install them with: xcode-select --install" },
+    syncSend: (m) => toPc(m as never),
+    updates: {
+      sources: (changed) => {
+        const stage = new MacStage(paths, { log, changed });
+        samara = new MacSamara(paths, stage, { fetch: net.fetch as never, log, changed });
+        return [samara, new MacEngine(paths, stage, { fetch: net.fetch as never, log, changed })];
+      },
+      prefsFile: paths.prefs, changelog: paths.changelog,
+      inGame: () => false,
+      // The script closes Samara itself; what to say the next time it opens is kept first (overnight only).
+      beforeGo: (w) => { if (w.overnight) { try { writeFileSync(paths.night, JSON.stringify({ version: samara?.installed().version, title: w.title, lines: w.lines })); } catch { /* best effort */ } } },
+      restart: () => { /* the Mac's script restarts Samara */ },
+      seen: () => { try { unlinkSync(paths.night); } catch { /* gone */ } },
+    },
+  }, deps);
+  const browser = boot.browserNow;
+  const { popout, drm } = base;
+  browser.onPaid = (url) => paidAway(drm, url);
+  browser.onPaidFallback = (url) => paidWindow(drm, url);
+  // Tidy asks Aang's brain, which is on the PC: from the Mac it says it is not reachable yet (until M7 links them).
+  browser.onTidyAsk = (id) => browser.tidyAnswer(id, { ok: false, why: 'offline' });
+  const sync = browser.sync!;
+
   // Sheet 21 (his pick, 2026-10-13): while Shadow is off, the Mac's front desk posts the morning brief and the like as
   // the same drawn cards. It cannot draw (it has no browser engine), so it asks here. Only from this Mac (loopback),
   // only with the hook key the setup wrote, never from a web page (no Origin), small bodies, one card at a time.
   {
     const cardKey = (() => { try { return readFileSync(path.join(LISTENER, 'hook.key'), 'utf8').trim(); } catch { return ''; } })();
-    const cards = new CardRenderer(pages.origin);
+    const cards = new CardRenderer(base.pages.origin);
     const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
     let busy: Promise<unknown> = Promise.resolve();
     const srv = http.createServer((req, res) => {
@@ -175,59 +179,7 @@ app.whenReady().then(async () => {
     srv.on('error', (e) => console.error('aang: the card door would not open: ' + (e as Error).message));
     if (cardKey.length >= 20) srv.listen(CARD_PORT, '127.0.0.1');
   }
-  // Tidy asks Aang's brain, which is on the PC: from the Mac it says it is not reachable yet (until M7 links them).
-  browser.onTidyAsk = (id) => browser?.tidyAnswer(id, { ok: false, why: 'offline' });
-  // Paid video (2026-10-13): Netflix, Crave, Disney+, Prime and Crunchyroll play in the castLabs window, signed for
-  // streaming on his own free castLabs account. Hardware acceleration stays on: there is no Shadow capture here.
-  const drm = new DrmRuntime({ shellDir: path.join(HERE, '..'), stateDir });
-  // One engine (his yes, 2026-10-13): Aang.app is built on castLabs' engine, so paid video plays right in the tab;
-  // only an Aang.app on the stock engine still sends it to the separate window.
-  // Netflix was the exception on this Mac (his report, 2026-10-14: error E100 in Samara's own tab). 2026-10-25: the
-  // video signature checks valid, and Netflix now gets Samara's honest name; it plays in the tab, and the paid-video
-  // window (castLabs' own untouched app) is only its fallback.
-  browser.onPaid = (url) => {
-    const paid = serviceFor(url);
-    if (!paid?.ready) return false;
-    // Netflix too now (2026-10-25): it plays in the tab with Samara's honest name (browser.ts HONEST_SITES), and goes
-    // to the paid-video window only if Netflix still refuses there (onPaidFallback below).
-    if (onCastlabs()) return false;
-    const why = drm.open(url, 'narrow');
-    if (why) { console.error('aang: ' + why); return false; }
-    return true;
-  };
-  browser.onPaidFallback = (url) => {
-    const why = drm.open(url, 'narrow');
-    if (why) { console.error('aang: ' + why); return false; }
-    return true;
-  };
-  let openPopRef: ((url: string) => boolean) | null = null;
-  let ws: WebSocket | null = null;
-  // The pop-out, as on the PC (his report, 2026-10-13: "the pop-out is a very important feature"): its keys, pin,
-  // play and click-through. Ctrl+Shift+V hides and shows it; Ctrl+Alt+P pins it while it is up.
-  const popSettings = readSettings(stateDir);
-  let skipSettings: SkipSettings = DEFAULT_SKIPS;
-  try { const f = path.join(stateDir, 'skips.json'); if (existsSync(f)) skipSettings = withDefaults(JSON.parse(readFileSync(f, 'utf8'))); } catch { /* defaults */ }
-  const popout = new Popout({
-    pages, preloadPath: path.join(HERE, 'preload.cjs'),
-    remembered: () => { try { const j = JSON.parse(readFileSync(popoutFile(stateDir), 'utf8')); return ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(j?.[k])) ? { x: j.x, y: j.y, width: j.width, height: j.height } : null; } catch { return null; } },
-    remember: (box) => { if (popSettings.rememberSize) { try { writeFileSync(popoutFile(stateDir), JSON.stringify(box)); } catch { /* next time */ } } },
-    settings: () => popSettings, skips: new FindSkips(stateDir), skipSettings: () => skipSettings,
-  });
-  openPopRef = (url: string) => openPop(url);
-  const openPop = (url: string): boolean => {
-    if (serviceFor(url)) return browser?.onPaid?.(url) ?? false;
-    drm.close();
-    return Boolean(popout.open(url));
-  };
-  browser.onReclaim = () => popout.returnTab();
-  browser.onPopoutAct = (what) => { if (what === 'popclose') popout.close(); else if (what === 'poppin') popout.togglePin(); else if (what === 'poppause') popout.togglePlay(); };
-  browser.onOpenOther = (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'open.onpc', url })); };
-  wirePopout({
-    popout: () => popout, browser: () => browser, open: openPop, stopPaid: () => drm.close(), paidSeparately: () => !onCastlabs(),
-    openOnOther: (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'open.onpc', url })); else console.log('aang: the PC is not reachable, so it was not opened there'); },
-    // "Send to PC": through the brain, which puts it in the PC's pop-out.
-    sendToOther: (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'watch.topc', url })); else console.log('aang: the PC is not reachable, so it was not sent'); },
-  });
+  // The pop-out's keys: Ctrl+Shift+V hides and shows it; Ctrl+Alt+P pins it while it is up.
   const hk = holdHotkey(stateDir, () => popout.toggleHidden());
   if (hk.active) console.log(`aang: ${hk.active} hides and shows the pop-out`);
   let pinHeld = false;
@@ -236,8 +188,7 @@ app.whenReady().then(async () => {
     if (up && !pinHeld) pinHeld = globalShortcut.register('Control+Alt+P', () => popout.togglePin());
     else if (!up && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; }
   }, 500).unref?.();
-  app.on('before-quit', () => { popout.close(); hk.release(); });
-  app.on('before-quit', () => drm.close());
+  app.on('before-quit', () => hk.release());
   // Started by a Claude session (claude-door-mcp.mjs: open -g -a Aang --args --quiet): the door is open, no window comes
   // up over him. Claude's tabs are hidden ones anyway; his own window opens the first time he clicks Aang in the Dock.
   if (!process.argv.includes('--quiet') || waiting.length) {
@@ -252,31 +203,8 @@ app.whenReady().then(async () => {
     try { writeFileSync(asked, new Date().toISOString()); } catch { /* asked again next time */ }
   }
 
-  // ---- the update engine (2026-10-30, updateengine.ts + macsource.ts): Samara's code from GitHub and new castLabs
-  // engines, both sealed with his release key, built into one new Samara in the background; then his UPDATE key
-  // lights up (sheet 35, sheet 108). Restart now, overnight, put away, skip and go back are the engine's, one set of
-  // rules for both machines. Samara no longer takes updates from the PC (his pick: GitHub, both machines).
-  const paths = new MacPaths(LISTENER);
-  const log = (t: string) => console.log('aang: ' + t);
-  const prefs = (): { overnight: boolean } => { try { return { overnight: JSON.parse(readFileSync(paths.prefs, 'utf8')).overnight === true }; } catch { return { overnight: false }; } };
-  let updates: UpdateEngine | null = null;
-  const stage = new MacStage(paths, { log, changed: () => updates?.show() });
-  const samara = new MacSamara(paths, stage, { fetch: net.fetch as never, log, changed: () => updates?.show() });
-  const engineSrc = new MacEngine(paths, stage, { fetch: net.fetch as never, log, changed: () => updates?.show() });
-  updates = new UpdateEngine({
-    sources: [samara, engineSrc],
-    moment: () => ({ now: new Date(), idleSeconds: powerMonitor.getSystemIdleTime(), inCall: browser?.inCall === true, inGame: false }),
-    overnight: () => prefs().overnight,
-    changed: (card) => browser?.setUpdate(card ? { ...card, overnight: prefs().overnight } : null),
-    // The script closes Samara itself; what to say the next time it opens is kept first (overnight only).
-    beforeGo: (w) => { if (w.overnight) { try { writeFileSync(paths.night, JSON.stringify({ version: samara.installed().version, title: w.title, lines: w.lines })); } catch { /* best effort */ } } },
-    restart: () => { /* the Mac's script restarts Samara */ },
-    log,
-  });
-  const markGood = () => samara.markGood();
+  const markGood = () => samara?.markGood();
   setTimeout(markGood, 60_000);
-  updates.start();
-  ghListen(net.fetch as never, () => void updates?.checkAll('nudge'));
 
   // The report (his rule, 2026-10-14: a failed update must say why, so it can be fixed). After an update ran, once
   // the outcome is known (this Aang marked itself good, or the old one came back), what the update printed and the
@@ -287,6 +215,7 @@ app.whenReady().then(async () => {
       const ran = statSync(paths.updateLog).mtimeMs;
       let sent = 0; try { sent = Number(readFileSync(UPSENT, 'utf8')) || 0; } catch { /* never */ }
       if (ran <= sent || ws?.readyState !== WebSocket.OPEN) return;
+      if (!samara) return;
       const text = readFileSync(paths.updateLog, 'utf8'), i = samara.installed();
       const rolledBack = /putting the old one back/.test(text);
       const ok = !rolledBack && i.status === 'good' && !/npm (ERR|error)|failed; nothing was changed|did not match its fingerprint/i.test(text);
@@ -300,27 +229,12 @@ app.whenReady().then(async () => {
     } catch { /* no update has run */ }
   };
   setTimeout(reportUpdate, 75_000);
-  ipcMain.on('browser:updateact', (e, a) => {
-    if (!browser?.isFrame(e.sender) || !updates) return;
-    const act = String(a?.act ?? '');
-    if (act === 'changelog') { let t = ''; try { t = readFileSync(paths.changelog, 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
-    if (act === 'overnight') { try { writeFileSync(paths.prefs, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } updates.show(); return; }
-    if (act === 'seen') { browser.setUpdated(null); try { unlinkSync(paths.night); } catch { /* gone */ } return; }
-    if (act === 'castlabs') { void updates.signin().then((ok) => { if (!ok) browser?.updateWhy('Terminal could not be opened. Try again in a moment.'); }); return; }
-    if (act === 'file' || act === 'skip' || act === 'check') { updates.act(act); return; }
-    if (act === 'back' && !updates.act('back')) browser.updateWhy('There is no earlier version kept to go back to.');
-  });
   // After an overnight update: once, by the ... key, what it did.
-  try { const n = JSON.parse(readFileSync(paths.night, 'utf8')); if (n.version === samara.installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
-  ipcMain.on('browser:updatego', (e) => {
-    if (!browser?.isFrame(e.sender) || !updates) return;
-    void updates.go().then((r) => { if (!r.ok) browser?.updateWhy(r.why ?? 'Not right now.'); });
-  });
+  try { const n = JSON.parse(readFileSync(paths.night, 'utf8')); if (samara && n.version === samara.installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
 
   // ---- the sync, through the brain on the PC
   const read = (f: string) => { try { return readFileSync(path.join(LISTENER, f), 'utf8').trim(); } catch { return ''; } };
   const key = read('bsync.key'), shadow = read('shadow');
-  const sync = browser.startSync((m) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); }, (s) => console.log('aang: ' + s));
   const connect = () => {
     if (!key || !/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(shadow)) { console.log('aang: no sync key or PC address yet; run the Mac setup again'); return; }
     const s = new WebSocket(`ws://${shadow}:${SYNC_PORT}/bsync`, { headers: { 'x-aang-key': key }, maxPayload: 64 * 1024 * 1024 });
@@ -331,7 +245,7 @@ app.whenReady().then(async () => {
       // "Open on Mac" from the PC: a full tab here, and Aang comes to the front.
       else if (m?.t === 'tab.open' && typeof m.url === 'string' && /^https?:\/\//.test(m.url)) { browser?.openForward(m.url); app.focus({ steal: true }); }
       // "Send to Mac" from the PC: it plays here, in the pop-out.
-      else if (m?.t === 'watch.open' && typeof m.url === 'string' && /^https:\/\//.test(m.url)) openPopRef?.(m.url);
+      else if (m?.t === 'watch.open' && typeof m.url === 'string' && /^https:\/\//.test(m.url)) base.openPop(m.url);
       // His yes (2026-10-13): Claude may look at this browser's own window and its log, when it asks.
       else if (m?.t === 'diag.ask' && browser) {
         void Promise.all([browser.look(), popout.diag().catch(() => null)]).then(([l, pop]) => {
@@ -349,7 +263,7 @@ app.whenReady().then(async () => {
   // A Mac app stays open with no windows; clicking it in the Dock brings the browser back.
   app.on('activate', () => browser?.open());
   app.on('second-instance', () => browser?.open());
-  app.on('before-quit', () => { if (process.uptime() > 20) markGood(); browser?.closeAll(); pages.close(); });
+  app.on('before-quit', () => { if (process.uptime() > 20) markGood(); });
 });
 
 // Closing the last window does not quit: the sync keeps running, as Mac apps do. Cmd+Q quits.

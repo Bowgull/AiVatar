@@ -35,6 +35,9 @@ import { Snipper } from './snip.ts';
 import { MacMedia } from './macmedia.ts';
 import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import { PinSnips } from './pinsnip.ts';
+import { openPlanDoor, PLAN_WAIT_MS } from './plandoor.ts';
+import { PlanRows } from './planrows.ts';
+import type { PlanAnswer } from './browser.ts';
 
 const HERE = import.meta.dirname;
 const ROOT = path.join(HERE, '..', '..', '..');
@@ -323,6 +326,7 @@ const link = new CoreLink({
       bubble?.send('brain:message', { t: 'pet.say', text: text.slice(0, 300), hold: 6000 }); bubble?.show();
       return;
     }
+    if (m.t === 'shown.saved') { planRows.saved(String((m as { ref?: unknown }).ref ?? ''), Number((m as { id?: unknown }).id)); return; }
     if (m.t === 'ack' && ackWait && m.id === ackWait.id) { clearTimeout(ackWait.timer); ackWait = null; }
     if (m.t === 'quota') {
       lastWeek = Number(m.week) || 0; lastLevel = String(m.level ?? 'ok'); lastFive = Number(m.five) || 0; lastWeekResetsAt = Number(m.weekResetsAt) || 0;
@@ -583,6 +587,31 @@ app.whenReady().then(async () => {
     },
   });
   app.on('before-quit', closeDoor);
+  // Sheet 37 on the Mac (the boot engine, 2026-10-30): a Claude session's plan card comes from Samara through the plan
+  // door (plandoor.ts) and is shown here with its keys, as on the PC; his answer goes back to Samara.
+  const closePlans = openPlanDoor({
+    keyFile: path.join(STATE_DIR, 'plan-door.key'), log: (s2) => console.log(s2),
+    hooks: {
+      ask: (card, gone) => {
+        if (!bubble) return Promise.resolve(null);
+        return new Promise<PlanAnswer | null>((done) => {
+          const expire = () => { if (planWait.delete(card.id)) { done(null); bubble?.send('brain:message', { t: 'ask.expired', id: card.id }); pet?.webContents.send('pet:state', { glow: 'off' }); } };
+          planWait.set(card.id, done);
+          setTimeout(expire, PLAN_WAIT_MS);
+          void gone.then(expire);
+          // Waiting on him, like a permission: the needs-you glow and chime (not on a call or full screen), out of the edge.
+          pet?.webContents.send('pet:state', { glow: 'ask' });
+          if (!busyNow && !muted) chime('needs-you');
+          if (docked && pose === 'peek') setPose('more');
+          bubble!.send('brain:message', { t: 'plan', id: card.id, steps: card.steps.map((text) => ({ text })), samara: card });
+        });
+      },
+      step: (id, at) => bubble?.send('brain:message', { t: 'plan.step', id, at }),
+      started: (p2) => planRows.started(p2),
+      done: (job) => planRows.done(job),
+    },
+  });
+  app.on('before-quit', closePlans);
   // Sheet 17 / 60: notes pulled out of the bubble onto the screen, and the quick note (main.ts).
   noteWins = new NoteWindows({
     origin: pages.origin, preloadPath: preload,
@@ -838,9 +867,19 @@ ipcMain.on('bubble:briefact', (e, a) => {
 ipcMain.on('bubble:log', (e) => { if (fromBubble(e)) void shell.openPath(path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'core.log')); });
 ipcMain.on('bubble:answer', (e, a) => { if (!fromBubble(e) || !a || typeof a !== 'object') return; answerAsk(a as Record<string, unknown>); liveAsk = null; input?.send('input:ask', null); pet?.webContents.send('pet:state', { glow: 'off' }); });
 ipcMain.on('input:answer', (e, a) => { if (!fromInput(e) || !liveAsk) return; answerAsk({ ...liveAsk, choice: String((a as Record<string, unknown>)?.choice ?? '') }); liveAsk = null; input?.send('input:ask', null); pet?.webContents.send('pet:state', { glow: 'off' }); });
+/** Sheet 37: Samara's plan cards shown here, waiting for his answer (plandoor.ts). */
+const planWait = new Map<string, (a: PlanAnswer | null) => void>();
+/** Sheet 41: each plan that starts is a row in his scroll-back (the brain keeps it). */
+const planRows = new PlanRows((m) => { link.send(m as never); });
 /** main.ts answerAsk, the kinds the Mac has today. The id always comes from what we hold, never from the page. */
 function answerAsk(a: Record<string, unknown>): void {
   const choice = String(a.choice ?? '');
+  // Sheet 37: his answer to a Claude session's plan goes to Samara, never to the brain (the PC's main.ts answerAsk).
+  if (a.t === 'plan' && String(a.id ?? '').startsWith('samara:')) {
+    const done = planWait.get(String(a.id)); planWait.delete(String(a.id));
+    done?.({ go: choice === 'go', change: choice === 'change', keep: Array.isArray(a.keep) ? a.keep.map(String).slice(0, 20) : [], note: String(a.note ?? '').slice(0, 500) });
+    return;
+  }
   if (a.t === 'plan') { link.send({ t: 'plan.reply', id: String(a.id ?? ''), go: choice === 'go' }); return; }
   if (a.t === 'claude.start') {
     const pick = choice === 'go' ? 'go' : choice === 'change' ? 'change' : 'no';

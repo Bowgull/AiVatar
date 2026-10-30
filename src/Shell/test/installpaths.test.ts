@@ -229,3 +229,17 @@ test('PC engine: video wins, so no tick boxes; sign-in shows on the key; Restart
   assert.equal(src.ready()?.signin, 'ask');
   assert.ok(await ue.signin()); assert.equal(calls.at(-1), 'signin');
 });
+
+// 2026-10-30 on his Mac: the old Samara, quitting for the update, marked the new 1.25.1 good before it had ever started,
+// so the script stopped watching and nothing reopened Samara. Only the Samara that IS the trial may call it good.
+test('Mac: only the Samara that is the trial marks it good, never the one it replaces', () => {
+  const p = macHome(), calls: string[] = [];
+  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const old = new MacSamara(p, st, { fetch: (async () => res('', false)) as never, log: () => {}, changed: () => {}, pub: PUB });   // started as 1.23.0, good
+  writeFileSync(p.installed, JSON.stringify({ version: '1.25.1', commit: 'e'.repeat(12), status: 'trial' }));   // the script put 1.25.1 in
+  old.markGood();
+  assert.equal(JSON.parse(readFileSync(p.installed, 'utf8')).status, 'trial', 'the old one does not vouch for the new one');
+  const fresh = new MacSamara(p, st, { fetch: (async () => res('', false)) as never, log: () => {}, changed: () => {}, pub: PUB });   // 1.25.1 starts
+  fresh.markGood();
+  assert.equal(JSON.parse(readFileSync(p.installed, 'utf8')).status, 'good');
+});
