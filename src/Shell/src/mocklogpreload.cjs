@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('mocklog', {
   stage: (id, to, note) => ipcRenderer.send('mocklog:stage', { id, to, note }),
   send: (id) => ipcRenderer.send('mocklog:send', id),
   leave: () => ipcRenderer.send('mocklog:leave'),
+  where: (p, s, v, n) => ipcRenderer.send('mocklog:where', { p, s, v, n }),
   onEsc(fn) { const h = () => fn(); ipcRenderer.on('mocklog:esc', h); return () => ipcRenderer.removeListener('mocklog:esc', h); },
   onData(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('mocklog:data', h); return () => ipcRenderer.removeListener('mocklog:data', h); },
 });
