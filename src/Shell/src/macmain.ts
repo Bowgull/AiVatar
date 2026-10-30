@@ -8,13 +8,12 @@ import { startClaudeDoor } from './claudedoor.ts';
 import { startFlight } from './flight.ts';
 import { app, globalShortcut, ipcMain, Menu, nativeImage, net, powerMonitor, session } from 'electron';
 import { denyPermissions } from './safety.ts';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { startMockupDoor } from './mockupdoor.ts';
 import { takeMockupFile } from './mockups.ts';
-import { download as ghDownload, isVersion, latest as ghLatest, listen as ghListen, newer, withSection } from './ghrelease.ts';
-import { macUpdateScript } from './macupdate.ts';
-import { spawn } from 'node:child_process';
-import { createHash, verify as verifySig } from 'node:crypto';
+import { listen as ghListen } from './ghrelease.ts';
+import { MacEngine, MacPaths, MacSamara, MacStage } from './macsource.ts';
+import { UpdateEngine } from './updateengine.ts';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
@@ -253,217 +252,69 @@ app.whenReady().then(async () => {
     try { writeFileSync(asked, new Date().toISOString()); } catch { /* asked again next time */ }
   }
 
-  // ---- the update key (his yes, 2026-10-14: "update both aang the browser the code everything"). This Mac says which
-  // version it runs; the PC answers with what is new; his UPDATE key lights up in the band. Restart now asks the PC for
-  // the update over the same locked connection and runs it: the Mac setup's own steps, then Aang opens again. The
-  // setup keeps the old Aang beside the new one and puts it back if the new one does not start (it marks itself good
-  // after a minute up).
-  const INSTALLED = path.join(LISTENER, 'browser', 'installed.json');
-  const installed = (): { version: string; commit: string; status: string } => { try { const j = JSON.parse(readFileSync(INSTALLED, 'utf8')); return { version: String(j.version ?? ''), commit: String(j.commit ?? ''), status: String(j.status ?? '') }; } catch { return { version: '', commit: '', status: '' }; } };
-  const markGood = () => { const i = installed(); if (i.status === 'trial') { try { writeFileSync(INSTALLED, JSON.stringify({ ...i, status: 'good' })); console.log(`aang: update ${i.version} is good`); } catch { /* next start */ } } };
+  // ---- the update engine (2026-10-30, updateengine.ts + macsource.ts): Samara's code from GitHub and new castLabs
+  // engines, both sealed with his release key, built into one new Samara in the background; then his UPDATE key
+  // lights up (sheet 35, sheet 105). Restart now, overnight, put away, skip and go back are the engine's, one set of
+  // rules for both machines. Samara no longer takes updates from the PC (his pick: GitHub, both machines).
+  const paths = new MacPaths(LISTENER);
+  const log = (t: string) => console.log('aang: ' + t);
+  const prefs = (): { overnight: boolean } => { try { return { overnight: JSON.parse(readFileSync(paths.prefs, 'utf8')).overnight === true }; } catch { return { overnight: false }; } };
+  let updates: UpdateEngine | null = null;
+  const stage = new MacStage(paths, { log, changed: () => updates?.show() });
+  const samara = new MacSamara(paths, stage, { fetch: net.fetch as never, log, changed: () => updates?.show() });
+  const engineSrc = new MacEngine(paths, stage, { fetch: net.fetch as never, log, changed: () => updates?.show() });
+  updates = new UpdateEngine({
+    sources: [samara, engineSrc],
+    moment: () => ({ now: new Date(), idleSeconds: powerMonitor.getSystemIdleTime(), inCall: browser?.inCall === true, inGame: false }),
+    overnight: () => prefs().overnight,
+    changed: (card) => browser?.setUpdate(card ? { ...card, overnight: prefs().overnight } : null),
+    // The script closes Samara itself; what to say the next time it opens is kept first (overnight only).
+    beforeGo: (w) => { if (w.overnight) { try { writeFileSync(paths.night, JSON.stringify({ version: samara.installed().version, title: w.title, lines: w.lines })); } catch { /* best effort */ } } },
+    restart: () => { /* the Mac's script restarts Samara */ },
+    log,
+  });
+  const markGood = () => samara.markGood();
   setTimeout(markGood, 60_000);
-  // Smooth (2026-10-14: "when i hit update it doesnt just freeze my computer"): an offered update is fetched and the
-  // new Samara made in the background at low priority (macOS background QoS), while he keeps working. Only then does
-  // the key light up, with its number, its name and what it brings in plain words. Restart now just swaps it in.
-  let offered: { version: string; label: string; name: string; notes: string[]; since: number; github?: boolean } | null = null;
-  let preparing = '', readyFile: { version: string; sha: string } | null = null;
-  const triedPrepare = new Set<string>();
-  const STAGED = path.join(LISTENER, 'browser', 'staged', 'version'), SCRIPT = path.join(LISTENER, 'update.sh');
-  const failedUpdates = () => { try { return readFileSync(path.join(LISTENER, 'browser', 'failed-updates.txt'), 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } };
-  const stagedVersion = () => { try { return readFileSync(STAGED, 'utf8').trim(); } catch { return ''; } };
-  // ---- sheet 35: the tray's lines, and its ... menu (put away, skip for good, go back, overnight, every version, check)
-  const BR = path.join(LISTENER, 'browser');
-  const FILED = path.join(BR, 'filed-updates.txt'), PREFS = path.join(LISTENER, 'update-prefs.json'), NIGHT = path.join(LISTENER, 'update-overnight.json');
-  const filed = () => { try { return readFileSync(FILED, 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } };
-  const addTo = (file: string, v: string) => { try { appendFileSync(file, v + '\n'); } catch { /* best effort */ } };
-  const prefs = (): { overnight: boolean } => { try { return { overnight: JSON.parse(readFileSync(PREFS, 'utf8')).overnight === true }; } catch { return { overnight: false }; } };
-  const canBack = () => existsSync(path.join(BR, 'rollback', 'Samara.app'));
-  const macCard = () => offered ? ({
-    version: offered.version, since: offered.since, title: offered.label ? (offered.name ? `Version ${offered.label}: ${offered.name}` : `Version ${offered.label}`) : 'Samara update',
-    groups: [{ name: 'SAMARA', items: offered.notes.map((text) => ({ text })) }], canBack: canBack(), overnight: prefs().overnight,
-  }) : null;
-  const showReady = () => {
-    if (!offered || stagedVersion() !== offered.version || readyFile?.version !== offered.version) return;
-    browser?.setUpdate(macCard());
-  };
-  const prepare = (m: any) => {
-    const script = String(m.script ?? ''), sha = createHash('sha256').update(script).digest('hex');
-    if (!offered || m.version !== offered.version || sha !== m.sha256 || !script.startsWith('#!/bin/bash')) { console.error('aang: the update did not check out; not used'); preparing = ''; return; }
-    // Signed by the PC (code audit M4, 2026-10-14): once the Mac holds the PC's public key, an update without the
-    // PC's signature is never run, whoever sends it. The key arrives with the first update that carries it.
-    let pub = ''; try { pub = readFileSync(path.join(LISTENER, 'update-sign.pub'), 'utf8'); } catch { /* not yet */ }
-    if (pub) {
-      let good = false;
-      try { good = verifySig(null, Buffer.from(script), pub, Buffer.from(String(m.sig ?? ''), 'base64')); } catch { good = false; }
-      if (!good) {
-        console.error('aang: the update was not signed by the PC; not used');
-        preparing = '';
-        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.report', ok: false, version: m.version, outcome: "the update did not carry the PC's signature, so it was not used", installed: installed(), updateLog: '', aangLog: '' }));
-        return;
-      }
-    }
-    runPrepare(m.version, script, sha);
-  };
-
-  /** Make the new Samara in the background from this script (the PC's, or one Samara wrote for a sealed GitHub release). */
-  const runPrepare = (version: string, script: string, sha: string) => {
-    const m = { version };
-    try {
-      writeFileSync(SCRIPT, script); chmodSync(SCRIPT, 0o700);
-      const log = path.join(LISTENER, 'update-prepare.log'), out = openSync(log, 'w');
-      // taskpolicy -b: background priority for CPU and disk, so his Mac stays smooth while it works.
-      const child = spawn('/usr/sbin/taskpolicy', ['-b', '/bin/bash', SCRIPT, 'prepare'], { stdio: ['ignore', out, out] });
-      console.log(`aang: getting update ${m.version} ready in the background`);
-      child.on('exit', (code) => {
-        preparing = '';
-        if (code === 0 && stagedVersion() === m.version) { readyFile = { version: m.version, sha }; console.log(`aang: update ${m.version} is ready`); showReady(); return; }
-        let text = ''; try { text = readFileSync(log, 'utf8'); } catch { /* none */ }
-        console.error(`aang: getting update ${m.version} ready failed (exit ${code})`);
-        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.report', ok: false, version: m.version, outcome: 'getting the update ready failed, so nothing changed', installed: installed(), updateLog: text.slice(-60_000), aangLog: '' }));
-      });
-    } catch (e) { preparing = ''; console.error('aang: the update could not be got ready: ' + (e as Error).message); }
-  };
-  const onUpdateMsg = (m: any, s: WebSocket) => {
-    if (m.t === 'update.offer' && typeof m.version === 'string' && /^[0-9a-f]{6,64}$/.test(m.version)) {
-      // Samara comes from GitHub now (his pick, 2026-10-29): the PC's offer steps aside once a release is here.
-      if (ghSeen || isVersion(installed().version)) { console.log(`aang: the PC offered ${m.version}; Samara updates from GitHub now, so not taken`); return; }
-      if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} was skipped or failed before; not offered`); return; }
-      if (filed().includes(m.version)) { console.log(`aang: update ${m.version} is put away; "Check for updates" brings it back`); return; }
-      const notes = (Array.isArray(m.notes) ? m.notes : []).map((x: unknown) => String(x).slice(0, 160)).slice(0, 12);
-      offered = { version: m.version, label: /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(String(m.label)) ? String(m.label) : '', name: String(m.name ?? '').slice(0, 40), notes, since: Number(m.since) || Date.now() };
-      if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
-      browser?.setUpdate(null);
-      // Once per version per run: a failed one waits for the next start, never loops.
-      if (!preparing && !triedPrepare.has(m.version) && s.readyState === WebSocket.OPEN) { preparing = m.version; triedPrepare.add(m.version); s.send(JSON.stringify({ t: 'update.get', version: m.version })); }
-    } else if (m.t === 'update.none') { offered = null; browser?.setUpdate(null); }
-    else if (m.t === 'update.fail') { preparing = ''; console.error('aang: update: ' + String(m.why ?? '')); }
-    else if (m.t === 'update.script' && preparing === m.version) prepare(m);
-  };
-  // ---- Samara's update engine (his picks, 2026-10-29): the latest sealed release on GitHub, checked on start, every
-  // hour, and the moment the release nudge arrives. A newer one is downloaded, checked against its sealed fingerprint,
-  // and made ready in the background by a script this Samara writes itself (macupdate.ts); then his UPDATE key lights
-  // up exactly as before (Restart now, overnight, put away, skip, go back).
-  const GH = path.join(BR, 'github');
-  let ghSeen = false, ghBusy = false, ghAt = 0;
-  const ghCheck = async (why: string) => {
-    if (ghBusy || Date.now() - ghAt < 60_000) return;
-    ghBusy = true; ghAt = Date.now();
-    try {
-      const m = await ghLatest(net.fetch as never);
-      if (!m) return;
-      ghSeen = true;
-      const i = installed();
-      // The version he is on is in "Every version" too (however it was put in).
-      if (m.version === i.version) { const log = path.join(LISTENER, 'Samara Changelog.md'); let had = ''; try { had = readFileSync(log, 'utf8'); } catch { /* first */ } const now = withSection(had, m); if (now !== had) { try { writeFileSync(log, now); } catch { /* best effort */ } } }
-      if (!newer(m.version, i.version)) { if (offered?.github) { offered = null; browser?.setUpdate(null); } return; }
-      if (failedUpdates().includes(m.version) || filed().includes(m.version)) return;
-      offered = { version: m.version, label: m.version, name: m.name, notes: m.notes, since: Date.parse(m.at) || Date.now(), github: true };
-      if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
-      if (preparing || triedPrepare.has(m.version)) return;
-      preparing = m.version; triedPrepare.add(m.version);
-      console.log(`aang: Samara ${m.version} is on GitHub (${why}); downloading it`);
-      mkdirSync(GH, { recursive: true });
-      const bundle = path.join(GH, `samara-${m.version}.tgz`);
-      if (!(await ghDownload(net.fetch as never, m, bundle))) { preparing = ''; console.error(`aang: Samara ${m.version} did not download whole; trying again later`); triedPrepare.delete(m.version); return; }
-      // What it brings, kept for "Every version" in the key's menu.
-      try {
-        const log = path.join(LISTENER, 'Samara Changelog.md');
-        let had = ''; try { had = readFileSync(log, 'utf8'); } catch { /* first */ }
-        const now = withSection(had, m);
-        if (now !== had) writeFileSync(log, now);
-      } catch { /* best effort */ }
-      const script = macUpdateScript({ bundle, version: m.version, commit: m.commit });
-      runPrepare(m.version, script, createHash('sha256').update(script).digest('hex'));
-    } catch (e) { preparing = ''; console.error('aang: GitHub update check: ' + (e as Error).message); }
-    finally { ghBusy = false; }
-  };
-  setTimeout(() => void ghCheck('start'), 30_000);
-  setInterval(() => void ghCheck('hourly'), 60 * 60_000).unref();
-  ghListen(net.fetch as never, () => void ghCheck('nudge'));
+  updates.start();
+  ghListen(net.fetch as never, () => void updates?.checkAll('nudge'));
 
   // The report (his rule, 2026-10-14: a failed update must say why, so it can be fixed). After an update ran, once
   // the outcome is known (this Aang marked itself good, or the old one came back), what the update printed and the
   // end of Aang's own log go to the PC, which keeps them for Claude. Once per update run.
-  const UPLOG = path.join(LISTENER, 'update.log'), UPSENT = path.join(LISTENER, 'update.reported');
+  const UPSENT = path.join(LISTENER, 'update.reported');
   const reportUpdate = () => {
     try {
-      const ran = statSync(UPLOG).mtimeMs;
+      const ran = statSync(paths.updateLog).mtimeMs;
       let sent = 0; try { sent = Number(readFileSync(UPSENT, 'utf8')) || 0; } catch { /* never */ }
       if (ran <= sent || ws?.readyState !== WebSocket.OPEN) return;
-      const log = readFileSync(UPLOG, 'utf8'), i = installed(), failed = failedUpdates();
-      const rolledBack = /putting the old one back/.test(log), tried = (/"version":"([0-9a-f]+)"/.exec(log) ?? [])[1] ?? '';
-      const ok = !rolledBack && i.status === 'good' && !/npm (ERR|error)|failed; nothing was changed|did not match its fingerprint/i.test(log);
+      const text = readFileSync(paths.updateLog, 'utf8'), i = samara.installed();
+      const rolledBack = /putting the old one back/.test(text);
+      const ok = !rolledBack && i.status === 'good' && !/npm (ERR|error)|failed; nothing was changed|did not match its fingerprint/i.test(text);
       const outcome = rolledBack ? 'the new Samara did not start, so the old one was put back'
-        : /Installing the browser's libraries failed/.test(log) ? "installing the browser's libraries failed, so nothing was changed"
-        : /did not match its fingerprint/.test(log) ? 'a download did not match its fingerprint, so it was not installed'
+        : /Installing the browser's libraries failed/.test(text) ? "installing the browser's libraries failed, so nothing was changed"
         : i.status === 'trial' ? 'it started but had not run a minute yet' : ok ? 'installed and running' : 'the update stopped part way (see its log)';
       let aangLog = ''; try { aangLog = readFileSync(path.join(app.getPath('userData'), 'aang.log'), 'utf8').split('\n').slice(-200).join('\n'); } catch { /* none */ }
-      ws.send(JSON.stringify({ t: 'update.report', ok, version: i.version || tried || offered?.version || '', outcome, installed: i, failed: failed.slice(-5), updateLog: log.slice(-60_000), aangLog }));
+      ws.send(JSON.stringify({ t: 'update.report', ok, version: i.version, outcome, installed: i, failed: [], updateLog: text.slice(-60_000), aangLog }));
       writeFileSync(UPSENT, String(ran));
-      console.log(`aang: sent the update report (${outcome})`);
+      log(`sent the update report (${outcome})`);
     } catch { /* no update has run */ }
   };
   setTimeout(reportUpdate, 75_000);
   ipcMain.on('browser:updateact', (e, a) => {
-    if (!browser?.isFrame(e.sender)) return;
+    if (!browser?.isFrame(e.sender) || !updates) return;
     const act = String(a?.act ?? '');
-    if (act === 'changelog') { let t = ''; try { t = readFileSync(path.join(LISTENER, 'Samara Changelog.md'), 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
-    if (act === 'overnight') { try { writeFileSync(PREFS, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } showReady(); return; }
-    if (act === 'seen') { browser.setUpdated(null); try { unlinkSync(NIGHT); } catch { /* gone */ } return; }
-    if (act === 'check') {
-      try { unlinkSync(FILED); } catch { /* none */ }
-      triedPrepare.clear();
-      const i = installed();
-      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit }));
-      ghAt = 0; void ghCheck('his check');
-      return;
-    }
-    if (!offered) { if (act !== 'back') return; }
-    if (act === 'file' && offered) { addTo(FILED, offered.version); offered = null; browser.setUpdate(null); return; }
-    if (act === 'skip' && offered) { addTo(path.join(BR, 'failed-updates.txt'), offered.version); offered = null; browser.setUpdate(null); return; }
-    if (act === 'back') {
-      if (!canBack()) { browser.updateWhy('There is no earlier version kept to go back to.'); return; }
-      // The version before comes back; the one he left is put away (so it is not offered again until he checks).
-      const i = installed(); if (i.version) addTo(FILED, i.version);
-      const sh = [
-        'APP="$HOME/Applications/Samara.app"; BR="$HOME/Library/Application Support/AangListener/browser"',
-        "osascript -e 'quit app id \"com.aang.browser\"' >/dev/null 2>&1 || true",
-        'for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1 || break; sleep 0.5; done',
-        // Only the app's insides change places, never the Samara.app folder itself (his pet peeve, 2026-10-20): the Dock
-        // pin follows the folder, so moving the whole app sent his pin into rollback/ and the running Samara showed as a
-        // second icon. The same rule the update's swap already keeps (5e27d40).
-        'rm -rf "$BR/rollback/next"; mkdir -p "$BR/rollback/next" && mv "$APP/Contents" "$BR/rollback/next/Contents" && mv "$BR/rollback/Samara.app/Contents" "$APP/Contents" && mv "$BR/rollback/next/Contents" "$BR/rollback/Samara.app/Contents"; rmdir "$BR/rollback/next" 2>/dev/null',
-        // ...and the copy now in rollback/ comes off macOS's list of apps, so the Dock never matches his pin to it.
-        'LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister; $LSR -u "$BR/rollback/Samara.app" >/dev/null 2>&1; $LSR -f "$APP" >/dev/null 2>&1; touch "$APP"',
-        '[ -f "$BR/installed.prev.json" ] && cp "$BR/installed.json" "$BR/installed.next.json" && mv "$BR/installed.prev.json" "$BR/installed.json" && mv "$BR/installed.next.json" "$BR/installed.prev.json"',
-        'open -a "$APP"',
-      ].join('\n');
-      try { const out = openSync(path.join(LISTENER, 'update.log'), 'w'); spawn('/bin/bash', ['-c', sh], { detached: true, stdio: ['ignore', out, out] }).unref(); console.log('aang: going back to the last version (his click)'); }
-      catch (err) { browser.updateWhy('Could not go back: ' + (err as Error).message); }
-    }
+    if (act === 'changelog') { let t = ''; try { t = readFileSync(paths.changelog, 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
+    if (act === 'overnight') { try { writeFileSync(paths.prefs, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } updates.show(); return; }
+    if (act === 'seen') { browser.setUpdated(null); try { unlinkSync(paths.night); } catch { /* gone */ } return; }
+    if (act === 'castlabs') { void updates.signin().then((ok) => { if (!ok) browser?.updateWhy('Terminal could not be opened. Try again in a moment.'); }); return; }
+    if (act === 'file' || act === 'skip' || act === 'check') { updates.act(act); return; }
+    if (act === 'back' && !updates.act('back')) browser.updateWhy('There is no earlier version kept to go back to.');
   });
-  // Update by itself overnight (his toggle, off unless he turns it on): between 2 and 5 am, after half an hour with no
-  // keyboard or mouse, never in a call. The next time he opens Samara it says what changed.
-  setInterval(() => {
-    const h = new Date().getHours();
-    if (!offered || !prefs().overnight || h < 2 || h >= 5 || browser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
-    if (!readyFile || readyFile.version !== offered.version || stagedVersion() !== offered.version) return;
-    try { writeFileSync(NIGHT, JSON.stringify({ version: offered.version, title: macCard()?.title ?? 'Samara update', lines: offered.notes })); } catch { return; }
-    try { const out = openSync(path.join(LISTENER, 'update.log'), 'w'); spawn('/bin/bash', [SCRIPT, 'swap'], { detached: true, stdio: ['ignore', out, out] }).unref(); console.log(`aang: updating overnight to ${offered.version}`); } catch { /* next time */ }
-  }, 10 * 60_000).unref();
   // After an overnight update: once, by the ... key, what it did.
-  try { const n = JSON.parse(readFileSync(NIGHT, 'utf8')); if (n.version === installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
+  try { const n = JSON.parse(readFileSync(paths.night, 'utf8')); if (n.version === samara.installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
   ipcMain.on('browser:updatego', (e) => {
-    if (!browser?.isFrame(e.sender) || !offered) return;
-    if (browser.inCall) { browser.updateWhy("You're in a call. Restart when it's over."); return; }
-    // Swap in the Samara made in the background: the same script it was made by, checked again before it runs.
-    let ok = false; try { ok = !!readyFile && readyFile.version === offered.version && stagedVersion() === offered.version && createHash('sha256').update(readFileSync(SCRIPT)).digest('hex') === readyFile.sha; } catch { /* not there */ }
-    if (!ok) { browser.updateWhy('The update is not ready yet. It will show up again when it is.'); return; }
-    try {
-      const out = openSync(path.join(LISTENER, 'update.log'), 'w');
-      spawn('/bin/bash', [SCRIPT, 'swap'], { detached: true, stdio: ['ignore', out, out] }).unref();
-      console.log(`aang: installing update ${offered.version}; Samara closes and opens again`);
-    } catch (e) { browser.updateWhy('The update could not start: ' + (e as Error).message); }
+    if (!browser?.isFrame(e.sender) || !updates) return;
+    void updates.go().then((r) => { if (!r.ok) browser?.updateWhy(r.why ?? 'Not right now.'); });
   });
 
   // ---- the sync, through the brain on the PC
@@ -477,7 +328,6 @@ app.whenReady().then(async () => {
     s.on('message', (raw) => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
       if (typeof m?.t === 'string' && m.t.startsWith('bsync.')) void sync.got(m).catch((e: Error) => console.error('aang: sync: ' + e.message));
-      else if (typeof m?.t === 'string' && m.t.startsWith('update.')) onUpdateMsg(m, s);
       // "Open on Mac" from the PC: a full tab here, and Aang comes to the front.
       else if (m?.t === 'tab.open' && typeof m.url === 'string' && /^https?:\/\//.test(m.url)) { browser?.openForward(m.url); app.focus({ steal: true }); }
       // "Send to Mac" from the PC: it plays here, in the pop-out.
@@ -490,7 +340,7 @@ app.whenReady().then(async () => {
         }).catch((e: Error) => console.error('aang: look: ' + e.message));
       }
     });
-    s.on('open', () => { const i = installed(); s.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit })); if (process.uptime() > 75) reportUpdate(); });
+    s.on('open', () => { if (process.uptime() > 75) reportUpdate(); });
     s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); setTimeout(connect, 15_000); } });
     s.on('error', () => { /* close follows */ });
   };

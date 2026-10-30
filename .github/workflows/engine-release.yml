@@ -1,0 +1,37 @@
+# Engines as sealed GitHub releases (his plan, 2026-10-30). Every day: is there a new castLabs engine? If so, it is
+# downloaded, checked against castLabs' own fingerprints, sealed with his release key and published as engine-vX.Y.Z.
+# Never "latest" (that stays Samara's own release). Both machines find it, sign it for video themselves (castLabs'
+# tool, his account) and show it on his UPDATE key. Nothing installs without his click.
+name: Engine release
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: engine-release
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: Find, check and seal
+        id: find
+        env:
+          SAMARA_RELEASE_KEY: ${{ secrets.SAMARA_RELEASE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/release/engine-release.mjs out
+      - name: Publish
+        if: steps.find.outputs.engine != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.find.outputs.engine }}
+        run: |
+          gh release create "engine-v$V" out/engine.json out/engine.sig out/castlabs-*.zip \
+            --title "Samara's engine $V" --notes "castLabs $V+wvcus, checked against castLabs' fingerprints and sealed. Signed for video on each machine." --latest=false
+      # One word, nothing else: a Samara that hears it only checks, and still checks the seal.
+      - name: Nudge both Samaras
+        if: steps.find.outputs.engine != ''
+        run: curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null || echo "The nudge did not go; Samaras will find it within the hour."

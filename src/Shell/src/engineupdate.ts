@@ -14,16 +14,16 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { writeFileAtomic } from './atomic.ts';
-import { FUSE, readFuses, samaraFuses, setFuses, wireMap } from './fusewire.ts';
+import { FUSE, readFuses, setFuses, wireMap } from './fusewire.ts';
+import { behindMs, behindWords, chromeStable, downloadEngine, latestEngine } from './enginerelease.ts';
+import { Evs, type Signed } from './evs.ts';
 
 /** His tick boxes on an engine update (2026-10-14): the login lock, and closing the back doors. On by default. */
 export interface Choices { lock: boolean; closeBackdoors: boolean }
 /** `fixed`: castLabs would only sign this engine as it came, so his tick boxes are not offered (2026-10-23). */
 export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean; fixed?: boolean }
-/** What came of a video signing: signed, refused because of the switches, or failed for another reason. */
-type Signed = 'ok' | 'denied' | 'failed';
-/** "44.5.1+wvcus" -> "44.5.1". */
-export const plain = (v: string): string => String(v ?? '').replace(/\+.*$/, '');
+import { newer, plain } from './updateengine.ts';
+export { newer, plain };
 export interface UpdateOptions {
   shellDir: string; stateDir: string;
   /** In a game or a call right now: no downloads, no tests, no restarts. */
@@ -31,6 +31,8 @@ export interface UpdateOptions {
   changed: (r: Ready | null) => void;
   /** A castLabs engine could not be re-signed for video; true when castLabs' tool needs him to sign in again. */
   signinNeeded?: (signIn: boolean) => void;
+  /** castLabs' tool (tests swap this). */
+  evs?: Evs;
 }
 /** Running on castLabs' engine (Widevine, VMP-signed): only it has the components API (checked 2026-10-13: stock 44.7.0 has none). */
 export const onCastlabs = (): boolean => { try { return Boolean(createRequire(import.meta.url)('electron').components); } catch { return false; } };
@@ -38,13 +40,6 @@ export const onCastlabs = (): boolean => { try { return Boolean(createRequire(im
 interface Pointer { version: string; dir: string; status: 'trial' | 'good'; previous: { version: string; dir: string } | null; at: string }
 
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
-/** a newer than b, plain releases only. */
-export function newer(a: string, b: string): boolean {
-  const x = VERSION.exec(plain(a)), y = VERSION.exec(plain(b));
-  if (!x || !y) return false;
-  for (let i = 1; i <= 3; i++) { const d = Number(x[i]) - Number(y[i]); if (d) return d > 0; }
-  return false;
-}
 /** The newest plain release of the same major as `current`, newer than it and not one that failed before. */
 export function pick(versions: string[], current: string, failed: Set<string>): string | null {
   const major = VERSION.exec(current)?.[1];
@@ -85,9 +80,11 @@ export class EngineUpdates {
   private timers: NodeJS.Timeout[] = [];
   ready: Ready | null = null;
   private readonly o: UpdateOptions;
+  private readonly evs: Evs;
 
   constructor(o: UpdateOptions) {
     this.o = o;
+    this.evs = o.evs ?? new Evs({ log: (t) => console.log('shell: ' + t) });
     this.engines = path.join(o.shellDir, 'engines');
     this.stateFile = path.join(o.stateDir, 'engine-update.json');
     this.doneFile = path.join(o.stateDir, 'engine-just-updated.json');
@@ -189,73 +186,78 @@ export class EngineUpdates {
   }
 
   /**
-   * The castLabs engine (his calls, 2026-10-14): taken the day castLabs ships it (security fixes do not wait), made
-   * ready quietly: downloaded, checked against the fingerprint GitHub publishes for it, its switches set (his tick
-   * boxes, on by default: the login lock and closed back doors), re-signed for paid video with his castLabs account
-   * (its sign-in is kept by castLabs' own tool), and run through Aang's checks. Only then does UPDATE light up.
+   * The castLabs engine (his calls, 2026-10-14 and 2026-10-30): taken from the sealed engine release on GitHub
+   * (enginerelease.ts: castLabs' own download, checked against castLabs' fingerprint and sealed with his release key),
+   * made ready quietly: unpacked, signed for paid video with his castLabs account (evs.ts, castLabs' own tool that
+   * Samara installs itself), and run through Aang's checks. Only then does UPDATE light up.
+   * Video wins over the safety switches (his pick, 2026-10-30, until castLabs says yes): castLabs signs only an
+   * engine exactly as they shipped it (proved 2026-10-23), so the switches stay as castLabs set them.
    */
   private async castlabsCheck(): Promise<void> {
-    if (this.busy) return;
+    if (this.busy || this.signin === 'waiting') return;
     this.busy = true;
     try {
       const cur = plain(process.versions.electron);
-      const r = await fetch('https://api.github.com/repos/castlabs/electron-releases/releases?per_page=30', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Samara engine update' }, signal: AbortSignal.timeout(20_000) });
-      if (!r.ok) throw new Error(`GitHub said ${r.status}`);
-      const list = (await r.json()) as { tag_name: string; prerelease: boolean; draft: boolean; assets: { name: string; digest?: string; browser_download_url: string }[] }[];
-      const v = newestCastlabs(list.map((x) => ({ tag: x.tag_name, prerelease: x.prerelease || x.draft })), cur, this.failed());
-      if (!v || this.filed().has(v)) { if (this.ready) this.set(null); return; }
-      if (this.ready?.version === v) return;
-      const asset = list.find((x) => x.tag_name === `v${v}+wvcus`)?.assets.find((a) => a.name === `electron-v${v}+wvcus-win32-x64.zip`);
-      const sha = /^sha256:([0-9a-f]{64})$/.exec(asset?.digest ?? '')?.[1];
-      if (!asset || !sha) throw new Error(`castLabs ${v} has no Windows download with a published fingerprint`);
-      console.log(`shell: castLabs engine ${v} is out (running ${cur}); getting it ready`);
-      if (!existsSync(path.join(this.engines, 'castlabs-' + v, 'electron.exe'))) await this.fetchZip(asset.browser_download_url, sha, 'castlabs-' + v);
-      let choices: Choices = { lock: true, closeBackdoors: true };
-      let fixed = false;
-      let signed = await this.switchesAndSign(v, choices);
-      // castLabs signs only an engine exactly as they released it (proved on the Mac, 2026-10-23: switches flipped ->
-      // "Binary signature denied"; untouched -> signed). Then it goes as it came, paid video kept, switches off. Never
-      // when the logins here are already locked: an engine without the lock cannot read them, and they would be lost.
-      if (signed === 'denied') {
-        if (EngineUpdates.runningFuses()[FUSE.EnableCookieEncryption] === '1') {
-          console.log(`shell: castLabs ${v} would only be signed without the login lock, and the logins here are locked; not offered`);
-          return;
-        }
-        choices = { lock: false, closeBackdoors: false }; fixed = true;
-        signed = await this.switchesAndSign(v, choices);
+      const found = await latestEngine(fetch as never, cur, 'win32-x64');
+      if (!found || this.failed().has(found.m.version) || this.filed().has(found.m.version)) { if (this.ready) this.set(null); return; }
+      const { m, asset } = found, v = m.version;
+      if (this.ready?.version === v && !this.signin) return;
+      const stable = await chromeStable(fetch as never);
+      this.behind = stable.length ? `Your engine today is ${behindWords(behindMs(process.versions.chrome, stable))} behind Chrome's security fixes. This one is ${behindWords(behindMs(m.chrome, stable))} behind.` : '';
+      // Never when the logins here are already locked: an engine as castLabs shipped it cannot read them, and they
+      // would be lost.
+      if (EngineUpdates.runningFuses()[FUSE.EnableCookieEncryption] === '1') {
+        console.log(`shell: castLabs ${v} can only be signed for video without the login lock, and the logins here are locked; not offered`);
+        return;
       }
-      if (signed !== 'ok') return;
+      console.log(`shell: castLabs engine ${v} is on GitHub (running ${cur}); getting it ready`);
+      const dir = path.join(this.engines, 'castlabs-' + v);
+      if (!existsSync(path.join(dir, 'electron.exe'))) {
+        mkdirSync(this.engines, { recursive: true });
+        const zip = path.join(this.engines, asset.file);
+        if (!(await downloadEngine(fetch as never, m, asset, zip))) throw new Error(`castLabs ${v} did not download whole`);
+        await this.unzip(zip, 'castlabs-' + v);
+      }
+      this.pendingMajor = v.split('.')[0] !== cur.split('.')[0];
+      if ((await this.switchesAndSign(v)) !== 'ok') return;
       if (!(await this.test(v))) return;
-      this.set({ version: v, since: Date.now(), castlabs: true, choices, major: v.split('.')[0] !== cur.split('.')[0], ...(fixed ? { fixed } : {}) });
+      this.set({ version: v, since: Date.parse(m.published) || Date.now(), castlabs: true, major: this.pendingMajor, fixed: true });
       console.log(`shell: castLabs engine ${v} is ready; the update key is showing`);
     } catch (e) {
       console.log('shell: engine update check: ' + (e as Error).message);
     } finally { this.busy = false; }
   }
-  /** Set the engine's switches to his choices and re-sign it for paid video (the switches live in electron.exe, which
-   *  the video signature covers). False: it could not be signed; the reason is logged and he is told. */
-  async switchesAndSign(v: string, c: Choices, dir = path.join(this.engines, 'castlabs-' + plain(v))): Promise<Signed> {
+  /** Sheet 105: castLabs wants him to sign in ('ask'), or Terminal is open for it ('waiting'). */
+  signin: 'ask' | 'waiting' | null = null;
+  /** The engine waiting for that sign-in. */
+  signinFor: { version: string; since: number } | null = null;
+  /** Sheet 105: how far behind Chrome, for the card's one line. */
+  behind = '';
+  private pendingMajor = false;
+  /** His click on "Sign in to castLabs": Terminal opens with the sign-in typed; once castLabs has him, it signs. */
+  async openSignin(): Promise<boolean> {
+    if (this.signin !== 'ask') return false;
+    const since = this.evs.loginStamp();
+    if (!(await this.evs.openSignin())) return false;
+    this.signin = 'waiting'; this.o.changed(this.ready);
+    this.evs.watchSignin(since, (inNow) => {
+      this.signin = inNow ? null : 'ask';
+      this.o.changed(this.ready);
+      if (inNow) void this.check();
+    });
+    return true;
+  }
+  /** The engine as castLabs shipped it, its switches as they came, signed for paid video (the switches live in
+   *  electron.exe, which the video signature covers). */
+  async switchesAndSign(v: string, dir = path.join(this.engines, 'castlabs-' + plain(v))): Promise<Signed> {
     // The switches as castLabs shipped them, kept the first time, so an engine can always be put back exactly as it came.
     const exe = path.join(dir, 'electron.exe'), stockFile = path.join(dir, 'stock-fuses.txt');
     if (!existsSync(stockFile)) writeFileSync(stockFile, readFuses(exe));
-    const stock = !c.lock && !c.closeBackdoors;
-    console.log(`shell: engine ${v} switches: ${setFuses(exe, stock ? wireMap(readFileSync(stockFile, 'utf8').trim()) : samaraFuses(c))}${stock ? ' (as castLabs shipped it)' : ''}`);
-    const sig = path.join(dir, 'electron.exe.sig');
-    const before = existsSync(sig) ? statSync(sig).mtimeMs : 0;
-    const out = await new Promise<{ code: number | null; text: string }>((res) => {
-      const t = spawn('python', ['-m', 'castlabs_evs.vmp', 'sign-pkg', dir], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-      let text = '';
-      t.stdout?.on('data', (d) => { text = (text + String(d)).slice(-3000); });
-      t.stderr?.on('data', (d) => { text = (text + String(d)).slice(-3000); });
-      const kill = setTimeout(() => { try { t.kill(); } catch { /* gone */ } }, 5 * 60_000);
-      t.on('error', (e) => { clearTimeout(kill); res({ code: null, text: e.message }); });
-      t.on('exit', (code) => { clearTimeout(kill); res({ code, text }); });
-    });
-    if (out.code === 0 && existsSync(sig) && statSync(sig).mtimeMs > before) return 'ok';
-    console.log(`shell: engine ${v} could not be re-signed for video (exit ${out.code}): ${out.text.split(/\r?\n/).filter(Boolean).slice(-4).join(' | ').slice(0, 600)}`);
-    if (/signature denied/i.test(out.text)) return 'denied';
-    this.o.signinNeeded?.(/auth|login|token|credential|expired|unauthori/i.test(out.text));
-    return 'failed';
+    console.log(`shell: engine ${v} switches: ${setFuses(exe, wireMap(readFileSync(stockFile, 'utf8').trim()))} (as castLabs shipped it)`);
+    const r = await this.evs.sign(dir);
+    if (r === 'signin') { this.signin = 'ask'; this.signinFor = { version: plain(v), since: Date.now() }; this.o.changed(this.ready); this.o.signinNeeded?.(true); }
+    else if (r === 'ok') this.signin = null;
+    return r;
   }
   /** What the switches are on the engine running now ("0100..."), or '' (for the one-time login re-lock). */
   static runningFuses(): string { try { return readFuses(process.execPath); } catch { return ''; } }
@@ -266,15 +268,8 @@ export class EngineUpdates {
     this.o.changed(r);
   }
 
-  /** Download a zip, check it against the fingerprint given, unpack it into engines/<dirName>. */
-  private async fetchZip(url: string, want: string, dirName: string): Promise<void> {
-    mkdirSync(this.engines, { recursive: true });
-    const zip = path.join(this.engines, dirName + '.zip.partial');
-    const got = await fetch(url, { signal: AbortSignal.timeout(20 * 60_000) });
-    if (!got.ok || !got.body) throw new Error(`the download of ${dirName} failed (${got.status})`);
-    const hash = createHash('sha256');
-    await pipeline(Readable.fromWeb(got.body as import('node:stream/web').ReadableStream), async function* (src) { for await (const c of src) { hash.update(c as Buffer); yield c; } }, createWriteStream(zip));
-    if (hash.digest('hex') !== want) { rmSync(zip, { force: true }); throw new Error(`${dirName} did not match its fingerprint; thrown away`); }
+  /** Unpack a checked zip into engines/<dirName> (Windows' own tar unpacks zip files). */
+  private async unzip(zip: string, dirName: string): Promise<void> {
     const into = path.join(this.engines, dirName + '.partial');
     rmSync(into, { recursive: true, force: true }); mkdirSync(into, { recursive: true });
     await new Promise<void>((res, rej) => {
@@ -345,18 +340,11 @@ export class EngineUpdates {
    * His click on Restart now: point the pet at the new engine as a trial, note it for the "updated" line, and
    * quit. The pet starts the Shell again on the new engine within seconds.
    */
-  async restartNow(browserOpen: boolean, choices?: Partial<Choices>, overnight?: { title: string; lines: string[] }): Promise<{ ok: boolean; why?: string }> {
+  async restartNow(browserOpen: boolean, _choices?: Partial<Choices>, overnight?: { title: string; lines: string[] }): Promise<{ ok: boolean; why?: string }> {
     const r = this.ready;
     if (!r || !existsSync(this.exeOf(r.version))) return { ok: false, why: 'The update is not ready any more.' };
     if (this.o.quietNow()) return { ok: false, why: 'Not during a call or a game.' };
-    // He changed a tick box: the switches are set again his way and the engine re-signed (about a minute).
-    if (r.castlabs && r.choices && choices && !r.fixed) {
-      const want: Choices = { lock: choices.lock !== false, closeBackdoors: choices.closeBackdoors !== false };
-      if (want.lock !== r.choices.lock || want.closeBackdoors !== r.choices.closeBackdoors) {
-        if ((await this.switchesAndSign(r.version, want)) !== 'ok') return { ok: false, why: 'Your choices could not be put in just now. Try again in a minute.' };
-        this.set({ ...r, choices: want });
-      }
-    }
+    if (this.signin) return { ok: false, why: 'Sign in to castLabs first, so the new engine plays video.' };
     const now = this.pointer();
     const running = path.dirname(process.execPath);
     const prevDir = now && path.resolve(this.engines, now.dir) === path.resolve(running) ? { version: now.version, dir: now.dir } : null;

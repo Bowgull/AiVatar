@@ -15,7 +15,7 @@ import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, 
 import { isRisky } from './secure.ts';
 import { startFlight } from './flight.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell } from 'electron';
-import { listen as ghListen, titleOf } from './ghrelease.ts';
+import { listen as ghListen } from './ghrelease.ts';
 import { SamaraUpdates, samaraRoot } from './pcupdate.ts';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -30,11 +30,13 @@ import { watchOwnClicks } from './clickaway.ts';
 import { Snipper } from './snip.ts';
 import { SendDesk } from './sendtoaang.ts';
 import { PinSnips } from './pinsnip.ts';
-import { AangBrowser, type UpdateCard, type PlanAnswer } from './browser.ts';
+import { AangBrowser, type PlanAnswer } from './browser.ts';
 import { takeMarkFile, takeMockupFile, type MockSend, type MockSendItem } from './mockups.ts';
 import { wireBrowser } from './browseripc.ts';
 import { wirePopout } from './popoutipc.ts';
-import { EngineUpdates, onCastlabs, type Ready } from './engineupdate.ts';
+import { EngineUpdates, onCastlabs } from './engineupdate.ts';
+import { pcEngine, pcSamara } from './pcsource.ts';
+import { UpdateEngine } from './updateengine.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
@@ -439,7 +441,6 @@ const link = new CoreLink({
     // "Open on PC" from the Mac's browser (through the brain): a full tab here, brought to the front.
     if (m.t === 'browser.open' && typeof m.url === 'string') { aangBrowser?.openForward(m.url); return; }
     // The engine update's version and name, from the brain's one list of Samara versions (sheet 35).
-    if (m.t === 'engine.label' && typeof m.version === 'string' && typeof m.label === 'string') { engineLabel = { version: m.version, label: m.label, name: String(m.name ?? '') }; showEngine(); return; }
     // The morning brief's Update button: the same as Restart now, with the boxes as they are.
     if (m.t === 'engine.go') { void engineGo(); return; }
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
@@ -942,43 +943,33 @@ app.whenReady().then(async () => {
       // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
       if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) void taskbarPops?.runTask(t); else aangBrowser.jumpTask(t); }
       writeJumpList(bodyAlive());
-      // 6.28 the update key: a newer engine, downloaded, checked and tested quietly, waits for his Restart now.
+      // The update engine (2026-10-30, updateengine.ts): the castLabs engine (6.28, from the sealed engine release now)
+      // and Samara's own code from GitHub (2026-10-29), both on his UPDATE key by one set of rules, as on the Mac.
       engineUpdates = new EngineUpdates({
         shellDir: SHELL_HOME, stateDir: STATE_DIR,
         quietNow: () => gameQuiet || aangBrowser?.inCall === true,
-        changed: (r) => { showEngine(); if (r) link?.send({ t: 'engine.ready', version: r.version, major: r.major === true } as never); },
+        changed: () => updates?.show(),
         signinNeeded: (signIn) => link?.send({ t: 'engine.signin', signIn } as never),
       });
-      showEngine();
-      if (engineUpdates.ready) link?.send({ t: 'engine.ready', version: engineUpdates.ready.version, major: engineUpdates.ready.major === true } as never);
-      // Update by itself overnight (his toggle, off unless he turns it on): between 2 and 5 am, after half an hour with
-      // no keyboard or mouse, never in a game or a call. The next time he opens Samara it says what changed.
-      setInterval(() => {
-        const r = engineUpdates?.ready, h = new Date().getHours();
-        if (!r || !updatePrefs().overnight || h < 2 || h >= 5 || gameQuiet || aangBrowser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
-        const card = engineCard(r);
-        void engineUpdates!.restartNow(false, r.choices, { title: card?.title ?? 'Engine update', lines: (card?.groups ?? []).flatMap((g) => g.items.filter((i) => !i.key || i.on !== false).map((i) => i.text)) }).then((x) => {
-          if (x.ok) { console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); }
-        });
-      }, 10 * 60_000).unref();
-      aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
-      engineUpdates.start();
-      // Samara's update engine (his picks, 2026-10-29): the latest sealed release on GitHub, on start, hourly and at the
-      // release nudge; made ready beside the one running, then the same key. Windows only (the Mac has its own, macmain).
       const root = process.platform === 'win32' && !process.env.AANG_TEST ? samaraRoot() : null;
-      if (root) {
-        const su = samaraUpdates = new SamaraUpdates({ root, codeDir: path.join(HERE, '..'), fetch: net.fetch as never, changed: showEngine, changelog: path.join(DATA_DIR, 'Samara Changelog.md') });
-        setTimeout(() => void su.check('start'), 30_000);
-        setInterval(() => void su.check('hourly'), 60 * 60_000).unref();
-        ghListen(net.fetch as never, () => void su.check('nudge'));
-        setTimeout(() => su.markGood(), 5 * 60_000);
-        // Overnight, his toggle: as for the engine, between 2 and 5 am, idle half an hour, never in a call or a game.
-        setInterval(() => {
-          const h = new Date().getHours();
-          if (!su.ready || engineUpdates?.ready || !updatePrefs().overnight || h < 2 || h >= 5 || gameQuiet || aangBrowser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
-          if (su.go()) { console.log('shell: updating Samara overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); }
-        }, 10 * 60_000).unref();
-      }
+      if (root) samaraUpdates = new SamaraUpdates({ root, codeDir: path.join(HERE, '..'), fetch: net.fetch as never, changed: () => updates?.show(), changelog: path.join(DATA_DIR, 'Samara Changelog.md') });
+      const engineSrc = pcEngine(engineUpdates, { browserOpen: () => aangBrowser?.showing === true });
+      updates = new UpdateEngine({
+        sources: [...(samaraUpdates ? [pcSamara(samaraUpdates)] : []), engineSrc],
+        moment: () => ({ now: new Date(), idleSeconds: powerMonitor.getSystemIdleTime(), inCall: aangBrowser?.inCall === true, inGame: gameQuiet }),
+        overnight: () => updatePrefs().overnight,
+        changed: (card) => aangBrowser?.setUpdate(card ? { ...card, overnight: updatePrefs().overnight } : null),
+        beforeGo: (w) => { engineSrc.overnight = w.overnight ? { title: w.title, lines: w.lines } : null; },
+        restart: (w) => { if (w.overnight) console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); },
+        log: (t) => console.log('shell: ' + t),
+      });
+      updates.show();
+      aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
+      // The engine keeps its own timers (ten minutes after start, then daily, its trial check); the engine's rules tick.
+      engineUpdates.start();
+      updates.start();
+      ghListen(net.fetch as never, () => void updates?.checkAll('nudge'));
+      if (samaraUpdates) { const su = samaraUpdates; setTimeout(() => su.markGood(), 5 * 60_000); }
       {
         const done = engineUpdates.justUpdated();
         if (done) {
@@ -1479,45 +1470,24 @@ app.whenReady().then(async () => {
     openOnOther: (url) => link?.send({ t: 'open.onmac', url }),
     playback: (s) => { taskbarHear?.({ t: 'watch.state', ...s }); link?.send({ t: 'watch.state', ...s }); },
   });
-  // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.
-  // The tray's ... menu (sheet 35): put away, skip for good, go back, overnight, every version, check now.
+  // His Restart now on the update key, and its ... menu (sheet 35): the engine's rules (never in a call or a game).
   ipcMain.on('browser:updateact', (e, a) => {
     if (!aangBrowser?.isFrame(e.sender)) return;
     const act = String(a?.act ?? '');
     if (act === 'changelog') { let t = ''; try { t = readFileSync(path.join(DATA_DIR, 'Samara Changelog.md'), 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
-    if (act === 'overnight') { try { writeFileAtomic(updatePrefsFile, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } showEngine(); return; }
+    if (act === 'overnight') { try { writeFileAtomic(updatePrefsFile, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } updates?.show(); return; }
     if (act === 'seen') { aangBrowser.setUpdated(null); return; }
-    // Samara's own version, when one waits (or for going back, when it runs from a release); else the engine's.
-    if (samaraUpdates?.ready && (act === 'file' || act === 'skip')) { if (act === 'file') samaraUpdates.put(); else samaraUpdates.skip(); return; }
-    if (act === 'check') samaraUpdates?.checkNow();
-    if (act === 'back' && samaraUpdates?.pointer()) {
-      if (samaraUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); }
-      return;
-    }
-    if (!engineUpdates) return;
-    if (act === 'file') engineUpdates.file();
-    else if (act === 'skip') engineUpdates.skip();
-    else if (act === 'check') void engineUpdates.checkNow();
-    else if (act === 'back') {
-      if (engineUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); }
+    if (!updates) return;
+    if (act === 'castlabs') { void updates.signin().then((ok) => { if (!ok) e.sender.send('browser:updatewhy', 'Terminal could not be opened. Try again in a moment.'); }); return; }
+    if (act === 'file' || act === 'skip' || act === 'check') { updates.act(act); return; }
+    if (act === 'back') {
+      if (updates.act('back')) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); }
       else e.sender.send('browser:updatewhy', 'There is no earlier version kept to go back to.');
     }
   });
-  ipcMain.on('browser:updatego', (e, choices) => {
-    if (!aangBrowser?.isFrame(e.sender)) return;
-    // Samara's new version first: the pet starts it next, as a trial. Then the engine's, when it waits too.
-    if (samaraUpdates?.ready) {
-      if (aangBrowser.inCall || gameQuiet) { e.sender.send('browser:updatewhy', aangBrowser.inCall ? "You're in a call. Restart when it's over." : 'Not during a game.'); return; }
-      if (!samaraUpdates.go()) { e.sender.send('browser:updatewhy', 'The update is not ready yet. It will show up again when it is.'); return; }
-      if (!engineUpdates?.ready) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); return; }
-    }
-    if (!engineUpdates) return;
-    const c = choices && typeof choices === 'object' ? { lock: (choices as any).lock !== false, closeBackdoors: (choices as any).closeBackdoors !== false } : undefined;
-    void engineUpdates.restartNow(aangBrowser.showing, c).then((r) => {
-      if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
-      aangBrowser?.closeAll();
-      setTimeout(() => exitForUpdate(), 400);     // the pet starts the Shell again, on the new engine
-    });
+  ipcMain.on('browser:updatego', (e) => {
+    if (!aangBrowser?.isFrame(e.sender) || !updates) return;
+    void updates.go().then((r) => { if (!r.ok) e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); });
   });
 
   // ---- 6.17 Snipit: the overlay says where the box is (sheet 62: then it lands like any send to Aang).
@@ -1826,41 +1796,13 @@ function exitForUpdate(): void {
   app.exit(UPDATE_RESTART);
 }
 let engineUpdates: EngineUpdates | null = null;
-// ---- the engine in the update tray (sheet 35): its title from the brain, its lines in plain words, two tick boxes
-let engineLabel: { version: string; label: string; name: string } | null = null;
 const updatePrefsFile = path.join(STATE_DIR, 'update-prefs.json');
 function updatePrefs(): { overnight: boolean } { try { return { overnight: JSON.parse(readFileSync(updatePrefsFile, 'utf8')).overnight === true }; } catch { return { overnight: false }; } }
-function engineCard(r: Ready | null): UpdateCard | null {
-  if (!r) return null;
-  const c = r.choices ?? { lock: true, closeBackdoors: true };
-  return {
-    version: r.version, since: r.since,
-    title: engineLabel?.version === r.version ? `Version ${engineLabel.label}: ${engineLabel.name}` : 'Engine update',
-    groups: [{ name: "SAMARA'S ENGINE", items: [
-      { text: "Chrome's newest security fixes.", note: 'Always included: they close known holes.' },
-      ...(r.castlabs && !r.fixed ? [{ text: "Lock your saved logins with your computer's own lock.", key: 'lock', on: c.lock }, { text: 'Close a back door other programs could use.', key: 'closeBackdoors', on: c.closeBackdoors }] : []),
-    ] }],
-    canBack: engineUpdates?.canBack() === true, overnight: updatePrefs().overnight,
-  };
-}
 /** Samara's own update from GitHub (2026-10-29, his pick: the PC like the Mac), set up once the browser is. */
 let samaraUpdates: SamaraUpdates | null = null;
-/** The key's card: Samara's new version first (its lines), then the engine's when both are waiting; one Restart now. */
-function updateCard(): UpdateCard | null {
-  const e = engineCard(engineUpdates?.ready ?? null), s = samaraUpdates?.ready;
-  if (!s) return e;
-  return {
-    version: e ? `${s.version}+${e.version}` : s.version, since: Math.min(s.since, e?.since ?? s.since), title: titleOf(s),
-    groups: [{ name: 'SAMARA', items: s.notes.map((text) => ({ text })) }, ...(e?.groups ?? [])],
-    canBack: samaraUpdates?.canBack() === true || e?.canBack === true, overnight: updatePrefs().overnight,
-  };
-}
-function showEngine(): void { aangBrowser?.setUpdate(updateCard()); }
-async function engineGo(): Promise<void> {
-  if (!engineUpdates?.ready) return;
-  const r = await engineUpdates.restartNow(aangBrowser?.showing === true, engineUpdates.ready.choices);
-  if (r.ok) { aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); }
-}
+/** The update engine: both sources, one key (updateengine.ts). */
+let updates: UpdateEngine | null = null;
+async function engineGo(): Promise<void> { await updates?.go(); }
 /** 9.D D3: draws the cards Aang posts to Discord. Made on first use. */
 let cards: CardRenderer | null = null;
 /** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
