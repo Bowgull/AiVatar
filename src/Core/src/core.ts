@@ -44,7 +44,6 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
 import { MODELS, pickLane } from './route.ts';
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import { JUDGE_SYSTEM, couldBeWaiting, waitingOnHim, type BriefMail } from './briefmail.ts';
 import { fetchDayParts } from './weather.ts';
 import type { Lane as LaneName } from './route.ts';
@@ -76,6 +75,8 @@ const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
 import { MarkDeriver, claudeNow } from './claudemark.ts';
 import { MessageEngine, type MsgEvent, type Writer } from './messages.ts';
+import { Models, quickModel } from './models.ts';
+import { askLocal, unloadLocal } from './local.ts';
 import { ShadowLink, readShadowAt } from './shadowlink.ts';
 import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
@@ -1522,7 +1523,7 @@ export class Core {
   private get addonDesk(): AddonDesk {
     return this._addonDesk ??= new AddonDesk(addonDeskDeps({
       stateDir: this.cfg.stateDir, act: a => this.actRunner(a),
-      ask: async (prompt, o) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(prompt, o); return { ok: r.ok, text: r.text }; },
+      ask: this.models.asker('free'),
       say: s => this.addonSay(s),
     }));
   }
@@ -1537,24 +1538,9 @@ export class Core {
    * strictly there. Null when it could not answer, and the rules' list stands.
    */
   private async judgeMail(prompt: string): Promise<string | null> {
-    const stop = new AbortController();
-    const t = setTimeout(() => stop.abort(), 60_000);
-    try {
-      let out: string | null = null;
-      const q = query({
-        prompt,
-        options: {
-          model: MODELS.quick.model, systemPrompt: { type: 'custom', prompt: JUDGE_SYSTEM, snapshot: false } as never,
-          settingSources: [], tools: [], allowedTools: [], maxTurns: 1, persistSession: false, abortController: stop,
-          canUseTool: async () => ({ behavior: 'deny' as const, message: 'No tools here.' }),
-          cwd: this.selfCwd(), thinking: { type: 'disabled' } as never,
-          env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
-        },
-      });
-      for await (const m of q as AsyncIterable<any>) if (m.type === 'result' && m.subtype === 'success') out = String(m.result ?? '');
-      return out;
-    } catch (e) { console.log('brief: Haiku could not sort the mail: ' + (e as Error).message); return null; }
-    finally { clearTimeout(t); }
+    const r = await this.models.write(prompt, { tier: 'quick', system: JUDGE_SYSTEM, timeoutMs: 60_000 });
+    if (!r.ok) console.log(`brief: Haiku could not sort the mail: ${r.detail ?? r.why}`);
+    return r.ok ? r.text : null;
   }
 
   /**
@@ -1986,15 +1972,9 @@ export class Core {
     if (!read) return { ok: false, why: failed || 'that video could not be read' };
     this.videos.set(url, read);
     while (this.videos.size > 30) this.videos.delete(this.videos.keys().next().value!);
-    const q = await diagnose(read);
+    const q = await diagnose(read, this.models.asker('free'));
     if (q.ok) return { ok: true, by: 'Qwen', read, d: q.d };
-    const c = await diagnose(read, async (prompt, o) => {
-      const lane = new Lane({ name: 'video', model: MODELS.quick.model, systemPrompt: o?.system ?? '', allowedTools: [], onlyTools: [], claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' } });
-      lane.onEvent(() => {});
-      try { const r = await lane.ask(prompt, 90_000); return { ok: !!r.text, text: r.text ?? '', ms: 0 }; }
-      catch (e) { return { ok: false, text: '', ms: 0, detail: (e as Error).message }; }
-      finally { lane.close(); }
-    });
+    const c = await diagnose(read, this.models.asker('quick'));
     return c.ok ? { ok: true, by: 'Claude', read, d: c.d } : { ok: false, why: c.why };
   }
   /** The watch_video action: the words of a video, for Aang to go deeper on. Marked as outside content. */
@@ -2208,7 +2188,7 @@ export class Core {
    * Qwen's second look at a plain question (plainquestion.ts confirmQuestion), no tools; never Claude (a check on every
    * turn end must cost no quota). Null: plain code alone. Tests swap it.
    */
-  plainQAsk: QAsk | null = async (prompt, o) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(prompt, o); return { ok: r.ok, text: r.text }; };
+  plainQAsk: QAsk | null = (prompt, o) => this.models.asker('free')(prompt, o);
   /**
    * 2026-10-22 (his "surface questions that drive the session"): a turn that ends on a plain question to him becomes a
    * QUESTION card (sheet 64 look), answerable from Aang, instead of the "replied" line. Only a session the aang-link mod
@@ -2266,21 +2246,27 @@ export class Core {
   /** The machine a remote session is on, from this brain's side (2026-10-29). */
   private otherMachine(): string { return process.platform === 'darwin' ? 'the PC' : 'the MacBook'; }
   /**
-   * The message engine's writers, first that answers wins (his pick, 2026-10-29): Shadow while the two brains have shaken
-   * hands and it is on (free, its Qwen); Qwen on this machine (the PC only, the Mac has none); Claude's quick model.
-   * None in tests: the plain line from the facts.
+   * The model engine (models.ts, 2026-10-30): every time the brain asks a model for words. First that answers wins:
+   * Shadow while the two brains have shaken hands and it is on (free, its Qwen); Qwen on this machine (the PC only, the
+   * Mac has none; never while a game holds the card); Claude's quick model, its quota counted like any lane's.
    */
   shadowWriter: { up: () => boolean; write: Writer } | null = null;
   private shadowLink: ShadowLink | null = null;
-  readonly messages = new MessageEngine({ list: () => {
-    if (this.gistOff) return [];
-    const [local, quick] = this.plainAsks();
-    return [
-      ...(this.shadowWriter?.up() ? [{ name: 'shadow', write: this.shadowWriter.write }] : []),
-      ...(process.platform === 'darwin' ? [] : [{ name: 'local', write: local! }]),
-      { name: 'quick', write: quick! },
-    ];
-  } });
+  private modelsInst: Models | null = null;
+  get models(): Models {
+    return this.modelsInst ??= new Models({
+      shadow: () => {
+        const sh = this.shadowWriter;
+        return sh?.up() ? (p, o) => sh.write(p, { system: o.system ?? '', maxTokens: o.maxTokens, timeoutMs: o.timeoutMs }) : null;
+      },
+      local: process.platform === 'darwin' ? null : (p, o) => askLocal(p, o),
+      quick: quickModel({ model: MODELS.quick.model, cwd: () => this.selfCwd(), claudeExecutable: this.cfg.claudeExecutable, onQuota: quota => this.onLaneEvent('quick', { t: 'quota', quota }) }),
+      game: () => gameRunning(),
+      unload: () => { void unloadLocal(); },
+    });
+  }
+  /** No model in tests: the plain line from the facts. */
+  readonly messages = new MessageEngine({ write: (p, o) => this.models.write(p, o), off: () => this.gistOff });
   /** No model writes the notices (the plain line from the facts): tests (only the real brain scans transcripts) and AANG_GIST=0. */
   get gistOff(): boolean { return this.cfg.scanTranscripts !== true || this.cfg.testDoor === true || process.env.AANG_GIST === '0'; }
   private tellReply(line: ReplyLine): boolean {
@@ -2294,20 +2280,11 @@ export class Core {
     return true;
   }
   /**
-   * The two models that do the plain-words work (plainwords.ts): Qwen on this PC first, free, and it steps aside by
-   * itself while a game holds the graphics card; then Claude's quick model, with no tools and thinking off.
+   * The plain-words work (plainwords.ts), checked answer by answer there: the free models first (Shadow, Qwen here,
+   * which steps aside while a game holds the card), then Claude's quick model, with no tools and thinking off.
    */
   private plainAsks(): PlainAsk[] {
-    return [
-      async (prompt, o) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(prompt, o); return { ok: r.ok, text: r.text }; },
-      async (prompt, o) => {
-        const lane = new Lane({ name: 'plain', model: MODELS.quick.model, systemPrompt: o.system, allowedTools: [], onlyTools: [], claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' } });
-        lane.onEvent(() => {});
-        try { const r = await lane.ask(prompt, o.timeoutMs); return { ok: !!r.text, text: r.text ?? '' }; }
-        catch { return { ok: false, text: '' }; }
-        finally { lane.close(); }
-      },
-    ];
+    return [this.models.asker('free'), this.models.asker('quick')];
   }
   /**
    * His own words to a session, made precise (plainwords.ts). A question's answer that is one of Claude's own choices
@@ -2548,11 +2525,7 @@ export class Core {
     const deps = {
       fetch: ((u: string, i?: Parameters<typeof fetch>[1]) => fetch(u, i)) as unknown as import('./google.ts').Fetch,
       db: this.memory.handle(), stateDir: this.cfg.stateDir,
-      askLocal: async (prompt: string, opts?: { system?: string; maxTokens?: number }) => {
-        const { askLocal } = await import('./local.ts');
-        const r = await askLocal(prompt, { ...opts, timeoutMs: 300_000 });
-        return { ok: r.ok, text: r.text };
-      },
+      askLocal: this.models.asker('free', { timeoutMs: 300_000 }),
     };
     try {
       const { said, note, card } = await weeklySweep(deps);
@@ -3047,7 +3020,7 @@ export class Core {
     }
     // The message engine's handshake (2026-10-29): on the PC its Qwen writes notices for the Mac's brain (free); on the Mac,
     // while Shadow answers its heartbeat, Shadow writes them, and the Mac's quick model takes over the moment it does not.
-    if (process.platform !== 'darwin') this.hookServer.write = async (ask) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(ask.prompt, { system: ask.system, maxTokens: ask.maxTokens, timeoutMs: 20_000 }); return { ok: r.ok, text: r.text }; };
+    if (process.platform !== 'darwin') this.hookServer.write = ask => this.models.asker('free', { timeoutMs: 20_000 })(ask.prompt, { system: ask.system, maxTokens: ask.maxTokens });
     else if (this.cfg.scanTranscripts === true) {          // the real brain only, never a test
       const at = readShadowAt();
       if (at) { const shadow = new ShadowLink(at, { log: s => console.log(s) }); shadow.start(); this.shadowWriter = { up: () => shadow.up(), write: shadow.write }; this.shadowLink = shadow; }
@@ -4319,7 +4292,7 @@ export class Core {
       // He clicked the marker on Aang: what was held comes out now, busy or not (his pick, 2026-10-30).
       case 'held.open': this.releaseHeld(true); break;
       // The browser's Trail clean up (2026-10-12). Tab titles are web page text: they go in as data under a fixed system
-      // prompt that says so, and the Shell reads the answer strictly (tab numbers and short names only). askLocal itself
+      // prompt that says so, and the Shell reads the answer strictly (tab numbers and short names only). The model engine
       // refuses while a game is running ('game'), and the Shell then waits and asks again.
       case 'engine.ready': void this.engineReady(ws, String(m.version ?? ''), m.major === true); break;
       case 'engine.signin':
@@ -4328,7 +4301,7 @@ export class Core {
       case 'tidy.ask': {
         const id = Number(m.id);
         if (!Number.isInteger(id)) break;
-        void import('./local.ts').then(({ askLocal }) => askLocal(String(m.prompt ?? '').slice(0, 12_000), { system: TIDY_SYSTEM, maxTokens: 700, timeoutMs: 120_000 }))
+        void this.models.asker('free')(String(m.prompt ?? '').slice(0, 12_000), { system: TIDY_SYSTEM, maxTokens: 700, timeoutMs: 120_000 })
           .then(r => this.send(ws, { t: 'tidy.answer', id, ok: r.ok, ...(r.ok ? { text: r.text.slice(0, 8000) } : { why: r.why ?? 'error' }) }))
           .catch(() => this.send(ws, { t: 'tidy.answer', id, ok: false, why: 'error' }));
         break;
@@ -4878,7 +4851,7 @@ export class Core {
   private get noteNotice(): NoteNotice {
     return this.noticeStore ??= new NoteNotice(path.join(this.cfg.stateDir, 'note-notice.json'), {
       notes: () => this.notes.list(),
-      ask: (prompt, opts) => import('./local.ts').then(({ askLocal }) => askLocal(prompt, opts)),
+      ask: (prompt, opts) => this.models.asker('free')(prompt, opts),
       gameRunning: async () => this.bodyQuiet || (await gameRunning()).running,
       // Hush silences it (not held: a stale notice is worth nothing); muted, away from the PC or mid-answer: not now.
       quiet: () => this.muted || this.hushUntil > Date.now() || this.whereHeIs() !== 'desktop' || this.active !== null,
@@ -5094,7 +5067,7 @@ export class Core {
     return this.starterInst ??= new JobStarter({
       stateDir: this.cfg.stateDir, disk: nodeDisk, book: this.startBook, tracker: this.claudeJobs, names: this.claudeNames,
       openLink: url => openClaudeLink(url),
-      askLocal: async (input, system) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(input, { system, timeoutMs: 20_000, maxTokens: 300 }); return { ok: r.ok, text: r.text, ...(r.why ? { why: r.why } : {}) }; },
+      askLocal: (input, system) => this.models.asker('free')(input, { system, timeoutMs: 20_000, maxTokens: 300 }),
       askHaiku: (input, system) => this.oneShotHaiku(input, system),
       pickOne: async (q, opts) => { const r = await this.pickOne(q, opts.map(label => ({ label }))); return typeof r === 'number' ? r : -1; },
       say: text => this.announce(text, { asked: true }),
@@ -5103,24 +5076,9 @@ export class Core {
 
   /** Haiku, one turn, no tools, no memory (the C6 tidy stand-in). Null when it could not answer. */
   private async oneShotHaiku(prompt: string, system: string): Promise<string | null> {
-    const stop = new AbortController();
-    const t = setTimeout(() => stop.abort(), 30_000);
-    try {
-      let out: string | null = null;
-      const q = query({
-        prompt,
-        options: {
-          model: MODELS.quick.model, systemPrompt: { type: 'custom', prompt: system, snapshot: false } as never,
-          settingSources: [], tools: [], allowedTools: [], maxTurns: 1, persistSession: false, abortController: stop,
-          canUseTool: async () => ({ behavior: 'deny' as const, message: 'No tools here.' }),
-          cwd: this.selfCwd(), thinking: { type: 'disabled' } as never,
-          env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
-        },
-      });
-      for await (const m of q as AsyncIterable<any>) if (m.type === 'result' && m.subtype === 'success') out = String(m.result ?? '');
-      return out;
-    } catch (e) { console.log('c6: Haiku could not tidy the request: ' + (e as Error).message); return null; }
-    finally { clearTimeout(t); }
+    const r = await this.models.write(prompt, { tier: 'quick', system, timeoutMs: 30_000 });
+    if (!r.ok) console.log(`c6: Haiku could not tidy the request: ${r.detail ?? r.why}`);
+    return r.ok ? r.text : null;
   }
 
   /**
@@ -5439,8 +5397,7 @@ export class Core {
     const head = firstPart(file);
     let summary = '';
     try {
-      const { askLocal } = await import('./local.ts');
-      const r = await askLocal(summaryPrompt(c.name, kb, head), { system: SUMMARY_SYSTEM, maxTokens: 120, timeoutMs: 60_000 });
+      const r = await this.models.write(summaryPrompt(c.name, kb, head), { tier: 'free', system: SUMMARY_SYSTEM, maxTokens: 120, timeoutMs: 60_000 });
       if (r.ok) summary = r.text.split('\n').map(s => s.trim()).filter(Boolean)[0]?.slice(0, 240) ?? '';
     } catch { /* Qwen is a nicety here: the file is still ready */ }
     this.lastDrop = file;

@@ -83,7 +83,10 @@ World of Warcraft and Apex Legends, cooks, and is job hunting. Reply with ONLY a
 At most 3 entries in useful. If it is useful for nothing, use [{"who":"you","what":"nothing, just for fun"}].`;
 
 /** Qwen's quick diagnosis, checked into shape. Never trusted beyond this shape. */
-export async function diagnose(read: VideoRead, ask = askLocal): Promise<{ ok: true; d: Diagnosis } | { ok: false; why: string }> {
+/** One model's answer (askLocal, or the model engine's asker in models.ts). */
+type VideoAsk = (prompt: string, o: { system?: string; maxTokens?: number; timeoutMs?: number }) => Promise<{ ok: boolean; text: string; detail?: string }>;
+
+export async function diagnose(read: VideoRead, ask: VideoAsk = askLocal): Promise<{ ok: true; d: Diagnosis } | { ok: false; why: string }> {
   const r = await ask(`Video: ${read.meta.title || '(no title)'} by ${read.meta.author || 'unknown'} (${read.meta.site}).\nIts ${read.from}:\n<<<\n${read.text}\n>>>`,
     { system: SYSTEM, maxTokens: 400, timeoutMs: 90_000 });
   if (!r.ok) return { ok: false, why: r.detail ?? 'Qwen could not read it' };
