@@ -58,7 +58,7 @@ const LOGIN = SHELL('Sign in · Northwind', `
 const F = (l: string, v: string) => `<label style="display:block;font-weight:600;font-size:14px;margin:0 0 6px">${l}</label><input value="${v}" style="display:block;width:360px;font:16px inherit;padding:10px 12px;border:1px solid #c9cfda;border-radius:8px;margin:0 0 16px">`;
 const APPLY = SHELL('Apply · Northwind', `
   <div style="color:#2f6f62;font-weight:600;font-size:14px">Step 2 of 4</div>
-  <h1 style="margin:6px 0 20px;font-size:28px">Your details</h1>${F('Name', 'Joshua')}${F('Email', 'joshua@example.com')}${F('Phone', '555-0142')}
+  <h1 style="margin:6px 0 20px;font-size:28px">Your details</h1>${F('Name', 'Alex')}${F('Email', 'alex@example.com')}${F('Phone', '555-0142')}
   <button style="font:600 16px inherit;background:#2f6f62;color:#fff;border:0;border-radius:8px;padding:12px 26px">Continue</button>`);
 const PAGES: Record<string, string> = { '/jobs/customer-success-lead': POSTING, '/signin': LOGIN, '/apply/2': APPLY };
 
