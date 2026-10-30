@@ -311,3 +311,28 @@ test('brain: idle in the pet\'s readings sends him away to Discord on the PC too
   assert.equal(posts.length, 1, 'away: it went to his phone');
   assert.equal(posts[0].buzz, true, 'and the brain said it buzzes (a reminder he set)');
 });
+
+// 2026-10-30, his report on the Mac: a waiting Claude session lit the "?" mark, yet a click on it said "Claude isn't
+// working on anything", and its line had no way to reach Claude. The brain is the one source for both.
+test('brain: a session waiting on him lights the mark, and a click on the mark gets that same session back', async (t) => {
+  const { Core } = await import('../src/core.ts');
+  const core = new Core({ testDoor: true, port: 48636, dataDir: tmp(), stateDir: tmp(), warm: false });
+  await core.start();
+  t.after(() => core.stop());
+  const shell = await pet(48636);
+  t.after(() => shell.c.close());
+  shell.c.send(JSON.stringify({ t: 'hello', v: 1, client: 'desktop', shell: true }));
+  await wait(150);
+  await fetch('http://127.0.0.1:48637/hook', { method: 'POST', body: JSON.stringify({ hook_event_name: 'Notification', session_id: 'w-live', cwd: path.join(os.homedir(), 'projects', 'Waymark'), message: 'needs permission to run the build' }) });
+  await wait(400);
+  assert.notEqual(shell.of('claude.mark').at(-1)?.mark ?? 'none', 'none', 'the mark is lit');
+  const line = shell.of('bubble').find(b => /^Waymark wants your OK/.test(b.text));
+  assert.ok(line, 'the waiting line reached the bubble');
+  assert.equal(line.kind, 'claude');
+  assert.equal(line.focus, 'Claude', 'its Open Claude key has a window to bring forward');
+  shell.c.send(JSON.stringify({ t: 'mark.click' }));
+  await wait(200);
+  const click = shell.of('mark.click').at(-1);
+  assert.ok(click, 'the brain answers the click');
+  assert.deepEqual(click.sessions.map((s: { project: string }) => s.project), ['Waymark'], 'the same session the mark is lit for, never an empty list');
+});
