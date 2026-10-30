@@ -127,10 +127,22 @@
   @keyframes igup{from{transform:translateY(0)}to{transform:translateY(-110%)}}
   .ig.at.in .gem{animation:lift .5s .2s cubic-bezier(.3,1.8,.6,1) both}
   .ig.at.in .spark{animation:spark .7s .45s ease-out both}
+  /* v4, borrowed from Claude's plan card (his pick, 2026-10-30): the words sit on parchment inside the dark frame, with
+     the plan card's small section labels */
+  .ig .paper{background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid #120A05;border-radius:8px;padding:7px 11px 8px;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 2px 0 rgba(0,0,0,.35)}
+  .ig .paper .lbl{font:400 9.5px var(--label);letter-spacing:1.2px;color:#8a3e1c;margin:0 0 2px}
+  .ig .paper .lbl+.lbl,.ig .paper .v+.lbl{margin-top:6px}
+  .ig .paper .t{font:700 14.5px var(--display);color:#2a1c0c;text-shadow:none}
+  .ig .paper .m{font:500 12.5px/1.4 var(--body);color:#4e3d28;margin-top:1px}
+  .ig .paper .v{font:700 13px var(--body);color:#2a1c0c}
+  .ig.small .paper{padding:5px 9px 6px}
+  .ig.small .paper .t{font-size:12.5px}
+  .ig.kind-need .paper .lbl.claude{color:#D97757}
   /* Claude is always Claude: its orange spark on a white gem; the kind's colour stays in the glow */
   .ig .gem.claude{background:#F6F2EA}
   .ig .gem.claude svg rect{fill:#D97757}
-  .ig .n{position:absolute;right:12px;top:8px;font:400 9.5px var(--label);letter-spacing:1px;color:#c9a35a}
+  .ig .n{position:absolute;right:14px;bottom:12px;font:400 9.5px var(--label);letter-spacing:1px;color:#c9a35a}
   .ig .keys{display:flex;gap:8px;margin-top:7px}
   .ig .btn.ghost{background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#fff}
   .ig .btn.pressed{transform:translateY(2px);box-shadow:0 0 0 #120A05}
@@ -170,7 +182,7 @@
 </head>
 <body>
 <h1>Sheet 106 · Option B, every interaction</h1>
-<p class="lead">Sheet 92's option B, exactly as you picked it: the same dark plaque, the drop, the gem lifting, the sparkle. Here it is doing every job a notice has. Each scene loops; Replay starts it again. v2: Samara's real download key, plain click buttons, Claude always on a white gem, dragging a download out, and every notice and ask. v3: Claude's plan card stays as it is.</p>
+<p class="lead">Sheet 92's option B, exactly as you picked it: the same dark plaque, the drop, the gem lifting, the sparkle. Here it is doing every job a notice has. Each scene loops; Replay starts it again. v2: Samara's real download key, plain click buttons, Claude always on a white gem, dragging a download out, and every notice and ask. v3: Claude's plan card stays as it is. v4: the words sit on the plan card's parchment, with its small section labels.</p>
 
 <div class="grid" id="grid"></div>
 
@@ -233,30 +245,30 @@ const SCENES = [
   { id: 'done', title: '1 · Done, a big one', run: async (S) => {
     S.say('A download finishes. The <b>download key</b> blinks, the plaque drops from under it, the gem lifts and sparkles.');
     S.src('dl'); await wait(500);
-    const p = S.drop({ kind: 'done', ic: 'yes', x: 86, t: 'Downloaded tax-form.pdf', m: 'It’s in your Downloads.', keys: [['Got it', 'A']] });
+    const p = S.drop({ kind: 'done', ic: 'yes', x: 86, rows: [['DOWNLOADED', 'tax-form.pdf'], ['SAVED IN', 'Downloads']], keys: [['Got it', 'A']] });
     await wait(2600); S.say('It <b>stays</b> until you press a key, so you can’t miss it.'); await wait(2200);
     await S.press(p, 0); S.say('<b>Got it</b>: it slides back up into the band.'); await S.leave(p); await wait(1200); } },
   { id: 'need', title: '2 · Needs you, with the one sound', run: async (S) => {
     S.say('Your Mac asks for permission. The <b>shield</b> blinks, the plaque drops, and this is the only kind that <b>plays a sound</b>.');
     S.src('shield'); await wait(500);
-    const p = S.drop({ kind: 'need', ic: 'key', x: 30, t: 'Your Mac needs a yes', m: 'Pick Always Allow so your logins come back.', keys: [['Open it', 'A'], ['Later', 'Z', 1]] });
-    S.sound(160, 166); await wait(3200); S.say('Two keys: do it now, or <b>Later</b>. Later puts it back in the shield until you open it.'); await wait(1800);
+    const p = S.drop({ kind: 'need', ic: 'key', x: 30, lbl: 'YOUR MAC', t: 'Your Mac needs a yes', m: 'Pick Always Allow so your logins come back.', keys: [['Open it', 'A'], ['Later', 'Z', 1]] });
+    S.sound(250, 200); await wait(3200); S.say('Two keys: do it now, or <b>Later</b>. Later puts it back in the shield until you open it.'); await wait(1800);
     await S.press(p, 1); await S.leave(p); await wait(1400); } },
   { id: 'bad', title: '3 · Went wrong', run: async (S) => {
     S.say('The TV didn’t answer. The plaque drops from the <b>menu</b> (where Send to TV lives), red.');
     S.src('menu'); await wait(500);
-    const p = S.drop({ kind: 'bad', ic: 'wont', x: 128, t: 'The TV didn’t answer', m: 'Check it’s on, then try again.', keys: [['Try again', 'A'], ['Close', 'Z', 1]] });
+    const p = S.drop({ kind: 'bad', ic: 'wont', x: 128, lbl: 'THE TV', t: 'The TV didn’t answer', m: 'Check it’s on, then try again.', keys: [['Try again', 'A'], ['Close', 'Z', 1]] });
     await wait(3000); S.say('<b>Try again</b> does it straight from the notice.'); await wait(1600);
     await S.press(p, 0); await S.leave(p); await wait(1400); } },
   { id: 'small', title: '4 · Small things, the quiet drop', run: async (S) => {
     S.say('A photo saves. Small news: a <b>smaller plaque</b>, no lift, no sparkle, no sound.');
     S.src('dl'); await wait(500);
-    const p = S.drop({ kind: 'done', ic: 'yes', x: 212, t: 'Saved photo.png', m: 'In your Downloads.', small: true });
+    const p = S.drop({ kind: 'done', ic: 'yes', x: 212, lbl: 'SAVED', t: 'photo.png', m: 'In your Downloads.', small: true });
     await wait(1600); S.say('The gold line drains: after <b>4 seconds</b> it slides back by itself.'); await wait(2600); await S.leave(p); await wait(1500); } },
   { id: 'hover', title: '5 · A small one waits, and you can drag the file out', run: async (S) => {
     S.say('Your mouse goes onto a small notice: it <b>stops draining</b> and waits.');
     S.src('dl'); await wait(400);
-    const p = S.drop({ kind: 'done', ic: 'yes', x: 212, t: 'Saved invoice.pdf', m: 'In your Downloads.', small: true });
+    const p = S.drop({ kind: 'done', ic: 'yes', x: 212, lbl: 'SAVED', t: 'invoice.pdf', m: 'In your Downloads.', small: true });
     await wait(900); S.cursor(330, 100); await wait(700); p.querySelector('.bar').style.animationPlayState = 'paused';
     await wait(1600); S.say('Grab the file\u2019s picture and <b>drag it out</b>: into Finder, an email, a chat. The same as dragging from the download tray.');
     const ghost = p.querySelector('.gem').cloneNode(true); ghost.style.cssText = 'position:absolute;z-index:9;left:250px;top:76px;transition:left .9s ease,top .9s ease;opacity:.85';
@@ -268,19 +280,19 @@ const SCENES = [
   { id: 'queue', title: '6 · Three at once', run: async (S) => {
     S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>: the first shows "1 OF 3".');
     S.src('dl'); await wait(400);
-    let p = S.drop({ kind: 'done', ic: 'yes', x: 86, t: 'Downloaded tax-form.pdf', m: 'It’s in your Downloads.', keys: [['Got it', 'A']], n: '1 OF 3' });
+    let p = S.drop({ kind: 'done', ic: 'yes', x: 86, rows: [['DOWNLOADED', 'tax-form.pdf'], ['SAVED IN', 'Downloads']], keys: [['Got it', 'A']], n: '1 OF 3' });
     await wait(2400); await S.press(p, 0); await S.leave(p);
     S.say('Done with it: the <b>next one drops</b> from its own place, the shield, with its sound.'); S.src('shield'); await wait(300);
-    p = S.drop({ kind: 'need', ic: 'key', x: 30, t: 'Save your login here?', m: 'Bitwarden can keep it for next time.', keys: [['Save', 'A'], ['Not now', 'Z', 1]], n: '2 OF 3' });
-    S.sound(160, 166); await wait(2400); await S.press(p, 1); await S.leave(p);
+    p = S.drop({ kind: 'need', ic: 'key', x: 30, lbl: 'BITWARDEN', t: 'Save your login here?', m: 'Bitwarden can keep it for next time.', keys: [['Save', 'A'], ['Not now', 'Z', 1]], n: '2 OF 3' });
+    S.sound(250, 200); await wait(2400); await S.press(p, 1); await S.leave(p);
     S.say('Then the last, from the menu.'); S.src('menu'); await wait(300);
-    p = S.drop({ kind: 'bad', ic: 'wont', x: 128, t: 'The TV didn’t answer', m: 'Check it’s on, then try again.', keys: [['Try again', 'A'], ['Close', 'Z', 1]], n: '3 OF 3' });
+    p = S.drop({ kind: 'bad', ic: 'wont', x: 128, lbl: 'THE TV', t: 'The TV didn’t answer', m: 'Check it’s on, then try again.', keys: [['Try again', 'A'], ['Close', 'Z', 1]], n: '3 OF 3' });
     await wait(2400); await S.press(p, 1); await S.leave(p); await wait(1200); } },
   { id: 'claude', title: '7 · Claude asks (the same family)', run: async (S) => {
     S.say('Claude, working in your tabs, wants your OK. It’s a <b>needs you</b>, so it looks and sounds the same, from the <b>menu</b> where Claude’s rune lives.');
     S.src('menu'); await wait(500);
-    const p = S.drop({ kind: 'need', ic: 'claude', x: 128, t: 'Claude wants to open the checkout', m: 'For Compare laptops, on bestbuy.ca.', keys: [['Allow once', 'A'], ['No', 'Z', 1]] });
-    S.sound(400, 166); await wait(3600); await S.press(p, 0); await S.leave(p); await wait(1400); } },
+    const p = S.drop({ kind: 'need', ic: 'claude', x: 128, lbl: 'CLAUDE · AANG', t: 'Claude wants to open the checkout', m: 'For Compare laptops, on bestbuy.ca.', keys: [['Allow once', 'A'], ['No', 'Z', 1]] });
+    S.sound(330, 210); await wait(3600); await S.press(p, 0); await S.leave(p); await wait(1400); } },
 ];
 
 function sceneBox(sc) {
@@ -300,7 +312,10 @@ function sceneBox(sc) {
       const gem = document.createElement('span'); gem.className = 'gem' + (o.ic === 'claude' ? ' claude' : ''); gem.append(icon(o.ic, o.small ? 2 : 3)); n.append(gem);
       if (!o.small) for (const [dx, dy, l, t] of [[-16, -14, 22, 14], [18, -16, 48, 10], [-20, 10, 18, 44], [20, 12, 52, 46]]) {
         const sp = document.createElement('i'); sp.className = 'spark'; sp.style.cssText = `left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px`; n.append(sp); }
-      n.insertAdjacentHTML('beforeend', `<div class="t">${o.t}</div><div class="m">${o.m}</div>`);
+      const paper = o.rows
+        ? o.rows.map(([l, v]) => `<div class="lbl">${l}</div><div class="v">${v}</div>`).join('')
+        : `${o.lbl ? `<div class="lbl${o.ic === 'claude' ? ' claude' : ''}">${o.lbl}</div>` : ''}<div class="t">${o.t}</div>${o.m ? `<div class="m">${o.m}</div>` : ''}`;
+      n.insertAdjacentHTML('beforeend', `<div class="paper">${paper}</div>`);
       if (o.keys) { const k = document.createElement('div'); k.className = 'keys'; for (const [l, key, ghost] of o.keys) k.insertAdjacentHTML('beforeend', `<span class="btn${ghost ? ' ghost' : ''}">${l}</span>`); n.append(k); }
       if (o.n) n.insertAdjacentHTML('beforeend', `<span class="n">${o.n}</span>`);
       if (o.small) n.insertAdjacentHTML('beforeend', '<span class="bar"></span>');
@@ -318,8 +333,6 @@ function sceneBox(sc) {
   setTimeout(loop, 300);
   return box;
 }
-document.getElementById('pgem').append(icon('claude', 3));
-document.getElementById('pdl').innerHTML = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg>';
 const grid = document.getElementById('grid');
 for (const sc of SCENES) grid.append(sceneBox(sc));
 </script>
