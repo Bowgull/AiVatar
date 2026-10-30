@@ -138,8 +138,9 @@ app.whenReady().then(async () => {
   b.mockStore.add(S46, '46 · One cockpit', c2, 'k46'); b.mockStore.setFresh(S46, true); b.sendTabs(); await wait(500);
   const frame = b.win.webContents;
   const tray = JSON.parse(await frame.executeJavaScript(`JSON.stringify({ key: !document.getElementById('mqkey').hidden, name: document.querySelector('#mqkey .nm')?.textContent, gem: document.querySelector('#mqkey .gem')?.hidden ? '' : document.querySelector('#mqkey .gem')?.textContent,
-    old: document.querySelectorAll('#tabs .th.mock, #tabs .mquest, #tabs .mph, #tabs .bh').length, menu: !!document.getElementById('m-mockups'), first: document.querySelector('.drawer').firstElementChild?.id })`));
-  check('the tray has the one Mockups plaque, first, with its gem at 1', tray.key && tray.name === 'Mockups' && tray.gem === '1' && tray.first === 'mqkey', JSON.stringify(tray));
+    old: document.querySelectorAll('#tabs .th.mock, #tabs .mquest, #tabs .mph, #tabs .bh').length, menu: !!document.getElementById('m-mockups'), next: document.getElementById('mqkey')?.nextElementSibling?.className, low: (() => { const k = document.getElementById('mqkey').getBoundingClientRect(), f = document.querySelector('.drawer .tidyfoot').getBoundingClientRect(); return Math.round(f.top - k.bottom); })() })`));
+  // At the bottom of the tray, right above the broom (his ask, 2026-10-30).
+  check('the tray has the one Mockups plaque, at the bottom above the broom, with its gem at 1', tray.key && tray.name === 'Mockups' && tray.gem === '1' && tray.next === 'tidyfoot' && tray.low >= 0 && tray.low <= 16, JSON.stringify(tray));
   check('the old MOCKUPS list, LIVE PAGES, ALL MOCKUPS and the ... menu way are gone', tray.old === 0 && !tray.menu, JSON.stringify(tray));
   // Away to his page, then the plaque brings Mockups back in front.
   b.activate(b.tabs.find((t: any) => t.url === 'https://example.com/').id); await wait(200);

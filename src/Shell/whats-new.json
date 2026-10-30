@@ -720,6 +720,11 @@
       "at": "2026-10-30T10:14:00-04:00",
       "text": "A dead phishing list swapped for its working copy.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T10:38:00-04:00",
+      "text": "The Mockups key sits at the bottom, a size smaller.",
+      "kind": "fix"
     }
   ]
 }
