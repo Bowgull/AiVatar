@@ -2760,7 +2760,12 @@ export class AangBrowser {
     this.win?.contentView.addChildView(view);
     this.raiseTray();
     tab.view = view; tab.crashed = false; tab.loading = false; tab.title = night ? 'New tab' : log ? 'Mockups' : things ? 'Your things' : 'Settings';
-    wc.on('before-input-event', (e, input) => { this.inTab(tab); if (this.key(input)) e.preventDefault(); });
+    wc.on('before-input-event', (e, input) => {
+      this.inTab(tab);
+      // Sheet 107 v4: Esc leaves Mockups, from the sheet's frame too; the page decides (Esc first closes the mark's menu).
+      if (log && input.type === 'keyDown' && input.key === 'Escape' && !input.isAutoRepeat) { e.preventDefault(); wc.send('mocklog:esc'); return; }
+      if (this.key(input)) e.preventDefault();
+    });
     wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
     if (log) wc.once('did-finish-load', () => { this.mockLogSig = ''; this.pushMockLog(); });
     void wc.loadURL(`${this.o.origin}/${night ? 'night' : log ? 'mocklog' : things ? 'things' : 'settings'}.html`).catch(() => {});
@@ -5085,6 +5090,9 @@ export class AangBrowser {
     if (!this.mockStore) return;
     if (!this.win || this.win.isDestroyed()) { this.whenOpen.push(() => this.openMockLog()); if (!this.lastPane()) this.createPane(); return; }
     let t = this.tabs.find((x) => x.internal === 'mocklog');
+    // Sheet 107 v4: the tab he was on, for Back to Samara.
+    const was = this.cur();
+    if (was && was.internal !== 'mocklog') this.mockFrom = was.id;
     if (!t) {
       t = { id: ++this.seq, internal: 'mocklog', view: null, opener: null, title: 'Mockups', url: 'aang:mockups', favicon: '', loading: false, audible: false, muted: false, crashed: false,
         scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
@@ -5092,6 +5100,22 @@ export class AangBrowser {
     }
     this.activate(t.id);
     this.win?.focus();
+  }
+  /** Sheet 107 v4: the tab he was on before Mockups opened. */
+  private mockFrom: number | null = null;
+  /**
+   * Sheet 107 v4 (his ask, 2026-10-30: "a way to get out of mockups and back to my regular samara"): Back to Samara, or
+   * Esc. Mockups closes and he is back on the tab he was on (the newest of his own tabs if that one is gone, else a new one).
+   */
+  mockLogLeave(): void {
+    const log = this.tabs.find((x) => x.internal === 'mocklog');
+    if (!log) return;
+    const mine = (x: Tab) => x !== log && !x.done && x.pane === log.pane;
+    const back = this.tabs.find((x) => x.id === this.mockFrom && mine(x)) ?? [...this.tabs].filter((x) => mine(x) && !x.internal).sort((a, b) => b.lastSeen - a.lastSeen)[0];
+    // Coming back later starts from the list, not the sheet Claude sent last.
+    this.mockFrom = null; this.mockFocus = null;
+    if (back) this.activate(back.id); else this.newTab(this.HOME);
+    this.close(log.id, false);
   }
   /** What the quest log shows. Plain data, built from mockups.json and git only. */
   mockLogData(): Record<string, unknown> | null {

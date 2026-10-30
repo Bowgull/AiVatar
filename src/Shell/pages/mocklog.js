@@ -54,7 +54,7 @@ function openSheet(sheet, v = null) {
 function draw() {
   const ps = projects();
   const p = ps.find((x) => x.name === pick.p) ?? ps[0];
-  const tabs = document.getElementById('ptabs'); tabs.replaceChildren();
+  const tabs = document.getElementById('ptabs'); tabs.replaceChildren(leaveKey());
   for (const q of ps) {
     const b = el('button', 'ptab' + (q === p ? ' on' : '')); b.type = 'button';
     const em = el('span', 'em'); em.append(emblem(q.name));
@@ -187,7 +187,20 @@ function markMenu(v, anchor) {
   m.style.top = Math.min(innerHeight - m.offsetHeight - 8, r.bottom + 6) + 'px';
 }
 document.addEventListener('click', (e) => { if (!e.target.closest?.('.mmenu')) closeMenu(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+// Esc (Samara sends it, from the sheet's frame too): the mark's menu closes first, else he leaves Mockups.
+window.mocklog?.onEsc(() => { if (document.querySelector('.mmenu')) closeMenu(); else window.mocklog?.leave(); });
+
+// Sheet 107 v4 (his ask: "a way to get out of mockups and back to my regular samara"): Back to Samara, first along the
+// top, in the scroll plaque's blue and gold with the lantern on it. Mockups closes; he is back on the tab he was on.
+let leave = null;
+function leaveKey() {
+  if (leave) return leave;
+  leave = el('button', 'leave'); leave.type = 'button';
+  const lamp = el('img', 'px'); lamp.src = 'art/samara/samara-lantern-64.png'; lamp.alt = ''; lamp.width = lamp.height = 32;
+  leave.append(el('i'), lamp, el('span', '', 'Back to Samara'));
+  leave.addEventListener('click', () => window.mocklog?.leave());
+  return leave;
+}
 
 function take(d) {
   if (!d) return;
