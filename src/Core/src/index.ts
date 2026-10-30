@@ -50,6 +50,19 @@ process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
 core.onShutdownRequest = () => { void shutdown('the Body is closing'); };
 
 await core.start();
+// Aang's brain updates itself from GitHub (his pick, 2026-10-30: quietly, while he is away), on the Mac where it lives:
+// only when it runs from the Mac setup's folder (never from a code folder Claude works in).
+const listener = path.join(home, 'Library', 'Application Support', 'AangListener');
+if (process.platform === 'darwin' && process.env.AANG_BRAIN_UPDATE !== '0' && path.resolve(import.meta.dirname, '..') === path.join(listener, 'core')) {
+  const { BrainUpdates } = await import('./brainupdate.ts');
+  const bu = new BrainUpdates({
+    home: listener, fetch: fetch as never, log: console.log, exit: () => { void shutdown('brain update'); },
+    away: () => { const r = core.macReading(); return r ? { idle: r.idle, call: r.mic || r.cam } : null; },
+  });
+  const v = bu.started();
+  if (v) setTimeout(() => core.announce(`I updated myself to ${v} while you were away.`), 15_000).unref?.();
+  bu.start();
+}
 // Discord, if Joshua has set it up. It connects OUT to Discord and back into this Core, and Aang runs without it.
 // Loaded only when used, so Aang without Discord carries none of it.
 if (existsSync(path.join(core.cfg.stateDir, 'discord.token')) || existsSync(path.join(core.cfg.stateDir, 'frontdesk.json'))) {

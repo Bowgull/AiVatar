@@ -2861,6 +2861,8 @@ export class Core {
   }
   /** The Mac's presence helper (mac/presence.swift); null on the PC, where the pet does this. */
   private macPresence: MacPresence | null = null;
+  /** Its last reading (the brain's own updater asks: away, and not in a call). */
+  macReading(): ReturnType<MacPresence['now']> { return this.macPresence?.now() ?? null; }
   private lastShadow: boolean | undefined;
 
   /** This run's password. Null only if it could not be written; the Origin rule still stands. */
@@ -3580,6 +3582,9 @@ export class Core {
    *  Claude marks it finished (mac-ship in his Aang folder holds that commit) and nothing the Mac runs is half-changed. */
   private macShipped(r: MacRelease): boolean { return !!r.commit && !!r.version; }
   private async macOfferNow(reply: (r: Record<string, unknown>) => void): Promise<void> {
+    // Samara and Aang's brain come from GitHub now, on both machines (his pick, 2026-10-30): the PC no longer offers the
+    // Mac an update.
+    if (process.env.AANG_PC_PUSH !== '1') return;
     if (!this.macHas) return;
     const r = await this.macReleaseFresh();
     if (!this.macHas) return;

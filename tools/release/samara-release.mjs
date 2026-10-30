@@ -35,6 +35,12 @@ execFileSync('tar', [...(gnu ? ['--sort=name', '--owner=0', '--group=0', '--nume
   '-C', shell, 'src', 'pages', 'drm', 'assets', '-C', repo, 'claude-link/.claude-plugin', 'claude-link/hooks',
   '-C', path.join(shell, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'inherit', env: { ...process.env, GZIP: '-n' } });
 const bytes = readFileSync(bundle);
+// Aang's brain (his pick, 2026-10-30: one version number for Samara and Aang): the Mac's brain takes it from here.
+// Its code and its package files; its libraries are installed on the Mac, its presence helper is built there.
+const brain = path.join(out, 'aang-brain.tgz'), core = path.join(repo, 'src', 'Core');
+execFileSync('tar', [...(gnu ? ['--sort=name', '--owner=0', '--group=0', '--numeric-owner', '--mtime=@0'] : []), '-czf', brain,
+  '-C', core, 'src', 'assets', 'frontdesk-pkg', 'mac', 'package.json', 'package-lock.json', 'tsconfig.json'], { stdio: 'inherit', env: { ...process.env, GZIP: '-n' } });
+const brainBytes = readFileSync(brain);
 
 const commit = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 void notesFile;   // what it brings comes from whats-new.json now, the same lines the rule counted
@@ -43,8 +49,9 @@ const manifest = {
   v: 1, app: 'samara', version, name: v.name, commit, at: new Date().toISOString(), notes,
   items: lines.slice(0, 30).map((l) => ({ text: String(l.text), kind: l.kind === 'major' || l.kind === 'feature' ? l.kind : 'fix' })),
   bundle: { file: 'samara-bundle.tgz', sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length },
+  brain: { file: 'aang-brain.tgz', sha256: createHash('sha256').update(brainBytes).digest('hex'), bytes: brainBytes.length },
 };
 const text = JSON.stringify(manifest, null, 1);
 writeFileSync(path.join(out, 'manifest.json'), text);
 writeFileSync(path.join(out, 'manifest.sig'), sign(null, Buffer.from(text), createPrivateKey(pem)).toString('base64'));
-console.log(`samara ${version} ${v.name} (${commit.slice(0, 7)}): bundle ${(bytes.length / 1e6).toFixed(1)} MB, stamped`);
+console.log(`samara ${version} ${v.name} (${commit.slice(0, 7)}): bundle ${(bytes.length / 1e6).toFixed(1)} MB, brain ${(brainBytes.length / 1e6).toFixed(1)} MB, stamped`);
