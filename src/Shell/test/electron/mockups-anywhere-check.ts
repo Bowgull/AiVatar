@@ -2,13 +2,12 @@
 // little very small breathing notification". Throwaway git repos stand in for AangApp and for another session's repo
 // (Waymark), and a test server for a live page on this computer; nothing of his is read or written.
 //   1. the .mockup file's new kinds (another repo, a live page) and the page server's /r/ door, dot folders refused;
-//   2. both open in the MOCKUPS trail, kept in mockups.json with the repo's folder;
-//   3. the drawer's arrow breathes when one arrives with the drawer shut, a few times, and stops when he opens it; the
-//      new row glows once in the drawer; reduced motion is a still gold dot (pictures: a short strip of the breath);
-//   4. a show-only plan (pages on this computer, only looked at) starts with no card and shows its page in the trail.
+//   2. both open in Mockups (sheet 107: right on them, in front, so no breathing arrow is needed any more), kept in
+//      mockups.json with the repo's folder;
+//   4. a show-only plan (pages on this computer, only looked at) starts with no card and shows its page in Mockups.
 //
-// Run: npx electron test/electron/mockups-anywhere-check.ts   (pictures go to the folder in AANG_SHOTS, if set)
-import { app, BrowserWindow, nativeImage, screen } from 'electron';
+// Run: npx electron test/electron/mockups-anywhere-check.ts
+import { app, BrowserWindow, screen } from 'electron';
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -31,7 +30,6 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;
 const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${what}${d ? '  -- ' + String(d).slice(0, 240) : ''}`); if (!ok) bad++; };
 const until = async (fn: () => boolean, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await wait(100); } return fn(); };
-const SHOTS = process.env.AANG_SHOTS ?? '';
 
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'mock-any-'));
 const mkRepo = (name: string) => { const d = path.join(tmp, name); mkdirSync(d, { recursive: true }); execFileSync('git', ['-C', d, 'init', '-q']); return d; };
@@ -67,7 +65,7 @@ app.whenReady().then(async () => {
     check('not its dot files, nor an unknown repo name', (await get(`/r/${name}/${cw}/.secret.html`)) === 404 && (await get(`/r/Nope/${cw}/docs/motion.html`)) === 404);
     srv.close();
 
-    // ---- 2. both open in the MOCKUPS trail
+    // ---- 2. both open in Mockups, right on them (sheet 107)
     const live = http.createServer((_q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Recording</title><body style="background:#123">rec</body>'));
     await new Promise<void>((r) => live.listen(0, '127.0.0.1', () => r()));
     const lport = (live.address() as { port: number }).port, liveUrl = `http://127.0.0.1:${lport}/rec`;
@@ -75,64 +73,17 @@ app.whenReady().then(async () => {
     const b = new AangBrowser({ origin: pages.origin, stateDir: st, repoDir: home, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
     wireBrowser(() => b);
     const v1 = await b.openMockupDrop(fr!);
-    await until(() => b.tabs.some((t: any) => t.mock));
-    const tw = () => b.tabs.find((t: any) => t.mock?.sheet === v1?.sheet);
-    check("another repo's mockup opens in the MOCKUPS trail as @Waymark/...", v1?.sheet === 'docs/motion.html'.replace(/^/, `@${'Waymark'}/`) && tw()?.trail === -1 && tw()?.title === 'Waymark motion', JSON.stringify({ s: v1?.sheet, t: tw()?.title }));
-    await until(() => !tw()?.loading && String(tw()?.view?.webContents.getURL()).includes('/r/'), 8000); await wait(300);
-    const css = await tw()!.view.webContents.executeJavaScript(`[...document.styleSheets].filter((x) => x.href).map((x) => x.href + ' ' + x.cssRules.length).join()`).catch(() => '');
-    check('its page comes from /r/ at the commit, with its own stylesheet', String(tw()!.view.webContents.getURL()).includes(`/r/Waymark/${cw}/docs/motion.html`) && String(css).includes(`/r/Waymark/${cw}/docs/motion.css 1`), `${tw()!.view.webContents.getURL()} ${css}`);
+    const lwc = () => b.tabs.find((t: any) => t.internal === 'mocklog')?.view?.webContents;
+    await until(() => Boolean(lwc()) && !lwc().isLoading(), 10000); await wait(900);
+    const src = () => lwc().executeJavaScript(`document.querySelector('.frame iframe')?.getAttribute('src') ?? ''`);
+    check("another repo's mockup opens in Mockups as @Waymark/..., no tab of its own", v1?.sheet === '@Waymark/docs/motion.html' && !b.tabs.some((t: any) => t.mock) && b.cur()?.internal === 'mocklog', JSON.stringify({ s: v1?.sheet }));
+    check('its page comes from /r/ at the commit', String(await src()).includes(`/r/Waymark/${cw}/docs/motion.html`), String(await src()));
     const saved = JSON.parse(readFileSync(path.join(st, 'mockups.json'), 'utf8'));
     check("the repo's folder is kept in mockups.json, so old versions still open after a restart", path.resolve(saved.repos?.Waymark ?? '') === path.resolve(way), JSON.stringify(saved.repos));
+    const v2 = await b.openMockup(liveUrl, 'Waymark recording'); await wait(900);
+    check('a live local page opens in Mockups as it is (no commit), V1', v2?.commit === '' && v2?.v === 1 && String(await src()) === liveUrl, String(await src()));
 
-    // ---- 3. the arrival: the arrow breathes with the drawer shut
-    const frame = b.win.webContents;
-    await wait(500);
-    const n0 = b.mockNew?.n ?? 0;
-    const v2 = await b.openMockup(liveUrl, 'Waymark recording');
-    const tl = () => b.tabs.find((t: any) => t.mock?.sheet === liveUrl);
-    await until(() => !!tl());
-    check('a live local page opens in the trail as it is (no commit), V1', v2?.commit === '' && v2?.v === 1 && tl()?.trail === -1 && tl()?.url === liveUrl, JSON.stringify({ c: v2?.commit, u: tl()?.url }));
-    check('the arrival is counted', b.mockNew?.n === n0 + 1 && b.mockNew?.sheet === liveUrl);
-    await until(() => false, 250);
-    const breath = JSON.parse(await frame.executeJavaScript(`JSON.stringify((() => { const k = document.getElementById('drawerkey'); const a = getComputedStyle(k, '::after');
-      return { on: k.classList.contains('breathe'), name: a.animationName, dur: a.animationDuration, count: a.animationIterationCount, img: a.backgroundImage, origin: a.transformOrigin }; })())`));
-    check('the arrow breathes: handle3-arrow over the handle, 1.6 s, four times, round the arrow', breath.on && breath.name === 'hbreathe' && breath.dur === '1.6s' && breath.count === '4' && /handle3-arrow\.png/.test(breath.img) && breath.origin === '17px 64px', JSON.stringify(breath));
-    // A strip of the breath: the handle at five moments of one cycle, side by side, 3x, pixels kept crisp.
-    const r = JSON.parse(await frame.executeJavaScript(`JSON.stringify((() => { const x = document.getElementById('drawerkey').getBoundingClientRect(); return { x: Math.round(x.left) - 4, y: Math.round(x.top) + 36, width: 40, height: 56 }; })())`));
-    const frames: Electron.NativeImage[] = [];
-    // Restart the breath so the strip starts at its beginning.
-    await frame.executeJavaScript(`(() => { const k = document.getElementById('drawerkey'); k.classList.remove('breathe'); void k.offsetWidth; k.classList.add('breathe'); return true; })()`);
-    const t0 = Date.now();
-    for (const at of [0, 250, 800, 1200, 1550]) { await wait(Math.max(0, at - (Date.now() - t0))); frames.push(await frame.capturePage(r)); }
-    const lum = frames.map((im) => { const bm = im.toBitmap(); let s = 0; for (let i = 0; i < bm.length; i += 4) s += bm[i]! + bm[i + 1]! + bm[i + 2]!; return s; });
-    check('it visibly brightens mid-breath and settles back', lum[2]! > lum[0]! * 1.01 && lum[2]! > lum[4]!, lum.join(','));
-    if (SHOTS) {
-      const sc = 3, fw = frames[0]!.getSize().width, fh = frames[0]!.getSize().height, gap = 6, W = (fw * sc + gap) * frames.length - gap, H = fh * sc;
-      const out = Buffer.alloc(W * H * 4, 0x30);
-      frames.forEach((im, f) => { const s = im.toBitmap(), w = im.getSize().width; for (let y = 0; y < H; y++) for (let x = 0; x < fw * sc; x++) { const si = (Math.floor(y / sc) * w + Math.floor(x / sc)) * 4, di = (y * W + f * (fw * sc + gap) + x) * 4; s.copy(out, di, si, si + 4); } });
-      writeFileSync(path.join(SHOTS, 'arrow-breath-strip.png'), nativeImage.createFromBitmap(out, { width: W, height: H }).toPNG());
-    }
-    // He opens the drawer (a DOM click, no real input): the breath stops, and the new row glows once in the drawer.
-    await frame.executeJavaScript(`document.getElementById('drawerkey').click(); true`);
-    await wait(150);
-    check('opening the drawer stops the breath', (await frame.executeJavaScript(`document.getElementById('drawerkey').classList.contains('breathe')`)) === false);
-    await until(() => !!b.trayV && !b.trayV.webContents.isDestroyed() && !b.trayV.webContents.isLoading(), 6000); await wait(600);
-    const glow = await b.trayV.webContents.executeJavaScript(`JSON.stringify([...document.querySelectorAll('#tabs .tp.mfresh')].map((x) => x.dataset.mock))`).catch((e: Error) => 'ERR ' + e.message);
-    if (glow === '[]') console.log('DEBUG rows ' + await b.trayV.webContents.executeJavaScript(`JSON.stringify([...document.querySelectorAll('#tabs .tp')].map((x) => [x.dataset.mock, x.className]))`));
-    check('the new mockup\'s row glows in the drawer', JSON.parse(glow).length === 1 && JSON.parse(glow)[0] === liveUrl, glow);
-    if (SHOTS) { await wait(500); try { writeFileSync(path.join(SHOTS, 'drawer-glow.png'), (await b.trayV.webContents.capturePage()).toPNG()); } catch (e) { console.log('NOTE no drawer picture: ' + (e as Error).message); } }
-    b.tray(false); await wait(400);
-    // Reduced motion: a still gold dot instead of the breath.
-    frame.debugger.attach('1.3');
-    await frame.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-    await b.openMockup(liveUrl + '?v=2', 'Second'); await wait(400);
-    const calm = JSON.parse(await frame.executeJavaScript(`JSON.stringify((() => { const k = document.getElementById('drawerkey'); const a = getComputedStyle(k, '::after'), d = getComputedStyle(k, '::before');
-      return { on: k.classList.contains('breathe'), anim: a.animationName, dot: d.content !== 'none' && d.content !== '' , bg: d.backgroundColor, w: d.width }; })())`));
-    check('reduced motion: no breath, a still gold dot', calm.on && calm.anim === 'none' && calm.dot && calm.bg === 'rgb(255, 196, 60)' && calm.w === '6px', JSON.stringify(calm));
-    if (SHOTS) { try { writeFileSync(path.join(SHOTS, 'arrow-dot.png'), (await frame.capturePage({ ...r, y: r.y - 36, height: 128 + 8 })).resize({ width: r.width * 3, quality: 'good' }).toPNG()); } catch (e) { console.log('NOTE no dot picture: ' + (e as Error).message); } }
-    frame.debugger.detach();
-
-    // ---- 4. a show-only plan: no card, its page in the trail
+    // ---- 4. a show-only plan: no card, its page in Mockups
     let asked = 0;
     const realAsk = b.askPlan.bind(b); b.askPlan = async (c: unknown) => { asked++; return realAsk(c); };
     const p = cleanPlan({ task: 'Show Waymark motion', sites: ['127.0.0.1', 'localhost:5173'], steps: [`Open the Waymark motion recording page ${liveUrl.replace('/rec', '/motion')}`], from: 'Waymark' })!;
@@ -142,7 +93,7 @@ app.whenReady().then(async () => {
     const out: any = await runPlan(b, new PlanMemory(st), p, { elicit: false, pending: new Map() });
     check('the show-only plan starts at once, no card', out.ok === true && out.local === true && Number.isInteger(out.job) && asked === 0, JSON.stringify(out));
     check('the page its step names is found', localUrlsIn(p.steps).join() === liveUrl.replace('/rec', '/motion'));
-    check('and shown to him in the trail', (await showToHim(b, localUrlsIn(p.steps)[0]!, p.task)) && b.tabs.some((t: any) => t.mock?.sheet === liveUrl.replace('/rec', '/motion') && t.title === 'Show Waymark motion'));
+    check('and shown to him in Mockups', (await showToHim(b, localUrlsIn(p.steps)[0]!, p.task)) && b.mockFocus?.sheet === liveUrl.replace('/rec', '/motion') && b.cur()?.internal === 'mocklog');
     const fileUrl = 'file:///' + path.join(way, 'docs', 'motion.html').replace(/\\/g, '/');
     check('a committed file page in a git repo is shown as that repo\'s mockup', await showToHim(b, fileUrl, 'Motion file'));
     check('a file outside any repo is not', !(await showToHim(b, 'file:///' + path.join(tmp, 'nowhere.html').replace(/\\/g, '/'), 'x')));

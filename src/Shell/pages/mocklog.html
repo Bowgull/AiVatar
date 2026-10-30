@@ -2,21 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Sheet 100 (his pick, 2026-10-28: "Quest log page and the picture strip"): every mockup in a page of its own.
-     Projects and topics on the left, that topic's sheets in the middle, the one he picks big on the right with its
-     versions under it. Drawn with textContent only; the only doors are window.mocklog. Pictures come from Samara's own
-     mockup server on 127.0.0.1. -->
+<!-- Sheet 107 (his pick, 2026-10-30: "I don't need both, I only need the one"): Mockups, the one place. A tab per
+     project with its logo along the top; inside, its topics as sub headings and its Done at the bottom; a sheet opens
+     on the right at its true size, with its versions, its mark and a way back. Drawn with textContent only; the only
+     doors are window.mocklog. The sheets come from Samara's own mockup server on this computer, in a frame that can
+     never reach this page or its doors. -->
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: http://127.0.0.1:*; font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: http://127.0.0.1:*; frame-src http://127.0.0.1:* http://localhost:* https://127.0.0.1:* https://localhost:* http://[::1]:* https://[::1]:*; font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
 <title>Mockups</title>
 <link rel="stylesheet" href="cockpit.css">
 <link rel="stylesheet" href="mocklog.css">
 </head>
 <body>
 <div class="log panel">
-  <div class="c1"><div class="ttl">PROJECTS</div><div id="tree"></div></div>
-  <div class="c2"><div class="ttl" id="topic"></div><div id="sheets"></div></div>
-  <div class="c3" id="detail"></div>
+  <div class="ptabs" id="ptabs"></div>
+  <div class="body">
+    <div class="list" id="list"></div>
+    <div class="view" id="view"></div>
+  </div>
 </div>
 <script type="module" src="mocklog.js"></script>
 </body>

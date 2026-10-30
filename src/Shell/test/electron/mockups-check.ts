@@ -1,11 +1,11 @@
-// Sheet 47 (his picks, 2026-10-21): the MOCKUPS trail. A throwaway git repo stands in for AangApp, so nothing of his is
-// read or written: the versioned page server's path rules, a .mockup file opening a tab in the trail, a newer version
-// updating that same tab (V2), the history surviving the trail being closed (mockups.json), duplicates found by picture and
-// removed only by the broom, the ... menu bringing the trail back, and the family tree (a lettered sheet filed under its
-// parent, branches renamed, moved, made top level, deleted without losing a mockup, the history grouped the same way), and
-// a branch Claude names in the .mockup file (made or matched, a child moving its unbranched parent, bad names ignored).
+// Sheet 47 (2026-10-21) and sheet 107 (his picks, 2026-10-30): Claude's mockups in Samara. A throwaway git repo stands in
+// for AangApp, so nothing of his is read or written: the versioned page server's path rules, the .mockup file's checks,
+// and then the one place (sheet 107): a mockup from Claude opens Mockups right on it (no tab, no MOCKUPS trail), NEW until
+// he opens it, at its true size; a newer version is the same sheet's next version; another repo's sheet gets its own
+// project tab with its letter; the tray's one Mockups plaque with its gem; the old mockup tabs close on the way back in.
+// Pictures of the menu and the tray are written to MOCK_SHOTS (a folder) when it is set, to be looked at.
 //
-// Run: npx electron test/electron/mockups-check.ts
+// Run: perl -e 'alarm shift; exec @ARGV' 200 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron test/electron/mockups-check.ts
 import { app, BrowserWindow, screen } from 'electron';
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
@@ -79,187 +79,99 @@ app.whenReady().then(async () => {
   check('a good .mockup is taken', m1?.path === S45 && m1?.title === '45 · Both ways', JSON.stringify(m1));
 
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: st, repoDir: repo, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
+  const opts = { origin: pages.origin, stateDir: st, repoDir: repo, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true };
+  // The tabs of before: one of his pages and an old mockup tab. The mockup tab does not come back (sheet 107).
+  writeFileSync(path.join(st, 'browser-tabs.json'), JSON.stringify({ v: 1, active: 0, tabs: [{ url: 'https://example.com/', title: 'Example' }, { url: `http://127.0.0.1:1/v/${c1}/${S45}`, title: '45', mock: { sheet: S45, commit: c1, key: 'k' }, trail: -1 }], trails: [{ id: -1, name: 'MOCKUPS', named: true }] }));
+  const b = new AangBrowser(opts) as any;
   wireBrowser(() => b);
+  const shots = process.env.MOCK_SHOTS || '';
+  const log = () => b.tabs.find((t: any) => t.internal === 'mocklog');
+  const lwc = () => log()?.view?.webContents;
+  const page = async (js: string) => JSON.parse(await lwc().executeJavaScript(`JSON.stringify((() => { ${js} })())`));
   const v1 = await b.openMockup(m1!.path, m1!.title);
-  await until(() => b.tabs.some((t: any) => t.mock));
-  const mt = () => b.tabs.filter((t: any) => t.mock);
-  const t45 = () => b.tabs.find((t: any) => t.mock?.sheet === S45);
-  check('it opened Samara and a tab in the MOCKUPS trail', mt().length === 1 && t45()?.trail === -1 && b.trails.some((x: any) => x.id === -1 && x.mock && x.name === 'MOCKUPS'), JSON.stringify(b.trails));
-  check('no home page under it', b.tabs.length === 1, String(b.tabs.length));
-  check('the tab carries the title Claude gave', t45()?.title === '45 · Both ways', t45()?.title);
-  await until(() => !t45()?.loading, 8000); await wait(400);
-  const wc = () => t45()!.view.webContents;
-  const sheetCss = await wc().executeJavaScript(`[...document.styleSheets].filter((x) => x.href).map((x) => x.href + ' ' + x.cssRules.length).join()`).catch(() => '');
-  check('the page loads from the server, with its helper folder from the same commit', String(wc().getURL()).includes(`/v/${c1}/`) && String(sheetCss).includes(`/v/${c1}/docs/cockpit/sheet-45/pic.css 1`), `${wc().getURL()} ${sheetCss}`);
-  check('version V1', v1?.v === 1 && b.mockTab(t45()).v === 1);
+  await until(() => Boolean(lwc()) && !lwc().isLoading(), 10000); await wait(900);
+  check('the old mockup tab did not come back, his page did, and there is no MOCKUPS trail', !b.tabs.some((t: any) => t.mock) && b.tabs.some((t: any) => t.url === 'https://example.com/') && !b.trails.some((x: any) => x.mock || x.id === -1), JSON.stringify(b.trails));
+  check('a mockup from Claude opens Mockups (one tab, in front), no tab of its own', b.tabs.filter((t: any) => t.internal === 'mocklog').length === 1 && b.cur()?.internal === 'mocklog' && v1?.v === 1);
+  await until(() => b.mockStore.meta.get(S45)?.fresh !== true, 4000);
+  let look = await page(`const f = document.querySelector('.frame iframe'); return { tab: document.querySelector('.ptab.on span:not(.em):not(.c)')?.textContent, rows: [...document.querySelectorAll('.sh')].map((x) => x.textContent),
+    title: document.querySelector('.vbar .dt')?.textContent, back: document.querySelector('.back')?.textContent, src: f?.getAttribute('src'), sandbox: f?.getAttribute('sandbox'), w: f?.clientWidth, fw: document.querySelector('.frame')?.clientWidth,
+    chips: [...document.querySelectorAll('.vs b')].map((x) => x.textContent + (x.classList.contains('on') ? '*' : '')), mk: document.querySelector('.vbar > .mk')?.textContent };`);
+  check('it opened on that sheet, in the Samara tab, marked NEW while he reads it', look.tab === 'Samara' && look.title === '45Both waysNEW', JSON.stringify(look));
+  check('the sheet is shown from its commit, in a frame that cannot reach the page', String(look.src).includes(`/v/${c1}/${S45}`) && look.sandbox === 'allow-scripts allow-same-origin', JSON.stringify(look));
+  check('at its true size: the frame fills the space, the sheet is never shrunk', look.w > 0 && look.w === look.fw, JSON.stringify(look));
+  check('opening it took its NEW off (in the store too)', b.mockStore.meta.get(S45)?.fresh !== true && !look.rows.some((r: string) => r.includes('NEW')), JSON.stringify(look.rows));
+  check('its version and its mark: v1, OPEN', JSON.stringify(look.chips) === '["v1*"]' && look.mk === 'OPEN', JSON.stringify(look));
+  const inside = await lwc().executeJavaScript(`new Promise((r) => { const f = document.querySelector('.frame iframe'); const go = () => { try { r(f.contentDocument === null ? 'cross-origin' : String(f.contentDocument.title)); } catch { r('cross-origin'); } }; if (f.contentDocument?.readyState === 'complete') go(); else f.addEventListener('load', go); setTimeout(go, 3000); })`);
+  check('the page cannot read into the sheet (another origin)', inside === 'cross-origin', String(inside));
+  await lwc().executeJavaScript(`document.querySelector('.frame iframe').dataset.mark = 'kept'; true`);
+  b.sendTabs(); b.mockLogSig = ''; b.pushMockLog(); await wait(600);
+  check('a redraw keeps the same frame (the sheet is not reloaded)', (await lwc().executeJavaScript(`document.querySelector('.frame iframe')?.dataset.mark ?? ''`)) === 'kept');
+  check('the page has only its own doors', (await page(`return Object.keys(window.mocklog ?? {}).sort();`)).join() === 'get,onData,seen,send,stage');
 
-  // ---- 3. a newer version updates the same tab
-  const id1 = t45()!.id;
+  // A newer version: the same sheet's next version, shown at once.
   put(S45, sheet('Sheet 45 - Both ways', 'two')); const c2 = commit('two');
-  const v2 = await b.openMockup(S45, '45 · Both ways'); await wait(600);
-  check('a second version updates the same tab, no new one', mt().length === 1 && t45()!.id === id1 && b.tabs.length === 1);
-  check('and bumps it to V2', v2?.v === 2 && b.mockTab(t45()).v === 2);
-  await until(() => String(wc().getURL()).includes(c2));
-  check('the tab now shows the new commit', String(wc().getURL()).includes(`/v/${c2}/`), wc().getURL());
+  const v2 = await b.openMockup(S45, '45 · Both ways'); await wait(900);
+  look = await page(`return { chips: [...document.querySelectorAll('.vs b')].map((x) => x.textContent + (x.classList.contains('on') ? '*' : '')), src: document.querySelector('.frame iframe')?.getAttribute('src') };`);
+  check('a newer version is v2 of the same sheet, and Mockups shows it', v2?.v === 2 && JSON.stringify(look.chips) === '["v1","v2*"]' && String(look.src).includes(c2), JSON.stringify(look));
+  check('still one Mockups tab, no mockup tabs', b.tabs.filter((t: any) => t.internal === 'mocklog').length === 1 && !b.tabs.some((t: any) => t.mock));
+  await lwc().executeJavaScript(`document.querySelector('.vs b').click(); true`); await wait(400);
+  check('picking v1 shows v1', String(await lwc().executeJavaScript(`document.querySelector('.frame iframe').getAttribute('src')`)).includes(c1));
 
-  // ---- 4. the same picture again is a duplicate (a commit that did not touch the sheet)
-  put('docs/other.md', 'unrelated'); commit('three');
-  const v3 = await b.openMockup(S45, '45 · Both ways'); await wait(300);
-  check('the same picture keeps its number (V2)', v3?.v === 2);
-  check('the older line with that picture is a duplicate, by its key', b.mockStore.dups().size === 1 && b.mockStore.dups().get(v2.id) === 2);
-  // 2026-10-22: opening the list runs the daily tidy (which merges duplicates too); this part is about the broom, so the
-  // tidy has just run (mockups-tidy-check.ts covers the tidy).
-  b.mockStore.tidiedAt = Date.now();
-  b.mockAct('list', { open: true }); await wait(500);
+  // His mark from Mockups: tap the mark, Approve this version.
+  await lwc().executeJavaScript(`document.querySelector('.vbar > .mk').click(); true`); await wait(200);
+  const items = await page(`return [...document.querySelectorAll('.mmenu button')].map((x) => x.textContent);`);
+  check('the mark opens its menu', items.includes('Approve this version') && items.includes('Needs a fix…') && items.includes('Park it'), JSON.stringify(items));
+  await lwc().executeJavaScript(`[...document.querySelectorAll('.mmenu button')].find((x) => x.textContent === 'Approve this version').click(); true`); await wait(700);
+  check('approved, on v1', b.mockStore.list.find((x: any) => x.id === v1.id)?.stage === 'ok' && (await page(`return document.querySelector('.vbar > .mk')?.textContent;`)) === 'APPROVED');
+
+  // Another project, from its own repo (a .mockup with repo and project): its own tab, its letter on the number.
+  const other = mkdtempSync(path.join(os.tmpdir(), 'couch-'));
+  const go = (...a: string[]) => execFileSync('git', ['-C', other, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a], { encoding: 'utf8' }).trim();
+  go('init', '-q'); mkdirSync(path.join(other, 'mockups'), { recursive: true }); writeFileSync(path.join(other, 'mockups', '06-campfire.html'), '<!doctype html><title>06 · Campfire loading</title><body>fire</body>'); go('add', '-A'); go('commit', '-q', '-m', 'one');
+  const vc = await b.openMockupDrop({ path: 'mockups/06-campfire.html', repo: other, url: null, title: '06 · Campfire loading', branch: 'Campfire', project: 'Couch Mode', icon: 'fire' }); await wait(900);
+  look = await page(`return { tabs: [...document.querySelectorAll('.ptab')].map((x) => x.textContent), on: document.querySelector('.ptab.on')?.textContent, title: document.querySelector('.vbar .dt')?.textContent,
+    heads: [...document.querySelectorAll('.topic')].map((x) => x.textContent), fire: !!document.querySelector('.ptab.on .em svg') };`);
+  check('another project gets its own tab, and Mockups opens there on the sheet', !!vc && look.tabs.length === 2 && String(look.on).startsWith('Couch Mode') && look.title === 'C06Campfire loadingNEW', JSON.stringify(look));
+  check('its logo is the pixel campfire, its topic a sub heading', look.fire && look.heads.some((h: string) => h.startsWith('Campfire')), JSON.stringify(look));
+
+  // The tray: one Mockups plaque, its gem counting what he has not opened; nothing of the old MOCKUPS trail.
+  b.mockStore.add(S46, '46 · One cockpit', c2, 'k46'); b.mockStore.setFresh(S46, true); b.sendTabs(); await wait(500);
   const frame = b.win.webContents;
-  const look = JSON.parse(await frame.executeJavaScript(`JSON.stringify({
-    icon: !!document.querySelector('#tabs .th.mock .who-ic img[src*="claude-icon"]'), from: document.querySelector('#tabs .mfrom')?.textContent,
-    ver: document.querySelector('#tabs .tp[data-mock] .ver')?.textContent, hist: document.querySelector('#tabs .mhist')?.textContent,
-    dup: [...document.querySelectorAll('#tabs .mv.dup')].map((x) => x.textContent), broom: document.querySelector('#tabs .mbroom')?.textContent,
-    broomArt: document.querySelector('#tabs .mbroom img')?.getAttribute('src'), menu: !document.getElementById('m-mockups').hidden })`));
-  check('the head shows Claude\'s icon and FROM CLAUDE', look.icon && look.from === 'FROM CLAUDE', JSON.stringify(look));
-  check('the tab wears V2', look.ver === 'V2', look.ver);
-  check('HISTORY · 3 VERSIONS', look.hist === 'HISTORY \u00b7 3 VERSIONS', look.hist);
-  check('the duplicate is struck through, SAME AS V2', look.dup.length === 1 && look.dup[0].includes('SAME AS V2'), JSON.stringify(look.dup));
-  check('the broom is Samara\'s tidy broom, labelled with the count', look.broom === '1 DUPLICATE' && look.broomArt === 'art/browser/tidy_broom2.png', JSON.stringify(look));
-  check('the ... menu has Mockups', look.menu === true);
-  check('nothing is removed until the broom is pressed', b.mockStore.list.length === 3);
-  await frame.executeJavaScript(`document.querySelector('#tabs .mbroom').click(); true`); await wait(400);
-  const saved = () => JSON.parse(readFileSync(path.join(st, 'mockups.json'), 'utf8'));
-  check('the broom removes the duplicate only', b.mockStore.list.length === 2 && saved().versions.length === 2 && !saved().versions.some((x: any) => x.id === v2.id), JSON.stringify(saved().versions.map((x: any) => x.v)));
-  check('both different versions are kept', saved().versions.map((x: any) => x.v).sort().join() === '1,2');
+  const tray = JSON.parse(await frame.executeJavaScript(`JSON.stringify({ key: !document.getElementById('mqkey').hidden, name: document.querySelector('#mqkey .nm')?.textContent, gem: document.querySelector('#mqkey .gem')?.hidden ? '' : document.querySelector('#mqkey .gem')?.textContent,
+    old: document.querySelectorAll('#tabs .th.mock, #tabs .mquest, #tabs .mph, #tabs .bh').length, menu: !!document.getElementById('m-mockups'), first: document.querySelector('.drawer').firstElementChild?.id })`));
+  check('the tray has the one Mockups plaque, first, with its gem at 1', tray.key && tray.name === 'Mockups' && tray.gem === '1' && tray.first === 'mqkey', JSON.stringify(tray));
+  check('the old MOCKUPS list, LIVE PAGES, ALL MOCKUPS and the ... menu way are gone', tray.old === 0 && !tray.menu, JSON.stringify(tray));
+  // Away to his page, then the plaque brings Mockups back in front.
+  b.activate(b.tabs.find((t: any) => t.url === 'https://example.com/').id); await wait(200);
+  await frame.executeJavaScript(`document.getElementById('mqkey').click(); true`); await wait(600);
+  check('the plaque opens Mockups', b.cur()?.internal === 'mocklog');
+  look = await page(`return { newc: [...document.querySelectorAll('.ptab .newc')].map((x) => x.textContent), news: [...document.querySelectorAll('.sh .new')].length };`);
+  check('the Samara tab says 1 NEW and the sheet wears NEW', JSON.stringify(look.newc) === '["1 NEW"]' && look.news >= 0, JSON.stringify(look));
+  await lwc().executeJavaScript(`[...document.querySelectorAll('.ptab')].find((x) => x.textContent.startsWith('Samara')).click(); true`); await wait(300);
+  look = await page(`return { news: [...document.querySelectorAll('.sh')].filter((x) => x.querySelector('.new')).map((x) => x.textContent) };`);
+  check('in its project the new sheet wears NEW', look.news.length === 1 && look.news[0].startsWith('46'), JSON.stringify(look));
+  await lwc().executeJavaScript(`[...document.querySelectorAll('.sh')].find((x) => x.textContent.startsWith('46')).click(); true`); await wait(700);
+  const gemAfter = await frame.executeJavaScript(`document.querySelector('#mqkey .gem').hidden`);
+  check('opening it takes its NEW off, and the gem goes', b.mockStore.meta.get(S46)?.fresh !== true && gemAfter === true);
+  await lwc().executeJavaScript(`document.querySelector('.back').click(); true`); await wait(300);
+  check('back closes the sheet, back to the list', (await page(`return !document.querySelector('.frame iframe') && !!document.querySelector('.sh');`)) === true);
+  // Done: a built sheet folds into Done at the bottom of its project.
+  b.mockStore.setStage(b.mockStore.list.find((x: any) => x.sheet === S46).id, 'built'); b.sendTabs(); await wait(700);
+  look = await page(`return { done: [...document.querySelectorAll('.done .sh')].map((x) => x.textContent) };`);
+  check('a built sheet is in Done', look.done.length === 1 && look.done[0].includes('BUILT'), JSON.stringify(look));
 
-  // ---- 5. versions: pick V1 in the same tab
-  b.mockAct('show', { id: v1.id }); await until(() => String(wc().getURL()).includes(c1));
-  check('picking V1 shows it in the same tab', String(wc().getURL()).includes(`/v/${c1}/`) && b.mockTab(t45()).v === 1 && mt().length === 1);
-
-  // ---- 6. the family tree
-  put(S45G, sheet('Sheet 45g - Click Aang', 'g')); commit('45g');
-  await b.openMockup(S45G); await until(() => mt().length === 2);
-  const tg = () => b.tabs.find((t: any) => t.mock?.sheet === S45G);
-  check('a lettered sheet files itself under its parent', b.mockStore.placeOf(S45G).parent === S45, JSON.stringify(b.mockStore.placeOf(S45G)));
-  check('its title comes from its own <title>', tg()?.title === '45g \u00b7 Click Aang', tg()?.title);
-  check('the drawer shows it as a child of 45', JSON.parse(await frame.executeJavaScript(`JSON.stringify([...document.querySelectorAll('#tabs .tp[data-mock]')].map((r) => [r.dataset.mock, r.classList.contains('kid')]))`)).some((x: any) => x[0] === S45G && x[1] === true));
-  b.mockAct('branchnew', { sheet: S45 }); await wait(500);
-  const br = b.mockStore.branches[0];
-  check('a new branch opens its name for typing', (await frame.executeJavaScript(`!!document.querySelector('#tabs .bh input')`)) === true);
-  // Renamed the way he does it: type in the box, Enter.
-  await frame.executeJavaScript(`(() => { const i = document.querySelector('#tabs .bh input'); i.value = 'Claude link'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); return true; })()`);
-  await wait(400);
-  check('a new branch, renamed', b.mockStore.branches.length === 1 && b.mockStore.branches[0].name === 'Claude link');
-  check('45 is in it, and its child follows it there', b.mockStore.placeOf(S45).branch === br.id && b.mockStore.placeOf(S45G).branch === br.id && b.mockStore.placeOf(S45G).parent === S45);
-  await wait(300);
-  const tree = b.mockView().tree;
-  check('the history is grouped by the tree (branch > mockup > child)', tree.branches[0].name === 'Claude link' && tree.branches[0].mockups[0].sheet === S45 && tree.branches[0].mockups[0].children[0].sheet === S45G && tree.loose.length === 0, JSON.stringify(tree).slice(0, 200));
-  const bh = await frame.executeJavaScript(`document.querySelector('#tabs .bh .nm')?.textContent`);
-  check('the branch head shows in the trail', bh === 'Claude link', bh);
-  b.mockAct('top', { sheet: S45G });
-  check('Make it top level', b.mockStore.placeOf(S45G).parent === null && b.mockStore.placeOf(S45G).branch === null);
-  b.mockAct('branch', { sheet: S45G, to: br.id });
-  check('Move to branch', b.mockStore.placeOf(S45G).branch === br.id && b.mockStore.placeOf(S45G).parent === null);
-  b.mockAct('parent', { sheet: S45G, to: S45 });
-  check('drag onto a mockup makes it a child again', b.mockStore.placeOf(S45G).parent === S45);
-  b.mockAct('parent', { sheet: S45, to: S45G });
-  check('a child never gets children (three levels only)', b.mockStore.placeOf(S45).parent === null);
-  b.mockAct('bfold', { id: br.id }); await wait(300);
-  check('folding a branch hides its tabs and keeps them', mt().length === 2 && (await frame.executeJavaScript(`document.querySelectorAll('#tabs .tp[data-mock]').length`)) === 0);
-  b.mockAct('bfold', { id: br.id });
-  const keepPlaces = JSON.stringify(saved().places);
-  b.mockAct('bdelete', { id: br.id });
-  check('deleting a branch keeps its mockups, at the top level', b.mockStore.branches.length === 0 && b.mockStore.placeOf(S45).branch === null && b.mockStore.placeOf(S45G).parent === S45 && mt().length === 2 && b.mockStore.list.length === 3);
-  b.mockAct('branchnew', { sheet: S45 }); b.mockAct('brename', { id: b.mockStore.branches[0].id, name: 'Kept' });
-  const again = new MockStore(path.join(st, 'mockups.json'));
-  check('the tree is kept in mockups.json', again.branches[0]?.name === 'Kept' && again.placeOf(S45).branch === again.branches[0]?.id && again.placeOf(S45G).parent === S45 && again.list.length === 3, keepPlaces);
-
-  // ---- 7. close the trail: the history stays; the ... menu brings it back with the list open
-  b.mockAct('list', { open: false });
-  b.trailAct(-1, 'close'); await wait(400);
-  check('closing the trail closes its tabs', mt().length === 0 && !b.trails.some((x: any) => x.id === -1));
-  check('the history survives in mockups.json', saved().versions.length === 3);
-  await frame.executeJavaScript(`document.getElementById('m-mockups').click(); true`);
-  await until(() => mt().length === 1);
-  check('Mockups in the ... menu reopens the trail with its history open', mt().length === 1 && b.trails.some((x: any) => x.id === -1) && b.mockList === true && b.mockView().open === true);
-  check('it reopened the newest mockup', mt()[0]?.mock.sheet === S45G, mt()[0]?.mock.sheet);
-
-  // ---- 8. a non-mockup tab never goes in, a mockup never leaves
-  const plain = b.newTab('http://127.0.0.1:' + port + '/');
-  b.moveTab(plain, -1); b.moveTab(mt()[0].id, null);
-  check('the trail holds mockups only', b.tabs.find((t: any) => t.id === plain)?.trail !== -1 && mt()[0].trail === -1);
-  check('mockups never sync to the other machine', !b.syncTarget?.tabSnap?.().tabs?.some((t: any) => t.url.includes('/v/')));
-
-  // ---- 9. Send to Aang (his pick, 2026-10-21): only while Aang is running; the Shell builds what goes, from ids only.
-  const sent: any[] = [];
-  b.mockAct('list', { open: true });
-  await wait(400);
-  const menuText = (sel: string, how: 'context' | 'click') => frame.executeJavaScript(`(() => { const r = document.querySelector(${JSON.stringify(sel)}); if (!r) return 'NO ' + ${JSON.stringify(sel)};
-    r.dispatchEvent(new MouseEvent(${JSON.stringify(how === 'context' ? 'contextmenu' : 'click')}, { bubbles: true, cancelable: true, clientX: 60, clientY: 60 }));
-    const t = document.getElementById('tabmenu')?.textContent ?? ''; document.getElementById('tabmenu')?.remove(); return t; })()`);
-  b.onSendMockup = null; await wait(300);
-  const off = [await menuText('#tabs .tp[data-mock]', 'context'), await menuText('#tabs .bh .thm', 'click'), await menuText('#tabs .mv', 'context')];
-  check('no Send to Aang while Aang is not running (tab, branch, history line)', off.every((t) => !t.includes('Send to Aang')) && off.every((t) => !t.startsWith('NO ')), off.join(' | '));
-  b.onSendMockup = (m: any) => { sent.push(m); }; await wait(300);
-  const on = [await menuText('#tabs .tp[data-mock]', 'context'), await menuText('#tabs .bh .thm', 'click'), await menuText('#tabs .mv', 'context')];
-  check('Send to Aang on a mockup tab, a branch head and a history line while Aang runs', on.every((t) => t.includes('Send to Aang')), on.join(' | '));
-  const one = await b.mockSend('version', v1.id);
-  const keys = 'kind,title,version,branch,sheet,commit,url,notes,picture';
-  check('a version travels with exactly its fields', Object.keys(one).sort().join() === keys.split(',').sort().join(), Object.keys(one).join());
-  check('its details come from the history and git', one.kind === 'mockup' && one.title === '45 · Both ways' && one.version === 'V1' && one.branch === 'Kept' && one.sheet === S45 && one.commit === c1 && one.url.includes(`/v/${c1}/${S45}`), JSON.stringify({ ...one, picture: one.picture?.length }));
-  check('its notes: the leading comment and the first paragraph, plain', one.notes === 'Notes for Sheet 45 - Both ways: what he picked.\n\nThe first paragraph.', JSON.stringify(one.notes));
-  check('its picture is a PNG of the page (from a hidden page: V1 is not open)', typeof one.picture === 'string' && one.picture.startsWith('data:image/png;base64,') && one.picture.length <= 1_500_000, String(one.picture?.length));
-  check('and it reached Aang', sent.length === 1 && sent[0] === one);
-  // Ids from the page are checked: wrong kinds and unknown numbers send nothing.
-  await frame.executeJavaScript(`window.aang.browserMockup({ act: 'send', id: 'x' }); window.aang.browserMockup({ act: 'send', id: 99999 }); window.aang.browserMockup({ act: 'sendbranch', id: -5 }); window.aang.browserMockup({ act: 'sendtab', id: 1.5 }); window.aang.browserMockup({ act: 'send', sheet: '../secret.txt' }); true`);
-  await wait(1500);
-  check('page-sent ids that are not real send nothing', sent.length === 1, String(sent.length));
-  await frame.executeJavaScript(`window.aang.browserMockup({ act: 'sendtab', id: ${mt()[0].id} }); true`);
-  await until(() => sent.length === 2, 8000);
-  check('a tab sends the version it shows', sent[1]?.kind === 'mockup' && sent[1].sheet === mt()[0].mock.sheet && /^data:image\/png/.test(String(sent[1].picture)), JSON.stringify({ ...sent[1], picture: sent[1]?.picture?.length }));
-  const kept = b.mockStore.branches.find((x: any) => x.name === 'Kept');
-  const all = await b.mockSend('branch', kept.id);
-  check('a branch travels as one attachment of its mockups, newest version of each', all.kind === 'mockups' && all.branch === 'Kept' && all.items.length === 2 && all.items.every((x: any) => x.kind === 'mockup') && new Set(all.items.map((x: any) => x.sheet)).size === 2, JSON.stringify(all.items.map((x: any) => [x.sheet, x.version])));
-  check('the newest version of 45 in it is V2', all.items.find((x: any) => x.sheet === S45)?.version === 'V2');
-  // Size caps: 1200 px wide at most; a picture still over 1.5 MB is dropped; notes at most 1500 characters.
-  const { fitShot } = await import('../../src/browser.ts'); const { nativeImage } = await import('electron'); const { notesFrom } = await import('../../src/mockups.ts');
-  const solid = nativeImage.createFromBitmap(Buffer.alloc(3000 * 2000 * 4, 0x80), { width: 3000, height: 2000 });
-  const fitted = fitShot(solid); const fw = fitted ? nativeImage.createFromDataURL(fitted).getSize().width : 0;
-  check('a wide picture is cut to 1200 px', fw === 1200, String(fw));
-  const noise = Buffer.alloc(1200 * 900 * 4); for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 256) | 0;
-  check('a picture over 1.5 MB is dropped, not sent', fitShot(nativeImage.createFromBitmap(noise, { width: 1200, height: 900 })) === null);
-  check('notes are capped at 1500 characters', notesFrom(`<!-- ${'word '.repeat(1000)} --><p>${'more '.repeat(1000)}</p>`).length === 1500);
-
-  // ---- 10. a branch Claude names in the .mockup file
-  const S46B = 'docs/cockpit/sheet-46b-more.html', S47 = 'docs/cockpit/sheet-47-trail.html', S48 = 'docs/cockpit/sheet-48-new.html', S48B = 'docs/cockpit/sheet-48b-kid.html';
-  put(S46B, sheet('Sheet 46b - More', 'b')); put(S47, sheet('Sheet 47 - Trail', 't')); put(S48, sheet('Sheet 48 - New', 'n')); put(S48B, sheet('Sheet 48b - Kid', 'k')); commit('more');
-  const mb = takeMockupFile(drop(JSON.stringify({ path: S46, branch: '  Claude \t link\u0007 ' })));
-  check('a .mockup branch is cleaned (control characters out, spaces collapsed)', mb?.path === S46 && mb?.branch === 'Claude link', JSON.stringify(mb));
-  const badB = [42, '', '   ', '\u0001\u0002', 'x'.repeat(41), { n: 'a' }, ['a'], null, true].map((v) => takeMockupFile(drop(JSON.stringify({ path: S46, branch: v }))));
-  check('bad branch values are ignored, the mockup still opens', badB.every((m) => m?.path === S46 && m.branch === null), JSON.stringify(badB));
-  check('a branch of exactly 40 characters is kept', takeMockupFile(drop(JSON.stringify({ path: S46, branch: 'y'.repeat(40) })))?.branch === 'y'.repeat(40));
-  const brs = () => b.mockStore.branches.map((x: any) => x.name);
-  const nBr = brs().length;
-  await b.openMockup(S46, '', mb!.branch); await wait(300);
-  const cl = () => b.mockStore.branches.find((x: any) => x.name === 'Claude link');
-  check('a branch is made on arrival, and the sheet is in it', brs().length === nBr + 1 && !!cl() && b.mockStore.placeOf(S46).branch === cl()?.id, JSON.stringify(brs()));
-  await b.openMockup(S47, '', 'CLAUDE LINK'); await wait(300);
-  check('an existing branch is matched, any case (no second one)', brs().length === nBr + 1 && b.mockStore.placeOf(S47).branch === cl()?.id, JSON.stringify(brs()));
-  await b.openMockup(S46B, '', 'Other'); await wait(300);
-  check('a child arriving with a branch stays with its branched parent; nothing made', b.mockStore.placeOf(S46B).parent === S46 && b.mockStore.placeOf(S46B).branch === cl()?.id && !brs().includes('Other') && b.mockStore.placeOf(S46).branch === cl()?.id, JSON.stringify(brs()));
-  await b.openMockup(S48); await wait(200);
-  check('a sheet with no branch stays at the top level', b.mockStore.placeOf(S48).branch === null);
-  await b.openMockup(S48B, '', 'fresh ideas'); await wait(300);
-  const fr = b.mockStore.branches.find((x: any) => x.name === 'fresh ideas');
-  check('a child arriving with a branch moves its unbranched parent there, and stays its child', !!fr && b.mockStore.placeOf(S48).branch === fr.id && b.mockStore.placeOf(S48B).parent === S48 && b.mockStore.placeOf(S48B).branch === fr.id);
-  check('45 starts in the branch he chose (Kept), with 45g under it', b.mockStore.placeOf(S45).branch === kept.id && b.mockStore.placeOf(S45G).parent === S45);
-  await b.openMockup(S45, '', 'claude LINK'); await wait(300);
-  check('an explicit branch moves it out of his branch, and its child follows', b.mockStore.placeOf(S45).branch === cl()?.id && b.mockStore.placeOf(S45G).parent === S45 && b.mockStore.placeOf(S45G).branch === cl()?.id);
-  await b.openMockup(S47, '', null); await wait(200);
-  check('opening again with no branch leaves it where it is', b.mockStore.placeOf(S47).branch === cl()?.id);
-  const reread = new MockStore(path.join(st, 'mockups.json'));
-  check('the branches and moves are kept in mockups.json', reread.branches.some((x) => x.name === 'Claude link') && reread.placeOf(S46).branch === reread.branches.find((x) => x.name === 'Claude link')?.id && reread.placeOf(S48B).branch === reread.branches.find((x) => x.name === 'fresh ideas')?.id);
-  await wait(400);
-  const heads = JSON.parse(await frame.executeJavaScript(`JSON.stringify([...document.querySelectorAll('#tabs .bh .nm')].map((x) => x.textContent))`));
-  check('the trail redraws with the new branches', heads.includes('Claude link') && heads.includes('fresh ideas'), JSON.stringify(heads));
-
+  if (shots) {
+    mkdirSync(shots, { recursive: true });
+    await lwc().executeJavaScript(`[...document.querySelectorAll('.sh')].find((x) => x.textContent.startsWith('45')).click(); true`); await wait(1200);
+    writeFileSync(path.join(shots, 'mockups-menu.png'), (await lwc().capturePage()).toPNG());
+    await lwc().executeJavaScript(`[...document.querySelectorAll('.ptab')].find((x) => x.textContent.startsWith('Couch')).click(); true`); await wait(400);
+    writeFileSync(path.join(shots, 'mockups-couch.png'), (await lwc().capturePage()).toPNG());
+    b.mockStore.setFresh(S46, true); b.sendTabs(); await wait(300);
+    await frame.executeJavaScript(`document.getElementById('drawerkey').click(); true`); await wait(900);
+    const tv = b.trayV && !b.trayV.webContents.isDestroyed() ? b.trayV.webContents : null;
+    if (tv) writeFileSync(path.join(shots, 'tray.png'), (await tv.capturePage()).toPNG());
+    writeFileSync(path.join(shots, 'frame.png'), (await frame.capturePage()).toPNG());
+    console.log('pictures in ' + shots);
+  }
   console.log(bad ? `${bad} FAILED` : 'ALL PASS'); app.exit(bad ? 1 : 0);
 });
