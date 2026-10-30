@@ -243,7 +243,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserDevForget: key => ipcRenderer.send('browser:devforget', key),
   browserUpdateGo: (choices) => ipcRenderer.send('browser:updatego', choices && typeof choices === 'object' ? { lock: choices.lock !== false, closeBackdoors: choices.closeBackdoors !== false } : null),
   // The update tray's ... menu and its two-step skip (sheet 35): one of a fixed few words, and an on/off.
-  browserUpdateAct: (a) => { const act = String(a?.act ?? ''); if (['file', 'skip', 'back', 'overnight', 'changelog', 'check', 'seen'].includes(act)) ipcRenderer.send('browser:updateact', { act, on: a?.on === true }); },
+  browserUpdateAct: (a) => { const act = String(a?.act ?? ''); if (['file', 'skip', 'back', 'overnight', 'changelog', 'check', 'seen', 'castlabs'].includes(act)) ipcRenderer.send('browser:updateact', { act, on: a?.on === true }); },
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   browserDarkHere: on => ipcRenderer.send('browser:darkhere', on),
   browserSiteRule: (key, value) => ipcRenderer.send('browser:siterule', { key, value }),

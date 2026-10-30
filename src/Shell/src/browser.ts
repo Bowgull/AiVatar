@@ -61,6 +61,10 @@ export interface UpdateCard {
   groups?: { name: string; items: { text: string; note?: string; key?: string; on?: boolean }[] }[];
   canBack?: boolean; overnight?: boolean;
   notes?: string[]; checks?: string[]; kind?: string;
+  /** Sheet 105: castLabs wants him to sign in ('ask': the key says "Sign in to castLabs"), or Terminal is open. */
+  signin?: 'ask' | 'waiting';
+  /** Sheet 105: how far behind Chrome's security fixes the engine is, one line. */
+  behind?: string;
 }
 // His pick (2026-10-14): the lantern alone, lit and glowing, nothing behind it.
 const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-open.ico');
