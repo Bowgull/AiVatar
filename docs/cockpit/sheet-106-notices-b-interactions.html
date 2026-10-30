@@ -127,6 +127,9 @@
   @keyframes igup{from{transform:translateY(0)}to{transform:translateY(-110%)}}
   .ig.at.in .gem{animation:lift .5s .2s cubic-bezier(.3,1.8,.6,1) both}
   .ig.at.in .spark{animation:spark .7s .45s ease-out both}
+  /* Claude is always Claude: its orange spark on a white gem; the kind's colour stays in the glow */
+  .ig .gem.claude{background:#F6F2EA}
+  .ig .gem.claude svg rect{fill:#D97757}
   .ig .n{position:absolute;right:12px;top:8px;font:400 9.5px var(--label);letter-spacing:1px;color:#c9a35a}
   .ig .keys{display:flex;gap:8px;margin-top:7px}
   .ig .btn.ghost{background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#fff}
@@ -148,20 +151,94 @@
   .cursor{position:absolute;z-index:9;width:14px;height:20px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px;image-rendering:pixelated;transition:left .5s ease,top .5s ease;opacity:0}
   .cursor.on{opacity:1}
   .grid{display:grid;grid-template-columns:repeat(2,640px);gap:34px 40px}
+  .all{border-collapse:collapse;font:500 13px/1.45 var(--body);color:#e8dcc4;max-width:1100px}
+  .all th{font:400 10px var(--label);letter-spacing:1.2px;color:#c9a35a;text-align:left;padding:6px 18px 6px 0}
+  .all td{padding:6px 18px 6px 0;border-top:1px solid #3a2a1a;vertical-align:top}
+  .kd{color:#9bd27a;font-weight:700} .kn{color:#7fb6f0;font-weight:700} .kb{color:#f08a75;font-weight:700}
+  .ig.plan{width:440px;padding:12px 16px 14px 74px}
+  .ig.plan .kk{font:400 10px var(--label);letter-spacing:1.2px;color:#D97757;margin:0 0 2px}
+  .ig.plan .grp{font:400 9.5px var(--label);letter-spacing:1.2px;color:#c9a35a;margin:9px 0 3px}
+  .ig.plan .prow{display:flex;align-items:center;gap:8px;font:600 12.5px/1.4 var(--body);color:#e8dcc4;margin:3px 0}
+  .ig.plan .site{flex:1}
+  .ig.plan .num{width:16px;font:400 10px var(--label);color:#c9a35a}
+  .ig.plan .tq{flex:none;width:18px;height:18px;border:2px solid #120A05;border-radius:4px;box-sizing:border-box;
+    background:#3FBFAE url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' shape-rendering='crispEdges' fill='%23fff'%3E%3Crect x='8' y='0' width='2' height='2'/%3E%3Crect x='6' y='2' width='2' height='2'/%3E%3Crect x='0' y='4' width='2' height='2'/%3E%3Crect x='4' y='4' width='2' height='2'/%3E%3Crect x='2' y='6' width='2' height='2'/%3E%3C/svg%3E") center/10px 8px no-repeat;image-rendering:pixelated}
+  .ig.plan .wont{font:500 12px/1.4 var(--body);color:#f0c9a8;margin:9px 0 0}
+  .ig .btn.burnt{background:#C8602A;color:#fff2e4}
   .rules{font:500 13.5px/1.6 var(--body);color:#e8dcc4;max-width:900px;margin:0;padding-left:18px}
 </style>
 </head>
 <body>
 <h1>Sheet 106 · Option B, every interaction</h1>
-<p class="lead">Sheet 92's option B, exactly as you picked it: the same dark plaque, the drop, the gem lifting, the sparkle. Here it is doing every job a notice has. Each scene loops; Replay starts it again.</p>
+<p class="lead">Sheet 92's option B, exactly as you picked it: the same dark plaque, the drop, the gem lifting, the sparkle. Here it is doing every job a notice has. Each scene loops; Replay starts it again. v2: Samara's real download key, plain click buttons, Claude always on a white gem, dragging a download out, every notice and ask, and Claude's plan card.</p>
 
 <div class="grid" id="grid"></div>
+
+<h2>EVERY NOTICE SAMARA HAS TODAY, AS OPTION B</h2>
+<p class="sub">Samara's real lines (sorted on sheet 98), each with its kind, big or small, and what it drops from.</p>
+<table class="all">
+<tr><th>Line</th><th>Kind</th><th>Size</th><th>Drops from</th></tr>
+<tr><td>Downloaded tax-form.pdf to your Downloads.</td><td class="kd">Done</td><td>Small</td><td>Download key</td></tr>
+<tr><td>Kept in your Bitwarden: github.com.</td><td class="kd">Done</td><td>Small</td><td>Shield</td></tr>
+<tr><td>Home page saved. / This page is your home page now.</td><td class="kd">Done</td><td>Small</td><td>Menu</td></tr>
+<tr><td>Brought in 40 bookmarks. The bar ones are on the shelf in the drawer.</td><td class="kd">Done</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Closed Compare laptops and its 3 tabs. (Undo)</td><td class="kd">Done</td><td>Small, with Undo</td><td>Tab list</td></tr>
+<tr><td>Compare laptops is in the Stash. / Removed 2 duplicates.</td><td class="kd">Done</td><td>Small</td><td>Tab list</td></tr>
+<tr><td>Netflix would not play in this tab, so it opened in the video window.</td><td class="kd">Done</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Bitwarden wants your master password again. (and the five-wrong-PINs line)</td><td class="kn">Needs you</td><td>Big</td><td>Shield</td></tr>
+<tr><td>Sign in to Bitwarden once first, yourself.</td><td class="kn">Needs you</td><td>Big</td><td>Shield</td></tr>
+<tr><td>Safari keeps its bookmarks private. Turn on Aang under Full Disk Access, then press this again.</td><td class="kn">Needs you</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Link Samara to your TV (the TV's code)</td><td class="kn">Needs you</td><td>Big</td><td>Menu</td></tr>
+<tr><td>Samara couldn't open your PIN. Reopen Samara, type your Mac password and pick Always Allow.</td><td class="kb">Went wrong</td><td>Big</td><td>Shield</td></tr>
+<tr><td>tax-form.pdf did not finish downloading.</td><td class="kb">Went wrong</td><td>Big, Try again</td><td>Download key</td></tr>
+<tr><td>Your TV didn't wake up.</td><td class="kb">Went wrong</td><td>Big, Try again</td><td>Menu</td></tr>
+<tr><td>Bitwarden did not answer. / Bitwarden did not keep it.</td><td class="kb">Went wrong</td><td>Big, Try again</td><td>Shield</td></tr>
+<tr><td>No saved login for bestbuy.ca. / No login box found on this page to fill.</td><td class="kb">Went wrong</td><td>Small</td><td>Shield</td></tr>
+<tr><td>Chrome didn't open. Open your bank there yourself.</td><td class="kb">Went wrong</td><td>Big</td><td>Shield</td></tr>
+<tr><td>That is not a web address.</td><td class="kb">Went wrong</td><td>Small</td><td>Address bar</td></tr>
+</table>
+
+<h2>EVERYTHING SAMARA CAN ASK YOU, AS OPTION B</h2>
+<p class="sub">Every ask is a "needs you": blue, the one sound, it stays until you answer. It drops from what it's about.</p>
+<table class="all">
+<tr><th>Ask</th><th>Buttons</th><th>Drops from</th></tr>
+<tr><td>A site wants your camera, microphone or both</td><td>Allow · No</td><td>Shield</td></tr>
+<tr><td>A site wants to open another app (Zoom, Spotify...)</td><td>Open it · No</td><td>Shield</td></tr>
+<tr><td>A risky download (a program from a site you don't know)</td><td>Download, trust this site · No</td><td>Download key</td></tr>
+<tr><td>A site wants your keyboard or another device (sheet 69)</td><td>Allow · No</td><td>Shield</td></tr>
+<tr><td>Claude wants to do something in its tab (open a checkout, send)</td><td>Allow once · No</td><td>Menu (Claude's rune)</td></tr>
+<tr><td>Claude's plan before it starts (below)</td><td>Go · Change · Not now</td><td>Menu (Claude's rune)</td></tr>
+<tr><td>Link Samara to your TV</td><td>Link · Not now</td><td>Menu</td></tr>
+</table>
+<p class="sub" style="margin-top:12px">Not notices, and they keep their own full-page look: the fake-site block, the cat page when a site won't load, the secret window's PIN.</p>
+
+<h2>CLAUDE'S PLAN CARD: TODAY, AND AS OPTION B</h2>
+<p class="sub">Today it opens in the update tray's frame, over the page. As option B it is the same plaque, taller, dropping from Claude's rune in the menu: Claude's white gem, what it wants to do, the sites it will open (untick one to keep Claude off it), the steps, what it won't do, and three buttons.</p>
+<div class="row" style="align-items:flex-start">
+  <div><p class="cap">Today</p><img src="sheet-106/plan-today.png" alt="" style="width:365px;border:3px solid #120A05;border-radius:8px;image-rendering:auto"></div>
+  <div><p class="cap">As option B</p>
+    <div class="win" style="height:470px"><div class="bandbar"></div><div class="band-l"></div><div class="slotbar"><span class="sh"></span>mail.google.com</div><span class="dlkey" id="pdl"></span><div class="band-r src" style="animation:none">···</div><div class="page"><i></i><i></i><i></i><i></i></div>
+      <div class="ig at kind-need plan" style="--x:88px">
+        <span class="gem claude" id="pgem"></span>
+        <div class="kk">CLAUDE · AANG</div>
+        <div class="t">Email castLabs</div>
+        <div class="grp">SITES</div>
+        <div class="prow"><span class="site">mail.google.com</span><span class="tq"></span></div>
+        <div class="grp">STEPS</div>
+        <div class="prow"><span class="num">1</span>Open a new Gmail message</div>
+        <div class="prow"><span class="num">2</span>Fill in 3pl@castlabs.com, the subject and your text</div>
+        <div class="prow"><span class="num">3</span>Stop before Send: you press it</div>
+        <div class="wont">Won't read or touch any other email, sign in anywhere, or attach files.</div>
+        <div class="keys"><span class="btn">Go</span><span class="btn ghost">Change</span><span class="btn burnt">Not now</span></div>
+      </div></div></div>
+</div>
 
 <h2>THE RULES IT FOLLOWS</h2>
 <ul class="rules">
   <li>Drops from under whatever caused it: the download key, the shield, the menu.</li>
   <li>Green done, blue needs you, red went wrong. Only "needs you" plays a sound.</li>
-  <li>Big ones stay until you press a key. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them.</li>
+  <li>Big ones stay until you click a button. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them. A download's picture can be dragged out.</li>
+  <li>Claude's notices always show Claude's own orange spark on a white gem.</li>
   <li>One at a time. More waiting shows a count ("1 OF 3"); the next drops when you finish this one.</li>
 </ul>
 
@@ -194,12 +271,17 @@ const SCENES = [
     S.src('dl'); await wait(500);
     const p = S.drop({ kind: 'done', ic: 'yes', x: 212, t: 'Saved photo.png', m: 'In your Downloads.', small: true });
     await wait(1600); S.say('The gold line drains: after <b>4 seconds</b> it slides back by itself.'); await wait(2600); await S.leave(p); await wait(1500); } },
-  { id: 'hover', title: '5 · A small one waits while you look', run: async (S) => {
+  { id: 'hover', title: '5 · A small one waits, and you can drag the file out', run: async (S) => {
     S.say('Your mouse goes onto a small notice: it <b>stops draining</b> and waits.');
     S.src('dl'); await wait(400);
     const p = S.drop({ kind: 'done', ic: 'yes', x: 212, t: 'Saved invoice.pdf', m: 'In your Downloads.', small: true });
     await wait(900); S.cursor(330, 100); await wait(700); p.querySelector('.bar').style.animationPlayState = 'paused';
-    await wait(2400); S.say('Mouse off: it carries on and slides back.'); S.cursor(560, 260); p.querySelector('.bar').style.animationPlayState = 'running';
+    await wait(1600); S.say('Grab the file\u2019s picture and <b>drag it out</b>: into Finder, an email, a chat. The same as dragging from the download tray.');
+    const ghost = p.querySelector('.gem').cloneNode(true); ghost.style.cssText = 'position:absolute;z-index:9;left:250px;top:76px;transition:left .9s ease,top .9s ease;opacity:.85';
+    w.append(ghost); S.cursor(262, 92); await wait(500); ghost.style.left = '120px'; ghost.style.top = '232px'; S.cursor(132, 248); await wait(1200);
+    const drop = Object.assign(document.createElement('span'), { className: 'sound on', textContent: 'DROPPED IN FINDER' }); drop.style.cssText = 'left:90px;top:282px;opacity:1;animation:none'; w.append(drop);
+    await wait(1400); ghost.remove(); drop.remove();
+    S.say('Mouse off: it carries on and slides back.'); S.cursor(560, 260); p.querySelector('.bar').style.animationPlayState = 'running';
     await wait(2000); await S.leave(p); S.cursor(); await wait(1300); } },
   { id: 'queue', title: '6 · Three at once', run: async (S) => {
     S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>: the first shows "1 OF 3".');
@@ -217,11 +299,6 @@ const SCENES = [
     S.src('menu'); await wait(500);
     const p = S.drop({ kind: 'need', ic: 'claude', x: 128, t: 'Claude wants to open the checkout', m: 'For Compare laptops, on bestbuy.ca.', keys: [['Allow once', 'A'], ['No', 'Z', 1]] });
     S.sound(400, 166); await wait(3600); await S.press(p, 0); await S.leave(p); await wait(1400); } },
-  { id: 'esc', title: '8 · Keys and Esc', run: async (S) => {
-    S.say('Every key has its letter. <b>A</b> presses the gold one, <b>Z</b> the other, and <b>Esc</b> is the same as the last key (Later, Close, Not now).');
-    S.src('shield'); await wait(400);
-    const p = S.drop({ kind: 'need', ic: 'key', x: 30, t: 'Your Mac needs a yes', m: 'Pick Always Allow so your logins come back.', keys: [['Open it', 'A'], ['Later', 'Z', 1]] });
-    S.sound(160, 166); await wait(2600); S.key('Esc'); await S.press(p, 1); await S.leave(p); await wait(1500); } },
 ];
 
 function sceneBox(sc) {
@@ -231,18 +308,18 @@ function sceneBox(sc) {
     <span class="dlkey"></span><div class="band-r"></div><div class="page"><i></i><i></i><i></i><i></i></div>
     <span class="sound">♪ THE ONE SOUND</span><span class="cursor"></span></div><p class="line"></p>`;
   const w = box.querySelector('.win');
-  w.querySelector('.dlkey').append(icon('post', 2));
+  w.querySelector('.dlkey').innerHTML = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg>';
   w.querySelector('.band-r').append(Object.assign(document.createElement('span'), { textContent: '···', style: 'color:#fff;font:800 14px var(--body)' }));
   const S = {
     say: (h) => { box.querySelector('.line').innerHTML = h; },
     src: (which) => { const el = which === 'dl' ? w.querySelector('.dlkey') : which === 'shield' ? w.querySelector('.slotbar .sh') : w.querySelector('.band-r'); el.classList.remove('src'); void el.offsetWidth; el.classList.add('src'); },
     drop: (o) => {
       const n = document.createElement('div'); n.className = `ig at kind-${o.kind}${o.small ? ' small' : ''}`; n.style.setProperty('--x', o.x + 'px');
-      const gem = document.createElement('span'); gem.className = 'gem'; gem.append(icon(o.ic, o.small ? 2 : 3)); n.append(gem);
+      const gem = document.createElement('span'); gem.className = 'gem' + (o.ic === 'claude' ? ' claude' : ''); gem.append(icon(o.ic, o.small ? 2 : 3)); n.append(gem);
       if (!o.small) for (const [dx, dy, l, t] of [[-16, -14, 22, 14], [18, -16, 48, 10], [-20, 10, 18, 44], [20, 12, 52, 46]]) {
         const sp = document.createElement('i'); sp.className = 'spark'; sp.style.cssText = `left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px`; n.append(sp); }
       n.insertAdjacentHTML('beforeend', `<div class="t">${o.t}</div><div class="m">${o.m}</div>`);
-      if (o.keys) { const k = document.createElement('div'); k.className = 'keys'; for (const [l, key, ghost] of o.keys) k.insertAdjacentHTML('beforeend', `<span class="btn${ghost ? ' ghost' : ''}">${l} <small style="opacity:.75">${key}</small></span>`); n.append(k); }
+      if (o.keys) { const k = document.createElement('div'); k.className = 'keys'; for (const [l, key, ghost] of o.keys) k.insertAdjacentHTML('beforeend', `<span class="btn${ghost ? ' ghost' : ''}">${l}</span>`); n.append(k); }
       if (o.n) n.insertAdjacentHTML('beforeend', `<span class="n">${o.n}</span>`);
       if (o.small) n.insertAdjacentHTML('beforeend', '<span class="bar"></span>');
       w.append(n); void n.offsetWidth; n.classList.add('in'); return n;
@@ -259,6 +336,8 @@ function sceneBox(sc) {
   setTimeout(loop, 300);
   return box;
 }
+document.getElementById('pgem').append(icon('claude', 3));
+document.getElementById('pdl').innerHTML = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg>';
 const grid = document.getElementById('grid');
 for (const sc of SCENES) grid.append(sceneBox(sc));
 </script>
