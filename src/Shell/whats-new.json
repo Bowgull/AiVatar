@@ -640,6 +640,26 @@
       "at": "2026-10-29T14:56:18Z",
       "text": "Claude's memory, rules and notes sync through your private repo.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T06:00:00-04:00",
+      "text": "Updates always open Samara again afterwards.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T06:01:00-04:00",
+      "text": "Samara notes crashes and frozen pages in its log.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T06:02:00-04:00",
+      "text": "Videos in the pop-out no longer slowly eat memory.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T06:03:00-04:00",
+      "text": "Sleeping tabs never freeze while you look at them.",
+      "kind": "fix"
     }
   ]
 }

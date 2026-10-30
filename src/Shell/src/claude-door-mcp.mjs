@@ -316,6 +316,8 @@ async function plan(a) {
   if (a.now !== undefined || a.done === true) {
     if (job === null) return text('Send your plan first (task, sites, steps).', true);
     const r = await step('planstep', { job, ...(a.done === true ? { done: true } : { at: Math.max(0, Number(a.now) - 1) }) });
+    // Done frees the session for a new plan (2026-10-30: it stayed taken, so a second job in one Claude session was refused).
+    if (r.ok && a.done === true) { job = null; jobName = ''; }
     return r.ok ? text(a.done === true ? 'Marked done.' : `On step ${Number(a.now)}: ${r.step ?? ''}`) : text('This session has no plan to tick.', true);
   }
   if (job !== null) return text('This session already started. The plan can only be shown before the first page; finish it and start a new session to change it.', true);

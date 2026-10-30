@@ -17,7 +17,10 @@ const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS
 function samara() {
   const log: string[] = [];
   let min = false;
-  const w = { isDestroyed: () => false, isMinimized: () => min, minimize: () => { min = true; log.push('minimize'); }, restore: () => { min = false; log.push('restore'); }, focus: () => log.push('focus') };
+  // On the Mac Samara fades out and hides instead (popoutipc.ts fade, 2026-10-22): hide counts as its minimize, show as restore.
+  const w = { isDestroyed: () => false, isMinimized: () => min && process.platform !== 'darwin', isVisible: () => !min || process.platform !== 'darwin',
+    minimize: () => { min = true; log.push('minimize'); }, restore: () => { min = false; log.push('restore'); }, focus: () => log.push('focus'),
+    setOpacity: () => {}, hide: () => { min = true; log.push('minimize'); }, show: () => { min = false; log.push('restore'); } };
   return { w: w as unknown as BrowserWindow, log, unminimize: () => { min = false; } };
 }
 const popout = () => ({ window: null, afterClose: null } as unknown as Popout);
@@ -25,20 +28,20 @@ const popout = () => ({ window: null, afterClose: null } as unknown as Popout);
 app.whenReady().then(async () => {
   // 1. opened from Samara, closed from the pop-out itself: Samara comes back to the front
   let s = samara(), p = popout();
-  tuckFor(p, s.w); await wait(250);
+  tuckFor(p, s.w); await wait(500);
   check('opening the pop-out tucks Samara away', s.log.join() === 'minimize', s.log.join());
   p.afterClose?.(true);
   check('closing the pop-out brings Samara back to the front', s.log.join() === 'minimize,restore,focus', s.log.join());
 
   // 2. the pop-out closed while something else was in front (from the bubble, in WoW): Samara stays tucked
   s = samara(); p = popout();
-  tuckFor(p, s.w); await wait(250);
+  tuckFor(p, s.w); await wait(500);
   p.afterClose?.(false);
   check('closed while another app is in front: Samara stays put', s.log.join() === 'minimize', s.log.join());
 
   // 3. he already brought Samara back himself: closing the pop-out just puts Samara in front, nothing restored twice
   s = samara(); p = popout();
-  tuckFor(p, s.w); await wait(250); s.unminimize();
+  tuckFor(p, s.w); await wait(500); s.unminimize();
   p.afterClose?.(true);
   check('Samara already back: it is only brought to the front', s.log.join() === 'minimize,focus', s.log.join());
 

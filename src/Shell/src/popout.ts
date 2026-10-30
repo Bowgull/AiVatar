@@ -73,7 +73,7 @@ export class Popout {
   // page to put its player in fullscreen, which, with this window not allowed to go fullscreen itself, fills
   // exactly the space it has here. If a page refuses, the whole page shows instead: still the right video.
   private closeSeq = 0;
-  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null } | null = null;
+  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null; resync: () => void } | null = null;
   private stage = { x: 0, y: 34, width: 0, height: 0 };
   /** The picture's corner radius, as the page draws it (0 while the controls show, rounded when it is just the picture). */
   private radius = 0;
@@ -146,23 +146,23 @@ export class Popout {
     let paused = false, beat = 0, pinnedAt = 0;
     const tick = () => {
       if (!this.window?.isVisible() || (paused && ++beat % 4)) return;
-      void within(wc.executeJavaScript(STATE_JS, false), 600, null).then((s) => {
+      void within(inPage(wc, STATE_JS, false), 600, null).then((s) => {
         if (s && typeof s === 'object') { paused = (s as { paused?: unknown }).paused === true; this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>)); }
         // The next video (autoplay) can be a new player: pin it again, so it stays the bare picture.
-        else if (Date.now() - pinnedAt > 15_000) { pinnedAt = Date.now(); void within(wc.executeJavaScript(FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, false), 1500, null); }); }
+        else if (Date.now() - pinnedAt > 15_000) { pinnedAt = Date.now(); void within(inPage(wc, FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(inPage(wc, BEST_QUALITY_JS, false), 1500, null); }); }
       });
     };
     const poll = setInterval(tick, 500);
     setTimeout(tick, 60);
-    const lent = { view, back, poll, cursor, css: null as string | null };
-    this.lent = lent;
     // Twitch's ad breaks (his catch, 2026-10-21): with its ads blocked, Twitch shows "we'll be right back" and stitches the
     // stream back afterwards with the sound out of step with the picture. The tab watches for the break ending and
     // jumps the player back to the live edge, which brings sound and picture together again. Twitch tabs only.
-    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void within(wc.executeJavaScript(TWITCH_RESYNC_JS, false), 600, null); } catch { /* not a page */ } };
+    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void within(inPage(wc, TWITCH_RESYNC_JS, false), 600, null); } catch { /* not a page */ } };
     resync();
     wc.on('did-navigate-in-page', resync);
     wc.on('did-finish-load', resync);
+    const lent = { view, back, poll, cursor, css: null as string | null, resync };
+    this.lent = lent;
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => this.send()); else this.send();
     // The bare picture (his pick): the site's own buttons hidden, the video filling whatever is fullscreen.
     void wc.insertCSS(BARE_CSS).then((key) => { if (this.lent === lent) lent.css = key; else void wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
@@ -173,9 +173,9 @@ export class Popout {
     const focus = () => {
       if (this.lent !== lent) return;
       if (!this.window?.isVisible()) { setTimeout(focus, 150); return; }
-      void within(wc.executeJavaScript(FOCUS_JS, true), 1500, false).then((ok) => {
+      void within(inPage(wc, FOCUS_JS, true), 1500, false).then((ok) => {
         if (!ok && ++tries < 10) { setTimeout(focus, 500); return; }
-        if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, false), 1500, null);
+        if (ok) void within(inPage(wc, BEST_QUALITY_JS, false), 1500, null);
       });
     };
     w.show();
@@ -185,7 +185,7 @@ export class Popout {
   /** Pause or play whatever the pop-out is showing (sheet 40 B, from the tab page it left behind). */
   togglePlay(): void {
     const wc = this.lent?.view.webContents;
-    if (wc && !wc.isDestroyed()) { void within(wc.executeJavaScript(`(()=>{const v=window.__aangVideo||document.querySelector('video');if(!v)return false;if(v.paused)v.play();else v.pause();return true})()`, true), 600, false); return; }
+    if (wc && !wc.isDestroyed()) { void within(inPage(wc, `(()=>{const v=window.__aangVideo||document.querySelector('video');if(!v)return false;if(v.paused)v.play();else v.pause();return true})()`, true), 600, false); return; }
     this.window?.webContents.send('popout:toggleplay');
   }
 
@@ -199,7 +199,7 @@ export class Popout {
       : c.func === 'volume' && Number.isFinite(n) ? `v.volume=${Math.max(0, Math.min(1, n))};v.muted=false`
       : c.func === 'mute' ? 'v.muted=true' : c.func === 'unmute' ? 'v.muted=false' : null;
     if (!js) return;
-    void within(wc.executeJavaScript(`(()=>{const v=window.__aangVideo;if(!v)return false;${js};return true})()`, true), 600, false);
+    void within(inPage(wc, `(()=>{const v=window.__aangVideo;if(!v)return false;${js};return true})()`, true), 600, false);
   }
 
   /**
@@ -217,6 +217,8 @@ export class Popout {
     this.lent = null;
     clearInterval(l.poll); clearInterval(l.cursor);
     const wc = l.view.webContents;
+    // Its Twitch watch goes with it: left on, every pop-out added two more to the tab (the listener warning, 2026-10-30).
+    if (!wc.isDestroyed()) { wc.removeListener('did-navigate-in-page', l.resync); wc.removeListener('did-finish-load', l.resync); }
     const leave = () => {
       try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
       try { l.view.setBorderRadius(0); } catch { /* older Electron */ }
@@ -526,7 +528,7 @@ export class Popout {
     this.family?.shared('video', { pinned: this.pinned });
     // Pinned means clicks go through to his game: the site's own controls stay away too (his ask, 2026-10-13).
     const wc = this.lent?.view.webContents;
-    if (wc && !wc.isDestroyed()) void within(wc.executeJavaScript(`document.documentElement.classList.toggle('aang-pinned', ${this.pinned}); true`, true), 800, null);
+    if (wc && !wc.isDestroyed()) void within(inPage(wc, `document.documentElement.classList.toggle('aang-pinned', ${this.pinned}); true`, true), 800, null);
   }
 
   /** Sent to the MacBook: it stops here (overstimulation, his words), and a lent tab goes home paused. */
@@ -561,7 +563,7 @@ export class Popout {
     if (!w || !w.isVisible() && !this.showing) return { open: false };
     const wc = this.lent?.view.webContents;
     const live = wc && !wc.isDestroyed() ? wc : null;
-    const page = live ? await within(live.executeJavaScript(`(() => { const c = document.documentElement.classList;
+    const page = live ? await within(inPage(live, `(() => { const c = document.documentElement.classList;
       const vis = (s) => [...document.querySelectorAll(s)].filter(e => { const r = e.getBoundingClientRect(), st = getComputedStyle(e); return r.width * r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' && st.opacity !== '0'; }).map(e => (e.className && String(e.className).slice(0, 60)) || e.tagName);
       return { url: location.href.slice(0, 200), bare: c.contains('aang-bare'), pinned: c.contains('aang-pinned'), showing: vis('[data-aang-player] *:not(video)').slice(0, 30),
         menus: [...document.querySelectorAll('[role="menu"],[role="dialog"],.tw-balloon,[data-a-target*="settings"],[data-popper-placement]')].slice(0, 12).map(e => { const st = getComputedStyle(e), r = e.getBoundingClientRect(); return { what: (e.getAttribute('data-a-target') || e.getAttribute('role') || String(e.className).slice(0, 40)), inPlayer: !!e.closest('[data-aang-player]'), shown: st.visibility !== 'hidden' && st.display !== 'none', size: Math.round(r.width) + 'x' + Math.round(r.height) }; }) }; })()`, true), 800, null) : null;
@@ -614,6 +616,14 @@ export class Popout {
 }
 
 /** Every call into a page has a deadline: a dead page never answers, and must never hang Aang. */
+/**
+ * A question to the page, asked now even while it is still loading (2026-10-30, stability check): the webContents form
+ * waits for the page to finish, and Twitch and YouTube never really do, so the twice-a-second state check piled up
+ * waiting calls for as long as a video played (the "11 did-stop-loading listeners" warning). Same as browser.ts askPage.
+ */
+function inPage(wc: Electron.WebContents, code: string, gesture = false): Promise<any> {
+  try { const f = wc.mainFrame; if (!f || f.isDestroyed()) return Promise.resolve(null); return f.executeJavaScript(code, gesture); } catch { return Promise.resolve(null); }
+}
 function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
 }
