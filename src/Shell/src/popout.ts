@@ -20,6 +20,8 @@ const SAMARA_LANTERN = path.join(import.meta.dirname, '..', 'pages', 'art', 'sam
 import { embedFor, titleFor, type Embed } from './embed.ts';
 import { CHROME, MIN, firstTime, hold169, ontoScreen, preset, snapToEdges, type Box } from './geometry.ts';
 import { SAFE_WEB_PREFERENCES, lockDown, wrongSettings } from './safety.ts';
+import { run, within } from './page.ts';
+import { SIZES, capture, captureWindow } from './capture.ts';
 import type { PageServer } from './pageserver.ts';
 import type { PopoutSettings } from './settings.ts';
 import type { FindSkips } from './skip/find.ts';
@@ -146,10 +148,10 @@ export class Popout {
     let paused = false, beat = 0, pinnedAt = 0;
     const tick = () => {
       if (!this.window?.isVisible() || (paused && ++beat % 4)) return;
-      void within(inPage(wc, STATE_JS, false), 600, null).then((s) => {
+      void run(wc, STATE_JS, { ms: 600, fallback: null }).then((s) => {
         if (s && typeof s === 'object') { paused = (s as { paused?: unknown }).paused === true; this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>)); }
         // The next video (autoplay) can be a new player: pin it again, so it stays the bare picture.
-        else if (Date.now() - pinnedAt > 15_000) { pinnedAt = Date.now(); void within(inPage(wc, FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(inPage(wc, BEST_QUALITY_JS, false), 1500, null); }); }
+        else if (Date.now() - pinnedAt > 15_000) { pinnedAt = Date.now(); void run(wc, FOCUS_JS, { gesture: true, ms: 600, fallback: false }).then((ok) => { if (ok) void run(wc, BEST_QUALITY_JS, { ms: 1500, fallback: null }); }); }
       });
     };
     const poll = setInterval(tick, 500);
@@ -157,7 +159,7 @@ export class Popout {
     // Twitch's ad breaks (his catch, 2026-10-21): with its ads blocked, Twitch shows "we'll be right back" and stitches the
     // stream back afterwards with the sound out of step with the picture. The tab watches for the break ending and
     // jumps the player back to the live edge, which brings sound and picture together again. Twitch tabs only.
-    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void within(inPage(wc, TWITCH_RESYNC_JS, false), 600, null); } catch { /* not a page */ } };
+    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void run(wc, TWITCH_RESYNC_JS, { ms: 600, fallback: null }); } catch { /* not a page */ } };
     resync();
     wc.on('did-navigate-in-page', resync);
     wc.on('did-finish-load', resync);
@@ -173,9 +175,9 @@ export class Popout {
     const focus = () => {
       if (this.lent !== lent) return;
       if (!this.window?.isVisible()) { setTimeout(focus, 150); return; }
-      void within(inPage(wc, FOCUS_JS, true), 1500, false).then((ok) => {
+      void run(wc, FOCUS_JS, { gesture: true, ms: 1500, fallback: false }).then((ok) => {
         if (!ok && ++tries < 10) { setTimeout(focus, 500); return; }
-        if (ok) void within(inPage(wc, BEST_QUALITY_JS, false), 1500, null);
+        if (ok) void run(wc, BEST_QUALITY_JS, { ms: 1500, fallback: null });
       });
     };
     w.show();
@@ -185,7 +187,7 @@ export class Popout {
   /** Pause or play whatever the pop-out is showing (sheet 40 B, from the tab page it left behind). */
   togglePlay(): void {
     const wc = this.lent?.view.webContents;
-    if (wc && !wc.isDestroyed()) { void within(inPage(wc, `(()=>{const v=window.__aangVideo||document.querySelector('video');if(!v)return false;if(v.paused)v.play();else v.pause();return true})()`, true), 600, false); return; }
+    if (wc && !wc.isDestroyed()) { void run(wc, `(()=>{const v=window.__aangVideo||document.querySelector('video');if(!v)return false;if(v.paused)v.play();else v.pause();return true})()`, { gesture: true, ms: 600, fallback: false }); return; }
     this.window?.webContents.send('popout:toggleplay');
   }
 
@@ -199,7 +201,7 @@ export class Popout {
       : c.func === 'volume' && Number.isFinite(n) ? `v.volume=${Math.max(0, Math.min(1, n))};v.muted=false`
       : c.func === 'mute' ? 'v.muted=true' : c.func === 'unmute' ? 'v.muted=false' : null;
     if (!js) return;
-    void within(inPage(wc, `(()=>{const v=window.__aangVideo;if(!v)return false;${js};return true})()`, true), 600, false);
+    void run(wc, `(()=>{const v=window.__aangVideo;if(!v)return false;${js};return true})()`, { gesture: true, ms: 600, fallback: false });
   }
 
   /**
@@ -227,7 +229,7 @@ export class Popout {
     if (now) leave();
     // WebFrameMain's run, which does not wait for a page that is still loading something.
     const undone = wc.isDestroyed() ? Promise.resolve() : Promise.all([
-      within(wc.mainFrame.executeJavaScript(UNPIN_JS + ";document.querySelectorAll('video,audio').forEach((m)=>{try{m.pause()}catch{}});true", true), 300, null),
+      run(wc, UNPIN_JS + ";document.querySelectorAll('video,audio').forEach((m)=>{try{m.pause()}catch{}});true", { gesture: true, ms: 300, fallback: null }),
       l.css ? wc.removeInsertedCSS(l.css).catch(() => {}) : Promise.resolve(),
     ]);
     const home = () => { if (!now) leave(); l.back(l.view); };
@@ -528,7 +530,7 @@ export class Popout {
     this.family?.shared('video', { pinned: this.pinned });
     // Pinned means clicks go through to his game: the site's own controls stay away too (his ask, 2026-10-13).
     const wc = this.lent?.view.webContents;
-    if (wc && !wc.isDestroyed()) void within(inPage(wc, `document.documentElement.classList.toggle('aang-pinned', ${this.pinned}); true`, true), 800, null);
+    if (wc && !wc.isDestroyed()) void run(wc, `document.documentElement.classList.toggle('aang-pinned', ${this.pinned}); true`, { gesture: true, ms: 800, fallback: null });
   }
 
   /** Sent to the MacBook: it stops here (overstimulation, his words), and a lent tab goes home paused. */
@@ -563,14 +565,15 @@ export class Popout {
     if (!w || !w.isVisible() && !this.showing) return { open: false };
     const wc = this.lent?.view.webContents;
     const live = wc && !wc.isDestroyed() ? wc : null;
-    const page = live ? await within(inPage(live, `(() => { const c = document.documentElement.classList;
+    const page = live ? await run(live, `(() => { const c = document.documentElement.classList;
       const vis = (s) => [...document.querySelectorAll(s)].filter(e => { const r = e.getBoundingClientRect(), st = getComputedStyle(e); return r.width * r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' && st.opacity !== '0'; }).map(e => (e.className && String(e.className).slice(0, 60)) || e.tagName);
       return { url: location.href.slice(0, 200), bare: c.contains('aang-bare'), pinned: c.contains('aang-pinned'), showing: vis('[data-aang-player] *:not(video)').slice(0, 30),
-        menus: [...document.querySelectorAll('[role="menu"],[role="dialog"],.tw-balloon,[data-a-target*="settings"],[data-popper-placement]')].slice(0, 12).map(e => { const st = getComputedStyle(e), r = e.getBoundingClientRect(); return { what: (e.getAttribute('data-a-target') || e.getAttribute('role') || String(e.className).slice(0, 40)), inPlayer: !!e.closest('[data-aang-player]'), shown: st.visibility !== 'hidden' && st.display !== 'none', size: Math.round(r.width) + 'x' + Math.round(r.height) }; }) }; })()`, true), 800, null) : null;
+        menus: [...document.querySelectorAll('[role="menu"],[role="dialog"],.tw-balloon,[data-a-target*="settings"],[data-popper-placement]')].slice(0, 12).map(e => { const st = getComputedStyle(e), r = e.getBoundingClientRect(); return { what: (e.getAttribute('data-a-target') || e.getAttribute('role') || String(e.className).slice(0, 40)), inPlayer: !!e.closest('[data-aang-player]'), shown: st.visibility !== 'hidden' && st.display !== 'none', size: Math.round(r.width) + 'x' + Math.round(r.height) }; }) }; })()`, { gesture: true, ms: 800, fallback: null }) : null;
     let shot: string | null = null;
-    try { const img = live ? await within(live.capturePage(), 1500, null) : null; if (img && !img.isEmpty()) shot = img.resize({ width: Math.min(960, img.getSize().width) }).toJPEG(70).toString('base64'); } catch { /* none */ }
+    shot = live ? (await capture(live, { ms: 1500, maxWidth: SIZES.glance, quality: 70 }))?.base64() ?? null : null;
     let bar: string | null = null;
-    try { const img = await within(w.webContents.capturePage(), 1500, null); if (img && !img.isEmpty()) bar = img.resize({ width: Math.min(960, img.getSize().width) }).toJPEG(70).toString('base64'); } catch { /* none */ }
+    // The whole pop-out as he sees it: its frame and the video view in it (capture.ts).
+    bar = (await captureWindow(w, { ms: 1500, maxWidth: SIZES.glance, quality: 70 }))?.base64() ?? null;
     return { open: true, visible: w.isVisible(), pinned: this.pinned, bounds: w.getBounds(), lent: Boolean(this.lent), page, shot, bar };
   }
 
@@ -615,18 +618,6 @@ export class Popout {
   prewarm(): void { if (!this.window) this.create(); }
 }
 
-/** Every call into a page has a deadline: a dead page never answers, and must never hang Aang. */
-/**
- * A question to the page, asked now even while it is still loading (2026-10-30, stability check): the webContents form
- * waits for the page to finish, and Twitch and YouTube never really do, so the twice-a-second state check piled up
- * waiting calls for as long as a video played (the "11 did-stop-loading listeners" warning). Same as browser.ts askPage.
- */
-function inPage(wc: Electron.WebContents, code: string, gesture = false): Promise<any> {
-  try { const f = wc.mainFrame; if (!f || f.isDestroyed()) return Promise.resolve(null); return f.executeJavaScript(code, gesture); } catch { return Promise.resolve(null); }
-}
-function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
-}
 
 /**
  * Find the video and give it the whole picture: the playing one first, else the biggest. The player around it

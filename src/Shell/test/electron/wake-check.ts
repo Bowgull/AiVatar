@@ -20,6 +20,9 @@ app.whenReady().then(async () => {
   const { servePages } = await import('../../src/pageserver.ts');
   const { AangBrowser } = await import('../../src/browser.ts');
   const { wireBrowser } = await import('../../src/browseripc.ts');
+  // Asked the way Samara asks (page.ts): the webContents form waits for a page that never stops loading (YouTube), so
+  // the old probe here stalled until then and saw the curtain go down late (the "38 s" of the 2026-10-30 check).
+  const { run } = await import('../../src/page.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'wake-s-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
@@ -47,16 +50,18 @@ app.whenReady().then(async () => {
   b.activate(vid);
   const t = b.tabs.find((x: any) => x.id === vid);
   console.log('woken page id ' + t.view?.webContents.id + ' ' + t.view?.webContents.getURL().slice(0, 50));
-  const old = webContents.fromId(2); if (old && !old.isDestroyed()) console.log('OLD PAGE STILL ALIVE, playing: ' + await old.executeJavaScript(`(() => { const v = document.querySelector('video'); return v ? !v.paused : null; })()`, true).catch(() => 'unknown'));
+  const old = webContents.fromId(2); if (old && !old.isDestroyed()) console.log('OLD PAGE STILL ALIVE, playing: ' + await run(old, `(() => { const v = document.querySelector('video'); return v ? !v.paused : null; })()`, { gesture: true, fallback: 'unknown' }));
+  // The moment the curtain really goes down, not when a poll next looks.
+  const vd = b.veilDown.bind(b); b.veilDown = (f: number) => { if (b.veil?.tab === vid && !curtainDown && curtainUp) curtainDown = Date.now() - t0; return vd(f); };
   for (let i = 0; i < 300; i++) {
     await wait(50);
     const ms = Date.now() - t0;
     if (!visibleAt && t.view?.getVisible()) visibleAt = ms;
     if (b.veil?.up && !curtainUp) curtainUp = ms;
-    if (curtainUp && !b.veil && !curtainDown) curtainDown = ms;
+    if (curtainUp && !b.veil && !curtainDown) curtainDown = ms;   // (normally caught at veilDown itself)
     if (!playing && t.view && !t.view.webContents.isDestroyed()) {
-      const p = await t.view.webContents.executeJavaScript(`(() => { const v = document.querySelector('video'); return v ? [location.href.slice(0, 60), v.paused, Math.round(v.currentTime * 10) / 10, document.readyState] : [location.href.slice(0, 60), null, 0, document.readyState]; })()`, true).catch(() => null);
-      if (!playing && p && p[1] === false && p[2] > 0) { playing = ms; console.log('PLAYING PROBE ' + JSON.stringify(p) + ' wc ' + t.view.webContents.id + ' up ' + await t.view.webContents.executeJavaScript('Math.round(performance.now())', true)); }
+      const p = await run<any[] | null>(t.view.webContents, `(() => { const v = document.querySelector('video'); return v ? [location.href.slice(0, 60), v.paused, Math.round(v.currentTime * 10) / 10, document.readyState] : [location.href.slice(0, 60), null, 0, document.readyState]; })()`, { gesture: true, ms: 400, fallback: null });
+      if (!playing && p && p[1] === false && p[2] > 0) { playing = ms; console.log('PLAYING PROBE ' + JSON.stringify(p) + ' wc ' + t.view.webContents.id + ' up ' + await run(t.view.webContents, 'Math.round(performance.now())', { fallback: '?' })); }
     }
     if (playing && painted && i > 60) break;
   }

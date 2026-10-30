@@ -31,7 +31,14 @@ app.whenReady().then(async () => {
   const t = b.cur();
   // Let it play (he opened it), making sure it does.
   let s = null;
-  for (let i = 0; i < 40; i++) { await wait(1000); s = await state(t.view.webContents); if (s && !s.paused && s.t >= 8) break; if (s?.paused && i === 12) await t.view.webContents.mainFrame.executeJavaScript(`document.querySelector('video')?.play()`, true).catch(() => {}); }
+  // Samara lets a video play only after his click (the autoplay rule), so the test clicks for him: his gesture is noted
+  // and play is pressed as a click would, again every few seconds while it sits paused (an ad, a slow start).
+  for (let i = 0; i < 45; i++) {
+    await wait(1000); s = await state(t.view.webContents);
+    if (s && !s.paused && s.t >= 8) break;
+    if ((!s || s.paused) && i % 4 === 1) { b.lastGesture.set(t.id, Date.now()); await t.view.webContents.mainFrame.executeJavaScript(`(() => { const v = [...document.querySelectorAll('video')].sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0]; if (!v) return false; v.muted = true; v.play().catch(() => {}); return true; })()`, true).catch(() => {}); }
+  }
+  ok('the video really played first (the test, not Samara)', Boolean(s && !s.paused && s.t >= 5), JSON.stringify(s));
   console.log('before: ' + JSON.stringify(s));
   b.newTab('https://example.com/'); await wait(3000);
   await b.freeze(t, true);
