@@ -1011,7 +1011,8 @@ export class DiscordAdapter {
       if (ev.proactive) {
         // Something Aang says on his own: a reminder, a Claude job that needs him or finished, a warning.
         const kind = kindOf(ev);
-        const loud = this.budget.loud(kind, this.now());
+        // The brain says whether it buzzes (attention.ts Buzz, 2026-10-30); this budget only answers for an older brain.
+        const loud = typeof ev.buzz === 'boolean' ? ev.buzz : this.budget.loud(kind, this.now());
         const channel = kind === 'needs' || (kind === 'asked' && /^Need input/i.test(ev.text)) ? 'needs-you' : 'aang';
         // The morning brief, drawn (sheet 21 board 1).
         if (ev.brief && typeof ev.brief === 'object' && this.state.channels['aang']) { await this.briefPost(this.state.channels['aang'], ev.text, ev.brief, !loud); return; }
