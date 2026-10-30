@@ -34,4 +34,4 @@ jobs:
       # One word, nothing else: a Samara that hears it only checks, and still checks the seal.
       - name: Nudge both Samaras
         if: steps.find.outputs.engine != ''
-        run: curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null || echo "The nudge did not go; Samaras will find it within the hour."
+        run: for i in 1 2 3 4 5; do curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null && exit 0; echo "Nudge try $i did not go; trying again in 30 s."; sleep 30; done; echo "The nudge did not go after 5 tries; Samaras will find it within the hour."
