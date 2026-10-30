@@ -92,33 +92,46 @@ export async function download(fetchFn: Fetch, m: Manifest, dest: string, base =
  * The nudge: listens for "check now" while the computer is online, and reconnects after a drop. Calls back at most once
  * every two minutes (a flood of fake nudges is one check). Returns a stop function.
  */
-export function listen(fetchFn: Fetch, onNudge: () => void, url = NUDGE): () => void {
-  let stopped = false, last = 0, ctl: AbortController | null = null;
+/**
+ * Hears the release nudge. Three holes closed (2026-10-30, his "no update button, again"): a stream that went quiet
+ * (the Mac slept, the Wi-Fi changed) used to hang for good, so it is dropped when nothing, not even ntfy's keepalive,
+ * has come for `quietMs`; a nudge sent while it was reconnecting was lost, so it reconnects asking for what came since
+ * the last thing it heard (ntfy keeps them 12 h); and it tries again after 10 s, not 30.
+ */
+export function listen(fetchFn: Fetch, onNudge: () => void, url = NUDGE, o: { quietMs?: number; retryMs?: number } = {}): () => void {
+  const quietMs = o.quietMs ?? 100_000, retryMs = o.retryMs ?? 10_000;
+  let stopped = false, last = 0, heard = 0, since = 0, ctl: AbortController | null = null;
+  const dog = setInterval(() => { if (ctl && heard && Date.now() - heard > quietMs) ctl.abort(); }, Math.min(15_000, quietMs / 2));
+  dog.unref?.();
   const run = async () => {
     while (!stopped) {
       ctl = new AbortController();
+      heard = Date.now();
       try {
-        const r = await fetchFn(url, { signal: ctl.signal });
+        const r = await fetchFn(since ? `${url}?since=${since}` : url, { signal: ctl.signal });
         if (r.ok && r.body) {
           const reader = r.body.getReader(), dec = new TextDecoder();
           let buf = '';
           for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
+            heard = Date.now();
             buf += dec.decode(value, { stream: true });
             let i;
             while ((i = buf.indexOf('\n')) >= 0) {
               const line = buf.slice(0, i); buf = buf.slice(i + 1);
+              const t = /"time"\s*:\s*(\d+)/.exec(line);
+              if (t) since = Math.max(since, Number(t[1]));
               if (/"event"\s*:\s*"message"/.test(line) && Date.now() - last > 120_000) { last = Date.now(); onNudge(); }
             }
           }
         }
-      } catch { /* offline, or stopped */ }
-      if (!stopped) await new Promise((res) => setTimeout(res, 30_000));
+      } catch { /* offline, dropped as quiet, or stopped */ }
+      if (!stopped) await new Promise((res) => setTimeout(res, retryMs));
     }
   };
   void run();
-  return () => { stopped = true; ctl?.abort(); };
+  return () => { stopped = true; clearInterval(dog); ctl?.abort(); };
 }
 
 /** "Version 1.22.0: Gojo" (his rule's name), as the key's title says it. */
