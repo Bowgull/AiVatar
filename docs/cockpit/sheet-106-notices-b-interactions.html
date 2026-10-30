@@ -44,7 +44,7 @@
   .dlkey{position:absolute;right:56px;top:14px;width:32px;height:32px;border-radius:8px;border:2.5px solid #120a05;z-index:4;
     background:linear-gradient(180deg,var(--plum),var(--plum-deep));box-shadow:0 3px 0 #120a05;display:grid;place-items:center}
   .band-r{display:grid;place-items:center;color:#fff;font:800 14px var(--body)}
-  .src{outline:3px solid var(--gold);outline-offset:2px;animation:srcpulse .6s steps(2) 2}
+  .src{outline:3px solid var(--gold);outline-offset:2px;animation:srcpulse .9s ease-in-out 2}
   @keyframes srcpulse{50%{outline-color:transparent}}
   .line{display:block;font:500 12.5px/1.5 var(--body);color:#b9a684;margin:8px 0 0;max-width:640px;min-height:38px}
   .line b{display:inline;color:#ffe28c}
@@ -66,30 +66,32 @@
   .nt.small{width:300px;padding:0}
   .nt.small .uphd{margin:0;border-bottom:none;box-shadow:none}
   .nt.small .drain{position:absolute;left:0;bottom:-3px;height:3px;background:var(--gold);z-index:4}
-  .nt.small.live .drain{animation:drain 4s steps(16) both}
   @keyframes drain{from{width:100%}to{width:0}}
-  /* the pixel tab that joins it to the key it came from */
-  .nt .tab{position:absolute;top:-14px;width:14px;height:12px;margin-left:-7px;background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/64px 128px;
-    border:3px solid #120A05;border-bottom:none;image-rendering:pixelated;z-index:4}
-  /* the gem socket: Samara's recessed frame, a hard stepped ring in the kind's colour, no blur */
-  .sock{position:relative;flex:none;width:40px;height:40px;box-sizing:border-box;border-style:solid;border-width:6px;
-    border-image:url(../../src/Shell/pages/art/browser/recess.png) 4 repeat;background:#0f0a0d;display:grid;place-items:center;image-rendering:pixelated;
-    box-shadow:0 0 0 2px var(--k),0 0 0 4px #120A05}
+  /* the gem: sheet 92's own round coloured gem, the icon in colour, so you see what it is at a glance */
+  .sock{position:relative;flex:none;width:40px;height:40px;border-radius:50%;border:3px solid #120A05;display:grid;place-items:center;box-sizing:border-box;
+    background:linear-gradient(180deg,var(--k),var(--kd));box-shadow:0 0 0 2px var(--gold),0 0 12px var(--glow)}
   .sock.claude{background:#F6F2EA}
   .sock.claude svg rect{fill:#D97757}
-  .sock.drag{cursor:grab}
-  .sock canvas{position:absolute;left:-28px;top:-28px;width:84px;height:84px;pointer-events:none}
-  .kind-done{--k:#3FBFAE} .kind-need{--k:#4C9BE8} .kind-bad{--k:#E0553E}
-  /* motion, in hard steps */
-  .nt.drop{animation:ntdrop .24s steps(3,end) both}
-  .nt.rise{animation:ntup .2s steps(2,end) both}
-  @keyframes ntdrop{from{transform:translateY(-120%)}to{transform:translateY(0)}}
-  @keyframes ntup{from{transform:translateY(0)}to{transform:translateY(-130%)}}
-  .nt.drop .sock .ic{animation:gemup .2s .24s steps(2,end) both}
-  @keyframes gemup{from{transform:translateY(8px)}to{transform:translateY(0)}}
-  .ghost{position:absolute;z-index:9;transition:left .8s steps(8),top .8s steps(8)}
+  .sock .spark{position:absolute;width:4px;height:4px;border-radius:1px;background:#fff6c8;box-shadow:0 0 6px #ffe28c;opacity:0}
+  .kind-done{--k:#3FBFAE;--kd:#1f7a6e;--glow:rgba(63,191,174,.7)} .kind-need{--k:#4C9BE8;--kd:#1F5A9E;--glow:rgba(76,155,232,.75)} .kind-bad{--k:#E0553E;--kd:#8A2418;--glow:rgba(224,85,62,.75)}
+  .nt.small .drain{border-radius:2px}
+  /* the download tray, as Samara draws it today (browser.css .dltray, .drow): where each file is grabbed */
+  .dl.dltray{position:absolute;right:20px;left:auto;top:60px;width:340px;z-index:6;animation:none}
+  .dl .drow .fb{flex:none}
+  /* motion, smooth (his rule): it drops with a soft overshoot, the gem lifts, the sparkles drift out and fade */
+  .nt.drop{animation:ntdrop .38s cubic-bezier(.3,1.4,.6,1) both}
+  .nt.rise{animation:ntup .3s cubic-bezier(.5,0,.75,0) both}
+  @keyframes ntdrop{from{transform:translateY(-120%);opacity:.4}to{transform:translateY(0);opacity:1}}
+  @keyframes ntup{from{transform:translateY(0);opacity:1}to{transform:translateY(-130%);opacity:0}}
+  .nt.drop .sock{animation:gemup .5s .2s cubic-bezier(.3,1.8,.6,1) both}
+  @keyframes gemup{from{transform:translateY(10px) scale(.6)}}
+  .nt.drop .sock .spark{animation:spark .8s .45s ease-out both}
+  @keyframes spark{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
+  .nt.small.live .drain{animation:drain 4s linear both}
+  .key{transition:top .08s ease,box-shadow .08s ease}
+  .ghost{position:absolute;z-index:9;transition:left .7s ease,top .7s ease}
   .tagline{position:absolute;z-index:9;font:700 11px var(--body);color:#2a1c00;background:var(--gold);border:2px solid #120A05;border-radius:5px;padding:2px 7px}
-  .cursor{position:absolute;z-index:10;width:14px;height:20px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px;image-rendering:pixelated;transition:left .8s steps(8),top .8s steps(8);display:none}
+  .cursor{position:absolute;z-index:10;width:14px;height:20px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='10' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h3v1H0zM0 7h1v1H0zM2 7h2v1H2zM3 8h1v1H3z' fill='%23120A05'/%3E%3Cpath d='M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h1v1H1z' fill='%23fff'/%3E%3C/svg%3E") 0 0/14px 20px;image-rendering:pixelated;transition:left .6s ease,top .6s ease;display:none}
   .cursor.on{display:block}
   .all{border-collapse:collapse;font:500 13px/1.45 var(--body);color:#e8dcc4;max-width:1100px}
   .all th{font:400 10px var(--label);letter-spacing:1.2px;color:#c9a35a;text-align:left;padding:6px 18px 6px 0}
@@ -100,7 +102,7 @@
 </head>
 <body>
 <h1>Sheet 106 · Option B, every interaction</h1>
-<p class="lead">v5. The same eight interactions, now built from Claude's plan card's own pieces: its pixel frame and gold corners, the wood header, the parchment, Samara's real keys. The gem sits in a pixel socket, everything moves in hard steps like a game, a small tab joins each notice to the key it came from, and every download can be dragged straight off its notice.</p>
+<p class="lead">v6. Built from Claude’s plan card’s own pieces (frame, gold corners, wood header, parchment, real keys), with sheet 92’s coloured round gem so you see what each notice is at a glance, soft corners and smooth motion. No tabs, nothing dragged off a notice: several downloads open the tray, where you grab the exact file.</p>
 
 <div class="grid" id="grid"></div>
 <h2>EVERY NOTICE SAMARA HAS TODAY, AS OPTION B</h2>
@@ -147,10 +149,10 @@
 
 <h2>THE RULES IT FOLLOWS</h2>
 <ul class="rules">
-  <li>Drops from under whatever caused it, joined to it by a small tab: the download key, the shield, the menu.</li>
-  <li>Teal done, blue needs you, red went wrong. Only "needs you" plays a sound. Claude always shows its orange spark on a white socket.</li>
+  <li>Drops from under whatever caused it: the download key, the shield, the menu.</li>
+  <li>Teal done, blue needs you, red went wrong. Only "needs you" plays a sound. Claude always shows its orange spark on a white gem.</li>
   <li>Big ones stay until you click a button. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them.</li>
-  <li>Every download's picture is a handle: drag it into Finder, an email or a chat. Dropping it counts as done.</li>
+  <li>Several downloads make one notice that names them; Open downloads opens the tray, where each file is dragged by its own row.</li>
   <li>One at a time. More waiting shows a count ("1 of 3"); the next drops when you finish this one.</li>
 </ul>
 
@@ -175,11 +177,11 @@ const SRC = { dl: { cx: 568, x: 240 }, shield: { cx: 84, x: 30 }, menu: { cx: 61
 
 const SCENES = [
   { title: '1 · A download, the big one', run: async (S) => {
-    S.say('A download finishes. The <b>download key</b> blinks, the notice drops from under it in three steps, the file hops up, a pixel twinkle.');
+    S.say('A download finishes. The <b>download key</b> blinks, the notice drops from under it, the gem lifts and sparkles.');
     S.src('dl'); await wait(500);
-    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads'], ['Size', '212 KB']], keys: [['Show in Finder'], ['Got it', 1]], drag: true });
-    await wait(2200); S.say('Grab the file and <b>drag it out</b>: into Finder, an email, a chat. Dropping it counts as done.');
-    await S.drag(p, 120, 250, 'DROPPED IN AN EMAIL'); S.say('Dropped: the notice goes back up on its own.'); await S.leave(p); await wait(1300); } },
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads'], ['Size', '212 KB']], keys: [['Show in Finder'], ['Got it', 1]] });
+    await wait(2600); S.say('It <b>stays</b> until you click. <b>Show in Finder</b> opens the folder with the file picked.'); await wait(2000);
+    await S.press(p, 1); await S.leave(p); await wait(1300); } },
   { title: '2 · Needs you, with the one sound', run: async (S) => {
     S.say('Your Mac asks for permission. The <b>shield</b> blinks, the notice drops from it, and this is the only kind that <b>plays a sound</b>.');
     S.src('shield'); await wait(500);
@@ -195,17 +197,17 @@ const SCENES = [
     S.src('menu'); await wait(500);
     const p = S.drop({ from: 'menu', kind: 'done', ic: 'scroll', kick: 'ADDED TO', title: 'Tax season', small: true });
     await wait(1500); S.say('The gold line drains in steps: after <b>4 seconds</b> it slides back by itself.'); await wait(2700); await S.leave(p); await wait(1300); } },
-  { title: '5 · A small download waits, and drags out', run: async (S) => {
-    S.say('A small download notice. Your mouse goes onto it: it <b>stops draining</b> and waits.');
+  { title: '5 · A small one waits while you look', run: async (S) => {
+    S.say('A small notice. Your mouse goes onto it: it <b>stops draining</b> and waits for you.');
     S.src('dl'); await wait(400);
-    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'SAVED', title: 'invoice.pdf', small: true, drag: true, x: 296 });
-    await wait(700); S.cursor(330, 84); await wait(700); p.querySelector('.drain').style.animationPlayState = 'paused';
-    await wait(1200); S.say('Drag the file straight off it into Finder. Dropped: done, it goes.');
-    await S.drag(p, 110, 250, 'DROPPED IN FINDER'); await S.leave(p); S.cursor(); await wait(1300); } },
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'SAVED', title: 'invoice.pdf', small: true, x: 264 });
+    await wait(700); S.cursor(400, 84); await wait(700); p.querySelector('.drain').style.animationPlayState = 'paused';
+    await wait(2400); S.say('Mouse off: it carries on and slides back by itself.'); S.cursor(560, 280); p.querySelector('.drain').style.animationPlayState = 'running';
+    await wait(2000); await S.leave(p); S.cursor(); await wait(1300); } },
   { title: '6 · Three at once', run: async (S) => {
     S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>, with a count.');
     S.src('dl'); await wait(400);
-    let p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads']], keys: [['Got it', 1]], count: '1 of 3', drag: true });
+    let p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads']], keys: [['Got it', 1]], count: '1 of 3' });
     await wait(2200); await S.press(p, 0); await S.leave(p);
     S.say('The <b>next one drops</b> from its own place, the shield, with its sound.'); S.src('shield'); await wait(300);
     p = S.drop({ from: 'shield', kind: 'need', ic: 'key', kick: 'BITWARDEN', title: 'Save this login?', rows: [['For', 'github.com']], keys: [['Save', 0], ['Not now', 1]], count: '2 of 3' });
@@ -213,6 +215,23 @@ const SCENES = [
     S.say('Then the last, from the menu.'); S.src('menu'); await wait(300);
     p = S.drop({ from: 'menu', kind: 'bad', ic: 'wont', kick: 'THE TV', title: 'Didn\u2019t answer', rows: [['Try', 'Check it\u2019s on, then try again.']], keys: [['Try again', 0], ['Close', 1]], count: '3 of 3' });
     await wait(2200); await S.press(p, 1); await S.leave(p); await wait(1200); } },
+  { title: '6b · Several downloads at once', run: async (S) => {
+    S.say('Three files finish close together. One notice, not three: it <b>names each file</b>.');
+    S.src('dl'); await wait(500);
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: '3 DOWNLOADS', title: 'All finished', rows: [['Files', 'tax-form.pdf<br>receipts.zip<br>photo.png']], keys: [['Open downloads'], ['Got it', 1]] });
+    await wait(2600); S.say('<b>Open downloads</b> opens the download tray right there: each file has its own row, so you grab exactly the one you want.');
+    await S.press(p, 0); await S.leave(p);
+    const t = document.createElement('div'); t.className = 'dl dltray';
+    const row = (k, n, m) => `<div class="drow"><i class="fb ${k}"><b>${k.toUpperCase()}</b></i><span class="dt"><b>${n}</b><small>${m}</small></span></div>`;
+    t.innerHTML = `<div class="gh">Downloads<span>3 today</span></div>${row('pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now')}${row('zip', 'receipts.zip', '4.1 MB · drive.google.com · now')}${row('img', 'photo.png', '880 KB · reddit.com · now')}`;
+    S.win.append(t); await wait(900);
+    const r = t.querySelectorAll('.drow')[1].getBoundingClientRect(), wr = S.win.getBoundingClientRect();
+    S.cursor(r.left - wr.left + 40, r.top - wr.top + 14); await wait(800);
+    S.say('Drag <b>receipts.zip</b> by its row into Finder, an email or Claude, the same as today.');
+    const g = t.querySelectorAll('.drow')[1].querySelector('.fb').cloneNode(true); g.classList.add('ghost'); g.style.left = (r.left - wr.left + 10) + 'px'; g.style.top = (r.top - wr.top + 8) + 'px'; S.win.append(g);
+    void g.offsetWidth; g.style.left = '90px'; g.style.top = '250px'; S.cursor(100, 262); await wait(900);
+    const tag = Object.assign(document.createElement('span'), { className: 'tagline', textContent: 'DROPPED IN FINDER' }); tag.style.left = '70px'; tag.style.top = '292px'; S.win.append(tag);
+    await wait(1400); g.remove(); tag.remove(); t.remove(); S.cursor(); await wait(1000); } },
   { title: '7 · Claude asks (the same family)', run: async (S) => {
     S.say('Claude, working in your tabs, wants your OK. A <b>needs you</b>, from the <b>menu</b> where Claude\u2019s rune lives, with Claude\u2019s own spark.');
     S.src('menu'); await wait(500);
@@ -242,12 +261,10 @@ function sceneBox(sc) {
       const n = document.createElement('div'); n.className = `nt dltray uptray upx kind-${o.kind}${o.small ? ' small' : ''}`; n.style.setProperty('--x', x + 'px');
       const keys = o.keys ? `<div class="upfoot">${o.keys.map(([l, plain], i) => `<button class="key ${i === 0 && !plain ? 'primary ' : ''}sm" type="button">${l}</button>`).join('')}</div>` : '';
       const rows = o.rows ? `<div class="uplist">${o.rows.map(([g, v]) => `<div class="grp">${g}</div><div class="v">${v}</div>`).join('')}</div>` : '';
-      n.innerHTML = `<div class="caps"></div><span class="tab" style="left:${src.cx - x}px"></span>
-        <div class="uphd"><span class="sock${o.ic === 'claude' ? ' claude' : ''}${o.drag ? ' drag' : ''}"><span class="ic"></span><canvas width="28" height="28"></canvas></span>
+      n.innerHTML = `<div class="caps"></div><div class="uphd"><span class="sock${o.ic === 'claude' ? ' claude' : ''}"><span class="ic"></span>${o.small ? '' : [[-16, -14, 2, -4], [18, -16, 30, -6], [-20, 10, -4, 26], [20, 12, 32, 28]].map(([dx, dy, l, t]) => `<i class="spark" style="left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px"></i>`).join('')}</span>
         <div class="t"><small>${o.kick}</small><b>${o.title}</b></div>${o.count ? `<span class="count">${o.count}</span>` : ''}</div>${rows}${keys}${o.small ? '<span class="drain"></span>' : ''}`;
       n.querySelector('.ic').append(icon(o.ic, o.small ? 2 : 2));
       w.append(n); void n.offsetWidth; n.classList.add('drop', 'live');
-      if (!o.small) setTimeout(() => twinkle(n.querySelector('canvas')), 440);
       return n;
     },
     press: async (n, i) => { const b = n.querySelectorAll('.upfoot .key')[i]; if (!b) return; b.style.top = 'var(--lip)'; b.style.boxShadow = 'none'; await wait(200); },
