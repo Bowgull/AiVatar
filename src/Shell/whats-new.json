@@ -810,6 +810,11 @@
       "at": "2026-10-30T17:15:00-04:00",
       "text": "Claude's page reads skip off-screen clutter and keep every form field.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T17:49:00-04:00",
+      "text": "Claude's reads of one part of a page are short too.",
+      "kind": "fix"
     }
   ]
 }

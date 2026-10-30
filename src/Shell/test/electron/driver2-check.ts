@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
   (screen as any).getCursorScreenPoint = () => ({ x: -20000, y: 500 });
   const site = http.createServer((q, r) => {
     const body = q.url === '/second' ? '<!doctype html><title>Second posting</title><body>UX Lead</body>'
-      : q.url === '/links' ? `<!doctype html><title>Many links</title><body><input aria-label="Search posts">${Array.from({ length: 90 }, (_, i) => `<a href="/post/${i + 1}">Story ${i + 1}</a><br>`).join('')}</body>`
+      : q.url === '/links' ? `<!doctype html><title>Many links</title><body><input aria-label="Search posts"><main>${Array.from({ length: 90 }, (_, i) => `<a href="/post/${i + 1}">Story ${i + 1}</a><br>`).join('')}</main></body>`
       : q.url === '/form' ? `<!doctype html><title>Apply</title><body><h1>Apply</h1><p>${'About the role. '.repeat(400)}</p>
 <div style="height:3000px"></div><form><label>Full name <input name="name" required></label><label>Email <input type="email" name="email"></label>
 <label><input type="checkbox" name="agree"> I agree</label><label><input type="radio" name="w" value="r"> Remote</label>
@@ -113,6 +113,9 @@ ${Array.from({ length: 30 }, () => '<button type="button">Play video</button>').
   check('a plain read keeps fields and 40 links, and says how to get the rest', /Search posts/.test(lr.text) && linksIn(lr.text) === 40 && /50 more links and buttons/.test(lr.text) && /-> \/post\/1\b/.test(lr.text), `${linksIn(lr.text)} links, ${lr.text.length} chars`);
   const lc = await tool('browser_read', { page: lp, controls: true });
   check('controls: true trims the same way (Claude takes it for the short read)', linksIn(lc.text) === 40 && /Search posts/.test(lc.text), `${linksIn(lc.text)} links`);
+  const firstLink = Number(/\[(\d+)\] link[^\n]*Story 1\b/.exec(lr.text)?.[1]);
+  const lw = await tool('browser_read', { page: lp, within: firstLink });
+  check('a read of one part trims the same way (40 links, wherever they sit)', linksIn(lw.text) === 40 && /left out/.test(lw.text), `${linksIn(lw.text)} links`);
   const la = await tool('browser_read', { page: lp, all: true });
   check('all: true lists every link', linksIn(la.text) === 90, `${linksIn(la.text)} links`);
   const lf = await tool('browser_find', { page: lp, text: 'Story 77' });
