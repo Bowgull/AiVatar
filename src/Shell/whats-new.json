@@ -770,6 +770,11 @@
       "at": "2026-10-30T12:37:00-04:00",
       "text": "Aang keeps one list of your Claude sessions.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T13:03:00-04:00",
+      "text": "Your settings and lists save safely, even in a power cut.",
+      "kind": "fix"
     }
   ]
 }
