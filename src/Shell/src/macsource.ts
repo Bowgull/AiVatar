@@ -126,12 +126,17 @@ export class MacSamara implements Source {
   constructor(p: MacPaths, stage: MacStage, o: { fetch: Fetch; log: (s: string) => void; changed: () => void; pub?: string }) {
     this.p = p; this.stage = stage; this.o = o;
     this.lists = new VersionLists(path.join(p.br, 'failed-updates.txt'), path.join(p.br, 'filed-updates.txt'));
+    const i = readInstalled(p.installed); this.startedAs = `${i.version}|${i.commit}|${i.engine ?? ''}`;
   }
   installed(): Installed { return readInstalled(this.p.installed); }
-  /** A trial that has run a minute is good. */
+  /** What this Samara was when it started: only that version may be marked good by it. */
+  private readonly startedAs: string;
+  /** A trial that has run a minute is good. Only the Samara that IS that trial may say so (2026-10-30, his Mac: the old
+   *  Samara, quitting for the update, marked the new 1.25.1 good before it had ever started, so nothing reopened it). */
   markGood(): void {
     const i = this.installed();
     if (i.status !== 'trial') return;
+    if (`${i.version}|${i.commit}|${i.engine ?? ''}` !== this.startedAs) return;
     try { writeFileSync(this.p.installed, JSON.stringify({ ...i, status: 'good' })); this.o.log(`update: ${i.version}${i.engine ? ' on engine ' + i.engine : ''} is good`); } catch { /* next start */ }
   }
   private changelog(m: Manifest): void {
