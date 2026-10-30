@@ -15,7 +15,8 @@ import { writeFileAtomic } from './atomic.ts';
 import { MODELS } from './route.ts';
 import type { Gateway } from './discord.ts';
 
-interface Job { session: string; cwd: string; thread: string; title: string; at: number; card?: string; state?: 'working' | 'waiting' | 'done' }
+// updatedAt and last (2026-10-30): the brain's sessions engine reads this file (sessionlist.ts DeskJobs) for its one list.
+interface Job { session: string; cwd: string; thread: string; title: string; at: number; card?: string; state?: 'working' | 'waiting' | 'done'; updatedAt?: number; last?: string }
 type Gw = Pick<Gateway, 'send' | 'edit' | 'createPost' | 'setPostTags'>;
 type Draw = (kind: string, data: unknown) => Promise<Buffer | null>;
 
@@ -54,6 +55,7 @@ export class MacJobs {
   private async show(job: Job, state: 'working' | 'waiting' | 'done', sub: string): Promise<void> {
     job.state = state;
     const first = sub.replace(/\s+/g, ' ').trim().slice(0, 160);
+    job.updatedAt = Date.now(); job.last = first;
     const words = state === 'done' ? `Done: ${first}` : state === 'waiting' ? `Needs you: ${first}` : first || 'Working on it.';
     const png = await this.o.draw?.('job', { plaque: state === 'waiting' ? 'NEEDS YOU' : 'CLAUDE JOB', headline: state === 'done' ? `${job.title}. Done.` : job.title, sub: first, done: state === 'done' }).catch(() => null) ?? null;
     const color = state === 'done' ? 0x78E696 : state === 'waiting' ? 0xFF8040 : 0x966EC8;

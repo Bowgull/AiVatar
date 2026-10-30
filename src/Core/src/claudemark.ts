@@ -8,6 +8,8 @@
 // (honey); then failed (coral skull); then paused (slate). A finished step is a quick SMALL sea tick, silent; JOB COMPLETE
 // (the terracotta seal and the done chime) only when every task on the list is ticked.
 import type { Job, WaitItem } from './claudelink.ts';
+import { STALE_MS, sessionList, thisMachine } from './sessionlist.ts';
+import type { HookLike, LaunchedLike, Machine, Session, SessionInput, SessionSource, SessionState } from './sessionlist.ts';
 
 /** What sits over his head for as long as it is true. */
 // 'done' (2026-10-22, his pick): the teal tick stays while any finished job is unread; no glow, just the tick.
@@ -139,111 +141,64 @@ export function steadyMark(jobs: readonly Job[], waits: readonly WaitItem[], als
 // whatever lights the mark is exactly what the card names, for every source.
 
 /** A hook-tracked session with no hook event and no transcript write for this long has died with its turn. */
-export const HOOK_STALE_MS = 10 * 60_000;
+export const HOOK_STALE_MS = STALE_MS;
+export type { HookLike, LaunchedLike };
 
-/** The hook tracker's session, as much of it as this needs (hooks.ts Session). */
-export interface HookLike {
-  id: string; project: string; phase: 'working' | 'waiting' | 'idle'; changedAt: number;
-  prompt: string; waitingFor: string; transcriptPath?: string; host?: 'mac';
-}
-/** A session Aang launched (claude.ts Launched), as much of it as this needs. */
-export interface LaunchedLike { name: string; state?: string; sessionId: string | null; updatedAt?: number; startedAt: number }
-
-/** One session Claude is busy with, from whichever source knows it. The card lists exactly these. */
+/**
+ * One session Claude is busy with, as the mark-click card and the pet read it: a row of the sessions engine
+ * (sessionlist.ts) in the shape the Shell already draws, plus the engine's own fields.
+ */
 export interface BusySession {
   id: string;
+  /** His name for it (the card's title). */
   project: string;
-  phase: 'working' | 'waiting' | 'paused' | 'failed' | 'done';
+  phase: SessionState;
   /** What it is on (its prompt or task), or what it waits on him for. */
   what: string;
-  source: 'link' | 'transcript' | 'hook' | 'launched';
+  /** The source that says its state (the first of `sources`). */
+  source: SessionSource;
+  sources: SessionSource[];
+  machine: Machine;
+  /** Old field the Shell routes on: set only when the session is on the MacBook and this brain is not. */
   host?: 'mac';
+  waitingOn?: Session['waitingOn'];
   /** The session's claude:// link, when the app knows it. */
   open?: string;
 }
 
-/**
- * Claude Code's own idle reminder ("Claude is waiting for your input") comes as a Notification AFTER a finished turn.
- * It is not a question and not work: the turn is over and the session just sits there. It made the old hook signal
- * keep the honey mark up for hours.
- */
-const IDLE_NUDGE = /waiting for your input/i;
+export type BusyInput = SessionInput;
 
-export interface BusyInput {
-  jobs: readonly Job[];
-  waits: readonly WaitItem[];
-  hooks?: Iterable<HookLike>;
-  launched?: readonly LaunchedLike[];
-  now?: number;
-  /** When a transcript was last written (ms), or 0; the hook stale check uses it so a long quiet tool is not "dead". */
-  lastWrite?: (path: string) => number;
+/** The engine's row in the card's shape. */
+export function asBusy(s: Session, here: Machine = thisMachine()): BusySession {
+  return { id: s.id, project: s.name, phase: s.state, what: s.what, source: s.sources[0]!, sources: s.sources, machine: s.machine,
+    ...(s.machine === 'mac' && here !== 'mac' ? { host: 'mac' as const } : {}), ...(s.waitingOn ? { waitingOn: s.waitingOn } : {}), ...(s.open ? { open: s.open } : {}) };
 }
 
 /**
- * Every session Claude is busy with, the most pressing first: link and transcript jobs (working, paused, failed, or
- * with something waiting on him), then hook-tracked sessions no job already covers, then sessions Aang launched that
- * nothing else covers. Stale protection: a hook session that has said nothing and written nothing for HOOK_STALE_MS
- * is not working (it died, or the brain restarted mid-turn and never heard its end), and neither is a launched job
- * with no word for that long.
+ * Every session Claude is busy with, the most pressing first: the sessions engine's one list (sessionlist.ts), every
+ * source merged by session id, stale ones dropped there.
  */
 export function claudeBusy(i: BusyInput): BusySession[] {
-  const now = i.now ?? Date.now();
-  const out: BusySession[] = [];
-  const seen = new Set<string>();
-  const waitOf = (id: string) => i.waits.find(w => w.session === id);
-  for (const j of i.jobs) {
-    const w = waitOf(j.id);
-    const phase = w ? 'waiting' : j.phase === 'working' ? 'working' : j.phase === 'paused' ? 'paused'
-      : failedJob(j) && j.phase !== 'ended' ? 'failed' : j.unread === true ? 'done' : null;
-    seen.add(j.id);
-    if (!phase) continue;
-    out.push({ id: j.id, project: j.title || j.project, phase, what: (w ? w.plain || w.summary : j.current || j.prompt || '').slice(0, 140),
-      source: j.source, ...(j.open ? { open: j.open } : {}) });
-  }
-  // A wait whose job is not on the list (it can arrive first): still something he is needed for.
-  for (const w of i.waits) {
-    if (seen.has(w.session)) continue;
-    seen.add(w.session);
-    out.push({ id: w.session, project: w.project, phase: 'waiting', what: (w.plain || w.summary || '').slice(0, 140), source: 'link' });
-  }
-  const hooks = [...(i.hooks ?? [])].sort((a, b) => b.changedAt - a.changedAt);
-  for (const s of hooks) {
-    if (seen.has(s.id)) continue;               // a job with the same id says it better (and may say it is idle)
-    if (s.phase === 'idle') continue;
-    if (s.phase === 'waiting' && IDLE_NUDGE.test(s.waitingFor)) continue;
-    if (s.phase === 'working') {
-      const wrote = s.transcriptPath && i.lastWrite ? i.lastWrite(s.transcriptPath) : 0;
-      if (now - Math.max(s.changedAt, wrote) > HOOK_STALE_MS) continue;
-    }
-    seen.add(s.id);
-    out.push({ id: s.id, project: s.project, phase: s.phase, what: (s.phase === 'waiting' ? s.waitingFor : s.prompt).slice(0, 140),
-      source: 'hook', ...(s.host ? { host: s.host } : {}) });
-  }
-  for (const l of i.launched ?? []) {
-    // 'waiting' on a launched job means typed in, Enter not pressed: never working (claude.ts JobState).
-    if (l.state !== 'working' || !l.sessionId || seen.has(l.sessionId)) continue;
-    if (now - (l.updatedAt ?? l.startedAt) > HOOK_STALE_MS) continue;
-    seen.add(l.sessionId);
-    out.push({ id: l.sessionId, project: l.name, phase: 'working', what: '', source: 'launched' });
-  }
-  const rank = { waiting: 0, working: 1, failed: 2, done: 3, paused: 4 } as const;
-  return out.sort((a, b) => rank[a.phase] - rank[b.phase]);
+  const here = i.here ?? thisMachine();
+  return sessionList(i).map(s => asBusy(s, here));
 }
 
 /**
  * The whole picture from one list: the steady mark over his head, the old `claude.working` signal (the pet's fallback
  * and its no-brain click), and the sessions the card lists. Mark up exactly when the list is not empty.
  */
-export function claudeNow(i: BusyInput): { mark: { mark: MarkKind; what?: string }; working: { working: boolean; what?: string; host?: 'mac' }; sessions: BusySession[]; alsoWorking: boolean | string } {
-  const sessions = claudeBusy(i);
+export function claudeNow(i: BusyInput): { mark: { mark: MarkKind; what?: string }; working: { working: boolean; what?: string; host?: 'mac' }; sessions: BusySession[]; list: Session[]; alsoWorking: boolean | string } {
+  const here = i.here ?? thisMachine();
+  const list = sessionList(i), sessions = list.map(s => asBusy(s, here));
   // The jobs say their own mark (steadyMark reads them and the waits); the rest light honey.
-  const alsoWorking = sessions.some(s => s.source === 'hook' || s.source === 'launched');
+  const notJob = (s: BusySession) => s.source !== 'link' && s.source !== 'transcript';
+  const alsoWorking = sessions.some(notJob);
   // A session without the link mod that stops for him says "needs you", not honey (2026-10-29, fix 10): its project
   // rides in alsoWorking, so the mark the brain pushes (MarkDeriver) says the same.
-  const hookWaits = sessions.find(s => (s.source === 'hook' || s.source === 'launched') && s.phase === 'waiting');
+  const hookWaits = sessions.find(s => notJob(s) && s.phase === 'waiting');
   const also: boolean | string = hookWaits ? (hookWaits.project || 'Claude') : alsoWorking;
   const mark = steadyMark(i.jobs, i.waits, also);
   const live = sessions.find(s => s.phase === 'working' || s.phase === 'waiting');
   const working = live ? { working: true, what: live.project, ...(live.host ? { host: live.host } : {}) } : { working: false };
-  return { mark, working, sessions, alsoWorking: also };
+  return { mark, working, sessions, list, alsoWorking: also };
 }
