@@ -26,7 +26,7 @@ import { cleanLive } from './mockups.ts';
 import { fileURLToPath } from 'node:url';
 
 export const CLAUDE_DOOR_PORT = 47851;
-const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep', 'waitfor', 'forget']);
+const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep', 'waitfor', 'forget', 'window']);
 
 /** Is this request allowed through the door at all? Pure, so it can be tested without a server. */
 export function doorAllows(req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; peer: string }, key: string, port: number): boolean {
@@ -203,7 +203,7 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           else if (op === 'open' && /^https?:\/\/([^/]*\.)?(indeed|glassdoor)\.[a-z.]+(\/|$)/i.test(String(a.url ?? ''))) out = { ok: false, error: "Indeed and Glassdoor are not opened in Samara: they put up security checks. Use the official Indeed connector (search_jobs) instead." };
           else if (op === 'open' && neverKeep(String(a.url ?? ''))) out = { ok: false, error: 'bank and money sites are never opened for a Claude session (his rule). He has to do that himself.' };
           else if (op !== 'start' && op !== 'history' && op !== 'note' && op !== 'forget' && !(
-            (op === 'open' || op === 'finish' || op === 'rename' || op === 'tabs' || op === 'look' || op === 'drivetab' || op === 'planstep') ? mine.has(Number(a.job)) : op === 'sweep_status' ? mine.has(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
+            (op === 'open' || op === 'finish' || op === 'rename' || op === 'tabs' || op === 'look' || op === 'drivetab' || op === 'planstep' || op === 'window') ? mine.has(Number(a.job)) : op === 'sweep_status' ? mine.has(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
           // His history is his (AI lockdown G10): a Claude session asks him every time, in Samara's band.
           // One OK from him per Claude session (AI lockdown G11): a session does nothing in Samara until he allows it.
           else if (op === 'start' && (await askOrShow(b, `use Samara for "${String(a.name ?? 'Claude').slice(0, 40)}"`)) !== true) out = { ok: false, error: "Joshua didn't allow this session to use Samara (or wasn't there to answer). Ask him, then try again." };
