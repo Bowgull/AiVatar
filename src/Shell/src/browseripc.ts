@@ -125,6 +125,14 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('browser:suggestShow', (e, m) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).suggestShow(m); });
   ipcMain.on('browser:suggestForget', (e, a) => { if (top(e) && b(e)?.isFrame(e.sender) && a && typeof a === 'object') b(e).suggestForget(String(a.kind ?? ''), String(a.url ?? '')); });
   ipcMain.on('suggest:act', (e, a) => { if (top(e) && b(e)?.isSuggest(e.sender) && a && (a.act === 'hover' || a.act === 'pick') && Number.isInteger(a.i) && a.i >= 0 && a.i < 16) b(e).suggestAct(a.act, a.i); });
+  // Sheet 106 v7: the notices' layer says which button he pressed (the TV code, the device picked), his mouse on it, how
+  // big it drew, and a download row dragged out or clicked; the frame says where the key it drops from is.
+  ipcMain.on('notice:act', (e, a) => { if (top(e) && b(e)?.isNotice(e.sender) && a && Number.isInteger(a.id) && typeof a.act === 'string') b(e).noticeAct(a.id, a.act, typeof a.value === 'string' ? a.value : undefined); });
+  ipcMain.on('notice:hover', (e, on) => { if (top(e) && b(e)?.isNotice(e.sender)) b(e).noticeHover(on === true); });
+  ipcMain.on('notice:size', (e, m) => { if (top(e) && b(e)?.isNotice(e.sender) && m && Number.isFinite(m.w) && Number.isFinite(m.h)) b(e).noticeSize(Number(m.w), Number(m.h)); });
+  ipcMain.on('notice:dldrag', (e, id) => { if (top(e) && b(e)?.isNotice(e.sender) && Number.isInteger(id)) b(e).noticeFile(e.sender, id, 'drag'); });
+  ipcMain.on('notice:dlopen', (e, id) => { if (top(e) && b(e)?.isNotice(e.sender) && Number.isInteger(id)) b(e).noticeFile(e.sender, id, 'open'); });
+  ipcMain.on('browser:noticeAt', (e, m) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).noticeAt(m); });
   ipcMain.on('suggest:size', (e, h) => { if (top(e) && b(e)?.isSuggest(e.sender) && Number.isFinite(h)) b(e).suggestSize(Number(h)); });
   ipcMain.handle('browser:suggest', (e, text) => (top(e) && b(e)?.isFrame(e.sender)) && typeof text === 'string' ? b(e).suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if ((top(e) && b(e)?.isFrame(e.sender))) b(e).findStop(); });

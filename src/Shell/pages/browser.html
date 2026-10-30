@@ -126,14 +126,6 @@
       <div class="tvcode" id="tvcode" hidden><input maxlength="1" aria-label="Code 1"><input maxlength="1" aria-label="Code 2"><input maxlength="1" aria-label="Code 3"><input maxlength="1" aria-label="Code 4"><input maxlength="1" aria-label="Code 5"><input maxlength="1" aria-label="Code 6"></div>
       <div class="keys"><button class="key primary sm" id="tvyes" type="button"><span></span><span class="k">A</span></button><button class="key sm" id="tvno" type="button"><span></span><span class="k">Z</span></button></div>
     </div>
-    <div class="bandchip" id="askchip" hidden>
-      <div class="q" id="askq"></div>
-      <p class="m" id="askm"></p>
-      <div class="keys">
-        <button class="key primary sm" id="askyes" type="button">Allow for this call<span class="k">A</span></button>
-        <button class="key sm" id="askno" type="button">No<span class="k">Z</span></button>
-      </div>
-    </div>
     <!-- 6.24: sharing the screen in a call. He picks one screen or one window, every time; the site never chooses. -->
     <div class="bandchip share" id="sharechip" hidden>
       <div class="q" id="shareq">Share your screen?</div>
@@ -146,17 +138,6 @@
       <div class="keys">
         <button class="key primary sm" id="shareyes" type="button" disabled>Share<span class="k">A</span></button>
         <button class="key sm" id="shareno" type="button">Cancel<span class="k">Z</span></button>
-      </div>
-    </div>
-    <!-- Sheet 69 (his picks, 2026-10-22): a site asks for a keyboard or mouse. Only the devices it asked for are listed; he
-         picks one and Connect. Remembered for that site; Forget in the shield takes it back. -->
-    <div class="bandchip devchip" id="devchip" hidden>
-      <div class="q"><span data-pix="keyboard"></span><span id="devq">Connect a keyboard?</span></div>
-      <p class="m" id="devm"></p>
-      <div id="devlist"></div>
-      <div class="keys">
-        <button class="key primary sm" id="devyes" type="button" disabled>Connect<span class="k">A</span></button>
-        <button class="key sm" id="devno" type="button">Cancel<span class="k">Z</span></button>
       </div>
     </div>
     <!-- The star's own panel (his ask, 2026-10-14): name the bookmark as it is saved, or take it off. -->
@@ -246,7 +227,6 @@
       <div id="dlrows"></div>
       <div class="dfoot"><button type="button" id="dlfolder">Open Downloads folder</button><button type="button" id="dlall">See all</button><button type="button" id="dlclear">Clear list</button></div>
     </div>
-    <div class="toast" id="toast" hidden></div>
   </div>
   <div class="loading" id="loading"><i></i></div>
   <div class="body3">

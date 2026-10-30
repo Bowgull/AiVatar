@@ -69,32 +69,36 @@ app.whenReady().then(async () => {
   const center = async (wc: Electron.WebContents, sel: string) => wc.executeJavaScript(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r && r.width ? [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)] : null; })()`, true) as Promise<[number, number] | null>;
   const shot = async (name: string) => { const img = await frame().capturePage(); writeFileSync(path.join(OUT, `devask-${name}.png`), img.toPNG()); };
   const title = () => tab()!.getTitle();
+  // Sheet 106 v7: the ask is a notice on Samara's notice layer now.
+  const nl = () => b.pane.noticeV?.webContents as Electron.WebContents;
+  const up = () => Boolean(b.pane.noticeV?.getVisible());
 
   // 1) The page asks; Samara's ask hangs from the band with the real device.
   await click(tab()!, 120, 50);
   let rows = 0;
-  for (let i = 0; i < 50 && !rows; i++) { await wait(100); rows = await frame().executeJavaScript(`document.getElementById('devchip').hidden ? 0 : document.querySelectorAll('#devlist .dev').length`, true); }
-  const askText = await frame().executeJavaScript(`document.getElementById('devm').textContent`, true);
+  for (let i = 0; i < 50 && !rows; i++) { await wait(100); rows = up() ? await nl().executeJavaScript(`document.querySelectorAll('.nt:not(.rise) .dev').length`, true) : 0; }
+  const askText = await nl().executeJavaScript(`document.querySelector('.nt:not(.rise) .v')?.textContent`, true);
   check('the ask shows with the device', rows > 0, `${rows} row(s): ${askText}`);
   await shot('1-ask');
   // 2) Pick the first row and Connect, by real clicks in the band.
-  const r1 = await center(frame(), '#devlist .dev'); if (r1) await click(frame(), ...r1);
-  const r2 = await center(frame(), '#devyes'); if (r2) await click(frame(), ...r2);
+  const r1 = await center(nl(), '.nt:not(.rise) .dev'); if (r1) await click(nl(), ...r1);
+  const r2 = await center(nl(), '.nt:not(.rise) .upfoot .key.primary'); if (r2) await click(nl(), ...r2);
   for (let i = 0; i < 30 && !title().startsWith('got:'); i++) await wait(100);
   check('the page gets the device he picked', title().startsWith('got:'), title());
-  check('the ask goes away', await frame().executeJavaScript(`document.getElementById('devchip').hidden`, true) === true);
+  for (let i = 0; i < 20 && up(); i++) await wait(100);
+  check('the ask goes away', !up());
   // 3) Asked again on the same site: with only that device matching, it connects with no ask; with others plugged in
   // too (his dongle AND his keyboard's cable), it asks again with the one he allowed already picked.
   await tab()!.executeJavaScript(`document.title = 'idle'`, true);
   const firstName = title();
   await click(tab()!, 120, 50);
   let asked = false;
-  for (let i = 0; i < 30 && !title().startsWith('got:') && !asked; i++) { await wait(100); asked = await frame().executeJavaScript(`!document.getElementById('devchip').hidden`, true); }
+  for (let i = 0; i < 30 && !title().startsWith('got:') && !asked; i++) { await wait(100); asked = up(); }
   if (rows > 1) {
-    const pre = await frame().executeJavaScript(`[...document.querySelectorAll('#devlist .dev')].findIndex((x) => x.getAttribute('aria-pressed') === 'true')`, true);
+    await wait(500); const pre = await nl().executeJavaScript(`[...document.querySelectorAll('.nt:not(.rise) .dev')].findIndex((x) => x.getAttribute('aria-pressed') === 'true')`, true);
     check('several devices: it asks again, the allowed one already picked', asked && pre === 0, `picked row ${pre}`);
     await shot('1b-ask-again');
-    const y = await center(frame(), '#devyes'); if (y) await click(frame(), ...y);
+    const y = await center(nl(), '.nt:not(.rise) .upfoot .key.primary'); if (y) await click(nl(), ...y);
     for (let i = 0; i < 30 && !title().startsWith('got:'); i++) await wait(100);
     check('Connect gives the same device', title() !== 'idle', title());
   } else check('one device: next time it connects with no ask', title().startsWith('got:') && !asked, title());
@@ -114,8 +118,9 @@ app.whenReady().then(async () => {
   await tab()!.executeJavaScript(`document.title = 'idle'`, true);
   await click(tab()!, 120, 50);
   let again = false;
-  for (let i = 0; i < 50 && !again; i++) { await wait(100); again = await frame().executeJavaScript(`!document.getElementById('devchip').hidden`, true); }
-  const no = await center(frame(), '#devno'); if (no) await click(frame(), ...no);
+  for (let i = 0; i < 50 && !again; i++) { await wait(100); again = up(); }
+  await wait(500);
+  const no = await center(nl(), '.nt:not(.rise) .upfoot .key:not(.primary)'); if (no) await click(nl(), ...no);
   for (let i = 0; i < 30 && title() === 'idle'; i++) await wait(100);
   check('after Forget it asks again, and Cancel gives nothing', again && !title().startsWith('got:'), title());
   const ok = results.every(([, p]) => p);
