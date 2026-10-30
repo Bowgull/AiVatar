@@ -685,6 +685,41 @@
       "at": "2026-10-30T09:10:00-04:00",
       "text": "Updates no longer get stuck on an old copy.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T10:08:00-04:00",
+      "text": "Notices drop from what caused them, in Samara's style.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T10:09:00-04:00",
+      "text": "All your mockups live in one Mockups tab.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T10:10:00-04:00",
+      "text": "New engines arrive on your UPDATE key too.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T10:11:00-04:00",
+      "text": "Claude and Aang can picture Samara's whole window.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T10:12:00-04:00",
+      "text": "Aang decides when to speak the same on both computers.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T10:13:00-04:00",
+      "text": "The address bar shows the page, never a frame in it.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-30T10:14:00-04:00",
+      "text": "A dead phishing list swapped for its working copy.",
+      "kind": "fix"
     }
   ]
 }
