@@ -642,22 +642,22 @@
       "kind": "feature"
     },
     {
-      "at": "2026-10-30T06:00:00-04:00",
+      "at": "2026-10-30T05:30:00-04:00",
       "text": "Updates always open Samara again afterwards.",
       "kind": "fix"
     },
     {
-      "at": "2026-10-30T06:01:00-04:00",
+      "at": "2026-10-30T05:31:00-04:00",
       "text": "Samara notes crashes and frozen pages in its log.",
       "kind": "fix"
     },
     {
-      "at": "2026-10-30T06:02:00-04:00",
+      "at": "2026-10-30T05:32:00-04:00",
       "text": "Videos in the pop-out no longer slowly eat memory.",
       "kind": "fix"
     },
     {
-      "at": "2026-10-30T06:03:00-04:00",
+      "at": "2026-10-30T05:33:00-04:00",
       "text": "Sleeping tabs never freeze while you look at them.",
       "kind": "fix"
     }
