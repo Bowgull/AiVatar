@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Sheet 105 - Marks when Aang is on his side</title>
+<title>Sheet 105 - Marks when Aang is docked</title>
 <!-- Sheet 105 (2026-10-29), his report: "these icons when aang is docked sideways are ridiculous and don't look right at
      all". Aang docked on the left edge of a screen, drawn by the same steps as the Mac app (macpet.js): his real frame
      (idle_0), the real Claude marks (ClaudeMarks.cs pixel maps, 3 px), the same turn for the edge. A is today; B and C
@@ -15,22 +15,25 @@
 </style>
 </head>
 <body>
-<h1>SHEET 105 &middot; MARKS WHEN AANG IS ON HIS SIDE</h1>
-<p class="lead">Docked on a side edge, Aang lies sideways but his mark stays standing up next to his head. Here are three ways to draw it.</p>
-<p class="real">His real frame and the real marks, drawn the way the Mac app draws them. Shown at the left edge; the right edge is the mirror.</p>
+<h1>SHEET 105 &middot; MARKS WHEN AANG IS DOCKED</h1>
+<p class="lead">v2. You picked B: the mark turns with him and floats over his head. Here it is on every edge he can dock on.</p>
+<p class="real">His real frame and the real marks, turned the way the Mac app turns him (macpet.js): left, right, and upside down at the top.</p>
 
-<div class="look"><div class="lhead"><span class="L">A</span><span class="nm">Today</span>
-  <p class="cap2">The mark stands upright beside his face, so it looks stuck to the side of his head.</p></div>
-  <div class="row" data-v="A"></div></div>
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Left edge</span>
+  <p class="cap2">Your pick, as on v1.</p></div>
+  <div class="row" data-e="left"></div></div>
 
-<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Turned with him</span><span class="new">OPTION</span>
-  <p class="cap2">The mark turns with him and floats over his head, the same as when he stands at the bottom. It reads as part of him.</p></div>
-  <div class="row" data-v="B"></div></div>
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Right edge</span>
+  <p class="cap2">The mirror: he lies the other way, the mark turns with him.</p></div>
+  <div class="row" data-e="right"></div></div>
 
-<div class="look"><div class="lhead"><span class="L">C</span><span class="nm">Standing, above him</span><span class="new">OPTION</span>
-  <p class="cap2">The mark stays upright but moves above him against the edge, like a flag on the wall. Easy to read, never on his face.</p></div>
-  <div class="row" data-v="C"></div></div>
+<div class="look"><div class="lhead"><span class="L">B</span><span class="nm">Top edge</span>
+  <p class="cap2">He hangs upside down, so the mark does too. The question mark reads upside down.</p></div>
+  <div class="row" data-e="top"></div></div>
 
+<div class="look"><div class="lhead"><span class="L">B2</span><span class="nm">Top edge, mark kept readable</span><span class="new">OPTION</span>
+  <p class="cap2">Same spot under his head, but the mark itself stays the right way up.</p></div>
+  <div class="row" data-e="top" data-upright="1"></div></div>
 <script>
 const MARK = 60, ART_TOP = 78, ART_X = 88, ART_W = 50, S = 2;
 const SHAPES = {
@@ -49,47 +52,43 @@ function markOf(kind) {
   return { c, w: map[0].length * px, h: map.length * px };
 }
 // One picture: a strip of screen with its left edge, Aang docked on it with `show` px of him out, wearing `kind`.
-function shot(img, v, show, kind) {
-  const W = 260, H = 230, along = 0, TOPPAD = 40;
-  const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; cv.className = 'scr';
-  cv.style.width = W * S + 'px';
+function shot(img, edge, show, kind, upright) {
+  const P = 230, TOPPAD = 30;
+  const cv = document.createElement('canvas'); cv.width = P * S; cv.height = P * S; cv.className = 'scr'; cv.style.width = P * S + 'px';
   const o = cv.getContext('2d'); o.imageSmoothingEnabled = false; o.scale(S, S);
-  o.fillStyle = '#1b1a19'; o.fillRect(0, 0, W, H);
-  // the screen edge he is docked on
-  o.fillStyle = '#0c0b0a'; o.fillRect(0, 0, 3, H);
-  // his upright drawing (macpet.js draw): MARK above, the frame, clipped at `show`
+  o.fillStyle = '#1b1a19'; o.fillRect(0, 0, P, P);
   const up = document.createElement('canvas'); up.width = 224; up.height = MARK + show;
   const g = up.getContext('2d'); g.imageSmoothingEnabled = false;
   g.drawImage(img, 0, MARK - ART_TOP);
   const a = markOf(kind);
-  if (v === 'B') g.drawImage(a.c, Math.round(ART_X + ART_W / 2 - a.w / 2), Math.round(MARK - 9 - a.h));
-  // turned for the left edge: (x, y) -> (H - y, x), placed at the edge, `TOPPAD` down the strip
-  o.save(); o.translate(0, TOPPAD + along);
-  o.save(); o.setTransform(1, 0, 0, 1, 0, 0); o.restore();
-  o.transform(0, 1, -1, 0, up.height, 0);
+  const mx = Math.round(ART_X + ART_W / 2 - a.w / 2), my = Math.round(MARK - 9 - a.h);
+  if (!upright) g.drawImage(a.c, mx, my);
+  // where the window sits on the panel, and the edge he is docked on
+  let ox = 0, oy = 0; o.fillStyle = '#0c0b0a';
+  if (edge === 'left') { ox = 0; oy = TOPPAD - ART_X + 40; o.fillRect(0, 0, 3, P); }
+  else if (edge === 'right') { ox = P - up.height; oy = TOPPAD - (224 - ART_X - ART_W) + 40; o.fillRect(P - 3, 0, 3, P); }
+  else { ox = Math.round(P / 2 - (224 - ART_X - ART_W / 2)); oy = 0; o.fillRect(0, 0, P, 3); }
+  o.save(); o.translate(ox, oy);
+  if (edge === 'left') o.transform(0, 1, -1, 0, up.height, 0);
+  else if (edge === 'right') o.transform(0, -1, 1, 0, 0, up.width);
+  else o.transform(-1, 0, 0, -1, up.width, up.height);
   o.drawImage(up, 0, 0);
   o.restore();
-  // his art on screen: x 0..show, y ART_X..ART_X+ART_W (from the strip's top)
-  const ax = 0, ay = TOPPAD + ART_X, aw = show, ah = ART_W;
-  if (v === 'A') {
-    // today: where it would sit above his head, turned, but upright
-    const cx = up.height - (MARK - 9 - a.h / 2), cy = TOPPAD + ART_X + ART_W / 2;
-    o.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(cy - a.h / 2));
-  } else if (v === 'C') {
-    // upright, above his visible part, against the edge
-    const cx = Math.max(6 + a.w / 2, aw / 2), top = ay - 8 - a.h;
-    o.drawImage(a.c, Math.round(cx - a.w / 2), Math.round(top));
+  if (upright) {
+    // the same centre the turned mark would have, the mark itself upright
+    const cx = mx + a.w / 2, cy = my + a.h / 2;
+    const tx = ox + (up.width - cx), ty = oy + (up.height - cy);
+    o.drawImage(a.c, Math.round(tx - a.w / 2), Math.round(ty - a.h / 2));
   }
   return cv;
 }
 const img = new Image();
 img.onload = () => {
-  for (const row of document.querySelectorAll('.row[data-v]')) {
-    const v = row.dataset.v;
+  for (const row of document.querySelectorAll('.row[data-e]')) {
     for (const [show, kind, label] of [[34, 'done', 'PEEKING, DONE TICK'], [34, 'question', 'PEEKING, QUESTION'], [90, 'question', 'SLID OUT, QUESTION']]) {
       const cell = document.createElement('div'); cell.className = 'cell';
       const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = label;
-      cell.append(lbl, shot(img, v, show, kind)); row.append(cell);
+      cell.append(lbl, shot(img, row.dataset.e, show, kind, row.dataset.upright === '1')); row.append(cell);
     }
   }
 };
