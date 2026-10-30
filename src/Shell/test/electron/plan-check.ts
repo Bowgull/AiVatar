@@ -36,16 +36,21 @@ app.whenReady().then(async () => {
   const b = new AangBrowser({ origin: pages.origin, stateDir: dir, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
   wireBrowser(() => b);
-  b.open('about:blank'); await wait(2000);
+  b.open('about:blank');
+  // Samara's own page loaded and wired before any plan is sent (a fixed 2 s was not enough on the busy Mac, 2026-10-30).
+  for (let i = 0; i < 100 && !(b.win && !b.win.webContents.isLoading() && await b.win.webContents.executeJavaScript(`!!document.getElementById('plantray') && !!window.aang`).catch(() => false)); i++) await wait(200);
+  await wait(1000);
   const w = b.win as BrowserWindow;
   const js = (s: string) => w.webContents.executeJavaScript(s);
+  // Until the card is up (a fixed 0.7 s failed on the busy Mac, 2026-10-30), at most 8 s.
+  const cardUp = async () => { for (let i = 0; i < 40; i++) { if (await js(`!document.getElementById('plantray').hidden`)) return; await wait(200); } };
   const mem = new PlanMemory(dir), pending = new Map<string, number>();
   const plan = cleanPlan({ task: 'Job scan', sites: ['https://www.linkedin.com/jobs', 'boards.greenhouse.io', 'www.jobbank.gc.ca'], steps: ['Search your 13 job types', 'Read the new posts', 'Save the list'], wont: "apply, send anything, or sign in anywhere new" })!;
   check('a plan is cleaned to sites and plain steps', plan.sites.join(',') === 'linkedin.com,boards.greenhouse.io,jobbank.gc.ca' && plan.steps.length === 3, JSON.stringify(plan.sites));
 
   // shown in the band, a site unticked, Go
   const first = runPlan(b, mem, plan, { elicit: false, pending });
-  await wait(700);
+  await cardUp(); await wait(200);
   const tray = await js(`({ open: !document.getElementById('plantray').hidden, task: document.getElementById('plantask').textContent, sites: [...document.querySelectorAll('#plansites .prow')].map((r) => r.textContent),
     ticks: document.querySelectorAll('#plansites .tq').length, steps: document.querySelectorAll('#plansteps .prow').length, wont: document.getElementById('planwonttext').textContent, lantern: !!document.querySelector('#plantray .uphd img') })`);
   check('the plan drops from the band: lantern, task, sites with ticks, steps, what it won\'t do', tray.open && tray.task === 'Job scan' && tray.ticks === 3 && tray.steps === 3 && tray.lantern && /^Won't apply/.test(tray.wont), JSON.stringify(tray));
@@ -73,9 +78,14 @@ app.whenReady().then(async () => {
 
   // a new plan: Change with a note
   const other = runPlan(b, mem, cleanPlan({ task: 'Research Acme', sites: ['acme.example'], steps: ['Read the about page'] })!, { elicit: false, pending });
-  await wait(600);
+  await cardUp(); await wait(200);
   await js(`document.getElementById('planchange').click()`);
   const noteShown = await js(`!document.getElementById('plannote').hidden && document.getElementById('plango').textContent`);
+  // 2026-10-30 (his catch): Change, then Send changes with nothing typed, must never count as Go.
+  await js(`document.getElementById('plannote').value = ''; document.getElementById('plango').click()`);
+  await wait(300);
+  const stillUp = await js(`!document.getElementById('plantray').hidden && document.activeElement === document.getElementById('plannote')`);
+  check('an empty Send changes is not Go: the card stays and the cursor goes back in the box', stillUp === true, String(stillUp));
   await js(`document.getElementById('plannote').value = 'Only their careers page'; document.getElementById('plango').click()`);
   const r2: any = await other;
   check('Change opens a line to type; Go becomes Send changes', noteShown === 'Send changes', String(noteShown));
@@ -83,7 +93,7 @@ app.whenReady().then(async () => {
 
   // Not now
   const third = runPlan(b, mem, cleanPlan({ task: 'Research Acme', sites: ['acme.example'], steps: ['Read the careers page'] })!, { elicit: false, pending });
-  await wait(600);
+  await cardUp(); await wait(200);
   await js(`document.getElementById('planno').click()`);
   const r3: any = await third;
   check('Not now: nothing starts', r3.ok === false && /not now/i.test(r3.error), JSON.stringify(r3));
