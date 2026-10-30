@@ -16,7 +16,8 @@
 //   - a live page must be http(s) on this computer (127.0.0.1, localhost, ::1), with no user name in it;
 //   - the title is cut to 80 characters, the branch name is 1 to 40 or dropped.
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { readJson, saveText } from './store.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -147,10 +148,7 @@ function write(stateDir: string, body: Record<string, string>, title: string, br
     const name = `${Date.now()}-${process.pid}-${randomBytes(3).toString('hex')}.mockup`;
     const json = JSON.stringify({ ...body, ...(title ? { title } : {}), ...(branch ? { branch } : {}) });
     if (Buffer.byteLength(json) > 4096) return null;
-    const tmp = path.join(dir, name + '.tmp');
-    writeFileSync(tmp, json);
-    renameSync(tmp, path.join(dir, name));
-    return path.join(dir, name);
+    return saveText(path.join(dir, name), json) ? path.join(dir, name) : null;   // safe save: Samara never sees half a drop
   } catch { return null; }
 }
 
@@ -164,7 +162,7 @@ export interface MarkAsk { cwd?: unknown; path?: unknown; v?: unknown; stage?: u
 export async function markMockup(stateDir: string, ask: MarkAsk, homeRepo = HOME_REPO): Promise<MockupResult & { stages?: unknown[] }> {
   if (ask.list === true || ask.stage === undefined || ask.stage === null || ask.stage === '') {
     try {
-      const j = JSON.parse(readFileSync(path.join(stateDir, 'mockups.json'), 'utf8'));
+      const j = readJson<any>(path.join(stateDir, 'mockups.json'), {});
       const stages = (Array.isArray(j?.versions) ? j.versions : []).filter((x: Record<string, unknown>) => typeof x?.stage === 'string')
         .sort((a: Record<string, number>, b: Record<string, number>) => (b.stageAt ?? 0) - (a.stageAt ?? 0)).slice(0, 60)
         .map((x: Record<string, unknown>) => ({ sheet: x.sheet, title: x.title, v: x.v, commit: x.commit, stage: x.stage, ...(x.note ? { note: x.note } : {}), ...(x.said ? { said: x.said } : {}), at: x.stageAt, by: x.by }));
@@ -201,8 +199,7 @@ export async function markMockup(stateDir: string, ask: MarkAsk, homeRepo = HOME
     const name = `${Date.now()}-${process.pid}-${randomBytes(3).toString('hex')}.mockmark`;
     const json = JSON.stringify(body);
     if (Buffer.byteLength(json) > 4096) return { ok: false, message: 'That mark is too long.' };
-    writeFileSync(path.join(dir, name + '.tmp'), json);
-    renameSync(path.join(dir, name + '.tmp'), path.join(dir, name));
+    if (!saveText(path.join(dir, name), json)) throw new Error('not saved');
   } catch { return { ok: false, message: 'The mark could not be handed to Samara (his Aang folder could not be written).' }; }
   return { ok: true, message: `Marked ${rel} ${stage} in Samara's Mockups trail${Number.isInteger(v) && v > 0 ? ` (version ${v})` : ' (its newest version)'}.` };
 }

@@ -10,12 +10,13 @@
 //
 // The log is READ-ONLY here and streamed line by line: a raid evening can be several hundred MB.
 // Other players' names stay on his PC; only his own toon's summary ever goes into a prompt.
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { writeFileAtomic, reportWriteFailure } from './atomic.ts';
 import { runOffThread } from './offthread.ts';
 import { KEY, specInfo } from './coachspecs.ts';
+import { readJson } from './store.ts';
 
 export const WOW_DEFAULT_ROOT = 'C:\\Program Files (x86)\\World of Warcraft';
 export const KEEP_RAW_DAYS = 7;
@@ -455,9 +456,6 @@ export const historyFile = (dataDir: string, toon: string) => path.join(coachDir
 
 type Processed = Record<string, { size: number; mtimeMs: number; at: string }>;
 
-function readJson<T>(file: string, empty: T): T {
-  try { return JSON.parse(readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) as T; } catch { return empty; }
-}
 
 export interface ToonHistory { toon: string; updated: string; fights: FightSummary[] }
 

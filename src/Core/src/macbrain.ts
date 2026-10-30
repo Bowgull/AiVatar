@@ -33,6 +33,8 @@ import { MacJobs } from './macjobs.ts';
 import { briefCardData, nowNote } from './briefcard.ts';
 import { readAttachment, safeFileName } from './attachments.ts';
 import { fetchDayWeather } from './weather.ts';
+import { dayKey, homeDate, homeHour } from './clock.ts';
+import { readJson } from './store.ts';
 
 /** How long a message waits for the PC before the Mac answers it. The heartbeat calls the PC off after 30 s. */
 export const HOLD_MS = 45_000;
@@ -208,8 +210,8 @@ export class MacBrain {
     this.powers = new MacPowers(path.dirname(o.dir));
     this.jobs = new MacJobs({ gw: o.gw, dir: o.dir, log: this.log, meter: (m) => this.meter('job', m), ...(o.draw ? { draw: o.draw } : {}), forum: () => (this.brief ? Object.entries(this.brief.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined) });
     mkdirSync(o.dir, { recursive: true, mode: 0o700 });
-    try { this.brief = checkBrief(JSON.parse(readFileSync(this.file('brief.json'), 'utf8'))); } catch { /* none yet */ }
-    try { const h = JSON.parse(readFileSync(this.file('handled.json'), 'utf8')); if (Array.isArray(h)) this.handled = h; } catch { /* none */ }
+    this.brief = readJson(this.file('brief.json'), this.brief, (j) => checkBrief(j));   // none yet: as it was
+    this.handled = readJson(this.file('handled.json'), this.handled, (h) => (Array.isArray(h) ? h : null));
     this.remembered = this.handled.filter(h => h.kind === 'remember').map(h => (h as { text: string }).text);
     if (this.brief) this.loadGrocery(false);
   }
@@ -244,8 +246,8 @@ export class MacBrain {
     const b = this.brief, m = b?.morning;
     if (!b || !m || this.morningBusy || !this.powers?.mailConnected) return;
     const now = this.o.now?.() ?? new Date();
-    const day = now.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
-    const hour = Number(now.toLocaleTimeString('en-GB', { timeZone: 'America/Toronto', hour: '2-digit', hour12: false }).slice(0, 2));
+    const day = dayKey(now);
+    const hour = homeHour(now);
     let sent = ''; try { sent = readFileSync(this.file('brief-day'), 'utf8').trim(); } catch { /* never */ }
     if (hour < 7 || m.sentDay === day || sent === day) return;
     const ch = Object.entries(b.listen).find(([, k]) => k === 'aang')?.[0];
@@ -256,7 +258,7 @@ export class MacBrain {
       const d = await this.powers.briefData();
       const weather = await fetchDayWeather().catch(() => null);
       const unread = d.unread.map(u => ({ from: u.from, subject: u.subject, job: m.companies.some(c => `${u.from} ${u.address}`.toLowerCase().includes(c)) }));
-      const { data, text } = briefCardData({ day: now.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', day: 'numeric', month: 'long' }), events: d.events, unread, jobsNew: m.jobsNew, waiting: m.waiting, weather });
+      const { data, text } = briefCardData({ day: homeDate(now, { weekday: 'long', day: 'numeric', month: 'long' }, 'en-CA'), events: d.events, unread, jobsNew: m.jobsNew, waiting: m.waiting, weather });
       const png = await this.o.draw?.('brief', data).catch(() => null) ?? null;
       await this.o.gw.send(ch, png ? { content: text, embed: { color: 0xFFC43C, image: 'attachment://card.png' }, files: [{ name: 'card.png', data: png }] } as never : { content: text } as never);
       this.log(`mac brain: sent the morning brief${png ? ' (drawn)' : ''}`);

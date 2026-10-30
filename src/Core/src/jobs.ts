@@ -4,12 +4,14 @@
 // Everything that reaches a card came from a web page or from a Claude session that read one, so it is treated as
 // untrusted: only https links, short fields, no mentions (see cleanField). Joshua's rules (2026-09-21): nothing is
 // applied to until he taps Approve; at most 5 a day, and 8 as the hard maximum.
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 // Type-only: erased at compile time, so this does not create a real runtime cycle with discord.ts (which
 // imports plenty of value exports from here).
 import type { OutEmbed } from './discord.ts';
+import { dayKey } from './clock.ts';
+import { readJson } from './store.ts';
 
 export const DAILY_CAP = 5, HARD_MAX = 8;
 
@@ -137,12 +139,7 @@ export interface ShortEntry { url: string; title: string; company: string; locat
  * Missing is normal and stays quiet. Present but broken is a fault and gets one line.
  */
 function readJsonOrSay(file: string, what: string): any {
-  if (!existsSync(file)) return null;                     // not written yet: nothing to report
-  try { return JSON.parse(readFileSync(file, 'utf8')); }
-  catch (e) {
-    console.error(`jobs: ${what} could not be read (${path.basename(file)}): ${(e as Error).message}`);
-    return null;
-  }
+  return readJson<any>(file, null, undefined, { onBroken: (e) => console.error(`jobs: ${what} could not be read (${path.basename(file)}): ${e.message}`) });
 }
 
 export function readShortlist(file: string): ShortEntry[] {
@@ -209,7 +206,7 @@ export function renderCard(c: Card): { content: string; embed: OutEmbed; buttons
 
 // ------------------------------------------------------------------ the store and the daily cap
 
-const today = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+const today = (d: Date) => dayKey(d);
 
 export class Jobs {
   cards: Card[] = [];
@@ -219,8 +216,8 @@ export class Jobs {
   constructor(dir: string) {
     this.file = path.join(dir, 'jobs.json');
     // Starting empty here means every job card he has been shown is gone. Worth a line.
-    try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); this.cards = Array.isArray(r.cards) ? r.cards : []; this.seen = Array.isArray(r.seen) ? r.seen : []; if (r.capToday) this.capToday = r.capToday; } }
-    catch (e) { console.error(`jobs: starting with no job cards, ${path.basename(this.file)} could not be read: ${(e as Error).message}`); }
+    const r = readJson<any>(this.file, null, undefined, { onBroken: (e) => console.error(`jobs: starting with no job cards, ${path.basename(this.file)} could not be read: ${e.message}`) });
+    if (r) { this.cards = Array.isArray(r.cards) ? r.cards : []; this.seen = Array.isArray(r.seen) ? r.seen : []; if (r.capToday) this.capToday = r.capToday; }
   }
   save() { try { writeFileAtomic(this.file, JSON.stringify({ cards: this.cards.slice(-300), seen: this.seen.slice(-1000), capToday: this.capToday }, null, 2)); } catch { /* best effort */ } }
 
@@ -308,8 +305,8 @@ export class Drafts {
   private readonly file: string;
   constructor(dir: string) {
     this.file = path.join(dir, 'drafts-state.json');
-    try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(r)) this.items = r; } }
-    catch (e) { console.error(`jobs: starting with no drafts, ${path.basename(this.file)} could not be read: ${(e as Error).message}`); }
+    const r = readJson<any>(this.file, null, undefined, { onBroken: (e) => console.error(`jobs: starting with no drafts, ${path.basename(this.file)} could not be read: ${e.message}`) });
+    if (Array.isArray(r)) this.items = r;
   }
   save() { try { writeFileAtomic(this.file, JSON.stringify(this.items.slice(-200), null, 2)); } catch { /* best effort */ } }
   get(id: string) { return this.items.find(d => d.id === id) ?? null; }

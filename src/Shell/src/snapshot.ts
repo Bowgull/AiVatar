@@ -12,6 +12,7 @@
 // file manager and the note this writes beside it.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { saveJson } from './store.ts';
 
 /** How much of one file is worth copying. The database is the big one and it is far under this. */
 const MAX_FILE_BYTES = 512 * 1024 * 1024;
@@ -91,7 +92,7 @@ export function snapshotOnce(stateDir: string, dataDir: string, now = new Date()
       'once you are happy with the new one.',
     ].join('\n'), 'utf8');
 
-    writeFileSync(marker, JSON.stringify({ at: now.toISOString(), dir, files, bytes }), 'utf8');
+    if (!saveJson(marker, { at: now.toISOString(), dir, files, bytes })) throw new Error('its marker could not be written');
     return { dir, files, bytes, skipped };
   } catch (e) {
     // Never stop the Shell starting over this. A missing snapshot is a worse day later; a Shell that

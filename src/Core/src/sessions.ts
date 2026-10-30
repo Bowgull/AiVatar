@@ -5,9 +5,9 @@
 // forgets the conversation every time, which reads as amnesia rather than as a restart. The SDK keeps
 // the transcripts under ~/.claude/projects and the Shadow disk persists, so all we have to remember is
 // the id.
-import { existsSync, readFileSync } from 'node:fs';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import path from 'node:path';
+import { readJson } from './store.ts';
 
 export interface SessionRecord {
   id: string;
@@ -32,18 +32,14 @@ export class SessionStore {
   }
 
   private load(): void {
-    try {
-      if (!existsSync(this.file)) return;
-      const raw = JSON.parse(readFileSync(this.file, 'utf8'));
-      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-        for (const [lane, rec] of Object.entries(raw as Record<string, any>)) {
-          if (rec && typeof rec.id === 'string' && rec.id) {
-            this.data[lane] = { id: rec.id, savedAt: typeof rec.savedAt === 'string' ? rec.savedAt : new Date().toISOString() };
-          }
+    // A corrupt file must never stop the Core from starting.
+    const raw = readJson<unknown>(this.file, null);
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [lane, rec] of Object.entries(raw as Record<string, any>)) {
+        if (rec && typeof rec.id === 'string' && rec.id) {
+          this.data[lane] = { id: rec.id, savedAt: typeof rec.savedAt === 'string' ? rec.savedAt : new Date().toISOString() };
         }
       }
-    } catch {
-      this.data = {};   // a corrupt file must never stop the Core from starting
     }
   }
 

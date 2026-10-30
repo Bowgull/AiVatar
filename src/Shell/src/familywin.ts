@@ -31,11 +31,11 @@
 // The panel (its `card` selector) is held at --fam-w x --fam-h by the family's own CSS; everything else is the page's
 // own CSS under html[data-fam-shape=...]. view-transition-name on its parts makes them glide; the rest crossfades.
 import { BrowserWindow, app, ipcMain, screen } from 'electron';
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as F from './family.ts';
 import * as FS from './familysave.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 import { setCorners } from './winedge.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 
@@ -203,7 +203,7 @@ export class FamilyHost implements FamilyHooks {
   constructor(o: { origin: string; iconPath?: string; overlay?: FamilyOverlay; saveFile?: string | null }) {
     this.overlay = o.overlay ?? new FamilyOverlay({ origin: o.origin, iconPath: o.iconPath, host: this });
     this.saveFile = o.saveFile ?? null;
-    if (this.saveFile) { try { this.saved = FS.readSaved(JSON.parse(readFileSync(this.saveFile, 'utf8'))); } catch { /* first run, or a broken file: start empty */ } }
+    if (this.saveFile) { try { this.saved = FS.readSaved(readJson<unknown>(this.saveFile, null)); } catch { /* first run, or a broken file: start empty */ } }
     wireIpc(this);
   }
   /** The default place for the layouts file (familywire.ts). */

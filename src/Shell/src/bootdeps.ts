@@ -1,7 +1,7 @@
 // The boot engine's real hands (boot.ts): Electron, the disk and the doors. Kept apart so boot.ts itself has no Electron
 // import and its wiring can be unit tested.
 import { app, ipcMain, net, powerMonitor, session } from 'electron';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch } from 'node:fs';
 import type { BootDeps } from './boot.ts';
 import { startFlight } from './flight.ts';
 import { denyPermissions } from './safety.ts';
@@ -20,6 +20,7 @@ import { takeMarkFile, takeMockupFile } from './mockups.ts';
 import { UpdateEngine } from './updateengine.ts';
 import { listen as ghListen } from './ghrelease.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson, saveJson } from './store.ts';
 import { onCastlabs } from './engineupdate.ts';
 
 export function bootDeps(log: (s: string) => void): BootDeps {
@@ -31,10 +32,11 @@ export function bootDeps(log: (s: string) => void): BootDeps {
     newDrm: (o) => new DrmRuntime(o),
     blockAds: (dir) => blockAds(session.defaultSession, dir),
     findSkips: (dir) => new FindSkips(dir),
-    readBox: (dir) => {
-      try { const j = JSON.parse(readFileSync(popoutFile(dir), 'utf8')); return ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(j?.[k])) ? { x: j.x, y: j.y, width: j.width, height: j.height } : null; } catch { return null; }
-    },
-    writeBox: (dir, box) => { try { writeFileSync(popoutFile(dir), JSON.stringify(box)); } catch (e) { log('could not remember the pop-out size: ' + (e as Error).message); } },
+    readBox: (dir) => readJson(popoutFile(dir), null, (j) => {
+      const b = j as Record<string, number> | null;
+      return ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b?.[k])) ? { x: b!.x, y: b!.y, width: b!.width, height: b!.height } : null;
+    }),
+    writeBox: (dir, box) => { if (!saveJson(popoutFile(dir), box)) log('could not remember the pop-out size'); },
     newBrowser: (o) => new AangBrowser(o),
     mkdir: (dir) => { try { mkdirSync(dir, { recursive: true, mode: 0o700 }); return true; } catch { return false; } },
     wireBrowser,

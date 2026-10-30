@@ -6,9 +6,9 @@
 //
 // A note's text is HTML from his own editor (bold, lists, ticks, fonts). It is rebuilt here from scratch on
 // every save, keeping only the handful of tags and styles the editor can make, so nothing else can ride in.
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 /** The colours notes had before sheet 60 v4 (2026-10-22). Read only to drop them: colour now comes from the category. */
 export const OLD_COLOURS = ['parchment', 'sage', 'rose', 'sky', 'plum', 'stone'] as const;
@@ -193,10 +193,8 @@ export class Notes {
   constructor(file: string) {
     this.file = file;
     this.catsFile = path.join(path.dirname(file), 'note-cats.json');
-    try { if (existsSync(this.catsFile)) { const raw = JSON.parse(readFileSync(this.catsFile, 'utf8')) as unknown; if (Array.isArray(raw)) this.own = this.cleanOwn(raw); } }
-    catch { this.own = []; }
-    try { if (existsSync(file)) { const raw = JSON.parse(readFileSync(file, 'utf8')) as Note[]; if (Array.isArray(raw)) this.all = raw.map(n => this.tidy(n)).filter((n): n is Note => n !== null).slice(0, MAX_NOTES); } }
-    catch { this.all = []; }
+    this.own = readJson(this.catsFile, this.own, (raw) => (Array.isArray(raw) ? this.cleanOwn(raw) : null));
+    this.all = readJson(file, this.all, (raw) => (Array.isArray(raw) ? (raw as Note[]).map(n => this.tidy(n)).filter((n): n is Note => n !== null).slice(0, MAX_NOTES) : null));
     // A category a note carries that is in neither list (an older file, a hand edit) joins his own, in note order.
     const before = this.own.length;
     for (const n of [...this.all].sort((a, b) => a.updated - b.updated)) if (n.cat) n.cat = this.canonCat(n.cat, false);

@@ -3,9 +3,9 @@
 // headless, on the strongest model, with Aang's own tools and gates (nothing new is unlocked: every change still asks
 // the way it always has). Aang owns the session, so it can be continued, asked about, and stopped, and it reports
 // through the same tiers as any Claude session: a tick when done, a "!" when it needs him.
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export type TaskState = 'working' | 'done' | 'needs you' | 'failed' | 'stopped';
 
@@ -68,10 +68,7 @@ export class TaskStore {
 
   constructor(stateDir: string) {
     this.file = path.join(stateDir, 'tasks.json');
-    try {
-      const j = JSON.parse(readFileSync(this.file, 'utf8'));
-      if (Array.isArray(j)) this.tasks = j.filter(t => t && typeof t.id === 'string');
-    } catch { /* none yet */ }
+    this.tasks = readJson(this.file, this.tasks, (j) => (Array.isArray(j) ? j.filter(t => t && typeof t.id === 'string') : null));   // none yet
     // Anything still marked working died with the last Core: it can be continued (its session is kept).
     for (const t of this.tasks) if (t.state === 'working') { t.state = 'stopped'; t.last = 'Aang restarted before it finished. Tell it to carry on and it will pick up where it was.'; }
     this.seq = this.tasks.reduce((m, t) => Math.max(m, Number(t.id.replace(/\D/g, '')) || 0), 0);

@@ -5,8 +5,8 @@
 //   camera, mic   allow / ask / block (default ask, per call, as before)
 // Keyed by address without www (the same keys as the ads, popup and dark-mode lists); an address with no rule of its
 // own uses its parent's, so a rule on reddit.com covers old.reddit.com.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 import { cleanHost, siteOf } from './driverrules.ts';
 
 export type Tri = 'allow' | 'ask' | 'block';
@@ -41,10 +41,8 @@ export class SiteRules {
   constructor(file: string, changed: () => void = () => {}) {
     this.file = file; this.changed = changed;
     try {
-      if (existsSync(file)) {
-        const j = JSON.parse(readFileSync(file, 'utf8')) as Record<string, Record<string, unknown>>;
-        for (const [k, v] of Object.entries(j ?? {})) { const s = siteKey(k); const t = tidy(v ?? {}); if (s && Object.keys(t).length) this.map.set(s, t); }
-      }
+      const j = readJson<Record<string, Record<string, unknown>>>(file, {});
+      for (const [k, v] of Object.entries(j)) { const s = siteKey(k); const t = tidy(v ?? {}); if (s && Object.keys(t).length) this.map.set(s, t); }
     } catch { /* start empty */ }
   }
   /** The rule that applies: the address's own setting for each key, else its parent's, up to the site itself. */

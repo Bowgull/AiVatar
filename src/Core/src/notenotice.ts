@@ -16,9 +16,10 @@
 //   - Note text and window titles are DATA to Qwen, never instructions: they ride in the prompt under a fixed system
 //     prompt that says so, and Qwen has no tools at all (local.ts rule 1), so the worst a poisoned note can do is
 //     make Aang say one checked line out of that same note.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
 import { plainOf, type Note } from './notes.ts';
+import { HOME_TZ } from './clock.ts';
+import { readJson } from './store.ts';
 
 export const MAX_PER_DAY = 3;
 /** The slow timer, and the shortest gap between two reads whatever asks for them. */
@@ -49,7 +50,7 @@ export interface NoticeDeps {
 
 interface State { on: boolean; day: string; said: string[]; count: number; lastSaid: number }
 
-const TZ = 'America/Toronto';
+const TZ = HOME_TZ;
 const dayOf = (t: number) => new Date(t).toLocaleDateString('en-CA', { timeZone: TZ });
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?;:,]+$/, '').trim();
 const DONE = / \(done\)$/;
@@ -138,16 +139,15 @@ export class NoteNotice {
   constructor(file: string, deps: NoticeDeps) {
     this.file = file; this.d = deps;
     this.st = { on: true, day: '', said: [], count: 0, lastSaid: 0 };
-    try {
-      if (existsSync(file)) {
-        const r = JSON.parse(readFileSync(file, 'utf8')) as Partial<State>;
-        this.st = {
-          on: r.on !== false, day: typeof r.day === 'string' ? r.day : '',
-          said: Array.isArray(r.said) ? r.said.filter(s => typeof s === 'string').slice(-50) : [],
-          count: Number.isInteger(r.count) ? r.count! : 0, lastSaid: Number(r.lastSaid) || 0,
-        };
-      }
-    } catch { /* a broken file starts fresh, switched on */ }
+    // A broken file starts fresh, switched on.
+    const r = readJson<Partial<State> | null>(file, null, (x) => (x && typeof x === 'object' ? x as Partial<State> : null));
+    if (r) {
+      this.st = {
+        on: r.on !== false, day: typeof r.day === 'string' ? r.day : '',
+        said: Array.isArray(r.said) ? r.said.filter(s => typeof s === 'string').slice(-50) : [],
+        count: Number.isInteger(r.count) ? r.count! : 0, lastSaid: Number(r.lastSaid) || 0,
+      };
+    }
   }
 
   private now(): number { return this.d.now?.() ?? Date.now(); }

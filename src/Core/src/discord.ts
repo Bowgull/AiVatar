@@ -21,6 +21,8 @@ import { Grocery, applyListCommand, looksLikeRecipe, parseListCommand, parseReci
 import { Drafts, Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, verdictFor, vetPrompt } from './jobs.ts';
 import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
+import { dayKey } from './clock.ts';
+import { readJson } from './store.ts';
 
 export interface Attachment { name: string; url: string; size: number }
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string; /** for a message in a forum post: the forum */ parentId?: string }
@@ -221,8 +223,8 @@ export class DiscordAdapter {
   private now() { return (this.opts.now ?? (() => new Date()))(); }
 
   async start(): Promise<void> {
-    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ...s, ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {} }; }
-    catch { /* first run */ }
+    const s = readJson<any>(this.stateFile, null, (j) => (typeof j === 'object' ? j : null));   // null: first run
+    if (s) this.state = { ...s, ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {} };
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
     this.link.onEvent(ev => { void this.fromCore(ev).catch(e => this.log('discord: core event failed: ' + (e as Error).message)); });
@@ -598,7 +600,7 @@ export class DiscordAdapter {
   // ---------------------------------------------------------------- files from his phone
 
   private async receive(m: Incoming): Promise<void> {
-    const dir = path.join(this.opts.inboxDir ?? path.join(this.dir, 'inbox'), this.now().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }));
+    const dir = path.join(this.opts.inboxDir ?? path.join(this.dir, 'inbox'), dayKey(this.now()));
     const saved: string[] = [], refused: string[] = [];
     for (const a of m.attachments ?? []) {
       const name = safeAttachmentName(a.name);

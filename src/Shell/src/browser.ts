@@ -39,6 +39,7 @@ import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, copyProtected, p
 import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
+import { readJson } from './store.ts';
 import { carriesData, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
@@ -911,23 +912,21 @@ export class AangBrowser {
     this.devices = new DeviceOk(path.join(sd, 'device-ok.json'));
     this.prefsFile = path.join(sd, 'browser-prefs.json');
     this.localFile = path.join(o.stateDir, 'browser-local.json');
-    try { const l = JSON.parse(readFileSync(this.localFile, 'utf8')); if (l?.tabSize === 's' || l?.tabSize === 'm') this.tabSize = l.tabSize; } catch { /* Large */ }
+    const l = readJson<{ tabSize?: unknown } | null>(this.localFile, null); if (l?.tabSize === 's' || l?.tabSize === 'm') this.tabSize = l.tabSize;   // none: Large
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
     // Plugging the monitor in or out: Samara goes back to where it was the last time this setup was in use.
     const setupChanged = () => setTimeout(() => this.backToSetupSpot(), 700);
     screen.on('display-added', setupChanged); screen.on('display-removed', setupChanged);
     this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
     this.iconsFile = path.join(o.stateDir, 'browser-favicons.json');
-    try { if (existsSync(this.iconsFile)) for (const [h, d] of Object.entries(JSON.parse(readFileSync(this.iconsFile, 'utf8')) as Record<string, unknown>)) if (typeof d === 'string' && d.startsWith('data:image/')) this.icons.set(h, d); } catch { /* none yet */ }
+    for (const [h, d] of Object.entries(readJson<Record<string, unknown>>(this.iconsFile, {}))) if (typeof d === 'string' && d.startsWith('data:image/')) this.icons.set(h, d);
     setTimeout(() => { void this.fillMarkIcons(); }, 5000);
     this.popupOkFile = path.join(o.stateDir, 'browser-popups-ok.json');
     this.stashFile = path.join(o.stateDir, 'browser-stash.json');
     try {
-      if (existsSync(this.stashFile)) {
-        const a = JSON.parse(readFileSync(this.stashFile, 'utf8'));
-        if (Array.isArray(a)) this.stash = a.filter((s: Partial<Stashed>) => Number.isInteger(s?.id) && typeof s?.name === 'string' && Array.isArray(s?.tabs)).slice(0, 50)
-          .map((s: Stashed) => ({ id: s.id, name: s.name.slice(0, 24), at: Number(s.at) || 0, tabs: s.tabs.filter((t) => typeof t?.url === 'string' && isWeb(t.url)).slice(0, 80).map((t) => ({ url: t.url, title: String(t.title ?? t.url).slice(0, 200) })) }));
-      }
+      const a = readJson<unknown>(this.stashFile, null);
+      if (Array.isArray(a)) this.stash = a.filter((s: Partial<Stashed>) => Number.isInteger(s?.id) && typeof s?.name === 'string' && Array.isArray(s?.tabs)).slice(0, 50)
+        .map((s: Stashed) => ({ id: s.id, name: s.name.slice(0, 24), at: Number(s.at) || 0, tabs: s.tabs.filter((t) => typeof t?.url === 'string' && isWeb(t.url)).slice(0, 80).map((t) => ({ url: t.url, title: String(t.title ?? t.url).slice(0, 200) })) }));
     } catch { /* none yet */ }
     this.stashSeq = this.stash.reduce((m, s) => Math.max(m, s.id), 0);
     setSearch(this.prefs.search, this.prefs.aiBox);
@@ -937,24 +936,21 @@ export class AangBrowser {
     this.pinSeal = new PinSeal(path.join(sd, 'autofill-pin.json'));
     this.vault.keepSealed = () => this.pinSeal.has();
     this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]);
-    try { if (existsSync(this.popupOkFile)) this.popupOk = new Set((JSON.parse(readFileSync(this.popupOkFile, 'utf8')) as unknown[]).filter((x): x is string => typeof x === 'string')); } catch { /* none */ }
+    const ok = readJson<unknown[] | null>(this.popupOkFile, null, (a) => Array.isArray(a) ? a : null);
+    if (ok) this.popupOk = new Set(ok.filter((x): x is string => typeof x === 'string'));
     try {
-      if (existsSync(this.sitesFile)) {
-        const v = JSON.parse(readFileSync(this.sitesFile, 'utf8'));
-        const key = typeof v?.keyLocked === 'string' ? unlockKey(v.keyLocked) : typeof v?.key === 'string' ? v.key : '';
-        if (key && Array.isArray(v.sites)) { this.siteKey = key; this.sites = new Set(v.sites.filter((x: unknown) => typeof x === 'string')); }
-        // An older file kept the key in plain text beside the list: lock it now (Windows), the list stays the same.
-        if (typeof v?.key === 'string' && key) { const locked = lockKey(key); if (locked) writeFileAtomic(this.sitesFile, JSON.stringify({ keyLocked: locked, sites: [...(this.sites ?? [])] })); }
-      }
+      const v = readJson<{ keyLocked?: unknown; key?: unknown; sites?: unknown } | null>(this.sitesFile, null);
+      const key = typeof v?.keyLocked === 'string' ? unlockKey(v.keyLocked) : typeof v?.key === 'string' ? v.key : '';
+      if (key && Array.isArray(v?.sites)) { this.siteKey = key; this.sites = new Set(v.sites.filter((x: unknown) => typeof x === 'string')); }
+      // An older file kept the key in plain text beside the list: lock it now (Windows), the list stays the same.
+      if (typeof v?.key === 'string' && key) { const locked = lockKey(key); if (locked) writeFileAtomic(this.sitesFile, JSON.stringify({ keyLocked: locked, sites: [...(this.sites ?? [])] })); }
     } catch { /* none yet */ }
     // Chromium's own name, for the sign-in pages that need it (arm() gives everything else plain Chrome's).
     this.honestUA = this.ses.getUserAgent();
     try {
-      if (existsSync(this.marksFile)) {
-        const a = JSON.parse(readFileSync(this.marksFile, 'utf8'));
-        if (Array.isArray(a)) this.marks = a.filter((m: Partial<Mark>) => typeof m?.url === 'string' && isWeb(m.url) && typeof m.title === 'string')
-          .map((m: Mark) => ({ title: m.title.slice(0, 200), url: m.url, folder: String(m.folder ?? '').slice(0, 80) })).slice(0, 5000);
-      }
+      const a = readJson<unknown>(this.marksFile, null);
+      if (Array.isArray(a)) this.marks = a.filter((m: Partial<Mark>) => typeof m?.url === 'string' && isWeb(m.url) && typeof m.title === 'string')
+        .map((m: Mark) => ({ title: m.title.slice(0, 200), url: m.url, folder: String(m.folder ?? '').slice(0, 80) })).slice(0, 5000);
     } catch { /* none yet */ }
     // Sheet 89 (his ask): Stremio on normal Samara's shelf, once, where its app is installed (he can take it off for good).
     if (!o.secret && existsSync(STREMIO_APP)) {
@@ -973,14 +969,14 @@ export class AangBrowser {
     this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true, stateDir: o.stateDir,
       rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) } });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
-    const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
+    const loadSet = (f: string) => { const a = readJson<unknown>(f, null); return Array.isArray(a) ? new Set<string>(a.filter((x: unknown) => typeof x === 'string')) : new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
     this.trusted = loadSet(this.trustedFile);
     this.peerTrusted = loadSet(this.trustedFile.replace(/\.json$/, '-other.json'));
     this.peerHttp = loadSet(this.httpOkFile.replace(/\.json$/, '-other.json'));
     try {
-      if (existsSync(this.prefsFile)) {
-        const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
+      const p = readJson<any>(this.prefsFile, null);
+      if (p !== null) {
         this.sounds = p?.sounds === true;
         this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
           search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs',
@@ -992,7 +988,7 @@ export class AangBrowser {
     this.colorScheme();
     this.phish = o.phish ?? new PhishCheck(sd);
     if (!o.phish) void this.phish.start();
-    try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
+    try { this.paused = new Set(readJson<Iterable<string>>(this.pausedFile, [])); } catch { /* none paused */ }
     this.wall = new CookieWall(sd);
     this.arm();
     // Sheet 87: the secret window's kept session gets everything the throwaway one has.
@@ -1835,8 +1831,7 @@ export class AangBrowser {
   private get tvFile(): string { return path.join(this.o.stateDir, 'tv-remote.json'); }
   /** The linked TV and his two TV settings (his picks: answer YouTube's "Who's watching?", pause the video here). */
   private tvCfg(): { host: string; name: string; linked: boolean; answer: boolean; pause: boolean } {
-    let j: Record<string, unknown> = {};
-    try { j = JSON.parse(readFileSync(this.tvFile, 'utf8')); } catch { /* none yet */ }
+    const j = readJson<Record<string, unknown>>(this.tvFile, {});   // none yet: {}
     return { host: typeof j.host === 'string' ? j.host : '', name: typeof j.name === 'string' ? j.name : '', linked: j.linked === true, answer: j.answer !== false, pause: j.pause !== false };
   }
   private saveTvCfg(c: ReturnType<AangBrowser['tvCfg']>): void { try { writeFileAtomic(this.tvFile, JSON.stringify(c)); } catch (e) { console.log('shell: TV: could not save its link: ' + (e as Error).message); } }
@@ -3399,7 +3394,7 @@ export class AangBrowser {
     const w = this.panes[0]?.win;
     if (!w || w.isDestroyed() || w.isFullScreen()) return;
     let p: { x: number; y: number; width: number; height: number; maximized?: boolean } | undefined;
-    try { p = JSON.parse(readFileSync(this.placeFile, 'utf8'))?.setups?.[this.screensNow()]; } catch { return; }
+    p = readJson<any>(this.placeFile, null)?.setups?.[this.screensNow()];
     if (!p || ![p.x, p.y, p.width, p.height].every(Number.isFinite)) return;
     if (w.isMaximized()) w.unmaximize();
     w.setBounds({ x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) });
@@ -3410,8 +3405,7 @@ export class AangBrowser {
   /** Where the window was last time, if that spot is still on a screen he has. */
   private savedPlace(): { x: number; y: number; width: number; height: number; maximized: boolean } | null {
     try {
-      if (!existsSync(this.placeFile)) return null;
-      const all = JSON.parse(readFileSync(this.placeFile, 'utf8'));
+      const all = readJson<any>(this.placeFile, null);
       // Each screen setup keeps its own spot (his pick, 2026-10-23); a setup never seen yet uses the last one.
       const p = all?.setups?.[this.screensNow()] ?? all;
       const r = { x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
@@ -3431,7 +3425,7 @@ export class AangBrowser {
     const b = w.getNormalBounds();
     const spot = { ...b, maximized: w.isMaximized() };
     let setups: Record<string, unknown> = {};
-    try { setups = JSON.parse(readFileSync(this.placeFile, 'utf8'))?.setups ?? {}; } catch { /* first time */ }
+    setups = readJson<any>(this.placeFile, null)?.setups ?? {};   // first time: none
     try { writeFileAtomic(this.placeFile, JSON.stringify({ ...spot, setups: { ...setups, [this.screensNow()]: spot } })); } catch { /* best effort */ }
   }
 
@@ -4269,7 +4263,7 @@ export class AangBrowser {
         return { tabs: this.tabs.filter((t) => !t.internal && !t.mock && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.filter((x) => !x.mock).map((x) => ({ id: x.id, name: x.name })) };
       }
       try {
-        const s = JSON.parse(readFileSync(this.file, 'utf8'));
+        const s = readJson<any>(this.file, null);
         return { tabs: (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: any) => typeof t?.url === 'string' && isWeb(t.url) && !t.mock).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url), trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true })),
           trails: (Array.isArray(s?.trails) ? s.trails : []).filter((x: any) => Number.isInteger(x?.id) && x.id !== MOCK_TRAIL).map((x: any) => ({ id: x.id, name: String(x.name ?? '') })) };
       } catch { return { tabs: [], trails: [] }; }
@@ -4306,7 +4300,7 @@ export class AangBrowser {
       let closed: string[] = [];
       // The mockup tabs written here stay (sheet 47): they are this PC's own.
       let mocks: unknown[] = [];
-      try { const s = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
+      try { const s = readJson<any>(this.file, null); if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
       this.keepTabsCopy('other-machine');
       const keepTrails = mocks.length ? [...trails.filter((x) => x.id !== MOCK_TRAIL), { id: MOCK_TRAIL, name: 'MOCKUPS', named: true, mock: true }] : trails;
       try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...mocks], trails: keepTrails, closed })); } catch { /* best effort */ }
@@ -6089,11 +6083,11 @@ export class AangBrowser {
 
   /** His own words a driving session must not type outside its job's sites without asking (private-words.json, optional:
    *  his name, street, and the like; emails and phone numbers are caught anyway). */
-  private privateWords(): string[] { try { const j = JSON.parse(readFileSync(path.join(this.o.stateDir, 'private-words.json'), 'utf8')); return Array.isArray(j) ? j.map(String).slice(0, 50) : []; } catch { return []; } }
+  private privateWords(): string[] { const j = readJson<unknown>(path.join(this.o.stateDir, 'private-words.json'), null); return Array.isArray(j) ? j.map(String).slice(0, 50) : []; }
   /** Notes per site for driving sessions, kept between runs. Claude's own words for its next visit. */
   private notesOfSites: Record<string, string> | null = null;
   private get siteNotes(): Record<string, string> {
-    if (!this.notesOfSites) { try { this.notesOfSites = JSON.parse(readFileSync(path.join(this.o.stateDir, 'driver-notes.json'), 'utf8')); } catch { this.notesOfSites = {}; } }
+    this.notesOfSites ??= readJson<Record<string, string>>(path.join(this.o.stateDir, 'driver-notes.json'), {});
     return this.notesOfSites!;
   }
   private noteHost(site: string): string {

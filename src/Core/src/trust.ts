@@ -7,11 +7,11 @@
 // Kinds are deliberately coarse for opening things and narrow for running them. Saying yes to "open a
 // folder" once is a small, reversible promise. Saying yes to "run anything in a shell" is not, so the
 // shell is trusted one program at a time: agreeing to `git` says nothing about `rm`.
-import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { plainProgram } from './plain.ts';
+import { readJson } from './store.ts';
 
 export interface TrustRecord {
   kind: string;
@@ -26,16 +26,12 @@ export class TrustStore {
 
   constructor(stateDir: string) {
     this.file = path.join(stateDir, 'trust.json');
-    try {
-      if (existsSync(this.file)) {
-        const raw = JSON.parse(readFileSync(this.file, 'utf8'));
-        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-          for (const [k, v] of Object.entries(raw as Record<string, any>)) {
-            if (v && typeof v.kind === 'string') this.data[k] = { kind: v.kind, example: String(v.example ?? ''), since: String(v.since ?? '') };
-          }
-        }
+    const raw = readJson<unknown>(this.file, null);   // unreadable means trust nothing, which is the safe direction
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [k, v] of Object.entries(raw as Record<string, any>)) {
+        if (v && typeof v.kind === 'string') this.data[k] = { kind: v.kind, example: String(v.example ?? ''), since: String(v.since ?? '') };
       }
-    } catch { this.data = {}; }   // unreadable means trust nothing, which is the safe direction
+    }
   }
 
   private save(): void {

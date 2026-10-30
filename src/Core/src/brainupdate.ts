@@ -14,6 +14,7 @@
 import { spawn } from 'node:child_process';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { createWriteStream, existsSync, readFileSync, renameSync, rmSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
+import { readJson, saveJson } from './store.ts';
 import path from 'node:path';
 
 /** His release key's public half (src/Shell/release-key.pub; a test keeps the two the same). */
@@ -107,7 +108,7 @@ export class BrainUpdates {
   private get nextDir(): string { return path.join(this.o.home, 'core.next'); }
   private get file(): string { return path.join(this.core, 'brain.json'); }
   installed(): BrainInstalled | null {
-    try { const j = JSON.parse(readFileSync(this.file, 'utf8')); return isVersion(j.version) ? { version: j.version, commit: String(j.commit ?? ''), status: j.status === 'trial' ? 'trial' : 'good', said: j.said === true } : null; } catch { return null; }
+    return readJson<BrainInstalled | null>(this.file, null, (j: any) => isVersion(j?.version) ? { version: j.version, commit: String(j.commit ?? ''), status: j.status === 'trial' ? 'trial' : 'good', said: j.said === true } : null);
   }
   private failed(): string[] { try { return readFileSync(path.join(this.o.home, 'brain-failed.txt'), 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } }
   /** What waits (made ready, not yet in). */
@@ -117,8 +118,8 @@ export class BrainUpdates {
   started(): string {
     const i = this.installed();
     if (!i) return '';
-    if (i.status === 'trial') this.timers.push(setTimeout(() => { const j = this.installed(); if (j?.status === 'trial') { try { writeFileSync(this.file, JSON.stringify({ ...j, status: 'good' })); this.o.log(`brain update: ${j.version} is good`); } catch { /* next start */ } } }, 120_000));
-    if (i.said === false) { try { writeFileSync(this.file, JSON.stringify({ ...i, said: true })); } catch { /* best effort */ } return i.version; }
+    if (i.status === 'trial') this.timers.push(setTimeout(() => { const j = this.installed(); if (j?.status === 'trial' && saveJson(this.file, { ...j, status: 'good' })) this.o.log(`brain update: ${j.version} is good`); }, 120_000));   // not saved: next start
+    if (i.said === false) { saveJson(this.file, { ...i, said: true }); return i.version; }
     return '';
   }
 
@@ -158,7 +159,7 @@ export class BrainUpdates {
       }
       // The Mac's presence helper is built on this Mac, never shipped: the one here comes along.
       if (existsSync(path.join(this.core, 'bin'))) cpSync(path.join(this.core, 'bin'), path.join(part, 'bin'), { recursive: true });
-      writeFileSync(path.join(part, 'brain.json'), JSON.stringify({ version: m.version, commit: m.commit.slice(0, 12), status: 'trial', said: false }));
+      if (!saveJson(path.join(part, 'brain.json'), { version: m.version, commit: m.commit.slice(0, 12), status: 'trial', said: false })) throw new Error('could not write brain.json');
       rmSync(this.nextDir, { recursive: true, force: true }); renameSync(part, this.nextDir);
       rmSync(tgz, { force: true });
       return true;

@@ -6,7 +6,6 @@
 // card. A draft that changed since he looked, one that was already sent, or a stranger's address (which asks a second
 // time) all stop there.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
 import { GoogleError } from './google.ts';
 import type { CalEvent, Google, Message, Part } from './google.ts';
@@ -17,8 +16,10 @@ const MIMES: Record<string, string> = { pdf: 'application/pdf', png: 'image/png'
 export const mimeOfName = (n: string) => MIMES[(/\.([a-z0-9]+)$/i.exec(n)?.[1] ?? '').toLowerCase()] ?? 'application/octet-stream';
 import type { SeenEmail } from './emailcard.ts';
 import { mailDate } from './briefcard.ts';
+import { HOME_TZ } from './clock.ts';
+import { readJson } from './store.ts';
 
-const TZ = 'America/Toronto';
+const TZ = HOME_TZ;
 
 // ------------------------------------------------------------------ reading other people's words
 
@@ -174,8 +175,8 @@ export class MailStore {
   private readonly now: () => number;
   constructor(file: string, now: () => number = Date.now) {
     this.file = file; this.now = now;
-    try { if (existsSync(file)) { const j = JSON.parse(readFileSync(file, 'utf8')); this.s = { drafts: j.drafts ?? {}, known: j.known ?? [], proposed: j.proposed ?? [], ...(j.briefDay ? { briefDay: j.briefDay } : {}) }; } }
-    catch { /* start clean */ }
+    // Start clean when it is missing or broken.
+    this.s = readJson(file, this.s, (j: any) => (j && typeof j === 'object' ? { drafts: j.drafts ?? {}, known: j.known ?? [], proposed: j.proposed ?? [], ...(j.briefDay ? { briefDay: j.briefDay } : {}) } : null));
   }
   private save() { try { writeFileAtomic(this.file, JSON.stringify(this.s, null, 2)); } catch { /* best effort */ } }
 

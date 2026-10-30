@@ -5,9 +5,10 @@
 //
 // Both are cached hard. AniSkip's backend has been dormant since 2024: it works, it is not maintained,
 // and the polite and the sensible thing are the same here. Asking twice for the same episode is waste.
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from '../atomic.ts';
+import { readJson } from '../store.ts';
 
 export interface Skip {
   /** 'op' for an opening, 'ed' for an ending. */
@@ -39,12 +40,8 @@ export class SkipTimes {
   }
 
   private read<T>(key: string): T | null {
-    try {
-      const f = this.file(key);
-      if (!existsSync(f)) return null;
-      const c = JSON.parse(readFileSync(f, 'utf8')) as Cached<T>;
-      return Date.now() - c.at < KEEP_MS ? c.value : null;
-    } catch { return null; }
+    const c = readJson<Cached<T> | null>(this.file(key), null);
+    return c && Date.now() - c.at < KEEP_MS ? c.value : null;
   }
 
   private write<T>(key: string, value: T): void {

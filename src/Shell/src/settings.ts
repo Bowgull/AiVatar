@@ -6,9 +6,9 @@
 //   fadeControls  on   the wood gets out of the way while the video plays
 //   smoothVideo   on   backgroundThrottling off, measured free in 6.1
 //   clickThrough  OFF  decision 32: it is a normal window. This is the optional switch, never the default
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 export interface PopoutSettings {
   alwaysOnTop: boolean;
@@ -32,8 +32,7 @@ export const settingsFile = (stateDir: string) => path.join(stateDir, 'popout-se
 export function readSettings(stateDir: string): PopoutSettings {
   try {
     const f = settingsFile(stateDir);
-    if (!existsSync(f)) return { ...DEFAULTS };
-    const j = JSON.parse(readFileSync(f, 'utf8').replace(/^﻿/, ''));
+    const j = readJson<Record<string, unknown>>(f, {});
     const out = { ...DEFAULTS };
     for (const k of Object.keys(DEFAULTS) as (keyof PopoutSettings)[]) {
       if (typeof j?.[k] === 'boolean') out[k] = j[k];

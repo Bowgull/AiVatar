@@ -5,8 +5,9 @@
 //     match is a CHECK, never a quiet guess.
 //   - Times come back as TomTom computed them (traffic now, or predicted for when he leaves), said with am/pm in Toronto.
 // The key lives in %APPDATA%\Aang\tomtom.json (tools\tomtom-setup.cmd), readable by his account only, never shown.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
+import { homeDate, shortTime } from './clock.ts';
+import { readJson } from './store.ts';
 
 export interface Place { text: string; lat: number; lon: number; found: string; score: number }
 export interface Route { meters: number; seconds: number; delay: number; departAt: string; arriveAt: string }
@@ -24,10 +25,10 @@ export class Travel {
     this.homeFile = `${stateDir}/home-place.json`;
     this.fetcher = fetcher ?? ((u, i) => fetch(u, i as RequestInit) as any);
   }
-  private key(): string { try { return String(JSON.parse(readFileSync(this.keyFile, 'utf8'))?.key ?? '').trim(); } catch { return ''; } }
+  private key(): string { return String(readJson<any>(this.keyFile, {})?.key ?? '').trim(); }
   get ready(): boolean { return this.key().length >= 20; }
   get home(): Place | null {
-    try { if (!existsSync(this.homeFile)) return null; const h = JSON.parse(readFileSync(this.homeFile, 'utf8')); return Number.isFinite(h?.lat) && Number.isFinite(h?.lon) ? h as Place : null; } catch { return null; }
+    return readJson<Place | null>(this.homeFile, null, (h: any) => (Number.isFinite(h?.lat) && Number.isFinite(h?.lon) ? h as Place : null));
   }
   setHome(p: Place): void { writeFileAtomic(this.homeFile, JSON.stringify(p)); }
 
@@ -75,8 +76,8 @@ export class Travel {
 /** Waze opens with the route to there ready (on his phone, the app; on a computer, Waze's site). */
 export const wazeLink = (p: { lat: number; lon: number }) => `https://waze.com/ul?ll=${p.lat.toFixed(6)}%2C${p.lon.toFixed(6)}&navigate=yes`;
 
-const at = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric' });
+const at = (iso: string) => shortTime(iso);
+const day = (iso: string) => homeDate(iso, { weekday: 'long', month: 'long', day: 'numeric' });
 export const mins = (s: number) => { const m = Math.max(1, Math.round(s / 60)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim(); };
 
 /** The drive in his words: how long, how far, traffic, and (arriving by a time) when to leave. */

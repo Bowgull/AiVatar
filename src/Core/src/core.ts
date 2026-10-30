@@ -20,7 +20,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSy
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
-import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
+import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign as signBytes, timingSafeEqual } from 'node:crypto';
 import { runOffThread } from './offthread.ts';
 import { readFile as readFileAsync } from 'node:fs/promises';
@@ -128,6 +128,9 @@ import { saveDigest, weeklySweep } from './watch.ts';
 import { AddonDesk, realDeps as addonDeskDeps, type Said as AddonSaid } from './addondesk.ts';
 import { checkMediaCmd, checkMediaNow, wantsPlayer, type MediaCmd } from './media.ts';
 import { ConnectPoller, MediaMux, readPlayback, readDevices, checkDeviceId } from './connect.ts';
+import { HOME_TZ, homeDate, longDate, shortTime, shortTimeUpper } from './clock.ts';
+import { readJson } from './store.ts';
+import { openLog } from './log.ts';
 
 export interface CoreConfig {
   port: number;
@@ -782,8 +785,7 @@ export class Core {
 
   /** The whole file: what he wants subbed or dubbed, and the channels he has put on by name before. */
   private watchPrefs(): { dubs: DubTable; channels: Channels } {
-    let raw: any = {};
-    try { raw = JSON.parse(readFileSync(this.dubFile(), 'utf8')); } catch { /* first run */ }
+    const raw = readJson<any>(this.dubFile(), {});   // first run: {}
     return { dubs: readDubs(raw), channels: readChannels(raw?.channels) };
   }
 
@@ -1125,7 +1127,7 @@ export class Core {
     try {
       let ev: CalEvent;
       if (plan.answer === 'add') {
-        ev = await g.insertEvent({ summary: plan.title, ...(plan.where ? { location: plan.where } : {}), start: plan.start.dateTime ? { dateTime: plan.start.dateTime, timeZone: 'America/Toronto' } : plan.start, end: plan.end.dateTime ? { dateTime: plan.end.dateTime, timeZone: 'America/Toronto' } : plan.end, description: `Added by Aang from an email from ${seen.fromName || seen.fromEmail}: "${seen.subject}". Time from ${plan.source}.` });
+        ev = await g.insertEvent({ summary: plan.title, ...(plan.where ? { location: plan.where } : {}), start: plan.start.dateTime ? { dateTime: plan.start.dateTime, timeZone: HOME_TZ } : plan.start, end: plan.end.dateTime ? { dateTime: plan.end.dateTime, timeZone: HOME_TZ } : plan.end, description: `Added by Aang from an email from ${seen.fromName || seen.fromEmail}: "${seen.subject}". Time from ${plan.source}.` });
         this.lastBooking = { kind: 'added', eventId: ev.id, title: plan.title };
       } else {
         const me = g.account.toLowerCase();
@@ -1212,7 +1214,7 @@ export class Core {
     for (const e of events) {
       if (e.status === 'cancelled' || !e.start?.dateTime) continue;
       const start = Date.parse(e.start.dateTime), title = e.summary ?? 'your meeting';
-      const when = new Date(start).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
+      const when = shortTime(start);
       // A call: its link, 5 minutes before.
       const call = e.hangoutLink ?? findLinks('', `${e.location ?? ''}\n${e.description ?? ''}`).find(l => l.kind === 'call')?.url;
       const callKey = `call:${e.id}:${start}`;
@@ -1233,7 +1235,7 @@ export class Core {
         const leave = Date.parse(r.departAt);
         if (leave - now > 15 * 60_000) continue;              // not yet: checked again next tick, with fresh traffic
         this.toldTrips.add(key);
-        const lv = new Date(leave).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
+        const lv = shortTime(leave);
         this.sayAang('when to leave', `Leave by ${lv} for "${title}" at ${when} (${mins(r.seconds)} with traffic, to ${to.found}).`, 'Waze is on the button', { asked: true, links: [{ label: 'Open in Waze', url: wazeLink(to) }] });
       } catch { /* tried again next tick */ }
     }
@@ -1492,7 +1494,7 @@ export class Core {
     const card: BriefCard = {
       ...(weather ? { weather } : {}),
       ...(parts ? { parts: parts.parts, rainFrom: parts.rainFrom, rainIsSnow: parts.rainIsSnow } : {}),
-      day: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', day: 'numeric', month: 'long' }),
+      day: homeDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' }, 'en-CA'),
       events: d.events,
       unread: waiting.map(w => {
         const address = d.unread.find(u => u.id === w.id)?.address ?? '';
@@ -1561,7 +1563,7 @@ export class Core {
       else if (act === 'reply') text = `Draft a reply to the email from ${u.from}${id}. Show it to me before anything is sent.`;
     } else if (item < mails.length + evs.length) {
       const e = evs[item - mails.length]!;
-      const when = e.start ? new Date(e.start).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }) : 'today';
+      const when = e.start ? shortTimeUpper(e.start) : 'today';
       if (act === 'prep') text = `Prep me for "${e.title}" at ${when} today.`;
       else if (act === 'drive' && e.where) text = `How long is the drive to ${e.where} for "${e.title}" at ${when}?`;
     } else if (act === 'matches') text = 'Show me the new job matches.';
@@ -2682,8 +2684,7 @@ export class Core {
   private macAddrCache: string | null | undefined;
   private get macAddr(): string | null {
     if (this.macAddrCache === undefined) {
-      try { this.macAddrCache = String(JSON.parse(readFileSync(path.join(this.cfg.stateDir, 'mac.json'), 'utf8')).addr || '') || null; }
-      catch { this.macAddrCache = null; }
+      this.macAddrCache = String(readJson<any>(path.join(this.cfg.stateDir, 'mac.json'), {}).addr || '') || null;
     }
     return this.macAddrCache;
   }
@@ -2778,7 +2779,8 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        // One list (DESK_FILES) since the store engine: a desk file importing one not sent would not start on the Mac.
+        ...Object.fromEntries(Core.DESK_FILES.filter(f => !['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts'].includes(f)).map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
@@ -3422,7 +3424,7 @@ export class Core {
   // the old one by itself if the new one will not start). Nothing installs without his press.
   private macHas: { version: string; commit: string } | null = null;
   private macOffer: string | null = null;
-  private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'];
+  private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts', 'store.ts', 'log.ts', 'clock.ts'];
   private repoRoot(): string { return path.join(import.meta.dirname, '..', '..', '..'); }
   /**
    * git, '' on any failure. 2026-10-21: these were execFileSync, ~50-200 ms of a frozen brain each, several per Mac
@@ -3489,7 +3491,7 @@ export class Core {
   /** When this PC first had this version (how long the key has been waiting). */
   private macSince(version: string): number {
     const f = path.join(this.cfg.stateDir, 'mac-release.json');
-    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (j.version === version && Number(j.since)) return Number(j.since); } catch { /* new */ }
+    const j = readJson<any>(f, {}); if (j.version === version && Number(j.since)) return Number(j.since);   // else new
     const since = Date.now(); try { writeFileAtomic(f, JSON.stringify({ version, since })); } catch { /* best effort */ }
     return since;
   }
@@ -3499,8 +3501,7 @@ export class Core {
   private macReleaseNo(version: string, commit: string): { label: string; name: string } {
     const f = path.join(this.cfg.dataDir, 'mac-releases.json');
     type Rel = { semver: string; name: string; version: string; commit: string; at: string };
-    let list: Rel[] = [];
-    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(j)) list = j.filter((x: Rel) => typeof x?.semver === 'string'); } catch { /* the first */ }
+    const list = readJson<Rel[]>(f, [], (j) => (Array.isArray(j) ? j.filter((x: Rel) => typeof x?.semver === 'string') : null));   // [] the first
     let e = list.find(x => x.version === version);
     if (!e) {
       const last = list[list.length - 1];
@@ -3520,10 +3521,9 @@ export class Core {
   /** His ask (2026-10-14): one readable history of Samara, every version and what it brought, in his Aang folder
    *  (Aang reads it there) and copied to the Mac with every update. Written from mac-releases.json + whats-new.json. */
   changelogText(): string {
-    let list: { semver: string; name: string; at: string }[] = [];
-    try { list = (JSON.parse(readFileSync(path.join(this.cfg.dataDir, 'mac-releases.json'), 'utf8')) as any[]).filter(x => typeof x?.semver === 'string'); } catch { /* none yet */ }
+    const list = readJson<{ semver: string; name: string; at: string }[]>(path.join(this.cfg.dataDir, 'mac-releases.json'), [], (j) => (Array.isArray(j) ? j.filter(x => typeof x?.semver === 'string') : null));   // [] none yet
     const items = this.whatsNew();
-    const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
+    const day = (iso: string) => longDate(iso);
     const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
     const out = ['# Samara Changelog', '', "Every version of Samara, Aang's browser, and what it brought. Newest first. Versions go MAJOR.MINOR.PATCH: a big change starts a new number and a new character's name, a new feature bumps the middle number, a fix the last.", ''];
     const pending = list.length ? items.filter(i => Date.parse(i.at) > Date.parse(list[list.length - 1]!.at)) : items;
@@ -3541,8 +3541,7 @@ export class Core {
   private async engineReady(ws: WebSocket, version: string, major: boolean): Promise<void> {
     if (!/^\d+\.\d+\.\d+$/.test(version)) return;
     const notesFile = path.join(this.cfg.dataDir, 'engine-notes.json');
-    let notes: { at: string; kind: string; text: string; engine: string }[] = [];
-    try { notes = JSON.parse(readFileSync(notesFile, 'utf8')); } catch { /* none yet */ }
+    const notes = readJson<{ at: string; kind: string; text: string; engine: string }[]>(notesFile, [], (j) => (Array.isArray(j) ? j : null));   // [] none yet
     const fresh = !notes.some(n => n.engine === version);
     if (fresh) {
       const at = new Date().toISOString(), kind = major ? 'major' : 'feature';
@@ -3565,7 +3564,7 @@ export class Core {
     try { writeFileAtomic(path.join(this.cfg.dataDir, 'Samara Changelog.md'), this.changelogText()); } catch (e) { console.error('changelog: ' + (e as Error).message); }
   }
   private whatsNew(): { at: string; text: string; kind: string }[] {
-    const read = (f: string, list: (j: any) => any[]) => { try { return list(JSON.parse(readFileSync(f, 'utf8'))); } catch { return []; } };
+    const read = (f: string, list: (j: any) => any[]) => readJson<any[]>(f, [], list);
     const all = [...read(path.join(this.releaseRoot() ?? this.repoRoot(), 'src', 'Shell', 'whats-new.json'), j => j.items ?? []), ...read(path.join(this.cfg.dataDir, 'engine-notes.json'), j => (Array.isArray(j) ? j : []))];
     return all.filter((x: any) => typeof x?.text === 'string').map((x: any) => ({ at: String(x.at), text: String(x.text), kind: ['major', 'feature', 'fix'].includes(x.kind) ? x.kind : 'fix' })).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   }
@@ -4079,7 +4078,7 @@ export class Core {
           // What each Claude call on the Mac cost, kept next to the PC's own turns (measuring quota, 2026-10-13).
           else if (h?.kind === 'usage') {
             const n = (x: unknown) => (Number.isFinite(Number(x)) ? Number(x) : 0);
-            try { appendFileSync(path.join(this.cfg.stateDir, 'usage-mac.jsonl'), JSON.stringify({ ts: new Date(n(h.at)).toISOString(), what: String(h.what ?? '').slice(0, 20), in: n(h.in), out: n(h.out), cacheRead: n(h.cacheRead), cacheWrite: n(h.cacheWrite), week: h.week === null ? null : n(h.week) }) + '\n'); } catch { /* best effort */ }
+            try { openLog('usage-mac', path.join(this.cfg.stateDir, 'usage-mac.jsonl')).json({ ts: new Date(n(h.at)).toISOString(), what: String(h.what ?? '').slice(0, 20), in: n(h.in), out: n(h.out), cacheRead: n(h.cacheRead), cacheWrite: n(h.cacheWrite), week: h.week === null ? null : n(h.week) }); } catch { /* a bad date: skipped */ }
           }
         }
         console.log(`mac: took ${said} exchange(s) and ${kept} thing(s) to remember from the Mac`);
@@ -4183,7 +4182,7 @@ export class Core {
         const clock = m.ephemeral !== true ? CLOCK_ASK.exec(text) : null;
         if (clock) {
           this.send(ws, { t: 'ack', id });
-          const now = new Date(), tz = 'America/Toronto';
+          const now = new Date(), tz = HOME_TZ;
           const time = now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).toLowerCase();
           const date = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' });
           const say = /time/i.test(clock[0]) ? `It's ${time}.` : `It's ${date}.`;
@@ -4777,10 +4776,7 @@ export class Core {
   private rate(id: unknown, value: unknown): void {
     if (typeof id !== 'string' || !id || (value !== 'up' && value !== 'down' && value !== 'none')) return;
     const turn = this.recent.get(id);
-    try {
-      mkdirSync(this.cfg.stateDir, { recursive: true });
-      appendFileSync(path.join(this.cfg.stateDir, 'ratings.jsonl'), JSON.stringify({ ts: new Date().toISOString(), id, value, lane: turn?.lane, user: turn?.user, reply: turn?.reply }) + '\n');
-    } catch { /* ratings are best effort */ }
+    openLog('ratings', path.join(this.cfg.stateDir, 'ratings.jsonl')).json({ ts: new Date().toISOString(), id, value, lane: turn?.lane, user: turn?.user, reply: turn?.reply });
   }
 
   /**
@@ -5058,8 +5054,7 @@ export class Core {
   private launchedCache: Launched[] | null = null;
   private get launched(): Launched[] {
     if (this.launchedCache) return this.launchedCache;
-    try { const j = JSON.parse(readFileSync(path.join(this.cfg.stateDir, 'launched.json'), 'utf8')); this.launchedCache = Array.isArray(j) ? j : []; }
-    catch { this.launchedCache = []; }
+    this.launchedCache = readJson<Launched[]>(path.join(this.cfg.stateDir, 'launched.json'), [], (j) => (Array.isArray(j) ? j : null));
     return this.launchedCache;
   }
   private saveLaunched(): void {
@@ -5494,15 +5489,10 @@ export class Core {
     // Best effort means do not crash a turn over a metrics line. It does NOT mean fail in silence:
     // this write stopped working on 2026-09-24 and went unnoticed for six days, because the catch
     // that used to be here threw the reason away. See reportWriteFailure.
-    const turns = path.join(this.cfg.stateDir, 'turns.jsonl');
-    try {
-      mkdirSync(this.cfg.stateDir, { recursive: true });
-      // 5.5: this had no size limit at all. It grows by a line per turn forever, and the one thing it
-      // must not do is what core.log used to - delete itself and take the history with it. One
-      // generation, 4 MiB, which at the size these lines run to is months of turns.
-      rotateIfBig(turns, 4 * 1024 * 1024);
-      appendFileSync(turns, JSON.stringify(r) + '\n');
-    } catch (e) { reportWriteFailure(turns, e); }
+    // 5.5: this had no size limit at all. It grows by a line per turn forever, and the one thing it
+    // must not do is what core.log used to - delete itself and take the history with it. One
+    // generation, 4 MiB, which at the size these lines run to is months of turns. (A failure is reported: log.ts.)
+    openLog('turns', path.join(this.cfg.stateDir, 'turns.jsonl'), { maxBytes: 4 * 1024 * 1024 }).json(r);
     this.onTurn(r);
   }
 }

@@ -3,8 +3,8 @@
 //
 // Kept on disk, so a brain restart mid-timer does not lose it; one that ran out while the brain was down
 // goes off as soon as it is back.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 
 /** Sheet 67b (2026-10-22): each timer has its own sand colour. Blue first, his default; new timers take the next one free. */
 export const COLOURS = ['blue', 'gold', 'rose', 'jade', 'violet'] as const;
@@ -103,12 +103,8 @@ export class Timers {
   private readonly file: string;
   constructor(file: string) {
     this.file = file;
-    try {
-      if (existsSync(file)) {
-        const raw = JSON.parse(readFileSync(file, 'utf8')) as Timer[];
-        if (Array.isArray(raw)) this.all = raw.filter(x => x && typeof x.id === 'string' && typeof x.end === 'number' && typeof x.total === 'number').slice(0, MAX_TIMERS * 2);
-      }
-    } catch { this.all = []; }
+    this.all = readJson<Timer[]>(file, [], (raw) => Array.isArray(raw)
+      ? raw.filter(x => x && typeof x.id === 'string' && typeof x.end === 'number' && typeof x.total === 'number').slice(0, MAX_TIMERS * 2) : null);
   }
   list(): Timer[] { return this.all.map(t => ({ ...t })); }
   private running(): Timer[] { return this.all.filter(t => !t.done); }

@@ -15,7 +15,8 @@
 // Run on the Mac: node frontdesk.ts <folder>   (the folder holds discord.token, frontdesk.key and frontdesk.json)
 import { timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { readJson, saveJson } from './store.ts';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -94,9 +95,8 @@ export function admit(peer: string, key: string, o: { self: string; shadow: stri
 
 export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => Promise<void>; queued: () => number }> {
   const log = o.log ?? ((s: string) => console.log(s));
-  let queue: Incoming[] = [];
-  try { const q = JSON.parse(readFileSync(o.queueFile, 'utf8')); if (Array.isArray(q)) queue = q; } catch { /* none waiting */ }
-  const saveQueue = () => { try { writeFileSync(o.queueFile + '.tmp', JSON.stringify(queue)); renameSync(o.queueFile + '.tmp', o.queueFile); } catch (e) { log('front desk: could not save the queue: ' + (e as Error).message); } };
+  let queue: Incoming[] = readJson<Incoming[]>(o.queueFile, [], (q) => (Array.isArray(q) ? q : null));   // none waiting
+  const saveQueue = () => { if (!saveJson(o.queueFile, queue)) log('front desk: could not save the queue'); };
   const presses = new Map<string, ButtonPress & { done: boolean }>();
   const timers: NodeJS.Timeout[] = [];
   let pressSeq = 0;

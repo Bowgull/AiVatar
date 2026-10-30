@@ -9,9 +9,9 @@
 // family member (familywire.ts): it snaps to the video, jobs, notes and other timers, as a compact column beside a taller
 // window (family.ts tall.fitHeight), and its right-click is its OWN menu (TimerMenu below) with the family's rows in it.
 import { BrowserWindow, powerMonitor, screen } from 'electron';
-import { readFileSync } from 'node:fs';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson } from './store.ts';
 import type { FamilyHooks } from './familywin.ts';
 
 export interface TimerData { id: string; label: string; total: number; end: number; paused: number; colour?: string; done?: number }
@@ -90,8 +90,7 @@ export class TimerWindows {
 
   /** Where he last left a timer; the first time, just left of Aang's head. A second and third stack below. */
   private startSpot(index: number): Spot {
-    let s: Spot | null = null;
-    try { const raw = JSON.parse(readFileSync(this.o.spotFile, 'utf8')) as Spot; if (Number.isFinite(raw.x) && Number.isFinite(raw.y)) s = raw; } catch { /* first time */ }
+    let s = readJson<Spot | null>(this.o.spotFile, null, (r) => { const p = r as Spot; return Number.isFinite(p.x) && Number.isFinite(p.y) ? p : null; });   // first time: null
     s ??= this.o.near() ?? (() => { const a = screen.getPrimaryDisplay().workArea; return { x: a.x + a.width - 420, y: a.y + a.height - 320 }; })();
     const area = screen.getDisplayNearestPoint(s).workArea;
     const x = Math.min(Math.max(s.x, area.x), area.x + area.width - W);

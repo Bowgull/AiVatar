@@ -10,6 +10,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { inflateRawSync } from 'node:zlib';
+import { readJson } from './store.ts';
 
 export type AddonTag = 'ERRORS' | 'BIG JUMP' | 'NOT FOR THIS PATCH';
 export interface AddonRow {
@@ -60,10 +61,7 @@ export interface CfInstance { name: string; installPath: string; gameVersion: st
 
 /** CurseForge's game instances, or [] when the file is missing or unreadable. */
 export function readInstances(jsonPath: string): CfInstance[] {
-  try {
-    const j = JSON.parse(readFileSync(jsonPath, 'utf8').replace(/^\uFEFF/, ''));
-    return Array.isArray(j) ? j.filter(g => g && Array.isArray(g.installedAddons)) : [];
-  } catch { return []; }
+  return readJson<CfInstance[]>(jsonPath, [], (j) => (Array.isArray(j) ? j.filter(g => g && Array.isArray(g.installedAddons)) : null));
 }
 
 /** The WoW instance (game id 1 addons live under Interface\AddOns). The first one with addons wins. */

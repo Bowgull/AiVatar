@@ -10,7 +10,7 @@
 // months. So: the whole token response is kept now, a 401 refreshes once and retries, and a refresh that fails says
 // plainly what to do. An expiring credential with no refresh path is a thing that breaks quietly, which is the worst
 // way for anything in Aang to break.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readJson, saveJson } from './store.ts';
 import path from 'node:path';
 import type { Fetch } from './google.ts';
 
@@ -90,7 +90,7 @@ export function findShow(shows: Show[], said: string): Show | null {
  */
 export async function otherNames(ids: number[], cacheFile: string, fetcher: Fetch): Promise<Map<number, string[]>> {
   let known: Record<string, string[]> = {};
-  try { if (existsSync(cacheFile)) known = JSON.parse(readFileSync(cacheFile, 'utf8')) ?? {}; } catch { known = {}; }
+  known = readJson<Record<string, string[]>>(cacheFile, {}, (j) => (typeof j === 'object' ? j as Record<string, string[]> : null));
   const want = [...new Set(ids.filter(id => id > 0 && !Array.isArray(known[String(id)])))];
   if (want.length) {
     try {
@@ -112,7 +112,7 @@ export async function otherNames(ids: number[], cacheFile: string, fetcher: Fetc
             .map(x => x.trim());
           known[String(id)] = [...new Set(list)].slice(0, 12);
         }
-        try { writeFileSync(cacheFile, JSON.stringify(known, null, 2), 'utf8'); } catch { /* still good for this run */ }
+        saveJson(cacheFile, known, { pretty: true });   // a failure: still good for this run
       }
     } catch { /* AniList down: match on Simkl's names, as before */ }
   }
@@ -128,19 +128,16 @@ export class Simkl {
   private readonly fetcher: Fetch;
   constructor(file: string, fetcher?: Fetch) { this.file = file; this.fetcher = fetcher ?? ((url, init) => fetch(url, init as RequestInit) as any); }
   private saved(): Saved | null {
-    try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); if (j?.clientId && j?.accessToken) return j; } } catch { /* not signed in */ }
-    return null;
+    return readJson<Saved | null>(this.file, null, (j: any) => (j?.clientId && j?.accessToken ? j : null));   // null: not signed in
   }
   get connected(): boolean { return this.saved() !== null; }
   get site(): string { return this.saved()?.site || DEFAULT_SITE; }
 
   /** Keep whatever changed, leaving the rest of the file alone. */
   private write(patch: Partial<Saved>): void {
-    try {
-      const now = this.saved();
-      if (!now) return;
-      writeFileSync(this.file, JSON.stringify({ ...now, ...patch }, null, 2), 'utf8');
-    } catch { /* read-only disk: the new token is still good for this run */ }
+    const now = this.saved();
+    if (!now) return;
+    saveJson(this.file, { ...now, ...patch }, { pretty: true, ownerOnly: true });   // read-only disk: the new token is still good for this run
   }
 
   /**

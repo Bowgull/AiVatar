@@ -14,6 +14,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { writeFileAtomic } from './atomic.ts';
+import { readJson, saveText } from './store.ts';
 import { FUSE, readFuses, setFuses, wireMap } from './fusewire.ts';
 import { behindMs, behindWords, chromeStable, downloadEngine, latestEngine } from './enginerelease.ts';
 import { Evs, type Signed } from './evs.ts';
@@ -89,7 +90,7 @@ export class EngineUpdates {
     this.stateFile = path.join(o.stateDir, 'engine-update.json');
     this.doneFile = path.join(o.stateDir, 'engine-just-updated.json');
     try {
-      const s = JSON.parse(readFileSync(this.stateFile, 'utf8'));
+      const s = readJson<any>(this.stateFile, null);
       if (typeof s?.version === 'string' && newer(s.version, process.versions.electron) && existsSync(this.exeOf(s.version))) this.ready = { version: s.version, since: Number(s.since) || Date.now() };
     } catch { /* nothing waiting */ }
   }
@@ -100,17 +101,17 @@ export class EngineUpdates {
   private failed(): Set<string> {
     try { return new Set(readFileSync(path.join(this.engines, 'failed.txt'), 'utf8').split(/\r?\n/).map((x) => x.trim()).filter(Boolean)); } catch { return new Set(); }
   }
-  private pointer(): Pointer | null { try { return JSON.parse(readFileSync(path.join(this.engines, 'current.json'), 'utf8')); } catch { return null; } }
+  private pointer(): Pointer | null { return readJson<Pointer | null>(path.join(this.engines, 'current.json'), null); }
 
   // ---- his ... menu on the update (sheet 35): put a version away, skip it for good, go back, check now
   private filedFile(): string { return path.join(this.o.stateDir, 'engine-filed.json'); }
-  private filed(): Set<string> { try { return new Set(JSON.parse(readFileSync(this.filedFile(), 'utf8'))); } catch { return new Set(); } }
+  private filed(): Set<string> { try { return new Set(readJson<Iterable<string>>(this.filedFile(), [])); } catch { return new Set(); } }
   /** Put away: kept on file, not offered until he checks for updates himself. */
   file(): void { const r = this.ready; if (!r) return; const f = this.filed(); f.add(plain(r.version)); try { writeFileAtomic(this.filedFile(), JSON.stringify([...f])); } catch { /* best effort */ } this.set(null); }
   /** Skip for good: never offered again (the same list a version that failed its checks goes on). */
   skip(): void {
     const r = this.ready; if (!r) return;
-    try { mkdirSync(this.engines, { recursive: true }); writeFileSync(path.join(this.engines, 'failed.txt'), [...this.failed(), plain(r.version)].join('\n') + '\n'); } catch { /* best effort */ }
+    saveText(path.join(this.engines, 'failed.txt'), [...this.failed(), plain(r.version)].join('\n') + '\n');
     this.set(null);
   }
   /** Is there an engine to go back to (the one before this, still kept)? */

@@ -11,7 +11,8 @@
 // cannot be found it stops and says so in one line. AANG_ADDONS_DRYRUN=1 does all of it except the press (C0, the
 // 5-minute live check with him).
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
+import { readJson, saveJson } from './store.ts';
 import path from 'node:path';
 import type { ActRunner, Control } from './uia.ts';
 import { cfPaths, installedFileId, readSection, tocInfo, wowInstance, readInstances, type AddonRow, type AddonsSection, type AskLocal, type CfPaths } from './addonbrief.ts';
@@ -99,14 +100,10 @@ export class AddonDesk {
 
   /** The last list, for the brief. Null when there is nothing to show (no updates and no errors). */
   section(): AddonsSection | null {
-    try {
-      const s = JSON.parse(readFileSync(this.file, 'utf8')) as AddonsSection;
-      return s && Array.isArray(s.rows) && (s.rows.length || s.errorsOnly?.length) ? s : null;
-    } catch { return null; }
+    return readJson<AddonsSection | null>(this.file, null, (s: any) => s && Array.isArray(s.rows) && (s.rows.length || s.errorsOnly?.length) ? s : null);
   }
   private keep(s: AddonsSection): void {
-    try { mkdirSync(path.dirname(this.file), { recursive: true }); writeFileSync(this.file, JSON.stringify(s), 'utf8'); }
-    catch (e) { console.error('addons: could not keep the list: ' + (e as Error).message); }
+    saveJson(this.file, s);   // a failure is reported once (store.ts)
   }
   private mtime(): number { try { return statSync(this.paths.json).mtimeMs; } catch { return 0; } }
 

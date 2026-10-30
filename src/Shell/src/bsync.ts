@@ -11,8 +11,8 @@
 // How it agrees: each kind carries the time it last changed. Live, a change is sent as it happens. When the other
 // machine comes back (it was off, or asleep), both send everything and each keeps the newer of each thing; open
 // tabs are joined rather than replaced, so tabs opened on a machine while it was apart are never lost.
-import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
+import { readJson } from './store.ts';
 import { neverKeep, type Visit } from './visits.ts';
 import type { Mark } from './bookmarks.ts';
 
@@ -134,7 +134,7 @@ export class BrowserSync {
   constructor(o: { target: SyncTarget; send: (m: SyncMsg) => void; stateDir: string; log?: (s: string) => void; now?: () => number }) {
     this.o = o;
     this.file = `${o.stateDir}/browser-sync.json`;
-    try { if (existsSync(this.file)) { const s = JSON.parse(readFileSync(this.file, 'utf8')); this.s = { marksAt: +s.marksAt || 0, prefsAt: +s.prefsAt || 0, tabsAt: +s.tabsAt || 0, cookies: s.cookies && typeof s.cookies === 'object' ? s.cookies : {} }; } } catch { /* fresh */ }
+    this.s = readJson<SyncState>(this.file, this.s, (r) => { const s = r as any; return { marksAt: +s.marksAt || 0, prefsAt: +s.prefsAt || 0, tabsAt: +s.tabsAt || 0, cookies: s.cookies && typeof s.cookies === 'object' ? s.cookies : {} }; });   // none: fresh
     this.lastTabSig = tabSig(o.target.tabSnap());
     // A file written before 2026-10-14 still holds login values: rewritten without them, now.
     if (Object.values(this.s.cookies).some((v) => v.c && typeof (v.c as SyncCookie).value === 'string')) this.save(true);
