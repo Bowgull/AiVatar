@@ -34,7 +34,7 @@ jobs:
         run: |
           NAME=$(node -e "console.log(require('./out/manifest.json').name)")
           node -e "console.log(require('./out/manifest.json').notes.map((n) => '- ' + n).join('\\n'))" > notes.md
-          gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
+          gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz out/aang-brain.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
       # The nudge carries one word and nothing else: a Samara that hears it only checks, and still checks the seal.
       - name: Nudge both Samaras
         run: curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null || echo "The nudge did not go; Samaras will find it within the hour."
