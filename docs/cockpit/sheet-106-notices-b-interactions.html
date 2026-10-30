@@ -75,6 +75,16 @@
   .sock .spark{position:absolute;width:4px;height:4px;border-radius:1px;background:#fff6c8;box-shadow:0 0 6px #ffe28c;opacity:0}
   .kind-done{--k:#3FBFAE;--kd:#1f7a6e;--glow:rgba(63,191,174,.7)} .kind-need{--k:#4C9BE8;--kd:#1F5A9E;--glow:rgba(76,155,232,.75)} .kind-bad{--k:#E0553E;--kd:#8A2418;--glow:rgba(224,85,62,.75)}
   .nt.small .drain{border-radius:2px}
+  /* v7 (his idea): a download's parchment holds the download tray's own rows, the file badge, name and size, and you
+     drag the file by its row, one file or several, so there is only one kind of download screen */
+  .nt .uplist.files{padding:4px 4px}
+  .nt .files .drow{padding:6px 8px 6px 8px}
+  .nt .files .drow .dt b{color:#2a1c0c;text-shadow:none}
+  .nt .files .drow .dt small{color:#7a5a36}
+  .nt .files .drow.hov{padding-left:36px;background:rgba(120,80,30,.14)}
+  .nt .files .drow.hov .dt b{color:#8a3e1c}
+  .nt .files .drow.hov::before{content:"";position:absolute;left:5px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .nt .files .drow{transition:padding-left .12s ease,background .12s ease}
   /* the download tray, as Samara draws it today (browser.css .dltray, .drow): where each file is grabbed */
   .dl.dltray{position:absolute;right:20px;left:auto;top:60px;width:340px;z-index:6;animation:none}
   .dl .drow .fb{flex:none}
@@ -102,7 +112,7 @@
 </head>
 <body>
 <h1>Sheet 106 · Option B, every interaction</h1>
-<p class="lead">v6. Built from Claude’s plan card’s own pieces (frame, gold corners, wood header, parchment, real keys), with sheet 92’s coloured round gem so you see what each notice is at a glance, soft corners and smooth motion. No tabs, nothing dragged off a notice: several downloads open the tray, where you grab the exact file.</p>
+<p class="lead">v7. Your idea: a download notice’s parchment holds the download tray’s own rows (the coloured file badge, the name, the size), and you drag the file out by its row, one file or several. One kind of download screen everywhere. Built from Claude’s plan card’s pieces, coloured round gems, soft corners, smooth motion.</p>
 
 <div class="grid" id="grid"></div>
 <h2>EVERY NOTICE SAMARA HAS TODAY, AS OPTION B</h2>
@@ -152,7 +162,7 @@
   <li>Drops from under whatever caused it: the download key, the shield, the menu.</li>
   <li>Teal done, blue needs you, red went wrong. Only "needs you" plays a sound. Claude always shows its orange spark on a white gem.</li>
   <li>Big ones stay until you click a button. Small ones slide back by themselves after 4 seconds, and wait while your mouse is on them.</li>
-  <li>Several downloads make one notice that names them; Open downloads opens the tray, where each file is dragged by its own row.</li>
+  <li>A download notice holds the download tray's own rows (badge, name, size): drag a file out by its row, whether it's one file or several. One kind of download screen.</li>
   <li>One at a time. More waiting shows a count ("1 of 3"); the next drops when you finish this one.</li>
 </ul>
 
@@ -177,11 +187,12 @@ const SRC = { dl: { cx: 568, x: 240 }, shield: { cx: 84, x: 30 }, menu: { cx: 61
 
 const SCENES = [
   { title: '1 · A download, the big one', run: async (S) => {
-    S.say('A download finishes. The <b>download key</b> blinks, the notice drops from under it, the gem lifts and sparkles.');
+    S.say('A download finishes. The <b>download key</b> glows, the notice drops from under it, the gem lifts and sparkles. On its parchment: the file, as in your download tray.');
     S.src('dl'); await wait(500);
-    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads'], ['Size', '212 KB']], keys: [['Show in Finder'], ['Got it', 1]] });
-    await wait(2600); S.say('It <b>stays</b> until you click. <b>Show in Finder</b> opens the folder with the file picked.'); await wait(2000);
-    await S.press(p, 1); await S.leave(p); await wait(1300); } },
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'Ready', files: [['pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now']], keys: [['Show in Finder'], ['Got it', 1]] });
+    await wait(2300); S.say('Grab the file <b>by its row</b>, the same as in the tray, and drag it into Finder, an email or Claude.');
+    await S.dragRow(p, 0, 110, 250, 'DROPPED IN FINDER'); S.say('Done with it: <b>Got it</b> and it goes back up.'); await wait(600);
+    await S.press(p, 1); await S.leave(p); await wait(1200); } },
   { title: '2 · Needs you, with the one sound', run: async (S) => {
     S.say('Your Mac asks for permission. The <b>shield</b> blinks, the notice drops from it, and this is the only kind that <b>plays a sound</b>.');
     S.src('shield'); await wait(500);
@@ -196,18 +207,18 @@ const SCENES = [
     S.say('A page goes into a trail. Small news: just the header strip, no hop, no twinkle, no sound.');
     S.src('menu'); await wait(500);
     const p = S.drop({ from: 'menu', kind: 'done', ic: 'scroll', kick: 'ADDED TO', title: 'Tax season', small: true });
-    await wait(1500); S.say('The gold line drains in steps: after <b>4 seconds</b> it slides back by itself.'); await wait(2700); await S.leave(p); await wait(1300); } },
+    await wait(1500); S.say('The gold line drains: after <b>4 seconds</b> it slides back by itself.'); await wait(2700); await S.leave(p); await wait(1300); } },
   { title: '5 · A small one waits while you look', run: async (S) => {
     S.say('A small notice. Your mouse goes onto it: it <b>stops draining</b> and waits for you.');
-    S.src('dl'); await wait(400);
-    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'SAVED', title: 'invoice.pdf', small: true, x: 264 });
-    await wait(700); S.cursor(400, 84); await wait(700); p.querySelector('.drain').style.animationPlayState = 'paused';
+    S.src('menu'); await wait(400);
+    const p = S.drop({ from: 'menu', kind: 'done', ic: 'yes', kick: 'SAVED', title: 'Your home page', small: true });
+    await wait(700); S.cursor(420, 84); await wait(700); p.querySelector('.drain').style.animationPlayState = 'paused';
     await wait(2400); S.say('Mouse off: it carries on and slides back by itself.'); S.cursor(560, 280); p.querySelector('.drain').style.animationPlayState = 'running';
     await wait(2000); await S.leave(p); S.cursor(); await wait(1300); } },
   { title: '6 · Three at once', run: async (S) => {
     S.say('A download, a login question and a failed TV send arrive together. <b>One at a time</b>, with a count.');
     S.src('dl'); await wait(400);
-    let p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'tax-form.pdf', rows: [['Saved in', 'Downloads']], keys: [['Got it', 1]], count: '1 of 3' });
+    let p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: 'DOWNLOADED', title: 'Ready', files: [['pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now']], keys: [['Got it', 1]], count: '1 of 3' });
     await wait(2200); await S.press(p, 0); await S.leave(p);
     S.say('The <b>next one drops</b> from its own place, the shield, with its sound.'); S.src('shield'); await wait(300);
     p = S.drop({ from: 'shield', kind: 'need', ic: 'key', kick: 'BITWARDEN', title: 'Save this login?', rows: [['For', 'github.com']], keys: [['Save', 0], ['Not now', 1]], count: '2 of 3' });
@@ -216,22 +227,12 @@ const SCENES = [
     p = S.drop({ from: 'menu', kind: 'bad', ic: 'wont', kick: 'THE TV', title: 'Didn\u2019t answer', rows: [['Try', 'Check it\u2019s on, then try again.']], keys: [['Try again', 0], ['Close', 1]], count: '3 of 3' });
     await wait(2200); await S.press(p, 1); await S.leave(p); await wait(1200); } },
   { title: '6b · Several downloads at once', run: async (S) => {
-    S.say('Three files finish close together. One notice, not three: it <b>names each file</b>.');
+    S.say('Three files finish close together. One notice, not three, with <b>a row for each file</b>: the same rows as one download, and as the tray.');
     S.src('dl'); await wait(500);
-    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: '3 DOWNLOADS', title: 'All finished', rows: [['Files', 'tax-form.pdf<br>receipts.zip<br>photo.png']], keys: [['Open downloads'], ['Got it', 1]] });
-    await wait(2600); S.say('<b>Open downloads</b> opens the download tray right there: each file has its own row, so you grab exactly the one you want.');
-    await S.press(p, 0); await S.leave(p);
-    const t = document.createElement('div'); t.className = 'dl dltray';
-    const row = (k, n, m) => `<div class="drow"><i class="fb ${k}"><b>${k.toUpperCase()}</b></i><span class="dt"><b>${n}</b><small>${m}</small></span></div>`;
-    t.innerHTML = `<div class="gh">Downloads<span>3 today</span></div>${row('pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now')}${row('zip', 'receipts.zip', '4.1 MB · drive.google.com · now')}${row('img', 'photo.png', '880 KB · reddit.com · now')}`;
-    S.win.append(t); await wait(900);
-    const r = t.querySelectorAll('.drow')[1].getBoundingClientRect(), wr = S.win.getBoundingClientRect();
-    S.cursor(r.left - wr.left + 40, r.top - wr.top + 14); await wait(800);
-    S.say('Drag <b>receipts.zip</b> by its row into Finder, an email or Claude, the same as today.');
-    const g = t.querySelectorAll('.drow')[1].querySelector('.fb').cloneNode(true); g.classList.add('ghost'); g.style.left = (r.left - wr.left + 10) + 'px'; g.style.top = (r.top - wr.top + 8) + 'px'; S.win.append(g);
-    void g.offsetWidth; g.style.left = '90px'; g.style.top = '250px'; S.cursor(100, 262); await wait(900);
-    const tag = Object.assign(document.createElement('span'), { className: 'tagline', textContent: 'DROPPED IN FINDER' }); tag.style.left = '70px'; tag.style.top = '292px'; S.win.append(tag);
-    await wait(1400); g.remove(); tag.remove(); t.remove(); S.cursor(); await wait(1000); } },
+    const p = S.drop({ from: 'dl', kind: 'done', ic: 'yes', kick: '3 DOWNLOADS', title: 'All ready', files: [['pdf', 'tax-form.pdf', '212 KB · cra.gc.ca · now'], ['zip', 'receipts.zip', '4.1 MB · drive.google.com · now'], ['img', 'photo.png', '880 KB · reddit.com · now']], keys: [['Show in Finder'], ['Got it', 1]] });
+    await wait(2300); S.say('Grab exactly the one you want: <b>receipts.zip</b>, by its row.');
+    await S.dragRow(p, 1, 90, 260, 'DROPPED IN AN EMAIL'); await wait(500);
+    await S.press(p, 1); await S.leave(p); await wait(1200); } },
   { title: '7 · Claude asks (the same family)', run: async (S) => {
     S.say('Claude, working in your tabs, wants your OK. A <b>needs you</b>, from the <b>menu</b> where Claude\u2019s rune lives, with Claude\u2019s own spark.');
     S.src('menu'); await wait(500);
@@ -260,9 +261,10 @@ function sceneBox(sc) {
       const src = SRC[o.from], x = o.x ?? src.x;
       const n = document.createElement('div'); n.className = `nt dltray uptray upx kind-${o.kind}${o.small ? ' small' : ''}`; n.style.setProperty('--x', x + 'px');
       const keys = o.keys ? `<div class="upfoot">${o.keys.map(([l, plain], i) => `<button class="key ${i === 0 && !plain ? 'primary ' : ''}sm" type="button">${l}</button>`).join('')}</div>` : '';
+      const files = o.files ? `<div class="uplist files">${o.files.map(([k, nm, m]) => `<div class="drow"><i class="fb ${k}"><b>${k.toUpperCase()}</b></i><span class="dt"><b>${nm}</b><small>${m}</small></span></div>`).join('')}</div>` : '';
       const rows = o.rows ? `<div class="uplist">${o.rows.map(([g, v]) => `<div class="grp">${g}</div><div class="v">${v}</div>`).join('')}</div>` : '';
       n.innerHTML = `<div class="caps"></div><div class="uphd"><span class="sock${o.ic === 'claude' ? ' claude' : ''}"><span class="ic"></span>${o.small ? '' : [[-16, -14, 2, -4], [18, -16, 30, -6], [-20, 10, -4, 26], [20, 12, 32, 28]].map(([dx, dy, l, t]) => `<i class="spark" style="left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px"></i>`).join('')}</span>
-        <div class="t"><small>${o.kick}</small><b>${o.title}</b></div>${o.count ? `<span class="count">${o.count}</span>` : ''}</div>${rows}${keys}${o.small ? '<span class="drain"></span>' : ''}`;
+        <div class="t"><small>${o.kick}</small><b>${o.title}</b></div>${o.count ? `<span class="count">${o.count}</span>` : ''}</div>${files}${rows}${keys}${o.small ? '<span class="drain"></span>' : ''}`;
       n.querySelector('.ic').append(icon(o.ic, o.small ? 2 : 2));
       w.append(n); void n.offsetWidth; n.classList.add('drop', 'live');
       return n;
@@ -271,6 +273,15 @@ function sceneBox(sc) {
     leave: async (n) => { n.classList.remove('drop'); void n.offsetWidth; n.classList.add('rise'); await wait(240); n.remove(); },
     sound: (x, y) => { const s = Object.assign(document.createElement('span'), { className: 'tagline', textContent: '\u266a the one sound' }); s.style.left = x + 'px'; s.style.top = y + 'px'; w.append(s); setTimeout(() => s.remove(), 1400); },
     cursor: (x, y) => { const c = w.querySelector('.cursor'); if (x === undefined) { c.classList.remove('on'); return; } c.classList.add('on'); c.style.left = x + 'px'; c.style.top = y + 'px'; },
+    dragRow: async (n, i, tx, ty, said) => {
+      const row = n.querySelectorAll('.files .drow')[i], wr = w.getBoundingClientRect();
+      let r = row.getBoundingClientRect(); S.cursor(r.left - wr.left + 60, r.top - wr.top + 14); await wait(600);
+      row.classList.add('hov'); await wait(700); r = row.getBoundingClientRect();
+      const g = row.querySelector('.fb').cloneNode(true); g.classList.add('ghost'); g.style.left = (r.left - wr.left + 36) + 'px'; g.style.top = (r.top - wr.top + 4) + 'px'; g.style.opacity = '.9'; w.append(g);
+      void g.offsetWidth; g.style.left = tx + 'px'; g.style.top = ty + 'px'; S.cursor(tx + 12, ty + 18); await wait(800);
+      const t = Object.assign(document.createElement('span'), { className: 'tagline', textContent: said }); t.style.left = (tx - 20) + 'px'; t.style.top = (ty + 40) + 'px'; w.append(t);
+      await wait(1200); g.remove(); t.remove(); row.classList.remove('hov'); S.cursor();
+    },
     drag: async (n, tx, ty, said) => {
       const sock = n.querySelector('.sock'), r = sock.getBoundingClientRect(), wr = w.getBoundingClientRect();
       const sx = r.left - wr.left, sy = r.top - wr.top;
