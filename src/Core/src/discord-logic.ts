@@ -151,11 +151,12 @@ export function inQuietHours(q: Quiet, now = new Date()): boolean {
   return q.fromHour > q.toHour ? h >= q.fromHour || h < q.toHour : h >= q.fromHour && h < q.toHour;
 }
 
-export type Kind = 'reply' | 'reminder' | 'asked' | 'other';
+export type Kind = 'reply' | 'reminder' | 'needs' | 'asked' | 'other';
 /** What a proactive bubble is, from the Core's own flags and wording. */
-export function kindOf(msg: { text: string; proactive?: boolean; asked?: boolean }): Kind {
+export function kindOf(msg: { text: string; proactive?: boolean; asked?: boolean; blocking?: boolean }): Kind {
   if (!msg.proactive) return 'reply';
   if (/^Reminder:/i.test(msg.text)) return 'reminder';
+  if (msg.blocking === true || /^Need input/i.test(msg.text)) return 'needs';
   if (msg.asked) return 'asked';
   return 'other';
 }
@@ -167,18 +168,22 @@ export class Budget {
   constructor(q: Quiet = BALANCED) { this.q = q; }
   private roll(now: Date) { const d = now.toDateString(); if (d !== this.day) { this.day = d; this.used = 0; } }
   /**
-   * Should this one make a sound? Replies, reminders and things he asked to be told about always do. Anything
+   * Should this one make a sound? Replies, reminders and a Claude session that needs him always do. Things he asked to
+   * be told about buzz outside quiet hours (2026-10-28 review R14: a long job finishing at 2 am woke the phone). Anything
    * else buzzes only outside quiet hours and while the day's few are not used up; otherwise it is posted
    * silently, so nothing is lost and nothing wakes him.
    */
   loud(kind: Kind, now = new Date()): boolean {
     this.roll(now);
-    if (kind === 'reply' || kind === 'reminder' || kind === 'asked') return true;
+    if (kind === 'reply' || kind === 'reminder' || kind === 'needs') return true;
+    if (kind === 'asked') return !inQuietHours(this.q, now);
     if (inQuietHours(this.q, now) || this.used >= this.q.perDay) return false;
     this.used++;
     return true;
   }
   get count(): number { return this.used; }
+  /** Inside his quiet hours now (a finished job's "Done" posts silently then). */
+  quiet(now = new Date()): boolean { return inQuietHours(this.q, now); }
 }
 
 // ------------------------------------------------------------------ cutting a long reply up

@@ -31,6 +31,8 @@ test('a choice names its answers: "A or B", "A, B or C", and a list he is asked 
   const list = findQuestion('I see three ways to do it:\n\n1. **Patch the mod** - smallest change\n2. **New brain door** - cleaner\n3. **Both** - belt and braces\n\nWhich one should I go with?');
   assert.equal(list?.question, 'Which one should I go with?');
   assert.deepEqual(list?.options, ['Patch the mod', 'New brain door', 'Both']);
+  // 2026-10-29: the words that point at the thing ("Want it") no longer swallow the first choice.
+  assert.deepEqual(findQuestion('Here is a draft.\n\nWant it more casual, shorter, or with anything cut?')?.options, ['More casual', 'Shorter', 'With anything cut']);
   const after = findQuestion('Pick one:\n- Keep the old tray\n- Use the new wood tray');
   assert.deepEqual(after?.options, ['Keep the old tray', 'Use the new wood tray']);
 });
@@ -174,14 +176,14 @@ test('flow: turn.end with a question -> a QUESTION card (no replied line) -> his
     await pause(150);
     assert.equal(lastWait()?.items?.length, 0, 'he typed in that session: the card went');
 
-    // No question: the usual "replied" line, no card.
+    // No question: no card, and (2026-10-29) no line either for a routine turn; its done card gets Aang's words.
     const S3 = '33333333-0000-0000-0000-000000000004';
     const ev3 = (events: unknown[]) => signed(key, 'POST', '/link/event', JSON.stringify({ session: S3, cwd: 'C:\\code\\Notes', events }));
     await ev3([{ type: 'start' }, { type: 'turn.start', prompt: 'move it' }]);
     await ev3([{ type: 'turn.end', aborted: false, reason: 'answer', said: 'Done, it runs on 5173 now.' }]);
     await pause(SETTLE_MS + 600);
     assert.equal(lastWait()?.items?.length, 0);
-    assert.ok(inbox.some(m => m.t === 'bubble' && /replied: Done, it runs on 5173 now\./.test(String(m.text))), 'the replied line');
+    assert.ok(!inbox.some(m => m.t === 'bubble' && /replied/.test(String(m.text))), 'no replied line');
 
     // A test or Aang's own session (a temp folder): never a card.
     const T = '33333333-0000-0000-0000-000000000002';

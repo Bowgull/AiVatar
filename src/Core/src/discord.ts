@@ -447,8 +447,13 @@ export class DiscordAdapter {
     if (state === 'waiting') {
       const q = await this.post('needs-you', await this.drawn('needs', { title: `${title} needs you`, text: text.slice(0, 380) }, 0xC95E28, { content: `Claude needs you: ${first}`, as: 'claude' }));
       if (q) { this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: this.state.channels['needs-you']!, m: q } }; this.save(); }
+      if (q && typeof ev.session === 'string') this.sentFor(ev.session, this.state.channels['needs-you']!, q, `Claude needs you: ${first}`);
     }
-    if (state === 'done') await this.gw.send(p.post, { content: `Done: ${text.slice(0, 1800)}`, as: 'claude', loud: true });
+    // A finished job buzzes, except in his quiet hours (2026-10-28 review R14); a session that needs him always does.
+    if (state === 'done') {
+      const d = await this.gw.send(p.post, { content: `Done: ${text.slice(0, 1800)}`, as: 'claude', loud: !this.budget.quiet(this.now()) });
+      if (typeof ev.session === 'string') this.sentFor(ev.session, p.post, d, `Done: ${text.slice(0, 1800)}`);
+    }
     void this.refreshHome().catch(() => {});
   }
   /** A short stable key for a job's folder, for its buttons. */
@@ -946,9 +951,30 @@ export class DiscordAdapter {
 
   // ---------------------------------------------------------------- Aang to him
 
-  private async say(channel: string, text: string, silent: boolean): Promise<void> {
+  private async say(channel: string, text: string, silent: boolean, session?: string): Promise<void> {
     const id = this.state.channels[channel]; if (!id) return;
-    for (const part of chunkMessage(text)) await this.gw.send(id, { content: part, silent });
+    for (const part of chunkMessage(text)) { const m = await this.gw.send(id, { content: part, silent }); if (session) this.sentFor(session, id, m, part); }
+  }
+
+  /**
+   * 2026-10-29 (his "Discord posts get edited to Seen, not deleted"): the posts about each Claude session, so that once
+   * he deals with it (answered at the desk or in Claude, or the Claude app in front showed it to him) each one is
+   * edited to say so instead of waiting on his phone as if it were still news. Kept in memory only: a restart forgets.
+   */
+  private readonly bySession = new Map<string, { c: string; m: string; text: string }[]>();
+  private sentFor(session: string, c: string, m: string | null | undefined, text: string): void {
+    if (!m || !session) return;
+    const list = this.bySession.get(session) ?? [];
+    list.push({ c, m, text: text.slice(0, 1800) });
+    this.bySession.delete(session); this.bySession.set(session, list.slice(-6));
+    while (this.bySession.size > 40) this.bySession.delete(this.bySession.keys().next().value as string);
+  }
+  private async seen(sessions: string[]): Promise<void> {
+    for (const s of sessions) {
+      const list = this.bySession.get(s); if (!list) continue;
+      this.bySession.delete(s);
+      for (const p of list) await this.gw.edit(p.c, p.m, { content: `✓ Seen · ${p.text}`.slice(0, 1900), buttons: [] }).catch(() => { /* deleted */ });
+    }
   }
 
   /**
@@ -986,7 +1012,7 @@ export class DiscordAdapter {
         // Something Aang says on his own: a reminder, a Claude job that needs him or finished, a warning.
         const kind = kindOf(ev);
         const loud = this.budget.loud(kind, this.now());
-        const channel = kind === 'asked' && /^Need input/i.test(ev.text) ? 'needs-you' : 'aang';
+        const channel = kind === 'needs' || (kind === 'asked' && /^Need input/i.test(ev.text)) ? 'needs-you' : 'aang';
         // The morning brief, drawn (sheet 21 board 1).
         if (ev.brief && typeof ev.brief === 'object' && this.state.channels['aang']) { await this.briefPost(this.state.channels['aang'], ev.text, ev.brief, !loud); return; }
         if (typeof ev.jobCwd === 'string' && ev.jobCwd) {
@@ -996,13 +1022,15 @@ export class DiscordAdapter {
         // E7: a reminder with a link (Join, Open in Waze) gets it as a button too.
         if (Array.isArray(ev.links) && ev.links.length && this.state.channels[channel]) {
           const buttons: Button[] = ev.links.filter((l: any) => typeof l?.url === 'string' && /^https:\/\//.test(l.url)).slice(0, 4).map((l: any, i: number) => ({ id: `link:${i}`, label: String(l.label ?? 'Open').slice(0, 40), style: 'success' as const, url: l.url }));
-          await this.gw.send(this.state.channels[channel]!, { content: ev.text.slice(0, 1900), ...(loud ? {} : { silent: true }), buttons });
+          const m = await this.gw.send(this.state.channels[channel]!, { content: ev.text.slice(0, 1900), ...(loud ? {} : { silent: true }), buttons });
+          if (typeof ev.session === 'string') this.sentFor(ev.session, this.state.channels[channel]!, m, ev.text);
           return;
         }
-        await this.say(channel, ev.text, !loud);
+        await this.say(channel, ev.text, !loud, typeof ev.session === 'string' ? ev.session : undefined);
       }
       return;
     }
+    if (ev?.t === 'claude.seen' && Array.isArray(ev.sessions)) { await this.seen(ev.sessions.filter((x: unknown): x is string => typeof x === 'string')); return; }
     if (ev?.t === 'gaming.post') { await this.gamingPost(ev); return; }
     if (ev?.t === 'action' && typeof ev.text === 'string') { await this.say('home', ev.text, true); return; }
     if (ev?.t === 'actions.reply' && typeof ev.text === 'string') {

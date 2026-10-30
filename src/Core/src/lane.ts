@@ -312,7 +312,10 @@ export class Lane {
             const u = m.usage ?? {};
             this.listener({
               t: 'result',
-              ok: m.subtype === 'success',
+              // An API failure (an expired sign-in, an overload) arrives as subtype 'success' with is_error set and
+              // the error as its "answer" (2026-10-28: "Failed to authenticate: OAuth session expired" reached him
+              // word for word, twice). It is a failure, not a reply.
+              ok: m.subtype === 'success' && !m.is_error,
               subtype: m.subtype,
               text: typeof m.result === 'string' && m.result ? m.result : this.text,
               ms: Date.now() - this.sentAt,

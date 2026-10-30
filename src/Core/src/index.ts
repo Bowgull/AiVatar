@@ -7,7 +7,10 @@ const home = os.homedir();
 const core = new Core({
   port: Number(process.env.AANG_PORT ?? 47831),
   dataDir: process.env.AANG_DATA_DIR ?? path.join(home, 'Documents', 'Aang'),
-  stateDir: process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang'),
+  // The Mac (2026-10-28, the Mac is Aang's home): the same folder Samara keeps its settings in, as %APPDATA%\Aang is on the PC.
+  stateDir: process.env.AANG_STATE_DIR ?? (process.platform === 'darwin'
+    ? path.join(home, 'Library', 'Application Support', 'Aang')
+    : path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang')),
   claudeExecutable: process.env.AANG_CLAUDE_EXE || undefined,
   warm: process.env.AANG_WARM !== '0',
   // 2026-10-21: running Claude sessions show at once after a restart, read from their transcripts (claudescan.ts).

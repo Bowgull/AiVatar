@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 104 - Pixel edges</title>
+<!-- Sheet 104 (2026-10-28), from the look-and-feel pass he asked for. Before and after on the REAL pages: the soft
+     rounded boxes inside the bubble (brief, notes chips, Look back) redrawn with a 7x7 pixel frame at exactly 2x, stepped
+     corners and a dark outline like the bubble's own; the wheel's pointed-at disc lifting by whole pixels instead of
+     growing to 1.1x. The tail pair is the real Mac app, before and after its fix (done: a bug of the port, not a
+     design change). Drawn by src/Shell/test/electron/sheet104-shots.ts; the Look back rows are examples. -->
+<link rel="stylesheet" href="sheet-53/sheet53.css">
+<style>
+.shot img{image-rendering:pixelated}
+.cap{font:500 14px/1.45 Figtree,sans-serif;color:#d8cab0;max-width:560px;margin:2px 0 0}
+.new{display:inline-block;font:800 10.5px Figtree,sans-serif;letter-spacing:1px;padding:2px 7px;border-radius:5px;background:#1d6b60;color:#fff;margin-left:8px;vertical-align:2px}
+.done{background:#4a6b1d}
+</style>
+</head>
+<body>
+<h1>SHEET 104 &middot; PIXEL EDGES</h1>
+<p class="lead">The boxes inside Aang's bubble get the same pixel edge as the bubble itself, and the wheel stops going blurry.</p>
+<p class="real">The real pages, before and after. The words in Look back are examples.</p>
+
+<h2><span class="n">1</span>THE BOXES INSIDE THE BUBBLE</h2>
+<p class="lead">Stepped pixel corners and a dark outline, drawn at exactly 2x, instead of smooth rounded boxes.</p>
+<div class="row">
+  <div class="cell"><div class="lbl"><i>a</i>BRIEF, TODAY</div><div class="shot"><img src="sheet-104/1-brief-before.png"></div></div>
+  <div class="cell"><div class="lbl"><i>b</i>BRIEF<span class="new">NEW</span></div><div class="shot"><img src="sheet-104/1-brief-after.png"></div>
+    <p class="cap">The weather box and the "All clear" slip.</p></div>
+</div>
+<div class="row" style="margin-top:20px">
+  <div class="cell"><div class="lbl"><i>c</i>NOTES, TODAY</div><div class="shot"><img src="sheet-104/2-board-before.png"></div></div>
+  <div class="cell"><div class="lbl"><i>d</i>NOTES<span class="new">NEW</span></div><div class="shot"><img src="sheet-104/2-board-after.png"></div>
+    <p class="cap">The category chips. "+ Category" keeps a lighter frame so it still reads as "add one".</p></div>
+</div>
+<div class="row" style="margin-top:20px">
+  <div class="cell"><div class="lbl"><i>e</i>LOOK BACK, TODAY</div><div class="shot"><img src="sheet-104/3-lookback-before.png"></div></div>
+  <div class="cell"><div class="lbl"><i>f</i>LOOK BACK<span class="new">NEW</span></div><div class="shot"><img src="sheet-104/3-lookback-after.png"></div>
+    <p class="cap">The day's paper, the faces and Claude's rows.</p></div>
+</div>
+
+<h2><span class="n">2</span>THE TIMER SETUP'S TAIL</h2>
+<div class="row">
+  <div class="cell"><div class="lbl"><i>a</i>BEFORE</div><div class="shot"><img src="sheet-104/4-tail-before.png"></div>
+    <p class="cap">A stub in the corner.</p></div>
+  <div class="cell"><div class="lbl"><i>b</i>FIXED<span class="new done">DONE</span></div><div class="shot"><img src="sheet-104/4-tail-after.png"></div>
+    <p class="cap">Already fixed on your Mac: the bubble sits a little further from his cheek, so its tail is a tail again.</p></div>
+</div>
+
+<h2><span class="n">3</span>THE WHEEL</h2>
+<div class="row">
+  <div class="cell"><div class="lbl"><i>a</i>TODAY</div><div class="shot"><img src="sheet-104/5-wheel-before.png"></div>
+    <p class="cap">The slot you point at grows to 1.1x and its pixel icon goes soft.</p></div>
+  <div class="cell"><div class="lbl"><i>b</i>LIFT<span class="new">NEW</span></div><div class="shot"><img src="sheet-104/5-wheel-after.png"></div>
+    <p class="cap">It lifts 3 px with a light gold rim, and stays crisp.</p></div>
+</div>
+</body>
+</html>

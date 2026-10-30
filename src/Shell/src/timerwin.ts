@@ -22,6 +22,8 @@ export interface TimerOptions {
   toBrain?: (m: Record<string, unknown>) => void;
   /** Rename is done: the keyboard goes back to the window he was in. */
   refocus?: () => void;
+  /** The Mac (2026-10-28): before a rename takes the keyboard, the app must be made active, or the keys go elsewhere. */
+  takeKeys?: () => void;
   iconPath?: string;
   /** Tests: keep the menu on its own rectangle instead of a real screen's work area. */
   menuArea?: () => Electron.Rectangle;
@@ -34,7 +36,7 @@ const W = 300, H = 250;
 export const COLOURS = ['blue', 'gold', 'rose', 'jade', 'violet'];
 
 export class TimerWindows {
-  private readonly wins = new Map<string, { w: BrowserWindow; pinned: boolean; through?: boolean; t: TimerData }>();
+  private readonly wins = new Map<string, { w: BrowserWindow; pinned: boolean; through?: boolean; hot?: boolean; t: TimerData }>();
   private dragFrom: { id: string; x: number; y: number } | null = null;
   private calmOn = false;
   readonly menu: TimerMenu;
@@ -75,7 +77,7 @@ export class TimerWindows {
     if (this.o.iconPath) { try { w.setIcon(this.o.iconPath); } catch { /* the default icon */ } }
     // Above a full-screen game, the same level the pop-out uses.
     w.setAlwaysOnTop(true, 'screen-saver');
-    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
     w.setIgnoreMouseEvents(true, { forward: true });
@@ -109,7 +111,24 @@ export class TimerWindows {
   clickable(sender: Electron.WebContents, on: boolean): void {
     const id = this.idOf(sender); const v = id ? this.wins.get(id) : null;
     if (!v || v.pinned || v.through) return;
+    v.hot = on;
     v.w.setIgnoreMouseEvents(!on, { forward: true });
+  }
+  /**
+   * The Mac (2026-10-28): macOS sends no mouse moves to a window that lets clicks through, so the page never learns the
+   * pointer is on it and its keys could not be clicked. The Mac app follows the pointer and calls this: a timer takes
+   * the mouse while the pointer is over it. True while there is a timer to follow.
+   */
+  pointerAt(p: { x: number; y: number }): boolean {
+    let any = false;
+    for (const v of this.wins.values()) {
+      if (v.w.isDestroyed() || v.pinned || v.through) continue;
+      any = true;
+      const b = v.w.getBounds();
+      const on = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+      if (on !== v.hot) { v.hot = on; v.w.setIgnoreMouseEvents(!on, { forward: true }); }
+    }
+    return any;
   }
   opacity(sender: Electron.WebContents, n: number): void {
     const id = this.idOf(sender); const v = id ? this.wins.get(id) : null;
@@ -153,6 +172,7 @@ export class TimerWindows {
     if (!v || v.w.isDestroyed()) return;
     v.w.setIgnoreMouseEvents(false);
     v.w.setFocusable(true);
+    this.o.takeKeys?.();
     v.w.focus(); v.w.webContents.focus();
     v.w.webContents.send('timer:do', 'rename');
   }

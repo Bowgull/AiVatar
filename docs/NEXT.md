@@ -160,7 +160,7 @@ anything beyond "did I just break the thing I touched."
   - All 37 Body tests still pass. **Confirmed working by Josh in the real docked view, 2026-09-24** ("his
     docked state works perfectly excellent").
 
-**0g. MAJOR FINDING, not yet fixed: a resumed Claude Code session does not reliably pick up a changed system
+**0g. MAJOR FINDING, FIXED in code (checked 2026-10-28: `lane.ts` systemPrompt `snapshot: false`, locked by `test/lane.test.ts`; not yet re-measured live): a resumed Claude Code session does not reliably pick up a changed system
 prompt.** Found diagnosing why `present_list` (below) wasn't firing: three identical live attempts across a
 full Core restart with an edited `voice.ts` produced near-identical replies with `cacheReadTokens` around
 66,000 and only 300-500 new tokens each time - clear evidence the resumed conversation was still running on

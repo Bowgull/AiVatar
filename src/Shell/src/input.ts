@@ -40,7 +40,7 @@ export class InputBox {
         webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
       });
       w.setAlwaysOnTop(true, 'pop-up-menu');
-      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
       lockDown(w.webContents);
       denyPermissions(w.webContents.session);
       void w.loadURL(`${this.o.origin}/input.html`);

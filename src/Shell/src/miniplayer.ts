@@ -100,7 +100,7 @@ export class MiniPlayer {
   /** Open it (or bring it back where it was). */
   open(): BrowserWindow {
     const had = this.window;
-    if (had) { if (!had.isVisible()) had.showInactive(); this.family?.add(this.member()); this.push(); this.watch(); return had; }
+    if (had) { if (!had.isVisible()) had.showInactive(); this.raise(had); this.family?.add(this.member()); this.push(); this.watch(); return had; }
     const h = this.prefs.shade ? SHADE_H : FULL_H;
     const at = this.spot(h);
     const w = new BrowserWindow({
@@ -121,6 +121,9 @@ export class MiniPlayer {
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
     softEdge(w);
+    // Mac (2026-10-28, found in the real-click pass): without this the player opened on the desktop's space, hidden
+    // behind whatever full-screen app he is in (Samara), so his clicks landed on that app instead.
+    if (process.platform === 'darwin') w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     this.w = w;
     w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); this.menu.close(); this.watch(); } });
     // Hidden, minimised or covered: the page stops its scenes and bars (it also hears the page's own visibility), and
@@ -130,7 +133,7 @@ export class MiniPlayer {
     w.on('moved', () => { this.savePlace(); this.menu.close(); });
     w.on('hide', () => this.menu.close());
     void w.loadURL(`${this.o.origin}/miniplayer.html`);
-    w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.showInactive(); this.applyMouse(); this.watch(); } });
+    w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.showInactive(); this.raise(w); this.applyMouse(); this.watch(); } });
     this.family?.add(this.member());
     return w;
   }
@@ -273,10 +276,16 @@ export class MiniPlayer {
       moved: () => this.savePlace(),
     };
   }
+  /** Up in front when it opens. On the Mac Aang is never the active app, so a normal window of his sinks behind the app
+   *  he is in the moment that app is touched (found in the real-click pass, 2026-10-28): there it floats, like his notes. */
+  private raise(w: BrowserWindow): void {
+    w.moveTop();
+    if (process.platform === 'darwin' && !this.pinned) w.setAlwaysOnTop(true, 'floating');
+  }
   private applyOnTop(on: boolean): void {
     this.pinned = on;
     const w = this.window;
-    if (w) w.setAlwaysOnTop(on, 'screen-saver');
+    if (w) { if (!on && process.platform === 'darwin') w.setAlwaysOnTop(true, 'floating'); else w.setAlwaysOnTop(on, 'screen-saver'); }
     this.send('player:ui', this.ui());
   }
   private applyOpacity(n: number): void {
@@ -315,6 +324,9 @@ export class MiniPlayer {
       return { x: Math.max(area.x, Math.min(area.x + area.width - FULL_W, p.x)), y: Math.max(area.y, Math.min(area.y + area.height - h, p.y)) };
     }
     const area = screen.getPrimaryDisplay().workArea;
+    // The Mac (2026-10-28): the bottom right is where Aang lives and his bubble opens, so it covered the player. It
+    // starts at the top right there; on the PC Aang sits on the taskbar, clear of it.
+    if (process.platform === 'darwin') return { x: area.x + area.width - FULL_W - 24, y: area.y + 24 };
     return { x: area.x + area.width - FULL_W - 24, y: area.y + area.height - FULL_H - 24 };
   }
   private savePlace(): void {

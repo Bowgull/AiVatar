@@ -78,7 +78,11 @@ function label(item: string): string {
 /** The things a question names to pick from ("A or B", "A, B or C"), or [] when it names none cleanly. */
 function alternatives(q: string, lead: RegExp | null): string[] {
   let body = q.replace(/[?.!:]+$/, '').trim();
-  const colon = body.lastIndexOf(': '), comma = body.indexOf(', ');
+  // "Want it more casual, shorter, or with anything cut?" (2026-10-29: the first choice was lost with the lead words):
+  // the words that only point at the thing go, so every choice is kept.
+  const pointer = /^(?:(?:do|would) you\s+)?(?:want|like|prefer)\s+(?:it|this|that|them|the (?:post|draft|text|message|reply))\s+|^(?:should|shall) i make (?:it|this|that)\s+/i;
+  if (pointer.test(body) && /,|\bor\b/i.test(body)) { body = body.replace(pointer, ''); lead = null; }
+  const colon = body.lastIndexOf(': '), comma = pointer.test(q) ? -1 : body.indexOf(', ');
   if (colon > 0 && /\bor\b/i.test(body.slice(colon))) body = body.slice(colon + 2);
   else if (lead) body = body.replace(lead, '').trim();
   else if (comma > 0 && /\bor\b/i.test(body.slice(comma)) && !/^or\b/i.test(body.slice(comma + 2))) body = body.slice(comma + 2);

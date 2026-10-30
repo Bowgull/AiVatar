@@ -168,10 +168,56 @@ test('nothing unprompted arrives while the game has focus; it waits and is deliv
 
   c.send(JSON.stringify({ t: 'presence', quiet: false, foreground: 'explorer' }));
   await new Promise(r => setTimeout(r, 300));
-  assert.deepEqual(bubbles().map(b => b.text), ['Claude Code is waiting on you in AangApp.'], 'the first one comes straight away');
+  // Two or more come out as ONE bubble with a row each, not a drip (2026-10-29, fix 9).
+  assert.deepEqual(bubbles().map(b => b.text), ['While you were busy:'], 'both at once, in one bubble');
+  assert.equal((bubbles()[0] as { list?: { items: unknown[] } }).list?.items.length, 2);
   assert.equal(core.pendingCount, 0);
   c.close();
   await core.stop();
+});
+
+test('a message held during the game comes back whole: its links and its row, so he can reply to it (2026-10-28)', async (t) => {
+  const core = new Core({ testDoor: true, port: 48098, dataDir: tmp(), stateDir: tmp(), warm: false });
+  await core.start();
+  t.after(() => core.stop());
+  const { c, bubbles } = await connected(48098);
+  t.after(() => c.close());
+
+  c.send(JSON.stringify({ t: 'presence', quiet: true, foreground: 'Wow' }));
+  await new Promise(r => setTimeout(r, 100));
+  core.announce('New video from his channel', { links: [{ label: 'Watch', url: 'https://www.youtube.com/watch?v=x' }] });
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(bubbles().length, 0);
+
+  c.send(JSON.stringify({ t: 'presence', quiet: false, foreground: 'explorer' }));
+  await new Promise(r => setTimeout(r, 300));
+  const b = bubbles()[0];
+  assert.equal(b?.text, 'New video from his channel');
+  assert.deepEqual(b?.links, [{ label: 'Watch', url: 'https://www.youtube.com/watch?v=x' }], 'the link is not lost');
+  assert.equal(typeof b?.turn, 'number', 'stored when he saw it, so a reply has something to point at');
+});
+
+test('typing "brb" sends what comes next to Discord, with no Claude turn (2026-10-28)', async (t) => {
+  const core = new Core({ testDoor: true, port: 48086, dataDir: tmp(), stateDir: tmp(), warm: false });
+  await core.start();
+  t.after(() => core.stop());
+  const desk = await connected(48086);
+  t.after(() => desk.c.close());
+  const phone = await connected(48086);
+  t.after(() => phone.c.close());
+  phone.c.send(JSON.stringify({ t: 'hello', v: 1, client: 'discord' }));
+  desk.c.send(JSON.stringify({ t: 'hello', v: 1 }));
+  await new Promise(r => setTimeout(r, 100));
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b1', text: 'brb grabbing food' }));
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(desk.bubbles().find(b => b.id === 'b1')?.text, 'Okay. Everything goes to Discord until you are back.');
+  assert.ok(desk.inbox.some(m => m.t === 'away.set'), 'the pet is told, so his next touch brings him back');
+
+  core.announce('Reminder: call the bank');
+  await new Promise(r => setTimeout(r, 200));
+  assert.ok(phone.bubbles().some(b => b.text === 'Reminder: call the bank'), 'it goes to Discord');
+  assert.ok(!desk.bubbles().some(b => b.text === 'Reminder: call the bank'), 'not to the bubble as well');
 });
 
 test('muting silences unprompted messages until it is turned off', async () => {
@@ -201,7 +247,7 @@ test('a hook posted over HTTP reaches the bubble', async () => {
   const res = await post({ hook_event_name: 'Notification', session_id: 'h1', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
   assert.equal(res.status, 204, 'hooks get an immediate, empty answer');
   await new Promise(r => setTimeout(r, 200));
-  assert.deepEqual(bubbles().map(b => [b.text, b.proactive]), [['Claude Code is waiting on you in AangApp.', true]]);
+  assert.deepEqual(bubbles().map(b => [b.text, b.proactive]), [['AangApp wants your OK: needs permission.', true]]);   // Aang's words (2026-10-29)
 
   await post('not an object');
   await fetch('http://127.0.0.1:48085/hook', { method: 'GET' }).catch(() => {});
@@ -217,22 +263,29 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   const dataDir = tmp();
   const core = new Core({ testDoor: true, port: 48092, dataDir, stateDir: tmp(), warm: false });
   await core.start();
+  // Always shut down, even after a failed assert: a Core left running kept the whole file from ever ending (it hung
+  // for 25 minutes on the MacBook, 2026-10-28).
+  t.after(() => core.stop());
   const { c, bubbles } = await connected(48092);
+  t.after(() => c.close());
   const key = readFileSync(path.join(dataDir, 'hook.key'), 'utf8').trim();
   const body = JSON.stringify({ hook_event_name: 'Notification', session_id: 'm1', cwd: '/Users/josh/code/site', message: 'needs permission' });
 
   const without = await fetch(`http://${ts}:48093/hook?e=Notification`, { method: 'POST', body });
   assert.equal(without.status, 403, 'no key, no entry');
-  const wrong = await fetch(`http://${ts}:48093/hook?e=Notification&k=nope`, { method: 'POST', body });
+  const wrong = await fetch(`http://${ts}:48093/hook?e=Notification`, { method: 'POST', headers: { 'x-aang-key': 'nope' }, body });
   assert.equal(wrong.status, 403);
+  const inAddress = await fetch(`http://${ts}:48093/hook?e=Notification&k=${key}`, { method: 'POST', body });
+  assert.equal(inAddress.status, 403, 'the right key in the address is refused: header only');
   await new Promise(r => setTimeout(r, 150));
   assert.equal(bubbles().length, 0);
 
-  const ok = await fetch(`http://${ts}:48093/hook?e=Notification&k=${key}`, { method: 'POST', body });
+  const ok = await fetch(`http://${ts}:48093/hook?e=Notification`, { method: 'POST', headers: { 'x-aang-key': key }, body });
   assert.equal(ok.status, 204);
   await new Promise(r => setTimeout(r, 200));
   const b = bubbles()[0];
-  assert.equal(b?.text, 'Claude Code on the MacBook is waiting on you in site.');
+  // Named for the OTHER machine: the MacBook on the PC's brain, the PC on the Mac's; in Aang's words (2026-10-29).
+  assert.equal(b?.text, `site on ${process.platform === 'darwin' ? 'the PC' : 'the MacBook'} wants your OK: needs permission.`);
   assert.equal(b?.blocking, true);
   assert.equal(b?.focus, undefined, 'no window on this PC to bring forward');
   assert.equal(b?.host, 'mac');
@@ -240,15 +293,15 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   // A click on its icon: the Core asks the Mac's one-job listener (played here by a fake) to bring Claude forward.
   const got: string[] = [];
   const fake = http.createServer((req, res) => { got.push(`${req.method} ${req.url} ${String(req.headers['x-aang-key'] ?? '')}`); res.writeHead(204).end(); });
-  await new Promise<void>(r => fake.listen(47840, ts, () => r()));
+  // On the MacBook itself the real listener already holds 47840, so the fake cannot stand in for it there.
+  const listening = await new Promise<boolean>(r => { fake.once('error', () => r(false)); fake.listen(47840, ts, () => r(true)); });
+  if (!listening) { t.skip('the real Mac listener holds 47840 on this machine'); return; }
   c.send(JSON.stringify({ t: 'claude.front', host: 'mac' }));
   await new Promise(r => setTimeout(r, 300));
   const frontKey = readFileSync(path.join(dataDir, 'mac-front.key'), 'utf8').trim();
   assert.deepEqual(got, [`POST /front ${frontKey}`], 'the key as a header, never in the address');
   assert.notEqual(frontKey, key, 'a different key from the one the hooks send');
   await new Promise<void>(r => fake.close(() => r()));
-  c.close();
-  await core.stop();
 });
 
 test('the MacBook setup script is served once, for its code, with both keys in it', async (t) => {
@@ -283,18 +336,17 @@ test('a session he started himself gets the same two tiers, even while the game 
 
   await post({ hook_event_name: 'Notification', session_id: 'h2', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
   await new Promise(r => setTimeout(r, 200));
-  const waiting = bubbles().find(b => /waiting on you/.test(b.text));
+  // In Aang's words since 2026-10-29 (messages.ts; the plain line in a test): who, and what it wants.
+  const waiting = bubbles().find(b => /^AangApp wants your OK: needs permission/.test(b.text));
   assert.ok(waiting, 'reaches him live, not held for the quiet-hold - it is not routine chatter');
   assert.equal(waiting.blocking, true);
   assert.equal(waiting.jobCwd, undefined, 'no Panel tab for a session Aang did not launch');
 
   await post({ hook_event_name: 'Stop', session_id: 'h2', cwd: 'C:\\code\\AangApp' });
-  // 2026-10-21: every turn end is now the "<title> replied" line (claudereplies.ts), said after a short settle.
+  // 2026-10-29 (his "only when it matters"): a short, routine turn end is not said; it only lights the done tick. The
+  // message engine writes its line for the done card instead (messages.ts). Never an "X replied: <first line>".
   await new Promise(r => setTimeout(r, 2000));
-  const finished = bubbles().find(b => /AangApp replied/.test(b.text));
-  assert.ok(finished, 'a Stop also reaches him live');
-  assert.equal(finished.done, true);
-  assert.equal(finished.blocking, undefined, 'done and blocking are never both set');
+  assert.equal(bubbles().filter(b => /replied/.test(b.text)).length, 0, 'no replied line for a routine turn');
 
   c.close();
   await core.stop();

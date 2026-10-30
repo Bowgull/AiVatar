@@ -13,8 +13,12 @@ import { refusal } from './files.ts';
 import type { Protected } from './files.ts';
 import { writeFileAtomic } from './atomic.ts';
 
+// The Mac (2026-10-28): his own trash folder beside Aang's settings, never ~/.Trash. Aang's trash is emptied after
+// TRASH_DAYS, and doing that in the Mac's Trash would throw away Joshua's own things too; that one he empties himself.
 export const TRASH_DIR = process.env.AANG_TRASH_DIR
-  ?? path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'), 'Aang', 'trash');
+  ?? (process.platform === 'darwin'
+    ? path.join(os.homedir(), 'Library', 'Application Support', 'Aang', 'trash')
+    : path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'), 'Aang', 'trash'));
 export const TRASH_DAYS = 30;
 export const MAX_ENTRIES = 5000;                    // a folder bigger than this is not tidied in one go
 export const MAX_COPY_BYTES = 500 * 1024 * 1024;

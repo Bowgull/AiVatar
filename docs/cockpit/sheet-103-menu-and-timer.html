@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 103 - Smaller menu, typed timer</title>
+<!-- Sheet 103 (2026-10-28). His reports: "Aang's right click menu is also way too large" and, on the timer, "I can't
+     click and type in a time; what if I need something very specific". The menu pictures are the REAL right-click menu
+     at today's size and at two smaller sizes (CSS on the real page; icons stay 11 px art at exactly 2x). The timer
+     pictures are the REAL timer setup, with the typing row and the name chip laid over it (mockup). Drawn by
+     src/Shell/test/electron/sheet103-shots.ts. On 2026-10-21 he found the menu's words too small at about 12 px, so
+     neither option goes that small. -->
+<link rel="stylesheet" href="sheet-53/sheet53.css">
+<style>
+.shot img{image-rendering:pixelated}
+.cap{font:500 14px/1.45 Figtree,sans-serif;color:#d8cab0;max-width:420px;margin:2px 0 0}
+.new{display:inline-block;font:800 10.5px Figtree,sans-serif;letter-spacing:1px;padding:2px 7px;border-radius:5px;background:#1d6b60;color:#fff;margin-left:8px;vertical-align:2px}
+</style>
+</head>
+<body>
+<h1>SHEET 103 &middot; SMALLER MENU, TYPED TIMER</h1>
+<p class="lead">Two fixes you asked for: a menu that fits your screen, and a timer you can type any time into.</p>
+<p class="real">The real menu and the real timer, drawn by the app.</p>
+
+<h2><span class="n">1</span>THE RIGHT-CLICK MENU</h2>
+<p class="lead">Same rows, same art. The icons stay sharp at every size.</p>
+<div class="row">
+  <div class="cell"><div class="lbl"><i>a</i>TODAY</div><div class="shot"><img src="sheet-103/1a-menu-today.png"></div>
+    <p class="cap">16 px words. 706 px tall, two thirds of your screen.</p></div>
+  <div class="cell"><div class="lbl"><i>b</i>14 PX<span class="new">PICK ONE</span></div><div class="shot"><img src="sheet-103/1b-menu-14.png"></div>
+    <p class="cap">606 px tall, about half your screen. Still easy to read.</p></div>
+  <div class="cell"><div class="lbl"><i>c</i>13 PX</div><div class="shot"><img src="sheet-103/1c-menu-13.png"></div>
+    <p class="cap">556 px tall. The smallest before the words get hard to read.</p></div>
+</div>
+
+<h2><span class="n">2</span>THE TIMER</h2>
+<div class="row">
+  <div class="cell"><div class="lbl"><i>a</i>TODAY</div><div class="shot"><img src="sheet-103/2a-timer-today.png"></div>
+    <p class="cap">Only the dial and presets, up to an hour. "What for?" takes a whole line.</p></div>
+  <div class="cell"><div class="lbl"><i>b</i>TYPE ANY TIME<span class="new">NEW</span></div><div class="shot"><img src="sheet-103/2b-timer-typed.png"></div>
+    <p class="cap">Click the box and type: 25m, 1:30, 90s, 2h, or a clock time like 3:15 pm. The dial follows what you type. Enter starts it. A name only if you want one, from the small chip.</p></div>
+</div>
+</body>
+</html>

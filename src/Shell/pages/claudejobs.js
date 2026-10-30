@@ -546,8 +546,11 @@ function liveAgents(getJob) {
  * What an Open in Claude press asks main.ts for (2026-10-21, claudewire.ts claudeOpenTarget): the session's own app link,
  * 'mac' for a job on the MacBook, or 'front' (the Claude app forward) when there is no app link. Never nothing.
  */
+/** The machine this page runs on (2026-10-28: on the Mac its own sessions were labelled PC). */
+const HERE = /Mac/i.test(navigator.platform) ? 'MAC' : 'PC';
 function openTarget(j) {
-  if (j?.machine === 'MAC') return 'mac';
+  // A job on the OTHER machine (the MacBook, from the PC); one here opens by its own link.
+  if (j?.machine === 'MAC' && HERE !== 'MAC') return 'mac';
   return typeof j?.open === 'string' && /^claude:\/\/claude\.ai\/epitaxy\//.test(j.open) ? j.open : 'front';
 }
 
@@ -563,13 +566,13 @@ function readJob(x) {
   }));
   return {
     // His own name for the session in the Claude app when it has one (claudenames.ts), else its folder's.
-    id: x.id.slice(0, 100), machine: x.machine === 'mac' ? 'MAC' : 'PC', project: str(x.title, 60) || str(x.project, 60) || 'Claude', phase, tasks,
+    id: x.id.slice(0, 100), machine: x.machine === 'mac' ? 'MAC' : HERE, project: str(x.title, 60) || str(x.project, 60) || 'Claude', phase, tasks,
     startedAt: Number(x.startedAt) || 0, prompt: str(x.prompt, 200), current: str(x.current, 200),
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
     failed: x.failed === true, progress: readProgress(x.progress), activity: readActivity(x.activity), finished: x.finished === true,
     // 2026-10-22: finished and not yet seen (the brain's unread book, claudelink.ts): its done card stays until he X's or opens it.
-    unread: x.unread === true, doneAt: Number(x.doneAt) || 0,
+    unread: x.unread === true, doneAt: Number(x.doneAt) || 0, said: str(x.said, 240),
     plan: readPlan(x.plan), ci: (Array.isArray(x.ci) ? x.ci : []).slice(0, 4).map(readCi).filter(Boolean),
   };
 }
@@ -630,7 +633,7 @@ function readWait(x) {
   })).filter((q) => q.question) : [];
   if (kind === 'question' && !questions.length && x.readonly !== true) return null;
   return { id: x.id.slice(0, 100), session: x.session.slice(0, 100), project: str(x.project, 60) || 'Claude', kind, tool: str(x.tool, 120),
-    summary: str(x.summary, 300), plain: str(x.plain, 400), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true,
+    summary: str(x.summary, 300), plain: str(x.plain, 400), about: str(x.about, 120), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true,
     readonly: x.readonly === true, reply: x.reply === true };
 }
 
@@ -860,9 +863,10 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const d = h('div', 'jdone' + (leaving.has(j.id) ? ' ck-leaving going gentle' : '')); d.dataset.id = j.id;
     if (leaving.has(j.id)) d.style.height = '0px';     // redrawn mid-fold: it stays folded
     const img = document.createElement('img'); img.src = CL; img.alt = '';
-    const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.project));
+    const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.title || j.project));
     const last = [...j.tasks].reverse().find((t) => t.status === 'completed');
-    on.append(h('small', '', last?.text || j.prompt || 'All done'));
+    // What it did, in Aang's words (the brain's message engine, 2026-10-29), else its last task.
+    on.append(h('small', '', j.said || last?.text || j.prompt || 'All done'));
     const x = btn('jx', undefined, 'Done with it'); x.setAttribute('aria-label', 'Done with it');
     // The x is not the door: it only folds the card away.
     x.addEventListener('click', (e) => { e.stopPropagation(); if (closing.has(j.id)) return; ackDone(j.id); acknowledge(j.id, d); });
@@ -1001,7 +1005,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   function rType(on) { if (on === rTyping) return; rTyping = on; window.aang?.bubbleTyping?.(on); }
   function replyCard(card, w, typed = null) {
     const q = w.questions[0];
-    card.append(h('p', 'q', w.plain || q.question));
+    // What it is about, then Claude's own question (2026-10-29: the question alone never said what "it" was).
+    if (w.about) card.append(h('p', 'about', w.about));
+    card.append(h('p', 'q', q.question));
     const list = h('div', 'opts glove'), rows = [];
     const pick = (text) => { send({ t: 'claude.answer', id: w.id, answers: { [q.question]: text } }); done(w, text); };
     q.options.forEach((o, i) => {
@@ -1201,7 +1207,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       if (top !== null && top !== topId && m.quiet === true) parked = true;
       if (fresh) parked = false;
       topId = top;
-      const sig = JSON.stringify([live().map((w) => [w.id, w.plain, w.summary, w.questions.map((q) => q.options.map((o) => o.plain))]), parked]);
+      const sig = JSON.stringify([live().map((w) => [w.id, w.plain, w.about, w.summary, w.questions.map((q) => q.options.map((o) => o.plain))]), parked]);
       if (sig !== pinsSig || fresh) { pinsSig = sig; paintPins(); onChange(); }
       // A job waiting on him shows in the strip (and leaves it once answered).
       if (paintJobs()) onChange();

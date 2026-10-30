@@ -77,7 +77,7 @@ These are not features. They are things that exist and are wrong, and each one s
 
 ### 1.1 — Every prompt change you have ever made may have done nothing
 
-**BROKEN. Not yet understood.** This is the most serious bug in the project.
+**FIXED in code** (checked 2026-10-28): `lane.ts` sends the instructions with `snapshot: false`, so a resumed conversation reads the current ones; locked by `test/lane.test.ts`. Not yet re-measured live. The history below is kept.
 
 When Aang continues an existing conversation, he appears to keep using the *old* instructions, ignoring any edits made since. The evidence is not a hunch: three identical test messages, across a full restart with edited instructions, produced near-identical replies while reading ~66,000 cached tokens and writing only 300–500 new ones. Clearing the saved conversation ID by hand made the same message work immediately.
 

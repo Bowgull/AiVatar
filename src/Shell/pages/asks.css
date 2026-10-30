@@ -52,7 +52,7 @@
 #bubble[data-kind] #opts .opt.other .lab{color:#55307a}
 
 /* ---- the keys wait for his hover (sheet 64 section 4) ----
-   Until 1.5 s of the mouse resting on the bubble (bubble.js .kshow) the ask lands with its question and tag only. Once
+   Until 0.7 s of the mouse resting on the bubble (bubble.js .kshow) the ask lands with its question and tag only. Once
    out they stay, even when the mouse leaves. */
 #bubble[data-kind]:not(.kshow) :is(#asks,#count,#opts,#ckpins .ckeys,#ckpins .opts,#ckpins .sendrow){display:none!important}
 .wrap:not(.over) #bubble[data-kind].kshow #asks:not([hidden]){display:flex}

@@ -109,16 +109,10 @@ async function turn(port: number, session: string, foreground: string, quiet: bo
   return { lines: inbox.filter(m => m.t === 'bubble' && /replied/.test(m.text)), marks: inbox.filter(m => m.t === 'claude.mark' && m.flash) };
 }
 
-test('a short turn is announced when Claude is not in front: the line, the teal flash and the done chime', async () => {
+test('a short routine turn is not said (his pick, 2026-10-29: only when it matters); the tick alone shows it', async () => {
   const { lines, marks } = await turn(48250, '22222222-0000-0000-0000-000000000001', 'explorer', false);
-  assert.equal(lines.length, 1, 'a two-second turn is still said');
-  assert.equal(lines[0].text, 'Waymark replied.');
-  assert.equal(lines[0].done, true);
-  assert.equal(lines[0].kind, 'claude');
-  assert.equal(lines[0].session, '22222222-0000-0000-0000-000000000001');
-  assert.equal(marks.length, 1);
-  assert.equal(marks[0].flash, 'complete');
-  assert.equal(marks[0].sound, 'done');
+  assert.equal(lines.length, 0, 'a two-second turn with nothing wrong gets no line');
+  assert.equal(marks.length, 0, 'and no flash or chime');
 });
 
 test('silent while the Claude app is in front (he saw it there), and not replayed when he leaves', async () => {
@@ -127,9 +121,8 @@ test('silent while the Claude app is in front (he saw it there), and not replaye
   assert.equal(marks.length, 0);
 });
 
-test('in a game: the line goes to the pet, which holds it as the teal mark; no extra chime from here', async () => {
+test('in a game: a routine turn says nothing over the game either', async () => {
   const { lines, marks } = await turn(48258, '22222222-0000-0000-0000-000000000003', 'Wow', true);
-  assert.equal(lines.length, 1, 'sent live as a finished line (the pet keeps it as its mark, PetWindow NewFrontEndGate)');
-  assert.equal(lines[0].done, true);
+  assert.equal(lines.length, 0);
   assert.equal(marks.length, 0, 'no flash or chime over the game from the brain');
 });

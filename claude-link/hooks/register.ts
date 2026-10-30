@@ -122,9 +122,13 @@ async function where($: $T, L: Link): Promise<void> {
   if (L.base) return
   const port = Number((await $.env.get('AANG_PORT')) ?? 47831) + 1
   L.base = `http://127.0.0.1:${Number.isFinite(port) ? port : 47832}`
-  const home = (await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || ''
-  const dataDir = (await $.env.get('AANG_DATA_DIR')) || `${home}\\Documents\\Aang`
-  L.keyPath = `${dataDir}\\link.key`
+  const profile = (await $.env.get('USERPROFILE')) || ''
+  const home = profile || (await $.env.get('HOME')) || ''
+  // The Mac (2026-10-28): a POSIX home takes forward slashes. The Windows-only form could never find the key there,
+  // so every signed call (progress, asks, answers, starts) went dark on the Mac.
+  const sep = !profile && home.startsWith('/') ? '/' : '\\'
+  const dataDir = (await $.env.get('AANG_DATA_DIR')) || [home, 'Documents', 'Aang'].join(sep)
+  L.keyPath = dataDir + (dataDir.includes('/') && !dataDir.includes('\\') ? '/' : '\\') + 'link.key'
 }
 
 /** One signed request to the brain. Undefined when it failed or took longer than `ms`. */

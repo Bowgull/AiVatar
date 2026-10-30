@@ -19,7 +19,7 @@ export type MenuState = Record<string, unknown>;
  * when he is tucked at an edge, so a tucked Aang gets that room on every side.
  */
 export function avoidRect(sprite: { x: number; y: number; width: number; height: number } | null | undefined, tucked = false,
-  toDip: (r: Electron.Rectangle) => Electron.Rectangle = (r) => screen.screenToDipRect(null, r)): Electron.Rectangle | null {
+  toDip: (r: Electron.Rectangle) => Electron.Rectangle = (r) => (process.platform === 'win32' ? screen.screenToDipRect(null, r) : r)): Electron.Rectangle | null {
   if (!sprite || !(sprite.width > 0) || !(sprite.height > 0)) return null;
   const r = toDip({ x: Math.round(sprite.x), y: Math.round(sprite.y), width: Math.round(sprite.width), height: Math.round(sprite.height) });
   const top = 48, side = tucked ? 48 : 10, under = tucked ? 48 : 6;
@@ -27,7 +27,7 @@ export function avoidRect(sprite: { x: number; y: number; width: number; height:
 }
 
 /** The ids a pick may be; anything else is dropped. */
-export const MENU_IDS = new Set(['back', 'jobs', 'claudejob', 'hunt', 'player', 'hush.15', 'hush.60', 'hush.240', 'hush.tomorrow', 'hush.off', 'mute',
+export const MENU_IDS = new Set(['gopc', 'back', 'jobs', 'claudejob', 'hunt', 'player', 'hush.15', 'hush.60', 'hush.240', 'hush.tomorrow', 'hush.off', 'mute',
   'quiet.auto', 'quiet.always', 'quiet.never', 'dock.bottom', 'dock.left', 'dock.right', 'dock.top', 'comeback', 'hide',
   'model.auto', 'model.quick', 'model.smart', 'model.deep', 'saving', 'quit', 'notes.notice']);
 
@@ -71,9 +71,13 @@ export class AangMenu {
    * `avoid` (2026-10-21, DIP, from avoidRect) is Aang and his mark: the page places the menu beside it, never over it
    * (at the bottom-right corner it used to open on top of him).
    */
-  open(phys: { x: number; y: number }, state: MenuState, avoid: Electron.Rectangle | null = null): void {
+  /** Opened by the Mac's test door: shown without taking the keyboard (and so never closed by a blur it never had). */
+  private quiet = false;
+  open(phys: { x: number; y: number }, state: MenuState, avoid: Electron.Rectangle | null = null, quiet = false): void {
     const w = this.window();
-    const at = screen.screenToDipPoint(phys);
+    this.quiet = quiet;
+    // screenToDipPoint exists on Windows only (Electron); the Mac's points are already DIPs (2026-10-28: the menu never opened).
+    const at = process.platform === 'win32' ? screen.screenToDipPoint(phys) : phys;
     const b = screen.getDisplayNearestPoint(at).workArea;
     if (w.isVisible()) w.hide();
     w.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height });
@@ -99,6 +103,7 @@ export class AangMenu {
     if (this.pending) {
       this.pending = false;
       this.shownAt = Date.now();
+      if (this.quiet) { w.showInactive(); return; }
       w.show();
       w.focus();
     }
