@@ -111,6 +111,7 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.handle('mocklog:get', (e) => (top(e) && b(e)?.isMockLog(e.sender)) ? b(e).mockLogData() : null);
   ipcMain.on('mocklog:seen', (e, sheet) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && typeof sheet === 'string' && sheet.length <= 2000) b(e).mockLogSeen(sheet); });
   ipcMain.on('mocklog:stage', (e, a) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && a && Number.isInteger(a.id) && (a.to === null || ['ok', 'fix', 'park'].includes(a.to))) b(e).mockLogStage(a.id, a.to, typeof a.note === 'string' ? a.note.slice(0, 300) : ''); });
+  ipcMain.on('mocklog:leave', (e) => { if (top(e) && b(e)?.isMockLog(e.sender)) b(e).mockLogLeave(); });
   ipcMain.on('mocklog:send', (e, id) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && Number.isInteger(id)) b(e).mockLogSend(id); });
   ipcMain.handle('things:history', (e, a) => (top(e) && b(e)?.isThings(e.sender)) && a ? b(e).historyPage(String(a.q ?? ''), Number(a.offset) || 0) : null);
   ipcMain.handle('things:downloads', (e) => (top(e) && b(e)?.isThings(e.sender)) ? b(e).downloadsPage() : null);

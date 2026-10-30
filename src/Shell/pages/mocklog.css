@@ -28,6 +28,15 @@ button{font:inherit;color:inherit}
 .ptab .c{font:700 11.5px var(--body);letter-spacing:0;color:#a98e6a;text-transform:none}
 .ptab .newc{font:800 10.5px var(--body);letter-spacing:.3px;color:#2a1c00;background:#FFC43C;border-radius:4px;padding:2px 5px;text-transform:none;text-shadow:none}
 .ptab.on{background:linear-gradient(180deg,#6b4523,#3d2612);color:#FFE28C;z-index:2}
+/* Sheet 107 v4: Back to Samara, the way out, in the scroll plaque's FFX blue and gold */
+.leave{flex:none;align-self:flex-start;display:flex;align-items:center;gap:9px;height:44px;margin:0 6px 0 0;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:10px;cursor:pointer;
+  background:linear-gradient(180deg,#5b7fd8 0 3px,#2a4aa8 3px,#1b3283 50%,#0e1d55 calc(100% - 4px),#081239 calc(100% - 4px));
+  box-shadow:0 3px 0 #120A05,inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease}
+.leave:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.leave:active{transform:translateY(2px);box-shadow:0 1px 0 #120A05,inset 0 0 0 2px #e9d9a8,inset 0 0 0 4px rgba(0,0,0,.25)}
+.leave i{width:0;height:0;border:7px solid transparent;border-right:8px solid #e9d9a8;border-left:0;filter:drop-shadow(0 2px 0 #071030)}
+.leave img{image-rendering:pixelated}
+.leave span{font:700 13px var(--display);letter-spacing:1.4px;color:#fbfbff;text-shadow:0 2px 0 #071030;text-transform:uppercase;white-space:nowrap}
 /* inside a project: the list on the left, the sheet on the right */
 .body{flex:1;min-height:0;display:grid;grid-template-columns:330px 1fr}
 .list{padding:12px 10px;border-right:3px solid #120A05;background:rgba(0,0,0,.18);overflow:auto;min-height:0}
@@ -96,4 +105,4 @@ button{font:inherit;color:inherit}
 .mmenu button:hover{background:rgba(255,224,150,.10)}
 .mmenu .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
 .mmenu input{box-sizing:border-box;width:100%;margin:2px 0;font:600 13px var(--body);color:#FFE096;background:#0B0718;border:2px solid #120A05;border-radius:4px;padding:5px 7px;outline:none}
-@media (prefers-reduced-motion:reduce){.chev,.ptab{transition:none}}
+@media (prefers-reduced-motion:reduce){.chev,.ptab,.leave{transition:none}}
