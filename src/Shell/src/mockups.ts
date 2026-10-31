@@ -20,10 +20,12 @@ import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { readJson } from './store.ts';
 import { tidyMockups, type SheetMeta, type TidyReport } from './mockuptidy.ts';
-import { FILED, NO_TOPIC, branchHome, cleanTitle, fileOnce, projectFromSrc, projectName, sheetIdent } from './mockfiling.ts';
+import { FILED, HOME_NAME, NO_TOPIC, branchHome, cleanTitle, fileOnce, projectFromSrc, projectName, sheetIdent } from './mockfiling.ts';
 
 /** The only folders a mockup page (or anything it links to) may come from. */
 export const MOCK_DIRS = ['docs/', 'src/Shell/pages/', 'assets/'];
+/** Samara's art (2026-10-31): served by Samara for its sheets kept in the mockups home, never copied there. */
+export const ART_DIRS = ['src/Shell/pages/', 'assets/'];
 export const COMMIT_RE = /^[0-9a-f]{7,40}$/;
 
 /** A repo path the server may hand out, cleaned, or null. Exported for the test. */
@@ -133,6 +135,8 @@ export class MockServer {
   private readonly other: (name: string) => string | null;
   /** Sheet 100: the folder of version pictures (thumbKey.png), served as /t/<thumbKey>.png. */
   private readonly thumbs: string | null;
+  /** 2026-10-31: Samara's own art for a sheet kept in the mockups home (mockhome.ts): the home's commit and the art's path. */
+  art: ((commit: string, rel: string) => Promise<Buffer | null>) | null = null;
   constructor(repo: string, other: (name: string) => string | null = () => null, thumbs: string | null = null) { this.repo = repo; this.other = other; this.thumbs = thumbs; }
   /** A version's small picture, while this run lasts. */
   thumbUrl(key: string): string { return `${this.origin}/t/${thumbKey(key)}.png`; }
@@ -179,7 +183,13 @@ export class MockServer {
     const repo = !want ? null : want.repo === null ? this.repo : this.other(want.repo);
     if (!want || !repo) { res.writeHead(404).end(); return; }
     // A blob only (cat-file blob is git show for a file, without ever listing a folder or converting it).
-    const body = await git(repo, ['cat-file', 'blob', `${want.commit}:${want.path}`], true);
+    let body = await git(repo, ['cat-file', 'blob', `${want.commit}:${want.path}`], true);
+    // A Samara sheet in the mockups home links Samara's own pages and pictures, which are not copied there: Samara hands
+    // them out itself, as they were when the sheet was shown (mockhome.ts).
+    if (!Buffer.isBuffer(body) && want.repo === HOME_NAME && this.art) {
+      const rest = want.path.slice(want.path.indexOf('/') + 1);
+      if (ART_DIRS.some((d) => rest.startsWith(d))) body = await this.art(want.commit, rest);
+    }
     if (!Buffer.isBuffer(body)) { res.writeHead(404).end(); return; }
     res.writeHead(200, { 'Content-Type': typeOf(want.path), 'Content-Length': body.length, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=86400' });
     res.end(req.method === 'HEAD' ? undefined : body);
@@ -245,8 +255,8 @@ export function helperOf(sheet: string): string | null {
  * The version of a sheet as it is at HEAD now: the commit, and its key (the sheet file's blob id, plus its helper folder's
  * tree id when it has one). The same key is the same picture. Null when the sheet is not in that commit.
  */
-export async function resolveVersion(repo: string, sheet: string): Promise<{ commit: string; key: string; title: string } | null> {
-  const commit = await gitText(repo, ['rev-parse', '--verify', 'HEAD']);
+export async function resolveVersion(repo: string, sheet: string, at = 'HEAD'): Promise<{ commit: string; key: string; title: string } | null> {
+  const commit = await gitText(repo, ['rev-parse', '--verify', at + '^{commit}']);
   if (!commit || !/^[0-9a-f]{40}$/.test(commit)) return null;
   if ((await gitText(repo, ['cat-file', '-t', `${commit}:${sheet}`])) !== 'blob') return null;
   const blob = await gitText(repo, ['rev-parse', '--verify', `${commit}:${sheet}`]);
@@ -255,7 +265,7 @@ export async function resolveVersion(repo: string, sheet: string): Promise<{ com
   const tree = dir && (await gitText(repo, ['cat-file', '-t', `${commit}:${dir}`])) === 'tree' ? await gitText(repo, ['rev-parse', '--verify', `${commit}:${dir}`]) : null;
   // Not committed yet: still HEAD's version (an old version must open the same way later), and the log says so.
   let dirty = false;
-  try { dirty = blobId(readFileSync(path.join(repo, sheet))) !== blob; } catch { /* gone from the folder: shown as committed */ }
+  try { dirty = at === 'HEAD' && blobId(readFileSync(path.join(repo, sheet))) !== blob; } catch { /* gone from the folder: shown as committed */ }
   if (dirty) console.log(`shell: mockups: ${sheet} has changes that are not committed; showing it as it is at ${commit.slice(0, 12)}`);
   const html = await git(repo, ['cat-file', 'blob', `${commit}:${sheet}`]);
   return { commit, key: blob + (tree ? ':' + tree : ''), title: titleFrom(typeof html === 'string' ? html : '', sheet) };
@@ -454,6 +464,8 @@ export class MockStore {
   }
   /** Another repo's folder by its name, or null. */
   repoPath(name: string): string | null { return this.repos.get(name) ?? null; }
+  /** 2026-10-31: the mockups home always goes by its own name (@mockups/...). */
+  setHome(dir: string): void { if (this.repos.get(HOME_NAME) !== dir) { this.repos.set(HOME_NAME, dir); this.save(); } }
   /**
    * The project a sheet is in (sheet 100): its topic's project, else its repo's, else the repo's name made readable
    * (couch-mode reads Couch Mode). Live pages are 'Live pages'.

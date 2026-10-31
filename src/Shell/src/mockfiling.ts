@@ -13,6 +13,8 @@ export const NO_PROJECT = 'Other';
 export const NO_TOPIC = 'Other';
 /** The filing version written into mockups.json once his mockups were tidied for sheet 107. */
 export const FILED = 107;
+/** 2026-10-31: the one private home of every mockup (mockhome.ts): its sheets are @mockups/<project folder>/<path>. */
+export const HOME_NAME = 'mockups';
 
 const BRANCH_MAX = 40;
 const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -45,7 +47,7 @@ export const isSamaraRepo = (name: string): boolean => /^(aivatar|aangapp)([-_.]
  */
 export function inSamaraRepo(src: string): boolean {
   if (/^https?:/i.test(src)) { try { return /\/docs\/cockpit\/sheet-[0-9]/i.test(new URL(src).pathname); } catch { return false; } }
-  if (src.startsWith('@')) return isSamaraRepo(src.slice(1, src.indexOf('/')));
+  if (src.startsWith('@')) { const repo = src.slice(1, src.indexOf('/')); return repo === HOME_NAME ? /^@[^/]+\/samara\//.test(src) : isSamaraRepo(repo); }
   return true;
 }
 
@@ -97,6 +99,8 @@ export function projectFromSrc(src: string, repoProjects: Map<string, string> = 
   if (/^https?:/i.test(src)) return inSamaraRepo(src) ? 'Samara' : NO_PROJECT;
   if (!src.startsWith('@')) return repoProjects.get('') ?? 'Samara';
   const repo = src.slice(1, src.indexOf('/'));
+  // The home's first folder is the project's (samara, couch-mode, waymark).
+  if (repo === HOME_NAME) return projectName(src.split('/')[1] ?? '') ?? NO_PROJECT;
   return repoProjects.get(repo) ?? (isSamaraRepo(repo) ? 'Samara' : plainName(path.basename(repo)));
 }
 

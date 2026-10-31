@@ -26,12 +26,13 @@ test('a full path files from its own repo, even from a session outside any repo'
   assert.ok(c2.ok, 'no session folder needed for a full path');
 });
 
-test('a file in no repo is refused, saying how to fix it', () => {
+test('2026-10-31: a file in no repo goes too (Samara keeps it in the mockups home), from its own folder; never his home folder', () => {
   const d = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'md-loose-')));
   writeFileSync(path.join(d, 'x.html'), 'x');
-  const c = checkAsk({ path: path.join(d, 'x.html') });
-  assert.equal(c.ok, false);
-  if (!c.ok) assert.match(c.message, /not in a git repo/);
+  const c = checkAsk({ path: path.join(d, 'x.html'), branch: 'T' });
+  assert.equal(c.ok, true);
+  if (c.ok) { assert.equal(c.drop.repo, d); assert.equal(c.drop.path, 'x.html'); }
+  assert.equal(checkAsk({ path: path.join(d, '.x.html'), branch: 'T' }).ok, false, 'no such file');
 });
 
 // Mac only: finding which folder serves a page uses lsof. On the PC such a page stays a live page (a known gap, on the PC's

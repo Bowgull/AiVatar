@@ -35,11 +35,11 @@ test('Samara asking git about a mockup never fires it', async () => {
   for (const a of [['rev-parse', '--verify', 'HEAD'], ['cat-file', '-t', 'HEAD:docs/sheet-1-x.html'], ['status', '--porcelain']]) await git(dir, a);
   assert.ok(!existsSync(fired));
 });
-test('the brain showing a mockup never fires it, and still says it has changes', async () => {
+test('the brain showing a mockup never fires it (2026-10-31: it does not ask git at all; Samara keeps the page)', async () => {
   const { dir, fired } = trapRepo();
   const state = mkdtempSync(path.join(os.tmpdir(), 'gittrap-s-'));
   const r = await dropMockup(state, { cwd: dir, path: 'docs/sheet-1-x.html', title: '1 · X', branch: 'X' }, '/nonexistent');
   assert.ok(r.ok, r.message);
-  assert.match(r.message, /not committed/);
+  assert.match(r.message, /private mockups repo/);
   assert.ok(!existsSync(fired));
 });

@@ -313,8 +313,9 @@ export const PLAN_SENTENCE = 'On a project with several phases (hours or days of
 export const MOCKUP_TOOL = 'show_mockup'
 export const MOCKUP_TOOL_FULL = 'mcp__aang-link__show_mockup'
 export const MOCKUP_TOOL_DESC = "Show the user a mockup, design sheet or visual page: Mockups opens right on it in his browser Samara, in its project's tab, marked NEW, where every version is kept. " +
-  'path: an .html file in a git repo, already committed (he sees it as committed; commit again and call again for a new version). ' +
-  'A live page from a server you run is not accepted: it breaks once the server stops, so commit the page as a file first. title: a short name ("NN · Name"). ' +
+  'path: an .html file in your project (its helper folder and the files it links come with it). Samara copies every version into his private mockups repo, ' +
+  'so never commit mockups into the project itself (public code repos stay free of them); after a change, call again for a new version. ' +
+  'A live page from a server you run is not accepted: it breaks once the server stops, so save the page as a file first. title: a short name ("NN · Name"). ' +
   'Mockups is Project > Topic > Sheet: project is the real project it belongs to (Samara, Aang, Waymark, Couch Mode, Showcase, or a new one; Samara\'s and Aang\'s sheets both live in the AiVatar repo, so name which), branch is the topic inside it (Top bar, TV...). ' +
   'icon: pick the one that fits the topic; it is used when the topic is new.'
 /** Sheet 100 (2026-10-28, his "can't Claude decide what fits"): the icons a topic can wear, Samara's own set (pages/mockicons.js). */
@@ -322,7 +323,7 @@ export const MOCKUP_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'gl
 export const MOCKUP_TOOL_SCHEMA = {
   type: 'object',
   properties: {
-    path: { type: 'string', description: 'An .html file in your repo (relative to your folder, or absolute), committed.' },
+    path: { type: 'string', description: 'The .html file in your project (relative to your folder, or absolute). No need to commit it there.' },
     title: { type: 'string', description: 'A short name for it in the trail ("Waymark motion").' },
     branch: { type: 'string', description: 'Required: the topic inside the project to file it in ("Top bar", "TV"), 1-40 characters.' },
     project: { type: 'string', description: 'The real project it belongs to ("Samara", "Aang", "Waymark", "Couch Mode", "Showcase", or a new one), 1-40 characters, never a topic. Default: its repo\'s project (AiVatar is Samara: name Aang for Aang\'s sheets).' },
@@ -364,9 +365,20 @@ export function markArgs(input: Record<string, unknown>): { ok: true; list: true
   const v = Number(input.version)
   return { ok: true, list: false, body: { path: p, stage, ...(Number.isInteger(v) && v > 0 ? { v } : {}), ...(said ? { said } : {}), ...(note ? { note } : {}) } }
 }
+/**
+ * His fallback rule (2026-10-31): every mockup lives in ONE private repo (~/projects/mockups, github.com/Bowgull/mockups).
+ * When Samara (or Aang) is not running, Claude saves it there itself and commits it with the filing lines; Samara files
+ * it when it starts (src/Shell/src/mockhome.ts newShown).
+ */
+export const MOCKUP_FALLBACK = 'Save it yourself: copy the page, its helper folder and the files it links into his private mockups repo, ' +
+  '~/projects/mockups (on Windows %USERPROFILE%\\projects\\mockups), under <project folder>/<the same path it has in its project> ' +
+  '(project folder: samara, aang, waymark, couch-mode, or the project\'s name in lower case with dashes; Samara\'s own art under src/Shell/pages/ and assets/ is not copied). ' +
+  'Commit it there (git -C ~/projects/mockups add <folder> and commit, no push) with these lines at the end of the message: ' +
+  '"Mockup: <project folder>/<path>.html", "Title: NN · Name", "Topic: <topic>", "Project: <Project>". Samara files it when it starts. Tell the user where it is in one line.'
 export const MOCKUP_SECTION_ID = 'aang-link:mockups'
 export const MOCKUP_SECTION = `To show the user a mockup, design sheet or visual page, call show_mockup (${MOCKUP_TOOL_FULL}): it opens in his browser Samara's Mockups trail. ` +
-  'Never ask permission to open local mockup pages.'
+  'Never ask permission to open local mockup pages. Every mockup lives in his one private mockups repo; never commit mockups into a project\'s own repo. ' +
+  `If show_mockup says Samara or Aang is not running: ${MOCKUP_FALLBACK}`
 /**
  * A show_mockup call's input, cut to sane sizes; or why not. A committed file only (his ask, 2026-10-31): 44 mockups
  * shown as live pages broke once their servers stopped, so a url is refused. The brain checks everything again
@@ -375,8 +387,8 @@ export const MOCKUP_SECTION = `To show the user a mockup, design sheet or visual
 export function mockupArgs(input: Record<string, unknown>): { ok: true; body: Record<string, string> } | { ok: false; error: string } {
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   const p = str(input.path), u = str(input.url)
-  if (u) return { ok: false, error: 'A live page is not kept: it breaks once your server stops. Save the page as an .html file in a git repo, commit it, and pass its path.' }
-  if (!p) return { ok: false, error: 'Pass path: an .html file in a git repo, committed.' }
+  if (u) return { ok: false, error: 'A live page is not kept: it breaks once your server stops. Save the page as an .html file in your project and pass its path.' }
+  if (!p) return { ok: false, error: 'Pass path: the .html file in your project.' }
   if (p.length > 1000) return { ok: false, error: 'That path is too long.' }
   const title = safeLine(input.title, 80), branch = safeLine(input.branch, 40), project = safeLine(input.project, 40)
   if (!branch) return { ok: false, error: 'Give branch: the topic inside its project ("Top bar", "TV"), 1 to 40 characters, so it is filed in its place and never under Other.' }

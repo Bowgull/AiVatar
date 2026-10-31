@@ -59,7 +59,8 @@ import { pastSearches, searchQueryOf, topSites } from './recall.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 import { DRAINED, NoticeQueue, cleanNotice, plainNotice, type NoticeFrom, type NoticeIn, type NoticeShown } from './notices.ts';
 import { saysDecided, sheetLabel, spaceOf, tidyDue, tidyLine } from './mockuptidy.ts';
-import { KNOWN_PROJECTS, NO_TOPIC, cleanTitle, shownNum } from './mockfiling.ts';
+import { KNOWN_PROJECTS, NO_TOPIC, branchHome, cleanTitle, isSamaraRepo, plainName, projectName, shownNum } from './mockfiling.ts';
+import { HOME_NAME, artOf, diskReader, gather, homeHead, homeReady, keep, newShown, projectFolder, pullHome, pushHome, ART_DIRS } from './mockhome.ts';
 import { LOGO_SPOTS, MockServer, MockStore, logoSlug, srcOf, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
@@ -133,6 +134,9 @@ export interface BrowserOptions { origin: string; preloadPath: string; stateDir:
   /** 2026-10-22, the Mac: no AangApp repo beside Samara, but the MOCKUPS trail is on for other repos' pages and live
    *  pages (the Mac's Claude sessions, through mockupdoor.ts). Only when git is really there (macmain checks). */
   mockupsAnywhere?: boolean;
+  /** 2026-10-31: the private mockups home's folder (mockhome.ts). Only the real Samara passes it (boot.ts), so a test
+   *  never writes into his; a test gives a throwaway one. */
+  mockHome?: string;
   /** Sheet 87, the secret window: a second browser of its own (its own tabs, bookmarks, history and logins in its own
    *  folder and its own kept session), its tab list behind its own PIN. Normal Samara shows no sign of it. */
   secret?: boolean;
@@ -926,6 +930,17 @@ export class AangBrowser {
         this.mockServer = new MockServer(repo ?? '', (n) => this.mockStore?.repoPath(n) ?? null, this.mockThumbs);
         this.mockStore = new MockStore(path.join(o.stateDir, 'mockups.json'));
         this.mockReady = this.mockServer.start();
+        // 2026-10-31 (his pick): every mockup kept in one private repo, ~/projects/mockups (mockhome.ts). Samara's own art
+        // for its sheets there comes from Samara; Claude's commits made while Samara was off are filed a moment after start.
+        const home = o.mockHome ?? '';
+        if (home && homeReady(home)) {
+          this.mockHome = home;
+          this.mockStore.setHome(home);
+          this.mockServer.art = (commit, rel) => this.mockArt(commit, rel);
+          this.mockSeenFile = path.join(o.stateDir, 'mockhome-seen.json');
+          setTimeout(() => { void this.mockHomeWake(); }, 8000).unref?.();
+          setInterval(() => { void this.mockHomeWake(); }, 20 * 60_000).unref?.();
+        }
         // The tidy (2026-10-22): at most once a day, a while after start, plain code only (no quota, no Qwen).
         setTimeout(() => { void this.mockTidy(false); }, 30_000).unref?.();
       }
@@ -5112,6 +5127,8 @@ export class AangBrowser {
     if (!this.mockStore) return null;
     const o = { project: m.project ?? null, icon: m.icon ?? null };
     if (m.url) return this.openMockup(m.url, m.title, m.branch, o);
+    // 2026-10-31: a page from any project is copied into the mockups home and shown from there (mockhome.ts).
+    if (this.mockHome) return this.mockKeep(m);
     if (!m.repo) return this.openMockup(m.path, m.title, m.branch, o);
     const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
     // AangApp itself, named by its folder: its own rules (only the mockup folders are served).
@@ -5120,6 +5137,88 @@ export class AangBrowser {
     const sheet = `@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`;
     this.mockFindLogo(path.resolve(m.repo), m.project ?? this.mockStore.projectOf(sheet));
     return this.openMockup(`@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`, m.title, m.branch, o);
+  }
+  /** The mockups home's folder (~/projects/mockups), or '' when it is not cloned on this machine. */
+  private mockHome = '';
+  private mockSeenFile = '';
+  /**
+   * A page Claude showed, kept in the mockups home (his pick, 2026-10-31): the page, its helper folder and what it links,
+   * copied from its project's folder as it is now under <project>/<same path>, committed, sent to GitHub for the other
+   * machine, and opened from there. Samara's own art stays out (served by mockArt). The project is never touched.
+   */
+  private async mockKeep(m: MockupDrop): Promise<MockVersion | null> {
+    const root = m.repo ?? this.mockRepo;
+    if (!root || !this.mockStore) return null;
+    const samara = isSamaraRepo(path.basename(root)) || (!!this.mockRepo && path.resolve(root) === path.resolve(this.mockRepo));
+    const project = projectName(m.project) ?? (m.branch ? branchHome(m.branch).project : null) ?? (samara ? 'Samara' : plainName(path.basename(root)));
+    const files = await gather(diskReader(root), m.path, samara ? (rel) => ART_DIRS.some((d) => rel.startsWith(d)) : undefined);
+    if (!files.has(m.path)) { console.log(`shell: mockups: ${m.path} could not be read in ${root}, not kept`); return null; }
+    // Which Samara the art comes from: the repo's commit now (and the repo, remembered by name for the art).
+    let art = '';
+    if (samara) { this.mockStore.repoName(path.resolve(root)); art = await homeHead(root); }
+    const kept = await keep(this.mockHome, projectFolder(project), files, { page: m.path, title: m.title, topic: m.branch ?? '', project, icon: m.icon ?? '', art: /^[0-9a-f]{40}$/.test(art) ? art : '' });
+    if (!kept) { console.log(`shell: mockups: ${m.path} could not be kept in ${this.mockHome}`); return null; }
+    this.mockFindLogo(path.resolve(root), project);
+    void pushHome(this.mockHome).then((ok) => { if (!ok) console.log('shell: mockups: the home could not be sent to GitHub now; the next show or start tries again'); });
+    const v = await this.openMockup(`@${HOME_NAME}/${kept.sheet}`, m.title, m.branch, { project, icon: m.icon ?? null });
+    if (v) this.mockSaySeen(kept.commit);
+    return v;
+  }
+  /** The newest home commit already filed here, so a start files only what came after (Claude's own, the other machine's). */
+  private mockSaySeen(commit: string): void {
+    if (!this.mockSeenFile || !/^[0-9a-f]{40}$/.test(commit)) return;
+    void homeHead(this.mockHome).then((h) => { if (h === commit) writeFileAtomic(this.mockSeenFile, JSON.stringify({ head: h })); });
+  }
+  /**
+   * The home, when Samara starts (and every 20 minutes): the other machine's mockups pulled in, and every page a commit
+   * files (Mockup: lines, his fallback rule: Claude saved it while Samara was off) put in the trail, marked NEW. Then
+   * anything not yet on GitHub is sent.
+   */
+  async mockHomeWake(): Promise<number> {
+    const st = this.mockStore, home = this.mockHome;
+    if (!st || !home) return 0;
+    await pullHome(home);
+    const seen = readJson<{ head?: unknown }>(this.mockSeenFile, {}).head;
+    const list = await newShown(home, typeof seen === 'string' ? seen : '');
+    let n = 0;
+    for (const t of list) {
+      const sheet = `@${HOME_NAME}/${t.sheet}`;
+      if (st.list.some((x) => (x.sheet === sheet || srcOf(x) === sheet) && x.commit === t.commit)) continue;
+      const r = await resolveVersion(home, t.sheet, t.commit);
+      if (!r) continue;
+      const project = projectName(t.project) ?? null;
+      const ver = st.add(sheet, t.title || r.title, r.commit, r.key, t.at, { project });
+      if (t.topic) st.fileInto(ver.sheet, t.topic, { project, icon: t.icon || null });
+      st.setFresh(ver.sheet, true);
+      n++;
+    }
+    const head = await homeHead(home);
+    if (/^[0-9a-f]{40}$/.test(head)) writeFileAtomic(this.mockSeenFile, JSON.stringify({ head }));
+    if (n) { console.log(`shell: mockups: ${n} kept while Samara was off, filed now`); this.mockLogSig = ''; this.pushMockLog(); this.sendTabs(); }
+    void pushHome(home);
+    return n;
+  }
+  /** Which Samara commit each home commit was shown with (read once each). */
+  private readonly mockArtAt = new Map<string, string>();
+  /**
+   * Samara's own art for one of its sheets in the home (src/Shell/pages/..., assets/...): from Samara's repo at the commit
+   * the sheet was shown with, else as it is in that repo now, else from this Samara's own files.
+   */
+  private async mockArt(commit: string, rel: string): Promise<Buffer | null> {
+    if (!this.mockHome) return null;
+    if (!this.mockArtAt.has(commit)) this.mockArtAt.set(commit, await artOf(this.mockHome, commit));
+    const at = this.mockArtAt.get(commit)!;
+    const repos = [this.mockRepo, ...[...(this.mockStore?.repos ?? new Map<string, string>())].filter(([n]) => isSamaraRepo(n)).map(([, d]) => d)].filter((d) => d && findRepo(d));
+    for (const repo of repos) {
+      const b = at ? await git(repo, ['cat-file', 'blob', `${at}:${rel}`], true) : null;
+      if (Buffer.isBuffer(b)) return b;
+    }
+    const shell = path.join(import.meta.dirname, '..');
+    const spots = [...repos.map((d) => path.join(d, ...rel.split('/'))),
+      rel.startsWith('src/Shell/pages/') ? path.join(shell, 'pages', ...rel.slice('src/Shell/pages/'.length).split('/')) : path.join(shell, ...rel.split('/')),
+      path.join(shell, '..', '..', ...rel.split('/'))];
+    for (const f of spots) { try { if (statSync(f).isFile()) return readFileSync(f); } catch { /* not here */ } }
+    return null;
   }
   /** Where a sheet's file is: its repo's folder and its path inside it. Null for a live page or an unknown repo. */
   private mockWhere(sheet: string): { repo: string; rel: string } | null {
@@ -5247,6 +5346,8 @@ export class AangBrowser {
     if (!st) return "This Samara has no Mockups trail.";
     const names = a.repo ? [...st.repos.entries()].filter(([, p]) => path.resolve(p) === path.resolve(a.repo)).map(([n]) => `@${n}/${a.sheet}`) : [];
     const keys = [a.sheet, ...names];
+    // 2026-10-31: a page kept in the mockups home is <project folder>/<its path in the project> there.
+    for (const x of st.list) { const m = new RegExp(`^@${HOME_NAME}/[^/]+/(.+)$`).exec(x.sheet); if (m && m[1] === a.sheet && !keys.includes(x.sheet)) keys.push(x.sheet); }
     // Sheet 107: a page shown from another folder (a worktree) may have joined the sheet it already was; its address finds it.
     const found = new Set(st.list.filter((x) => keys.includes(x.sheet) || keys.includes(srcOf(x))).map((x) => x.sheet));
     const mine = st.list.filter((x) => found.has(x.sheet));
