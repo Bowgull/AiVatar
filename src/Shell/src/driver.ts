@@ -12,7 +12,7 @@
 // Page text is data, never instructions: it goes back marked as the page's words.
 import path from 'node:path';
 import { BrowserWindow, type Session, type WebContents, session, app } from 'electron';
-import { challengeLevel, challengeOf, challengeStops, cleanName, rankFind, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
+import { challengeLevel, challengeOf, challengeStops, cleanName, rankFind, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type KeyTarget, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture } from './capture.ts';
@@ -63,6 +63,8 @@ export interface DriverDeps {
 /** A read's words: short unless Claude asks for full (2026-10-30, the deep research: every cheap browser tool sends a
  *  short view first and more on request; two 7,000-character news reads were 64% of the gap to Chrome). */
 const READ_WORDS = 2000;
+/** full: true. 7,000 cut an Ashby form at "Have" with six required questions below (2026-10-31). */
+const FULL_WORDS = 16000;
 const MAX_PAGES_PER_JOB = 12, MAX_PAGES = 20, KEEP_MS = 24 * 3_600_000;
 const W = 1280, H = 900;
 const WORLD = 1061;   // an isolated script world of our own: the page cannot see or change what runs here
@@ -91,6 +93,40 @@ const __reg = () => { if (!window.__aangEls) { window.__aangEls = new Map(); win
 const __num = (e) => { __reg(); let n = window.__aangOf.get(e); if (!n) { window.__aangN = (window.__aangN || 0) + 1; n = window.__aangN; window.__aangOf.set(e, n); window.__aangEls.set(n, new WeakRef(e)); } if (e.getAttribute('data-aang-n') !== String(n)) e.setAttribute('data-aang-n', String(n)); return n; };
 const __byN = (n) => { __reg(); const r = window.__aangEls.get(Number(n)); const e = r && r.deref(); return e && e.isConnected ? e : null; };
 const __vis = (e) => { const r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) return false; const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05; };
+// What he sees of a control (2026-10-31, an Ashby form): sites hide the real radio or tick box and draw their own over
+// its label, so the label is the part on screen. Null when nothing of it shows.
+const __choice = (e) => e.tagName === 'INPUT' && /^(radio|checkbox)$/i.test(e.getAttribute('type') || '');
+const __face = (e) => {
+  if (__vis(e)) return e;
+  if (!__choice(e)) return null;
+  const root = e.getRootNode();
+  const l = (e.id && root.querySelector && root.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.closest('label');
+  if (l && __vis(l)) return l;
+  const p = e.parentElement;
+  return p && __vis(p) && p.querySelectorAll('input[type=radio], input[type=checkbox]').length === 1 ? p : null;
+};
+// The question a radio or tick box answers: its fieldset's legend, its group's name, or the first words near it that
+// are not one of the choices ("Country", "How many accounts?"). Empty when there is none.
+const __group = (e) => {
+  const t = (x) => String(x || '').replace(/\\s+/g, ' ').trim();
+  const role = (e.getAttribute('role') || '').toLowerCase();
+  if (!__choice(e) && role !== 'radio' && role !== 'checkbox') return '';
+  const lg = e.closest('fieldset') && e.closest('fieldset').querySelector('legend');
+  if (lg && t(lg.innerText)) return t(lg.innerText).slice(0, 120);
+  const rg = e.closest('[role=radiogroup], [role=group]');
+  if (rg) { const lb = rg.getAttribute('aria-labelledby'); const w = t(rg.getAttribute('aria-label')) || (lb ? lb.split(/\\s+/).map((id) => t((document.getElementById(id) || {}).innerText)).join(' ') : ''); if (w) return w.slice(0, 120); }
+  const radio = e.type === 'radio' || role === 'radio';
+  const sel = radio ? 'input[type=radio], [role=radio]' : 'input[type=checkbox], [role=checkbox]';
+  for (let z = e.parentElement, i = 0; z && z !== document.body && i < 8; z = z.parentElement, i++) {
+    // Gone too far: another question's field, or another radio group.
+    if (z.querySelector('input:not([type=radio]):not([type=checkbox]):not([type=hidden]), select, textarea')) break;
+    if (radio && e.name && [...z.querySelectorAll('input[type=radio]')].some((o) => o.name && o.name !== e.name)) break;
+    const opts = new Set([...z.querySelectorAll(sel)].map((o) => t((__face(o) || o).innerText)).filter(Boolean));
+    const q = String(z.innerText || '').split('\\n').map(t).find((l) => l && !opts.has(l) && ![...opts].some((o) => o.includes(l)));
+    if (q) return q.slice(0, 120);
+  }
+  return '';
+};
 // Text Joshua cannot see never reaches the model (2026-10-14): the hiding places used against Comet and Atlas
 // (white on white, tiny type, see-through, pushed off the page, squeezed to a pixel). innerText already drops
 // display:none and visibility:hidden; this catches the rest. How many bits were left out is kept in __aangHid.
@@ -148,7 +184,14 @@ function warnings(hidden: number, text: string): { warn?: string } {
 
 /** How a control is judged: its words, its kind (link, button, submit, password...), its state and value. */
 const ITEM_FNS = `  const fileLabel = (e) => { const l = (e.id && document.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.closest('label'); const box = e.closest('div, section, fieldset'); return ((l && l.innerText) || e.getAttribute('aria-label') || (box && box.innerText) || 'file').replace(/\\s+/g, ' ').trim().slice(0, 60); };
-  const text = (e) => (e.type === 'file' ? 'Upload: ' + fileLabel(e) : '') || (e.getAttribute('aria-label') || e.innerText || e.value || e.getAttribute('placeholder') || e.getAttribute('title') || e.getAttribute('alt') || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
+  // A field's name never comes from what is typed in it (2026-10-31: "payment" in his essay made the essay box "buying").
+  const named = (e) => { const lb = e.getAttribute('aria-labelledby'); const root = e.getRootNode(); const byFor = e.id && root.querySelector && root.querySelector('label[for="' + CSS.escape(e.id) + '"]');
+    return e.getAttribute('aria-label') || (lb ? lb.split(/\\s+/).map((id) => (document.getElementById(id) || {}).innerText || '').join(' ') : '') || (byFor && byFor.innerText) || (e.closest('label') && e.closest('label').innerText) || ''; };
+  const typed = (e) => e.tagName === 'TEXTAREA' || e.tagName === 'SELECT' || e.isContentEditable || (e.tagName === 'INPUT' && !/^(submit|button|reset|image|radio|checkbox|file)$/i.test(e.getAttribute('type') || ''));
+  const text = (e) => (e.type === 'file' ? 'Upload: ' + fileLabel(e) : '') || (typed(e)
+    ? (named(e) || e.getAttribute('placeholder') || e.getAttribute('title') || e.getAttribute('name') || '')
+    : __choice(e) ? (named(e) || (__face(e) || e).innerText || e.value || '')
+    : (e.getAttribute('aria-label') || e.innerText || e.value || e.getAttribute('placeholder') || e.getAttribute('title') || e.getAttribute('alt') || '')).replace(/\\s+/g, ' ').trim().slice(0, 80);
   const kindOf = (e) => {
     const t = e.tagName.toLowerCase(), ty = (e.getAttribute('type') || '').toLowerCase(), ac = (e.getAttribute('autocomplete') || '').toLowerCase(), role = (e.getAttribute('role') || '').toLowerCase();
     if (t === 'a' || role === 'link') return 'link';
@@ -201,13 +244,14 @@ const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
     if (items.length >= 200) break;
     if (base && !base.contains(e)) continue;
     const isFile = e.tagName === 'INPUT' && (e.getAttribute('type') || '').toLowerCase() === 'file';
-    if (!isFile && (!__vis(e) || e.closest('[aria-hidden=true]') || __trick(e, trickMemo))) continue;
+    const face = isFile ? e : __face(e);
+    if (!isFile && (!face || face.closest('[aria-hidden=true]') || __trick(face, trickMemo))) continue;
     const n = __num(e);
     const kind = kindOf(e);
     const form = e.form || e.closest('form');
     const formSearch = Boolean(form && (form.getAttribute('role') === 'search' || form.querySelector('input[type=search], [role=searchbox], input[name=q], input[name=query], input[name=search]')) && !form.querySelector('input[type=password]'));
-    const r = e.getBoundingClientRect();
-    items.push({ n, kind, role: (e.getAttribute('role') || e.tagName.toLowerCase()), label: text(e), href: kind === 'link' ? String(e.href || '').slice(0, 300) : '', formSearch, state: stateOf(e), value: valueOf(e, kind), ctx: ctxOf(e), view: r.bottom > 0 && r.top < innerHeight });
+    const r = face.getBoundingClientRect(), q = __group(e);
+    items.push({ n, kind, role: (e.getAttribute('role') || e.tagName.toLowerCase()), label: text(e), href: kind === 'link' ? String(e.href || '').slice(0, 300) : '', formSearch, state: stateOf(e), value: valueOf(e, kind), ctx: ctxOf(e), ...(q ? { q } : {}), view: r.bottom > 0 && r.top < innerHeight });
   }
   const lines = __lines(base || document.body);
   const body = lines.join('\\n');
@@ -222,7 +266,8 @@ const CHECK_JS = (n: number, x: number, y: number) => `(() => {
   if (!e) return { gone: true };
   let hit = document.elementFromPoint(${Number(x)}, ${Number(y)});
   for (let k = 0; hit && hit.shadowRoot && k < 10; k++) { const h2 = hit.shadowRoot.elementFromPoint(${Number(x)}, ${Number(y)}); if (!h2 || h2 === hit) break; hit = h2; }
-  const inside = (h) => { for (let z = h; z; z = z.parentNode || z.host) if (z === e) return true; return false; };
+  const face = __face(e) || e;
+  const inside = (h) => { for (let z = h; z; z = z.parentNode || z.host) if (z === e || z === face) return true; return false; };
   const kind = kindOf(e), form = e.form || e.closest('form');
   const formSearch = Boolean(form && (form.getAttribute('role') === 'search' || form.querySelector('input[type=search], [role=searchbox], input[name=q], input[name=query], input[name=search]')) && !form.querySelector('input[type=password]'));
   return { covered: !(hit && inside(hit)), item: { n: ${Number(n)}, kind, role: (e.getAttribute('role') || e.tagName.toLowerCase()), label: text(e), href: kind === 'link' ? String(e.href || '').slice(0, 300) : '', formSearch }, sendsTo: form && form.action ? String(form.action).slice(0, 300) : '' };
@@ -233,8 +278,9 @@ const SPOT_JS = (n: number) => `(() => {
   ${DEEP}
   const e = __byN(${Number(n)});
   if (!e) return null;
-  e.scrollIntoView({ block: 'center', inline: 'center' });
-  const r = e.getBoundingClientRect();
+  const face = __face(e) || e;
+  face.scrollIntoView({ block: 'center', inline: 'center' });
+  const r = face.getBoundingClientRect();
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width), h: Math.round(r.height), left: Math.round(r.left), top: Math.round(r.top) };
 })()`;
 
@@ -276,13 +322,38 @@ const QUIET_JS = `new Promise((done) => {
   setTimeout(tick, 75);
 })`;
 
+/** What Space or Enter would land on: the control with the cursor, as driverrules keyWeigh judges it. Null: nothing. */
+const KEY_JS = `(() => {
+  ${DEEP}
+  ${ITEM_FNS}
+  let e = document.activeElement; while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;
+  if (!e || e === document.body || e === document.documentElement || !e.getAttribute) return null;
+  const form = e.form || e.closest('form');
+  const formSearch = Boolean(form && (form.getAttribute('role') === 'search' || form.querySelector('input[type=search], [role=searchbox], input[name=q], input[name=query], input[name=search]')) && !form.querySelector('input[type=password]'));
+  return { tag: e.tagName.toLowerCase(), type: (e.getAttribute('type') || '').toLowerCase(), role: e.getAttribute('role') || '', kind: kindOf(e), label: text(e), formSearch, inForm: Boolean(form), editable: Boolean(e.isContentEditable) };
+})()`;
+
 /** A native dropdown: pick the option whose words match. Null when the control is not a native select. */
 const SELECT_JS = (n: number, want: string) => `(() => {
   ${DEEP}
   const e = __byN(${Number(n)});
   if (!e) return { gone: true };
-  if (e.tagName !== 'SELECT') return { native: false };
   const w = ${JSON.stringify(String(want).toLowerCase().trim())};
+  // A radio or tick-box question (2026-10-31): any one of its choices stands for the question; pick the one with the words.
+  const role = (e.getAttribute('role') || '').toLowerCase();
+  if (__choice(e) || role === 'radio' || role === 'checkbox') {
+    const t = (x) => String(x || '').replace(/\\s+/g, ' ').trim();
+    const q = __group(e);
+    const sel = (e.type === 'radio' || role === 'radio') ? 'input[type=radio], [role=radio]' : 'input[type=checkbox], [role=checkbox]';
+    let box = e.parentElement;
+    for (let i = 0; box && box.parentElement && i < 8 && box.querySelectorAll(sel).length < 2; i++) box = box.parentElement;
+    const all = e.name && e.type === 'radio' ? __deep('input[type=radio]').filter((o) => o.name === e.name && (o.form || null) === (e.form || null)) : [...(box || document).querySelectorAll(sel)].filter((o) => __group(o) === q);
+    const named = all.filter((o) => __face(o)).map((o) => { const l = (o.id && o.getRootNode().querySelector && o.getRootNode().querySelector('label[for="' + CSS.escape(o.id) + '"]')) || o.closest('label'); return { o, w: t(o.getAttribute('aria-label') || (l && l.innerText) || (__face(o) || o).innerText || o.value) }; });
+    const hit = named.find((x) => x.w.toLowerCase() === w) || named.find((x) => x.w.toLowerCase().includes(w));
+    if (!hit) return { group: true, found: false, options: named.map((x) => x.w).slice(0, 40) };
+    return { group: true, found: true, pick: __num(hit.o), picked: hit.w };
+  }
+  if (e.tagName !== 'SELECT') return { native: false };
   const opts = [...e.options];
   const o = opts.find((x) => x.textContent.trim().toLowerCase() === w) || opts.find((x) => x.textContent.trim().toLowerCase().includes(w)) || opts.find((x) => String(x.value).toLowerCase() === w);
   if (!o) return { native: true, found: false, options: opts.map((x) => x.textContent.trim()).slice(0, 40) };
@@ -416,7 +487,7 @@ const FORM_JS = (within: number | null) => `(() => {
   for (const e of els) {
     const ty = (e.getAttribute('type') || '').toLowerCase();
     if (ty === 'hidden' || ty === 'submit' || ty === 'button' || ty === 'image' || ty === 'reset') continue;
-    if (ty !== 'file' && !__vis(e)) continue;
+    if (ty !== 'file' && !__face(e)) continue;
     const n = __num(e);
     const secret = ty === 'password' || /cc-|card|cvc|cvv/i.test(e.getAttribute('autocomplete') || '');
     let value = '';
@@ -427,9 +498,9 @@ const FORM_JS = (within: number | null) => `(() => {
     else value = String(e.value ?? e.innerText ?? '');
     const desc = (e.getAttribute('aria-describedby') || '').split(/\\s+/).map((id) => (document.getElementById(id) || {}).innerText || '').join(' ').trim();
     const bad = e.getAttribute('aria-invalid') === 'true' || (e.validity && e.checkValidity && !e.validity.valid && (e.value || e.required));
-    out.push({ n, label: labelOf(e), kind: e.tagName === 'SELECT' ? 'select' : ty || e.getAttribute('role') || e.tagName.toLowerCase(), value: secret ? (value ? '(filled, hidden)' : '') : value.slice(0, 120), required: Boolean(e.required || e.getAttribute('aria-required') === 'true'), wrong: Boolean(bad), message: (desc || (bad && e.validationMessage) || '').slice(0, 120) });
+    out.push({ n, label: labelOf(e), kind: e.tagName === 'SELECT' ? 'select' : ty || e.getAttribute('role') || e.tagName.toLowerCase(), value: secret ? (value ? '(filled, hidden)' : '') : value.slice(0, 120), required: Boolean(e.required || e.getAttribute('aria-required') === 'true' || (e.closest('[role=radiogroup], [role=group], fieldset') || {}).ariaRequired === 'true'), wrong: Boolean(bad), message: (desc || (bad && e.validationMessage) || '').slice(0, 120), q: __group(e) });
   }
-  return out.slice(0, 120);
+  return out.slice(0, 250);
 })()`;
 
 /** The best picture or video on the page, for "get me a map": the biggest one in view. */
@@ -792,7 +863,7 @@ export class Driver {
    */
   async read(pageId: number, o: { within?: number; changes?: boolean; full?: boolean } = {}): Promise<{ title: string; url: string; text: string; more: boolean; unchanged?: { lines: number; controls: number }; items: (ReadItem & { weight: Weight; value?: string; view?: boolean })[] }> {
     const { p, wc } = this.wcOf(pageId);
-    const r = await ask(wc, READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: o.full ? 7000 : READ_WORDS })) as { title: string; url: string; text: string; more: boolean; hidden: number; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
+    const r = await ask(wc, READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: o.full ? FULL_WORDS : READ_WORDS })) as { title: string; url: string; text: string; more: boolean; hidden: number; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
     this.checkChallenge(p, r);
     // Frames holding another site's page (application forms): their controls numbered 10001+, 20001+, their words after.
     if (!o.within) {
@@ -817,7 +888,7 @@ export class Driver {
     const known = new Map((this.items.get(p.id) ?? []).map((x) => [x.n, x]));
     for (const it of r.items) known.set(it.n, { n: it.n, kind: it.kind, label: it.label, href: it.href, formSearch: it.formSearch });
     this.items.set(p.id, [...known.values()].slice(-600));
-    const items = r.items.map((it) => ({ n: it.n, kind: it.kind, role: it.role, label: it.label, href: it.href, state: it.state, ctx: it.ctx, value: it.value, view: it.view, weight: weigh(it) }));
+    const items = r.items.map((it) => ({ n: it.n, kind: it.kind, role: it.role, label: it.label, href: it.href, state: it.state, ctx: it.ctx, ...(it.q ? { q: it.q } : {}), value: it.value, view: it.view, weight: weigh(it) }));
     const prev = o.within ? undefined : this.lastRead.get(p.id);
     if (!o.within) this.lastRead.set(p.id, { lines: r.lines, items });
     if (o.changes && prev) {
@@ -1065,9 +1136,9 @@ export class Driver {
   describeFile(file: string): string { return String(file ?? '').replace(/\\/g, '/').split('/').pop() ?? 'a file'; }
 
   /** Every field of a form, to read back before anything is submitted. within: a control in that form. */
-  async form(pageId: number, within?: number): Promise<{ fields: { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string }[] }> {
+  async form(pageId: number, within?: number): Promise<{ fields: { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string; q?: string }[] }> {
     const { wc } = this.wcOf(pageId);
-    const fields = await ask(wc, FORM_JS(Number.isInteger(within) ? within! : null)) as { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string }[];
+    const fields = await ask(wc, FORM_JS(Number.isInteger(within) ? within! : null)) as { n: number; label: string; kind: string; value: string; required: boolean; wrong: boolean; message: string; q?: string }[];
     return { fields };
   }
 
@@ -1082,7 +1153,7 @@ export class Driver {
     const st = await this.state(wc, null);
     const ranked = rankFind(st.lines, w, more ? 15 : 6, more ? 360 : 260);
     const parts = w.split(',').map((x) => x.trim()).filter(Boolean);
-    const its = r.items.filter((it) => parts.some((x) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(x))).slice(0, more ? 20 : 8);
+    const its = r.items.filter((it) => parts.some((x) => `${it.label} ${it.ctx ?? ''} ${it.q ?? ''}`.toLowerCase().includes(x))).slice(0, more ? 20 : 8);
     return { lines: ranked, items: its };
   }
 
@@ -1189,6 +1260,8 @@ export class Driver {
     this.checkChallenge(p, after);
     return { title: p.title, url: p.url, changed: this.told(before, after) };
   }
+  /** What Space or Enter would land on now (driverrules keyWeigh), and its number when it has one. */
+  async keyTarget(pageId: number): Promise<KeyTarget | null> { const { wc } = this.wcOf(pageId); return await ask(wc, KEY_JS) as KeyTarget | null; }
   /** What has the cursor now, for weighing Enter. */
   async focused(pageId: number): Promise<number | null> { const { wc } = this.wcOf(pageId); return (await this.state(wc, null)).focus; }
 
@@ -1196,8 +1269,14 @@ export class Driver {
   async choose(pageId: number, n: number, option: string): Promise<{ title: string; url: string; changed: string[]; options?: string[] }> {
     const { p, wc } = this.wcOf(pageId);
     const before = await this.state(wc, n);
-    const r = await ask(wc, SELECT_JS(n, option)) as { gone?: boolean; native?: boolean; found?: boolean; picked?: string; options?: string[] };
+    const r = await ask(wc, SELECT_JS(n, option)) as { gone?: boolean; native?: boolean; group?: boolean; pick?: number; found?: boolean; picked?: string; options?: string[] };
     if (r.gone) throw new Error(`control ${n} is not on the page any more; read the page again`);
+    if (r.group) {
+      if (!r.found) return { title: p.title, url: p.url, changed: [`no choice says "${option}"`], options: r.options };
+      const c = await this.click(pageId, r.pick!);
+      if ('needs' in c) return { title: p.title, url: p.url, changed: [`"${r.picked}" is control ${r.pick}, and ticking it asks Joshua: use browser_click on ${r.pick}`] };
+      return { ...c, changed: [`picked "${r.picked}"`, ...c.changed] };
+    }
     if (r.native && !r.found) return { title: p.title, url: p.url, changed: [`no option matches "${option}"`], options: r.options };
     if (!r.native) {
       await this.click(pageId, n);

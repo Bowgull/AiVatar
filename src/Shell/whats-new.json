@@ -935,6 +935,21 @@
       "at": "2026-10-31T12:32:00-04:00",
       "text": "Claude can update Aang right away when you ask, without waiting for you to step away.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T14:00:00-04:00",
+      "text": "Claude can tick hidden boxes and choices on forms.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T14:01:00-04:00",
+      "text": "No more asking when Claude only moves through a page.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T14:02:00-04:00",
+      "text": "Words in your essays no longer look like buying.",
+      "kind": "fix"
     }
   ]
 }
