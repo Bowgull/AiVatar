@@ -75,7 +75,7 @@ const fakeRun = (p: MacPaths, calls: string[], code = 0): RunScript => async (sc
 
 test('Mac stage: one build holds whatever is ready; a change rebuilds; swap only once ready', async () => {
   const p = macHome(), calls: string[] = [];
-  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {}, trash: path.join(p.listener, 'Trash') });
   assert.deepEqual(await st.swap(), { ok: false, why: 'The update is not ready yet. It will show up again when it is.' });
   st.engine = { version: '44.9.3', app: '/e/Electron.app' };
   await st.build();
@@ -160,12 +160,12 @@ test('Sheet 114, PC: the ready one stays on the key while a newer one is made in
 
 test('Mac stage: a failed build is not ready; a hand install (no release number) waits', async () => {
   const p = macHome(), calls: string[] = [];
-  const st = new MacStage(p, { run: fakeRun(p, calls, 1), log: () => {}, changed: () => {} });
+  const st = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls, 1), log: () => {}, changed: () => {} });
   st.engine = { version: '44.9.3', app: '/e/Electron.app' };
   await st.build(); assert.ok(!st.ready());
   writeFileSync(p.installed, JSON.stringify({ version: 'manual-01b3', commit: '', status: 'good' }));
   const logs: string[] = [];
-  const st2 = new MacStage(p, { run: fakeRun(p, calls), log: (s) => logs.push(s), changed: () => {} });
+  const st2 = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls), log: (s) => logs.push(s), changed: () => {} });
   st2.engine = { version: '44.9.3', app: '/e/Electron.app' };
   await st2.build();
   assert.ok(!st2.ready() && /waits for the next Samara release/.test(logs.join()));
@@ -173,7 +173,7 @@ test('Mac stage: a failed build is not ready; a hand install (no release number)
 
 test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, then staged; Restart now swaps once', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
   const p = macHome(), calls: string[] = [];
-  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const st = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls), log: () => {}, changed: () => {} });
   const m = seal(engineManifest());
   const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'samara-v1.23.1' }, { tag_name: 'engine-v44.9.3' }, { tag_name: 'engine-v44.7.0' }]))
     : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : url.includes('chromiumdash') ? res(JSON.stringify([{ version: '153.0.1.1', time: Date.now() - 42 * 86_400_000 }])) : res('', false);
@@ -198,7 +198,7 @@ test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, the
 
 test('Mac engine: when castLabs wants a sign-in, the key asks; Terminal opens; once he is in, it signs and stages', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
   const p = macHome(), calls: string[] = [];
-  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const st = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls), log: () => {}, changed: () => {} });
   const m = seal(engineManifest());
   const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'engine-v44.9.3' }])) : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : res('', false);
   let answer: 'signin' | 'ok' = 'signin', opened = 0, watcher: ((ok: boolean) => void) | null = null;
@@ -234,7 +234,7 @@ test('castLabs\' check: only a real signature counts, never the development one 
 test('Mac engine: castLabs\' development signature is not taken for signed; a real one is not signed again', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
   for (const real of [false, true]) {
     const p = macHome(), calls: string[] = [];
-    const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+    const st = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls), log: () => {}, changed: () => {} });
     const m = seal(engineManifest());
     const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'engine-v44.9.3' }])) : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : res('', false);
     let signed = 0;
@@ -251,7 +251,7 @@ test('Mac engine: castLabs\' development signature is not taken for signed; a re
 
 test('Mac engine: his Samara with only the development signature is offered the same engine again, signed for video', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
   const p = macHome(), calls: string[] = [], logs: string[] = [];
-  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const st = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls), log: () => {}, changed: () => {} });
   const m = seal(engineManifest());
   const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'engine-v44.9.3' }])) : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : res('', false);
   const app = path.join(p.listener, 'Samara.app'), fw = path.join(app, 'Contents', 'Frameworks', 'Electron Framework.framework', 'Versions', 'A', 'Resources');
@@ -268,7 +268,7 @@ test('Mac engine: his Samara with only the development signature is offered the 
   assert.equal(realpathSync(path.join(checked[0]!, 'Samara.app')), realpathSync(app));
   assert.ok(logs.some((l) => /development signature/.test(l)));
   // Not his Samara (a test or code-folder run): nothing is checked and the same engine is not offered.
-  const e2 = new MacEngine(p, new MacStage(p, { run: fakeRun(p, []), log: () => {}, changed: () => {} }), { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.9.3', pub: PUB, app: () => null });
+  const e2 = new MacEngine(p, new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, []), log: () => {}, changed: () => {} }), { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.9.3', pub: PUB, app: () => null });
   checked.length = 0; await e2.check('test');
   assert.equal(checked.length, 0); assert.equal(e2.ready(), null);
 });
@@ -355,7 +355,7 @@ test('PC engine: video wins, so no tick boxes; sign-in shows on the key; Restart
 // so the script stopped watching and nothing reopened Samara. Only the Samara that IS the trial may call it good.
 test('Mac: only the Samara that is the trial marks it good, never the one it replaces', () => {
   const p = macHome(), calls: string[] = [];
-  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const st = new MacStage(p, { trash: path.join(p.listener, "Trash"), run: fakeRun(p, calls), log: () => {}, changed: () => {} });
   const old = new MacSamara(p, st, { fetch: (async () => res('', false)) as never, log: () => {}, changed: () => {}, pub: PUB });   // started as 1.23.0, good
   writeFileSync(p.installed, JSON.stringify({ version: '1.25.1', commit: 'e'.repeat(12), status: 'trial' }));   // the script put 1.25.1 in
   old.markGood();

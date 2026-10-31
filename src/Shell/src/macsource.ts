@@ -144,7 +144,11 @@ export class MacStage {
     const staged = path.join(this.p.br, 'staged'), next = path.join(this.p.br, 'staged-next');
     rmSync(this.p.staged, { force: true });   // the old one is never put in half moved
     this.built = null;
-    if (existsSync(staged)) renameSync(staged, path.join(this.o.trash, `Samara staged ${new Date().toISOString().replace(/[:.]/g, '-')}`));
+    if (existsSync(staged)) {
+      // To the Trash (his rule); a plain delete of this copy only when there is no Trash to move it to.
+      try { mkdirSync(this.o.trash, { recursive: true }); renameSync(staged, path.join(this.o.trash, `Samara staged ${new Date().toISOString().replace(/[:.]/g, '-')}`)); }
+      catch { rmSync(staged, { recursive: true, force: true }); }
+    }
     renameSync(next, staged);
     const script = macUpdateScript({ bundle: want.samara?.bundle ?? '', version: want.samara?.m.version ?? readInstalled(this.p.installed).version, commit: want.samara?.m.commit ?? readInstalled(this.p.installed).commit, ...(want.engine ? { engine: want.engine } : {}), stage: 'staged' });
     writeFileSync(this.p.script, script); chmodSync(this.p.script, 0o700);
