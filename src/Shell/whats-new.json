@@ -855,6 +855,31 @@
       "at": "2026-10-30T21:24:00-04:00",
       "text": "The right-click menu shows Mac keys on your Mac.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T10:52:00-04:00",
+      "text": "Claude's tabs show its spark and glow soft orange.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T10:52:00-04:00",
+      "text": "Each mockup mark has its own colour.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T10:52:00-04:00",
+      "text": "Mockups shown from a live page no longer break.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T10:52:00-04:00",
+      "text": "The browser is called Samara everywhere.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T10:52:00-04:00",
+      "text": "Aang's notes go to the right folder on each machine.",
+      "kind": "fix"
     }
   ]
 }
