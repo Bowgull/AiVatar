@@ -27,7 +27,17 @@ function door() {
   }
   return null;
 }
+// 2026-10-31 (Job Hunt locked out mid-application): Samara restarted for an update, forgot this session's job, and every
+// call after said "not a page this Claude session opened", even a new plan, for good. Samara writes a new door key each
+// time it starts, so a new key means a restart: this session lets go of its job and says so plainly.
+const RESTARTED = 'Samara restarted since this job began (an update or a crash), so its pages and plan are gone. Nothing is locked: send browser_plan again to carry on, then open the pages again by their address. Fields you filled may need filling again.';
+let jobKey = null;
+function forget() { job = null; jobName = ''; jobKey = null; }
 async function knock(d, op, a) {
+  if (job !== null && jobKey !== null && d.key !== jobKey) {
+    forget();
+    if (op !== 'plan' && op !== 'start' && op !== 'history' && op !== 'companies' && op !== 'note') return { ok: false, error: RESTARTED };
+  }
   const r = await fetch(`http://127.0.0.1:${d.port}/drive`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': d.key }, body: JSON.stringify({ op, a }), signal: AbortSignal.timeout(180_000) });
   if (r.status === 403) return { ok: false, error: 'The door refused this connector. Aang may have restarted: try again.' };
   const j = await r.json();
@@ -36,7 +46,10 @@ async function knock(d, op, a) {
   // Sheet 111: what else he did in Samara since (took a page over, took one for himself), the same way.
   if (j && Array.isArray(j.news)) for (const n of j.news) if (typeof n === 'string') heard.push(n.slice(0, 600));
   // He stopped the whole job: this session lets go of it, so its next plan starts a fresh one.
-  if (j && j.ok === false && /STOP ALL/.test(String(j.error ?? ''))) { job = null; jobName = ''; }
+  if (j && j.ok === false && /STOP ALL/.test(String(j.error ?? ''))) forget();
+  // Samara does not know this session's job (it restarted, or forgot it): let go, never stay locked.
+  else if (j && j.ok === false && job !== null && /not a page this Claude session opened/.test(String(j.error ?? '')) && (a?.job === job || op === 'jobstate')) { forget(); return { ok: false, error: RESTARTED }; }
+  if (j && j.ok === true && (op === 'plan' || op === 'start') && Number.isInteger(j.job)) jobKey = d.key;
   return j;
 }
 const heard = [];
@@ -399,14 +412,15 @@ async function plan(a) {
     if (job === null) return text('Send your plan first (task, sites, steps).', true);
     const r = await step('planstep', { job, ...(a.done === true ? { done: true } : { at: Math.max(0, Number(a.now) - 1) }) });
     // Done frees the session for a new plan (2026-10-30: it stayed taken, so a second job in one Claude session was refused).
-    if (r.ok && a.done === true) { job = null; jobName = ''; }
+    if (r.ok && a.done === true) forget();
     return r.ok ? text(a.done === true ? 'Marked done.' : `On step ${Number(a.now)}: ${r.step ?? ''}`) : text('This session has no plan to tick.', true);
   }
   // Sheet 111 (his report, 2026-10-31: after one STOP the chat could never start again): a job that was stopped, or
   // one that started without a plan (a page opened first), gives way to the new plan here.
   if (job !== null) {
     const st = await step('jobstate', { job });
-    if (st.ok && (!st.live || !st.planned)) { if (st.live) await step('finish', { job }); job = null; jobName = ''; }
+    if (st.ok && (!st.live || !st.planned)) { if (st.live) await step('finish', { job }); forget(); }
+    else if (!st.ok) forget();                                 // Samara does not know the job any more: never locked
   }
   if (job !== null) return text('This session already has a plan running. Tick it with browser_plan now: <step>, or end it with browser_plan done: true, then send the new plan.', true);
   // from (2026-10-22): this session's folder name, for the card's kicker (CLAUDE · WAYMARK). Claude Code starts this connector in the session's folder.
