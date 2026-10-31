@@ -115,9 +115,14 @@ const MAC_SYSTEM = ['/System', '/Library', '/usr', '/bin', '/sbin', '/Applicatio
  * 1,088 of the 1,183 notes are old AI session handoffs. The ~95 Joshua wrote himself are the asset, and
  * they sit outside his folder, so they are covered.
  */
-export const VAULT_DIR = process.env.AANG_VAULT_DIR
-  // The Mac (2026-10-28): its home is HOME, not USERPROFILE; the Windows default made every vault path relative there.
-  ?? path.join(process.env.USERPROFILE ?? (process.platform === 'darwin' ? os.homedir() : 'C:\\Users\\Shadow'), 'Documents', 'CereBro-Vault');
+export function vaultDirFor(env: NodeJS.ProcessEnv, platform: NodeJS.Platform, home: string): string {
+  if (env.AANG_VAULT_DIR) return env.AANG_VAULT_DIR;
+  // The Mac (2026-10-28): its home is HOME, not USERPROFILE. Falling back to the PC's C:\ path made every vault
+  // write relative on the Mac, so research notes landed in a folder named "C:\Users\Shadow" inside the repo.
+  if (platform !== 'win32') return path.posix.join(home, 'Documents', 'CereBro-Vault');
+  return path.win32.join(env.USERPROFILE ?? 'C:\\Users\\Shadow', 'Documents', 'CereBro-Vault');
+}
+export const VAULT_DIR = vaultDirFor(process.env, process.platform, os.homedir());
 
 /**
  * The folder Obsidian actually opens, which is NOT the repository root.
