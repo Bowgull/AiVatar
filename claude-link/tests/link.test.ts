@@ -689,9 +689,10 @@ test('show_mockup (2026-10-22): registered in every session, one prompt line, th
   expect(MOCKUP_SECTION).toMatch(/Never ask permission to open local mockup pages/)
   const none = await $.prompt.compose({ ...COMPOSE, tools: ['Bash'] })
   expect(none.sections.some(s => s.id === MOCKUP_SECTION_ID)).toBe(false)
-  // Checked here first: one of path or url, a url on this computer only. Nothing goes to the brain for a bad call.
+  // Checked here first: a committed file only; a live page is refused (2026-10-31: 44 broke when their servers stopped).
   expect(mockupArgs({}).ok).toBe(false)
   expect(mockupArgs({ path: 'a.html', url: 'http://127.0.0.1:1/' }).ok).toBe(false)
+  expect(mockupArgs({ url: 'http://127.0.0.1:5173/rec', branch: 'T' })).toMatchObject({ ok: false, error: expect.stringMatching(/live page is not kept/) })
   for (const url of ['https://example.com/', 'http://127.0.0.1.evil.example/', 'http://u:p@localhost/', 'file:///C:/x.html']) expect(mockupArgs({ url, branch: 'T' }).ok).toBe(false)
   // No topic: refused here, so nothing lands under Other (2026-10-30).
   expect(mockupArgs({ path: 'a.html' })).toMatchObject({ ok: false, error: expect.stringMatching(/Give branch/) })
@@ -712,7 +713,7 @@ test('show_mockup with Aang down says so and sends nothing', async ($, on) => {
   const { quiet, mockups } = brain(on, { tools: ['Bash'], down: true })
   await $.session.start(start)
   await quiet()
-  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'http://127.0.0.1:5173/rec', branch: 'Motion' } as never)
+  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, path: 'docs/motion.html', branch: 'Motion' } as never)
   expect(r).toMatchObject({ isError: true })
   expect(String((r as { result: unknown }).result)).toMatch(/not running/)
   expect(mockups).toHaveLength(0)
