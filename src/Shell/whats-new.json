@@ -850,6 +850,11 @@
       "at": "2026-10-30T19:13:00-04:00",
       "text": "Hand back with a note; Claude hears what changed.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-30T21:24:00-04:00",
+      "text": "The right-click menu shows Mac keys on your Mac.",
+      "kind": "fix"
     }
   ]
 }
