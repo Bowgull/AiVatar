@@ -27,7 +27,8 @@ test('a full path files from its own repo, even from a session outside any repo'
 });
 
 test('2026-10-31: a file in no repo goes too (Samara keeps it in the mockups home), from its own folder; never his home folder', () => {
-  const d = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'md-loose-')));
+  // .native: on Windows the temp folder can come back in its short form (RUNNER~1), 2026-10-31 on GitHub's PC.
+  const d = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'md-loose-')));
   writeFileSync(path.join(d, 'x.html'), 'x');
   const c = checkAsk({ path: path.join(d, 'x.html'), branch: 'T' });
   assert.equal(c.ok, true);
