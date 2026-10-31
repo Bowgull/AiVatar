@@ -75,7 +75,7 @@ export interface MenuParams {
   editFlags: { canCut: boolean; canCopy: boolean; canPaste: boolean; canSelectAll: boolean };
 }
 export type MenuItem = { id: string; label: string; key?: string; off?: boolean; sub?: boolean } | { sep: true };
-export interface MenuHas { /** Sheet 109: Ask Claude on a selection */ ask?: boolean; send: boolean; other: string | null; popout: boolean; popVideo: boolean; canBack: boolean; pageIsWeb: boolean }
+export interface MenuHas { /** Sheet 109: Ask Claude on a selection */ ask?: boolean; send: boolean; other: string | null; popout: boolean; popVideo: boolean; canBack: boolean; pageIsWeb: boolean; /** the Mac's keys (⌘, ⌥); default: this machine's */ mac?: boolean }
 
 /** What "Send to Aang" would send for this right-click: the words, the picture, the link, or the page (empty space). */
 export function sendKindFor(p: MenuParams, pageIsWeb: boolean): SendKind | null {
@@ -93,6 +93,9 @@ export function sendKindFor(p: MenuParams, pageIsWeb: boolean): SendKind | null 
  */
 export function pageMenuItems(p: MenuParams, has: MenuHas): MenuItem[] {
   const items: MenuItem[] = [];
+  // The keys as this machine has them (his screenshot, 2026-10-30: the Mac showed CTRL C and ALT ←).
+  const mac = has.mac ?? process.platform === 'darwin';
+  const ctl = (k: string) => (mac ? '⌘' + k : 'CTRL ' + k);
   const sep = () => { if (items.length && !('sep' in items[items.length - 1]!)) items.push({ sep: true }); };
   const isWeb = (u: string) => Boolean(webUrl(u));
   // Sheet 109 (his pick, 2026-10-30): on a selection, Ask Claude first (its own list of chats beside it); on the PC Send
@@ -120,14 +123,14 @@ export function pageMenuItems(p: MenuParams, has: MenuHas): MenuItem[] {
   }
   if (p.isEditable) {
     const f = p.editFlags;
-    items.push({ id: 'cut', label: 'Cut', key: 'CTRL X', off: !f.canCut }, { id: 'copy', label: 'Copy', key: 'CTRL C', off: !f.canCopy },
-      { id: 'paste', label: 'Paste', key: 'CTRL V', off: !f.canPaste }, { id: 'selectall', label: 'Select all', key: 'CTRL A', off: !f.canSelectAll });
+    items.push({ id: 'cut', label: 'Cut', key: ctl('X'), off: !f.canCut }, { id: 'copy', label: 'Copy', key: ctl('C'), off: !f.canCopy },
+      { id: 'paste', label: 'Paste', key: ctl('V'), off: !f.canPaste }, { id: 'selectall', label: 'Select all', key: ctl('A'), off: !f.canSelectAll });
     sep();
   } else if (words) {
-    items.push({ id: 'copy', label: 'Copy', key: 'CTRL C' }, { id: 'search', label: `Search for "${words.length > 28 ? words.slice(0, 27) + '…' : words}"` });
+    items.push({ id: 'copy', label: 'Copy', key: ctl('C') }, { id: 'search', label: `Search for "${words.length > 28 ? words.slice(0, 27) + '…' : words}"` });
     sep();
   }
-  items.push({ id: 'back', label: 'Back', key: 'ALT ←', off: !has.canBack }, { id: 'reload', label: 'Reload', key: 'CTRL R' });
+  items.push({ id: 'back', label: 'Back', key: mac ? '⌥←' : 'ALT ←', off: !has.canBack }, { id: 'reload', label: 'Reload', key: ctl('R') });
   // His ask (2026-10-13): this page (or the link) as a full tab in Aang's browser on the other machine.
   if (has.other && has.pageIsWeb) { sep(); items.push({ id: 'openother', label: has.other }); }
   return items;

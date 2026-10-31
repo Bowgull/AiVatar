@@ -73,3 +73,10 @@ test('sheet 62: the desk: chips, the ask, and the three keys', () => {
   assert.equal(d.size, 0);
   assert.equal(d.drop(0), false);
 });
+
+test('the menu shows each machine its own keys (his Mac screenshot, 2026-10-30: CTRL C and ALT ←)', () => {
+  const keys = (mac: boolean, p: MenuParams) => Object.fromEntries(pageMenuItems(p, { ...HAS, mac }).flatMap((i) => ('key' in i && i.key ? [[i.id, i.key]] : [])));
+  assert.deepEqual(keys(true, P({ selectionText: 'x' })), { copy: '⌘C', back: '⌥←', reload: '⌘R' });
+  assert.deepEqual(keys(false, P({ selectionText: 'x' })), { copy: 'CTRL C', back: 'ALT ←', reload: 'CTRL R' });
+  assert.deepEqual(keys(true, P({ isEditable: true })), { cut: '⌘X', copy: '⌘C', paste: '⌘V', selectall: '⌘A', back: '⌥←', reload: '⌘R' });
+});
