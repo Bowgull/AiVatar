@@ -41,6 +41,13 @@ const brain = path.join(out, 'aang-brain.tgz'), core = path.join(repo, 'src', 'C
 execFileSync('tar', [...(gnu ? ['--sort=name', '--owner=0', '--group=0', '--numeric-owner', '--mtime=@0'] : []), '-czf', brain,
   '-C', core, 'src', 'assets', 'frontdesk-pkg', 'mac', 'package.json', 'package-lock.json', 'tsconfig.json'], { stdio: 'inherit', env: { ...process.env, GZIP: '-n' } });
 const brainBytes = readFileSync(brain);
+// Aang's Mac app (2026-10-31: it was left behind when the brain and Samara moved on): the pet and bubble code, its
+// pages and art, and its package files. The brain puts it in beside itself on the Mac; its libraries and its two small
+// Mac helpers (mac/*.swift) are carried over from the copy there, or made there when they change.
+const aangApp = path.join(out, 'aang-app.tgz');
+execFileSync('tar', [...(gnu ? ['--sort=name', '--owner=0', '--group=0', '--numeric-owner', '--mtime=@0'] : []), '-czf', aangApp,
+  '-C', shell, 'src', 'pages', 'mac', 'package.json', 'package-lock.json', '-C', repo, 'assets/aang/frames', 'assets/aang/sfx'], { stdio: 'inherit', env: { ...process.env, GZIP: '-n' } });
+const appBytes = readFileSync(aangApp);
 
 const commit = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 void notesFile;   // what it brings comes from whats-new.json now, the same lines the rule counted
@@ -50,8 +57,9 @@ const manifest = {
   items: lines.slice(0, 30).map((l) => ({ text: String(l.text), kind: l.kind === 'major' || l.kind === 'feature' ? l.kind : 'fix' })),
   bundle: { file: 'samara-bundle.tgz', sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length },
   brain: { file: 'aang-brain.tgz', sha256: createHash('sha256').update(brainBytes).digest('hex'), bytes: brainBytes.length },
+  aang: { file: 'aang-app.tgz', sha256: createHash('sha256').update(appBytes).digest('hex'), bytes: appBytes.length },
 };
 const text = JSON.stringify(manifest, null, 1);
 writeFileSync(path.join(out, 'manifest.json'), text);
 writeFileSync(path.join(out, 'manifest.sig'), sign(null, Buffer.from(text), createPrivateKey(pem)).toString('base64'));
-console.log(`samara ${version} ${v.name} (${commit.slice(0, 7)}): bundle ${(bytes.length / 1e6).toFixed(1)} MB, brain ${(brainBytes.length / 1e6).toFixed(1)} MB, stamped`);
+console.log(`samara ${version} ${v.name} (${commit.slice(0, 7)}): bundle ${(bytes.length / 1e6).toFixed(1)} MB, brain ${(brainBytes.length / 1e6).toFixed(1)} MB, Aang's app ${(appBytes.length / 1e6).toFixed(1)} MB, stamped`);

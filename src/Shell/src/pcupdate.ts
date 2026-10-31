@@ -32,6 +32,8 @@ export interface SamaraUpdatesOpts {
 }
 export class SamaraUpdates {
   ready: SamaraReady | null = null;
+  /** Sheet 114: a newer version being made ready in its own folder while `ready` stays on the key. */
+  getting = '';
   private busy = false;
   private at = 0;
   private o: SamaraUpdatesOpts;
@@ -66,7 +68,11 @@ export class SamaraUpdates {
       if (!m || !newer(m.version, have) || this.list('failed.txt').includes(m.version) || this.list('filed.txt').includes(m.version)) return;
       if (this.ready?.version === m.version) return;
       console.log(`shell: Samara ${m.version} is on GitHub (${why}); getting it ready`);
-      if (await this.prepare(m)) {
+      if (this.ready) { this.getting = m.version; this.o.changed(); }
+      const made = await this.prepare(m);
+      this.getting = '';
+      if (!made) this.o.changed();
+      else {
         this.ready = { version: m.version, name: m.name, commit: m.commit, notes: m.notes, since: Date.parse(m.at) || Date.now() };
         this.addToChangelog(m);
         this.o.changed();

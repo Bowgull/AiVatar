@@ -81,6 +81,8 @@ export interface Offer {
   signin?: 'ask' | 'waiting';
   /** Sheet 108: the one line under the lines ("Your engine today is 6 weeks behind Chrome's security fixes..."). */
   behind?: string;
+  /** Sheet 114: a newer one is getting ready behind this one (next), while Restart now still puts this one in (now). */
+  coming?: { next: string; now: string };
 }
 /**
  * A thing that updates. `ready` is set once the update is downloaded, checked against its seal and made ready beside
@@ -141,6 +143,7 @@ export class UpdateEngine {
       lines: ready.flatMap((r) => r.lines ?? r.groups.flatMap((g) => g.items.filter((i) => !i.key || i.on !== false).map((i) => i.text))),
       ...(ready.find((r) => r.signin)?.signin ? { signin: ready.find((r) => r.signin)!.signin! } : {}),
       ...(ready.find((r) => r.behind)?.behind ? { behind: ready.find((r) => r.behind)!.behind! } : {}),
+      ...(ready.find((r) => r.coming)?.coming ? { coming: ready.find((r) => r.coming)!.coming! } : {}),
     };
   }
   show(): void { this.o.changed(this.card()); }

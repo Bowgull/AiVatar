@@ -2130,6 +2130,7 @@ function paintWho() {
   const key = el('upkey'), tray = el('uptray'), done = el('updone');
   // His report (2026-10-27): every update looks like a new app to the Mac's Keychain, which asks once. Said before, not after.
   el('upkc').hidden = window.aang?.platform !== 'darwin';
+  const kcWords = el('upkc').innerHTML;   // the page's own words (the Keychain note), put back after sheet 114's line
   let shownFor = null, cur = null;
   const DAY = 86_400_000;
   const place = (box, anchor) => { const b = el('band').getBoundingClientRect(), k = anchor.getBoundingClientRect(); box.style.right = Math.max(8, Math.round(b.right - k.right)) + 'px'; };
@@ -2192,7 +2193,17 @@ function paintWho() {
     else if (si === 'waiting') note.append("Finish in Terminal. Samara signs the engine by itself the moment you're in.");
     else if (typeof u.behind === 'string' && u.behind) for (const part of u.behind.slice(0, 200).split(/(\d+ weeks?|\d+ days?|less than a day)/)) if (part) note.append(/^(\d+ (weeks?|days?)|less than a day)$/.test(part) ? T2('b', '', part) : part);
     note.hidden = !note.childNodes.length;
-    el('upkc').hidden = window.aang?.platform !== 'darwin' || !note.hidden;
+    // Sheet 114 (his pick A, 2026-10-31): a newer one getting ready behind this one, in the Keychain note's place.
+    const co = u.coming && typeof u.coming.next === 'string' && typeof u.coming.now === 'string' ? u.coming : null;
+    const kc = el('upkc');
+    if (co) {
+      const next = co.next.slice(0, 60), now = co.now.slice(0, 60);
+      kc.replaceChildren(T2('b', '', `${next.charAt(0).toUpperCase()}${next.slice(1)} is getting ready`), ` behind this one. Restart now puts in ${now}, and ${next} comes to this key when it's ready.`);
+      kc.hidden = false;
+    } else {
+      if (kc.innerHTML !== kcWords) kc.innerHTML = kcWords;
+      kc.hidden = window.aang?.platform !== 'darwin' || !note.hidden;
+    }
     el('upgo').textContent = si === 'ask' ? 'Sign in to castLabs' : si === 'waiting' ? 'Signing in...' : 'Restart now';
     el('upgo').disabled = call || si === 'waiting';
     el('upwhy').hidden = !call;

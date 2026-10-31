@@ -75,6 +75,8 @@ export interface UpdateCard {
   signin?: 'ask' | 'waiting';
   /** Sheet 108: how far behind Chrome's security fixes the engine is, one line. */
   behind?: string;
+  /** Sheet 114: a newer one getting ready behind this one; Restart now still puts this one in. */
+  coming?: { next: string; now: string };
 }
 // His pick (2026-10-14): the lantern alone, lit and glowing, nothing behind it.
 const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-open.ico');

@@ -4,14 +4,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { macUpdateScript } from '../src/macupdate.ts';
 import { MacEngine, MacPaths, MacSamara, MacStage, type RunScript } from '../src/macsource.ts';
-import { Evs, macSigninScript, pcSigninCommand, readSigning, type Run } from '../src/evs.ts';
+import { Evs, macSigninScript, pcSigninCommand, readSigning, readVerify, type Run } from '../src/evs.ts';
 import { behindMs, behindWords, checkEngineManifest, latestEngine } from '../src/enginerelease.ts';
-import { engineGroups, pcEngine } from '../src/pcsource.ts';
+import { engineGroups, pcEngine, pcSamara } from '../src/pcsource.ts';
 import { UpdateEngine } from '../src/updateengine.ts';
 
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
@@ -66,7 +66,10 @@ const macHome = () => {
 /** A pretend prepare: writes staged/version the way the script does. */
 const fakeRun = (p: MacPaths, calls: string[], code = 0): RunScript => async (script, phase) => {
   calls.push(phase);
-  if (phase === 'prepare' && code === 0) { const v = /VERSION='([^']+)'/.exec(readFileSync(script, 'utf8'))![1]!; mkdirSync(path.dirname(p.staged), { recursive: true }); writeFileSync(p.staged, v); }
+  if (phase === 'prepare' && code === 0) {
+    const text = readFileSync(script, 'utf8'), v = /VERSION='([^']+)'/.exec(text)![1]!, slot = /STAGE="\$BR\/(staged(?:-next)?)"/.exec(text)![1]!;
+    mkdirSync(path.join(p.br, slot, 'Samara.app'), { recursive: true }); writeFileSync(path.join(p.br, slot, 'version'), v);
+  }
   return code;
 };
 
@@ -79,13 +82,80 @@ test('Mac stage: one build holds whatever is ready; a change rebuilds; swap only
   assert.equal(st.key(), '1.23.0+44.9.3', 'engine only: on the Samara he runs');
   assert.ok(st.ready());
   st.samara = { m: { version: '1.24.0', commit: 'd'.repeat(40), notes: [], at: '' } as never, bundle: '/x/samara-1.24.0.tgz' };
-  assert.ok(!st.ready(), 'a new piece: not ready until rebuilt');
+  assert.ok(st.ready(), 'sheet 114: the ready one stays ready while the new piece is made');
   await st.build();
-  assert.equal(st.key(), '1.24.0+44.9.3'); assert.ok(st.ready());
+  assert.equal(st.key(), '1.24.0+44.9.3'); assert.ok(st.ready()); assert.equal(st.readySamara?.m.version, '1.24.0');
   writeFileSync(p.script, '#!/bin/bash\necho changed');
   assert.ok(!st.ready(), 'a script changed after it was built is never run');
   await st.build(); assert.ok(!st.ready(), 'and not rebuilt over silently either (same key)');
   assert.deepEqual(calls, ['prepare', 'prepare']);
+});
+
+test('Sheet 114, Mac: a newer release keeps the ready one on the key, is made behind it, then takes its place', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
+  const p = macHome(), calls: string[] = [], trash = mkdtempSync(path.join(os.tmpdir(), 'ip-trash-'));
+  let release: (() => void) | null = null;
+  const run = fakeRun(p, calls);
+  // The build behind waits until the test lets it finish, so what the key shows meanwhile can be looked at.
+  const slow: RunScript = async (script, phase, log) => { if (phase === 'prepare' && script.endsWith('update-next.sh')) await new Promise<void>((r) => { release = r; }); return run(script, phase, log); };
+  const st = new MacStage(p, { run: slow, log: () => {}, changed: () => {}, trash });
+  const rel = (v: string) => ({ m: { version: v, name: 'Gojo', commit: 'd'.repeat(40), notes: [`what ${v} brings`], at: '2026-10-31T10:00:00Z' } as never, bundle: `/x/samara-${v}.tgz` });
+  const samara = new MacSamara(p, st, { fetch: (async () => res('', false)) as never, log: () => {}, changed: () => {} });
+  st.samara = rel('1.27.0'); await st.build();
+  assert.equal(samara.ready()?.version, '1.27.0'); assert.equal(samara.ready()?.coming, undefined);
+  // 1.27.1 comes out: the key stays on 1.27.0 and says 1.27.1 is getting ready behind it.
+  st.samara = rel('1.27.1'); const building = st.build();
+  for (let i = 0; i < 100 && !release; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.ok(st.ready(), 'the key never goes away');
+  assert.deepEqual(samara.ready()?.coming, { next: '1.27.1', now: '1.27.0' });
+  assert.equal(samara.ready()?.version, '1.27.0', 'Restart now still puts in 1.27.0');
+  assert.match(readFileSync(p.script, 'utf8'), /VERSION='1\.27\.0'/, 'the script Restart now runs is still the ready one');
+  const card = new UpdateEngine({ sources: [samara], moment: () => ({ now: new Date(), idleSeconds: 0, inCall: false, inGame: false }), overnight: () => false, changed: () => {}, restart: () => {} }).card();
+  assert.deepEqual(card?.coming, { next: '1.27.1', now: '1.27.0' });
+  release!(); await building;
+  // Ready: 1.27.1 takes the key, made in staged-next and moved to staged; the old staged copy is in the Trash.
+  assert.equal(samara.ready()?.version, '1.27.1'); assert.equal(samara.ready()?.coming, undefined);
+  assert.match(readFileSync(p.script, 'utf8'), /VERSION='1\.27\.1'/); assert.match(readFileSync(p.script, 'utf8'), /STAGE="\$BR\/staged"/);
+  assert.equal(readFileSync(p.staged, 'utf8'), '1.27.1');
+  assert.ok(!existsSync(path.join(p.br, 'staged-next'))); assert.equal(readdirSync(trash).length, 1);
+});
+
+test('Sheet 114, Mac: Restart now while the newer one is made puts in the ready one, and nothing moves under it', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
+  const p = macHome(), calls: string[] = [], trash = mkdtempSync(path.join(os.tmpdir(), 'ip-trash-'));
+  let release: (() => void) | null = null;
+  const run = fakeRun(p, calls);
+  const slow: RunScript = async (script, phase, log) => { if (phase === 'prepare' && script.endsWith('update-next.sh')) await new Promise<void>((r) => { release = r; }); return run(script, phase, log); };
+  const st = new MacStage(p, { run: slow, log: () => {}, changed: () => {}, trash });
+  const rel = (v: string) => ({ m: { version: v, commit: 'd'.repeat(40), notes: [], at: '' } as never, bundle: `/x/samara-${v}.tgz` });
+  st.samara = rel('1.27.0'); await st.build();
+  st.samara = rel('1.27.1'); const building = st.build();
+  for (let i = 0; i < 100 && !release; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.deepEqual(await st.swap(), { ok: true });
+  release!(); await building;
+  assert.equal(readFileSync(p.staged, 'utf8'), '1.27.0', 'the staged copy being put in is left alone');
+  assert.match(readFileSync(p.script, 'utf8'), /VERSION='1\.27\.0'/);
+  assert.equal(readdirSync(trash).length, 0);
+});
+
+test('Sheet 114, Mac: skipping the one on the key keeps the newer one coming', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
+  const p = macHome(), calls: string[] = [];
+  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {}, trash: mkdtempSync(path.join(os.tmpdir(), 'ip-trash-')) });
+  const samara = new MacSamara(p, st, { fetch: (async () => res('', false)) as never, log: () => {}, changed: () => {} });
+  st.samara = { m: { version: '1.27.0', commit: 'd'.repeat(40), notes: [], at: '' } as never, bundle: '/x/a.tgz' }; await st.build();
+  st.samara = { m: { version: '1.27.1', commit: 'e'.repeat(40), notes: [], at: '' } as never, bundle: '/x/b.tgz' };
+  samara.skip();
+  assert.ok(samara.lists.blocked('1.27.0') && !samara.lists.blocked('1.27.1'));
+  for (let i = 0; i < 100 && samara.ready()?.version !== '1.27.1'; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.equal(samara.ready()?.version, '1.27.1');
+});
+
+test('Sheet 114, PC: the ready one stays on the key while a newer one is made in its own folder', () => {
+  const su = { ready: { version: '1.27.0', name: 'Gojo', commit: 'a'.repeat(40), notes: ['x'], since: 1 }, getting: '1.27.1', canBack: () => false } as never;
+  const s = pcSamara(su);
+  assert.equal(s.ready()?.version, '1.27.0'); assert.deepEqual(s.ready()?.coming, { next: '1.27.1', now: '1.27.0' });
+  (su as { getting: string }).getting = '';
+  assert.equal(s.ready()?.coming, undefined);
+  const eu = { signin: null, signinFor: null, ready: { version: '44.9.3', since: 1 }, getting: '44.10.0', behind: '', canBack: () => false } as never;
+  assert.deepEqual(pcEngine(eu, { browserOpen: () => false }).ready()?.coming, { next: 'engine 44.10.0', now: 'engine 44.9.3' });
 });
 
 test('Mac stage: a failed build is not ready; a hand install (no release number) waits', async () => {
@@ -108,7 +178,7 @@ test('Mac engine: a sealed engine is downloaded, unpacked, signed for video, the
   const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'samara-v1.23.1' }, { tag_name: 'engine-v44.9.3' }, { tag_name: 'engine-v44.7.0' }]))
     : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : url.includes('chromiumdash') ? res(JSON.stringify([{ version: '153.0.1.1', time: Date.now() - 42 * 86_400_000 }])) : res('', false);
   let signed = 0;
-  const evs = { sign: async () => { signed++; return 'ok'; }, loginStamp: () => 0, openSignin: async () => true, watchSignin: () => () => {} } as unknown as Evs;
+  const evs = { verify: async () => false, sign: async () => { signed++; return 'ok'; }, loginStamp: () => 0, openSignin: async () => true, watchSignin: () => () => {} } as unknown as Evs;
   const unzip = async (_zip: string, into: string) => { mkdirSync(path.join(into, 'Electron.app'), { recursive: true }); return true; };
   const e = new MacEngine(p, st, { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', chrome: () => '150.0.1.1', pub: PUB });
   await e.check('test');
@@ -132,7 +202,7 @@ test('Mac engine: when castLabs wants a sign-in, the key asks; Terminal opens; o
   const m = seal(engineManifest());
   const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'engine-v44.9.3' }])) : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : res('', false);
   let answer: 'signin' | 'ok' = 'signin', opened = 0, watcher: ((ok: boolean) => void) | null = null;
-  const evs = { sign: async () => answer, loginStamp: () => 0, openSignin: async () => { opened++; return true; }, watchSignin: (_s: number, done: (ok: boolean) => void) => { watcher = done; return () => {}; } } as unknown as Evs;
+  const evs = { verify: async () => false, sign: async () => answer, loginStamp: () => 0, openSignin: async () => { opened++; return true; }, watchSignin: (_s: number, done: (ok: boolean) => void) => { watcher = done; return () => {}; } } as unknown as Evs;
   const unzip = async (_z: string, into: string) => { mkdirSync(path.join(into, 'Electron.app'), { recursive: true }); return true; };
   const e = new MacEngine(p, st, { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', pub: PUB });
   await e.check('test');
@@ -154,6 +224,55 @@ test('castLabs: its answers are read as signed, sign in, refused (switches) or f
   assert.equal(readSigning(1, 'No such file'), 'failed');
 });
 
+test('castLabs\' check: only a real signature counts, never the development one every engine arrives with', () => {
+  assert.equal(readVerify(0, 'Verifying: x/Electron.app\n - Signature is valid: streaming, 1356 days left'), true);
+  assert.equal(readVerify(1, 'Verifying: x/Electron.app\nValidityError: Certificate is valid for development only'), false);
+  assert.equal(readVerify(0, 'Certificate is valid for development only'), false);
+  assert.equal(readVerify(1, 'FileNotFoundError: No matching executable found'), false);
+});
+
+test('Mac engine: castLabs\' development signature is not taken for signed; a real one is not signed again', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
+  for (const real of [false, true]) {
+    const p = macHome(), calls: string[] = [];
+    const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+    const m = seal(engineManifest());
+    const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'engine-v44.9.3' }])) : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : res('', false);
+    let signed = 0;
+    const evs = { verify: async () => real, sign: async () => { signed++; return 'ok'; }, loginStamp: () => 0 } as unknown as Evs;
+    // castLabs' engine as it arrives: the framework signature file is there (the development one).
+    const unzip = async (_z: string, into: string) => { const r = path.join(into, 'Electron.app', 'Contents', 'Frameworks', 'Electron Framework.framework', 'Versions', 'A', 'Resources'); mkdirSync(r, { recursive: true }); writeFileSync(path.join(r, 'Electron Framework.sig'), 'dev'); return true; };
+    const e = new MacEngine(p, st, { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.5.1', pub: PUB, app: () => null });
+    await e.check('test');
+    for (let i = 0; i < 150 && !st.ready(); i++) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(signed, real ? 0 : 1);
+    assert.ok(st.ready());
+  }
+});
+
+test('Mac engine: his Samara with only the development signature is offered the same engine again, signed for video', { skip: process.platform === 'win32' && 'Mac paths: the Mac script is built for a Mac' }, async () => {
+  const p = macHome(), calls: string[] = [], logs: string[] = [];
+  const st = new MacStage(p, { run: fakeRun(p, calls), log: () => {}, changed: () => {} });
+  const m = seal(engineManifest());
+  const fetch = async (url: string) => url.includes('api.github.com') ? res(JSON.stringify([{ tag_name: 'engine-v44.9.3' }])) : url.endsWith('engine.json') ? res(m.text) : url.endsWith('engine.sig') ? res(m.sig) : url.endsWith('.zip') ? res(ZIP) : res('', false);
+  const app = path.join(p.listener, 'Samara.app'), fw = path.join(app, 'Contents', 'Frameworks', 'Electron Framework.framework', 'Versions', 'A', 'Resources');
+  mkdirSync(fw, { recursive: true }); writeFileSync(path.join(fw, 'Electron Framework.sig'), 'dev');
+  const checked: string[] = []; let signed = 0;
+  const evs = { verify: async (d: string) => { checked.push(d); return false; }, sign: async () => { signed++; return 'ok'; }, loginStamp: () => 0 } as unknown as Evs;
+  const unzip = async (_z: string, into: string) => { mkdirSync(path.join(into, 'Electron.app'), { recursive: true }); return true; };
+  const e = new MacEngine(p, st, { plat: () => 'darwin-x64', fetch: fetch as never, log: (s) => logs.push(s), changed: () => {}, evs, unzip, have: () => '44.9.3', pub: PUB, app: () => app });
+  await e.check('test');
+  for (let i = 0; i < 150 && !e.ready(); i++) await new Promise((r) => setTimeout(r, 20));
+  assert.equal(e.ready()?.title, "Samara's engine 44.9.3, signed for video");
+  assert.equal(signed, 1);
+  // castLabs' tool was pointed at a folder holding a link to his Samara (it reads a folder, never the app itself).
+  assert.equal(realpathSync(path.join(checked[0]!, 'Samara.app')), realpathSync(app));
+  assert.ok(logs.some((l) => /development signature/.test(l)));
+  // Not his Samara (a test or code-folder run): nothing is checked and the same engine is not offered.
+  const e2 = new MacEngine(p, new MacStage(p, { run: fakeRun(p, []), log: () => {}, changed: () => {} }), { plat: () => 'darwin-x64', fetch: fetch as never, log: () => {}, changed: () => {}, evs, unzip, have: () => '44.9.3', pub: PUB, app: () => null });
+  checked.length = 0; await e2.check('test');
+  assert.equal(checked.length, 0); assert.equal(e2.ready(), null);
+});
+
 test('castLabs sign-in: the Terminal file types only the command, the password is never in it', () => {
   const py = "/Users/x/Library/Application Support/AangListener/evs/bin/python3";
   const s = macSigninScript(py);
@@ -166,13 +285,15 @@ test('castLabs sign-in: the Terminal file types only the command, the password i
 test('castLabs\' tool is installed once, then signs; on the PC Terminal falls back to PowerShell', async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'ip-evs-'));
   const runs: string[] = []; let installed = false;
-  const run: Run = async (cmd, args) => { runs.push([path.basename(cmd), ...args.slice(0, 3)].join(' ')); if (args.includes('import castlabs_evs')) return { code: installed ? 0 : 1, text: '' }; if (args.includes('pip')) installed = true; return { code: 0, text: '' }; };
+  const run: Run = async (cmd, args) => { runs.push([path.basename(cmd), ...args.slice(0, 4)].join(' ')); if (args.includes('import castlabs_evs')) return { code: installed ? 0 : 1, text: '' }; if (args.includes('pip')) installed = true; return { code: 0, text: args.includes('verify-pkg') ? ' - Signature is valid: streaming, 1356 days left' : '' }; };
   const opens: string[] = [];
   const evs = new Evs({ dir, platform: 'win32', run, open: async (cmd) => { opens.push(cmd); return cmd !== 'wt.exe'; }, log: () => {} });
   mkdirSync(path.join(dir, 'Scripts'), { recursive: true }); writeFileSync(path.join(dir, 'Scripts', 'python.exe'), '');
   assert.equal(await evs.sign('C:\\engines\\castlabs-44.9.3'), 'ok');
   assert.ok(runs.some((r) => r.startsWith('python -m venv')) && runs.some((r) => r.includes('pip install')));
-  assert.ok(runs.at(-1)!.includes('-m castlabs_evs.vmp sign-pkg'));
+  const signAt = runs.findIndex((r) => r.includes('-m castlabs_evs.vmp -n sign-pkg'));
+  assert.ok(signAt >= 0, 'never stops to ask for a password');
+  assert.ok(runs.at(-1)!.includes('-m castlabs_evs.vmp -n verify-pkg') && runs.length - 1 > signAt, 'castLabs\' own check after signing');
   assert.ok(await evs.openSignin());
   assert.deepEqual(opens, ['wt.exe', 'powershell.exe']);
 });

@@ -11,7 +11,9 @@ export function pcSamara(su: SamaraUpdates): Source {
     id: 'samara', onKey: true,
     ready: (): Offer | null => {
       const r = su.ready;
-      return r ? { version: r.version, since: r.since, title: titleOf(r), groups: [{ name: 'SAMARA', items: r.notes.map((text) => ({ text })) }], canBack: su.canBack() } : null;
+      // Sheet 114: a newer one getting ready in its own folder; this one stays on the key until it is.
+      const coming = r && su.getting && su.getting !== r.version ? { coming: { next: su.getting, now: r.version } } : {};
+      return r ? { version: r.version, since: r.since, title: titleOf(r), groups: [{ name: 'SAMARA', items: r.notes.map((text) => ({ text })) }], canBack: su.canBack(), ...coming } : null;
     },
     check: (why) => su.check(why),
     go: async () => (su.go() ? { ok: true } : { ok: false, why: 'The update is not ready yet. It will show up again when it is.' }),
@@ -39,7 +41,8 @@ export function pcEngine(eu: EngineUpdates, o: { browserOpen: () => boolean }): 
       if (eu.signin && eu.signinFor) return { version: eu.signinFor.version, since: eu.signinFor.since, title: `Samara's engine ${eu.signinFor.version}`, groups: engineGroups(eu.signinFor.version, eu.signinFor.since, 'PC'), signin: eu.signin };
       const r = eu.ready;
       if (!r) return null;
-      return { version: r.version, since: r.since, title: `Samara's engine ${r.version}`, groups: engineGroups(r.version, r.since, 'PC'), canBack: eu.canBack(), ...(eu.behind ? { behind: eu.behind } : {}) };
+      const coming = eu.getting && eu.getting !== r.version ? { coming: { next: `engine ${eu.getting}`, now: `engine ${r.version}` } } : {};
+      return { version: r.version, since: r.since, title: `Samara's engine ${r.version}`, groups: engineGroups(r.version, r.since, 'PC'), canBack: eu.canBack(), ...(eu.behind ? { behind: eu.behind } : {}), ...coming };
     },
     check: () => eu.check(),
     go: () => eu.restartNow(o.browserOpen(), undefined, src.overnight ?? undefined),

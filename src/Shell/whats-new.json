@@ -147,8 +147,23 @@
       "kind": "fix"
     },
     {
+      "at": "2026-10-14T17:00:00-04:00",
+      "text": "Name a bookmark as you save it.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T17:00:00-04:00",
+      "text": "The popout's see-through icon is just an icon now.",
+      "kind": "fix"
+    },
+    {
       "at": "2026-10-14T17:05:00-04:00",
       "text": "Sites trusted on one computer ask once on the other.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T17:10:00-04:00",
+      "text": "Your Mac remembers Samara's mic permission now.",
       "kind": "fix"
     },
     {
@@ -184,21 +199,6 @@
     {
       "at": "2026-10-14T20:30:00-04:00",
       "text": "Real job boards like Greenhouse are no longer blocked.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T17:00:00-04:00",
-      "text": "Name a bookmark as you save it.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T17:00:00-04:00",
-      "text": "The popout's see-through icon is just an icon now.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T17:10:00-04:00",
-      "text": "Your Mac remembers Samara's mic permission now.",
       "kind": "fix"
     },
     {
@@ -402,18 +402,13 @@
       "kind": "feature"
     },
     {
-      "at": "2026-10-21T20:00:00-04:00",
-      "text": "Briefs, videos and plans now open inside the cockpit.",
-      "kind": "feature"
-    },
-    {
       "at": "2026-10-21T19:00:00-04:00",
       "text": "Claude's questions now come in plain words, and your answers go back clear and precise.",
       "kind": "feature"
     },
     {
-      "at": "2026-10-22T04:10:00-04:00",
-      "text": "Claude's jobs and questions now live in the cockpit.",
+      "at": "2026-10-21T20:00:00-04:00",
+      "text": "Briefs, videos and plans now open inside the cockpit.",
       "kind": "feature"
     },
     {
@@ -479,6 +474,11 @@
     {
       "at": "2026-10-22T04:00:00-04:00",
       "text": "Claude bars learn real times and show stalls.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T04:10:00-04:00",
+      "text": "Claude's jobs and questions now live in the cockpit.",
       "kind": "feature"
     },
     {
@@ -895,6 +895,21 @@
       "at": "2026-10-31T11:11:00-04:00",
       "text": "Mockups: search by name or number, filter by mark, sort newest.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T11:35:00-04:00",
+      "text": "Aang's Mac app updates itself with his brain, and is running again after every update.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T11:35:00-04:00",
+      "text": "A new engine is signed for Netflix and Prime on each machine before it is offered.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T11:35:00-04:00",
+      "text": "The update key stays when a newer version comes out: Restart now puts in the ready one, and the newer one comes next.",
+      "kind": "fix"
     },
     {
       "at": "2026-10-31T12:00:00-04:00",
