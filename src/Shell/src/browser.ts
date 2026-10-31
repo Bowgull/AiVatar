@@ -147,6 +147,10 @@ export interface BrowserOptions { origin: string; preloadPath: string; stateDir:
 
 interface Tab {
   id: number;
+  /** Sheet 111: opened by a Claude session, as one of its pages (never saved; it is his once he drags it out). */
+  claude?: boolean;
+  /** Logged out: a Claude page outside its job's sites, on the driver's own session. */
+  guest?: boolean;
   /** The window it is in (a Pane's id). */
   pane: number;
   /** One of the browser's own pages (Settings, Your things), not a website: it gets its own small preload and never navigates. */
@@ -1005,7 +1009,9 @@ export class AangBrowser {
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
     this.rules = new SiteRules(path.join(sd, 'site-rules.json'), () => { this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings(); });
     this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true, stateDir: o.stateDir,
-      rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) } });
+      rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) },
+      tabFor: (t) => this.claudeTab(t.url, t.guest), closeTab: (id) => { if (this.tabs.some((x) => x.id === id)) this.close(id, false); },
+      held: (page) => this.hands.has(page), drawn: (tab, fn) => this.drawnFor(tab, fn) });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { const a = readJson<unknown>(f, null); return Array.isArray(a) ? new Set<string>(a.filter((x: unknown) => typeof x === 'string')) : new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
@@ -2476,6 +2482,11 @@ export class AangBrowser {
   }
 
   /** Put the active tab exactly in the page area. Synchronous, from the window's own content size. */
+  /** Where a tab's page sits in the window. */
+  private pageArea(): { x: number; y: number; width: number; height: number } {
+    const [cw, ch] = this.win && !this.win.isDestroyed() ? this.win.getContentSize() : [1280, 800];
+    return { x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) };
+  }
   private place(): void {
     const w = this.win;
     if (!w || w.isDestroyed()) return;
@@ -2624,7 +2635,7 @@ export class AangBrowser {
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
     // tabpreload.cjs exposes nothing to the page; it only hides passkeys, which hang in Electron (6.22).
     // plugins: Chromium's own PDF viewer, so a PDF opens in the tab instead of downloading (6.22b item 12).
-    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses, preload: this.o.tabPreloadPath, plugins: true } });
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: tab.guest ? this.driver.guestSession() : this.ses, preload: this.o.tabPreloadPath, plugins: true } });
     const wc = view.webContents;
     // A new view paints white until its page draws; that white is the flash between pages. Paint it the
     // page area's own colour instead (or, coming back, the page's own colour: a dark site stays dark), and keep it in
@@ -2665,6 +2676,10 @@ export class AangBrowser {
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
       this.inTab(tab);
       if (!isWeb(u)) { this.offerApp(tab, u); return { action: 'deny' }; }
+      // Sheet 111: in a tab Claude is driving, a new tab opens in that same tab (as Claude's pages always did); a small
+      // window (a sign in popup) still opens as for his own tabs. Once he has the tab, it is his browsing.
+      const cp = this.driver.pageOfTab(tab.id);
+      if (cp?.borrowed?.own && !this.hands.has(cp.id) && disposition !== 'new-window') { this.driver.openHere(cp.id, u); return { action: 'deny' }; }
       if (disposition === 'new-window') {
         let site = '';
         try { site = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
@@ -3204,16 +3219,61 @@ export class AangBrowser {
       const seen = this.mockStore?.meta.get(t.mock.sheet)?.opened ?? t.mock.at ?? now;
       if (now - seen > MOCK_TUCK_MS) this.close(t.id, false);
     }
-    const can = (t: Tab) => t.view && !t.lent && !t.call && !t.internal && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_MIN_MS;
+    // A tab a Claude or Aang job has (its own, or his lent) never sleeps or freezes: its page is what the job is using.
+    const jobs = (t: Tab) => Boolean(this.driver.pageOfTab(t.id));
+    const can = (t: Tab) => t.view && !t.lent && !t.call && !t.internal && !jobs(t) && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_MIN_MS;
     let any = false;
     // Frozen first: out of sight for 5 minutes and silent; a call, the pop-out and Claude's work never.
-    for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !t.audible && !this.panes.some((p) => p.active === t.id) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
+    for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !jobs(t) && !t.audible && !this.panes.some((p) => p.active === t.id) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
     const rest = async (t: Tab) => { await this.rest(t); any = true; };
     for (const t of this.tabs) if (can(t) && now - t.lastSeen > SLEEP_AFTER_MS) await rest(t);
     if (await memoryShort()) {
       for (const t of this.tabs.filter(can).sort((a, b) => a.lastSeen - b.lastSeen).slice(0, 3)) await rest(t);
     }
     if (any) this.sendTabs();
+  }
+
+  /**
+   * Sheet 111: a page for a Claude session, as a real tab in the window in front: in the background, never shown or
+   * focused, never in a trail he has open, out of his list (it shows in Claude's group). Its sound is off.
+   */
+  private claudeTab(url: string, guest: boolean): { tab: number; wc: Electron.WebContents } | null {
+    const w = this.win;
+    if (!w || w.isDestroyed() || !isWeb(url)) return null;
+    const pend = this.pendingTrail, since = this.newSince;
+    this.pendingTrail = null;
+    this.nextTab = { claude: true, guest };
+    const id = this.newTab(url, null, false);
+    this.nextTab = null;
+    this.pendingTrail = pend; this.newSince = since;
+    const t = id === null ? undefined : this.tabs.find((x) => x.id === id);
+    const wc = t?.view?.webContents;
+    if (!t || !wc) return null;
+    t.muted = true; t.playOkAt = undefined;
+    // A tab never shown has no size: its page would lay out at 0 by 0 (no picture, nothing to click). It gets the page
+    // area's size at once, hidden.
+    t.view!.setBounds(this.pageArea());
+    return { tab: t.id, wc };
+  }
+  private nextTab: { claude: boolean; guest: boolean } | null = null;
+  /**
+   * Sheet 111: a tab in the background draws nothing, so Claude's picture of it came back empty. For the picture it is
+   * shown UNDER his front page (the bottom of the window's layers), where he never sees it, then hidden again. Only while
+   * his front page is shown and covers it; otherwise (the tab list's still picture is up) no picture is taken this way.
+   */
+  private async drawnFor<T>(tab: number, fn: () => Promise<T>): Promise<T> {
+    const t = this.tabs.find((x) => x.id === tab), v = t?.view, w = this.win, front = this.cur()?.view;
+    if (!v || !w || w.isDestroyed() || v.getVisible() || !front || !front.getVisible()) return fn();
+    try {
+      w.contentView.addChildView(v, 0);
+      if (v.getBounds().width < 2) v.setBounds(this.pageArea());
+      v.setVisible(true);
+      await new Promise((r) => setTimeout(r, 150));
+      return await fn();
+    } finally {
+      // Hidden again, unless he switched to it meanwhile (then it is his front page and stays shown).
+      if (!v.webContents.isDestroyed() && this.cur()?.id !== tab) v.setVisible(false);
+    }
   }
 
   newTab(address: string, opener: number | null = null, focus = true): number | null {
@@ -3231,7 +3291,7 @@ export class AangBrowser {
       trail = from.done ? null : from.trail;
     } else if (this.pendingTrail !== null) { trail = this.pendingTrail; }
     this.pendingTrail = null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id, ...(this.nextTab ? { claude: true, guest: this.nextTab.guest } : {}) };
     // A child sits right under the last tab of its trail, so the trail reads top to bottom.
     if (from) {
       let at = this.tabs.indexOf(from);
@@ -4941,6 +5001,7 @@ export class AangBrowser {
   }
   /** Drag a tab: into a trail (or loose, null), placed before another tab (or at the end of its group). */
   placeTab(tabId: number, trail: number | null, before: number | null): void {
+    this.takeFromClaude([tabId]);
     const i = this.tabs.findIndex((x) => x.id === tabId);
     if (i < 0) return;
     const t = this.tabs[i]!;
@@ -4967,6 +5028,7 @@ export class AangBrowser {
    * nothing moved. A tab under one of the others moving with it keeps its place under it (a parent carries its children).
    */
   placeTabs(ids: number[], trail: number | null, before: number | null, parent: number | null): boolean {
+    this.takeFromClaude(ids);
     const set = new Set(ids);
     if (!ids.length || set.size !== ids.length) return false;
     const moving = ids.map((id) => this.tabs.find((x) => x.id === id));
@@ -5906,7 +5968,7 @@ export class AangBrowser {
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
     // Everything is taken NOW, before waiting on the pages (2026-10-14, his "it should remember what tabs were open"):
     // closing the window emptied the tab list while this waited, and an EMPTY list was written, so nothing came back.
-    const keep = this.tabs.filter((t) => isWeb(t.url));
+    const keep = this.tabs.filter((t) => isWeb(t.url) && !t.claude);
     const windows = this.panes.filter((p) => this.alive(p) || p === this.pane);
     const winOf = new Map(windows.map((p, i) => [p.id, i]));
     const front = (this.lastPane() ?? this.pane).active;
@@ -6054,14 +6116,18 @@ export class AangBrowser {
       update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
-      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined })),
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined,
+        // Sheet 111: a tab a Claude job has shows in Claude's group, not in his list.
+        claudeJob: (() => { const p = this.driver.pageOfTab(x.id); return p && this.driver.job(p.job)?.kind === 'claude' ? p.job : undefined; })() })),
       // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
       mockups: this.mockView(),
       // 2026-10-22: the notes rail needs Aang (its notes live in his brain). Samara alone or on the Mac: the row is hidden.
       notes: Boolean(this.onNoteSave),
       // The trails with a tab in this window (or the one about to start here).
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || tr.mock || mine.some((x) => x.trail === tr.id)),
-      drivers: this.driver.view(),
+      // Sheet 111: Claude's group rows are real tabs: their name and icon are the tab's, and he may have one (YOU HAVE IT).
+      drivers: this.driver.view().map((j) => ({ ...j, pages: j.pages.map((p) => { const t = p.tab === undefined ? undefined : this.tabs.find((x) => x.id === p.tab);
+        return t ? { ...p, title: t.title || p.title, favicon: t.favicon || this.iconOf(t.url) || p.favicon, held: this.hands.has(p.id) } : p; }) })),
       // His own tab being driven by a session: the band says so, with STOP (2026-10-14).
       // Sheet 109: and whether he has it back for now (YOU HAVE IT): Take over and STOP make way while he does.
       driving: (() => { const w = t?.view?.webContents; const d = w ? this.driver.drivingTab(w) : null; return d ? { ...d, hand: this.hands.get(d.page)?.mode ?? null } : null; })(),
@@ -6141,6 +6207,8 @@ export class AangBrowser {
       out = { ...out, handback: { page, ...reportLines(t.report) } };
       break;
     }
+    const n = Number.isInteger(job) ? this.news.get(job!) : undefined;
+    if (n?.length) { this.news.delete(job!); out = { ...out, news: n }; }
     return out;
   }
   private async driveStep(op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -6162,6 +6230,8 @@ export class AangBrowser {
           return { ok: true, job: j.id };
         }
         case 'finish': d.finish(num('job')); return { ok: true };
+        // Sheet 111: the connector asks before a new plan whether its job can still take one.
+        case 'jobstate': { const j = d.job(num('job')); return { ok: true, live: Boolean(j && !j.stopped), planned: Boolean(j?.planned), pages: j?.pages.length ?? 0 }; }
         case 'planstep': return this.planStep(num('job'), a?.done === true ? null : num('at'));
         case 'rename': d.rename(num('job'), String(a?.name ?? '').slice(0, 40)); return { ok: true };
         case 'open': {
@@ -6200,7 +6270,7 @@ export class AangBrowser {
         case 'resize': return { ok: true, ...d.resize(num('page'), Number(a?.width), Number(a?.height)) };
         case 'console': return { ok: true, ...d.console(num('page'), { ...(a?.pattern ? { pattern: String(a.pattern) } : {}), errors: a?.errors === true, limit: Number(a?.limit) || 30 }) };
         case 'network': {
-          if (d.readOnly(num('page')) || d.isBorrowed(num('page'))) return { ok: false, error: "his own tabs' network is never watched; open the page in your own tab" };
+          if (d.readOnly(num('page')) || d.isLent(num('page'))) return { ok: false, error: "his own tabs' network is never watched; open the page in your own tab" };
           return { ok: true, ...(await d.network(num('page'), { ...(a?.pattern ? { pattern: String(a.pattern) } : {}), limit: Number(a?.limit) || 30 })) };
         }
         case 'record': {
@@ -6426,7 +6496,9 @@ export class AangBrowser {
     const wc = this.cur()?.view?.webContents;
     const d = wc ? this.driver.drivingTab(wc) : null;
     if (!d || d.job !== job || !d.working || this.hands.has(d.page)) return;
-    this.handStart(d.page, 'you', '');
+    if (!this.handStart(d.page, 'you', '')) return;
+    const p = this.driver.page(d.page);
+    this.tell(job, `Joshua took over page ${d.page}: it is his until he hands it back. Leave it alone. Your other pages keep going. You will be told when he hands it back.`, p?.title ?? '');
   }
   private handStart(page: number, mode: 'you' | 'turn', why: string): Hand | null {
     const p = this.driver.page(page);
@@ -6540,7 +6612,7 @@ export class AangBrowser {
   /** Claude gave him the turn: the card says why, and this waits (up to ~3 minutes) for him to hand back. */
   private async yourTurn(page: number, why: string): Promise<Record<string, unknown>> {
     const p = this.driver.page(page);
-    if (!p?.borrowed?.drive) return { ok: false, error: 'browser_your_turn is for his own tab you are driving (browser_drive_tab). In your own hidden pages, tell him in the chat instead.' };
+    if (!p?.borrowed?.drive) return { ok: false, error: 'browser_your_turn is for a tab you are driving (your own, or his with browser_drive_tab). This page is not one: tell him in the chat instead.' };
     if (!this.driver.job(p.job)?.working) return { ok: false, error: 'this job has ended' };
     const h = this.hands.get(page);
     if (!h) this.handStart(page, 'turn', cleanWhy(why) || 'Your turn');
@@ -6556,6 +6628,35 @@ export class AangBrowser {
     if (!r) return { ok: false, error: 'Joshua pressed STOP (or the tab closed), so this job has ended' };
     return { ok: true, report: r };
   }
+  /**
+   * Sheet 111 (his ask, 2026-10-31): he dragged tabs out of Claude's group into his own. Each is his now, a plain tab
+   * (close, sleep, trails, tabs under it): the job lets go of it, and the session is told with its next step.
+   */
+  private takeFromClaude(ids: number[]): void {
+    for (const id of ids) {
+      const p = this.driver.pageOfTab(id);
+      const j = p ? this.driver.job(p.job) : undefined;
+      if (!p || j?.kind !== 'claude') continue;
+      this.handOff(p.id);
+      const r = this.driver.release(p.id);
+      const t = this.tabs.find((x) => x.id === id);
+      if (t) { t.claude = false; t.muted = false; try { t.view?.webContents.setAudioMuted(false); } catch { /* gone */ } }
+      if (r) this.tell(r.job, `Joshua took page ${p.id} for himself: he dragged it out of your group into his own tabs. It is not yours any more: nothing more is done there. Your other pages keep going.`, r.title);
+    }
+  }
+  /** Something he did that the session hears with its next step (sheet 111). The page's own title is marked as data. */
+  private tell(job: number, line: string, title = ''): void {
+    const l = this.news.get(job) ?? [];
+    l.push(title ? `${line}\nThat page's title, the website's own words: ${JSON.stringify(title.slice(0, 120))}` : line);
+    this.news.set(job, l.slice(-8));
+  }
+  private news = new Map<number, string[]>();
+  /** A hand on a page ends without a report (the page left the job). */
+  private handOff(page: number): void {
+    if (!this.hands.delete(page)) return;
+    const w = this.handWait.get(page); if (w) { this.handWait.delete(page); w(null); }
+    this.handTold.delete(page);
+  }
   driverAct(act: string, id: number): void {
     if (act === 'stop') this.driver.stop(id);   // only after he confirms it in the page (browser.js stopKey)
     else if (act === 'close') { if (this.watching !== null && this.driver.page(this.watching)?.job === id) this.unwatch(); this.driver.closeJob(id); }
@@ -6563,6 +6664,8 @@ export class AangBrowser {
     else if (act === 'unwatch') this.unwatch();
     else if (act === 'open') { const p = this.driver.page(id); if (p && isWeb(p.url)) { this.unwatch(false); this.newTab(p.url); } }
     else if (act === 'takeover') this.takeOver(id);
+    // Sheet 111: a row in Claude's group is a real tab: a click goes into it.
+    else if (act === 'show') { const p = this.driver.page(id); if (p?.borrowed) { this.unwatch(false); this.activate(p.borrowed.tab); } }
     this.sendTabs();
   }
   /** A live picture of one of Aang's pages in the page area: his own tab steps aside, nothing is handed over. */

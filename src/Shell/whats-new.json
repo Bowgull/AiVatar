@@ -895,6 +895,26 @@
       "at": "2026-10-31T11:11:00-04:00",
       "text": "Mockups: search by name or number, filter by mark, sort newest.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T12:00:00-04:00",
+      "text": "Claude's tabs are real tabs you can click into.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T12:01:00-04:00",
+      "text": "Take over one tab; Claude keeps working in the others.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T12:02:00-04:00",
+      "text": "Drag a tab out of Claude's group to keep it.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T12:03:00-04:00",
+      "text": "After STOP ALL, Claude can start again in the same chat.",
+      "kind": "fix"
     }
   ]
 }

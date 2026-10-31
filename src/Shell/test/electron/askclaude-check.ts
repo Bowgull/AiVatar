@@ -120,7 +120,10 @@ app.whenReady().then(async () => {
     await wait(1500);
     const m = b.menu;
     const items = await m.webContents.executeJavaScript(`[...document.querySelectorAll('#pm > *')].map((x) => x.classList.contains('sep') ? '|' : x.textContent).join(',')`);
-    check(`${frame.toUpperCase()}: the ${pc ? 'PC' : 'Mac'} menu`, items === (pc ? 'Ask Claude,Send to Aang,|,CopyCTRL C,Search for "You will own a group of our…",|,BackALT ←,ReloadCTRL R' : 'Ask Claude,|,CopyCTRL C,Search for "You will own a group of our…",|,BackALT ←,ReloadCTRL R'), items);
+    // The keys are the machine's own (2026-10-31: the Mac shows ⌘C, ⌥←, ⌘R; Windows CTRL C, ALT ←, CTRL R).
+    const keys = process.platform === 'darwin' ? ['⌘C', '⌥←', '⌘R'] : ['CTRL C', 'ALT ←', 'CTRL R'];
+    const rest = `Copy${keys[0]},Search for "You will own a group of our…",|,Back${keys[1]},Reload${keys[2]}`;
+    check(`${frame.toUpperCase()}: the ${pc ? 'PC' : 'Mac'} menu`, items === (pc ? `Ask Claude,Send to Aang,|,${rest}` : `Ask Claude,|,${rest}`), items);
     await m.webContents.executeJavaScript(`document.querySelector('#pm button').dispatchEvent(new MouseEvent('mouseenter')); 1`);
     await wait(700);
     const sub = await m.webContents.executeJavaScript(`[...document.querySelectorAll('#pmsub > *')].map((x) => x.classList.contains('sep') ? '|' : x.textContent).join(',')`);

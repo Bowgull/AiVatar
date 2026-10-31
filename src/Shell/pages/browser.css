@@ -819,6 +819,11 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .drawer .tp.drv{box-shadow:0 4px 0 var(--outline)}
 .drawer .tp.drv .own{margin-left:auto;flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;opacity:.9}
 .drawer .tp.drv .own img{width:18px;height:18px;image-rendering:pixelated}
+/* Sheet 111: he has this one (Take over), or the job is not working: the row rests, its spark greys; YOU HAVE IT chip. */
+.drawer .tp.drv.held,.drawer .tp.drv.idle{animation:none}
+.drawer .tp.drv.held .own,.drawer .tp.drv.idle .own{opacity:.55;filter:grayscale(1)}
+.drawer .tp.drv .dupchip.held{margin-left:auto}
+.drawer .tp.drv .dupchip.held+.own{margin-left:6px}
 .drawer .tp.by-claude{animation:claudebreath 3.2s ease-in-out infinite}
 @keyframes claudebreath{
   0%,100%{box-shadow:0 4px 0 var(--outline),0 0 0 2px rgba(217,119,87,.30),0 0 6px 1px rgba(217,119,87,.18)}
