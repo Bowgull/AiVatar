@@ -22,6 +22,34 @@ export function weigh(it: { kind: string; label: string; search?: boolean; formS
   return 'free';
 }
 
+/** What has the cursor when Space or Enter is pressed, as the page sees it (driver.ts KEY_JS). */
+export type KeyTarget = { tag: string; type: string; role: string; kind: string; label: string; formSearch: boolean; inForm: boolean; editable: boolean };
+/**
+ * Space or Enter, judged by what the key would really do there (his rule, 2026-10-31: "NOTHING should ever be submitted
+ * without my okay but i cant be asked on space and things like enter where its just trying to move through the page").
+ * Moving and picking are free: scrolling, ticking a box, choosing a radio, opening a dropdown, a link that only goes
+ * somewhere. Anything that would send asks: Enter in a text field (the browser sends its form), Enter in a box that may
+ * send on Enter (chat boxes), and the send, apply and submit buttons. 'pick': Enter on a radio or box in a form would
+ * send the form, so it is pressed as Space, which only picks it.
+ */
+export function keyWeigh(key: 'enter' | 'space', t: KeyTarget | null): Weight | 'pick' {
+  if (!t) return 'free';                                                          // nothing has the cursor: the page scrolls
+  const kind = t.kind, role = t.role.toLowerCase();
+  if (kind === 'password' || kind === 'payment') return 'never';
+  const choice = (t.tag === 'input' && (t.type === 'radio' || t.type === 'checkbox')) || /^(radio|checkbox|switch|option|menuitemradio|menuitemcheckbox|tab|treeitem)$/.test(role);
+  const asClick = weigh({ kind, label: t.label, formSearch: t.formSearch });
+  if (key === 'space') {
+    if (choice || kind === 'button' || kind === 'submit') return asClick;
+    return 'free';                                                                // a space typed, a dropdown opened, the page scrolled
+  }
+  if (choice) return t.tag === 'input' && t.inForm ? (asClick === 'free' ? 'pick' : asClick) : asClick;
+  if (kind === 'search' || t.formSearch) return 'free';
+  if (kind === 'select') return 'free';
+  if (kind === 'text') return 'lever';                                            // sends its form, or a chat box's message
+  if (t.editable) return 'lever';
+  return asClick;                                                                 // links, buttons, submit: as a click
+}
+
 /** A job's name for its trail: his words, short, in capitals like his trails. */
 export function cleanName(s: string): string {
   const w = String(s ?? '').replace(/[^\p{L}\p{N}' ]+/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -133,7 +161,7 @@ export function paceFor(host: string): { least: number; jitter: number } | null 
   return p ? { least: p.least, jitter: p.jitter } : null;
 }
 
-export interface ReadItem { n: number; kind: string; role?: string; label: string; href: string; state?: string; ctx?: string }
+export interface ReadItem { n: number; kind: string; role?: string; label: string; href: string; state?: string; ctx?: string; q?: string }
 /** Only what changed since the last read: new lines of text, and controls that are new or changed. */
 export function diffRead(prev: { lines: string[]; items: ReadItem[] } | undefined, next: { lines: string[]; items: ReadItem[] }): { lines: string[]; items: ReadItem[]; sameLines: number; sameItems: number } {
   if (!prev) return { lines: next.lines, items: next.items, sameLines: 0, sameItems: 0 };

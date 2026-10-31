@@ -40,7 +40,7 @@ import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch,
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { readJson } from './store.ts';
-import { carriesData, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
+import { carriesData, keyWeigh, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
 import { svgToPng } from './svgicon.ts';
@@ -6291,20 +6291,22 @@ export class AangBrowser {
         case 'back': case 'forward': return { ok: true, ...(await d.history(num('page'), op === 'back')) };
         case 'select': return { ok: true, ...(await d.choose(num('page'), num('n'), String(a?.option ?? '').slice(0, 200))) };
         case 'key': {
-          // Enter or Space on a control is weighed like a click on it (or sending its form); the other keys are free.
-          const page = num('page'), key = String(a?.key ?? '').toLowerCase();
+          // Space and Enter are judged by what they would do where the cursor is (his rule, 2026-10-31): moving through
+          // a page and picking are free; anything that would send asks him; buying and passwords never. The other keys
+          // are free.
+          const page = num('page');
+          let key = String(a?.key ?? '').toLowerCase().replace(/\s+/g, '');
+          let swapped = false;
           if (key === 'enter' || key === 'space') {
-            const f = await d.focused(page);
-            // The cursor on something with no number (moved there with Tab, or put there by the page): Enter could
-            // send anything, so it asks him (AI lockdown G6).
-            if (f === null && a?.allowed !== true) return { ok: false, needs: 'lever', what: `press ${key === 'enter' ? 'Enter' : 'Space'} where the page has put the cursor` };
-            if (f !== null) {
-              const w = key === 'enter' ? (d.weightOf(page, f, 'enter') === 'free' || d.weightOf(page, f, 'click') === 'free' ? 'free' : d.weightOf(page, f, 'enter') === 'never' ? 'never' : 'lever') : d.weightOf(page, f, 'click');
-              if (w === 'never') return { ok: false, error: `that would act on ${d.describe(page, f)}, and buying, passwords and card details are never done for him` };
-              if (w === 'lever' && a?.allowed !== true) return { ok: false, needs: 'lever', what: `press ${key === 'enter' ? 'Enter' : 'Space'} on ${d.describe(page, f)}` };
-            }
+            const t = await d.keyTarget(page);
+            const w = keyWeigh(key, t);
+            const where = t ? `"${t.label || t.kind}"` : 'the page';
+            if (w === 'never') return { ok: false, error: `that would act on ${where}, and buying, passwords and card details are never done for him` };
+            if (w === 'lever' && a?.allowed !== true) return { ok: false, needs: 'lever', what: `press ${key === 'enter' ? 'Enter' : 'Space'} on ${where} (it could send the form)` };
+            if (w === 'pick') { key = 'space'; swapped = true; }
           }
-          return { ok: true, ...(await d.key(page, key)) };
+          const r = await d.key(page, key);
+          return { ok: true, ...(swapped ? { ...r, changed: ['Enter there would have sent the form, so Space was pressed instead: it only picks', ...r.changed] } : r) };
         }
         case 'click': case 'type': {
           const page = num('page'), n = num('n');

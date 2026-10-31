@@ -121,7 +121,7 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, keywords: { type: 'array', items: { type: 'string' } }, path: { type: 'string' }, card: { type: 'string' }, spacing: { type: 'number', description: 'seconds between searches; never below the board\u2019s own' } }, required: ['page', 'keywords'] } },
   { name: 'browser_sweep_status', description: 'How a sweep is going: keywords done, postings found, coverage per keyword (count, error or blocked). When done, it returns every posting found (text and link).',
     inputSchema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } },
-  { name: 'browser_check_form', description: 'Every field of a form, read back before anything is submitted: label, value (never a password), required, and whether the site marks it wrong with its message. within: any control in that form.',
+  { name: 'browser_check_form', description: 'Every field of a form, read back before anything is submitted: label, value (never a password), required, and whether the site marks it wrong with its message. Radios and tick boxes are listed one per choice, after their question, checked or unchecked. The whole form, however long the page. within: any control in that form.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, within: { type: 'integer' } }, required: ['page'] } },
   { name: 'browser_upload', description: "Put one of Joshua's documents (his resume: a PDF or Word file in his home folder) into a file field from browser_read (kind file). Joshua is asked in his browser first, every time. Upload the resume FIRST on Ashby and Rippling: their parsers overwrite fields after.",
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, n: { type: 'integer' }, file: { type: 'string', description: 'absolute path' } }, required: ['page', 'n', 'file'] } },
@@ -129,9 +129,9 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, n: { type: 'integer' } }, required: ['page', 'n'] } },
   { name: 'browser_type', description: 'Type into a numbered field, replacing what is there (search boxes and normal fields are free). enter: true presses Enter after. Never a password or card number. Says what changed.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, n: { type: 'integer' }, text: { type: 'string' }, enter: { type: 'boolean' } }, required: ['page', 'n', 'text'] } },
-  { name: 'browser_key', description: 'Press a key on whatever has the cursor: Escape (close a box), Tab, Shift+Tab, Up, Down, Left, Right, Enter, Space, Page Up, Page Down, Home, End. Enter or Space on a send/apply/submit control asks Joshua first.',
+  { name: 'browser_key', description: 'Press a key on whatever has the cursor: Escape (close a box), Tab, Shift+Tab, Up, Down, Left, Right, Enter, Space, Page Up, Page Down, Home, End. Space and Enter are free where they only move or pick (scrolling, ticking a box, choosing a radio, opening a dropdown, a link). Anything that would send asks Joshua first: Enter in a text field, a send/apply/submit button. Enter on a radio or tick box in a form is pressed as Space, so it picks without sending.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, key: { type: 'string' } }, required: ['page', 'key'] } },
-  { name: 'browser_select', description: 'Pick an option in a dropdown by its words (native or custom). If none match, it lists the options.',
+  { name: 'browser_select', description: 'Pick an option by its words: in a dropdown (native or custom), or in a radio or tick-box question (n: any one of its choices). If none match, it lists the options.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, n: { type: 'integer' }, option: { type: 'string' } }, required: ['page', 'n', 'option'] } },
   { name: 'browser_back', description: 'Go back a page (keeps the person pace on paced sites).',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
@@ -185,7 +185,7 @@ const brief = (items, base, part = false) => {
   }
   return out;
 };
-const line = (i) => `${i.times > 1 ? `(${i.times}x) ` : ''}[${i.n}] ${i.role && i.role !== i.kind ? `${i.kind}/${i.role}` : i.kind}${i.state ? ` {${i.state}}` : ''}${i.weight && i.weight !== 'free' ? ` (${i.weight === 'lever' ? 'asks Joshua' : 'never'})` : ''}: ${i.label}${i.value ? ` = "${i.value}"` : ''}${i.href ? ` -> ${i.href}` : ''}${i.ctx ? `  [in: ${i.ctx}]` : ''}${i.view === false ? '  (below/above the screen)' : ''}`;
+const line = (i) => `${i.times > 1 ? `(${i.times}x) ` : ''}[${i.n}] ${i.role && i.role !== i.kind ? `${i.kind}/${i.role}` : i.kind}${i.state ? ` {${i.state}}` : ''}${i.weight && i.weight !== 'free' ? ` (${i.weight === 'lever' ? 'asks Joshua' : 'never'})` : ''}: ${i.label}${i.value ? ` = "${i.value}"` : ''}${i.href ? ` -> ${i.href}` : ''}${i.q ? `  [question: ${i.q}]` : ''}${i.ctx ? `  [in: ${i.ctx}]` : ''}${i.view === false ? '  (below/above the screen)' : ''}`;
 const done = (r) => `${r.changed && r.changed.length ? 'What happened: ' + r.changed.join('; ') + '.' : 'Done.'} Now on: ${r.title} (${r.url}).${r.waited ? ` (Waited ${r.waited} s first: a person's pace on this site.)` : ''}`;
 // The job digest: new matches one per line, near misses, counts; the full list stays in the file it names.
 const digestText = (r) => `${r.summary}\n\n${WORDS(`NEW MATCHES (${(r.match || []).length}):\n${(r.match || []).join('\n') || '(none)'}\n\nNEAR MISSES (titles like his roles but not in his lane words; check for odd titles):\n${(r.near || []).join('\n') || '(none)'}`)}`;
@@ -289,7 +289,7 @@ async function call(name, a) {
     const left = (r.items || []).length - shown.reduce((n, i) => n + (i.times || 1), 0);
     const items = shown.map(line).join('\n') + (left > 0 ? `\n(${left} more links and buttons, off screen or past the first 40, left out. browser_find finds any of them by its words; browser_read with all: true lists them all.)` : '');
     const same = r.unchanged ? `\n(${r.unchanged.lines} lines and ${r.unchanged.controls} controls are the same as your last read, not repeated.)` : '';
-    return text(`Page ${page}.${same}${r.warn ? `\nSAMARA WARNS: ${r.warn}` : ''}\n\n${WORDS(`${r.title}\n${r.url}\n\n${a.controls === true ? '(words left out: controls only)' : r.text}${r.more && a.controls !== true ? (a.full === true ? '\n[more below: scroll]' : '\n[more words below: browser_read with full: true, or browser_find for one fact]') : ''}\n\nControls (numbers stay the same while the control is on the page):\n${items}`)}`);
+    return text(`Page ${page}.${same}${r.warn ? `\nSAMARA WARNS: ${r.warn}` : ''}\n\n${WORDS(`${r.title}\n${r.url}\n\n${a.controls === true ? '(words left out: controls only)' : r.text}${r.more && a.controls !== true ? (a.full === true ? '\n[cut short: the rest is below. For a form, browser_check_form lists every field]' : '\n[more words below: browser_read with full: true, or browser_find for one fact]') : ''}\n\nControls (numbers stay the same while the control is on the page):\n${items}`)}`);
   }
   if (name === 'browser_jobs' || name === 'browser_collect_jobs') {
     const r = await step(name === 'browser_jobs' ? 'jobs' : 'collect', { page, ...(name === 'browser_collect_jobs' ? { max: Number(a.max) || 60 } : {}), ...(a.seen === true ? { seen: true } : {}) });
@@ -311,7 +311,7 @@ async function call(name, a) {
   if (name === 'browser_check_form') {
     const r = await step('form', { page, ...(Number.isInteger(a.within) ? { within: a.within } : {}) });
     if (!r.ok) return text(r.error, true);
-    return text(WORDS((r.fields || []).map((f) => `[${f.n}] ${f.label || '(no label)'} (${f.kind})${f.required ? ' required' : ''}: ${f.value ? `"${f.value}"` : 'EMPTY'}${f.wrong ? `  WRONG${f.message ? ': ' + f.message : ''}` : ''}`).join('\n') || '(no fields)'));
+    return text(WORDS((r.fields || []).map((f) => `[${f.n}] ${f.q && f.q !== f.label ? `${f.q}: ` : ''}${f.label || '(no label)'} (${f.kind})${f.required ? ' required' : ''}: ${f.value ? `"${f.value}"` : 'EMPTY'}${f.wrong ? `  WRONG${f.message ? ': ' + f.message : ''}` : ''}`).join('\n') || '(no fields)'));
   }
   if (name === 'browser_upload') {
     const r = await step('upload', { page, n: Number(a.n), file: String(a.file ?? '') });
