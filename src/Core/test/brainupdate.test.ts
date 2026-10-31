@@ -236,3 +236,27 @@ test('Aang\'s app goes in at the same quiet moment; alone it does not restart th
   assert.equal(exits2, 0); assert.match(dogs2[0]!, /BRAIN=''; APP='1\.24\.0'/);
   assert.equal(bu2.swapIfQuiet(), false, 'nothing left');
 });
+
+test('his "update Aang now": no away wait, never in a call, nothing new said plainly; answered before it goes in', async () => {
+  // In a call: nothing.
+  const h0 = withAppHome();
+  const bu0 = new BrainUpdates({ home: h0, fetch: appFetch(withApp()), away: () => ({ idle: 0, call: true }), log: () => {}, exit: () => {}, run: appRun(), pub: PUB, watchdog: () => {} });
+  assert.deepEqual(await bu0.updateNow(), { ok: false, message: "He's in a call: nothing goes in until it's over." });
+  assert.equal(bu0.readyApp, '', 'not even fetched');
+  // At the keyboard: the app (the brain is already this version) is made ready and goes in half a second after the answer.
+  const h = withAppHome(); writeFileSync(path.join(h, 'core', 'brain.json'), JSON.stringify({ version: '1.24.0', commit: 'a'.repeat(12), status: 'good' }));
+  const dogs: string[] = []; let exits = 0;
+  const bu = new BrainUpdates({ home: h, fetch: appFetch(withApp()), away: () => ({ idle: 5, call: false }), log: () => {}, exit: () => exits++, run: appRun(), pub: PUB, watchdog: (s) => dogs.push(s) });
+  const r = await bu.updateNow();
+  assert.equal(r.ok, true); assert.match(r.message, /^Putting in Aang's app 1\.24\.0/);
+  assert.equal(dogs.length, 0, 'answered first');
+  await new Promise((x) => setTimeout(x, 700));
+  assert.equal(dogs.length, 1); assert.match(dogs[0]!, /BRAIN=''; APP='1\.24\.0'/); assert.equal(exits, 0);
+  assert.equal(bu.appInstalled(), '1.24.0');
+  // Again: nothing new.
+  assert.match((await bu.updateNow()).message, /^Nothing new: brain 1\.24\.0, Aang's app 1\.24\.0\./);
+  // The quiet swap still waits for him to be away.
+  const h2 = withAppHome(); writeFileSync(path.join(h2, 'core', 'brain.json'), JSON.stringify({ version: '1.24.0', commit: 'a'.repeat(12), status: 'good' }));
+  const bu2 = new BrainUpdates({ home: h2, fetch: appFetch(withApp()), away: () => ({ idle: 5, call: false }), log: () => {}, exit: () => {}, run: appRun(), pub: PUB, watchdog: () => {} });
+  await bu2.check(); assert.equal(bu2.swapIfQuiet(), false);
+});

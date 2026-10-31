@@ -307,9 +307,11 @@ export class BrainUpdates {
 
   /** Away half an hour and not in a call: whatever is ready goes in, Aang's app and the new brain. True when anything
    *  did (with a new brain, this brain then exits and launchd starts the new one). */
-  swapIfQuiet(): boolean {
+  swapIfQuiet(now = false): boolean {
     const n = this.next, na = this.nextApp, a = this.o.away();
-    if ((!n && !na) || !a || a.idle < AWAY_S || a.call) return false;
+    if (!n && !na) return false;
+    // His "update now" (2026-10-31) skips only the away rule: never in a call.
+    if (now ? a?.call === true : (!a || a.idle < AWAY_S || a.call)) return false;
     const home = this.o.home;
     let app = '';
     if (na && existsSync(path.join(this.appNext, 'src', 'macaang.ts'))) {
@@ -342,12 +344,29 @@ export class BrainUpdates {
       const f = path.join(home, 'brain-watchdog.sh'), out = openSync(path.join(home, 'brain-watchdog.log'), 'a'); writeFileSync(f, s, { mode: 0o700 });
       spawn('/bin/bash', [f], { detached: true, stdio: ['ignore', out, out] }).unref();
     }))(script);
-    if (app) this.o.log(`brain update: putting in Aang's app ${app} while you're away`);
+    const when = now ? 'now (he asked)' : "while you're away";
+    if (app) this.o.log(`brain update: putting in Aang's app ${app} ${when}`);
     if (!brain) return true;
-    this.o.log(`brain update: putting in ${brain} while you're away; restarting`);
+    this.o.log(`brain update: putting in ${brain} ${when}; restarting`);
     this.next = null;
     this.o.exit();
     return true;
+  }
+
+  /**
+   * His "update Aang now" (2026-10-31, his pick: Claude does it, no button): looks on GitHub, makes ready what is new,
+   * and puts it in now instead of waiting for him to be away. Everything else stays: never in a call, the old copies kept
+   * and put back by the watchdog. Answered before anything goes in (a new brain means this one exits).
+   */
+  async updateNow(): Promise<{ ok: boolean; message: string }> {
+    if (this.o.away()?.call === true) return { ok: false, message: "He's in a call: nothing goes in until it's over." };
+    await this.check();
+    const brain = this.ready, app = this.readyApp;
+    if (!brain && !app) return { ok: true, message: `Nothing new: brain ${this.installed()?.version ?? 'unknown'}, Aang's app ${this.appInstalled() || (this.appInstalled() === null ? 'not on this Mac' : 'unknown')}.` };
+    const t = setTimeout(() => { if (!this.swapIfQuiet(true)) this.o.log('brain update: his update-now could not go in'); }, 500);
+    t.unref?.();
+    const what = [brain && `brain ${brain} (it restarts)`, app && `Aang's app ${app} (it restarts)`].filter(Boolean).join(' and ');
+    return { ok: true, message: `Putting in ${what} now. The old copies are kept; the watchdog puts them back if the new ones don't stay up.` };
   }
 
   /** Half a minute after start, then hourly; the quiet rule looked at every ten minutes. */

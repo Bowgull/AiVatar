@@ -62,6 +62,7 @@ if (process.platform === 'darwin' && process.env.AANG_BRAIN_UPDATE !== '0' && pa
   const v = bu.started();
   if (v) setTimeout(() => core.announce(`I updated myself to ${v} while you were away.`), 15_000).unref?.();
   bu.start();
+  core.updateNow = () => bu.updateNow();
 }
 // Discord, if Joshua has set it up. It connects OUT to Discord and back into this Core, and Aang runs without it.
 // Loaded only when used, so Aang without Discord carries none of it.

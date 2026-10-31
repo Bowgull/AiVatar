@@ -1128,6 +1128,8 @@ export class LinkDoor {
   starts: StartBook | null = null;
   /** C6: what the mods say about starts (started, caps, door2.result, and turn.start for the probe). */
   onStart: ((session: string, ev: Record<string, unknown>) => void) | null = null;
+  /** His "update Aang now" (2026-10-31): Claude only, signed like everything here (tools/aang-update-now.mjs). */
+  onUpdateNow: (() => Promise<{ ok: boolean; message: string }>) | null = null;
   /** C6 probe (npm run c6-probe): signed like everything here; answered by core.ts. */
   onProbe: ((ask: Record<string, unknown>) => Promise<unknown>) | null = null;
   constructor(key: string, tracker: JobTracker, ignoreCwd: () => string = () => '') { this.key = key; this.tracker = tracker; this.ignoreCwd = ignoreCwd; }
@@ -1196,6 +1198,11 @@ export class LinkDoor {
           return;
         }
         // Sheet 79 (2026-10-23): mockup_mark. Signed like everything here; the folder is the session's own when known.
+        if (req.method === 'POST' && q.pathname === '/link/update-now') {
+          if (!this.onUpdateNow) { json(200, { ok: false, message: "Aang doesn't update himself on this machine (only the Mac's brain does)." }); return; }
+          void this.onUpdateNow().then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 600) }), (e) => json(200, { ok: false, message: 'The update could not start: ' + String((e as Error)?.message ?? e).slice(0, 200) }));
+          return;
+        }
         if (req.method === 'POST' && q.pathname === '/link/mockupmark') {
           const ev = JSON.parse(body) as Record<string, unknown>;
           if (notHisCwd(ev?.cwd, this.ignoreCwd())) { json(403, { ok: false, message: 'not for this session' }); return; }
