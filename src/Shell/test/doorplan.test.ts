@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -116,5 +116,45 @@ test('what he did in Samara reaches Claude with its next step', async () => {
     // The news rides on the answer of the step that brought it back, at the top.
     const r = await c.call('browser_close', { page: 4 });
     assert.match(r, /^Joshua took over page 2/, r);
+  } finally { c.end(); d.close(); }
+});
+
+// 2026-10-31: Samara restarted for an update mid-application. It writes a new key and forgets every job; the chat was
+// locked for good ("not a page this Claude session opened", then "already has a plan running" forever).
+test('after Samara restarts, the chat is told and a new plan works', async () => {
+  let jobs = 0; const known = new Set<number>();
+  const d = await door((op, a) => {
+    if (op === 'plan') { const j = ++jobs; known.add(j); return { ok: true, job: j, sites: [] }; }
+    if (!known.has(Number(a.job ?? 1))) return { ok: false, error: 'that is not a page this Claude session opened' };
+    if (op === 'jobstate') return { ok: true, live: true, planned: true, pages: 1 };
+    return { ok: true, page: 1, title: 'x', url: 'https://jobs.example/' };
+  });
+  const c = connector(d.file);
+  try {
+    await c.rpc('initialize', { capabilities: {} });
+    await c.call('browser_plan', PLAN);
+    // The restart: a new key in the door file, and every job forgotten.
+    writeFileSync(d.file, JSON.stringify({ ...JSON.parse(readFileSync(d.file, 'utf8')), key: 'k2' }));
+    known.clear();
+    const r = await c.call('browser_scroll', { page: 1 });
+    assert.match(r, /Samara restarted/, r);
+    assert.match(await c.call('browser_plan', PLAN), /allowed the plan/);
+  } finally { c.end(); d.close(); }
+});
+
+test('a job Samara forgot without a new key never locks the chat', async () => {
+  let jobs = 0; const known = new Set<number>();
+  const d = await door((op, a) => {
+    if (op === 'plan') { const j = ++jobs; known.add(j); return { ok: true, job: j, sites: [] }; }
+    if (!known.has(Number(a.job))) return { ok: false, error: 'that is not a page this Claude session opened' };
+    return { ok: true, live: true, planned: true, pages: 1 };
+  });
+  const c = connector(d.file);
+  try {
+    await c.rpc('initialize', { capabilities: {} });
+    await c.call('browser_plan', PLAN);
+    known.clear();
+    assert.match(await c.call('browser_plan', PLAN), /allowed the plan/);
+    assert.equal(d.seen.filter((s) => s.op === 'plan').length, 2);
   } finally { c.end(); d.close(); }
 });

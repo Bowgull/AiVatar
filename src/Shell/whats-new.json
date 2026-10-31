@@ -950,6 +950,11 @@
       "at": "2026-10-31T13:02:00-04:00",
       "text": "Words in your essays no longer look like buying.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T13:22:00-04:00",
+      "text": "A Samara restart never locks Claude out of its chat.",
+      "kind": "fix"
     }
   ]
 }
