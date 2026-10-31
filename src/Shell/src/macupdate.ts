@@ -9,7 +9,10 @@
 
 /** bundle: Samara's new code (a sealed release), or '' when only the engine changes. engine: castLabs' Electron.app,
  *  already checked against its seal and signed for video (evs.ts), when the engine changes. One script either way. */
-export interface MacUpdate { bundle: string; version: string; commit: string; engine?: { app: string; version: string } }
+export interface MacUpdate { bundle: string; version: string; commit: string; engine?: { app: string; version: string };
+  /** The folder it is made in: 'staged' (the one Restart now puts in), or 'staged-next' (sheet 114: a newer one made
+   *  behind the ready one, which keeps its key; it moves to 'staged' once it is ready). */
+  stage?: 'staged' | 'staged-next' }
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
 export function macUpdateScript(o: MacUpdate): string {
@@ -17,6 +20,8 @@ export function macUpdateScript(o: MacUpdate): string {
   if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(o.version) || !/^[0-9a-f]{12,40}$/.test(o.commit)) throw new Error('not a release');
   if (o.bundle ? !o.bundle.endsWith('.tgz') : !e) throw new Error('not a release');
   if (e && (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(e.version) || !e.app.endsWith('/Electron.app'))) throw new Error('not an engine');
+  const slot = o.stage ?? 'staged';
+  if (slot !== 'staged' && slot !== 'staged-next') throw new Error('not a stage');
   const installed = JSON.stringify({ version: o.version, commit: o.commit.slice(0, 12), status: 'trial', from: 'github', ...(e ? { engine: e.version } : {}) });
   const stage = e ? `${o.version}+${e.version}` : o.version;
   return `#!/bin/bash
@@ -24,7 +29,7 @@ export function macUpdateScript(o: MacUpdate): string {
 set -e
 PHASE="$1"; VERSION=${q(stage)}; BUNDLE=${q(o.bundle)}; ENGINE=${q(e?.app ?? '')}; EV=${q(e?.version ?? '')}
 DIR="$HOME/Library/Application Support/AangListener"; BR="$DIR/browser"; APP="$HOME/Applications/Samara.app"
-RB="$BR/rollback"; STAGE="$BR/staged"; NODE_DIR="$DIR/node"
+RB="$BR/rollback"; STAGE="$BR/${slot}"; NODE_DIR="$DIR/node"
 LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 case "$PHASE" in prepare|swap) ;; *) echo "prepare or swap"; exit 2 ;; esac
 # Opening Samara again (2026-10-30, seen on his Mac on Oct 29: \`open -a\` answered -600 "procNotFound" while the old
