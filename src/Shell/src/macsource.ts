@@ -11,7 +11,8 @@
 //   failed-engines.txt / filed-engines.txt        the same for engines
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { download as ghDownload, latest as ghLatest, titleOf, withSection, type Manifest } from './ghrelease.ts';
 import { behindMs, behindWords, chromeStable, downloadEngine, enginePlatform, latestEngine, type EngineManifest, type EnginePlatform } from './enginerelease.ts';
@@ -207,6 +208,13 @@ const unzipIt: Unzip = (zip, into) => new Promise((res) => {
   c.on('error', () => res(false)); c.on('exit', (code) => res(code === 0));
 });
 
+/** His installed Samara, when this Samara runs from it (never a test or a run from a code folder). */
+function runningApp(): string | null {
+  const app = path.resolve(process.execPath, '..', '..', '..');
+  return app === path.join(os.homedir(), 'Applications', 'Samara.app') ? app : null;
+}
+const FRAMEWORK_SIG = ['Contents', 'Frameworks', 'Electron Framework.framework', 'Versions', 'A', 'Resources', 'Electron Framework.sig'];
+
 /**
  * A new castLabs engine, on the Mac (his picks, 2026-10-30): from the sealed engine release, signed for video here with
  * his castLabs account, exactly as castLabs shipped it (video wins over the safety switches until castLabs says yes).
@@ -221,10 +229,13 @@ export class MacEngine implements Source {
   readonly lists: VersionLists;
   private readonly p: MacPaths;
   private readonly stage: MacStage;
-  private readonly o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs: Evs; have: () => string; chrome: () => string; unzip?: Unzip; pub?: string; plat: () => EnginePlatform | null };
-  constructor(p: MacPaths, stage: MacStage, o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs?: Evs; have?: () => string; chrome?: () => string; unzip?: Unzip; pub?: string; plat?: () => EnginePlatform | null }) {
+  private readonly o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs: Evs; have: () => string; chrome: () => string; unzip?: Unzip; pub?: string; plat: () => EnginePlatform | null; app: () => string | null };
+  /** Whether his Samara's own engine carries a real video signature (castLabs' check, once a run). */
+  private vmpOk: boolean | null = null;
+  private resign = false;
+  constructor(p: MacPaths, stage: MacStage, o: { fetch: Fetch; log: (s: string) => void; changed: () => void; evs?: Evs; have?: () => string; chrome?: () => string; unzip?: Unzip; pub?: string; plat?: () => EnginePlatform | null; app?: () => string | null }) {
     this.p = p; this.stage = stage;
-    this.o = { ...o, evs: o.evs ?? new Evs({ log: o.log }), have: o.have ?? (() => plain(process.versions.electron)), chrome: o.chrome ?? (() => process.versions.chrome), plat: o.plat ?? (() => enginePlatform()) };
+    this.o = { ...o, evs: o.evs ?? new Evs({ log: o.log }), have: o.have ?? (() => plain(process.versions.electron)), chrome: o.chrome ?? (() => process.versions.chrome), plat: o.plat ?? (() => enginePlatform()), app: o.app ?? runningApp };
     this.lists = new VersionLists(path.join(p.br, 'failed-engines.txt'), path.join(p.br, 'filed-engines.txt'));
   }
   private get engines(): string { return path.join(this.p.br, 'engines'); }
@@ -233,7 +244,7 @@ export class MacEngine implements Source {
     const m = this.pending?.m;
     if (!m) return null;
     const since = Date.parse(m.published) || Date.now();
-    const groups = engineGroups(m.version, since, 'Mac'), title = `Samara's engine ${m.version}`;
+    const groups = engineGroups(m.version, since, 'Mac'), title = this.resign && m.version === this.o.have() ? `Samara's engine ${m.version}, signed for video` : `Samara's engine ${m.version}`;
     if (this.signinState) return { version: m.version, since, title, groups, signin: this.signinState };
     if (this.stage.engine?.version !== m.version || !this.stage.ready()) return null;
     return { version: m.version, since, title, groups, canBack: existsSync(path.join(this.p.br, 'rollback', 'Samara.app')), ...(this.behindLine ? { behind: this.behindLine } : {}) };
@@ -244,7 +255,10 @@ export class MacEngine implements Source {
     if (this.busy || !plat || this.signinState === 'waiting') return;
     this.busy = true;
     try {
-      const found = await latestEngine(this.o.fetch, this.o.have(), plat, undefined, this.o.pub);
+      // His Samara's castLabs engine with only castLabs' development signature (44.9.3 went in like that, 2026-10-31):
+      // the same engine is offered again, signed for video here.
+      this.resign = await this.unsigned();
+      const found = await latestEngine(this.o.fetch, this.resign ? '0.0.0' : this.o.have(), plat, undefined, this.o.pub);
       if (!found || this.lists.blocked(found.m.version)) { if (this.pending) { this.pending = null; this.stage.engine = null; void this.stage.build(); this.o.changed(); } return; }
       const { m, asset } = found;
       // How far behind Chrome: today's engine, and the new one (Chrome's own list; the line is left out without it).
@@ -271,8 +285,8 @@ export class MacEngine implements Source {
   /** castLabs signs it for video; then it joins the staged Samara. */
   private async sign(): Promise<void> {
     const p = this.pending; if (!p) return;
-    const sig = path.join(p.dir, 'Electron.app', 'Contents', 'Frameworks', 'Electron Framework.framework', 'Versions', 'A', 'Resources', 'Electron Framework.sig');
-    const r = existsSync(sig) ? 'ok' : await this.o.evs.sign(p.dir);
+    // Every castLabs engine arrives with a development signature: only castLabs' own check says it is really signed.
+    const r = (await this.o.evs.verify(p.dir)) ? 'ok' : await this.o.evs.sign(p.dir);
     if (r === 'signin') { this.signinState = 'ask'; this.o.changed(); return; }
     if (r !== 'ok') { this.o.log(`update: engine ${p.m.version} could not be signed for video (${r}); tried again later`); return; }
     this.signinState = null;
@@ -292,6 +306,20 @@ export class MacEngine implements Source {
       if (inNow) void this.sign(); else this.o.changed();
     });
     return true;
+  }
+
+  /** True when his installed Samara runs a castLabs engine that castLabs' check does not pass (looked at once a run,
+   *  through a link in a folder of its own: castLabs' tool reads a folder holding the app). */
+  private async unsigned(): Promise<boolean> {
+    const app = this.o.app();
+    if (!app || !existsSync(path.join(app, ...FRAMEWORK_SIG))) return false;
+    if (this.vmpOk === null) {
+      const dir = path.join(this.p.br, 'vmp-check'), link = path.join(dir, 'Samara.app');
+      try { mkdirSync(dir, { recursive: true }); if (!existsSync(link)) symlinkSync(app, link); } catch { return false; }
+      this.vmpOk = await this.o.evs.verify(dir);
+      if (!this.vmpOk) this.o.log("update: Samara's engine has only castLabs' development signature; offering it again, signed for video here");
+    }
+    return !this.vmpOk;
   }
 
   go(): Promise<{ ok: boolean; why?: string }> { return this.stage.swap(); }

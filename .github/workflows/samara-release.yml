@@ -34,7 +34,7 @@ jobs:
         run: |
           NAME=$(node -e "console.log(require('./out/manifest.json').name)")
           node -e "console.log(require('./out/manifest.json').notes.map((n) => '- ' + n).join('\\n'))" > notes.md
-          gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz out/aang-brain.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
+          gh release create "$TAG" out/manifest.json out/manifest.sig out/samara-bundle.tgz out/aang-brain.tgz out/aang-app.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
       # Every Samara from 1.28.1 on reads Bowgull/samara-releases (sealed files only), so this repo can go private.
       # The copy above stays until both machines run 1.28.1 or later. RELEASES_TOKEN: his token for that repo only.
       - name: Publish to samara-releases
@@ -44,7 +44,7 @@ jobs:
         run: |
           [ -n "$GH_TOKEN" ] || { echo "::error::No RELEASES_TOKEN secret yet. Copy it by hand on the Mac: node tools/release/mirror.mjs $TAG"; exit 1; }
           NAME=$(node -e "console.log(require('./out/manifest.json').name)")
-          gh release create "$TAG" -R Bowgull/samara-releases out/manifest.json out/manifest.sig out/samara-bundle.tgz out/aang-brain.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
+          gh release create "$TAG" -R Bowgull/samara-releases out/manifest.json out/manifest.sig out/samara-bundle.tgz out/aang-brain.tgz out/aang-app.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
       # The nudge carries one word and nothing else: a Samara that hears it only checks, and still checks the seal.
       - name: Nudge both Samaras
         run: for i in 1 2 3 4 5; do curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null && exit 0; echo "Nudge try $i did not go; trying again in 30 s."; sleep 30; done; echo "The nudge did not go after 5 tries; Samaras will find it within the hour."

@@ -7,7 +7,7 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { BrainUpdates, RELEASE_KEY, checkBrain, newer, watchdogScript, type Run } from '../src/brainupdate.ts';
+import { BrainUpdates, RELEASE_KEY, checkBrain, librariesMatch, newer, watchdogScript, type Run } from '../src/brainupdate.ts';
 
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
 const PUB = publicKey.export({ type: 'spki', format: 'pem' }).toString();
@@ -88,17 +88,151 @@ test('after the swap: it says so once, and the trial turns good after two minute
   bu.stop();
 });
 
+/** A pretend launchctl on PATH: `print` shows a pid only while `pet-up` exists; every call is written down. */
+const fakeLaunchd = (petUp: boolean) => {
+  const d = mkdtempSync(path.join(os.tmpdir(), 'bu-l-')), calls = path.join(d, 'calls');
+  writeFileSync(path.join(d, 'launchctl'), `#!/bin/bash\necho "$*" >> '${calls}'\nif [ "$1" = print ] && [ -f '${d}/pet-up' ]; then printf '\\tstate = running\\n\\tpid = 4242\\n'; fi\nexit 0\n`, { mode: 0o755 });
+  if (petUp) writeFileSync(path.join(d, 'pet-up'), '');
+  return { env: { ...process.env, PATH: `${d}:${process.env.PATH}` }, calls: () => { try { return readFileSync(calls, 'utf8'); } catch { return ''; } } };
+};
+const fastDog = (s: string) => s.replace('for t in 60 90 150', 'for t in 0').replace('sleep 30;', 'sleep 0;').replace('sleep 60;', 'sleep 0;');
+
 test('the watchdog: valid bash, puts the old brain back and remembers the version when the new one is not good', () => {
   const s = watchdogScript("/Users/x/Library/Application Support/AangListener", '1.24.0');
   const f = path.join(mkdtempSync(path.join(os.tmpdir(), 'bu-w-')), 'w.sh'); writeFileSync(f, s);
   execFileSync('bash', ['-n', f]);
   assert.match(s, /mv "\$H\/core\.prev" "\$H\/core"/);
-  assert.match(s, /'1\.24\.0' >> "\$H\/brain-failed\.txt"/);
-  assert.match(s, /launchctl kickstart -k "gui\/\$\(id -u\)\/com\.aang\.brain"/);
+  assert.match(s, /BRAIN='1\.24\.0'/); assert.match(s, /echo "\$BRAIN" >> "\$H\/brain-failed\.txt"/);
+  assert.match(s, /launchctl kickstart -k "\$U\/com\.aang\.brain"/);
   assert.throws(() => watchdogScript('/x', '1.0; rm -rf ~'));
+  assert.throws(() => watchdogScript('/x', '', ''));
+  assert.throws(() => watchdogScript('/x', '', "1.0'; rm -rf ~"));
   // Run for real with the waits cut short: the new brain never got good, so the old one is back.
   const h = home(); writeFileSync(path.join(h, 'core', 'brain.json'), JSON.stringify({ version: '1.24.0', status: 'trial' })); mkdirSync(path.join(h, 'core.prev')); writeFileSync(path.join(h, 'core.prev', 'old'), '1');
-  const fast = watchdogScript(h, '1.24.0').replace('for t in 60 90 150', 'for t in 0').replace(/launchctl.*\n/, '\n');
-  writeFileSync(f, fast); execFileSync('bash', [f]);
+  const l = fakeLaunchd(true);
+  writeFileSync(f, fastDog(watchdogScript(h, '1.24.0'))); execFileSync('bash', [f], { env: l.env });
   assert.ok(existsSync(path.join(h, 'core', 'old')) && readFileSync(path.join(h, 'brain-failed.txt'), 'utf8').includes('1.24.0'));
+  assert.match(l.calls(), /kickstart -k gui\/\d+\/com\.aang\.brain/);
+});
+
+test('the watchdog: after a brain update, Aang\'s app is started when it is not running, and left alone when it is', () => {
+  for (const up of [false, true]) {
+    const h = home(); mkdirSync(path.join(h, 'aang-app')); writeFileSync(path.join(h, 'core', 'brain.json'), JSON.stringify({ version: '1.24.0', status: 'good' }));
+    const l = fakeLaunchd(up), f = path.join(h, 'w.sh');
+    writeFileSync(f, fastDog(watchdogScript(h, '1.24.0'))); execFileSync('bash', [f], { env: l.env });
+    assert.equal(/kickstart -k gui\/\d+\/com\.aang\.pet/.test(l.calls()), !up, up ? 'running: left alone' : 'not running: started');
+    assert.ok(!/com\.aang\.brain/.test(l.calls()), 'a good brain is left alone');
+  }
+});
+
+test('the watchdog: a new app is started at once, and put back when it does not stay up', () => {
+  for (const up of [true, false]) {
+    const h = home(); mkdirSync(path.join(h, 'aang-app')); writeFileSync(path.join(h, 'aang-app', 'new'), '1'); mkdirSync(path.join(h, 'aang-app.prev')); writeFileSync(path.join(h, 'aang-app.prev', 'old'), '1');
+    const l = fakeLaunchd(up), f = path.join(h, 'w.sh');
+    writeFileSync(f, fastDog(watchdogScript(h, '', '1.24.0'))); execFileSync('bash', ['-n', f]); execFileSync('bash', [f], { env: l.env });
+    assert.match(l.calls(), /kickstart -k gui\/\d+\/com\.aang\.pet/);
+    assert.equal(existsSync(path.join(h, 'aang-app', 'new')), up);
+    assert.equal(existsSync(path.join(h, 'aang-app', 'old')), !up);
+    assert.equal(existsSync(path.join(h, 'aang-app-failed.txt')), !up);
+  }
+});
+
+// ---------------------------------------------------------------- Aang's Mac app
+const APP_TGZ = Buffer.from('pretend app');
+const withApp = (o: object = {}) => manifest({ aang: { file: 'aang-app.tgz', sha256: createHash('sha256').update(APP_TGZ).digest('hex'), bytes: APP_TGZ.length }, ...o });
+const appFetch = (m: { text: string; sig: string }) => (async (url: string) => url.endsWith('aang-app.tgz') ? res(APP_TGZ) : (fetchFor(m) as unknown as (u: string) => Promise<unknown>)(url)) as never;
+/** His app as tools/install-mac-aang.sh leaves it: code, libraries (electron 44.7.0), helpers built here. */
+const withAppHome = () => {
+  const h = home(), a = path.join(h, 'aang-app');
+  for (const d of ['src', 'mac', 'bin', 'node_modules/electron', 'assets/frames']) mkdirSync(path.join(a, d), { recursive: true });
+  writeFileSync(path.join(a, 'src', 'macaang.ts'), '// old'); writeFileSync(path.join(a, 'mac', 'clicks.swift'), 'clicks'); writeFileSync(path.join(a, 'mac', 'look.swift'), 'look');
+  writeFileSync(path.join(a, 'bin', 'aang-clicks'), 'built'); writeFileSync(path.join(a, 'bin', 'aang-look'), 'built');
+  writeFileSync(path.join(a, 'node_modules', 'electron', 'package.json'), JSON.stringify({ version: '44.7.0' }));
+  return h;
+};
+/** A pretend tar for both parts: the brain, or the app (its art under assets/aang, as the release packs it). */
+const appRun = (o: { electron?: string; look?: string } = {}, calls: string[] = []): Run => async (cmd, args, cwd, env) => {
+  calls.push([path.basename(cmd), ...args.slice(0, 1)].join(' ') + (env ? ' +env' : ''));
+  if (cmd === 'tar' && cwd.includes('aang-app')) {
+    const into = args[args.indexOf('-C') + 1]!;
+    for (const d of ['src', 'mac', 'assets/aang/frames', 'assets/aang/sfx']) mkdirSync(path.join(into, d), { recursive: true });
+    writeFileSync(path.join(into, 'src', 'macaang.ts'), '// new'); writeFileSync(path.join(into, 'mac', 'clicks.swift'), 'clicks'); writeFileSync(path.join(into, 'mac', 'look.swift'), o.look ?? 'look');
+    writeFileSync(path.join(into, 'assets', 'aang', 'frames', 'idle_0.png'), 'png');
+    writeFileSync(path.join(into, 'package.json'), JSON.stringify({ dependencies: { electron: o.electron ?? '44.7.0' } }));
+    writeFileSync(path.join(into, 'package-lock.json'), JSON.stringify({ packages: { 'node_modules/electron': { version: o.electron ?? '44.7.0' } } }));
+    return 0;
+  }
+  if (cmd === '/bin/cp') { execFileSync('cp', args); return 0; }
+  if (cmd === '/usr/bin/swiftc') { writeFileSync(args[args.indexOf('-o') + 1]!, 'rebuilt'); return 0; }
+  if (cmd.endsWith('npm')) { mkdirSync(path.join(cwd, 'node_modules', 'electron'), { recursive: true }); return 0; }
+  return run(cmd, args, cwd);
+};
+
+test('Aang\'s app is taken from the release when it carries it; a bad entry is left out, the brain still counts', () => {
+  const m = withApp();
+  assert.equal(checkBrain(m.text, m.sig, PUB)?.aang?.file, 'aang-app.tgz');
+  assert.equal(checkBrain(manifest().text, manifest().sig, PUB)?.aang, undefined, 'older releases carry no app');
+  const bad = withApp({ aang: { file: '../x.tgz', sha256: '0'.repeat(64), bytes: 1 } });
+  assert.equal(checkBrain(bad.text, bad.sig, PUB)?.version, '1.24.0'); assert.equal(checkBrain(bad.text, bad.sig, PUB)?.aang, undefined);
+});
+
+test('Aang\'s app is made ready beside the running one: art in place, libraries cloned, helpers carried over', async () => {
+  const h = withAppHome(), calls: string[] = [];
+  const bu = new BrainUpdates({ home: h, fetch: appFetch(withApp()), away: () => null, log: () => {}, exit: () => {}, run: appRun({}, calls), pub: PUB });
+  await bu.check();
+  assert.equal(bu.readyApp, '1.24.0'); assert.equal(bu.ready, '1.24.0');
+  const n = path.join(h, 'aang-app.next');
+  assert.equal(readFileSync(path.join(n, 'src', 'macaang.ts'), 'utf8'), '// new');
+  assert.ok(existsSync(path.join(n, 'assets', 'frames', 'idle_0.png')) && existsSync(path.join(n, 'assets', 'sfx')) && !existsSync(path.join(n, 'assets', 'aang')));
+  assert.ok(existsSync(path.join(n, 'node_modules', 'electron', 'package.json')));
+  assert.equal(readFileSync(path.join(n, 'bin', 'aang-clicks'), 'utf8'), 'built');
+  assert.deepEqual(JSON.parse(readFileSync(path.join(n, 'app.json'), 'utf8')), { version: '1.24.0', commit: 'a'.repeat(12) });
+  assert.ok(!calls.some((c) => /npm|swiftc/.test(c)), calls.join());
+  assert.equal(readFileSync(path.join(h, 'aang-app', 'src', 'macaang.ts'), 'utf8'), '// old', 'the running app is untouched');
+});
+
+test('Aang\'s app: a changed helper is built here; new libraries are installed (with the engine\'s own step)', async () => {
+  const h = withAppHome(), calls: string[] = [];
+  const bu = new BrainUpdates({ home: h, fetch: appFetch(withApp()), away: () => null, log: () => {}, exit: () => {}, run: appRun({ look: 'look v2', electron: '44.8.0' }, calls), pub: PUB });
+  await bu.check();
+  assert.equal(bu.readyApp, '1.24.0');
+  const n = path.join(h, 'aang-app.next');
+  assert.equal(readFileSync(path.join(n, 'bin', 'aang-look'), 'utf8'), 'rebuilt'); assert.equal(readFileSync(path.join(n, 'bin', 'aang-clicks'), 'utf8'), 'built');
+  assert.ok(calls.includes('npm ci +env'), calls.join());
+  assert.ok(!librariesMatch(path.join(h, 'aang-app', 'node_modules'), n));
+});
+
+test('Aang\'s app: not on this Mac, already this version, or failed before: nothing is made ready', async () => {
+  const none = home();
+  const bu = new BrainUpdates({ home: none, fetch: appFetch(withApp()), away: () => null, log: () => {}, exit: () => {}, run: appRun(), pub: PUB });
+  await bu.check(); assert.equal(bu.readyApp, ''); assert.equal(bu.ready, '1.24.0');
+  const same = withAppHome(); writeFileSync(path.join(same, 'aang-app', 'app.json'), JSON.stringify({ version: '1.24.0' }));
+  const bu2 = new BrainUpdates({ home: same, fetch: appFetch(withApp()), away: () => null, log: () => {}, exit: () => {}, run: appRun(), pub: PUB });
+  await bu2.check(); assert.equal(bu2.readyApp, '');
+  const failed = withAppHome(); writeFileSync(path.join(failed, 'aang-app-failed.txt'), '1.24.0\n');
+  const bu3 = new BrainUpdates({ home: failed, fetch: appFetch(withApp()), away: () => null, log: () => {}, exit: () => {}, run: appRun(), pub: PUB });
+  await bu3.check(); assert.equal(bu3.readyApp, '');
+});
+
+test('Aang\'s app goes in at the same quiet moment; alone it does not restart the brain', async () => {
+  // App and brain together: one watchdog for both, the brain exits once.
+  const h = withAppHome(); let exits = 0; const dogs: string[] = [];
+  const bu = new BrainUpdates({ home: h, fetch: appFetch(withApp()), away: () => ({ idle: 3600, call: false }), log: () => {}, exit: () => exits++, run: appRun(), pub: PUB, watchdog: (s) => dogs.push(s) });
+  await bu.check();
+  assert.equal(bu.swapIfQuiet(), true);
+  assert.equal(exits, 1); assert.equal(dogs.length, 1); assert.match(dogs[0]!, /BRAIN='1\.24\.0'; APP='1\.24\.0'/);
+  assert.equal(readFileSync(path.join(h, 'aang-app', 'src', 'macaang.ts'), 'utf8'), '// new');
+  assert.equal(readFileSync(path.join(h, 'aang-app.prev', 'src', 'macaang.ts'), 'utf8'), '// old');
+  assert.equal(bu.appInstalled(), '1.24.0');
+  // Only the app (the brain is already this version): the brain keeps running.
+  const h2 = withAppHome(); writeFileSync(path.join(h2, 'core', 'brain.json'), JSON.stringify({ version: '1.24.0', commit: 'a'.repeat(12), status: 'good' }));
+  let exits2 = 0; const dogs2: string[] = []; let away = { idle: 60, call: false };
+  const bu2 = new BrainUpdates({ home: h2, fetch: appFetch(withApp()), away: () => away, log: () => {}, exit: () => exits2++, run: appRun(), pub: PUB, watchdog: (s) => dogs2.push(s) });
+  await bu2.check();
+  assert.equal(bu2.ready, ''); assert.equal(bu2.readyApp, '1.24.0');
+  assert.equal(bu2.swapIfQuiet(), false, 'at the keyboard');
+  away = { idle: 3600, call: false };
+  assert.equal(bu2.swapIfQuiet(), true);
+  assert.equal(exits2, 0); assert.match(dogs2[0]!, /BRAIN=''; APP='1\.24\.0'/);
+  assert.equal(bu2.swapIfQuiet(), false, 'nothing left');
 });

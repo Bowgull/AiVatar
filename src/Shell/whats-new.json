@@ -885,6 +885,16 @@
       "at": "2026-10-31T10:58:00-04:00",
       "text": "Updates now come from their own public home.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T11:35:00-04:00",
+      "text": "Aang's Mac app updates itself with his brain, and is running again after every update.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T11:35:00-04:00",
+      "text": "A new engine is signed for Netflix and Prime on each machine before it is offered.",
+      "kind": "fix"
     }
   ]
 }
