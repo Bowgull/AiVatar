@@ -5,7 +5,8 @@ import { pixIcon } from './pixicons.js';
 import { projectIcon, topicIcon } from './mockicons.js';
 
 const STG = { fix: ['FIX', 'chg'], ok: ['APPROVED', 'ok'], chat: ['APPROVED', 'ok'], built: ['BUILT', 'built'], park: ['PARKED', 'park'] };
-const OPEN = ['OPEN', 'ok'];
+// Sheet 112 A (his pick, 2026-10-31): OPEN is its own mark, no longer APPROVED's gold.
+const OPEN = ['OPEN', 'open'];
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 let tree = { projects: [] };
 // What he is looking at: the project tab, the sheet open on the right (and its version), and the topics he folded.

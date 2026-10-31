@@ -26,7 +26,7 @@ button{font:inherit;color:inherit}
 .ptab .em svg{display:block}
 .ptab .em b{font:700 17px var(--display);color:#FFE28C;text-shadow:0 2px 0 #000}
 .ptab .c{font:700 11.5px var(--body);letter-spacing:0;color:#a98e6a;text-transform:none}
-.ptab .newc{font:800 10.5px var(--body);letter-spacing:.3px;color:#2a1c00;background:#FFC43C;border-radius:4px;padding:2px 5px;text-transform:none;text-shadow:none}
+.ptab .newc{font:800 10.5px var(--body);letter-spacing:.3px;color:#08203a;background:#4aa8ff;border-radius:4px;padding:2px 5px;text-transform:none;text-shadow:none}
 .ptab.on{background:linear-gradient(180deg,#6b4523,#3d2612);color:#FFE28C;z-index:2}
 /* Sheet 107 v4: Back to Samara, the way out, in the scroll plaque's colours (v5: plum and gold) */
 .leave{flex:none;align-self:flex-start;display:flex;align-items:center;gap:9px;height:44px;margin:0 6px 0 0;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:10px;cursor:pointer;
@@ -53,7 +53,7 @@ button{font:inherit;color:inherit}
 .vbar .vs b.on{background:#FFC43C;color:#2a1c00}
 .vbar>.mk{margin-left:8px;cursor:pointer;border:none}
 .vbar>.mk:hover{filter:brightness(1.1)}
-.tag1{display:inline-block;flex:none;font:800 10.5px var(--body);color:#2a1c00;background:#FFC43C;border-radius:4px;padding:2px 6px;margin-left:8px;text-shadow:none}
+.tag1{display:inline-block;flex:none;font:800 10.5px var(--body);color:#08203a;background:#4aa8ff;border-radius:4px;padding:2px 6px;margin-left:8px;text-shadow:none}
 /* the sheet itself, at its true size: never shrunk, it scrolls when it is wider */
 .frame{flex:1;min-height:0;overflow:hidden;background:#0B0718;position:relative}
 .frame iframe{display:block;width:100%;height:100%;border:0;background:transparent}
@@ -79,19 +79,21 @@ button{font:inherit;color:inherit}
 /* SHEET */
 .sh{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 3px;padding:8px;border:none;border-radius:6px;background:none;cursor:pointer;text-align:left;font:700 14px var(--body);color:#f2e3c2}
 .sh:hover{background:rgba(255,196,60,.10)}
-.sh.on{background:rgba(255,196,60,.16);box-shadow:inset 3px 0 0 #FFC43C}
+.sh.on{background:rgba(255,224,150,.14);outline:2px solid rgba(255,224,150,.35);outline-offset:-2px}
 .num{flex:none;min-width:28px;box-sizing:border-box;padding:2px 5px;border-radius:4px;text-align:center;font:800 12px/1.2 var(--body);color:#2a1c00;
   background:#d9ae62;box-shadow:0 2px 0 #120A05,inset 0 2px 0 #f0d08e,inset 0 -2px 0 #a8793a;text-shadow:none}
 .sh .nm{flex:1;min-width:0;white-space:normal;overflow:visible;line-height:1.3}
 .sh .vc{flex:none;font:700 11.5px var(--body);color:#a98e6a}
-.sh .new{flex:none;font:800 10px var(--body);color:#2a1c00;background:#FFC43C;border-radius:3px;padding:3px 5px 2px}
+.sh .new{flex:none;font:800 10px var(--body);color:#08203a;background:#4aa8ff;box-shadow:inset 0 2px 0 #a8d6ff,inset 0 -2px 0 #2f78c4;border-radius:3px;padding:3px 5px 2px}
 .sh.parked .nm{color:#8f7a5c;text-decoration:line-through;text-decoration-color:rgba(185,166,132,.6)}
-/* the marks, as sheet 79 has them */
+/* the marks, as sheet 79 has them; sheet 112 A with his colours (2026-10-31): each its own. NEW blue, OPEN gold,
+   APPROVED teal, FIX orange, BUILT green, PARKED purple. */
 .mk{flex:none;font:800 10.5px/1 var(--body);letter-spacing:.5px;padding:4px 5px 3px;border-radius:3px;white-space:nowrap;font-style:normal}
-.mk.ok{background:#FFC43C;color:#2a1c00}
+.mk.ok{background:#1f9e94;color:#eafffc;box-shadow:inset 0 2px 0 #5fd3c8,inset 0 -2px 0 #136e67}
+.mk.open{background:#FFC43C;color:#2a1c00;box-shadow:inset 0 2px 0 #ffe28c,inset 0 -2px 0 #c9922a}
 .mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
-.mk.chg{background:#e8913a;color:#2b1405}
-.mk.park{background:#4a3f33;color:#b9a684}
+.mk.chg{background:#e8913a;color:#2b1405;box-shadow:inset 0 2px 0 #f6b878,inset 0 -2px 0 #b0631f}
+.mk.park{background:#5b3f8c;color:#e2d4ff;box-shadow:inset 0 2px 0 #8a6cc0,inset 0 -2px 0 #3b2862}
 .dt{display:flex;align-items:center;gap:10px;font:700 21px var(--display);color:#FFE28C;text-shadow:0 2px 0 #000}
 .dt .num{text-shadow:none}
 .empty{font:500 13px var(--body);color:#a98e6a;margin:8px 4px}
