@@ -11,9 +11,11 @@ export const RELEASE_KEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAVMZz/VO98/9eX9+eUALUiaxNyxiXuNL/KPWaOdMZQ2E=
 -----END PUBLIC KEY-----
 `;
-export const RELEASES = 'https://github.com/Bowgull/AiVatar/releases/download/';
+/** Releases live in their own public repo, sealed files only (his pick, 2026-10-31), so the code repo can go private. */
+export const RELEASE_REPO = 'Bowgull/samara-releases';
+export const RELEASES = `https://github.com/${RELEASE_REPO}/releases/download/`;
 /** Which release is current: GitHub's own answer (never a release marked not used), its tag only. */
-export const LATEST_API = 'https://api.github.com/repos/Bowgull/AiVatar/releases/latest';
+export const LATEST_API = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
 /** The release nudge (ntfy): a one-word "check now". It carries nothing, so anyone sending it can only make a Samara check. */
 export const NUDGE = 'https://ntfy.sh/samara-bowgull-7c1e9a52/json';
 /** The biggest bundle a Samara will download (today's is about 6 MB). */
