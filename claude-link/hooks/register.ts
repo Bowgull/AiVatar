@@ -25,7 +25,7 @@
 // it holds the key (HMAC over a fresh nonce); and every answer or message handed back must carry
 // HMAC(key, nonce + session + item id + kind + body) for the nonce of that very poll, or it is ignored.
 import type { EngineInterface, Register } from 'claude-code'
-import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
+import { MOCKUP_FALLBACK, MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import { CCD_SERVER, EFFORT_OK, FRESH_MS, mcpText, normFolder, startOf } from './link.ts'
 import { MARK_TOOL, MARK_TOOL_DESC, MARK_TOOL_FULL, MARK_TOOL_SCHEMA, markArgs } from './link.ts'
 import { callFor, linkOff, notHisCwd } from './link.ts'
@@ -480,7 +480,7 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   // On his MacBook (2026-10-22): no brain there; Samara on the Mac takes it itself, at its own signed door.
   const mac = await macHome($)
   if (mac) return macMockup($, L, mac, a.body)
-  if (!L.sessionId || !(await proven($, L))) return { result: "Aang is not running, so the mockup cannot reach Samara. Tell the user where the file is instead.", isError: true }
+  if (!L.sessionId || !(await proven($, L))) return { result: `Aang is not running, so the mockup cannot reach Samara now. ${MOCKUP_FALLBACK}`, isError: true }
   const r = await call($, L, 'POST', '/link/mockup', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...a.body }), 8000)
   let j: { ok?: unknown; message?: unknown } = {}
   try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
@@ -554,7 +554,7 @@ async function macHome($: $T): Promise<string | null> {
  * holds the key (HMAC over a fresh nonce) before it is told any folder or file name.
  */
 async function macMockup($: $T, L: Link, home: string, body: Record<string, string>): Promise<{ result: string; isError?: true }> {
-  const down = { result: "Samara is not running on this Mac, so the mockup cannot reach it. Tell the user where the file is instead.", isError: true as const }
+  const down = { result: `Samara is not running on this Mac, so the mockup cannot reach it now. ${MOCKUP_FALLBACK}`, isError: true as const }
   const key = (await within($, $.fs.read(`${home}/Library/Application Support/Aang/mockup-door.key`), 500))?.trim() || ''
   if (key.length < 32) return down
   const base = 'http://127.0.0.1:47844'

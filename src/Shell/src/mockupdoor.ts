@@ -12,15 +12,17 @@
 //     Origin header, or a Host other than 127.0.0.1:<port>, is refused before anything else (DNS rebinding).
 //   - GET /hello?n=<nonce> answers HMAC(key, 'hello', nonce), so the mod tells nothing (folders, file names) to whoever
 //     else might be on the port.
-// THE CHECKS (the browser checks again when it opens it): a file must be an .html page
-// inside a git repo (its own, found from the file; real path, links followed), no dot folder or file on the way, committed;
-// a live page must be http(s) on this computer. Nothing is written anywhere: the page goes straight into the trail.
+// THE CHECKS (the browser checks again when it opens it): a file must be an .html page inside its project's folder (its
+// git repo, else the session's folder, else its own folder; real path, links followed), no dot folder or file on the
+// way; a live page must be http(s) on this computer. 2026-10-31: the page need not be committed in its project any more:
+// Samara copies it into the private mockups home and commits it there (mockhome.ts), so a public repo never carries it.
 import { execFileSync } from 'node:child_process';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { cleanBranch, cleanIcon, cleanLive, type MockupDrop, type MockVersion } from './mockups.ts';
+import { projectRoot } from './mockhome.ts';
 
 export const MOCKUP_DOOR_PORT = 47844;
 export const mockupDoorKeyFile = (stateDir: string) => path.join(stateDir, 'mockup-door.key');
@@ -101,8 +103,9 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
     file = realpathSync.native(path.resolve(cwd || '/', raw));
     if (!statSync(file).isFile()) throw new Error('not a file');
   } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
-  const root0 = repoOf(path.dirname(file));
-  if (!root0) return { ok: false, message: `${path.basename(file)} is not in a git repo. The Mockups trail keeps every version from git: put it in one and commit it, then call show_mockup again.` };
+  // Its project's folder: the repo, else the session's folder, else the page's own (never his whole home folder).
+  const root0 = projectRoot(file, cwd, repoOf);
+  if (!root0) return { ok: false, message: 'Put the page in its project\'s folder (not straight in the home folder), then call show_mockup again.' };
   let root = '';
   try { root = realpathSync.native(root0); } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
   if (!inside(file, root)) return { ok: false, message: 'path must be inside your own repo.' };
@@ -170,7 +173,7 @@ export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promi
         if (!c.ok) { json(200, c); return; }
         busy = busy.then(() => open(c.drop).then((v) => json(200, v
           ? { ok: true, message: `Showing ${c.name} in Samara's Mockups trail on this Mac${c.drop.branch ? ` (branch ${c.drop.branch})` : ''}.` }
-          : { ok: false, message: c.drop.url ? 'Samara could not open that page.' : `${c.name} is not committed yet (or git could not read it). The Mockups trail shows each version as committed: commit it, then call show_mockup again.` }),
+          : { ok: false, message: c.drop.url ? 'Samara could not open that page.' : `Samara could not keep ${c.name} in the mockups repo (~/projects/mockups missing, or the page could not be read). Tell the user where the file is.` }),
         () => json(500, { ok: false, message: 'Samara could not open it.' })));
         return;
       }

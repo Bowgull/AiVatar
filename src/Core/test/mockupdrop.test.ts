@@ -44,17 +44,27 @@ test('a committed page in the session repo becomes a .mockup with its repo; titl
   assert.deepEqual(readdirSync(path.join(state, 'open-urls')).filter((n) => n.endsWith('.tmp')), [], 'no half-written file left');
 });
 
-test('files in no repo, hidden folders, non-pages, missing and uncommitted files are refused; nothing is written', async () => {
+test('hidden folders, non-pages, missing files and shares are refused; nothing is written', async () => {
   clear();
   // 2026-10-28: a page in ANOTHER repo is no longer refused (it files under that repo); see the test after this one.
-  for (const p of ['../outside.html', path.join(tmp, 'outside.html'), '.hidden/x.html', 'notes.txt', 'docs/nope.html', 'docs/new.html', '\\\\server\\share\\x.html']) {
+  for (const p of ['.hidden/x.html', 'notes.txt', 'docs/nope.html', '\\\\server\\share\\x.html']) {
     const r = await dropMockup(state, { cwd: way, path: p, branch: 'T' }, home);
     assert.equal(r.ok, false, `${p} should be refused`);
   }
-  assert.match((await dropMockup(state, { cwd: way, path: 'docs/new.html', branch: 'T' }, home)).message, /not committed/);
-  assert.equal((await dropMockup(state, { cwd: tmp, path: 'outside.html', branch: 'T' }, home)).ok, false, 'a folder that is not a git repo');
   assert.equal((await dropMockup(state, { cwd: 'relative/dir', path: 'docs/motion.html', branch: 'T' }, home)).ok, false, 'no known folder');
   assert.equal(drops().length, 0);
+});
+
+test('2026-10-31: an uncommitted page, or one in no repo at all, goes too: Samara keeps it in the mockups home', async () => {
+  clear();
+  const r = await dropMockup(state, { cwd: way, path: 'docs/new.html', branch: 'T' }, home);
+  assert.equal(r.ok, true, r.message);
+  assert.match(r.message, /private mockups repo/);
+  const r2 = await dropMockup(state, { cwd: tmp, path: 'outside.html', branch: 'T' }, home);
+  assert.equal(r2.ok, true, r2.message);
+  const d = drops().find((x) => x.path === 'outside.html');
+  assert.equal(realpathSync.native(d.repo), realpathSync.native(tmp), 'its folder is the session folder it is in');
+  assert.equal(drops().length, 2);
 });
 
 test('a page in another repo is filed under that repo, from any session folder (2026-10-28)', async () => {

@@ -9,16 +9,16 @@
 // takeMockupFile: it checks everything again) into Samara's MOCKUPS trail, with its versions.
 //
 // THE CHECKS (the Shell repeats them; nothing else is ever written):
-//   - a file must be an .html page inside the git repo the session runs in (its real path, links followed, so a link
-//     out of the repo is refused), no folder or file starting with a dot on the way, and already committed: the trail
-//     shows every version as it was committed, so an uncommitted page has nothing to show yet;
+//   - a file must be an .html page inside its project's folder (its git repo, else the session's folder, else its own
+//     folder; its real path, links followed, so a link out is refused), no folder or file starting with a dot on the way.
+//     2026-10-31 (his pick): it need not be committed there: Samara copies every version into his private mockups repo
+//     (src/Shell/src/mockhome.ts), so a public project never carries a mockup;
 //   - in AangApp itself, only under the mockup folders (docs/, src/Shell/pages/, assets/), as before;
 //   - a live page must be http(s) on this computer (127.0.0.1, localhost, ::1), with no user name in it;
 //   - the title is cut to 80 characters, the branch name is 1 to 40 or dropped.
-import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import { readJson, saveText } from './store.ts';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -67,19 +67,6 @@ export function repoOf(dir: string): string | null {
   return null;
 }
 
-// Security check 2026-10-24 (finding 10): a repo's own git settings (fsmonitor, hooks, filters) can run a program when
-// git looks at working files. Only what is committed is asked about, with those settings off (as in Shell mockups.ts).
-const GIT_SAFE = ['-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${os.devNull}`, '-c', 'core.untrackedCache=false', '-c', 'protocol.allow=never'];
-/** The id git gives a file's bytes, worked out here; Windows line endings counted both ways. */
-const blobIds = (bytes: Buffer) => { const id = (b: Buffer) => createHash('sha1').update(`blob ${b.length}\0`).update(b).digest('hex'); return [id(bytes), id(Buffer.from(bytes.toString('latin1').replace(/\r\n/g, '\n'), 'latin1'))]; };
-/** git, read-only, with an argument list (never a shell). */
-function git(repo: string, args: string[]): Promise<{ ok: boolean; out: string }> {
-  return new Promise((done) => {
-    try { execFile('git', ['-C', repo, ...GIT_SAFE, ...args], { windowsHide: true, timeout: 10_000, env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' } }, (e, out) => done({ ok: !e, out: String(out ?? '').trim() })); }
-    catch { done({ ok: false, out: '' }); }
-  });
-}
-
 /**
  * Checks one show_mockup request and, when it passes, leaves its .mockup file in `<stateDir>/open-urls`. Never throws.
  * `homeRepo` is AangApp (a test passes its own).
@@ -113,8 +100,10 @@ export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HO
       file = realpathSync.native(path.resolve(cwd || homeRepo, raw));
       if (!statSync(file).isFile()) throw new Error('not a file');
     } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
-    const root0 = repoOf(path.dirname(file));
-    if (!root0) return { ok: false, message: `${path.basename(file)} is not in a git repo. The Mockups trail keeps every version from git: put it in one and commit it, then call show_mockup again.` };
+    // Its project's folder: the repo, else the session's folder, else the page's own (never his whole home folder).
+    const real = (() => { try { return cwd && path.isAbsolute(cwd) ? realpathSync.native(cwd) : ''; } catch { return ''; } })();
+    const root0 = repoOf(path.dirname(file)) ?? (real && inside(file, real) && file !== real ? real : path.dirname(file));
+    if ([os.homedir(), path.parse(root0).root].some((d) => same(path.resolve(d), path.resolve(root0)))) return { ok: false, message: "Put the page in its project's folder (not straight in the home folder), then call show_mockup again." };
     try { root = realpathSync.native(root0); } catch { return { ok: false, message: `No such file: ${raw.slice(0, 200)}` }; }
     if (!inside(file, root)) return { ok: false, message: 'path must be inside your own repo.' };
     const rel = path.relative(root, file).split(path.sep).join('/');
@@ -124,15 +113,10 @@ export async function dropMockup(stateDir: string, ask: MockupAsk, homeRepo = HO
     const home = (() => { try { return realpathSync.native(homeRepo); } catch { return path.resolve(homeRepo); } })();
     const isHome = same(root, home);
     if (isHome && !MOCK_DIRS.some((d) => rel.startsWith(d))) return { ok: false, message: 'In AangApp, mockups live under docs/, src/Shell/pages/ or assets/.' };
-    const there = await git(root, ['cat-file', '-e', `HEAD:${rel}`]);
-    if (!there.ok) return { ok: false, message: `${rel} is not committed yet. The Mockups trail shows each version as committed (that is how he gets V1, V2...): commit it, then call show_mockup again.` };
-    const head = (await git(root, ['rev-parse', '--verify', `HEAD:${rel}`])).out;
-    let dirty = false;
-    try { dirty = !blobIds(readFileSync(file)).includes(head); } catch { /* read above: there */ }
     body = isHome ? { path: rel } : { repo: root, path: rel };
     const r = write(stateDir, { ...body, ...extra(ask) }, title, branch);
     if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
-    return { ok: true, file: r, message: `Showing ${rel} in Samara's Mockups trail${branch ? ` (branch ${branch})` : ''}.${dirty ? ' It has changes that are not committed: he sees it as last committed, so commit and call again to show the new version.' : ''}${branchNote}` };
+    return { ok: true, file: r, message: `Showing ${rel} in Samara's Mockups trail${branch ? ` (branch ${branch})` : ''}; Samara keeps this version in his private mockups repo.${branchNote}` };
   }
   const r = write(stateDir, { ...body, ...extra(ask) }, title, branch);
   if (!r) return { ok: false, message: 'The page could not be handed to Samara (his Aang folder could not be written).' };
