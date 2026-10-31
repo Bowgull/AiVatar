@@ -24,6 +24,13 @@
 </head>
 <body>
 <h1>110 · Claude's tabs in the list</h1>
+<div class="row"><div class="opt"><h2>V3 · YOUR PICK: B WITH A BREATHING GLOW</h2><p>Claude's spark at the end of each row, and a soft orange glow in Claude's own orange that breathes in and out every 3 seconds. These are 8 real frames from Samara, played in a loop.</p><div class="pic"><img id="breath" src="sheet-110/e-0.png" alt=""></div></div></div>
+<script>
+  const F = ['0','0.125','0.25','0.375','0.5','0.625','0.75','0.875'].map((p) => `sheet-110/e-${p}.png`);
+  F.forEach((f) => { new Image().src = f; });
+  let i = 0; setInterval(() => { i = (i + 1) % F.length; document.getElementById('breath').src = F[i]; }, 400);
+</script>
+<p class="lead" style="margin-top:30px">Earlier options (v2):</p>
 <p class="lead">The gold strip means: Claude is using this tab, not you. But the header above already says that (Claude's spark, JOB SCAN, the stop key). Four ways to drop the strip, shown at 2x so you can see them.</p>
 <div class="row">
   <div class="opt"><h2>NOW</h2><p>The gold strip on each of Claude's tabs.</p><div class="pic"><img src="sheet-110/now.png" alt=""></div></div>
