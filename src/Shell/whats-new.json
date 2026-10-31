@@ -930,6 +930,11 @@
       "at": "2026-10-31T11:41:00-04:00",
       "text": "After STOP ALL, Claude can start again in the same chat.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T12:32:00-04:00",
+      "text": "Claude can update Aang right away when you ask, without waiting for you to step away.",
+      "kind": "fix"
     }
   ]
 }

@@ -196,6 +196,21 @@ test('door: unsigned, wrongly signed, stale or web-page requests are refused; th
   } finally { tracker.close(); await s.stop(); }
 });
 
+test('door: "update Aang now" is signed like everything else, and says so where the brain does not update itself', async () => {
+  const tracker = new JobTracker();
+  const s = new HookServer(PORT, () => {}, null);
+  const door = new LinkDoor(KEY, tracker); s.link = door;
+  await s.start();
+  try {
+    assert.equal((await call('POST', '/link/update-now', '{}', { key: 'x'.repeat(43) })).code, 403, 'wrong key');
+    assert.match(JSON.parse((await call('POST', '/link/update-now', '{}')).text).message, /only the Mac's brain/);
+    let asked = 0;
+    door.onUpdateNow = async () => { asked++; return { ok: true, message: "Putting in Aang's app 1.29.0 (it restarts) now." }; };
+    assert.deepEqual(JSON.parse((await call('POST', '/link/update-now', '{}')).text), { ok: true, message: "Putting in Aang's app 1.29.0 (it restarts) now." });
+    assert.equal(asked, 1);
+  } finally { tracker.close(); await s.stop(); }
+});
+
 test('door: shut when the brain has no key', async () => {
   const s = new HookServer(PORT, () => {}, null);
   await s.start();

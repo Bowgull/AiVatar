@@ -2510,6 +2510,8 @@ export class Core {
   /** Set by index.ts: what to do when the Body asks the Core to stop. The Core does not decide how the
    *  process exits, and importing the shutdown path here would be circular. */
   onShutdownRequest?: () => void;
+  /** His "update Aang now" (index.ts sets it where the brain updates itself: the Mac's AangListener copy). */
+  updateNow: (() => Promise<{ ok: boolean; message: string }>) | null = null;
 
   /**
    * 7: the addon check and the weekly sweep.
@@ -3028,6 +3030,7 @@ export class Core {
       door.starts = this.startBook;
       door.onStart = (session, ev) => this.starter.onEvent(session, ev);
       door.onProbe = (ask) => this.starter.probe(ask, this.cfg.dataDir);
+      door.onUpdateNow = () => this.updateNow ? this.updateNow() : Promise.resolve({ ok: false, message: "Aang doesn't update himself on this machine (only the Mac's brain does)." });
       this.hookServer.link = door;
     }
     // The message engine's handshake (2026-10-29): on the PC its Qwen writes notices for the Mac's brain (free); on the Mac,
