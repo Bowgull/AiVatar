@@ -213,6 +213,7 @@ export class EngineUpdates {
         return;
       }
       console.log(`shell: castLabs engine ${v} is on GitHub (running ${cur}); getting it ready`);
+      if (this.ready) { this.getting = v; this.o.changed(this.ready); }
       const dir = path.join(this.engines, 'castlabs-' + v);
       if (!existsSync(path.join(dir, 'electron.exe'))) {
         mkdirSync(this.engines, { recursive: true });
@@ -227,8 +228,13 @@ export class EngineUpdates {
       console.log(`shell: castLabs engine ${v} is ready; the update key is showing`);
     } catch (e) {
       console.log('shell: engine update check: ' + (e as Error).message);
-    } finally { this.busy = false; }
+    } finally {
+      this.busy = false;
+      if (this.getting) { this.getting = ''; this.o.changed(this.ready); }
+    }
   }
+  /** Sheet 114: a newer engine being made ready while `ready` stays on the key. */
+  getting = '';
   /** Sheet 108: castLabs wants him to sign in ('ask'), or Terminal is open for it ('waiting'). */
   signin: 'ask' | 'waiting' | null = null;
   /** The engine waiting for that sign-in. */
