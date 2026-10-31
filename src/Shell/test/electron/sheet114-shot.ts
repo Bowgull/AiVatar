@@ -66,5 +66,21 @@ app.whenReady().then(async () => {
   await para('<b>1.27.1 is getting ready.</b> Press Restart now and Samara waits for it, then puts in the newest. You can keep browsing.');
   await js(`(() => { const g = document.getElementById('upgo'); g.textContent = 'Restart when ready'; })()`);
   await trayShot('3b-tray-wait.png');
-  app.exit(0);
+  // 5. Built (his pick A): the same line from the real card (`coming`), nothing put in by hand. Then 1.27.1 is ready:
+  // the line goes and the Keychain note is back.
+  let bad = 0;
+  const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${what}${d ? '  -- ' + d : ''}`); if (!ok) bad++; };
+  await js(`(() => { document.getElementById('upgo').textContent = 'Restart now'; })()`);
+  b.setUpdate({ ...v1270, version: '1.26.9' }); await wait(600);
+  b.setUpdate({ ...v1270, coming: { next: '1.27.1', now: '1.27.0' } }); await wait(900);
+  const line = await js(`document.getElementById('upkc').innerHTML`);
+  check('the line, as sheet 114 shows it', line === "<b>1.27.1 is getting ready</b> behind this one. Restart now puts in 1.27.0, and 1.27.1 comes to this key when it's ready.", line);
+  check('the line shows', await js(`!document.getElementById('upkc').hidden`) === true);
+  check('the key stays', await js(`!document.getElementById('upkey').classList.contains('away')`) === true);
+  check('Restart now', await js(`document.getElementById('upgo').textContent`) === 'Restart now');
+  await trayShot('4-built-a.png');
+  b.setUpdate({ ...v1270, version: '1.27.1', title: 'Version 1.27.1: Gojo' }); await wait(900);
+  check('ready: the line goes, the Keychain note is back', /Aang Safe Storage/.test(await js(`document.getElementById('upkc').innerHTML`)));
+  console.log(bad ? `${bad} FAILED` : 'ALL PASS');
+  app.exit(bad ? 1 : 0);
 });

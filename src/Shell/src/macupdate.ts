@@ -9,7 +9,10 @@
 
 /** bundle: Samara's new code (a sealed release), or '' when only the engine changes. engine: castLabs' Electron.app,
  *  already checked against its seal and signed for video (evs.ts), when the engine changes. One script either way. */
-export interface MacUpdate { bundle: string; version: string; commit: string; engine?: { app: string; version: string } }
+export interface MacUpdate { bundle: string; version: string; commit: string; engine?: { app: string; version: string };
+  /** The folder it is made in: 'staged' (the one Restart now puts in), or 'staged-next' (sheet 114: a newer one made
+   *  behind the ready one, which keeps its key; it moves to 'staged' once it is ready). */
+  stage?: 'staged' | 'staged-next' }
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
 export function macUpdateScript(o: MacUpdate): string {
@@ -17,6 +20,8 @@ export function macUpdateScript(o: MacUpdate): string {
   if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(o.version) || !/^[0-9a-f]{12,40}$/.test(o.commit)) throw new Error('not a release');
   if (o.bundle ? !o.bundle.endsWith('.tgz') : !e) throw new Error('not a release');
   if (e && (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(e.version) || !e.app.endsWith('/Electron.app'))) throw new Error('not an engine');
+  const slot = o.stage ?? 'staged';
+  if (slot !== 'staged' && slot !== 'staged-next') throw new Error('not a stage');
   const installed = JSON.stringify({ version: o.version, commit: o.commit.slice(0, 12), status: 'trial', from: 'github', ...(e ? { engine: e.version } : {}) });
   const stage = e ? `${o.version}+${e.version}` : o.version;
   return `#!/bin/bash
@@ -24,7 +29,7 @@ export function macUpdateScript(o: MacUpdate): string {
 set -e
 PHASE="$1"; VERSION=${q(stage)}; BUNDLE=${q(o.bundle)}; ENGINE=${q(e?.app ?? '')}; EV=${q(e?.version ?? '')}
 DIR="$HOME/Library/Application Support/AangListener"; BR="$DIR/browser"; APP="$HOME/Applications/Samara.app"
-RB="$BR/rollback"; STAGE="$BR/staged"; NODE_DIR="$DIR/node"
+RB="$BR/rollback"; STAGE="$BR/${slot}"; NODE_DIR="$DIR/node"
 LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 case "$PHASE" in prepare|swap) ;; *) echo "prepare or swap"; exit 2 ;; esac
 # Opening Samara again (2026-10-30, seen on his Mac on Oct 29: \`open -a\` answered -600 "procNotFound" while the old
@@ -91,6 +96,12 @@ if [ "$PHASE" = "prepare" ]; then
   # castLabs' video signature first, then the Mac's own (castLabs' order): the video one is already in the engine.
   sign_app "$NEWAPP"
   codesign --verify --deep "$NEWAPP" >/dev/null 2>&1 || true
+  # A new engine: castLabs' own check on the finished Samara, which must be a real video signature, not the development
+  # one every castLabs engine arrives with (2026-10-31: 44.9.3 went in with only that, so Netflix and Prime refuse it).
+  if [ -n "$ENGINE" ]; then
+    VMP="$("$DIR/evs/bin/python3" -m castlabs_evs.vmp -n verify-pkg "$STAGE" 2>&1)" && ! printf '%s' "$VMP" | grep -qi "development only" \
+      || { echo "The new Samara is not signed for video."; printf '%s\n' "$VMP" | tail -2; exit 1; }
+  fi
   # Not an app macOS should know: the Dock could take it for his Samara and show a second one.
   touch "$BR/.metadata_never_index"; "$LSR" -u "$NEWAPP" >/dev/null 2>&1 || true
   printf '%s' "$VERSION" > "$STAGE/version"

@@ -34,6 +34,13 @@ export function readSigning(code: number | null, text: string): Signed {
   return 'failed';
 }
 
+/** castLabs' check of a signed engine: only a real one counts. Every castLabs engine arrives with a development
+ *  signature ("Certificate is valid for development only"), which Netflix and Prime refuse (2026-10-31: Samara took
+ *  that one for signed, so 44.9.3 went in without his). */
+export function readVerify(code: number | null, text: string): boolean {
+  return code === 0 && /signature is valid/i.test(text) && !/development only/i.test(text);
+}
+
 /** The sign-in command, exactly as he will see it typed in Terminal. */
 export const signinCommand = (py: string): string[] => [py, '-m', 'castlabs_evs.account', 'reauth'];
 
@@ -57,6 +64,7 @@ export function pcSigninCommand(py: string): string {
   return `Write-Host 'Sign in to castLabs (your castLabs account), then come back to Samara.'; & ${q(py)} -m castlabs_evs.account reauth; Write-Host 'Done. You can close this window.'`;
 }
 
+const tail = (t: string) => t.split(/\r?\n/).filter(Boolean).slice(-3).join(' | ').slice(0, 400);
 const runIt: Run = (cmd, args, o = {}) => new Promise((res) => {
   const t = spawn(cmd, args, { cwd: o.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let text = '';
@@ -105,13 +113,24 @@ export class Evs {
     return true;
   }
 
-  /** Sign an engine (the folder holding Electron.app, or electron.exe) for video. */
+  /** Sign an engine (the folder holding Electron.app, or electron.exe) for video, on this machine with his castLabs
+   *  account (his pick, 2026-10-30: each machine signs its own). Signed only when castLabs' own check then agrees. */
   async sign(engineDir: string): Promise<Signed> {
     if (!(await this.ensure())) return 'failed';
-    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', 'sign-pkg', engineDir], { timeoutMs: 5 * 60_000 });
+    // -n: never stop to ask for a password (nobody would see it); a missing sign-in comes back as 'signin'.
+    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', '-n', 'sign-pkg', engineDir], { timeoutMs: 5 * 60_000 });
     const r = readSigning(out.code, out.text);
-    if (r !== 'ok') this.log(`update: castLabs signing said ${r} (exit ${out.code}): ${out.text.split(/\r?\n/).filter(Boolean).slice(-3).join(' | ').slice(0, 400)}`);
-    return r;
+    if (r !== 'ok') { this.log(`update: castLabs signing said ${r} (exit ${out.code}): ${tail(out.text)}`); return r; }
+    if (await this.verify(engineDir)) return 'ok';
+    this.log('update: castLabs signed the engine, but its own check does not agree');
+    return 'failed';
+  }
+
+  /** castLabs' own check: true only for a real (not development) signature on the folder holding the app. */
+  async verify(engineDir: string): Promise<boolean> {
+    if (!(await this.ensure())) return false;
+    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', '-n', 'verify-pkg', engineDir], { timeoutMs: 2 * 60_000 });
+    return readVerify(out.code, out.text);
   }
 
   /** When castLabs last saw him sign in (its file's time), or 0. */
