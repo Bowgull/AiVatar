@@ -3100,7 +3100,7 @@ sealed class PetWindow : Form
             var highlightItem = new ToolStripMenuItem("Highlight") { Tag = "avatar" };
             highlightItem.Click += (_, _) => _ = link.SendAsync(new { t = "highlight" });
             aangMenu.DropDownItems.Insert(1, highlightItem);
-            // 6.20: Aang's browser. The click lands in the pet, so the pet hands the foreground on first.
+            // 6.20: Samara. The click lands in the pet, so the pet hands the foreground on first.
             var browserItem = new ToolStripMenuItem("Browser");
             browserItem.Click += (_, _) => { Win32.AllowSetForegroundWindow(Win32.ASFW_ANY); _ = link.SendAsync(new { t = "browser" }); };
             aangMenu.DropDownItems.Insert(2, browserItem);

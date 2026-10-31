@@ -1690,7 +1690,7 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
 let snipper: Snipper | null = null;
 /** Samara's startup (boot.ts): its first part once the pages are served, then the browser. */
 let base: SamaraBase | null = null, boot: SamaraBooted | null = null;
-/** 6.19/6.20: Aang's browser, made when the pages are being served. */
+/** 6.19/6.20: Samara, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
 /** A planned restart for an update (2026-10-14, "extremely smooth"): the pet starts Samara again at once, without its
  *  crash pause, and does not count it as a crash. */

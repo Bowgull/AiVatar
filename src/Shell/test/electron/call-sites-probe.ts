@@ -1,4 +1,4 @@
-// 6.24: do Zoom's and Teams' web clients accept Aang's browser? Loads their public join pages (no sign-in, nothing
+// 6.24: do Zoom's and Teams' web clients accept Samara? Loads their public join pages (no sign-in, nothing
 // typed, nothing sent) in a hidden window with a throwaway profile and the browser's own user agent, and reports
 // whether the page says the browser is not supported.
 //

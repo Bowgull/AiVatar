@@ -51,7 +51,7 @@ export type FromShadow = { id: number; op: string; args: unknown[] } | { op: 'ta
 const MAX_QUEUE = 500;
 /** M4b: where this Mac's Claude Code hooks go when the PC does not answer. Loopback only. */
 export const LOCAL_HOOK_PORT = 47842;
-/** Sheet 21: the Mac's Aang browser draws cards for the front desk here. Loopback only, with the hook key. */
+/** Sheet 21: the Mac's Samara draws cards for the front desk here. Loopback only, with the hook key. */
 export const MAC_CARD_PORT = 47843;
 const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "wait" before that if Shadow is slow
 
@@ -301,7 +301,7 @@ async function main(dir: string): Promise<void> {
   let brain: DeskBrain | undefined;
   try {
     const { MacBrain, HOLD_MS } = await import('./macbrain.ts');
-    // Cards are drawn by the Mac's Aang browser, through its door on this Mac only (macmain.ts, port 47843).
+    // Cards are drawn by the Mac's Samara, through its door on this Mac only (macmain.ts, port 47843).
     const cardKey = (() => { try { return read('hook.key'); } catch { return ''; } })();
     const draw = async (kind: string, data: unknown): Promise<Buffer | null> => {
       if (cardKey.length < 20) return null;

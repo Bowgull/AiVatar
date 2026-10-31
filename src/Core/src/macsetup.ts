@@ -245,7 +245,7 @@ export interface DeskPayload {
   token: string; key: string; port: number; files: Record<string, string | Buffer>;
   /** M4b: his Google access (google.json), when he picked email and calendar on the Mac */
   google?: string;
-  /** M6: Aang's browser for the Mac: its code and pages packed (tar.gz), and the key its sync uses */
+  /** M6: Samara for the Mac: its code and pages packed (tar.gz), and the key its sync uses */
   browser?: { bundle: Buffer; bsyncKey: string; castlabsSig: Buffer };
 }
 /** Code audit L11: Node for the Mac, pinned to a version and fingerprint (from nodejs.org's SHASUMS256.txt, 2026-10-14). */
@@ -500,7 +500,7 @@ else
 fi
 ` : ''}fi
 ${desk?.browser ? `if [ "$PHASE" != "post" ]; then
-echo "5/6  Samara, Aang's browser (M6): the same browser as on the PC, kept in step with it"
+echo "5/6  Samara (M6): the same browser as on the PC, kept in step with it"
 ( umask 077; printf '%s' ${q(desk.browser.bsyncKey)} > "$DIR/bsync.key" )
 BR="$DIR/browser"; mkdir -p "$BR"
 EV=${ELECTRON_MAC.version}; ZIP="electron-v$EV-darwin-x64.zip"; SUM=${ELECTRON_MAC.sha256}
@@ -529,7 +529,7 @@ make_signer() {
 }
 sign_app() { codesign --force --deep -s "$SIGNER" "$1" >/dev/null 2>&1 || codesign --force --deep -s - "$1" >/dev/null 2>&1 || true; }
 make_signer && SIGNER="$SIGN_ID"
-# One engine (his yes, 2026-10-13): Aang's browser is built on castLabs' engine for Intel Macs, so paid video plays
+# One engine (his yes, 2026-10-13): Samara is built on castLabs' engine for Intel Macs, so paid video plays
 # right in its tabs. Pinned, with the streaming signature made on the PC
 # with his free castLabs account (the signature is a small file tied to exactly this engine). Signed for macOS
 # afterwards, in that order, as castLabs says.

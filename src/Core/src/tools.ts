@@ -259,7 +259,7 @@ export interface Doers {
   quotaGate?(tool: string, input: Record<string, unknown>): Promise<string | null>;
   /** S2 2.7: what these tools return can hold someone else's words (a pasted page, a session's output). */
   markOutside?(): void;
-  /** 6.25a: drive Aang's browser, in its own hidden tabs. */
+  /** 6.25a: drive Samara, in its own hidden tabs. */
   browse?(a: { action: string; url?: string; page?: number; n?: number; text?: string; enter?: boolean; what?: string }): Promise<{ ok: boolean; text: string; image?: { data: string; mimeType: string } }>;
   /** The background worker. Left out of the worker's own tools, so a job can never start more jobs. */
   tasks?: {

@@ -1,6 +1,6 @@
-# Operating Samara, Aang's browser (aang-browser), for the job hunt
+# Operating Samara (aang-browser), for the job hunt
 
-This replaces chrome-extension.md for all browser work. Samara (Aang's browser) is Josh's own browser on this machine, signed in as him (LinkedIn, Indeed, Gmail), synced with his other machine. You drive your own hidden tabs in it; Josh sees them grouped in his tab list under the task name you give, with a STOP key. Only if the aang-browser tools are missing: stop and ask Josh before using Claude in Chrome.
+This replaces chrome-extension.md for all browser work. Samara is Josh's own browser on this machine, signed in as him (LinkedIn, Indeed, Gmail), synced with his other machine. You drive your own hidden tabs in it; Josh sees them grouped in his tab list under the task name you give, with a STOP key. Only if the aang-browser tools are missing: stop and ask Josh before using Claude in Chrome.
 
 ## Which browser and account
 - There is no browser to pick: aang-browser only ever drives Josh's own browser, never Person B's device.

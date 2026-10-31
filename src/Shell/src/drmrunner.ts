@@ -24,7 +24,7 @@ export interface DrmDeps {
 /** Where castLabs Electron lives. Installed as `electron-drm` so it sits beside the stock one. */
 export const drmElectron = (shellDir: string) =>
   process.platform === 'darwin'
-    // M6: on the Mac, the castLabs app the Mac setup put beside Aang's browser, VMP-signed for streaming.
+    // M6: on the Mac, the castLabs app the Mac setup put beside Samara, VMP-signed for streaming.
     ? path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'browser', 'drm-44.9.3', 'Electron.app', 'Contents', 'MacOS', 'Electron')
     : path.join(shellDir, 'node_modules', 'electron-drm', 'dist', 'electron.exe');
 

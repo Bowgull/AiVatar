@@ -1,5 +1,5 @@
 // Can this engine play protected (Widevine) video at all? Off screen, nothing on his screen. Run with the stock
-// engine (Aang's browser) and with the castLabs one (the paid-video runtime) to compare.
+// engine (Samara) and with the castLabs one (the paid-video runtime) to compare.
 //
 // Run: npx electron test/electron/drm-check.ts            (stock)
 //      node_modules/electron-drm/dist/electron.exe test/electron/drm-check.ts   (castLabs)

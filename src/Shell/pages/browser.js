@@ -943,7 +943,7 @@ function tabMenu(t, x, y) {
   tv('Just the video', () => window.aang?.browserTab?.({ id: t.id, act: 'tvvideo' }));
   if (!secret) {
     item(OTHER.label, () => window.aang?.browserToMac?.(t.id));
-    // His ask (2026-10-13): the page as a full tab in Aang's browser on the other machine, brought to the front there.
+    // His ask (2026-10-13): the page as a full tab in Samara on the other machine, brought to the front there.
     item(OTHER.open, () => window.aang?.browserOpenOther?.(t.id));
   }
   sep();
