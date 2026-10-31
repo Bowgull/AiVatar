@@ -426,7 +426,7 @@ function picked(id: string): void {
   if (id === 'hide') { hidden = true; bubble?.hide(); input?.close(false); setPose('hidden'); pet?.hide(); return; }
   if (id.startsWith('model.')) { inputMode = id.slice(6); link.send({ t: 'mode', mode: inputMode as never }); return; }
   if (id === 'saving') { link.send({ t: 'saving', on: lastLevel !== 'saving' }); return; }
-  if (id === 'quit') { app.quit(); return; }
+  if (id === 'quit') { console.log('aang: quit from his menu'); app.quit(); return; }
   // gopc: the PC's Aang joins in phase 6; the row stays dim until then.
 }
 /**

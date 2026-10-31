@@ -91,6 +91,12 @@ if [ "$PHASE" = "prepare" ]; then
   # castLabs' video signature first, then the Mac's own (castLabs' order): the video one is already in the engine.
   sign_app "$NEWAPP"
   codesign --verify --deep "$NEWAPP" >/dev/null 2>&1 || true
+  # A new engine: castLabs' own check on the finished Samara, which must be a real video signature, not the development
+  # one every castLabs engine arrives with (2026-10-31: 44.9.3 went in with only that, so Netflix and Prime refuse it).
+  if [ -n "$ENGINE" ]; then
+    VMP="$("$DIR/evs/bin/python3" -m castlabs_evs.vmp -n verify-pkg "$STAGE" 2>&1)" && ! printf '%s' "$VMP" | grep -qi "development only" \
+      || { echo "The new Samara is not signed for video."; printf '%s\n' "$VMP" | tail -2; exit 1; }
+  fi
   # Not an app macOS should know: the Dock could take it for his Samara and show a second one.
   touch "$BR/.metadata_never_index"; "$LSR" -u "$NEWAPP" >/dev/null 2>&1 || true
   printf '%s' "$VERSION" > "$STAGE/version"
