@@ -605,7 +605,6 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .stopk.armed{width:auto;padding:0 6px;font:700 12px Figtree,system-ui,sans-serif;letter-spacing:.2px;color:#ffe4dc}
 .slot .who{display:inline-flex;align-items:center;gap:8px;color:#ffe28c;-webkit-app-region:no-drag}
 .slot .who img{width:16px;height:16px;image-rendering:pixelated}
-.tp.drv{box-shadow:inset 3px 0 0 #ffe28c}
 .watchpic{z-index:2;background:#24160d}
 
 /* 6.28 the update key (sheet 18, his pick 2026-10-13: the arrow and the word). The downloads key's own size, pop-in
@@ -815,7 +814,16 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .drawer .tp .zz.moon svg{display:block}
 .drawer .tp.crash{background:linear-gradient(180deg,#5a2a22,#3a1712);color:#ffcfc4;border-style:dashed}
 .drawer .tp.done{background:linear-gradient(180deg,#4b5a36,#2f3a20);color:#d6e6c0}
-.drawer .tp.drv{box-shadow:0 4px 0 var(--outline),inset 3px 0 0 #ffe28c}
+/* Sheet 110 v3 (his pick, 2026-10-31): no gold strip. Whose tab it is sits at the end of the row (Claude's spark, Aang's
+   face), and Claude's tabs breathe a soft glow in Claude's own orange. */
+.drawer .tp.drv{box-shadow:0 4px 0 var(--outline)}
+.drawer .tp.drv .own{margin-left:auto;flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;opacity:.9}
+.drawer .tp.drv .own img{width:18px;height:18px;image-rendering:pixelated}
+.drawer .tp.by-claude{animation:claudebreath 3.2s ease-in-out infinite}
+@keyframes claudebreath{
+  0%,100%{box-shadow:0 4px 0 var(--outline),0 0 0 2px rgba(217,119,87,.30),0 0 6px 1px rgba(217,119,87,.18)}
+  50%{box-shadow:0 4px 0 var(--outline),0 0 0 2px rgba(217,119,87,.75),0 0 14px 3px rgba(217,119,87,.45)}}
+@media (prefers-reduced-motion:reduce){.drawer .tp.by-claude{animation:none;box-shadow:0 4px 0 var(--outline),0 0 0 2px rgba(217,119,87,.55)}}
 /* His call (2026-10-20): no CTRL T keycap on New tab. The shortcut still works. */
 .drawer .newtab .k{display:none}
 /* His note (2026-10-20): still a touch big beside the tabs. 44 px keys, 22 px icons: lighter, and room round them in the frame. */
@@ -1101,10 +1109,10 @@ html.windrag,html.windrag *{cursor:grabbing !important}
 /* ---- Sheet 79 (2026-10-23): a version's stage, one chip; the one-click Approve on a draft; the fix note. ---- */
 .drawer .mv{flex-wrap:wrap}
 .drawer .mv i.mk{font:800 11.5px/1 var(--body);letter-spacing:.5px;padding:4px 6px 3px;border-radius:4px;cursor:pointer}
-.drawer .mv i.mk.ok{background:#FFC43C;color:#2a1c00;box-shadow:0 0 6px rgba(255,196,60,.45)}
+.drawer .mv i.mk.ok{background:#1f9e94;color:#eafffc}
 .drawer .mv i.mk.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c;cursor:default}
 .drawer .mv i.mk.chg{background:#e8913a;color:#2b1405}
-.drawer .mv i.mk.park{background:#4a3f33;color:#b9a684}
+.drawer .mv i.mk.park{background:#5b3f8c;color:#e2d4ff}
 .drawer .mv.parked{opacity:.55}
 .drawer .mv.parked .vv,.drawer .mv.parked .tm{text-decoration:line-through;text-decoration-color:rgba(185,166,132,.6)}
 .drawer .mv .apr{display:none;margin-left:6px;font:800 11.5px/1 var(--body);letter-spacing:.5px;padding:3px 6px 2px;border-radius:4px;border:1.5px solid #FFC43C;color:#ffe28c;background:rgba(255,196,60,.08);cursor:pointer}
@@ -1112,11 +1120,11 @@ html.windrag,html.windrag *{cursor:grabbing !important}
 .drawer .mv .apr:hover{background:#FFC43C;color:#2a1c00}
 .drawer .mv .note{flex-basis:100%;margin:2px 0 0 26px;font:500 11.5px var(--body);color:#e8b27a;font-style:italic;text-align:left}
 .drawer .mvnote{display:block;width:calc(100% - 30px);margin:2px 0 4px 26px;box-sizing:border-box;padding:4px 6px;border-radius:5px;border:2px solid #e8913a;background:#1a120b;color:#ffe28c;font:600 12px var(--body);outline:none}
-.drawer .msr .okv{flex:0 0 auto;font:800 11px/1 var(--body);letter-spacing:.4px;padding:4px 6px 3px;border-radius:4px;background:#FFC43C;color:#2a1c00}
+.drawer .msr .okv{flex:0 0 auto;font:800 11px/1 var(--body);letter-spacing:.4px;padding:4px 6px 3px;border-radius:4px;background:#1f9e94;color:#eafffc}
 .drawer .msr .okv.built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c}
 
 /* Sheet 81 (2026-10-23): an open mockup's V chip wears its stage. */
-.tp .ver.st-ok{background:#FFC43C;color:#2a1c00}
+.tp .ver.st-ok{background:#1f9e94;color:#eafffc}
 .tp .ver.st-built{background:#2f7d3e;color:#e9ffe9;box-shadow:inset 0 0 0 1.5px #5fbf6c;position:relative}
 .tp .ver.st-built::after{content:"✓";position:absolute;right:-5px;top:-6px;width:12px;height:12px;border-radius:50%;font:900 8px/12px var(--body);text-align:center;background:#e9ffe9;color:#2f7d3e;box-shadow:0 0 0 1.5px #2f7d3e}
 .tp .ver.st-fix{background:#e8913a;color:#2b1405}

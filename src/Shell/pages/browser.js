@@ -2059,10 +2059,12 @@ function driverNodes() {
     out.push(h);
     for (const p of j.pages) {
       const row = document.createElement('div');
-      row.className = 'tp drv' + (state.watching?.page === p.id ? ' on' : '');
+      row.className = 'tp drv ' + (j.kind === 'claude' ? 'by-claude' : 'by-aang') + (state.watching?.page === p.id ? ' on' : '');
       row.title = p.url; row.tabIndex = 0;
       if (p.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = p.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); row.append(i); }
       row.append(Object.assign(document.createElement('span'), { className: 't', textContent: p.title || p.url }));
+      // Sheet 110 v3 (his pick, 2026-10-31): whose tab it is, at the end of the row where his own tabs have the close key.
+      const own = driverIcon(j.kind); own.className = 'own'; row.append(own);
       row.addEventListener('click', () => window.aang?.browserDriver?.({ act: 'watch', id: p.id }));
       row.addEventListener('dblclick', () => window.aang?.browserDriver?.({ act: 'open', id: p.id }));
       out.push(row);
