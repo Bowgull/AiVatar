@@ -2,7 +2,8 @@
 // STOP today ends Claude's whole job and the chat cannot start again. The sheet shows Pause and Go on per tab, in the
 // tab list and on the band, with STOP left as the stop for all. Real band and list layer: the list holds a made-up
 // "Job scan" of three Claude tabs (as sheet 110), the band shows him watching one of them (Samara's real paintWho).
-// The new pieces use Samara's own keys (takek, stopk) and chip (dupchip). Nothing is built.
+// The new pieces use Samara's own keys (takek, stopk) and chip (dupchip), on the rows as sheet 110 v3 built them
+// (Claude's spark at the end, the orange breath). Nothing is built.
 // Run (from src/Shell): perl -e 'alarm 120; exec @ARGV' node_modules/electron/dist/Electron.app/Contents/MacOS/Electron test/electron/sheet111-shot.ts <out-prefix>
 import { app, BrowserWindow, screen } from 'electron';
 import http from 'node:http';
@@ -40,19 +41,21 @@ const POSTING = `<!doctype html><title>Contoso - Account Manager, Partners</titl
 const PAUSE = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 1h2v5H1zM4 1h2v5H4z" fill="#2a1c00"/></svg>';
 const GO = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 1h1v5H2zM3 2h1v3H3zM4 3h1v1H4z" fill="#2a1c00"/></svg>';
 const LIST_CSS = `
-  .pk111{margin-left:auto;width:22px;height:22px;flex:0 0 auto;border-radius:6px;border:2.5px solid var(--outline);display:grid;place-items:center;padding:0;cursor:pointer;
+  .pk111{margin-left:4px;width:22px;height:22px;flex:0 0 auto;border-radius:6px;border:2.5px solid var(--outline);display:grid;place-items:center;padding:0;cursor:pointer;
     background:var(--gold);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 var(--gold-light);position:relative;top:-1px}
+  .drawer .tp.drv.paused111{animation:none}
   .drawer .tp.drv.paused111 .t{opacity:.55}
-  .drawer .tp.drv.paused111 .fi{opacity:.55;filter:grayscale(1)}
-  .drawer .tp.drv .dupchip{margin-left:auto;margin-right:6px}
-  .drawer .tp.drv .dupchip+.pk111{margin-left:0}`;
+  .drawer .tp.drv.paused111 .fi,.drawer .tp.drv.paused111 .own{opacity:.55;filter:grayscale(1)}
+  .drawer .tp.drv .dupchip{margin-left:auto}
+  .drawer .tp.drv .dupchip+.own{margin-left:6px}`;
+// Sheet 110 v3 (built): Claude's rows end with its spark and breathe orange; Pause goes after the spark.
 // The list: Pause on every working row, the paused row dimmed with PAUSED and Go on. The header's STOP stops all.
 const LIST = (paused: number | null, armed: boolean) => `(() => { try {
   document.querySelectorAll('.drawer .tp.drv .pk111, .drawer .tp.drv .dupchip').forEach((x) => x.remove());
   for (const r of document.querySelectorAll('.drawer .tp.drv')) {
     const id = [...document.querySelectorAll('.drawer .tp.drv')].indexOf(r) + 11, off = id === ${paused};
     r.classList.toggle('paused111', off);
-    if (off) r.append(Object.assign(document.createElement('span'), { className: 'dupchip', textContent: 'PAUSED' }));
+    if (off) r.querySelector('.own').before(Object.assign(document.createElement('span'), { className: 'dupchip', textContent: 'PAUSED' }));
     const k = document.createElement('button'); k.className = 'pk111'; k.type = 'button'; k.innerHTML = off ? ${JSON.stringify(GO)} : ${JSON.stringify(PAUSE)}; r.append(k);
   }
   if (${armed}) { const s = document.querySelector('.drawer .th.driver .stopk'); s.classList.add('armed'); s.textContent = 'STOP ALL?'; }
