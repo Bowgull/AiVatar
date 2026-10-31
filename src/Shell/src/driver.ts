@@ -29,7 +29,7 @@ export type DriverKind = 'aang' | 'claude';
 export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string>;
   /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; /** why it stopped, when it was not his STOP */ stopWhy?: string; steps?: string[]; step?: number; /** every site he allowed in the plan */ allowed?: Set<string>;
   /** He allowed this session to see his Samara window (browser_window / Aang's look): asked once per session. */ windowOk?: boolean }
-export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null; /** last time a tool used it */ used?: number; /** at rest: its timers slowed until it is used again */ resting?: boolean }
+export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void; /** sheet 111: a tab Claude opened itself (it closes with the job, unless he took it) */ own?: boolean }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null; /** last time a tool used it */ used?: number; /** at rest: its timers slowed until it is used again */ resting?: boolean }
 
 export interface DriverDeps {
   ses: Session;
@@ -46,6 +46,18 @@ export interface DriverDeps {
   rules?: { ai(url: string): boolean; login(url: string): boolean | undefined };
   /** Where the ad lists are kept, so the logged-out pages block ads too. */
   stateDir?: string;
+  /**
+   * Sheet 111 (his pick, 2026-10-31): a page a Claude session opens is a real tab of his, in the background, never shown or
+   * focused, in Claude's group in his tab list, so he can click into it and use it (no picture-only pages). Null when
+   * no window is open: the page is a hidden one, as before.
+   */
+  tabFor?(o: { url: string; guest: boolean }): { tab: number; wc: WebContents } | null;
+  /** Close one of those tabs (the job ended or its page was closed). */
+  closeTab?(tab: number): void;
+  /** He has this page (Take over): its guards step aside, he browses as he likes. */
+  held?(page: number): boolean;
+  /** A tab in the background draws nothing: this lets it draw, out of his sight, while fn takes its picture. */
+  drawn?<T>(tab: number, fn: () => Promise<T>): Promise<T>;
 }
 
 /** A read's words: short unless Claude asks for full (2026-10-30, the deep research: every cheap browser tool sends a
@@ -504,7 +516,7 @@ export class Driver {
   allowSite(jobId: number, url: string): void { const j = this.job(jobId); try { if (j?.sites) j.sites.add(siteOf(new URL(url).hostname)); } catch { /* not an address */ } }
   /** The logged-out session: nothing of his in it, kept only in memory, nothing allowed. */
   private guest: Session | null = null;
-  private guestSession(): Session {
+  guestSession(): Session {
     if (this.guest) return this.guest;
     const g = session.fromPartition('samara-guest');
     g.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
@@ -528,7 +540,7 @@ export class Driver {
     const j = this.job(id);
     if (!j) return;
     j.working = false;
-    for (const p of this.pagesOf(j).filter((x) => x.borrowed)) this.close(p.id);
+    for (const p of this.pagesOf(j).filter((x) => x.borrowed && !x.borrowed.own)) this.close(p.id);
     if (j.pages.length === 0) { const i = this.jobs.indexOf(j); if (i >= 0) this.jobs.splice(i, 1); }
     this.d.changed();
   }
@@ -537,14 +549,16 @@ export class Driver {
     const j = this.job(id);
     if (!j || !j.working) return;
     j.working = false; j.stopped = true;
-    for (const p of this.pagesOf(j)) { if (p.borrowed) this.close(p.id); else try { p.wc.stop(); } catch { /* gone */ } }
+    for (const p of this.pagesOf(j)) { if (p.borrowed && !p.borrowed.own) this.close(p.id); else try { p.wc.stop(); } catch { /* gone */ } }
     this.d.changed();
     this.d.stopped(j);
   }
   pagesOf(j: Job): DPage[] { return this.pages.filter((p) => p.job === j.id); }
   page(id: number): DPage | undefined { return this.pages.find((p) => p.id === id && !p.wc.isDestroyed()); }
   /** A driving session's own hidden page (never one of his tabs it has borrowed). */
-  owns(wc: WebContents): boolean { return this.pages.some((p) => !p.borrowed && !p.wc.isDestroyed() && p.wc === wc); }
+  // Sheet 111: a tab Claude opened counts as the session's while Claude drives it (no camera, microphone or downloads),
+  // and as his while he has it.
+  owns(wc: WebContents): boolean { return this.pages.some((p) => (!p.borrowed || (p.borrowed.own && !this.d.held?.(p.id))) && !p.wc.isDestroyed() && p.wc === wc); }
 
   /**
    * One of HIS tabs, lent to a job (2026-10-14, his ask: "look at what I'm looking at", "fill this in for me"): read it
@@ -570,6 +584,8 @@ export class Driver {
     return { page: p.id, title: p.title, url: p.url };
   }
   isBorrowed(pageId: number): boolean { return !!this.page(pageId)?.borrowed; }
+  /** One of HIS tabs, lent (not a tab Claude opened itself). */
+  isLent(pageId: number): boolean { const p = this.page(pageId); return !!p?.borrowed && !p.borrowed.own; }
   /** Is this page his tab, lent for reading only? */
   readOnly(pageId: number): boolean { const p = this.page(pageId); return !!p?.borrowed && !p.borrowed.drive; }
   /** The job driving one of his tabs, if any (the band's "CLAUDE IS DRIVING" and STOP). */
@@ -582,7 +598,7 @@ export class Driver {
   private live(jobId: number): Job {
     const j = this.job(jobId);
     if (!j) throw new Error('there is no such job');
-    if (j.stopped) throw new Error(j.stopWhy ?? 'Joshua pressed STOP on this job, so nothing more is done');
+    if (j.stopped) throw new Error(j.stopWhy ?? 'Joshua stopped the whole job (STOP ALL), so nothing more is done in it. To start again, send a new plan with browser_plan.');
     return j;
   }
 
@@ -610,48 +626,62 @@ export class Driver {
     const lr = this.loginRule(url);
     if (lr === true && j.sites && site) j.sites.add(site);
     const guest = lr === false ? true : lr === true ? false : !!j.sites && !j.sites.has(site);
-    while (this.pagesOf(j).filter((x) => !x.borrowed).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j).find((x) => !x.borrowed)!.id);
-    while (this.pages.filter((x) => !x.borrowed).length >= MAX_PAGES) this.close(this.pages.find((x) => !x.borrowed)!.id);
-    const win = new BrowserWindow({
+    const mine = (x: DPage) => !x.borrowed || x.borrowed.own === true;
+    while (this.pagesOf(j).filter(mine).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j).find(mine)!.id);
+    while (this.pages.filter(mine).length >= MAX_PAGES) this.close(this.pages.find(mine)!.id);
+    const tab = j.kind === 'claude' ? this.d.tabFor?.({ url, guest }) ?? null : null;
+    const win = tab ? null : new BrowserWindow({
       show: false, width: W, height: H, paintWhenInitiallyHidden: true, skipTaskbar: true, focusable: false,
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, session: guest ? this.guestSession() : this.d.ses, preload: this.d.preload, offscreen: true, backgroundThrottling: false },
     });
     // Hidden pages paint slowly (2 a second): offscreen painting is all CPU, and twelve pages at 10 slowed his MacBook
     // (2026-10-14). The one he is watching paints at 10 (see) .
-    win.webContents.setFrameRate(2);
-    win.webContents.setAudioMuted(true);
-    const p: DPage = { id: ++this.pageSeq, job: j.id, win, wc: win.webContents, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
+    const wc = tab ? tab.wc : win!.webContents;
+    if (win) wc.setFrameRate(2);
+    wc.setAudioMuted(true);
+    const p: DPage = { id: ++this.pageSeq, job: j.id, win, wc, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
     this.pages.push(p);
     j.pages.push(p.id);
-    const wc = win.webContents;
-    wc.on('will-attach-webview', (e) => e.preventDefault());
+    // Every listener below is let go if he takes the tab for himself (dragged out of Claude's group).
+    const offs: (() => void)[] = [];
+    const on = ((ev: string, fn: (...x: any[]) => void) => { wc.on(ev as 'destroyed', fn); offs.push(() => { try { wc.off(ev as 'destroyed', fn); } catch { /* gone */ } }); }) as unknown as WebContents['on'];
+    if (tab) p.borrowed = { tab: tab.tab, drive: true, own: true, off: () => { for (const f of offs.splice(0)) f(); } };
+    if (win) wc.on('will-attach-webview', (e) => e.preventDefault());
     // A link that wants a new window opens in this same page instead: his rule, only its own tabs, nothing pops up.
     // Every page it reaches, not just the first (AI lockdown G7, 2026-10-14): links, new windows and redirects all meet
     // the same refusals as browser_open (banks, this machine and home network, the fake-site lists).
     const deniedSite = (u: string) => { try { const s = siteOf(new URL(u).hostname); return !!j.denied?.has(s) || !!this.resting(s); } catch { return false; } };
     const stop = (u: string) => !isWeb(u) || !!this.why(u) || this.d.listed(u).length > 0 || deniedSite(u);
-    wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
+    // (A real tab's own window handler asks openHere: the tab is his, and stays his after a drag out.)
+    if (win) wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
+    this.opens.set(p.id, (u) => { if (stop(u)) { p.blocked = u; return false; } setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); return true; });
     // To another site: private details in the address are stopped (G2), and a signed-in page that leads outside its
     // job's sites hands the address over to a logged-out page instead (G1).
     const elsewhere = (u: string) => { try { return siteOf(new URL(u).hostname) !== siteOf(new URL(p.url).hostname); } catch { return true; } };
     const leaks = (u: string) => !!j.sites && elsewhere(u) && carriesData(u) !== '';
     const outside = (u: string) => { if (p.guest) return false; if (this.loginRule(u) === false) return true; if (!j.sites || this.loginRule(u) === true) return false; try { return !j.sites.has(siteOf(new URL(u).hostname)); } catch { return false; } };
-    wc.on('will-navigate', (e, u) => {
+    // While he has the tab (Take over) it is his browsing: nothing is stopped or handed off under him.
+    const his = () => !!this.d.held?.(p.id);
+    on('will-navigate', (e: Electron.Event, u: string) => {
+      if (his()) return;
       if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; return; }
       if (outside(u)) { e.preventDefault(); p.handoff = u; return; }
       const safe = this.secureFirst(u);
       if (safe !== u) { e.preventDefault(); setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(safe).catch(() => {}); }, 0); }
     });
-    wc.on('will-redirect', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
+    on('will-redirect', (e: Electron.Event, u: string) => { if (his()) return; if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     this.listen(p);
     this.watchReady(p.wc);
-    wc.on('page-title-updated', (_e, t) => { p.title = t.slice(0, 200); this.d.changed(); });
-    wc.on('page-favicon-updated', (_e, icons) => { p.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.d.changed(); });
-    wc.on('did-navigate', (_e, u) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); this.d.changed(); });
-    wc.on('did-navigate-in-page', (_e, u) => { p.url = u; });
+    on('page-title-updated', (_e: unknown, t: string) => { p.title = t.slice(0, 200); this.d.changed(); });
+    on('page-favicon-updated', (_e: unknown, icons: string[]) => { p.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.d.changed(); });
+    on('did-navigate', (_e: unknown, u: string) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); this.d.changed(); });
+    on('did-navigate-in-page', (_e: unknown, u: string) => { p.url = u; });
+    // He closed the tab: the page is gone from the job.
+    if (tab) on('destroyed', () => this.close(p.id));
     this.d.changed();
     const waited = await this.pace(url);
-    await this.settle(wc, wc.loadURL(url));
+    // A real tab already started its address as it was made; a hidden page is sent there now.
+    await this.settle(wc, tab ? undefined : wc.loadURL(url));
     this.checkChallenge(p, await this.state(wc, null).catch(() => ({ url: p.url, title: p.title, lines: [] } as unknown as PageState)));
     return { page: p.id, title: p.title, url: p.url, ...(waited ? { waited } : {}), ...(guest ? { guest: true } : {}) };
   }
@@ -970,7 +1000,7 @@ export class Driver {
   /** The page's size, for testing how a site looks at another width. Only a session's own pages (never his window). */
   resize(pageId: number, width: number, height: number): { width: number; height: number } {
     const { p } = this.wcOf(pageId);
-    if (!p.win) throw new Error("that is his own tab: its size is his window's, never changed by a session");
+    if (!p.win) throw new Error("that page is a tab in his window: its size is his window's, never changed by a session");
     const w = Math.max(320, Math.min(2560, Math.round(width) || 1280)), h = Math.max(320, Math.min(1600, Math.round(height) || 900));
     p.win.setContentSize(w, h);
     return { width: w, height: h };
@@ -1229,7 +1259,7 @@ export class Driver {
 
   /** A picture: of one numbered control, of the best picture or video on the page ('best'), or of what is in view. */
   async picture(pageId: number, what: number | 'best' | 'view' | 'marks'): Promise<{ png: Buffer; video: boolean; width: number; height: number }> {
-    const { wc } = this.wcOf(pageId);
+    const { p, wc } = this.wcOf(pageId);
     if (what === 'marks') {
       await this.read(pageId);
       await ask(wc, MARKS_JS(true));
@@ -1249,25 +1279,42 @@ export class Driver {
     wc.invalidate();
     await new Promise((r) => setTimeout(r, 150));
     // Claude's size (capture.ts): at most 1280 wide, about 1,500 tokens for a full view; a hung page answers in 5 s.
-    const shot = await capture(wc, { ...(rect && rect.width > 4 && rect.height > 4 ? { rect } : {}), maxWidth: SIZES.claude, format: 'png', ms: 5000 });
+    const take = () => capture(wc, { ...(rect && rect.width > 4 && rect.height > 4 ? { rect } : {}), maxWidth: SIZES.claude, format: 'png', ms: 5000 });
+    const shot = p.borrowed && this.d.drawn ? await this.d.drawn(p.borrowed.tab, take) : await take();
     if (!shot) throw new Error('the page gave no picture (it may be busy, or still drawing)');
     return { png: shot.data, video, width: shot.width, height: shot.height };
   }
 
-  close(pageId: number): void {
+  close(pageId: number, keepTab = false): void {
     const i = this.pages.findIndex((p) => p.id === pageId);
     if (i < 0) return;
     const p = this.pages[i]!;
     this.pages.splice(i, 1);
+    this.opens.delete(p.id);
     this.items.delete(p.id);
     this.lastRead.delete(p.id);
     const j = this.job(p.job);
     if (j) j.pages = j.pages.filter((x) => x !== p.id);
     this.unlisten(p);
-    if (p.borrowed) p.borrowed.off(); else try { p.win?.destroy(); } catch { /* gone */ }
+    if (p.borrowed) { p.borrowed.off(); if (p.borrowed.own && !keepTab && !p.wc.isDestroyed()) this.d.closeTab?.(p.borrowed.tab); } else try { p.win?.destroy(); } catch { /* gone */ }
     if (j && !j.pages.length && !j.working) this.jobs.splice(this.jobs.indexOf(j), 1);
     this.d.changed();
   }
+  /**
+   * Sheet 111: he dragged a tab out of Claude's group into his own tabs. It is his now, a plain tab: the job lets go of
+   * it (its guards and listeners too) and never closes it.
+   */
+  release(pageId: number): { job: number; title: string } | null {
+    const p = this.page(pageId);
+    if (!p?.borrowed) return null;
+    this.close(p.id, true);
+    return { job: p.job, title: p.title };
+  }
+  /** The page in a tab, if a job has that tab (his own, lent, or one Claude opened). */
+  pageOfTab(tab: number): DPage | undefined { return this.pages.find((p) => p.borrowed?.tab === tab && !p.wc.isDestroyed()); }
+  /** A link in one of Claude's own tabs that wants a new tab: it opens in the same tab, where the job's guards allow. */
+  openHere(pageId: number, url: string): boolean { return this.opens.get(pageId)?.(url) ?? false; }
+  private opens = new Map<number, (url: string) => boolean>();
   /** Done, quietly (not a STOP): its own pages close, his tabs go back, the group goes. */
   endJob(jobId: number): void { const j = this.job(jobId); if (!j) return; j.working = false; for (const id of [...j.pages]) this.close(id); const i = this.jobs.indexOf(j); if (i >= 0) this.jobs.splice(i, 1); this.d.changed(); }
   closeJob(jobId: number): void { const j = this.job(jobId); if (!j) return; this.stop(jobId); for (const id of [...j.pages]) this.close(id); const i = this.jobs.indexOf(j); if (i >= 0) this.jobs.splice(i, 1); this.d.changed(); }
@@ -1277,9 +1324,10 @@ export class Driver {
     for (const p of [...this.pages]) { const j = this.job(p.job); if (!j?.working && now - p.at > KEEP_MS) this.close(p.id); }
   }
   /** For the drawer: plain data only. */
-  view(): { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; pages: { id: number; title: string; url: string; favicon: string }[] }[] {
+  view(): { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; pages: { id: number; title: string; url: string; favicon: string; tab?: number }[] }[] {
+    // Sheet 111: a Claude job's group lists every tab it has, his own lent ones too (they leave his list while it does).
     return this.jobs.map((j) => ({ id: j.id, kind: j.kind, name: j.name, working: j.working, stopped: j.stopped,
-      pages: this.pagesOf(j).filter((p) => !p.borrowed).map((p) => ({ id: p.id, title: p.title, url: p.url, favicon: p.favicon })) }));
+      pages: this.pagesOf(j).filter((p) => !p.borrowed || j.kind === 'claude').map((p) => ({ id: p.id, title: p.title, url: p.url, favicon: p.favicon, ...(p.borrowed ? { tab: p.borrowed.tab } : {}) })) }));
   }
   /** A quick picture of a page for him to watch it work (the drawer's live view), at the page's own size. */
   async glance(pageId: number): Promise<string | null> {

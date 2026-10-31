@@ -770,7 +770,8 @@ function paintTabs() {
   const open = new Set(state.tabs.map((t) => t.id));
   const trails = Array.isArray(state.trails) ? state.trails : [];
   // Sheet 107 v5 (his pick): Mockups is the plaque, never a row in the tab list.
-  const live = state.tabs.filter((t) => !t.done && !t.mocklog);
+  // Sheet 111: a tab a Claude job has is in Claude's group below, not here (it comes back when the job lets go of it).
+  const live = state.tabs.filter((t) => !t.done && !t.mocklog && t.claudeJob == null);
   const groups = [{ id: null, tabs: live.filter((t) => t.trail == null) }];
   for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length && !tr.mock) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
@@ -2037,11 +2038,12 @@ function stopKey(jobId, big = false) {
   b.setAttribute('aria-label', 'Stop');
   // Two presses: the first turns it into "Stop?" for 3 seconds, the second stops. A slow redraw once put the key
   // under his pointer and a job stopped that he never meant to (2026-10-14). The armed state outlives a redraw.
-  if (stopArmed.get(jobId) > Date.now()) { b.classList.add('armed'); b.textContent = 'STOP?'; }
+  // Sheet 111: it stops every tab of the job, so it says so.
+  if (stopArmed.get(jobId) > Date.now()) { b.classList.add('armed'); b.textContent = 'STOP ALL?'; }
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     if ((stopArmed.get(jobId) ?? 0) > Date.now()) { stopArmed.delete(jobId); window.aang?.browserDriver?.({ act: 'stop', id: jobId }); return; }
-    stopArmed.set(jobId, Date.now() + 3000); b.classList.add('armed'); b.textContent = 'STOP?';
+    stopArmed.set(jobId, Date.now() + 3000); b.classList.add('armed'); b.textContent = 'STOP ALL?';
     setTimeout(() => { if (!((stopArmed.get(jobId) ?? 0) > Date.now())) { b.classList.remove('armed'); b.innerHTML = STOP_IC; } }, 3100);
   });
   return b;
@@ -2059,14 +2061,23 @@ function driverNodes() {
     out.push(h);
     for (const p of j.pages) {
       const row = document.createElement('div');
-      row.className = 'tp drv ' + (j.kind === 'claude' ? 'by-claude' : 'by-aang') + (state.watching?.page === p.id ? ' on' : '');
+      // Sheet 111: a Claude page is a real tab (p.tab): lit when he is in it, resting (no breath) while he has it or the
+      // job is not working, and draggable out into his own tabs like any row.
+      const real = Number.isInteger(p.tab);
+      const on = real ? state.active === p.tab : state.watching?.page === p.id;
+      row.className = 'tp drv ' + (j.kind === 'claude' ? 'by-claude' : 'by-aang') + (on ? ' on' : '') + (p.held ? ' held' : '') + (j.working ? '' : ' idle');
       row.title = p.url; row.tabIndex = 0;
+      if (real) { row.dataset.tab = String(p.tab); row.dataset.trail = ''; row.dataset.depth = '0'; row.dataset.parent = ''; }
       if (p.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = p.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); row.append(i); }
       row.append(Object.assign(document.createElement('span'), { className: 't', textContent: p.title || p.url }));
+      if (p.held) row.append(Object.assign(document.createElement('span'), { className: 'dupchip held', textContent: 'YOU HAVE IT' }));
       // Sheet 110 v3 (his pick, 2026-10-31): whose tab it is, at the end of the row where his own tabs have the close key.
       const own = driverIcon(j.kind); own.className = 'own'; row.append(own);
-      row.addEventListener('click', () => window.aang?.browserDriver?.({ act: 'watch', id: p.id }));
-      row.addEventListener('dblclick', () => window.aang?.browserDriver?.({ act: 'open', id: p.id }));
+      if (real) row.addEventListener('click', () => window.aang?.browserDriver?.({ act: 'show', id: p.id }));
+      else {
+        row.addEventListener('click', () => window.aang?.browserDriver?.({ act: 'watch', id: p.id }));
+        row.addEventListener('dblclick', () => window.aang?.browserDriver?.({ act: 'open', id: p.id }));
+      }
       out.push(row);
     }
   }
