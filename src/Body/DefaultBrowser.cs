@@ -1,6 +1,6 @@
 // 6.27 the default browser (his yes, 2026-10-13). Two jobs, both small:
 //
-// 1. Register Aang's browser with Windows, per user only (HKCU, no admin): StartMenuInternet, its Capabilities with
+// 1. Register Samara with Windows, per user only (HKCU, no admin): StartMenuInternet, its Capabilities with
 //    http and https, a ProgID whose command is `Aang.exe --url -- "%1"`, and RegisteredApplications. Then Windows
 //    Settings opens on Aang's page for HIM to click "Set default"; Windows does not let an app set itself.
 //
@@ -17,7 +17,7 @@ static class DefaultBrowser
 {
     const string Key = "AangBrowser";
     const string ProgId = "AangBrowserURL";
-    const string Name = "Aang Browser";
+    const string Name = "Samara";
 
     /// <summary>The address handed over by Windows, or null. Only the single argument after "--", http or https.</summary>
     public static string? UrlFrom(string[] args)

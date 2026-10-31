@@ -131,7 +131,7 @@ export function pageMenuItems(p: MenuParams, has: MenuHas): MenuItem[] {
     sep();
   }
   items.push({ id: 'back', label: 'Back', key: mac ? '⌥←' : 'ALT ←', off: !has.canBack }, { id: 'reload', label: 'Reload', key: ctl('R') });
-  // His ask (2026-10-13): this page (or the link) as a full tab in Aang's browser on the other machine.
+  // His ask (2026-10-13): this page (or the link) as a full tab in Samara on the other machine.
   if (has.other && has.pageIsWeb) { sep(); items.push({ id: 'openother', label: has.other }); }
   return items;
 }

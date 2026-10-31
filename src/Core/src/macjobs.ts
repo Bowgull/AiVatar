@@ -51,7 +51,7 @@ export class MacJobs {
   }
   /**
    * Sheet 21 board 3 (his pick): ONE card per job that changes in place, Working, Needs you, Done, the same card the
-   * PC draws (the Mac's Aang browser draws it). Without a picture, the words alone, still edited in place.
+   * PC draws (the Mac's Samara draws it). Without a picture, the words alone, still edited in place.
    */
   private async show(job: Job, state: 'working' | 'waiting' | 'done', sub: string): Promise<void> {
     job.state = state;

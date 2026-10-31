@@ -1,5 +1,5 @@
 // 6.25a, the door for Claude sessions (his go, 2026-10-14: "build the claude door"). Claude Code on this machine drives
-// Aang's browser through the same engine and rules Aang uses (driver.ts, decision 42), in its own hidden tabs marked
+// Samara through the same engine and rules Aang uses (driver.ts, decision 42), in its own hidden tabs marked
 // as Claude's, signed in where he is. His reason: job scans in the browser that keeps his logins and history, and
 // lighter than screenshots (pages come back as text with numbered controls).
 //
@@ -197,7 +197,7 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
             }
           }
           else if (op === 'companies') out = await checkCompanies(stateDir, Array.isArray(a.only) ? (a.only as unknown[]).map(String) : []);
-          else if (!b) out = { ok: false, error: "Samara (Aang's browser) is not running." };
+          else if (!b) out = { ok: false, error: "Samara is not running." };
           else if (!OPS.has(op)) out = { ok: false, error: 'not a step this door allows' };
           // Indeed (and its Glassdoor) checks browsers it does not know; their official connector is the way in (2026-10-14).
           else if (op === 'open' && /^https?:\/\/([^/]*\.)?(indeed|glassdoor)\.[a-z.]+(\/|$)/i.test(String(a.url ?? ''))) out = { ok: false, error: "Indeed and Glassdoor are not opened in Samara: they put up security checks. Use the official Indeed connector (search_jobs) instead." };

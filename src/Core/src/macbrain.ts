@@ -182,7 +182,7 @@ export interface MacBrainOpts {
   /** For tests: what answers a question (default: Claude on the Mac) */
   answer?: (brain: MacBrain, text: string) => Promise<{ text: string; files: { name: string; data: Buffer }[] }>;
   render?: Render;
-  /** Draws one of Aang's cards as a PNG (the Mac's Aang browser does it), or null. Without it: words only. */
+  /** Draws one of Aang's cards as a PNG (the Mac's Samara does it), or null. Without it: words only. */
   draw?: (kind: string, data: unknown) => Promise<Buffer | null>;
   /** For tests: the clock. */
   now?: () => Date;

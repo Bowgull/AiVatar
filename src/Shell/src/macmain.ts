@@ -1,4 +1,4 @@
-// M6 (his interview, 2026-10-13): Aang's browser on his MacBook. The same browser as on the PC (browser.ts and its
+// M6 (his interview, 2026-10-13): Samara on his MacBook. The same browser as on the PC (browser.ts and its
 // pages, unchanged), started on its own: no pet, no bubble yet (those are M7 to M9). It keeps everything in step with
 // the PC's browser through Aang's brain on the PC, over Tailscale (bsync.ts): bookmarks, settings, the same open
 // tabs, history and logins. Money sites never travel. When the PC is off it works on its own and catches up later.
@@ -202,7 +202,7 @@ app.whenReady().then(async () => {
     for (const u of waiting.splice(0)) browser.open(u);
   }
 
-  // His yes (2026-10-13): Aang's browser is the Mac's default. macOS asks him once, in its own window.
+  // His yes (2026-10-13): Samara is the Mac's default. macOS asks him once, in its own window.
   const asked = path.join(stateDir, 'asked-default.flag');
   if (!existsSync(asked)) {
     try { app.setAsDefaultProtocolClient('http'); app.setAsDefaultProtocolClient('https'); } catch { /* he can set it in System Settings */ }

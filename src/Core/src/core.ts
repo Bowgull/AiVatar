@@ -871,7 +871,7 @@ export class Core {
     }
     let said: string;
     if (onMac) {
-      // The Mac's own Aang browser if it is running; otherwise Chrome there, through the front desk.
+      // The Mac's own Samara if it is running; otherwise Chrome there, through the front desk.
       const sent = how === 'popout' ? this.bsync.sendToMac(settled.url) : this.bsync.openOnMac(settled.url);
       if (sent) {
         this.reportAction('mcp__aang__watch', { mac: settled.url, how }, false, `Sent ${title} to the MacBook's ${how === 'popout' ? 'popout' : 'browser'}.`);
@@ -2788,7 +2788,7 @@ export class Core {
         'avatar-claude.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'claude.png')),
         'avatar-jobhunt.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'jobhunt.png')),
       };
-      // M6: Aang's browser for the Mac, packed from this PC's own Shell, and the key its sync uses.
+      // M6: Samara for the Mac, packed from this PC's own Shell, and the key its sync uses.
       let browser: DeskPayload['browser'];
       try { browser = { bundle: bundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key'), castlabsSig: readFileSync(path.join(here, '..', '..', 'Shell', 'mac-pkg', `castlabs-${CASTLABS_MAC.version}-darwin-x64.sig`)) }; }
       catch (e) { console.error('mac-setup: the Mac browser could not be packed: ' + (e as Error).message); }
@@ -3515,7 +3515,7 @@ export class Core {
     const items = this.whatsNew();
     const day = (iso: string) => longDate(iso);
     const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
-    const out = ['# Samara Changelog', '', "Every version of Samara, Aang's browser, and what it brought. Newest first. Versions go MAJOR.MINOR.PATCH: a big change starts a new number and a new character's name, a new feature bumps the middle number, a fix the last.", ''];
+    const out = ['# Samara Changelog', '', "Every version of Samara and what it brought. Newest first. Versions go MAJOR.MINOR.PATCH: a big change starts a new number and a new character's name, a new feature bumps the middle number, a fix the last.", ''];
     const pending = list.length ? items.filter(i => Date.parse(i.at) > Date.parse(list[list.length - 1]!.at)) : items;
     if (pending.length) out.push('## Coming next (not released yet)', '', ...pending.map(i => `- ${tag(i.kind)}: ${i.text}`), '');
     for (let k = list.length - 1; k >= 0; k--) {
@@ -3899,9 +3899,9 @@ export class Core {
       // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is
       // the only writer of that file, and two writers of one file is how it gets truncated.
       case 'mode': this.sendTo('desktop', { t: 'mode', mode: m.mode }); break;
-      // "Open on Mac": a full tab in Aang's browser on the Mac; when it is not running, the Mac's own opener.
+      // "Open on Mac": a full tab in Samara on the Mac; when it is not running, the Mac's own opener.
       case 'open.onmac': { const u = String(m.url ?? ''); if (!/^https?:\/\//.test(u)) break; if (this.bsync.openOnMac(u)) break; void this.openOnMac(u).then(r => { if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true }); }); break; }
-      // M6: Aang's browser on the Mac plays it in its own pop-out; the Mac's Chrome is the fallback when it is closed.
+      // M6: Samara on the Mac plays it in its own pop-out; the Mac's Chrome is the fallback when it is closed.
       case 'watch.tomac': if (/^https:\/\//.test(String(m.url ?? '')) && this.bsync.sendToMac(String(m.url))) break; void this.openOnMac(String(m.url ?? '')).then(r => {
         if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true });
       }); break;

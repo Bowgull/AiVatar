@@ -1,4 +1,4 @@
-// Steps 6.19, 6.20 and 6.21: Aang's browser.
+// Steps 6.19, 6.20 and 6.21: Samara.
 //
 // One window at first; dragging a tab out makes another (his ask, 2026-10-13). Each window is a Pane: its frame, its
 // tabs, its tray, its curtain. The rest (bookmarks, history, trails, the snapshot) is the one browser's. Its frame (the
@@ -2385,7 +2385,7 @@ export class AangBrowser {
 
   /**
    * His ask (2026-10-13): a tab dragged out of the list and let go outside its window becomes its own window there, like
-   * Chrome; let go on another of Aang's browser windows, it joins that one. Its page goes with it, still playing,
+   * Chrome; let go on another of Samara's windows, it joins that one. Its page goes with it, still playing,
    * nothing reloaded. The only tab in its window: the window itself moves there.
    */
   tearOut(tabId: number): void {

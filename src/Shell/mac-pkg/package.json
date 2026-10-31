@@ -3,7 +3,7 @@
   "productName": "Aang",
   "private": true,
   "version": "1.0.0",
-  "description": "Aang's browser on the MacBook (M6). Installed by the Mac setup into Aang.app; the engine is Electron 44.7.0.",
+  "description": "Samara on the MacBook (M6). Installed by the Mac setup into Aang.app; the engine is Electron 44.7.0.",
   "type": "module",
   "main": "src/macmain.ts",
   "dependencies": {

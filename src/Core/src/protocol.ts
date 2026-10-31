@@ -105,7 +105,7 @@ export type ToBody =
       title?: string }
   /** Put it away. The video stops; `popout.hide` is the one that keeps it playing. */
   | { t: 'popout.close' }
-  /** A full tab in his PC's Aang browser, brought to the front ("put it on, full browser"). */
+  /** A full tab in his PC's Samara, brought to the front ("put it on, full browser"). */
   | { t: 'browser.open'; url: string }
   /** Passed straight through from the Body, to the Shell only (step 6.10b). The C# pet ignores it. */
   | PetAt
@@ -132,7 +132,7 @@ export type ToBody =
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
-  /** 6.20: open Aang's browser, from the pet's menu. */
+  /** 6.20: open Samara, from the pet's menu. */
   | { t: 'browser' }
   /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
   | { t: 'highlight' }
@@ -485,7 +485,7 @@ export type FromBody =
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
-  /** 6.20: open Aang's browser, from the pet's menu. */
+  /** 6.20: open Samara, from the pet's menu. */
   | { t: 'browser' }
   /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
   | { t: 'highlight' }
