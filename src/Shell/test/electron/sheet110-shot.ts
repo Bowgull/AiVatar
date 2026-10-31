@@ -35,6 +35,12 @@ const VARIANTS: Record<string, string> = {
   a: `.drawer .tp.drv{box-shadow:0 4px 0 var(--outline) !important}`,
   // B: no strip; Claude's spark sits at the end of each row, where the close key sits on his own tabs.
   b: `.drawer .tp.drv{box-shadow:0 4px 0 var(--outline) !important}.drawer .tp.drv .own110{margin-left:auto;flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;opacity:.9}`,
+  // E (v3, his pick 2026-10-31): B plus a soft orange glow that breathes, Claude's own orange. PHASE (0..1) freezes the
+  // breath at one point so each frame is a real picture.
+  e: `.drawer .tp.drv{animation:claude110 3.2s ease-in-out infinite;animation-play-state:paused;animation-delay:calc(var(--ph,0) * -3.2s)}
+    @keyframes claude110{0%,100%{box-shadow:0 4px 0 var(--outline),0 0 0 2px rgba(217,119,87,.30),0 0 6px 1px rgba(217,119,87,.18)}50%{box-shadow:0 4px 0 var(--outline),0 0 0 2px rgba(217,119,87,.75),0 0 14px 3px rgba(217,119,87,.45)}}
+    .drawer .tp.drv .own110{margin-left:auto;flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;opacity:.9}
+    .drawer{--ph:${process.env.PHASE ?? 0}}`,
   // C: no strip; Claude's tabs are pressed into the list (borrowed), his own stand up as keys.
   c: `.drawer .tp.drv{background:#1f140b !important;color:#c9b48c !important;border-color:#0a0603 !important;box-shadow:inset 0 4px 0 rgba(0,0,0,.6),inset 0 -2px 0 rgba(255,222,170,.12) !important;transform:translateY(3px)}.drawer .tp.drv .fi{filter:saturate(.6) brightness(.85)}`,
   // D: no strip; Claude's group sits in its own sunk velvet shelf, the bookmarks' own frame.
@@ -61,7 +67,7 @@ app.whenReady().then(async () => {
   if (VARIANTS[v]) await b.trayV.webContents.insertCSS(VARIANTS[v]!);
   await b.trayV.webContents.executeJavaScript(`(() => {
     const spark = document.querySelector('.drawer .th.driver .who-ic')?.innerHTML ?? '';
-    if (${JSON.stringify(v)} === 'b') for (const r of document.querySelectorAll('.drawer .tp.drv')) {
+    if (['b', 'e'].includes(${JSON.stringify(v)})) for (const r of document.querySelectorAll('.drawer .tp.drv')) {
       const s = document.createElement('span'); s.className = 'own110'; s.innerHTML = spark; r.append(s);
     }
     if (${JSON.stringify(v)} === 'd') {
