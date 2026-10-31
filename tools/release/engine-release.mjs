@@ -29,8 +29,8 @@ for (const r of list) {
 if (!best) { console.error('castLabs has no stable engine listed'); process.exit(1); }
 const v = best.version;
 
-// Already released here: nothing to do (the big download only happens when the engine changes).
-const mine = await gh(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY ?? 'Bowgull/AiVatar'}/releases/tags/engine-v${v}`);
+// Already in samara-releases (what Samaras read): nothing to do (the big download only happens when the engine changes).
+const mine = await gh(`https://api.github.com/repos/Bowgull/samara-releases/releases/tags/engine-v${v}`);
 if (mine.ok) { console.log(`engine ${v} is already released`); say('engine', ''); process.exit(0); }
 
 // The Chromium inside it, from Electron's own list (castLabs builds on Electron's releases).

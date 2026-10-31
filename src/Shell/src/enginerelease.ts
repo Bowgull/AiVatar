@@ -5,12 +5,12 @@
 // without Electron. Also here: how far behind Chrome's security fixes an engine is, for the key's one line.
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { createWriteStream, renameSync, rmSync } from 'node:fs';
-import { RELEASE_KEY } from './ghrelease.ts';
+import { RELEASE_KEY, RELEASE_REPO } from './ghrelease.ts';
 import { isVersion, newer } from './updateengine.ts';
 
-export const ENGINE_RELEASES = 'https://github.com/Bowgull/AiVatar/releases/download/';
+export const ENGINE_RELEASES = `https://github.com/${RELEASE_REPO}/releases/download/`;
 /** The repo's releases, newest first (engine releases are never "latest": that stays Samara's). */
-export const RELEASES_API = 'https://api.github.com/repos/Bowgull/AiVatar/releases?per_page=30';
+export const RELEASES_API = `https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=30`;
 /** Chrome's own list of stable releases (Google's Chromium Dash), for "weeks behind". */
 export const CHROME_STABLE = 'https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=60';
 /** The biggest engine a machine will download (castLabs' are about 135 MB). */

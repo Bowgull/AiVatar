@@ -29,7 +29,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.find.outputs.engine }}
         run: |
-          gh release create "engine-v$V" out/engine.json out/engine.sig out/castlabs-*.zip \
+          gh release view "engine-v$V" >/dev/null 2>&1 || gh release create "engine-v$V" out/engine.json out/engine.sig out/castlabs-*.zip \
+            --title "Samara's engine $V" --notes "castLabs $V+wvcus, checked against castLabs' fingerprints and sealed. Signed for video on each machine." --latest=false
+      # Samaras from 1.28.1 on read Bowgull/samara-releases; the copy above is for older ones (see samara-release.yml).
+      - name: Publish to samara-releases
+        if: steps.find.outputs.engine != ''
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          V: ${{ steps.find.outputs.engine }}
+        run: |
+          [ -n "$GH_TOKEN" ] || { echo "::error::No RELEASES_TOKEN secret yet. Copy it by hand on the Mac: node tools/release/mirror.mjs engine-v$V"; exit 1; }
+          gh release create "engine-v$V" -R Bowgull/samara-releases out/engine.json out/engine.sig out/castlabs-*.zip \
             --title "Samara's engine $V" --notes "castLabs $V+wvcus, checked against castLabs' fingerprints and sealed. Signed for video on each machine." --latest=false
       # One word, nothing else: a Samara that hears it only checks, and still checks the seal.
       - name: Nudge both Samaras

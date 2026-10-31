@@ -23,8 +23,10 @@ export const RELEASE_KEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAVMZz/VO98/9eX9+eUALUiaxNyxiXuNL/KPWaOdMZQ2E=
 -----END PUBLIC KEY-----
 `;
-export const RELEASES = 'https://github.com/Bowgull/AiVatar/releases/download/';
-export const LATEST_API = 'https://api.github.com/repos/Bowgull/AiVatar/releases/latest';
+/** Releases live in their own public repo, sealed files only (his pick, 2026-10-31), so the code repo can go private. */
+export const RELEASE_REPO = 'Bowgull/samara-releases';
+export const RELEASES = `https://github.com/${RELEASE_REPO}/releases/download/`;
+export const LATEST_API = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
 export const BRAIN_MAX = 100 * 1024 * 1024;
 /** Away this long, and not in a call (the update engine's quiet rule, src/Shell/src/updateengine.ts quietNow). */
 export const AWAY_S = 30 * 60;
