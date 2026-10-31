@@ -313,8 +313,8 @@ export const PLAN_SENTENCE = 'On a project with several phases (hours or days of
 export const MOCKUP_TOOL = 'show_mockup'
 export const MOCKUP_TOOL_FULL = 'mcp__aang-link__show_mockup'
 export const MOCKUP_TOOL_DESC = "Show the user a mockup, design sheet or visual page: Mockups opens right on it in his browser Samara, in its project's tab, marked NEW, where every version is kept. " +
-  'path: an .html file in your repo, already committed (he sees it as committed; commit again and call again for a new version). ' +
-  'Or url: a page you serve on this computer (http://127.0.0.1:<port>/... or localhost). title: a short name ("NN · Name"). ' +
+  'path: an .html file in a git repo, already committed (he sees it as committed; commit again and call again for a new version). ' +
+  'A live page from a server you run is not accepted: it breaks once the server stops, so commit the page as a file first. title: a short name ("NN · Name"). ' +
   'Mockups is Project > Topic > Sheet: project is the real project it belongs to (Samara, Aang, Waymark, Couch Mode, Showcase, or a new one; Samara\'s and Aang\'s sheets both live in the AiVatar repo, so name which), branch is the topic inside it (Top bar, TV...). ' +
   'icon: pick the one that fits the topic; it is used when the topic is new.'
 /** Sheet 100 (2026-10-28, his "can't Claude decide what fits"): the icons a topic can wear, Samara's own set (pages/mockicons.js). */
@@ -323,7 +323,6 @@ export const MOCKUP_TOOL_SCHEMA = {
   type: 'object',
   properties: {
     path: { type: 'string', description: 'An .html file in your repo (relative to your folder, or absolute), committed.' },
-    url: { type: 'string', description: 'Instead of path: a page on this computer, http://127.0.0.1:<port>/... or http://localhost:<port>/...' },
     title: { type: 'string', description: 'A short name for it in the trail ("Waymark motion").' },
     branch: { type: 'string', description: 'Required: the topic inside the project to file it in ("Top bar", "TV"), 1-40 characters.' },
     project: { type: 'string', description: 'The real project it belongs to ("Samara", "Aang", "Waymark", "Couch Mode", "Showcase", or a new one), 1-40 characters, never a topic. Default: its repo\'s project (AiVatar is Samara: name Aang for Aang\'s sheets).' },
@@ -369,23 +368,20 @@ export const MOCKUP_SECTION_ID = 'aang-link:mockups'
 export const MOCKUP_SECTION = `To show the user a mockup, design sheet or visual page, call show_mockup (${MOCKUP_TOOL_FULL}): it opens in his browser Samara's Mockups trail. ` +
   'Never ask permission to open local mockup pages.'
 /**
- * A show_mockup call's input, cut to sane sizes; or why not. Exactly one of path and url; a url must be on this
- * computer. The brain checks everything again (src/Core/src/mockupdrop.ts), with the files in front of it.
+ * A show_mockup call's input, cut to sane sizes; or why not. A committed file only (his ask, 2026-10-31): 44 mockups
+ * shown as live pages broke once their servers stopped, so a url is refused. The brain checks everything again
+ * (src/Core/src/mockupdrop.ts), with the files in front of it.
  */
 export function mockupArgs(input: Record<string, unknown>): { ok: true; body: Record<string, string> } | { ok: false; error: string } {
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   const p = str(input.path), u = str(input.url)
-  if (!p === !u) return { ok: false, error: 'Pass either path (an .html file in your repo) or url (a page on http://127.0.0.1 or localhost).' }
+  if (u) return { ok: false, error: 'A live page is not kept: it breaks once your server stops. Save the page as an .html file in a git repo, commit it, and pass its path.' }
+  if (!p) return { ok: false, error: 'Pass path: an .html file in a git repo, committed.' }
   if (p.length > 1000) return { ok: false, error: 'That path is too long.' }
-  if (u) {
-    let ok = false
-    try { const x = new URL(u); ok = (x.protocol === 'http:' || x.protocol === 'https:') && ['127.0.0.1', 'localhost', '[::1]'].includes(x.hostname) && !x.username && !x.password && u.length <= 2000 } catch { ok = false }
-    if (!ok) return { ok: false, error: 'url must be a page on this computer: http://127.0.0.1:<port>/... or http://localhost:<port>/...' }
-  }
   const title = safeLine(input.title, 80), branch = safeLine(input.branch, 40), project = safeLine(input.project, 40)
   if (!branch) return { ok: false, error: 'Give branch: the topic inside its project ("Top bar", "TV"), 1 to 40 characters, so it is filed in its place and never under Other.' }
   const icon = typeof input.icon === 'string' && MOCKUP_ICONS.includes(input.icon) ? input.icon : ''
-  return { ok: true, body: { ...(p ? { path: p } : { url: u }), ...(title ? { title } : {}), ...(branch ? { branch } : {}), ...(project ? { project } : {}), ...(icon ? { icon } : {}) } }
+  return { ok: true, body: { path: p, ...(title ? { title } : {}), ...(branch ? { branch } : {}), ...(project ? { project } : {}), ...(icon ? { icon } : {}) } }
 }
 
 /** A phase plan from the progress tool's input, cut to sane sizes and masked; null when there is none. */
