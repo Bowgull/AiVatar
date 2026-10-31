@@ -90,8 +90,8 @@ app.whenReady().then(async () => {
   for (let i = 0; i < 100 && !b.win; i++) await wait(150);
   b.win.setContentSize(1280, 760);
   await wait(4000);
-  for (const [i, h] of HOSTS.entries()) b.newTab(`https://${h}/jobs/${i + 1}`);
-  await wait(4000);
+  for (const [i, h] of HOSTS.entries()) { b.newTab(`https://${h}/jobs/${i + 1}`); await wait(1500); }
+  await wait(3000);
   const fw = b.win.webContents;
   const ids: number[] = b.tabs.filter((t: any) => HOSTS.some((h) => String(t.url).includes(h))).map((t: any) => t.id);
   console.log('TABS ' + JSON.stringify(b.tabs.map((t: any) => [t.id, t.url])));
@@ -122,14 +122,17 @@ app.whenReady().then(async () => {
     for (const v of lay) v.setVisible(true);
     await fw.executeJavaScript(`document.querySelectorAll('.imgc').forEach((x) => x.remove()); 1`);
   };
-  const list = async (name: string, o: { you?: string; armed?: boolean }) => {
+  const list = async (name: string, o: { you?: string; armed?: boolean }, hide = ids, extra = '') => {
     b.tray(true, { x: 42, y: 62, hy: 80 });
     await wait(2500);
     const tv = b.trayV.webContents;
-    await tv.insertCSS(LIST_CSS(ids));
+    const key = await tv.insertCSS(LIST_CSS(hide));
     await tv.executeJavaScript(LIST(o)); await wait(500);
     console.log('LIST ' + name + ': ' + await tv.executeJavaScript(LIST(o)));
+    if (extra) { console.log('EXTRA ' + await tv.executeJavaScript(extra)); await wait(300); }
     writeFileSync(`${out}-${name}.png`, (await tv.capturePage()).toPNG());
+    await tv.executeJavaScript(`document.querySelectorAll('.g111').forEach((x) => x.remove()); document.querySelectorAll('.lifted').forEach((x) => x.classList.remove('lifted')); document.querySelectorAll('.s111').forEach((x) => { x.style.transform = ''; x.classList.remove('s111'); }); 1`);
+    await tv.removeInsertedCSS(key);
     b.tray(false); await wait(800);
   };
   const who = () => fw.executeJavaScript(`document.getElementById('who').textContent`);
@@ -148,5 +151,28 @@ app.whenReady().then(async () => {
   await list('list-you', { you: 'Contoso' });
   // 5: first press on the group's red key.
   await list('list-stopall', { you: 'Contoso', armed: true });
+  // 6: his ask (2026-10-31): he drags Fabrikam out of Claude's group into his own tabs. Mid-drag, in the list's own
+  // drag look: the row lifted off the wood (dragghost), its place dimmed (lifted), the gold drop mark under his tab.
+  await list('drag-out', { you: 'Contoso' }, ids, `(() => {
+    const row = [...document.querySelectorAll('.drawer .tp.drv')].find((r) => r.textContent.includes('Fabrikam'));
+    const mine = [...document.querySelectorAll('.drawer .tp')].find((r) => !r.classList.contains('drv') && r.offsetParent);
+    const box = row.parentElement, br = box.getBoundingClientRect(), rr = row.getBoundingClientRect(), mr = mine.getBoundingClientRect();
+    row.classList.add('lifted');
+    // The list opens a gap under the drop spot, as it does while dragging: everything after his tab moves down.
+    const gap = Math.min(Math.round(rr.height) + 9, 58); let after = false;
+    // It lands under his tab (the dropped frame's real order), so the gap opens there.
+    for (const n of [...box.children]) { if (after && !n.classList.contains('g111')) n.style.transform = 'translateY(' + gap + 'px)', n.classList.add('s111'); if (n === mine) after = true; }
+    const g = row.cloneNode(true); g.classList.remove('lifted', 'on'); g.classList.add('dragghost', 'g111'); g.style.width = rr.width + 'px';
+    g.style.transform = 'translate(' + Math.round(rr.left - br.left + 4) + 'px,' + Math.round(mr.bottom - br.top + 9) + 'px) rotate(-1.5deg)';
+    box.append(g);
+    const m = Object.assign(document.createElement('div'), { className: 'dropmark g111' });
+    m.style.width = Math.round(mr.width) + 'px'; m.style.transform = 'translate(' + Math.round(mr.left - br.left) + 'px,' + Math.round(mr.bottom - br.top + 4) + 'px)';
+    box.append(m);
+    return getComputedStyle(box).position; })()`);
+  // 7: dropped: the real borrow ends, so Fabrikam is his own plain tab again (close key, sleep, trails), and Claude's
+  // group has two.
+  const fab = b.driver.pagesOf(b.driver.job(job)).find((p: any) => String(p.url).includes('fabrikam'));
+  b.driver.close(fab.id); b.sendTabs(); await wait(800);
+  await list('dropped', { you: 'Contoso' }, ids.filter((i) => i !== ids[2]));
   site.close(); app.exit(0);
 });
