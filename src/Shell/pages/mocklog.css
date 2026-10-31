@@ -39,7 +39,27 @@ button{font:inherit;color:inherit}
 .leave span{font:700 13px var(--display);letter-spacing:1.4px;color:var(--gold-light);text-shadow:0 2px 0 #1a0e2c;text-transform:uppercase;white-space:nowrap}
 /* inside a project: the list on the left, the sheet on the right */
 .body{flex:1;min-height:0;display:grid;grid-template-columns:330px 1fr}
-.list{padding:12px 10px;border-right:3px solid #120A05;background:rgba(0,0,0,.18);overflow:auto;min-height:0}
+.side{display:flex;flex-direction:column;min-height:0;border-right:3px solid #120A05;background:rgba(0,0,0,.18)}
+.list{flex:1;padding:4px 10px 12px;overflow:auto;min-height:0}
+/* Sheet 113 (his picks, 2026-10-31): the finder above the list: search, the marks to filter by, the sort. */
+.find{flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 10px 10px;border-bottom:3px solid rgba(0,0,0,.45)}
+.find input{box-sizing:border-box;width:100%;font:600 14px var(--body);color:#FFE096;background:#0B0718;border:3px solid #120A05;border-radius:6px;padding:7px 10px 7px 32px;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23c9a35a' d='M2 0h3v1H2zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v3H0zM6 2h1v3H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2zM6 6h1v1H6zM7 7h1v1H7z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-size:16px 16px;background-position:9px 50%;image-rendering:pixelated}
+.find input::placeholder{color:#7d6a4c}
+.find input:focus{border-color:#6e5a3e}
+.find input::-webkit-search-cancel-button{filter:sepia(1) saturate(3) hue-rotate(5deg)}
+.find .chips{display:flex;flex-wrap:wrap;gap:5px}
+.find .chips .mk{cursor:pointer;opacity:.45;border:none}
+.find .chips .mk:hover{opacity:.75}
+.find .chips .mk.sel{opacity:1;outline:2px solid #FFE28C;outline-offset:1px}
+.mk.fnew{background:#4aa8ff;color:#08203a;box-shadow:inset 0 2px 0 #a8d6ff,inset 0 -2px 0 #2f78c4}
+.find .sort{display:flex;align-self:flex-start;border:3px solid #120A05;border-radius:6px;overflow:hidden}
+.find .sort button{border:none;font:700 11px var(--body);letter-spacing:.6px;padding:4px 9px;color:#a98e6a;background:#2c1a0c;cursor:pointer}
+.find .sort button.on{color:#2a1c00;background:#d9ae62}
+.topic.isnew span:not(.n),.topic.isnew .n{color:#7cc4ff}
+.gemnew{flex:none;width:14px;height:14px;image-rendering:pixelated;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Cpath fill='%234aa8ff' d='M2 0h3v1H2zM1 1h5v1H1zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3z'/%3E%3Cpath fill='%23a8d6ff' d='M2 1h2v1H2zM1 2h2v1H1z'/%3E%3C/svg%3E") 0 0/14px 14px}
+.sh .nm .hl{background:rgba(124,196,255,.28);border-radius:2px;color:#fff}
 .view{display:flex;flex-direction:column;min-width:0;min-height:0}
 .vbar{flex:none;display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:3px solid #120A05;background:rgba(0,0,0,.25)}
 .back{flex:none;display:flex;align-items:center;gap:6px;font:700 13px var(--body);color:#FFE28C;background:none;border:none;cursor:pointer;padding:4px 2px}

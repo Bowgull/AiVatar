@@ -71,7 +71,7 @@ function draw() {
   const row = (n) => {
     const b = el('button', 'sh' + (n.mark === 'park' ? ' parked' : '') + (n.sheet === pick.s ? ' on' : '')); b.type = 'button';
     if (n.num) b.append(el('span', 'num', n.num));
-    b.append(el('span', 'nm', n.name));
+    b.append(nameOf(n));
     const last = n.versions.at(-1);
     if (last) b.append(el('span', 'vc', 'v' + last.v));
     const m = STG[n.mark] ?? OPEN;
@@ -80,7 +80,7 @@ function draw() {
     return b;
   };
   const head = (key, name, count, icon, done) => {
-    const shut = folded.has(p.name + '\n' + key);
+    const shut = folded.has(p.name + '\n' + key) && !finding();
     const h = el('button', 'topic' + (shut ? '' : ' on')); h.type = 'button';
     h.append(el('i', 'chev'));
     if (!done) { const ic = el('span', 'ti'); ic.append(topicIcon(name, icon)); h.append(ic); }
@@ -88,24 +88,84 @@ function draw() {
     h.addEventListener('click', () => { const k = p.name + '\n' + key; if (folded.has(k)) folded.delete(k); else folded.add(k); draw(); });
     return [h, shut];
   };
-  // A project with one group only, the one with no topic, needs no heading over it.
-  const lone = p.topics.length === 1 && p.topics[0].name === 'Other';
-  for (const t of p.topics) {
-    if (lone) { list.append(...t.sheets.map(row)); continue; }
-    const [h, shut] = head(t.id, t.name, t.sheets.length, t.icon, false);
-    list.append(h);
-    if (!shut) list.append(...t.sheets.map(row));
+  // Sheet 113 (his picks, 2026-10-31): what he has not opened sits in New, above the topics, until he opens it; search,
+  // the marks and the sort narrow what is shown. Done stays at the bottom either way.
+  const live = p.topics.flatMap((t) => t.sheets).filter(shows);
+  let any = false;
+  if (find.sort === 'newest') {
+    any = live.length > 0;
+    list.append(...[...live].sort((a, b) => (b.at ?? 0) - (a.at ?? 0) || Number(b.num) - Number(a.num)).map(row));
+  } else {
+    const fresh = live.filter((n) => n.fresh);
+    if (fresh.length) {
+      any = true;
+      const [h, shut] = head('new', 'New', fresh.length, null, true);
+      h.classList.add('isnew'); h.insertBefore(el('span', 'gemnew'), h.children[1]);
+      list.append(h);
+      if (!shut) list.append(...fresh.map(row));
+    }
+    // A project with one group only, the one with no topic, needs no heading over it.
+    const lone = p.topics.length === 1 && p.topics[0].name === 'Other';
+    for (const t of p.topics) {
+      const ss = t.sheets.filter((n) => !n.fresh && shows(n));
+      if (!ss.length) continue;
+      any = true;
+      if (lone) { list.append(...ss.map(row)); continue; }
+      const [h, shut] = head(t.id, t.name, ss.length, t.icon, false);
+      list.append(h);
+      if (!shut) list.append(...ss.map(row));
+    }
   }
-  if (p.done.length) {
+  const done = p.done.filter(shows);
+  if (done.length) {
+    any = true;
     const d = el('div', 'done');
-    const [h, shut] = head('done', 'Done', p.done.length, null, true);
+    const [h, shut] = head('done', 'Done', done.length, null, true);
     d.append(h);
-    if (!shut) d.append(...p.done.map(row));
+    if (!shut) d.append(...done.map(row));
     list.append(d);
   }
+  if (!any) list.append(el('div', 'empty', finding() ? 'Nothing matches.' : 'No mockups yet.'));
   drawView(p);
   tellWhere();
 }
+
+// Sheet 113 (his picks, 2026-10-31): search by name or number, filter by mark (any mix), sort by topic or newest.
+// Built once, outside the list, so a redraw never takes the box from under his typing.
+const find = { q: '', marks: new Set(), sort: 'topic' };
+const markOf = (n) => (n.fresh ? 'new' : (STG[n.mark] ?? OPEN)[1]);
+const finding = () => Boolean(find.q || find.marks.size);
+function shows(n) {
+  if (find.marks.size && !find.marks.has(markOf(n))) return false;
+  const q = find.q.trim().toLowerCase();
+  return !q || String(n.name).toLowerCase().includes(q) || String(n.num ?? '').startsWith(q);
+}
+function nameOf(n) {
+  const s = el('span', 'nm'), q = find.q.trim().toLowerCase(), name = String(n.name), i = q ? name.toLowerCase().indexOf(q) : -1;
+  if (i < 0) { s.textContent = name; return s; }
+  s.append(name.slice(0, i), el('span', 'hl', name.slice(i, i + q.length)), name.slice(i + q.length));
+  return s;
+}
+(function finder() {
+  const box = document.getElementById('find');
+  const q = el('input'); q.type = 'search'; q.placeholder = 'Search by name or number'; q.spellcheck = false;
+  q.addEventListener('input', () => { find.q = q.value; draw(); });
+  q.addEventListener('keydown', (e) => { if (e.key === 'Escape' && q.value) { e.stopPropagation(); q.value = ''; find.q = ''; draw(); } });
+  const chips = el('div', 'chips');
+  for (const [t, c] of [['NEW', 'new'], ['OPEN', 'open'], ['APPROVED', 'ok'], ['FIX', 'chg'], ['BUILT', 'built'], ['PARKED', 'park']]) {
+    const b = el('button', 'mk ' + (c === 'new' ? 'fnew' : c), t); b.type = 'button';
+    b.addEventListener('click', () => { if (find.marks.has(c)) find.marks.delete(c); else find.marks.add(c); b.classList.toggle('sel', find.marks.has(c)); draw(); });
+    chips.append(b);
+  }
+  const sort = el('div', 'sort');
+  const keys = [['topic', 'BY TOPIC'], ['newest', 'NEWEST']].map(([k, t]) => {
+    const b = el('button', k === find.sort ? 'on' : '', t); b.type = 'button';
+    b.addEventListener('click', () => { find.sort = k; for (const x of keys) x.classList.toggle('on', x === b); draw(); });
+    return b;
+  });
+  sort.append(...keys);
+  box.append(q, chips, sort);
+})();
 
 let frameSrc = '';
 function drawView(p) {
