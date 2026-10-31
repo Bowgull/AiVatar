@@ -36,7 +36,9 @@ const VARIANTS: Record<string, string> = {
   // B: no strip; Claude's spark sits at the end of each row, where the close key sits on his own tabs.
   b: `.drawer .tp.drv{box-shadow:0 4px 0 var(--outline) !important}.drawer .tp.drv .own110{margin-left:auto;flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;opacity:.9}`,
   // C: no strip; Claude's tabs are pressed into the list (borrowed), his own stand up as keys.
-  c: `.drawer .tp.drv{background:#2a1b0f !important;color:#d9c7a3 !important;box-shadow:inset 0 3px 0 rgba(0,0,0,.5),inset 0 -1px 0 rgba(255,222,170,.10) !important;transform:translateY(3px)}`,
+  c: `.drawer .tp.drv{background:#1f140b !important;color:#c9b48c !important;border-color:#0a0603 !important;box-shadow:inset 0 4px 0 rgba(0,0,0,.6),inset 0 -2px 0 rgba(255,222,170,.12) !important;transform:translateY(3px)}.drawer .tp.drv .fi{filter:saturate(.6) brightness(.85)}`,
+  // D: no strip; Claude's group sits in its own sunk velvet shelf, the bookmarks' own frame.
+  d: `.drawer .tp.drv{box-shadow:0 4px 0 var(--outline) !important}.drawer .shelf-bk.claude110{margin:8px 0 12px}.drawer .shelf-bk.claude110 .th{margin:0 2px 10px}.drawer .shelf-bk.claude110 .tp:last-child{margin-bottom:0}`,
 };
 app.whenReady().then(async () => {
   http.createServer((q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end(`<!doctype html><title>${q.url === '/p/0' ? 'Inbox - Mail' : 'Weekend plans'}</title><p>${q.url}`)).listen(47110, '127.0.0.1');
@@ -62,10 +64,16 @@ app.whenReady().then(async () => {
     if (${JSON.stringify(v)} === 'b') for (const r of document.querySelectorAll('.drawer .tp.drv')) {
       const s = document.createElement('span'); s.className = 'own110'; s.innerHTML = spark; r.append(s);
     }
+    if (${JSON.stringify(v)} === 'd') {
+      const h = document.querySelector('.drawer .th.driver'), box = document.createElement('div'); box.className = 'shelf-bk claude110';
+      h.before(box); box.append(h, ...document.querySelectorAll('.drawer .tp.drv'));
+    }
     return document.querySelectorAll('.drawer .tp.drv').length;
   })()`).then((n: number) => console.log('DRIVER ROWS ' + n));
   await wait(800);
-  const img = await b.trayV.webContents.capturePage();
+  // Just the end of his own tabs and Claude's group, so the difference is big enough to see.
+  const r = await b.trayV.webContents.executeJavaScript(`(() => { const a = [...document.querySelectorAll('.drawer .tp')].filter((x) => !x.classList.contains('drv')).pop().getBoundingClientRect(), z = [...document.querySelectorAll('.drawer .tp.drv')].pop().getBoundingClientRect(); return { y: Math.round(a.top - 8), h: Math.round(z.bottom + 16 - a.top + 8) }; })()`);
+  const img = await b.trayV.webContents.capturePage({ x: 0, y: r.y, width: 340, height: r.h });
   writeFileSync(process.argv.find((a) => a.endsWith('.png')) ?? path.join(os.tmpdir(), 's110.png'), img.toPNG());
   console.log('SHOT ' + JSON.stringify(img.getSize()));
   app.exit(0);
