@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 111 - Stop Claude per tab</title>
+<!-- Sheet 111 (2026-10-31, his ask: "i should also be able to start and stop claude per each tab", top priority).
+     Today one STOP ends Claude's whole job, and that chat cannot start Samara again. Here: Pause and Go on for each of
+     Claude's tabs, in the tab list and on the band; STOP stays as the stop for all; a new plan works after it.
+     Every picture is Samara's real list layer and band (test/electron/sheet111-shot.ts) with a made-up "Job scan"
+     (Northwind, Contoso, Fabrikam are made up). The new keys use the band's own gold key and the list's own chip.
+     The gold strip on Claude's rows is today's look; sheet 110 is deciding it separately. Not built. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;margin:0;image-rendering:auto !important}
+  body{color:#e8dcc4;font-family:var(--body);padding:28px 34px 90px;user-select:text}
+  h1{font:700 22px var(--display);color:#ffe28c;margin:0 0 6px;text-shadow:0 2px 0 #000}
+  .lead{color:#cdbb9a;font-size:14px;margin:0 0 4px;max-width:1100px;line-height:1.5}
+  h2{font:400 12px var(--label);letter-spacing:1.5px;color:#c9a35a;margin:36px 0 6px}
+  .sub{font:500 13px var(--body);color:#b9a684;margin:0 0 12px;max-width:900px;line-height:1.5}
+  .sub b{color:#ffe28c}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .row figure{margin:0;width:346px}
+  .row figcaption{font:400 11px var(--label);letter-spacing:1.2px;color:#c9a35a;margin:0 0 6px}
+  .row img{display:block;width:340px;border:3px solid #120A05;border-radius:10px}
+  .shot{display:block;width:1280px;border:3px solid #120A05;border-radius:10px}
+  .told{margin:0;padding:0;list-style:none;max-width:980px}
+  .told li{margin:0 0 14px}
+  .told .k{font:400 11px var(--label);letter-spacing:1.2px;color:#c9a35a;margin:0 0 4px}
+  .told q{display:block;quotes:none;font:500 14px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#e8dcc4;background:#0e0a07;
+    border:3px solid #120A05;border-radius:8px;padding:10px 14px}
+  .gets{margin:6px 0 0;padding:0;list-style:none;max-width:980px}
+  .gets li{font:500 13px/1.5 var(--body);color:#d8c8a6;margin:0 0 5px;padding-left:16px;position:relative}
+  .gets li::before{content:"";position:absolute;left:0;top:6px;width:6px;height:6px;background:var(--gold);border:1px solid #120A05}
+  .gets b{color:#ffe28c}
+</style>
+</head>
+<body>
+<h1>Sheet 111 · Stop Claude per tab</h1>
+<p class="lead">You stop and start Claude on one tab while it keeps going on the others. STOP still stops everything, and Claude can start again after it in the same chat. These are Samara's real tab list and band. The job and its sites are made up.</p>
+
+<h2>A · THE TAB LIST: PAUSE ON EACH OF CLAUDE'S TABS</h2>
+<p class="sub">Each of Claude's tabs gets a <b>Pause</b> key where your own tabs have their close key. A paused tab goes grey and says <b>PAUSED</b>, and its key turns into <b>Go on</b>. The red key on the group stays the stop for all, and now asks <b>STOP ALL?</b>.</p>
+<div class="row">
+  <figure><figcaption>1 · ALL THREE WORKING</figcaption><img src="sheet-111/s-list-working.png" alt=""></figure>
+  <figure><figcaption>2 · CONTOSO PAUSED, THE OTHER TWO GO ON</figcaption><img src="sheet-111/s-list-paused.png" alt=""></figure>
+  <figure><figcaption>3 · FIRST PRESS ON THE RED KEY</figcaption><img src="sheet-111/s-list-stopall.png" alt=""></figure>
+</div>
+
+<h2>B · WATCHING ONE OF CLAUDE'S TABS</h2>
+<p class="sub"><b>Pause</b> sits before STOP and stops this tab only.</p>
+<img class="shot" src="sheet-111/s-band-driving.png" alt="">
+
+<h2>C · THAT TAB PAUSED</h2>
+<p class="sub">The band says <b>PAUSED HERE</b>. <b>Go on</b> lets Claude carry on from where it was.</p>
+<img class="shot" src="sheet-111/s-band-paused.png" alt="">
+
+<h2>D · WHAT CLAUDE IS TOLD</h2>
+<p class="sub">Claude reads this with its next step. A paused tab refuses Claude's clicks and typing until you press Go on.</p>
+<ul class="told">
+  <li><div class="k">YOU PAUSE A TAB</div><q>Joshua paused tab 12 (Contoso - Account Manager, Partners). Leave it alone. Your other tabs keep going. You will be told when he lets you go on.</q></li>
+  <li><div class="k">YOU PRESS GO ON</div><q>Joshua let you go on in tab 12 (Contoso - Account Manager, Partners).</q></li>
+  <li><div class="k">YOU STOP ALL</div><q>Joshua stopped the whole job. To start again, send a new plan.</q></li>
+</ul>
+
+<h2>WHAT ELSE CHANGES</h2>
+<ul class="gets">
+  <li><b>After STOP ALL</b>, Claude can send a new plan in the same chat. No reconnecting, no new chat.</li>
+  <li><b>On your own tab</b> that Claude is driving, <b>Take over</b> already does this (sheet 109), so no Pause key is added there.</li>
+  <li><b>Mac and PC</b> get the same keys.</li>
+</ul>
+</body>
+</html>
