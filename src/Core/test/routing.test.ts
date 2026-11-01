@@ -89,7 +89,7 @@ test('present_list rides the reply\'s own bubble message, and clears once it has
   const first = desk.of('bubble').find((b: any) => !b.stream);
   assert.deepEqual(first?.list, { icon: 'job', items: [{ title: 'Senior CSM', subtitle: 'Shopify', chipText: '82', chipTone: 'good' }] });
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'what time is it' }));
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'any news worth knowing' }));
   await wait(100);
   core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'It is 3pm.', tools: [], ms: 5 });
   await wait(100);

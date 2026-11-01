@@ -105,7 +105,9 @@ import { TrustStore, kindOf, needsHold } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
 import { vaultState, backupVault } from './backup-vault.ts';
 import { runCommand } from './run.ts';
-import { buildMacPrompt, buildSystemPrompt, lint, stripReasoning } from './voice.ts';
+import { buildLocalPrompt, buildMacPrompt, buildSystemPrompt, lint, stripReasoning } from './voice.ts';
+import { DESK_BRAIN, GAME_BRAIN, HANDED_OFF, LocalLane, attachedImages, hasAttachment, routerRoute, ruleRoute } from './instant.ts';
+import type { Route } from './instant.ts';
 import type { CanDraw } from './voice.ts';
 import type { PetAt } from './protocol.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
@@ -137,6 +139,9 @@ export interface CoreConfig {
   port: number;
   /** Tests only: their stand-in pets connect without this run's password. The real brain (index.ts) never sets it. */
   testDoor?: boolean;
+  /** Instant answers on the local model (instant.ts). On for the real brain; off in tests unless one asks for it, so
+   *  tests of everything else route exactly as they always did and never reach his Ollama. */
+  instant?: boolean;
   dataDir: string;
   stateDir: string;
   claudeExecutable?: string;
@@ -3266,6 +3271,13 @@ export class Core {
   private lane(name: LaneName): Lane {
     let l = this.lanes.get(name);
     if (l) return l;
+    // 2026-11-01: the local lane has Lane's shape (send, onEvent, interrupt, close) and no tools at all (instant.ts).
+    if (name === 'local') {
+      const local = new LocalLane(brain => buildLocalPrompt(this.memory.profile(), this.memory.learned(), brain.label));
+      local.onEvent(e => this.onLaneEvent('local', e));
+      this.lanes.set('local', local as unknown as Lane);
+      return local as unknown as Lane;
+    }
     l = new Lane({
       name, model: MODELS[name].model, systemPrompt: this.systemPrompt, mcpServer: this.tools(),
       // Aang's own tools and the read-only built-ins run freely; anything that changes the machine
@@ -3353,6 +3365,10 @@ export class Core {
     // Quick too (2026-10-28, measured on the Mac: the first "hey" after a start waited 10 s for Quick's process). Free:
     // no API call until a message, only the process (about 140 MB) while it runs.
     if (name !== 'quick') this.lane('quick').start?.();
+    // The local brain too (2026-11-01): loading it takes seconds, answering then takes a fifth of one. Not over a game.
+    if ((this.cfg.instant ?? !this.cfg.testDoor) && process.platform !== 'darwin' && process.env.AANG_INSTANT !== '0') {
+      void gameRunning().then(g => { if (!g.running) this.lane('local').start?.(); });
+    }
     if (this.active || this.warming) return;
     if (Date.now() - (this.laneTouched.get(name) ?? 0) < Core.CACHE_STALE_MS) return;
     this.warmPending = false;
@@ -4396,12 +4412,64 @@ export class Core {
       this.send(sub.socket, { t: 'consent', id: sub.id, wanted: sub.mode, text: sub.text });
       return;
     }
+    // 2026-11-01 (instant answers): Auto at the desk asks the local model where this goes first (instant.ts).
+    if (this.instantOn(sub)) {
+      void this.instantLane(sub, choice.lane).then(lane => this.startOrQueue(sub, lane, t0));
+      return;
+    }
+    this.startOrQueue(sub, choice.lane, t0);
+  }
+
+  private startOrQueue(sub: Submission, lane: LaneName, t0: number): void {
     if (this.active) {
       this.queue.push(sub);
       this.send(sub.socket, { t: 'queued', id: sub.id, position: this.queue.length });
       return;
     }
-    this.begin(sub, choice.lane, Date.now() - t0);
+    this.begin(sub, lane, Date.now() - t0);
+  }
+
+  /** Instant answers run on the PC's card only: Auto, at the desk, and not switched off (AANG_INSTANT=0). The Mac has
+   *  no local model, and Discord means he is away, where a right answer beats a fast one (route.ts). */
+  private instantOn(sub: Submission): boolean {
+    return (this.cfg.instant ?? !this.cfg.testDoor) && sub.mode === 'auto' && !sub.ephemeral && this.kindOfSocket(sub.socket) === 'desktop'
+      && process.platform !== 'darwin' && process.env.AANG_INSTANT !== '0';
+  }
+
+  /**
+   * Which lane answers, local first (instant.ts): rules, then the local router, else today's choice. Never slower than
+   * the router's 1.5 s cap, and any failure just means today's routing.
+   */
+  private async instantLane(sub: Submission, fallback: LaneName): Promise<LaneName> {
+    const t0 = Date.now();
+    const words = sub.text.replace(/\n*\[He dropped this file on me: [^\]]*\]/g, '').trim();
+    const game = await gameRunning();
+    const brain = game.running ? GAME_BRAIN : DESK_BRAIN;
+    // A game owns the card: the big local brain leaves it (local.ts unloadLocal) and the small one answers small talk.
+    if (game.running) void unloadLocal();
+    const claude: LaneName = fallback === 'quick' ? 'smart' : fallback;
+    const touched = this.lastLane ? this.laneTouched.get(this.lastLane) : undefined;
+    const last = this.lastLane && touched ? { lane: this.lastLane, at: touched } : null;
+    let route: Route | null = ruleRoute(words, last);
+    const images = attachedImages(sub.text);
+    let lane: LaneName;
+    if (hasAttachment(sub.text)) {
+      // Something he attached. A picture he asks about goes to the desk brain's eyes; doing something with it, any
+      // other kind of file, or a game on the card: Claude, which can read every kind and act.
+      lane = images.length && brain.eyes && route !== 'mine' && route !== 'deep' ? 'local' : claude;
+    } else {
+      if (route === null) route = await routerRoute(brain, words);
+      lane = route === 'talk' ? 'local'
+        : route === 'know' ? (game.running ? claude : 'local')
+          : route === null ? fallback : claude;
+    }
+    if (lane === 'local') {
+      const local = this.lane('local') as unknown as LocalLane;
+      local.brain = brain; local.images = images;
+      MODELS.local = { model: brain.model, label: brain.label };   // the bubble names who answered (decision 8: by its real name)
+    }
+    console.log(`instant: ${images.length ? images.length + ' picture(s), ' : ''}${route ?? 'unsure'} -> ${lane}${lane === 'local' ? ' (' + brain.label + ')' : ''} in ${Date.now() - t0} ms`);
+    return lane;
   }
 
   private begin(sub: Submission, lane: LaneName, ackMs: number, escalated = false, relooked = false): void {
@@ -4605,6 +4673,16 @@ export class Core {
     if (this.active === turn) this.next();
   }
 
+  /** Quick or the local lane could not answer: the same message goes to Smart, once. Whatever was already shown goes
+   *  back to its dots in place (`retry`), never a refusal with dots under it. */
+  private escalate(turn: Turn, sub: Submission): void {
+    if (turn.watchdog) clearTimeout(turn.watchdog);
+    if (turn.flush) { clearTimeout(turn.flush); turn.flush = null; }
+    if (turn.shown) this.toTurn(sub, { t: 'bubble.clear', retry: true });
+    this.active = null;
+    this.begin(sub, 'smart', turn.ackMs, true);
+  }
+
   /**
    * A turn that died.
    *
@@ -4682,9 +4760,11 @@ export class Core {
         // Quick's "I can't" is never shown (2026-10-12: it streamed onto his screen before the check at the finish
         // could hand the turn to Smart). Quick is held back until its first sentence is out and clean; once it starts
         // to refuse, nothing more of it reaches the bubble.
-        if (turn.lane === 'quick' && !turn.escalated && !this.policy.saving) {
+        // The local lane too (2026-11-01), and its HANDOFF (instant.ts) is held back until it is clearly not one.
+        if ((turn.lane === 'quick' || turn.lane === 'local') && !turn.escalated && !this.policy.saving) {
           if (turn.refused) return;
-          if (REFUSES.test(visible)) { turn.refused = true; return; }
+          if (REFUSES.test(visible) || HANDED_OFF.test(visible)) { turn.refused = true; return; }
+          if (turn.lane === 'local' && /^\s*H(?:A(?:N(?:D(?:O(?:F(?:F)?)?)?)?)?)?\s*$/i.test(visible)) return;
           if (!turn.shown && !(visible.length >= 160 || (visible.length >= 30 && /[.!?](\s|$)/.test(visible)))) return;
         }
         if (!turn.stopped && visible) { turn.shown = true; this.toTurn(sub, { t: 'bubble', text: visible, stream: true, id: sub.id, who: MODELS[turn.lane].label }); }
@@ -4697,6 +4777,12 @@ export class Core {
     // result
     if (!sub) { this.finishTurn(turn); return; }                       // silent warm-up turn
     if (turn.stopped) { this.finishTurn(turn); return; }
+    // The local model failed (Ollama down, too slow, empty): Smart answers instead, and he never sees the stumble.
+    if (turn.lane === 'local' && !turn.escalated && (!e.ok || HANDED_OFF.test(e.text))) {
+      console.log(`instant: the local answer ${e.ok ? 'handed it on' : 'failed (' + e.text.slice(0, 80) + ')'}; Smart takes it`);
+      this.escalate(turn, sub);
+      return;
+    }
     if (!e.ok) {
       if (SIGNED_OUT.test(e.text)) { this.fail(turn, 'My Claude sign-in ran out, so I could not answer that.', 'Open the Claude app so it signs in again, then ask me again.'); return; }
       this.fail(turn, 'Claude stopped before finishing that.', 'Ask again, or try Smart for something harder.'); return;
@@ -4712,14 +4798,9 @@ export class Core {
     // the same request instead - a structural fix, not a prompt one (voice.ts: prompts are not guarantees). Not
     // while saving quota: Smart is never chosen silently then.
     const didSomething = this.turnActions.some(a => a.ok) || !!this.mailOutcome?.sent;
-    if (turn.lane === 'quick' && !turn.escalated && !this.policy.saving && !didSomething && REFUSES.test(reply)) {
-      console.log('escalating: Quick said it could not; handing the turn to Smart');
-      if (turn.watchdog) clearTimeout(turn.watchdog);
-      // Anything Quick already showed goes before Smart's dots appear: never a refusal with dots under it.
-      // `retry` (2026-10-21): the bubble goes back to its dots in place instead of vanishing and popping up again.
-      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear', retry: true });
-      this.active = null;
-      this.begin(sub, 'smart', turn.ackMs, true);
+    if ((turn.lane === 'quick' || turn.lane === 'local') && !turn.escalated && !this.policy.saving && !didSomething && (REFUSES.test(reply) || (turn.lane === 'local' && GUESSED.test(reply)))) {
+      console.log(`escalating: ${MODELS[turn.lane].label} said it could not; handing the turn to Smart`);
+      this.escalate(turn, sub);
       return;
     }
     if (this.mailOutcome?.sent && !/\bsent\b/i.test(reply)) {

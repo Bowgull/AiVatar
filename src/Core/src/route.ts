@@ -1,6 +1,8 @@
 import type { Mode } from './protocol.ts';
 
-export type Lane = 'quick' | 'smart' | 'deep';
+// 'local' (2026-11-01): the local model on his card, instant answers (instant.ts). Its model and label change with
+// what owns the card (MiniCPM at the desk, Qwen 4B in a game): Core sets them per turn.
+export type Lane = 'quick' | 'smart' | 'deep' | 'local';
 
 // His yes (2026-10-13): each lane on the newest model of the same size, checked live first (both answered as
 // themselves). Opus 5.5 needs a newer Claude Code than the SDK bundles (2.1.280+): Deep stays on Opus 5 until then.
@@ -8,6 +10,7 @@ export const MODELS: Record<Lane, { model: string; label: string }> = {
   quick: { model: 'claude-haiku-5-5', label: 'Quick' },
   smart: { model: 'claude-sonnet-5-5', label: 'Smart' },
   deep: { model: 'claude-opus-5', label: 'Deep' },
+  local: { model: 'minicpm-v47-eyes', label: 'MiniCPM' },
 };
 
 export const HARD = /\b(write|code|debug|refactor|research|compare|analy[sz]e|plan|architecture|explain (why|how)|step by step|in detail|pros and cons|design)\b/i;
@@ -36,7 +39,7 @@ const KNOWN_ASIDE = /\bon that note\b|\b(went|going|go)\s+for\s+a\s+run\b|\bgo(i
  */
 const PUT_ON = /\b[a-z]?pu+t+\s*(it\s+|that\s+|this\s+|some\s+|something\s+)?on\b|\bpu ton\b/i;
 
-function actsOnIt(text: string): boolean {
+export function actsOnIt(text: string): boolean {
   return (ACT.test(text) || PUT_ON.test(text)) && !KNOWN_ASIDE.test(text);
 }
 

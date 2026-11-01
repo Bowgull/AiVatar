@@ -29,10 +29,18 @@
 
 import { gameRunning } from './gpu.ts';
 
-// The same Qwen3.5-35B-A3B UD-IQ3_XXS file, imported into Ollama from LM Studio's copy under this short name (2026-10-21:
-// the hf.co name was never pulled into Ollama, so every "Qwen first" job had quietly fallen back to Claude).
-export const LOCAL_MODEL = process.env.AANG_LOCAL_MODEL ?? 'qwen3.5-35b-a3b:iq3';
+// 2026-11-01: MiniCPM-V 4.7 35B-A3B (2-bit, with its eyes), the same model the instant answers use (instant.ts
+// DESK_BRAIN), so one model sits on the card instead of two that do not fit together. It replaced Qwen3.5-35B-A3B after
+// three races on this card (Documents/Aang/reports/scoreboard/lineup 2026-11-01.md): faster, and 20/20 deep into a
+// long chat where Qwen fell to 13/20. Qwen's one edge was a single extra fact from a document (7/8 against 6/8).
+export const LOCAL_MODEL = process.env.AANG_LOCAL_MODEL ?? 'minicpm-v47-eyes';
 const URL = process.env.AANG_OLLAMA ?? 'http://127.0.0.1:11434';
+/**
+ * One context size for EVERY call to the local model (router, answer, load, local.ts reading jobs). Ollama reloads a
+ * model from disk whenever a call asks for a different num_ctx: found by the scoreboard (2026-11-01), the router's
+ * default and the answer's 8192 swapped back and forth, each swap 30 s, and the router timed out to Claude meanwhile.
+ */
+export const LOCAL_CTX = 8192;
 
 /** Why a local answer could not be used. Separated so a caller can tell "not running" from "said nothing". */
 export type LocalFailure = 'offline' | 'no-model' | 'timeout' | 'empty' | 'error' | 'game';
@@ -108,6 +116,7 @@ export async function askLocal(
           { role: 'user', content: text },
         ],
         options: {
+          num_ctx: LOCAL_CTX,
           // Reading, not writing: near-deterministic so the same document gives the same facts twice.
           temperature: 0.2,
           num_predict: maxTokens,
