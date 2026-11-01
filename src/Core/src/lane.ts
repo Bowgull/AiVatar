@@ -138,6 +138,11 @@ export class Lane {
         // Note: never pass `tools: []`. An empty array switches every built-in off, which is how Aang
         // ended up telling Joshua he had no internet and could not touch the machine.
         settingSources: this.opts.settingSources ?? [],
+        // 2026-11-01 (the scoreboard): loading his user settings for the job-hunt skill also ran his settings.json
+        // hooks, a shell plus curl to the hook server on UserPromptSubmit before the model and on Stop before the
+        // result. The hook server drops a lane's events anyway (notHisCwd), so they bought nothing and cost ~3 s per
+        // reply ("144." took 6 s). A lane is always Aang's own, so its hooks are off; his real sessions keep theirs.
+        settings: { disableAllHooks: true },
         ...(this.opts.skills ? { skills: this.opts.skills } : {}),
         ...(this.opts.cwd ? { cwd: this.opts.cwd } : {}),
         includePartialMessages: true,

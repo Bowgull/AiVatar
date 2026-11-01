@@ -975,6 +975,11 @@
       "at": "2026-11-01T07:20:00-05:00",
       "text": "Aang sounds warmer and more like himself, Discord too.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T08:40:00-05:00",
+      "text": "Aang's replies finish sooner, no extra wait at the end.",
+      "kind": "fix"
     }
   ]
 }
