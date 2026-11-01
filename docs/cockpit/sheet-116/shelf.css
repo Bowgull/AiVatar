@@ -118,3 +118,77 @@
 .flow .papernote .t{position:absolute;left:16px;top:12px;font:400 21px "Patrick Hand",Figtree,sans-serif;color:#2a1c10}
 .flow .papernote .b{position:absolute;left:16px;right:16px;top:46px;font:500 14px/1.5 Figtree,sans-serif;color:#2E2216}
 .flow .papernote.target{filter:drop-shadow(0 0 0 #C8E8FF) drop-shadow(0 0 6px rgba(200,232,255,.7))}
+
+/* ---------------------------------------------------------------- v2 (his second interview, 2026-11-01): the Satchel */
+/* The hover area: the middle third of the right edge, invisible. The tab lives just off-screen and peeks in on a spring. */
+.zone{position:absolute;right:0;top:33.3%;height:33.4%;width:14px;z-index:6}
+.tab{position:absolute;right:0;top:50%;z-index:7;width:46px;height:70px;margin-top:-35px;display:grid;place-items:center;cursor:pointer;
+  transform:translateX(52px);transition:transform calc(var(--close-ms) * var(--slow)) var(--close-ease),filter .2s}
+.tab.peek{transform:translateX(0);transition:transform calc(var(--peek-ms) * var(--slow)) var(--peek-ease)}
+.tab.still{position:relative;right:auto;top:auto;margin:0;transform:none}
+.tab.hot{filter:drop-shadow(0 0 8px rgba(255,214,122,.9))}
+.tabA{border-radius:14px 0 0 14px;background:linear-gradient(90deg,#56371F,#4A2E1A 40%,#24160D);box-shadow:0 0 0 2px #120a05,inset 2px 0 0 rgba(255,224,150,.18),-4px 6px 12px rgba(0,0,0,.45)}
+.tabB{border-radius:14px 0 0 14px;background:linear-gradient(90deg,#e4f3ff,#C8E8FF);box-shadow:0 0 0 2px #1f3a52,inset 2px 0 0 #fff,-4px 6px 12px rgba(0,0,0,.4)}
+.tabC{width:30px;height:64px;margin-top:-32px;border-radius:8px 0 0 8px;background:linear-gradient(90deg,#ffe096,#d9a83a 45%,#b97a22);
+  box-shadow:0 0 0 2px #2c1c10,-3px 5px 10px rgba(0,0,0,.4)}
+.tabC canvas{transform:scale(.72)}
+.desk116.isopen .tab{transform:translateX(52px)}
+.desk116.gaming::after{content:"A GAME IS RUNNING";position:absolute;left:34px;bottom:22px;font:800 12px Figtree,sans-serif;letter-spacing:.8px;color:#ff8f7a}
+
+.shelf .hd{top:14px}
+.shelf .hdic{flex:none}
+.shelf .hk{font:700 11.5px Figtree,sans-serif;color:#c9a66a;padding:3px 7px;border-radius:6px;box-shadow:0 0 0 2px rgba(201,166,106,.35)}
+.shelf .pause{margin-left:auto}
+input.search{border:0;outline:none;width:auto;caret-color:#ffc43c;color:#f3e7cf}
+input.search::placeholder{color:#8a7a60}
+input.search:focus{box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708,0 0 0 4px rgba(255,196,60,.45)}
+.card.sel{transform:translateX(-4px)}
+.card.sel::before{content:"";position:absolute;left:-8px;top:8px;bottom:12px;width:4px;border-radius:2px;background:#ffc43c;box-shadow:0 0 6px rgba(255,196,60,.7)}
+.card{cursor:pointer}
+
+/* the keys are pixel icons now; the word shows above the one under the mouse */
+.acts{top:-17px;gap:5px}
+.ik{position:relative;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#fff3d6;box-shadow:0 0 0 2px #7a5532,0 2px 0 #7a5532;cursor:pointer}
+.ik.on{background:#ffe096}
+.ik.ask{background:#4A2C6E;box-shadow:0 0 0 2px #24123c,0 2px 0 #24123c}
+.ik.ask canvas{width:22px!important;height:22px!important}
+.ik.bin{background:#f3d2c6;box-shadow:0 0 0 2px #8a3e1c,0 2px 0 #8a3e1c}
+.ik[data-w]:hover::after{content:attr(data-w);position:absolute;bottom:calc(100% + 8px);right:-4px;white-space:nowrap;font:700 12.5px Figtree,sans-serif;color:#fff;
+  background:#2C1848;padding:5px 9px;border-radius:7px;box-shadow:0 0 0 2px #120a05,0 4px 10px rgba(0,0,0,.45);pointer-events:none}
+.legend{display:flex;flex-wrap:wrap;gap:14px 26px;margin:10px 0 0}
+.leg{display:flex;align-items:center;gap:10px}
+.leg b{font:700 15px Figtree,sans-serif;color:#fffaf0}
+
+/* the file you drag onto the tab */
+.dragme{position:absolute;left:330px;top:150px;z-index:8;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:9px;background:#2a2536;
+  box-shadow:0 0 0 2px #3d3550;font:700 12.5px Figtree,sans-serif;color:#cfc6e4;transition:transform calc(.95s * var(--slow)) cubic-bezier(.3,.1,.2,1)}
+.dragme img{width:24px;height:24px;image-rendering:pixelated}
+.dragme.flying{box-shadow:0 0 0 2px #C8E8FF,0 10px 20px rgba(0,0,0,.5)}
+
+/* the tab looks */
+.looks{display:flex;flex-wrap:wrap;gap:22px}
+.look{width:300px}
+.look .lbl{font:800 12px Figtree,sans-serif;letter-spacing:.8px;color:#c9a66a;margin:0 0 8px}
+.lookstage{position:relative;height:120px;border-radius:12px;background:#16121f;box-shadow:0 0 0 3px #120a05;display:flex;justify-content:flex-end;align-items:center;overflow:hidden}
+.look p{font:500 14px/1.45 Figtree,sans-serif;color:#d8cab0;margin:8px 0 0}
+
+/* the quick note with the clip inside */
+.flow .papernote.quick .b{top:16px;font:500 15px/1.5 Figtree,sans-serif}
+.flow .papernote .caret{display:inline-block;width:2px;height:17px;margin-left:2px;vertical-align:-3px;background:#2a1c10;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.flow .innote{position:absolute;left:18px;top:52px}
+.flow .innote .card{margin:0}
+.flow .qfoot{position:absolute;left:18px;right:18px;bottom:16px;display:flex;justify-content:space-between;font:700 12px Figtree,sans-serif;color:#6b5236}
+.flow .qfoot .cat{padding:2px 8px;border-radius:7px;box-shadow:0 0 0 2px rgba(107,82,54,.35)}
+/* v2 fixes after the first look: closed means fully gone (no sliver at the edge); the icons sit on the clip's bottom line, beside
+   its time and source, never over its words */
+.shelf{clip-path:inset(calc(50% - 35px) 0 calc(50% - 35px) 100% round 14px)}
+.card .meta{min-height:28px}
+.acts{top:auto;bottom:8px;right:12px;transform:translateY(3px)}
+.ik{width:26px;height:26px;border-radius:7px}
+.ik.ask canvas{width:20px!important;height:20px!important}
+.shelf .none{font:600 14px Figtree,sans-serif;color:#d8cab0;margin:14px 8px}
+/* the clip the arrows are on: a gold glow round its paper (the old left bar was clipped by the list's edge) */
+.card.sel{transform:none}
+.card.sel::before{display:none}
+.card.sel > canvas.paper{filter:drop-shadow(0 0 0 #ffc43c) drop-shadow(0 0 4px rgba(255,196,60,.95))}
