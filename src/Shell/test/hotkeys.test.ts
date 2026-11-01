@@ -58,8 +58,8 @@ test('a clash with another of ours names it, pad twins and fixed keys included',
   assert.equal(ourClash('note', 'Control+Alt+N', now), null);
 });
 
-test('defaults: Ctrl+Plus, Ctrl+Shift+Plus, Ctrl+Shift+V, the new Ctrl+*, Ctrl+Alt+P', () => {
-  assert.deepEqual(readKeys(dir()), { talk: 'Control+=', snip: 'Control+Shift+=', popout: 'Control+Shift+V', note: 'Control+nummult', pin: 'Control+Alt+P' });
+test('defaults: Ctrl+Plus, Ctrl+Shift+Plus, Ctrl+Shift+V, the new Ctrl+*, Ctrl+Alt+P, the Satchel Ctrl+Alt+V', () => {
+  assert.deepEqual(readKeys(dir()), { talk: 'Control+=', snip: 'Control+Shift+=', popout: 'Control+Shift+V', note: 'Control+nummult', pin: 'Control+Alt+P', satchel: 'Control+Alt+V' });
 });
 
 test('held while wanted; let go while the menu listens; a press runs its action', () => {
@@ -83,11 +83,11 @@ test('a change is held at once, kept, and the old key let go', () => {
   const d = dir(), gs = fakeKeys();
   const k = new HotkeyKeeper(d, gs, acts([]));
   k.want('popout', true);
-  assert.deepEqual(k.change('popout', 'Control+Alt+V'), { ok: true });
-  assert.ok(gs.held.has('Control+Alt+V') && !gs.held.has('Control+Shift+V'));
-  assert.equal(readKeys(d).popout, 'Control+Alt+V');
+  assert.deepEqual(k.change('popout', 'Control+Alt+B'), { ok: true });
+  assert.ok(gs.held.has('Control+Alt+B') && !gs.held.has('Control+Shift+V'));
+  assert.equal(readKeys(d).popout, 'Control+Alt+B');
   // The pop-out's own file (read by the Mac and hotkey.ts) says the same.
-  assert.equal(JSON.parse(readFileSync(path.join(d, 'popout-hotkey.json'), 'utf8')).hotkey, 'Control+Alt+V');
+  assert.equal(JSON.parse(readFileSync(path.join(d, 'popout-hotkey.json'), 'utf8')).hotkey, 'Control+Alt+B');
   // A key not held right now (the pin, nothing up) is tested with Windows, then let go again.
   assert.deepEqual(k.change('pin', 'Control+Alt+O'), { ok: true });
   assert.ok(!gs.held.has('Control+Alt+O'));

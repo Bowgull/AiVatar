@@ -18,8 +18,8 @@ const POPOUT_DEFAULT = 'Control+Shift+V';
 const popoutFile = (stateDir: string) => path.join(stateDir, 'popout-hotkey.json');
 
 /** The keys he can change. */
-export type KeyId = 'talk' | 'snip' | 'popout' | 'note' | 'pin';
-export const KEY_IDS: KeyId[] = ['talk', 'snip', 'popout', 'note', 'pin'];
+export type KeyId = 'talk' | 'snip' | 'popout' | 'note' | 'pin' | 'satchel';
+export const KEY_IDS: KeyId[] = ['talk', 'snip', 'popout', 'note', 'pin', 'satchel'];
 
 /** Each key as the sheet lists it. `aang`: taken only while Aang runs; `when`: only while something is up. */
 export const KEYS: Record<KeyId, { label: string; def: string; group: 'any' | 'up'; fresh?: boolean }> = {
@@ -29,6 +29,8 @@ export const KEYS: Record<KeyId, { label: string; def: string; group: 'any' | 'u
   // His interview (2026-10-22): Ctrl + the number pad *, free on Windows and in his WoW bindings.
   note: { label: 'Quick note', def: 'Control+nummult', group: 'any', fresh: true },
   pin: { label: 'Pin what is under the mouse', def: 'Control+Alt+P', group: 'up' },
+  // Sheet 116 (his pick, 2026-11-01): the Satchel, held always (Samara on its own too), over a game as well.
+  satchel: { label: 'Open the Satchel', def: 'Control+Alt+V', group: 'any', fresh: true },
 };
 /** Held only while his bubble is up (main.ts watchBusy), so they are shown, greyed, and never changed. */
 export const FIXED = [

@@ -6179,6 +6179,13 @@ export class AangBrowser {
   private quitting = false;
   /** A Samara window is open (what keeps the Shell running when Aang is off). */
   hasWindow(): boolean { return this.panes.some((p) => this.alive(p)); }
+  /** The Satchel (2026-11-01): the page he is on, only while one of Samara's windows has the keyboard, so a copy made on a
+   *  money site is never kept. Null when Samara is not in front. */
+  focusedUrl(): string | null {
+    const p = this.panes.find((x) => this.alive(x) && x.win.isFocused());
+    if (!p || p.active === null) return null;
+    return this.tabs.find((t) => t.id === p.active)?.url ?? null;
+  }
   /** A Samara window fills the screen (a video, F11): the scheduler holds heavy background jobs. */
   get fullScreen(): boolean { return this.panes.some((p) => this.alive(p) && p.win?.isFullScreen() === true); }
   /** The Samara window he used last (the Claude job's bar under the lantern goes on it, taskbar.ts), or null. */

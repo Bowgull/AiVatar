@@ -554,6 +554,8 @@ app.whenReady().then(async () => {
   hotkeys = new HotkeyKeeper(app.getPath('userData'), globalShortcut, {
     talk: () => { if (input?.visible) input.close(); else { setPose('out'); openTypeBox(); } },
     snip: () => { macSnip(); },
+    // Sheet 116: the Satchel comes to the Mac in its own step (his pick: same on the Mac, synced); not taken here yet.
+    satchel: () => {},
     popout: () => { /* Samara's */ },
     note: () => { void takeKeys(); if (!noteWins?.quick()) { bubble?.send('brain:message', { t: 'notes.board', fresh: true }); bubble?.show(); } },
     pin: () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; },
