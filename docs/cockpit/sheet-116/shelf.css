@@ -113,7 +113,6 @@
 .flow .cap{position:absolute;left:16px;top:12px;font:800 12px Figtree,sans-serif;letter-spacing:.8px;color:#c9a66a}
 .hint{position:absolute;z-index:4;font:800 12.5px Figtree,sans-serif;color:#2a1708;background:#C8E8FF;padding:4px 10px;border-radius:8px;box-shadow:0 0 0 2px #1f3a52}
 
-.acts > span.ask canvas{width:18px!important;height:18px!important}
 .flow .papernote{position:absolute}
 .flow .papernote .t{position:absolute;left:16px;top:12px;font:400 21px "Patrick Hand",Figtree,sans-serif;color:#2a1c10}
 .flow .papernote .b{position:absolute;left:16px;right:16px;top:46px;font:500 14px/1.5 Figtree,sans-serif;color:#2E2216}
@@ -151,7 +150,6 @@ input.search:focus{box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708,0 0 0 4px 
 .ik{position:relative;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#fff3d6;box-shadow:0 0 0 2px #7a5532,0 2px 0 #7a5532;cursor:pointer}
 .ik.on{background:#ffe096}
 .ik.ask{background:#4A2C6E;box-shadow:0 0 0 2px #24123c,0 2px 0 #24123c}
-.ik.ask canvas{width:22px!important;height:22px!important}
 .ik.bin{background:#f3d2c6;box-shadow:0 0 0 2px #8a3e1c,0 2px 0 #8a3e1c}
 .ik[data-w]:hover::after{content:attr(data-w);position:absolute;bottom:calc(100% + 8px);right:-4px;white-space:nowrap;font:700 12.5px Figtree,sans-serif;color:#fff;
   background:#2C1848;padding:5px 9px;border-radius:7px;box-shadow:0 0 0 2px #120a05,0 4px 10px rgba(0,0,0,.45);pointer-events:none}
@@ -186,9 +184,25 @@ input.search:focus{box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708,0 0 0 4px 
 .card .meta{min-height:28px}
 .acts{top:auto;bottom:8px;right:12px;transform:translateY(3px)}
 .ik{width:26px;height:26px;border-radius:7px}
-.ik.ask canvas{width:20px!important;height:20px!important}
 .shelf .none{font:600 14px Figtree,sans-serif;color:#d8cab0;margin:14px 8px}
 /* the clip the arrows are on: a gold glow round its paper (the old left bar was clipped by the list's edge) */
 .card.sel{transform:none}
 .card.sel::before{display:none}
 .card.sel > canvas.paper{filter:drop-shadow(0 0 0 #ffc43c) drop-shadow(0 0 4px rgba(255,196,60,.95))}
+
+/* v2.1 (his note: the icons sat low and looked low quality): each is a cream keycap with a bevelled lip, the glyph seated
+   in it; the row sits level in the clip's bottom line, centred on it, never on the paper's edge */
+.card .meta{min-height:34px}
+.acts{bottom:9px;right:12px;gap:6px;transform:translateY(2px)}
+.ik{width:32px;height:30px;border-radius:0;background:none!important;box-shadow:none!important}
+.ik > canvas.cap{position:absolute;left:0;top:0;transition:transform 70ms}
+.ik > .glyph{position:absolute;left:5px;top:3px}
+.ik:hover > canvas.cap{filter:brightness(1.06)}
+.ik:active > canvas.cap,.ik:active > .glyph{transform:translateY(2px)}
+.ik[data-w]:hover::after{bottom:calc(100% + 6px)}
+.legend .ik{position:relative}
+/* v2.1 detail: Aang's face sits IN his plum keycap like the other glyphs; the row is a touch tighter so it never meets the clip's
+   time and source on the left */
+.acts{gap:4px}
+.ik{width:32px}
+.card .meta{padding-right:178px}

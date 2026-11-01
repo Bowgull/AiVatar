@@ -4,7 +4,7 @@
 // "Keep as a note" opens the quick note with the clip in it. Built from the sheet 59/60 kit (pixels at exactly 2x,
 // Samara's tray wood, the notes' papers). Motion is Edge-Drop's (Apache-2.0): springs as CSS linear() on clip-path and
 // transform, never size or position.
-import { P, rr, fills, cover, spr } from '../sheet-59/pix.js';
+import { P, rr, fills, cover, spr, mix, paperAt } from '../sheet-59/pix.js';
 import { ready, el, at, paper, face, snipPic } from '../sheet-60/notes.js';
 
 await ready();
@@ -35,15 +35,16 @@ const slow = () => Number(getComputedStyle(document.documentElement).getProperty
 
 // ---------------------------------------------------------------- pixel icons (hand-placed, shown 2x)
 const INK = '#2c1c10';
+// v2.1 (his note: "the icons were a bit low quality"): crisper glyphs, two or three tones, 11 px, drawn for the keycap
 const ICON = {
-  copy: spr(['..OOOOOO..', '..OLLLLO..', '..OLLLLO..', 'OOOOOOLO..', 'OLLLLOLO..', 'OLWWLOLO..', 'OLLLLOOO..', 'OLWWLO....', 'OLLLLO....', 'OOOOOO....'],
-    { O: INK, L: '#fff3d6', W: '#c9a66a' }),
-  pin: spr(['.OOOOO.', '.OGLGO.', '.OGGGO.', '.OFFFO.', '.OFFFO.', '.OFFFO.', '.OFFFO.', '.OFOFO.', '.OO.OO.'],
-    { O: INK, G: '#c98c14', L: '#ffe096', F: '#d9a83a' }),
-  note: spr(['OOOOOOOOO', 'OYYYYYYYO', 'OYKKKKKYO', 'OYYYYYYYO', 'OYKKKKYYO', 'OYYYYYYYO', 'OYKKKYYYO', 'OYYYYYYYO', 'OOOOOOOOO'],
-    { O: INK, Y: '#f8dc8e', K: '#b08a3a' }),
-  bin: spr(['...OOO...', 'OOOOOOOOO', 'ORRRRRRRO', '.OOOOOOO.', '.OSRSRSO.', '.OSRSRSO.', '.OSRSRSO.', '.OSRSRSO.', '.OOOOOOO.'],
-    { O: INK, R: '#c4572f', S: '#e79c7b' }),
+  copy: spr(['...OOOOOOO.', '...OWWWWWO.', '...OWKKKWO.', 'OOOOOOOWWO.', 'OWWWWWOKWO.', 'OWKKKWOWWO.', 'OWWWWWOOOO.', 'OWKKKWO....', 'OWWWWWO....', 'OWKKWWO....', 'OOOOOOO....'],
+    { O: INK, W: '#fffaf0', K: '#a07a48' }),
+  pin: spr(['..OOOOOOO..', '..OLGGGGO..', '..OGGGGSO..', '..OGGGGSO..', '..OGGGGSO..', '..OGGGGSO..', '..OGGGGSO..', '..OGGOGSO..', '..OGO.OSO..', '..OO...OO..'],
+    { O: INK, L: '#ffe9a8', G: '#e8b440', S: '#b97a22' }),
+  note: spr(['OOOOOOOOOOO', 'OYYYYYYYYYO', 'OYKKKKKKYYO', 'OYYYYYYYYYO', 'OYKKKKKYYYO', 'OYYYYYYYYYO', 'OYKKKKKKKYO', 'OYYYYYYYYYO', 'OSSSSSSSSSO', 'OOOOOOOOOOO'],
+    { O: INK, Y: '#f8dc8e', K: '#a07a48', S: '#d9b25a' }),
+  bin: spr(['....OOO....', '.OOOOOOOOO.', 'OLLLLLLLLLO', 'OOOOOOOOOOO', '.ORRRRRRRO.', '.ORSRSRSRO.', '.ORSRSRSRO.', '.ORSRSRSRO.', '.ORSRSRSRO.', '.ORRRRRRRO.', '..OOOOOOO..'],
+    { O: INK, L: '#e79c7b', R: '#c4572f', S: '#8a3e1c' }),
 };
 const clone = (c) => { const k = document.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); k.style.cssText = c.style.cssText; return k; };
 const SATCHEL = ['....OOOOOOO....', '...OBBBBBBBO...', '..OBO.....OBO..', '..OB.......BO..', 'OOOOOOOOOOOOOOO', 'OLLLLLLLLLLLLLO', 'OLLLLLGGGLLLLLO', 'OHHHHHGYGHHHHHO', 'OLLLLLGGGLLLLLO', 'OLLLLLLLLLLLLLO', 'OLLLLLLLLLLLLLO', 'OSSSSSSSSSSSSSO', '.OOOOOOOOOOOOO.'];
@@ -53,7 +54,21 @@ const satchelIcon = () => spr(SATCHEL, { O: INK, B: '#7a5532', L: '#a8743c', H: 
 const W = 360;
 const PAPER = { clip: '#f3e2a6', snip: '#d3e9f8', mac: '#e6dcf2' };
 function fav(letter, bg) { const f = el('span', 'fav', letter); f.style.background = bg; return f; }
-function keyIcon(word, icon, cls = '') { const s = el('span', 'ik ' + cls); s.dataset.w = word; s.append(icon); return s; }
+function keycap(dark = false) {
+  return rr(16, 14, 4, { band: 'edge', shadow: 1, shadowCol: [40, 22, 8, 255], fill: (x, y, c) => {
+    let p = dark ? mix('#6a3fa0', '#4A2C6E', y / 14) : paperAt(y / 14);
+    if (c.d === 0 && c.lit > 0.3) p = mix(p, '#ffffff', dark ? 0.25 : 0.55);
+    if (y === 12) p = mix(p, dark ? '#24123c' : '#b8955e', 0.6);
+    return p; } });
+}
+function keyIcon(word, icon, cls = '') {
+  const s = el('span', 'ik ' + cls); s.dataset.w = word;
+  const cap = keycap(cls.includes('ask')); cap.classList.add('cap'); icon.classList.add('glyph');
+  // Aang's face is drawn bigger than a glyph: it sits in his plum key at glyph size, the key showing round it
+  if (cls.includes('ask')) { icon.style.width = '18px'; icon.style.height = '18px'; icon.style.left = '7px'; icon.style.top = '4px'; }
+  s.append(cap, icon);
+  return s;
+}
 function acts(it) {
   const a = el('div', 'acts');
   a.append(keyIcon('Copy', clone(ICON.copy)), keyIcon(it.pinned ? 'Unpin' : 'Pin to the top', clone(ICON.pin), it.pinned ? 'on' : ''),
@@ -106,7 +121,7 @@ const zone = el('div', 'zone'); desk.append(zone);                              
 const tab = el('div', 'tab tabA'); tab.append(satchelIcon()); tab.title = 'Satchel (Ctrl + Alt + V)'; desk.append(tab);
 const sat = el('div', 'shelf'); desk.append(sat);
 const wood = rr(392 / P, 580 / P, 9, { band: 's2', E: 4, fill: fills.wood(1) }); wood.classList.add('wood'); sat.append(wood);
-const hd = el('div', 'hd'); const ic = satchelIcon(); ic.classList.add('hdic'); hd.append(ic, el('span', 'ttl', 'Satchel'), el('span', 'hk', 'Ctrl + Alt + V'), el('span', 'pause', 'Pause')); sat.append(hd);
+const hd = el('div', 'hd'); const ic = satchelIcon(); ic.classList.add('hdic'); hd.append(ic, el('span', 'ttl', 'Satchel'), el('span', 'hk', 'Ctrl + Alt + V')); sat.append(hd);
 const search = el('input', 'search'); search.placeholder = 'Type to find a clip'; sat.append(search);
 const chips = el('div', 'chips'); ['All', 'Text', 'Links', 'Pictures', 'Snips', 'Files'].forEach((t, i) => chips.append(el('span', 'chip' + (i ? '' : ' on'), t))); sat.append(chips);
 const list = el('div', 'list'); sat.append(list);
@@ -214,8 +229,8 @@ for (const [k, name, why] of [['A', 'A · WOOD TAB (MY PICK)', "Samara's wood wi
 }
 // the icons, each with its word
 const legend = $('#iconlegend');
-for (const [w, i] of [['Copy', clone(ICON.copy)], ['Pin to the top', clone(ICON.pin)], ['Keep as a note', clone(ICON.note)], ['Ask Aang about it', face()], ['Bin', clone(ICON.bin)]]) {
-  const r = el('div', 'leg'); const k = el('span', 'ik' + (w.startsWith('Ask') ? ' ask' : w === 'Bin' ? ' bin' : '')); k.append(i); r.append(k, el('b', '', w)); legend.append(r);
+for (const [w, i, cls] of [['Copy', clone(ICON.copy), ''], ['Pin to the top', clone(ICON.pin), ''], ['Keep as a note', clone(ICON.note), ''], ['Ask Aang about it', face(), 'ask'], ['Bin', clone(ICON.bin), '']]) {
+  const r = el('div', 'leg'); const k = keyIcon(w, i, cls); delete k.dataset.w; r.append(k, el('b', '', w)); legend.append(r);
 }
 
 // ---------------------------------------------------------------- the bubble with the same spring
