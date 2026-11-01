@@ -480,7 +480,13 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   // On his MacBook (2026-10-22): no brain there; Samara on the Mac takes it itself, at its own signed door.
   const mac = await macHome($)
   if (mac) return macMockup($, L, mac, a.body)
-  if (!L.sessionId || !(await proven($, L))) return { result: `Aang is not running, so the mockup cannot reach Samara now. ${MOCKUP_FALLBACK}`, isError: true }
+  // 2026-11-01: no brain, but Samara open on its own: Samara's own door on this PC, the same one the Mac uses. Before,
+  // this refused ("Aang is not running") and two mockups that day never reached the trail.
+  if (!L.sessionId || !(await proven($, L))) {
+    const roaming = (await within($, $.env.get('APPDATA'), 500)) || ''
+    return roaming ? samaraDoor($, L, `${roaming}\\Aang\\mockup-door.key`, 'Samara is not running on this PC', a.body)
+      : { result: `Aang and Samara are not running, so the mockup cannot reach Samara now. ${MOCKUP_FALLBACK}`, isError: true }
+  }
   const r = await call($, L, 'POST', '/link/mockup', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...a.body }), 8000)
   let j: { ok?: unknown; message?: unknown } = {}
   try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
@@ -554,8 +560,13 @@ async function macHome($: $T): Promise<string | null> {
  * holds the key (HMAC over a fresh nonce) before it is told any folder or file name.
  */
 async function macMockup($: $T, L: Link, home: string, body: Record<string, string>): Promise<{ result: string; isError?: true }> {
-  const down = { result: `Samara is not running on this Mac, so the mockup cannot reach it now. ${MOCKUP_FALLBACK}`, isError: true as const }
-  const key = (await within($, $.fs.read(`${home}/Library/Application Support/Aang/mockup-door.key`), 500))?.trim() || ''
+  return samaraDoor($, L, `${home}/Library/Application Support/Aang/mockup-door.key`, 'Samara is not running on this Mac', body)
+}
+
+/** Samara's own mockup door (src/Shell/src/mockupdoor.ts), on the Mac always and on the PC whenever the brain is down. */
+async function samaraDoor($: $T, L: Link, keyFile: string, notRunning: string, body: Record<string, string>): Promise<{ result: string; isError?: true }> {
+  const down = { result: `${notRunning}, so the mockup cannot reach it now. ${MOCKUP_FALLBACK}`, isError: true as const }
+  const key = (await within($, $.fs.read(keyFile), 500))?.trim() || ''
   if (key.length < 32) return down
   const base = 'http://127.0.0.1:47844'
   const signed = async (method: 'GET' | 'POST', pathQ: string, b: string, ms: number) => {

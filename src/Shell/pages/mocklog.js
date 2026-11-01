@@ -43,13 +43,31 @@ function where(sheet) {
   return null;
 }
 
-function openSheet(sheet, v = null) {
+/**
+ * auto: Mockups opened itself on a sheet Claude just sent. That is NOT him seeing it (2026-11-01: two sheets lost their
+ * NEW, count and notice the moment they arrived, because this page opened on them in a Samara he was not looking at).
+ * So an automatic open keeps NEW until he really touches this page (a click, a key, a scroll) while it is in front.
+ */
+let pendingSeen = null;
+function seen(sheet) {
+  const w = where(sheet);
+  if (!w || !w.n.fresh) return;
+  window.mocklog?.seen(sheet); w.n.fresh = false; w.p.fresh = Math.max(0, w.p.fresh - 1);
+}
+function openSheet(sheet, v = null, auto = false) {
   const w = where(sheet);
   if (!w) return;
   pick.p = w.p.name; pick.s = sheet; pick.v = v; pick.newAtOpen = w.n.fresh;
-  // Its NEW goes at once here; Samara's own copy follows a moment later.
-  if (w.n.fresh) { window.mocklog?.seen(sheet); w.n.fresh = false; w.p.fresh = Math.max(0, w.p.fresh - 1); }
+  // His own open: its NEW goes at once here; Samara's own copy follows a moment later.
+  if (auto) pendingSeen = w.n.fresh ? sheet : null; else { pendingSeen = null; seen(sheet); }
   draw();
+}
+for (const ev of ['pointerdown', 'keydown', 'wheel']) {
+  window.addEventListener(ev, () => {
+    if (!pendingSeen || document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    const s = pendingSeen; pendingSeen = null;
+    if (pick.s === s) { seen(s); draw(); }
+  }, { capture: true, passive: true });
 }
 
 function draw() {
@@ -285,7 +303,7 @@ function take(d) {
   if (d.focus && d.focus.n !== focusN) {
     focusN = d.focus.n;
     const w = where(d.focus.sheet);
-    if (w) { const ver = w.n.versions.find((x) => x.id === d.focus.id); openSheet(d.focus.sheet, ver?.v ?? null); return; }
+    if (w) { const ver = w.n.versions.find((x) => x.id === d.focus.id); openSheet(d.focus.sheet, ver?.v ?? null, true); return; }
   }
   draw();
 }

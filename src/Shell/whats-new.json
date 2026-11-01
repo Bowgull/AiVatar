@@ -990,6 +990,16 @@
       "at": "2026-11-01T09:15:00-05:00",
       "text": "Snips you ask about are read instantly on your PC.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T09:55:00-05:00",
+      "text": "Claude's mockups always reach Samara, even without Aang.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T09:55:00-05:00",
+      "text": "New mockups stay marked NEW until you look.",
+      "kind": "fix"
     }
   ]
 }
