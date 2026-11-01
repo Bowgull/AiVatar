@@ -1000,6 +1000,16 @@
       "at": "2026-11-01T09:45:00-05:00",
       "text": "New mockups stay marked NEW until you look.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T10:45:00-05:00",
+      "text": "The Satchel: everything you copy, kept. Ctrl + Alt + V.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T10:45:00-05:00",
+      "text": "Hover the middle of the right edge for the Satchel's tab.",
+      "kind": "feature"
     }
   ]
 }

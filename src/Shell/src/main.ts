@@ -68,6 +68,7 @@ import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import type { Box } from './geometry.ts';
+import { Satchel } from './satchel.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 // One engine (his yes, 2026-10-13): on castLabs' engine, paid video plays in the browser's tabs. Shadow cannot capture a
@@ -208,6 +209,8 @@ const hotkeys = new HotkeyKeeper(STATE_DIR, globalShortcut, {
   note: () => { if (!noteWins?.quick()) bubble?.send('brain:message', { t: 'notes.board', fresh: true }); },
   // 1b: the same key is the ONE way back from click-through for every family member (the group under the mouse).
   pin: () => { const p = screen.getCursorScreenPoint(); if (family?.reachAt(p) || timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); },
+  // Sheet 116 (2026-11-01): the Satchel, his clipboard. Opens ready for the keyboard; the same key closes it.
+  satchel: () => satchel?.toggle(),
 });
 
 let busySent = '';
@@ -724,6 +727,13 @@ app.whenReady().then(async () => {
     base = await samaraBase(pcPlatform(), bootDeps((s) => console.log('shell: ' + s)));
     ({ pages, popout, drm } = base);
     console.log(`shell: pages on ${pages.origin}`);
+    // Sheet 116 (approved 2026-11-01): the Satchel. It runs with Samara on its own too; Keep as a note and Ask Aang light up
+    // while Aang runs (the 3 s check below hands them in).
+    satchel = new Satchel({
+      origin: pages.origin, preloadPath: path.join(HERE, 'satchelpreload.cjs'), stateDir: STATE_DIR, iconPath: AANG_ICON,
+      inGame: () => gameQuiet, samaraUrl: () => aangBrowser?.focusedUrl() ?? null, keepAsNote: null, ask: null,
+    });
+    hotkeys.want('satchel', true);
 
     // Step 6.12. OFF unless he asks for it: the old GDI bubble is still running, and two bubbles saying
     // the same thing at once is worse than one old one. It is not something to discover mid-raid.
@@ -930,7 +940,7 @@ app.whenReady().then(async () => {
       snipper = new Snipper({
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
         dir: path.join(app.getPath('pictures'), 'Aang snips'),
-        onSend: (file, thumb) => landSend({ kind: 'snip', file, thumb, site: 'your screen', title: 'snip ' + new Date().toTimeString().slice(0, 5) }),
+        onSend: (file, thumb) => { satchel?.keepSnip(file); landSend({ kind: 'snip', file, thumb, site: 'your screen', title: 'snip ' + new Date().toTimeString().slice(0, 5) }); },
       });
       pinSnips = new PinSnips({ origin: pages.origin, preloadPath: path.join(HERE, 'pinsnippreload.cjs'), iconPath: AANG_ICON });
       if (family) pinSnips.family = family;
@@ -1623,6 +1633,12 @@ setInterval(() => {
     }
   }
   if (aangBrowser) aangBrowser.onSendToAang = up ? sendToAang : null;
+  // The Satchel's Keep as a note and Ask Aang: only while Aang runs (his notes and his typing box are his).
+  satchel?.setHelpers(up ? {
+    keepAsNote: (text) => !!noteWins?.quick(satchelNoteHtml(text)),
+    ask: (c, png) => sendToAang({ kind: png ? (c.kind === 'snip' ? 'snip' : 'image') : c.kind === 'link' ? 'link' : 'words', site: 'your Satchel',
+      url: c.kind === 'link' ? c.text : '', title: c.kind === 'file' ? path.basename(c.text) : '', text: png ? '' : c.text }, png ? nativeImage.createFromBuffer(png) : undefined),
+  } : { keepAsNote: null, ask: null });
   // Sheet 109: Ask Claude stays in the menu (New chat needs no Aang); its chats are the brain's, while Aang runs.
   if (aangBrowser) { aangBrowser.claudeChats = async () => (up ? chatsFrom(lastJobs) : []); aangBrowser.onAskClaude = (s, t) => picks.ask((m) => link.send(m as never), s, t); }
   if (aangBrowser) aangBrowser.onSendMockup = up ? sendMockupToAang : null;
@@ -1696,6 +1712,12 @@ let snipper: Snipper | null = null;
 let base: SamaraBase | null = null, boot: SamaraBooted | null = null;
 /** 6.19/6.20: Samara, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
+let satchel: Satchel | null = null;
+/** A clip as a quick note's words: its lines as paragraphs, nothing of it read as markup. */
+function satchelNoteHtml(text: string): string {
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  return text.slice(0, 20_000).split('\n').map((l) => `<p>${esc(l) || '<br>'}</p>`).join('');
+}
 /** A planned restart for an update (2026-10-14, "extremely smooth"): the pet starts Samara again at once, without its
  *  crash pause, and does not count it as a crash. */
 const UPDATE_RESTART = 75;

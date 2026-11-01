@@ -31,10 +31,13 @@ export class NoteWindows {
   /**
    * Ctrl + number pad *: the SAME note, opened small, empty and ready to type, in the middle of the screen he is on. It
    * takes the keyboard (he pressed the key to type), and it is not a note until he keeps it (note:quickdone). Pressed
-   * again while it is open, it simply comes back to the front.
+   * again while it is open, it simply comes back to the front. html: what it opens with (the Satchel's "Keep as a note").
    */
-  quick(): BrowserWindow | null {
-    if (this.quickWin && !this.quickWin.isDestroyed()) { this.quickWin.show(); this.quickWin.focus(); return this.quickWin; }
+  quick(html = ''): BrowserWindow | null {
+    if (this.quickWin && !this.quickWin.isDestroyed()) {
+      // Already open (the Satchel's "Keep as a note" too): it comes to the front as it is, his words kept.
+      this.quickWin.show(); this.quickWin.focus(); return this.quickWin;
+    }
     const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
     const w = new BrowserWindow({
       x: Math.round(area.x + (area.width - QUICK_W) / 2) - PAD, y: Math.round(area.y + area.height * 0.32) - PAD, width: QUICK_W + PAD * 2, height: QUICK_H + PAD * 2,
@@ -47,7 +50,7 @@ export class NoteWindows {
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
     const now = Date.now();
-    const n: NoteData = { id: `n${now.toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`, title: '', html: '', font: 'figtree', size: 'm', updated: now };
+    const n: NoteData = { id: `n${now.toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`, title: '', html, font: 'figtree', size: 'm', updated: now };
     w.webContents.once('did-finish-load', () => { if (!w.isDestroyed()) w.webContents.send('note:data', { ...n, cats: this.cats }); });
     void w.loadURL(`${this.o.origin}/note.html?quick`);
     w.once('ready-to-show', () => { if (w.isDestroyed()) return; w.show(); w.focus(); w.webContents.focus(); });
