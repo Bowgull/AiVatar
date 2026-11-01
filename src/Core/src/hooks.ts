@@ -75,6 +75,23 @@ const ago = (ms: number): string => {
   return m < 90 ? `${m} minutes` : `${Math.round(m / 60)} hours`;
 };
 
+// Step V (2026-10-21): these two lines were 40% of everything Aang said, 63 of them the same "waiting on you"
+// word for word. Each now rotates through a few versions in his words, never the same one twice running. Every
+// waiting line starts with "Claude Code" because core.ts turns that into "Claude Code on the MacBook" for a Mac
+// session, and the first one said is the old wording, which the Core's own tests look for.
+const WAITING = [
+  (p: string) => `Claude Code is waiting on you in ${p}.`,
+  (p: string) => `Claude Code needs you in ${p}.`,
+  (p: string) => `Claude Code is stuck in ${p} until you answer it.`,
+  (p: string) => `Claude Code paused in ${p}, it wants your say.`,
+];
+const FINISHED = [
+  (p: string, t: string) => `Claude Code finished in ${p}, that one took ${t}.`,
+  (p: string, t: string) => `Claude Code is done in ${p}. Took ${t}.`,
+  (p: string, t: string) => `Claude Code wrapped up ${p} after ${t}.`,
+  (p: string, t: string) => `${p} is done. Claude Code took ${t} on it.`,
+];
+
 /**
  * What Claude Code is doing right now, kept from its hook events. Pure state plus a decision about what is
  * worth saying out loud; the transport is separate so it can be tested without a socket.
@@ -82,6 +99,8 @@ const ago = (ms: number): string => {
 export class HookTracker {
   readonly sessions = new Map<string, Session>();
   private lastSaid = new Map<string, number>();
+  /** Which version of each status line comes next (WAITING, FINISHED). */
+  private turn = { waiting: 0, finished: 0 };
   /** Injected so this stays testable without a real transcript on disk. */
   private readonly readTranscript: (path: string) => string;
   constructor(readTranscript: (path: string) => string = lastAssistantText) { this.readTranscript = readTranscript; }
@@ -120,7 +139,7 @@ export class HookTracker {
         s.phase = 'waiting';
         s.waitingFor = String(ev?.message ?? '').trim().slice(0, 200);
         if (!this.canSay(id, 'waiting', now)) return null;
-        return { kind: 'waiting', session: s, text: `Claude Code is waiting on you in ${s.project}.` };
+        return { kind: 'waiting', session: s, text: WAITING[this.turn.waiting++ % WAITING.length]!(s.project) };
       }
 
       case 'Stop': {
@@ -133,7 +152,7 @@ export class HookTracker {
         if (ran < LONG_TURN_MS && !wasWaiting) return null;      // he was sitting there; he saw it
         if (!this.canSay(id, 'finished', now)) return null;
         const said = s.lastSaid ? ' ' + brief(s.lastSaid, 240) : '';
-        return { kind: 'finished', session: s, text: `Claude Code finished in ${s.project}, that one took ${ago(ran)}.${said}` };
+        return { kind: 'finished', session: s, text: FINISHED[this.turn.finished++ % FINISHED.length]!(s.project, ago(ran)) + said };
       }
 
       default:

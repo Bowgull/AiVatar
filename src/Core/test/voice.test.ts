@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSystemPrompt, lint } from '../src/voice.ts';
+import { buildMacPrompt, buildSystemPrompt, lint } from '../src/voice.ts';
 
 // Replies Claude actually produced while the persona was still loose (2026-09-20).
 const REAL_BAD_1 = "It's 2:51 p.m. right now on this sunny Sunday! ⏰";
@@ -237,4 +237,41 @@ test('a sentence ending in bold still counts as a sentence', () => {
   assert.ok(r.fixed.includes('closing offer'));
   // The same for a quote and a bracket, which close the same way.
   assert.equal(lint('He said "no." Hope that helps.', [], '', 'rich').cleaned, 'He said "no."');
+});
+
+// ---------------------------------------------------------------- step V: Aang's voice (2026-10-21)
+
+test('his capitals are permission for one "!" back, and only one', () => {
+  assert.equal(lint('FINALLY! Yip yip, go take it for a lap.', [], 'YESSSS got the mount finally').cleaned, 'FINALLY! Yip yip, go take it for a lap.');
+  assert.equal(lint('Nice! Great! Go!', [], 'lets gooo').cleaned, 'Nice! Great. Go.');
+  assert.equal(lint('Nice one!', [], 'got the mount').cleaned, 'Nice one.', 'calm in, calm out');
+});
+
+test('ending on "Want me to...?" is dropped; "Should I...?" is only flagged', () => {
+  const r = lint('Still paused, no new date. Want me to open the page?', [], 'whats the latest on the credit change');
+  assert.equal(r.cleaned, 'Still paused, no new date.');
+  assert.ok(r.fixed.includes('closing offer'));
+  const c = lint('Two drafts are open. Should I keep the old one?', [], 'tidy my drafts');
+  assert.equal(c.cleaned, 'Two drafts are open. Should I keep the old one?');
+  assert.ok(c.flags.includes('ends on an offer'));
+  assert.ok(lint('Want the page?', [], 'news?').flags.includes('ends on an offer'), 'a lone offer is flagged, not emptied');
+});
+
+test('a <tool> line copied from the examples never reaches him', () => {
+  const r = lint('<tool>remember: His girlfriend Sam plays WoW with him</tool>\n<aang>Noted.</aang>', [], 'sam plays too');
+  assert.equal(r.cleaned, 'Noted.');
+  assert.ok(r.flags.includes('wrote a tool call as text'));
+});
+
+test('the PC and the Mac share one character, one set of character examples, and the honesty rule', () => {
+  const pc = buildSystemPrompt('', ''), mac = buildMacPrompt('', '');
+  for (const p of [pc, mac]) {
+    assert.match(p, /Air Nomad monk kid/);
+    assert.match(p, /YESSSS got the mount/);
+    assert.match(p, /are you actually alive/);
+    assert.match(p, /say so once, in one plain line/);
+    assert.match(p, /hold for the whole conversation/);
+    assert.ok(!/\((?:calls|after) /.test(p), 'tool calls are <tool> lines, not stage directions in the reply');
+  }
+  assert.ok(!mac.includes('present_list'), 'the PC tool rules stay off the Mac');
 });
