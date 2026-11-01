@@ -230,3 +230,10 @@ input.search:focus{box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708,0 0 0 4px 
 .acts{top:0;right:10px}
 .card:hover .acts{transform:none}
 .acts{top:-8px}
+/* v2.4 (his "I don't see the difference"): the keys sit ON the frame's top edge like tabs, 6 px of them resting on the paper's
+   border, still clear of the words; the room above is only what the rest of them needs */
+.card:hover{padding-top:24px}
+.card:hover > canvas.paper{transform:translateY(24px)}
+.card:hover .acts{filter:drop-shadow(0 2px 0 rgba(40,22,8,.35))}
+.acts{top:4px}
+.acts .word{align-self:flex-start;margin-top:-6px}
