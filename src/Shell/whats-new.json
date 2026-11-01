@@ -992,12 +992,12 @@
       "kind": "feature"
     },
     {
-      "at": "2026-11-01T09:55:00-05:00",
+      "at": "2026-11-01T09:45:00-05:00",
       "text": "Claude's mockups always reach Samara, even without Aang.",
       "kind": "fix"
     },
     {
-      "at": "2026-11-01T09:55:00-05:00",
+      "at": "2026-11-01T09:45:00-05:00",
       "text": "New mockups stay marked NEW until you look.",
       "kind": "fix"
     }
