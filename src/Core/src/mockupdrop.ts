@@ -21,12 +21,13 @@ import { readJson, saveText } from './store.ts';
 import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
+import { CODE_ROOT } from './coderoot.ts';
 
 export interface MockupAsk { cwd?: unknown; path?: unknown; url?: unknown; title?: unknown; branch?: unknown; project?: unknown; icon?: unknown }
 export interface MockupResult { ok: boolean; message: string; file?: string }
 
 /** AangApp's own repo (this brain's), whose mockups may only come from the mockup folders. */
-export const HOME_REPO = path.resolve(import.meta.dirname, '..', '..', '..');
+export const HOME_REPO = CODE_ROOT;
 const MOCK_DIRS = ['docs/', 'src/Shell/pages/', 'assets/'];
 
 /** A live page on this computer, cleaned, or null. The same rule as the Shell's cleanLive. */

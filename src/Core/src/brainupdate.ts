@@ -15,8 +15,8 @@
 // from the copy here, or made here when they change), goes in at the same quiet moment, and the watchdog starts it,
 // and puts the old one back if the new one does not stay up. After any update his app is running, even if it was not.
 //
-// Mac only (the brain's home, run by the LaunchAgent com.aang.brain from AangListener/core). The PC's brain still runs
-// from the code folder (a PC check owed). Its own file so it is tested without the brain.
+// Mac only (the brain's home, run by the LaunchAgent com.aang.brain from AangListener/core). The PC's brain runs from
+// its own installed release too (pcbrain.ts, 2026-11-01). Its own file so it is tested without the brain.
 import { spawn } from 'node:child_process';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { createWriteStream, existsSync, openSync, readFileSync, renameSync, rmSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
@@ -68,12 +68,36 @@ export function checkBrain(text: string, sigB64: string, pub = RELEASE_KEY): Bra
   return { version: m.version, commit: String(m.commit), name: typeof m.name === 'string' ? m.name.slice(0, 40) : '', brain: { file: 'aang-brain.tgz', sha256: String(b.sha256), bytes: b.bytes as number }, ...aang };
 }
 
-type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string>; body?: ReadableStream<Uint8Array> | null }>;
+export type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; text(): Promise<string>; body?: ReadableStream<Uint8Array> | null }>;
 export type Run = (cmd: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv) => Promise<number>;
 const runIt: Run = (cmd, args, cwd, env) => new Promise((res) => {
   const c = spawn(cmd, args, { cwd, stdio: 'ignore', ...(env ? { env } : {}) });
   c.on('error', () => res(-1)); c.on('exit', (code) => res(code ?? -1));
 });
+
+/** One file of a release, whole and matching the manifest's fingerprint, or nothing (the PC's brain uses it too). */
+export async function downloadPart(fetch: Fetch, url: string, m: Part, dest: string): Promise<boolean> {
+  const part = dest + '.part';
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(10 * 60_000) });
+    if (!r.ok || !r.body) return false;
+    const hash = createHash('sha256'), out = createWriteStream(part);
+    let n = 0;
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      n += value.length;
+      if (n > m.bytes) { await reader.cancel(); throw new Error('too big'); }
+      hash.update(value);
+      if (!out.write(value)) await new Promise<void>((res) => out.once('drain', () => res()));
+    }
+    await new Promise<void>((res, rej) => out.end((e?: Error | null) => (e ? rej(e) : res())));
+    if (n !== m.bytes || hash.digest('hex') !== m.sha256) throw new Error('fingerprint');
+    renameSync(part, dest);
+    return true;
+  } catch { rmSync(part, { force: true }); return false; }
+}
 
 /** Whether the libraries in `modules` are the ones `appDir`'s lock file asks for (each of its package's own). */
 export function librariesMatch(modules: string, appDir: string): boolean {
@@ -282,28 +306,7 @@ export class BrainUpdates {
     } catch (e) { this.o.log(`brain update: getting Aang's app ${m.version} ready failed: ${(e as Error).message}`); rmSync(part, { recursive: true, force: true }); rmSync(tgz, { force: true }); return false; }
   }
 
-  private async download(url: string, m: Part, dest: string): Promise<boolean> {
-    const part = dest + '.part';
-    try {
-      const r = await this.o.fetch(url, { signal: AbortSignal.timeout(10 * 60_000) });
-      if (!r.ok || !r.body) return false;
-      const hash = createHash('sha256'), out = createWriteStream(part);
-      let n = 0;
-      const reader = r.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        n += value.length;
-        if (n > m.bytes) { await reader.cancel(); throw new Error('too big'); }
-        hash.update(value);
-        if (!out.write(value)) await new Promise<void>((res) => out.once('drain', () => res()));
-      }
-      await new Promise<void>((res, rej) => out.end((e?: Error | null) => (e ? rej(e) : res())));
-      if (n !== m.bytes || hash.digest('hex') !== m.sha256) throw new Error('fingerprint');
-      renameSync(part, dest);
-      return true;
-    } catch { rmSync(part, { force: true }); return false; }
-  }
+  private download(url: string, m: Part, dest: string): Promise<boolean> { return downloadPart(this.o.fetch, url, m, dest); }
 
   /** Away half an hour and not in a call: whatever is ready goes in, Aang's app and the new brain. True when anything
    *  did (with a new brain, this brain then exits and launchd starts the new one). */
