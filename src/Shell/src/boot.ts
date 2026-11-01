@@ -19,7 +19,7 @@ import type { AdBlock } from './skip/ads.ts';
 import type { PlanMemory } from './claudeplan.ts';
 import type { Chat } from './askclaude.ts';
 import type { DoorUpdates, PlanStarted } from './claudedoor.ts';
-import type { EngineOptions, Source, UpdateEngine } from './updateengine.ts';
+import type { EngineOptions, Offer, Source, UpdateEngine } from './updateengine.ts';
 import type { SyncMsg } from './bsync.ts';
 import { serviceFor } from './services.ts';
 import { sched } from './sched.ts';
@@ -126,6 +126,8 @@ export interface BrowserPlatform {
     wentBack?(): void;
     /** He saw the "what it did" note. */
     seen?(): void;
+    /** The key's card, also for Aang to say in his bubble (2026-11-01: Samara is often closed while Aang is up). */
+    told?(card: Offer | null): void;
   };
 }
 
@@ -303,7 +305,7 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
     sources: u.sources(show),
     moment: () => ({ now: new Date(), idleSeconds: d.idleSeconds(), inCall: browser.inCall === true, inGame: u.inGame(), work: browser.claudeWork() }),
     overnight,
-    changed: (card) => browser.setUpdate(card ? { ...card, overnight: overnight() } : null),
+    changed: (card) => { browser.setUpdate(card ? { ...card, overnight: overnight() } : null); u.told?.(card); },
     ...(u.beforeGo ? { beforeGo: u.beforeGo } : {}),
     restart: u.restart,
     // Sheet 115: Claude's jobs and its forms' typing are written down before anything goes in; they come back after.

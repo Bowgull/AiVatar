@@ -548,6 +548,8 @@ export type FromBody =
   | { t: 'engine.ready'; version: string; major?: boolean }
   /** castLabs' signing tool needs him to sign in again before a new engine can play paid video. */
   | { t: 'engine.signin'; signIn: boolean }
+  /** Samara's update key card, every ten minutes while one waits (null: nothing waits); Aang says it in his bubble. */
+  | { t: 'update.ready'; update: { version: string; title: string; lines: string[]; signin: boolean } | null }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.

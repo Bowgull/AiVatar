@@ -73,7 +73,7 @@ if (process.platform === 'win32' && !process.env.AANG_BRAIN_HERE && process.env.
   if (root) {
     const running = process.env.AANG_BRAIN_VERSION ?? '';
     const bu = new pc.PcBrainUpdates({
-      root, running, fetch: fetch as never, log: console.log, sched: core.sched,
+      root, running, fetch: fetch as never, log: console.log, sched: core.sched, ready: (v) => core.brainReady(v),
       // Exit code 75: the pet's planned restart (CoreSupervisor PlannedRestart), straight back up and not a crash.
       exit: () => { void shutdown('brain update', 75); },
       away: () => ({ idle: core.awaySeconds(), call: existsSync(path.join(core.cfg.stateDir, 'in-call.json')) }),

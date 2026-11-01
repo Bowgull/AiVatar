@@ -106,6 +106,8 @@ export interface PcBrainOptions {
   run?: Run;
   pub?: string;
   sched: Scheduler;
+  /** A version made ready (Aang says so once, core.brainReady). */
+  ready?: (version: string) => void;
 }
 
 /** Hourly: a newer release's brain made ready beside the running one; in when he has been away half an hour. */
@@ -135,6 +137,7 @@ export class PcBrainUpdates {
       if (await this.prepare(m, tag)) {
         saveText(path.join(this.o.root, 'next.txt'), m.version + '\n');
         this.o.log(`brain update: ${m.version} is ready; it goes in while you're away`);
+        this.o.ready?.(m.version);
       }
     } catch (e) { this.o.log('brain update: ' + (e as Error).message); }
     finally { this.busy = false; }

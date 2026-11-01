@@ -2219,6 +2219,8 @@ function paintWho() {
       key.classList.add('glow'); setTimeout(() => key.classList.remove('glow'), 1600);
     }
   });
+  // Aang's bubble line about an update, clicked (2026-11-01): the same as clicking this key.
+  window.aang?.onOpenUpdate?.(() => { if (cur && tray.hidden) key.click(); });
   key.addEventListener('click', (e) => { e.stopPropagation(); if (tray.hidden) { closeMenu(); closeDrawer(); closeDl(); view('main'); tray.hidden = false; key.setAttribute('aria-expanded', 'true'); place(tray, key); freeze('up'); } else close(); });
   el('uplater').addEventListener('click', close);
   const go = () => {
