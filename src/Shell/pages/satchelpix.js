@@ -256,3 +256,8 @@ export function paper(w, h, colKey = 'A', { lifted = true, small = true } = {}) 
     g.putImageData(img, 0, 0); g.drawImage(paperC, 2, 0);
     const out = show(c); out.style.marginLeft = -2 * P + 'px'; return out;
   }
+
+// ---------------------------------------------------------------- the Satchel's own icon (2026-11-01 v2: a flap with stitching
+// and a gold buckle; v1 read as a briefcase and he called it low quality). Shown at P: 44 x 40.
+export const satchelIcon = () => spr(['......OOOOOOOOOO......', '.....OBBBBBBBBBBO.....', '.....OBO......OBO.....', '.....OBO......OBO.....', '..OOOOOOOOOOOOOOOOOO..', '.OHHHHHHHHHHHHHHHHHMO.', 'OHHLLLLLLLLLLLLLLLLLMO', 'OHLLLLLLLLLLLLLLLLLLMO', 'OHLLLLLLLLLLLLLLLLLLMO', 'OHSLLLLLLLLLLLLLLLLSMO', 'OOLLSLSLLLLLLLLSLSLMOO', 'ODOOOLLSLYGGKLSLLOOODO', 'OMDDDOOOOGBDKOOOODDDDO', 'OLMMMDDDDGBDKDDDDMMMDO', 'OLMMMMMMMKKKKMMMMMMMDO', 'OLMMMMMMMMBDMMMMMMMMDO', 'OLMMMMMMMMBDMMMMMMMMDO', 'ODDDDDDDDDDDDDDDDDDDDO', '.ODDDDDDDDDDDDDDDDDDO.', '..OOOOOOOOOOOOOOOOOO..'],
+  { O: '#2c1c10', B: '#7a5532', H: '#c98d52', L: '#a8743c', M: '#8a5a2a', D: '#6a4422', S: '#e0b47a', G: '#e8b440', Y: '#ffe9a8', K: '#9a6a14' }, { drop: 'rgba(0,0,0,.4)' });

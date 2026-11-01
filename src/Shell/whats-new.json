@@ -1010,6 +1010,21 @@
       "at": "2026-11-01T10:45:00-05:00",
       "text": "Hover the middle of the right edge for the Satchel's tab.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T11:00:00-05:00",
+      "text": "The Satchel slides in smoothly now.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T11:01:00-05:00",
+      "text": "The Satchel has a full frame and a new icon.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T11:02:00-05:00",
+      "text": "The Satchel tab tucks away when you move off.",
+      "kind": "fix"
     }
   ]
 }

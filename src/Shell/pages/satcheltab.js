@@ -1,7 +1,7 @@
 // The Satchel's tab (sheet 116 v2, look A): it peeks out of the middle of the right edge while his mouse is there, and a
 // click opens the Satchel. Dropping something on it keeps it and opens the Satchel. satchel.ts shows this little window
 // only while it peeks, so it never sits over anything.
-import { spr, loadTex } from './satchelpix.js';
+import { loadTex, satchelIcon } from './satchelpix.js';
 
 function spring({ response, damping }) {
   const w = (2 * Math.PI) / response, dt = 1 / 600; let x = 0, v = 0, t = 0; const pts = [[0, 0]];
@@ -16,8 +16,7 @@ root.setProperty('--close-ease', back.css); root.setProperty('--close-ms', back.
 await loadTex('band.png', 'tray.png');
 
 const tab = document.getElementById('tab');
-tab.append(spr(['....OOOOOOO....', '...OBBBBBBBO...', '..OBO.....OBO..', '..OB.......BO..', 'OOOOOOOOOOOOOOO', 'OLLLLLLLLLLLLLO', 'OLLLLLGGGLLLLLO', 'OHHHHHGYGHHHHHO', 'OLLLLLGGGLLLLLO', 'OLLLLLLLLLLLLLO', 'OLLLLLLLLLLLLLO', 'OSSSSSSSSSSSSSO', '.OOOOOOOOOOOOO.'],
-  { O: '#2c1c10', B: '#7a5532', L: '#a8743c', H: '#8a5a2a', S: '#6a4422', G: '#c98c14', Y: '#ffe096' }, { drop: 'rgba(0,0,0,.4)' }));
+tab.append(satchelIcon());
 let hideT = null;
 window.satchel?.onPeek((on) => {
   clearTimeout(hideT);
