@@ -11,7 +11,7 @@ canvas{image-rendering:pixelated}
 html:has(body:not(.tabpage)),body:not(.tabpage){background:#24160D}
 .sat{position:absolute;left:0;top:0;width:392px;height:580px}
 .sat > canvas.board{position:absolute;left:0;top:0}
-.sat .hd{position:absolute;left:16px;right:20px;top:9px;display:flex;align-items:center;gap:10px}
+.sat .hd{position:absolute;left:20px;right:20px;top:13px;display:flex;align-items:center;gap:10px}
 .sat .ttl{font:800 22px Figtree,sans-serif;color:#ffc43c;text-shadow:0 2px 0 #120a05}
 .sat .search{position:absolute;left:20px;right:20px;top:56px;height:34px;box-sizing:border-box;border:0;outline:none;border-radius:9px;
   background:#1a0f09;box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708;font:500 14px Figtree,sans-serif;color:#f3e7cf;caret-color:#ffc43c;padding:0 12px}
@@ -72,9 +72,9 @@ html:has(body:not(.tabpage)),body:not(.tabpage){background:#24160D}
 
 /* ---------------------------------------------------------------- the tab (look A: Samara's wood with the satchel on it) */
 .tabpage{overflow:hidden}
-.tab{position:absolute;right:0;top:4px;width:56px;height:70px;display:grid;place-items:center;cursor:pointer;
+.tab{position:absolute;right:0;top:4px;width:46px;height:70px;display:grid;place-items:center;cursor:pointer;
   border-radius:14px 0 0 14px;background:linear-gradient(90deg,#56371F,#4A2E1A 40%,#24160D);
   box-shadow:0 0 0 2px #120a05,inset 2px 0 0 rgba(255,224,150,.18),-4px 6px 12px rgba(0,0,0,.45);
-  transform:translateX(66px);transition:transform calc(var(--close-ms) * var(--slow)) var(--close-ease),filter .2s}
+  transform:translateX(56px);transition:transform calc(var(--close-ms) * var(--slow)) var(--close-ease),filter .2s}
 .tab.peek{transform:translateX(0);transition:transform calc(var(--peek-ms) * var(--slow)) var(--peek-ease)}
 .tab.hot{filter:drop-shadow(0 0 8px rgba(255,214,122,.9))}

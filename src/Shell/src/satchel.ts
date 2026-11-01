@@ -23,7 +23,7 @@ import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { SatchelStore, type Clip, type Lock } from './satchelstore.ts';
 import { neverKeep } from './visits.ts';
-import { softEdge } from './winedge.ts';
+import { askHelper, softEdge } from './winedge.ts';
 
 export interface SatchelOptions {
   origin: string;
@@ -63,6 +63,8 @@ export class Satchel {
   private panel: BrowserWindow | null = null;
   private tab: BrowserWindow | null = null;
   private open = false;
+  private focused = false;
+  private openedAt = 0;
   private peeking = false;
   private leftAt = 0;
   private lastSig = '';
@@ -214,7 +216,10 @@ export class Satchel {
     w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     lockDown(w.webContents); denyPermissions(w.webContents.session);
     // A click outside closes it (his pick); not while he is dragging a clip out of it.
-    w.on('blur', () => { if (this.open && !this.dragging) this.close(); });
+    // Only once it has really had the keyboard (2026-11-01, his "clicking the satchel isn't opening the drawer"): Windows
+    // can hand the front back a moment after it opens, and that blur shut it again before he saw it.
+    w.on('focus', () => { if (this.open) this.focused = true; });
+    w.on('blur', () => { if (this.open && this.focused && !this.dragging && Date.now() - this.openedAt > 500) this.close(); });
     w.webContents.on('did-finish-load', () => this.push());
     void w.loadURL(`${this.o.origin}/satchel.html`);
     this.panel = w;
@@ -240,13 +245,15 @@ export class Satchel {
     const w = this.panelWin();
     this.peek(false);
     if (this.open) { w.focus(); return; }
-    this.open = true;
+    this.open = true; this.focused = false; this.openedAt = Date.now();
     const go = () => {
       if (w.isDestroyed()) return;
       const a = this.home().workArea, y = Math.round(a.y + (a.height - PANEL_H) / 2);
       if (!w.isVisible()) w.setBounds({ x: a.x + a.width, y, width: PANEL_W, height: PANEL_H });
       this.push(); w.webContents.send('satchel:open', how);
       w.show(); w.focus(); w.webContents.focus();
+      // A click on the tab (which never takes the keyboard) leaves another app in front: take it for real (winedge 'F').
+      if (process.platform === 'win32') setTimeout(() => { if (this.open && !w.isDestroyed() && !w.isFocused()) void askHelper('F', w, undefined, 4000); }, 60);
       // BotW's slide: in from the edge fast, a soft settle
       this.slide(a.x + a.width - PANEL_W, 0.42, 0.8);
     };
