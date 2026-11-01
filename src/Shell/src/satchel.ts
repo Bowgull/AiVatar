@@ -65,6 +65,7 @@ export class Satchel {
   private open = false;
   private focused = false;
   private openedAt = 0;
+  private retakes = 0;
   private peeking = false;
   private leftAt = 0;
   private lastSig = '';
@@ -218,8 +219,22 @@ export class Satchel {
     // A click outside closes it (his pick); not while he is dragging a clip out of it.
     // Only once it has really had the keyboard (2026-11-01, his "clicking the satchel isn't opening the drawer"): Windows
     // can hand the front back a moment after it opens, and that blur shut it again before he saw it.
+    // And never while his mouse is still on it (2026-11-01, "the bug is back": after a Ctrl+X in another app, Windows
+    // took the front back ~600 ms after opening, past the 500 ms grace, and it shut under his cursor). A real click
+    // outside puts the mouse outside; anything else that steals the front while he is on it, it takes back (3 times).
     w.on('focus', () => { if (this.open) this.focused = true; });
-    w.on('blur', () => { if (this.open && this.focused && !this.dragging && Date.now() - this.openedAt > 500) this.close(); });
+    w.on('blur', () => {
+      if (!this.open || !this.focused || this.dragging) return;
+      const pt = screen.getCursorScreenPoint(), b = w.getBounds();
+      const over = pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height;
+      if ((over || Date.now() - this.openedAt < 500) && this.retakes < 3) {
+        this.retakes++;
+        console.log(`shell: satchel: lost the front ${Date.now() - this.openedAt} ms after opening, mouse on it; taking it back`);
+        if (process.platform === 'win32') void askHelper('F', w, undefined, 4000); else w.focus();
+        return;
+      }
+      this.close();
+    });
     w.webContents.on('did-finish-load', () => this.push());
     void w.loadURL(`${this.o.origin}/satchel.html`);
     this.panel = w;
@@ -245,7 +260,7 @@ export class Satchel {
     const w = this.panelWin();
     this.peek(false);
     if (this.open) { w.focus(); return; }
-    this.open = true; this.focused = false; this.openedAt = Date.now();
+    this.open = true; this.focused = false; this.openedAt = Date.now(); this.retakes = 0;
     const go = () => {
       if (w.isDestroyed()) return;
       const a = this.home().workArea, y = Math.round(a.y + (a.height - PANEL_H) / 2);
