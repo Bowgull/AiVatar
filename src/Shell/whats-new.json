@@ -1055,6 +1055,11 @@
       "at": "2026-11-01T12:27:00-05:00",
       "text": "The Satchel no longer shuts itself a moment after you click its tab.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T18:36:00-05:00",
+      "text": "Clicking the Satchel's tab opens it again, every time.",
+      "kind": "fix"
     }
   ]
 }

@@ -1,6 +1,6 @@
 // The Satchel's tab (sheet 116 v2, look A): it peeks out of the middle of the right edge while his mouse is there, and a
-// click opens the Satchel. Dropping something on it keeps it and opens the Satchel. satchel.ts shows this little window
-// only while it peeks, so it never sits over anything.
+// click opens the Satchel (satchel.ts reads that click from Windows itself). Dropping something on it keeps it and opens
+// the Satchel. satchel.ts shows this little window only while it peeks, so it never sits over anything.
 import { loadTex, satchelIcon } from './satchelpix.js';
 
 function spring({ response, damping }) {
@@ -26,7 +26,6 @@ window.satchel?.onPeek((on) => {
 });
 tab.addEventListener('mouseenter', () => window.satchel?.tabHover(true));
 tab.addEventListener('mouseleave', () => window.satchel?.tabHover(false));
-tab.addEventListener('click', () => window.satchel?.tabClick());
 document.addEventListener('dragover', (e) => { e.preventDefault(); tab.classList.add('hot', 'peek'); window.satchel?.tabHover(true); });
 document.addEventListener('dragleave', () => tab.classList.remove('hot'));
 document.addEventListener('drop', (e) => { e.preventDefault(); tab.classList.remove('hot'); window.satchel?.drop(e.dataTransfer?.files, e.dataTransfer?.getData('text/plain')); window.satchel?.tabClick(); });

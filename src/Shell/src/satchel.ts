@@ -251,12 +251,19 @@ export class Satchel {
     });
     w.setAlwaysOnTop(true, 'screen-saver');
     lockDown(w.webContents); denyPermissions(w.webContents.session);
+    // The click is read from Windows' own message, never from the page (2026-11-01, his "clicking the tab never opens
+    // it"). The tab can't take the keyboard, and once the Satchel has been open, Chromium answers every press on it with
+    // "don't activate, and eat the click" (WM_MOUSEACTIVATE -> MA_NOACTIVATEANDEAT): the button-down never reaches the
+    // page, so no click fires; only the release arrives. Measured: 1 of 8 clicks opened it that way, 8 of 8 like this.
+    // A release on the tab is the click (a drag from elsewhere keeps its own window's capture, so it never lands here).
+    if (process.platform === 'win32') w.hookWindowMessage(0x0202 /* WM_LBUTTONUP */, () => setImmediate(() => this.show('click')));
     void w.loadURL(`${this.o.origin}/satcheltab.html`);
     this.tab = w;
     return w;
   }
   /** Open it (the tab's click, or the hotkey: 'key' gets the arrows and Enter ready). */
   show(how: 'click' | 'key' = 'click'): void {
+    if (how === 'click' && !this.open) console.log('shell: satchel: opened from the tab');
     const w = this.panelWin();
     this.peek(false);
     if (this.open) { w.focus(); return; }
