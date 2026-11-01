@@ -970,6 +970,11 @@
       "at": "2026-10-31T21:04:00-04:00",
       "text": "A new chat can carry on an old chat's tabs.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T07:20:00-05:00",
+      "text": "Aang sounds warmer and more like himself, Discord too.",
+      "kind": "feature"
     }
   ]
 }
