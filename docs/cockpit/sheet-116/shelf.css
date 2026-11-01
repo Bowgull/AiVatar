@@ -222,3 +222,11 @@ input.search:focus{box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708,0 0 0 4px 
 .ik[data-w]:hover::after{display:none}
 .shelf .hk{display:none}
 .acts > span.word{background:none;box-shadow:none;padding:0;border-radius:0;cursor:default;color:#ffe9b8}
+
+/* v2.3 (his note: close the gap, the keys nestled on top of the clip's frame but not overlapping): the room is the keys' own
+   height plus 3 px, so they rest just above the paper's edge */
+.card:hover{padding-top:33px}
+.card:hover > canvas.paper{transform:translateY(33px)}
+.acts{top:0;right:10px}
+.card:hover .acts{transform:none}
+.acts{top:-8px}
