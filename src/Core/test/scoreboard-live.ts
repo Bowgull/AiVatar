@@ -57,8 +57,12 @@ const brain = spawn(process.execPath, ['--no-warnings', 'src/index.ts'], {
   env: { ...process.env, AANG_PORT: String(PORT), AANG_DATA_DIR: data, AANG_STATE_DIR: state, AANG_TRANSCRIPT_SCAN: '0' },
   stdio: ['ignore', 'ignore', 'ignore'],
 });
-// His Google sign-in was copied in for the mail asks: it never outlives the run.
-const stop = () => { try { brain.kill(); } catch { /* gone */ } try { rmSync(path.join(state, 'google.json'), { force: true }); } catch { /* gone */ } };
+// His Google sign-in and the copy of his memory never outlive the run (his rule, 2026-11-01: clean up behind you).
+const stop = () => {
+  try { brain.kill(); } catch { /* gone */ }
+  try { rmSync(path.join(state, 'google.json'), { force: true }); } catch { /* gone */ }
+  for (const d of [data, state, remote]) { try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }); } catch { /* still locked: the OS temp sweep takes it */ } }
+};
 process.on('exit', stop);
 
 // This run's password, as every real part of Aang sends it (token.ts); the brain writes it into its state folder.
