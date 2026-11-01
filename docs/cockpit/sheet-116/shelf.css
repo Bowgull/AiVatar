@@ -206,3 +206,19 @@ input.search:focus{box-shadow:inset 0 2px 0 #0b0604,0 0 0 2px #2a1708,0 0 0 4px 
 .acts{gap:4px}
 .ik{width:32px}
 .card .meta{padding-right:178px}
+
+/* v2.2 (his note: "the icons should sit above the item they act on", they covered its time and source): hovering a clip opens
+   room above it on a soft glide and the keys rise into it, the key's word beside them, so nothing on the clip is covered.
+   The room is the clip's own padding, so the mouse never falls off the clip while it moves. */
+.card{padding-top:0;transition:padding-top calc(.24s * var(--slow)) var(--lift),transform calc(.42s * var(--slow)) var(--lift)}
+.card:hover{padding-top:40px;transform:none}
+.card > canvas.paper{transition:transform calc(.24s * var(--slow)) var(--lift)}
+.card:hover > canvas.paper{transform:translateY(40px)}
+.card .meta{min-height:0;padding-right:0}
+.acts{top:2px;bottom:auto;right:6px;gap:5px;opacity:0;transform:translateY(8px);align-items:center;
+  transition:opacity calc(.16s * var(--slow)),transform calc(.24s * var(--slow)) var(--lift)}
+.card:hover .acts{opacity:1;transform:none}
+.acts .word{font:800 12.5px Figtree,sans-serif;color:#ffe9b8;text-shadow:0 1px 0 #120a05;margin-right:6px;white-space:nowrap}
+.ik[data-w]:hover::after{display:none}
+.shelf .hk{display:none}
+.acts > span.word{background:none;box-shadow:none;padding:0;border-radius:0;cursor:default;color:#ffe9b8}

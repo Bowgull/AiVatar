@@ -63,6 +63,8 @@ function keycap(dark = false) {
 }
 function keyIcon(word, icon, cls = '') {
   const s = el('span', 'ik ' + cls); s.dataset.w = word;
+  s.addEventListener('mouseenter', () => { const w = s.closest('.acts')?.querySelector('.word'); if (w) w.textContent = word; });
+  s.addEventListener('mouseleave', () => { const w = s.closest('.acts')?.querySelector('.word'); if (w) w.textContent = ''; });
   const cap = keycap(cls.includes('ask')); cap.classList.add('cap'); icon.classList.add('glyph');
   // Aang's face is drawn bigger than a glyph: it sits in his plum key at glyph size, the key showing round it
   if (cls.includes('ask')) { icon.style.width = '18px'; icon.style.height = '18px'; icon.style.left = '7px'; icon.style.top = '4px'; }
@@ -70,7 +72,7 @@ function keyIcon(word, icon, cls = '') {
   return s;
 }
 function acts(it) {
-  const a = el('div', 'acts');
+  const a = el('div', 'acts'); a.append(el('span', 'word', ''));
   a.append(keyIcon('Copy', clone(ICON.copy)), keyIcon(it.pinned ? 'Unpin' : 'Pin to the top', clone(ICON.pin), it.pinned ? 'on' : ''),
     keyIcon('Keep as a note', clone(ICON.note)), keyIcon('Ask Aang about it', face(), 'ask'), keyIcon('Bin', clone(ICON.bin), 'bin'));
   return a;
@@ -118,10 +120,10 @@ const desk = $('#desk');
 desk.innerHTML = '<div class="wall">YOUR MAIN SCREEN · HOVER THE MIDDLE OF THE RIGHT EDGE, OR PRESS CTRL + ALT + V</div><div class="appwin"><b>Discord · #raid-night</b><div class="drop">drop here</div></div>';
 const dragme = el('div', 'dragme'); const dimg = el('img'); dimg.src = '../../../src/Shell/pages/art/browser/file_img.png'; dragme.append(dimg, el('span', '', 'Raid comp.png')); desk.append(dragme);
 const zone = el('div', 'zone'); desk.append(zone);                                   // invisible: the middle third of the right edge
-const tab = el('div', 'tab tabA'); tab.append(satchelIcon()); tab.title = 'Satchel (Ctrl + Alt + V)'; desk.append(tab);
+const tab = el('div', 'tab tabA'); tab.append(satchelIcon());  desk.append(tab);
 const sat = el('div', 'shelf'); desk.append(sat);
 const wood = rr(392 / P, 580 / P, 9, { band: 's2', E: 4, fill: fills.wood(1) }); wood.classList.add('wood'); sat.append(wood);
-const hd = el('div', 'hd'); const ic = satchelIcon(); ic.classList.add('hdic'); hd.append(ic, el('span', 'ttl', 'Satchel'), el('span', 'hk', 'Ctrl + Alt + V')); sat.append(hd);
+const hd = el('div', 'hd'); const ic = satchelIcon(); ic.classList.add('hdic'); hd.append(ic, el('span', 'ttl', 'Satchel')); sat.append(hd);
 const search = el('input', 'search'); search.placeholder = 'Type to find a clip'; sat.append(search);
 const chips = el('div', 'chips'); ['All', 'Text', 'Links', 'Pictures', 'Snips', 'Files'].forEach((t, i) => chips.append(el('span', 'chip' + (i ? '' : ' on'), t))); sat.append(chips);
 const list = el('div', 'list'); sat.append(list);
