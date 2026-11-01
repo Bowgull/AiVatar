@@ -4,75 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 116 - The Satchel</title>
-<!-- Sheet 116 v2 (2026-11-01): his second interview on v1. Named the Satchel. NOT always there: hover the middle of the
-     right edge and a tab peeks out, he clicks it (or Ctrl+Alt+V). Keyboard and mouse both. Pinned on top, filter by type,
-     no stacks. Pixel icons with the word on hover. Drop things onto the tab. Keep as a note opens the quick note with
-     the clip in it. Tab off during games, hotkey still works. Same on the Mac. Bubble on the same spring: yes.
-     Sheet 116 v1 (2026-11-01): the clipboard shelf, from his interview after the Edge-Drop study
-     (Documents/Aang/reports/Edge-Drop study 2026-11-01.md): every copy kept safely, an edge strip AND a way in from Aang,
-     Aang reads it only when asked, the Mac shares it. LIVE, not pictures: hover the strip, press the keys, try slow motion.
-     Built from the sheet 59/60 pixel kit (Samara's tray wood, the notes' papers, Aang's face), so it is one family with the
-     notes. Motion is Edge-Drop's (Apache-2.0): springs as CSS linear() on clip-path and transform. Mockup only. -->
+<!-- Sheet 116 v3 (2026-11-01): redone after his "cheap, AI slop, not smooth in any shape or form". v1/v2 (in git) were a
+     web page dressed in wood; v3 is built from the parts of the look he approved (sheet 59's player). Three directions,
+     live, one motion system that blends BotW, Stardew, FFX and the iPhone (his "they should lend to each other"). The
+     Pause key is gone (he never asked for it). Everything from his two interviews stands: the Satchel, the hover tab and
+     a click, Ctrl+Alt+V, keyboard and mouse, pinned on top, filter by type, 7 days, games, the Mac. Mockup only. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="sheet-55/sheet55.css">
-<link rel="stylesheet" href="sheet-60/notes.css">
-<link rel="stylesheet" href="sheet-116/shelf.css">
-<style>
-  .meaning{display:grid;grid-template-columns:230px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
-  .meaning b{font:800 16px Figtree,sans-serif;color:#fffaf0}
-  .meaning span{font:500 15.5px/1.5 Figtree,sans-serif;color:#d8cab0}
-  .springs{font:600 13px Figtree,sans-serif;color:#9d92b4;margin:10px 0 0}
-</style>
+<link rel="stylesheet" href="sheet-116/v3.css">
 </head>
 <body>
 <h1>SHEET 116 &middot; THE SATCHEL</h1>
-<p class="real">v2 &middot; 1 Nov &middot; your answers built in: it only appears when you reach for it</p>
-<p class="lead">Everything you copy, snip or drop is kept in the Satchel. It is not on your screen until you want it: hover the middle of the right edge and a small tab peeks out, click it; or press <b>Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;V</b> anywhere. Click a clip to copy it, drag it into any app, pin it to the top, keep it as a note, or ask Aang about it.</p>
-<div class="decided"><span>Named the Satchel</span><span>Hover the right edge, click the tab</span><span>Ctrl + Alt + V</span><span>Keyboard and mouse both</span><span>Pinned on top, filter by type</span><span>Clears after 7 days</span><span>Off in games, hotkey still works</span><span>Same on the Mac</span><span>Bubble on the same spring</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em>(1) The tab: <b>A wood</b> (my pick), B Aang-blue, or C gold ribbon (section 2). (2) Are the five icons clear enough with the word on hover (section 3)?</em></p>
+<p class="real">v3 &middot; 1 Nov &middot; redone in the mini player's parts, three directions, real spring motion</p>
+<p class="lead">Your note was right: v2 was a web page dressed in wood. This is built from the pieces of the look you approved (the mini player): the beveled wood, the amber glass, the cream keys, the pixel lettering. Each direction below is live: hover the middle of the right edge for the tab and click it, or use the keys under it. Slow motion shows the springs.</p>
+<div class="decided"><span>The Satchel</span><span>Hover the right edge, click the tab</span><span>Ctrl + Alt + V</span><span>Keyboard and mouse</span><span>Pinned on top</span><span>No Pause key</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em>Which direction: <b>A the inventory</b> (my pick), B the bag, or C the journal. Or the parts you like from each.</em></p>
+<div class="keys116"><button id="slow" class="plum">Slow motion</button><button id="game" class="plum">A game is running</button></div>
 
-<h2><span class="n">1</span>THE SATCHEL, LIVE</h2>
-<p>Move the mouse to the middle of the right edge of the box below: the tab peeks out. Click it. Or click the <b>Ctrl + Alt + V</b> key (or press it): then just type to find a clip, use the arrows, and Enter copies it and closes. A click on a clip copies it and the Satchel stays open. It closes with Esc, a click outside, the hotkey again, or when your mouse wanders off. Hover a clip's icons to see their words.</p>
-<div id="desk" class="desk116"></div>
-<div id="keys" class="keys116"></div>
-<p id="springs" class="springs"></p>
+<h2><span class="n">A</span>THE INVENTORY (MY PICK)</h2>
+<p>Like a game's backpack: every clip is an item in a slot, pinned ones in gold slots first. A gold cursor glides between them (arrow keys too); the amber glass says what it is, where it came from and when. The keys under it copy, pin, keep as a note, ask Aang, or bin, and the glass names the key under your mouse. A new copy flies in from where you made it and the others step aside.</p>
+<div id="optA" class="opt"></div>
+<div id="keysA" class="keys116"></div>
 
-<h2><span class="n">2</span>THE TAB: THREE LOOKS</h2>
-<p>It only shows while your mouse is in that spot (and never while a game runs). Drop a file or a picture on it and the Satchel opens and keeps it.</p>
-<div id="tablooks" class="looks"></div>
+<h2><span class="n">B</span>THE BAG</h2>
+<p>The Satchel itself: it rises from the edge, the flap swings open and your things pop out in a fan above it. The most playful, the least room for many clips.</p>
+<div id="optB" class="opt"></div>
+<div id="keysB" class="keys116"></div>
 
-<h2><span class="n">3</span>THE ICONS, AND THEIR WORDS</h2>
-<p>Hand-placed pixel icons in the notes' style. Hover one on a clip and its word shows, so Pin and Keep as a note are never mixed up. Ask keeps Aang's face.</p>
-<div id="iconlegend" class="legend"></div>
+<h2><span class="n">C</span>THE JOURNAL</h2>
+<p>A page that turns in from the edge with your clips written down it, the plum ribbon marking it. The calmest, closest to your notes.</p>
+<div id="optC" class="opt"></div>
+<div id="keysC" class="keys116"></div>
 
-<h2><span class="n">4</span>WHAT LIVES IN IT</h2>
-<div class="meaning">
-  <b>Words</b><span>Anything you copy: a line from Discord, a command, an address. Long ones fold to three lines.</span>
-  <b>Links</b><span>With the site's own icon and the page title, like your bookmarks.</span>
-  <b>Pictures</b><span>Copied pictures and screenshots. Drag one straight into Discord, Photoshop or a folder.</span>
-  <b>Snips</b><span>Every Snipit snip, on pale blue paper (Aang's colour). It still lands as a chip in your typing box first; the Satchel just keeps it.</span>
-  <b>Files</b><span>Files you copy in Explorer. Dragging one out moves the real file, not a copy.</span>
-  <b>Pinned</b><span>Pinned clips sit at the top and never clear. Everything else clears after 7 days.</span>
-  <b>From the Mac</b><span>Clips copied on the MacBook have lilac paper and say so.</span>
-</div>
+<h2><span class="n">&#10022;</span>HOW IT MOVES</h2>
+<p>One motion system for all three, blending the four you named: <b>BotW</b> (the panel slides in fast and settles softly), <b>Stardew</b> (items pop into place with a tiny bounce), <b>FFX</b> (the cursor glides calmly), the <b>iPhone</b> (anything that moves keeps its speed if you change your mind mid-way, and everything flows aside for something new). Every move is big and lasts a third of a second or more, because your screen is a video stream of the Shadow PC, where small quick movements smear.</p>
 
-<h2><span class="n">5</span>HOW IT MOVES, AND AANG'S BUBBLE TOO</h2>
-<p>Learned from Edge-Drop's code: the Satchel never moves or resizes. A rounded mask grows out of the strip on a spring, which costs the computer almost nothing, so it stays smooth while a game runs. New clips drop in with a small settle and the rest glide down; the tab peeks out with a little bounce; nothing jumps. The same spring can open Aang's bubble from the corner nearest Aang: try it below.</p>
-<div class="cmp">
-  <div><div class="lbl">AANG'S BUBBLE, OPENING ON THE SAME SPRING</div><div id="bubdemo" class="bubdemo"></div><div id="bubkeys" class="keys116"></div></div>
-</div>
-
-<h2><span class="n">6</span>WITH THE REST OF AANG</h2>
-<div class="flows">
-  <div id="flow-snip" class="flow"></div>
-  <div id="flow-note" class="flow"></div>
-</div>
-<p>Snipit, highlight and drop work exactly as now (one chip, Aang asks one line). The Satchel is where they stay afterwards. <b>Keep as a note</b> opens your quick note (the same one as Ctrl&nbsp;+&nbsp;*) with the clip already in it, ready for a word or a category. Ask Aang "what was that link I copied yesterday?" and he answers with one line and a door that opens the Satchel at that clip.</p>
-
-<h2><span class="n">7</span>WHAT IT NEVER KEEPS</h2>
-<div class="never"><span>Password managers (Bitwarden, 1Password, KeePass)</span><span>Bank and money sites</span><span>Anything an app marks private</span><span>Anything while Pause is on</span></div>
-<p>Kept on this PC, locked with Windows' own encryption (pictures too, which Edge-Drop leaves open). Shared with the Mac over Tailscale only; private clips never travel. Aang never reads it on his own and never while a game runs. Pasting is yours: Aang puts a clip on your clipboard or you drag it; he never presses Ctrl+V for you (that could land in WoW).</p>
-
-<script type="module" src="sheet-116/shelf.js"></script>
+<script type="module" src="sheet-116/v3.js"></script>
 </body>
 </html>
