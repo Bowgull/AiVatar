@@ -2206,8 +2206,13 @@ function paintWho() {
     }
     el('upgo').textContent = si === 'ask' ? 'Sign in to castLabs' : si === 'waiting' ? 'Signing in...' : 'Restart now';
     el('upgo').disabled = call || si === 'waiting';
-    el('upwhy').hidden = !call;
+    // Sheet 115 (his picks, 2026-10-31): it waits while Claude works or a form has typing; after 2 hours it asks.
+    const wt = !call && u.wait && typeof u.wait.b === 'string' ? u.wait : null;
+    el('upwhy').hidden = !call && !wt;
     if (call) el('upwhy').textContent = "You're in a call. Restart when it's over.";
+    else if (wt) el('upwhy').replaceChildren(T2('b', '', wt.b.slice(0, 80)), String(wt.t ?? '').slice(0, 160));
+    el('uplater').textContent = wt && wt.anyway === true ? 'Keep waiting' : 'Later';
+    if (wt) kc.hidden = true;
     if (shownFor !== u.version) {
       shownFor = u.version;
       key.classList.remove('away'); key.tabIndex = 0;

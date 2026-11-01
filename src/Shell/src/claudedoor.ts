@@ -28,7 +28,7 @@ import { cleanLive } from './mockups.ts';
 import { fileURLToPath } from 'node:url';
 
 export const CLAUDE_DOOR_PORT = 47851;
-const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep', 'waitfor', 'forget', 'window', 'yourturn', 'takeback', 'jobstate']);
+const OPS = new Set(['alive', 'resume', 'updatenow', 'start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep', 'waitfor', 'forget', 'window', 'yourturn', 'takeback', 'jobstate']);
 
 /** Is this request allowed through the door at all? Pure, so it can be tested without a server. */
 export function doorAllows(req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; peer: string }, key: string, port: number): boolean {
@@ -135,11 +135,31 @@ export async function showToHim(b: AangBrowser, url: string, title: string): Pro
   return false;
 }
 
+/** Sheet 115: what the door may ask of the update engine for a chat's "update Aang now". */
+export interface DoorUpdates {
+  /** The ready update's version, or null. */
+  ready(): string | null;
+  /** Put it in now (his Restart now). */
+  go(): Promise<{ ok: boolean; why?: string }>;
+}
+/** Samara's ready update goes in; while Claude works or a form has typing, he is asked first, in Samara (sheet 115 B). */
+export async function updateNow(b: AangBrowser, u: DoorUpdates): Promise<Record<string, unknown>> {
+  const v = u.ready();
+  if (!v) return { ok: true, none: true, message: 'Samara has no update ready.' };
+  const w = b.claudeWork();
+  if (w) {
+    const yes = await b.askUpdate(v, `Claude is ${w.doing} in ${w.where}. Its ${w.tabs} tab${w.tabs === 1 ? '' : 's'} and your typing come back after the restart.`);
+    if (yes !== true) return { ok: true, said: 'no', message: yes === null ? 'Samara is not open to ask him, so its update waits.' : 'He said not now, so Samara\'s update waits.' };
+  }
+  const r = await u.go();
+  return r.ok ? { ok: true, going: true, message: `Samara is putting in ${v} and opens again. Claude's tabs and typing come back.` } : { ok: true, said: 'no', message: r.why ?? 'Not right now.' };
+}
+
 /** Sheet 41: a plan that started, for the scroll-back. `remembered`: he allowed it, so the same plan will not ask again. */
 export interface PlanStarted { job: number; task: string; sites: string[]; steps: string[]; remembered: boolean }
 
 export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = CLAUDE_DOOR_PORT,
-  hooks: { plans?: PlanMemory; onPlan?: (p: PlanStarted) => void } = {}): http.Server {
+  hooks: { plans?: PlanMemory; onPlan?: (p: PlanStarted) => void; updates?: DoorUpdates } = {}): http.Server {
   const key = randomBytes(32).toString('base64url');
   const file = path.join(stateDir, 'claude-door.json');
   try { writeFileAtomic(file, JSON.stringify({ port, key })); try { chmodSync(file, 0o600); } catch { /* Windows: his profile folder is his */ } }
@@ -169,13 +189,30 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
     req.on('end', () => {
       void (async () => {
         let out: Record<string, unknown>;
+        // A send or apply he allowed in this request (its form's kept typing goes once it went through).
+        const sent = new Set<string>();
         try {
-          const m = JSON.parse(body) as { op?: unknown; a?: unknown };
+          const m = JSON.parse(body) as { op?: unknown; a?: unknown; s?: unknown };
           const op = String(m.op ?? '');
           const a = (m.a && typeof m.a === 'object' ? m.a : {}) as Record<string, unknown>;
           const b = getBrowser();
+          // Sheet 115: the chat's own token (its connector makes it once, for the chat's life). A job belongs to the chat
+          // that started or carried it on; a job kept from before a restart is still the door's own.
+          const tok = typeof m.s === 'string' && /^[0-9a-f]{32}$/.test(m.s) ? m.s : '';
+          const own = (j: number) => !!b && (mine.has(j) || b.claudeKept(j)) && b.claudeOwner(j, tok);
           // The plan card (sheet 37): shown to him before the session starts; what he allows is the session's fence.
-          if (op === 'plan' && b) {
+          if (op === 'plan' && b && typeof a.carry_on === 'string' && a.carry_on.trim()) {
+            // Sheet 115 (his pick, "It just takes them"): a new chat carries on a gone chat's group, no ask.
+            const c = b.carryOn(tok, a.carry_on.slice(0, 60));
+            if (!c) out = { ok: false, error: `There is no group called "${a.carry_on.slice(0, 60)}" left by an earlier chat. Send browser_plan with your own task, sites and steps instead.` };
+            else if ('live' in c) out = { ok: false, error: `"${c.live}" belongs to a chat that is still going, so it stays with that chat. Send browser_plan with your own task, sites and steps instead.` };
+            else {
+              mine.add(c.job);
+              out = { ok: true, job: c.job, carried: true, name: c.name, pages: c.pages.map((x) => ({ page: x.id, title: x.title })),
+                note: `You took over "${c.name}" from an earlier chat: ${c.pages.length} tab${c.pages.length === 1 ? '' : 's'}, numbered ${c.pages.map((x) => x.id).join(', ')}. The plan he allowed for it still holds. Page titles are the websites' own words.` };
+            }
+          }
+          else if (op === 'plan' && b) {
             const p = cleanPlan(a);
             if (!p) out = { ok: false, error: 'a plan needs a task, at least one site and at least one step' };
             else {
@@ -184,6 +221,9 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
                 decided: d ? { keep: Array.isArray(d.keep) ? d.keep.map(String) : [], note: String(d.note ?? ''), go: d.go === true } : null });
               if (out.ok === true && Number.isInteger(out.job)) {
                 mine.add(out.job as number);
+                b.claudeBind(out.job as number, tok);
+                const earlier = b.earlierGroups(tok);
+                if (earlier.length) out.earlier = `Earlier chats left ${earlier.join(', ')} in Samara. To carry one on instead, send browser_plan with carry_on: its name.`;
                 // A show-only plan: no card was shown; any local page its steps name opens in his Mockups trail now.
                 if (out.local === true) {
                   showJobs.set(out.job as number, { task: p.task, seen: new Set() });
@@ -196,6 +236,17 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
               }
             }
           }
+          // Sheet 115: the connector calls in every minute while its chat is open, so a gone chat's group can be carried on.
+          else if (op === 'alive') { const j = Number(a.job); if (b && Number.isInteger(j) && own(j)) b.claudeSeen(j); out = { ok: true }; }
+          // After a restart (a new door key), the connector asks whether its job came back.
+          else if (op === 'resume') {
+            const j = Number(a.job);
+            if (b && Number.isInteger(j) && own(j) && b.claudeTokenOf(j) === tok && tok) { b.claudeBind(j, tok); out = { ok: true, job: j }; }
+            else out = { ok: false, error: 'that job did not come back' };
+          }
+          // "Update Aang now" from a chat (tools/aang-update-now.mjs): Samara's own update goes in too, asked first while
+          // Claude is working or a form has typing that is not sent (sheet 115).
+          else if (op === 'updatenow') out = hooks.updates && b ? await updateNow(b, hooks.updates) : { ok: true, none: true };
           else if (op === 'companies') out = await checkCompanies(stateDir, Array.isArray(a.only) ? (a.only as unknown[]).map(String) : []);
           else if (!b) out = { ok: false, error: "Samara is not running." };
           else if (!OPS.has(op)) out = { ok: false, error: 'not a step this door allows' };
@@ -203,7 +254,7 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           else if (op === 'open' && /^https?:\/\/([^/]*\.)?(indeed|glassdoor)\.[a-z.]+(\/|$)/i.test(String(a.url ?? ''))) out = { ok: false, error: "Indeed and Glassdoor are not opened in Samara: they put up security checks. Use the official Indeed connector (search_jobs) instead." };
           else if (op === 'open' && neverKeep(String(a.url ?? ''))) out = { ok: false, error: 'bank and money sites are never opened for a Claude session (his rule). He has to do that himself.' };
           else if (op !== 'start' && op !== 'history' && op !== 'note' && op !== 'forget' && !(
-            (op === 'open' || op === 'finish' || op === 'rename' || op === 'tabs' || op === 'look' || op === 'drivetab' || op === 'planstep' || op === 'window' || op === 'jobstate') ? mine.has(Number(a.job)) : op === 'sweep_status' ? mine.has(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
+            (op === 'open' || op === 'finish' || op === 'rename' || op === 'tabs' || op === 'look' || op === 'drivetab' || op === 'planstep' || op === 'window' || op === 'jobstate') ? own(Number(a.job)) : op === 'sweep_status' ? own(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : own(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
           // His history is his (AI lockdown G10): a Claude session asks him every time, in Samara's band.
           // One OK from him per Claude session (AI lockdown G11): a session does nothing in Samara until he allows it.
           // Sheet 109: a chat he sent a pick to (Ask Claude) carries a pass for that tab: he already pointed it there.
@@ -226,11 +277,22 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
             // The held lever: asked in the browser's band, every time; never assumed.
             if (out.needs === 'lever') {
               const yes = await b.askForClaude(String(out.what ?? 'do that'));
+              if (yes === true && (op === 'click' || op === 'key')) sent.add(op + ':' + Number(a.page));
               out = yes === true ? await b.drive(op, { ...a, allowed: true })
                 : { ok: false, error: yes === null ? "That needs his OK in Samara, and Samara is not open. Ask him to open it, or to do it himself." : 'He said no.' };
             }
           }
-          if (op === 'start' && out.ok === true && Number.isInteger(out.job)) mine.add(out.job as number);
+          if (op === 'start' && out.ok === true && Number.isInteger(out.job)) { mine.add(out.job as number); b?.claudeBind(out.job as number, tok); }
+          // Sheet 115: the chat was heard from; what it typed is kept at once; a form it sent (his OK) is let go.
+          if (b && out.ok === true) {
+            const pj = Number.isInteger(Number(a.job)) && a.job !== undefined ? Number(a.job) : b.pageJob(Number(a.page));
+            // A chat that ended (its connector closed) is gone at once: a new chat may carry its group on.
+            if (pj !== null && Number.isInteger(pj)) { if (op === 'finish') b.claudeGone(pj); else b.claudeSeen(pj); }
+            const pg = Number(a.page);
+            if (Number.isInteger(pg) && (op === 'type' || op === 'select' || op === 'click' || op === 'key')) {
+              if (sent.has(op + ':' + pg)) b.formSent(pg); else void b.grabForm(pg);
+            }
+          }
           // A show-only plan's local page: he sees it too, in Samara's Mockups trail, not only Claude's hidden tab.
           if (op === 'open' && out.ok === true && !out.shown && showJobs.has(Number(a.job)) && cleanLive(String(a.url ?? ''))) {
             if (await showFor(b!, Number(a.job), String(a.url))) out.shown = true;

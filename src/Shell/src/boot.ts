@@ -18,7 +18,7 @@ import type { SkipSettings } from './skip/settings.ts';
 import type { AdBlock } from './skip/ads.ts';
 import type { PlanMemory } from './claudeplan.ts';
 import type { Chat } from './askclaude.ts';
-import type { PlanStarted } from './claudedoor.ts';
+import type { DoorUpdates, PlanStarted } from './claudedoor.ts';
 import type { EngineOptions, Source, UpdateEngine } from './updateengine.ts';
 import type { SyncMsg } from './bsync.ts';
 import { serviceFor } from './services.ts';
@@ -50,7 +50,7 @@ export interface BootDeps {
   wireBrowser(get: () => AangBrowser | null, secret: () => AangBrowser | null): void;
   wirePopout(o: Parameters<typeof import('./popoutipc.ts').wirePopout>[0]): { popTab: (id: number) => void };
   planMemory(stateDir: string): PlanMemory;
-  startClaudeDoor(get: () => AangBrowser | null, stateDir: string, hooks: { plans: PlanMemory; onPlan: (p: PlanStarted) => void }): unknown;
+  startClaudeDoor(get: () => AangBrowser | null, stateDir: string, hooks: { plans: PlanMemory; onPlan: (p: PlanStarted) => void; updates?: DoorUpdates }): unknown;
   startMockupDoor(stateDir: string, open: (d: MockDrop) => Promise<unknown>, why: () => string | null, marks: { list: () => unknown[]; set: (a: MockMark) => string | null }): () => void;
   /** A folder that is watched: `take` runs now and on every change. */
   watchFolder(dir: string, take: () => void): void;
@@ -258,7 +258,10 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   browser.onPlanStep = (id, at) => bp.plans.step(id, at);
   browser.onPlanDone = (job) => bp.plans.done(job);
   if (bp.claude) { const c = bp.claude; browser.claudeChats = () => c.chats(); browser.onAskClaude = (s, t) => c.pick(s, t); }
-  d.startClaudeDoor(() => browser, p.stateDir, { plans, onPlan: (x) => bp.plans.started(x) });
+  // Sheet 115: a chat's "update Aang now" puts Samara's ready update in too (asked first while Claude works).
+  const doorUpdates: { e: UpdateEngine | null } = { e: null };
+  d.startClaudeDoor(() => browser, p.stateDir, { plans, onPlan: (x) => bp.plans.started(x),
+    updates: { ready: () => { const c = doorUpdates.e?.card(); return c && !c.signin ? c.version.split('+')[0]! : null; }, go: () => doorUpdates.e ? doorUpdates.e.go() : Promise.resolve({ ok: false, why: 'Updates are not running.' }) } });
 
   // show_mockup from this machine's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).
   if (bp.mockupDoor) {
@@ -298,14 +301,18 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   const show = () => updates?.show();
   updates = d.newUpdates({
     sources: u.sources(show),
-    moment: () => ({ now: new Date(), idleSeconds: d.idleSeconds(), inCall: browser.inCall === true, inGame: u.inGame() }),
+    moment: () => ({ now: new Date(), idleSeconds: d.idleSeconds(), inCall: browser.inCall === true, inGame: u.inGame(), work: browser.claudeWork() }),
     overnight,
     changed: (card) => browser.setUpdate(card ? { ...card, overnight: overnight() } : null),
     ...(u.beforeGo ? { beforeGo: u.beforeGo } : {}),
     restart: u.restart,
+    // Sheet 115: Claude's jobs and its forms' typing are written down before anything goes in; they come back after.
+    saveWork: () => browser.saveClaudeNow(),
     log: (t) => p.log(t),
   });
   const ue = updates;
+  doorUpdates.e = ue;
+  browser.onClaudeWork = () => ue.show();
   const frame = (wc: WebContentsLike) => browser.isFrame(wc);
   d.onFrame('browser:updateact', frame, (sender, a) => {
     const act = String(a?.act ?? '');

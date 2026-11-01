@@ -33,6 +33,19 @@ function petPid() {
   try { return /\n\s*pid = (\d+)/.exec(execFileSync('launchctl', ['print', `gui/${process.getuid()}/com.aang.pet`], { encoding: 'utf8' }))?.[1] ?? ''; } catch { return ''; }
 }
 
+// Sheet 115 (his pick, 2026-10-31): Samara's own ready update goes in too. While Claude is working in Samara or a form
+// has typing that is not sent, Samara asks him first; its tabs and typing come back after the restart.
+const doorFile = process.env.AANG_DOOR_FILE || (process.platform === 'win32'
+  ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang', 'claude-door.json')
+  : path.join(os.homedir(), 'Library', 'Application Support', 'Aang', 'claude-door.json'));
+try {
+  const d = JSON.parse(readFileSync(doorFile, 'utf8'));
+  const r = await fetch(`http://127.0.0.1:${d.port}/drive`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': d.key },
+    body: JSON.stringify({ op: 'updatenow', a: {} }), signal: AbortSignal.timeout(200_000) });
+  const j = r.status === 200 ? await r.json() : null;
+  console.log(j?.message ?? 'Samara did not answer about its own update.');
+} catch { console.log('Samara is not running, so only Aang is looked at.'); }
+
 let keyAt = 0; try { keyAt = statSync(keyFile).mtimeMs; } catch { console.log(`No brain key at ${keyFile}: is Aang's brain running on this machine?`); process.exit(1); }
 if (!(await brainUp())) { console.log("Aang's brain is not answering on this machine."); process.exit(1); }
 const pet0 = petPid();

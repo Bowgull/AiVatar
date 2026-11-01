@@ -955,6 +955,21 @@
       "at": "2026-10-31T13:22:00-04:00",
       "text": "A Samara restart never locks Claude out of its chat.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-31T21:04:00-04:00",
+      "text": "Claude's tabs and your typing come back after a restart, and the same chat carries on.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T21:04:00-04:00",
+      "text": "An update waits while Claude is working or a form isn't sent. After 2 hours it asks you.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-31T21:04:00-04:00",
+      "text": "A new chat can carry on an old chat's tabs.",
+      "kind": "feature"
     }
   ]
 }
