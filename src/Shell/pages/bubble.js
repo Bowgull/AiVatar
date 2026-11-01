@@ -1999,7 +1999,8 @@ function onBrain(m) {
     who.hidden = !who.textContent || cockpit;
     if (cockpit) bubble.classList.add('lantern');
     paintChange(!m.stream);
-    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, /Mac/i.test(navigator.platform) !== macSession ? 'MAC' : 'PC', m.face);   // a remote session is the other machine (fix 10)
+    // An update line (focus 'Samara update', 2026-11-01) is Aang's own news, not Claude's.
+    if (!m.stream) setSpeaker((focusWindow && focusWindow !== 'Samara update') || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, /Mac/i.test(navigator.platform) !== macSession ? 'MAC' : 'PC', m.face);   // a remote session is the other machine (fix 10)
     // 2026-10-21: the dots stay until a word of the answer is actually on the paper (a first chunk can be half a word),
     // so between thinking and answering there is never a moment of empty bubble.
     reveal.tick();

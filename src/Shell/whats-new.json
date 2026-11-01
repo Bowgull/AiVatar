@@ -1045,6 +1045,11 @@
       "at": "2026-11-01T11:31:00-05:00",
       "text": "The Satchel icon is back to a sensible size.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T11:38:00-05:00",
+      "text": "Aang tells you in his bubble when an update is ready.",
+      "kind": "feature"
     }
   ]
 }

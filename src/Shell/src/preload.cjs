@@ -236,6 +236,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserGo: text => ipcRenderer.send('browser:go', text),
   browserTab: a => ipcRenderer.send('browser:tab', a),
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
+  onOpenUpdate(fn) { const h = () => fn(); ipcRenderer.on('browser:openupdate', h); return () => ipcRenderer.removeListener('browser:openupdate', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserShareReply: a => ipcRenderer.send('browser:sharereply', a),
   // Sheet 69: his pick in the keyboard ask ({id, device}), and Forget in the shield (a device's key).

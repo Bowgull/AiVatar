@@ -132,7 +132,7 @@ import { AddonDesk, realDeps as addonDeskDeps, type Said as AddonSaid } from './
 import { checkMediaCmd, checkMediaNow, wantsPlayer, type MediaCmd } from './media.ts';
 import { ConnectPoller, MediaMux, readPlayback, readDevices, checkDeviceId } from './connect.ts';
 import { HOME_TZ, homeDate, longDate, shortTime, shortTimeUpper } from './clock.ts';
-import { readJson } from './store.ts';
+import { readJson, saveJson } from './store.ts';
 import { openLog } from './log.ts';
 import { CODE_ROOT } from './coderoot.ts';
 
@@ -4325,6 +4325,7 @@ export class Core {
       // prompt that says so, and the Shell reads the answer strictly (tab numbers and short names only). The model engine
       // refuses while a game is running ('game'), and the Shell then waits and asks again.
       case 'engine.ready': void this.engineReady(ws, String(m.version ?? ''), m.major === true); break;
+      case 'update.ready': this.updateNews(m.update); break;
       case 'engine.signin':
         if (m.signIn === true) this.announce("Samara's new engine couldn't be re-signed for video: castLabs wants you to sign in again. Paste this in PowerShell and follow it: python -m castlabs_evs.account reauth");
         break;
@@ -5056,7 +5057,35 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string }; claude?: string; session?: string; heldAt?: number; collect?: (m: ToBody) => void; open?: boolean } = {}): void {
+  /**
+   * Updates in his bubble (2026-11-01, his ask: "Aang is in front of my game; he's meant to surface things while I'm
+   * busy"). Samara's key card, as Samara sends it every ten minutes while one waits. Said once, then once a day until it
+   * is in (his pick). While he is busy it waits behind the marker on Aang, which glows and chimes ('done' tier, asked);
+   * a click on "Samara" opens the update card there (main.ts 'Samara update').
+   */
+  private updateNews(raw: unknown): void {
+    const u = raw && typeof raw === 'object' ? raw as { version?: unknown; title?: unknown; lines?: unknown; signin?: unknown } : null;
+    if (!u || typeof u.version !== 'string' || !/^\d{1,4}\.\d{1,4}\.\d{1,4}/.test(u.version)) return;
+    const file = path.join(this.cfg.stateDir, 'update-told.json');
+    const told = readJson<{ version: string; at: number } | null>(file, null, (j: any) => typeof j?.version === 'string' && typeof j?.at === 'number' ? { version: j.version, at: j.at } : null);
+    if (told && told.version === u.version && Date.now() - told.at < 24 * 3600_000) return;
+    const title = (typeof u.title === 'string' && u.title ? u.title : `Samara ${u.version}`).slice(0, 60);
+    const first = Array.isArray(u.lines) && typeof u.lines[0] === 'string' ? u.lines[0].slice(0, 120).replace(/\.?$/, '.') : '';
+    const text = u.signin === true
+      ? `${title} is ready, but castLabs wants you to sign in first. It's waiting in Samara.`
+      : `${title} is ready${first ? `: ${first}` : '.'} It's waiting in Samara.`;
+    saveJson(file, { version: u.version, at: Date.now() });
+    this.announce(text, { asked: true, done: true, focus: 'Samara update', linkWord: 'Samara' });
+  }
+  /** The PC's own brain made a new version ready (pcbrain.ts): said once; it goes in by itself while he is away. */
+  brainReady(version: string): void {
+    // The same release as a Samara update he is being told about: one line is enough (Samara's).
+    const told = readJson<{ version?: string } | null>(path.join(this.cfg.stateDir, 'update-told.json'), null);
+    if (told?.version === version) return;
+    this.announce(`My own update ${version} is ready. I'll put it in next time you step away for half an hour.`, { asked: true, done: true });
+  }
+
+  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string }; claude?: string; session?: string; heldAt?: number; collect?: (m: ToBody) => void; open?: boolean; linkWord?: string } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced(). Its link goes with it (2026-10-14): "put it on" needs no search.
     this.lastAnnounced = { text, at: Date.now(), ...(opts.about ? { url: opts.about.url } : {}) };
@@ -5068,7 +5097,7 @@ export class Core {
     if (r.to === 'hold') { this.hold(text, blocking && opts.blocking === undefined ? { ...opts, blocking: true } : opts, r.why, r.marker); return; }
     const done = !blocking && (opts.done ?? (!!opts.jobCwd && Core.DONE.test(text)));
     const msg: Extract<ToBody, { t: 'bubble' }> = {
-      t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
+      t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: opts.linkWord ?? 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
       // 9.D D5: the job's own name, so its post in claude-jobs is called what he calls it.
       ...(opts.jobCwd ? { jobName: this.launched.find(l => l.cwd.toLowerCase() === opts.jobCwd!.toLowerCase())?.name ?? '' } : {}),

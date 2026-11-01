@@ -902,6 +902,12 @@ app.whenReady().then(async () => {
           beforeGo: (w) => { if (engineSrc) engineSrc.overnight = w.overnight ? { title: w.title, lines: w.lines } : null; },
           restart: (w) => { if (w.overnight) console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); },
           wentBack: () => { aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); },
+          // Aang says it in his bubble (2026-11-01, his ask: Samara is often closed, Aang is in front of his game). The
+          // brain decides when (attention.ts) and how often (once a day); a click opens this card in Samara.
+          told: (card) => link?.send({ t: 'update.ready', update: card ? {
+            version: card.version, title: card.title ?? '', signin: card.signin === 'ask',
+            lines: card.groups.flatMap((g) => g.items.map((i) => i.text)).slice(0, 3),
+          } : null } as never),
         },
       }, bootDeps((s) => console.log('shell: ' + s)));
       aangBrowser = boot.browserNow;
@@ -1517,6 +1523,8 @@ app.whenReady().then(async () => {
   ipcMain.on('bubble:macfront', (e) => { if (fromBubble(e)) link?.send({ t: 'claude.front', host: 'mac' }); });
   ipcMain.on('bubble:focus', (e, name) => {
     if (!fromBubble(e) || typeof name !== 'string' || !name) return;
+    // Aang's line about an update: Samara comes forward with its update card open (2026-11-01).
+    if (name === 'Samara update') { aangBrowser?.open(); aangBrowser?.openUpdate(); return; }
     link?.send({ t: 'bubble.focus', focus: name.slice(0, 200) });
   });
   // C4, Claude in the cockpit (2026-10-21): his answers and messages to Claude sessions, from his own bubble only. Every

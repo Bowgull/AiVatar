@@ -1246,6 +1246,15 @@ export class AangBrowser {
   /** 6.28: a tested engine waiting for his Restart now (the update key), or null. */
   private update: UpdateCard | null = null;
   setUpdate(u: UpdateCard | null): void { this.update = u; this.sendTabs(); }
+  /** Aang's bubble line about an update was clicked (2026-11-01): the update card opens, once the window has its page. */
+  openUpdate(): void {
+    const tell = (n: number) => {
+      const w = this.lastPane()?.win;
+      if (w && !w.isDestroyed() && !w.webContents.isLoading()) w.webContents.send('browser:openupdate');
+      else if (n < 20) setTimeout(() => tell(n + 1), 250);
+    };
+    setTimeout(() => tell(0), 300);
+  }
   /** After an update put in overnight: what it did, shown once by the ... key (sheet 35). */
   private updated: { title: string; lines: string[] } | null = null;
   setUpdated(d: { title: string; lines: string[] } | null): void { this.updated = d; this.sendTabs(); }
