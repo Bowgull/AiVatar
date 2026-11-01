@@ -277,6 +277,8 @@ export class MiniPlayer {
   /** Up in front when it opens. On the Mac Aang is never the active app, so a normal window of his sinks behind the app
    *  he is in the moment that app is touched (found in the real-click pass, 2026-10-28): there it floats, like his notes. */
   private raise(w: BrowserWindow): void {
+    // Minimized (Show desktop), moveTop alone left it at -32000: the wheel's Music did nothing (2026-11-01).
+    if (w.isMinimized()) w.restore();
     w.moveTop();
     if (process.platform === 'darwin' && !this.pinned) w.setAlwaysOnTop(true, 'floating');
   }

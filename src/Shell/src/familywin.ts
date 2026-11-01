@@ -369,7 +369,7 @@ export class FamilyHost implements FamilyHooks {
 
   /** Unpinned, clicking or grabbing any member brings its whole group up together (root first). */
   raise(ids: string[]): void {
-    for (const x of ids) { const w = this.live.get(x)?.m.win(); if (w && !w.isDestroyed() && w.isVisible()) w.moveTop(); }
+    for (const x of ids) { const w = this.live.get(x)?.m.win(); if (w && !w.isDestroyed() && w.isVisible()) { if (w.isMinimized()) w.restore(); w.moveTop(); } }
   }
 
   // ---------------------------------------------------------------- see-through and pin, for everyone

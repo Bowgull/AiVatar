@@ -44,7 +44,7 @@ export function tuckFor(p: Popout, front: BrowserWindow | null): void {
     // catch, 2026-10-21: "opening pop-out is pushing Samara closed and not surfacing the pop-out forward"). So the
     // pop-out is brought forward on purpose, after Samara has gone.
     const w = p.window;
-    if (w && !w.isDestroyed()) { if (!w.isVisible()) w.show(); w.moveTop(); w.focus(); }
+    if (w && !w.isDestroyed()) { if (!w.isVisible()) w.show(); if (w.isMinimized()) w.restore(); w.moveTop(); w.focus(); }
   }, 150);
   p.afterClose = (wasInFront) => {
     if (!wasInFront || front.isDestroyed()) return;

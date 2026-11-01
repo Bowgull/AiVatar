@@ -165,6 +165,14 @@ public static class Tb {
   static readonly Dictionary<int, Px> pxs = new Dictionary<int, Px>();
   static readonly IntPtr[] icons = new IntPtr[32];
   [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr p);
+  [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool on);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+  [DllImport("user32.dll")] static extern void SwitchToThisWindow(IntPtr h, bool alt);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
   [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetLong(IntPtr h, int i);
   [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] static extern IntPtr SetLong(IntPtr h, int i, IntPtr v);
   [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int cx, int cy, uint f);
@@ -276,6 +284,21 @@ public static class Tb {
       int c; if (DwmGetWindowAttribute(h, 33, out c, 4) != 0) c = -1;
       RC b; int k = GetWindowRgnBox(h, out b);
       return c + " " + k + " " + b.l + "," + b.t + "," + b.r + "," + b.b;
+    }
+    if (op == "F") {
+      // In front, for real (his rule: whatever he clicks comes forward). Windows ignores a background app asking for
+      // the front; joined for a moment to the input of the window that has it, the ask is his. No keys are sent.
+      IntPtr h = new IntPtr(hv);
+      if (!IsWindow(h)) return "nowindow";
+      if (IsIconic(h)) ShowWindow(h, 9);
+      IntPtr fg = GetForegroundWindow();
+      if (fg == h) return "1";
+      uint me = GetCurrentThreadId(), them = fg == IntPtr.Zero ? 0 : GetWindowThreadProcessId(fg, IntPtr.Zero);
+      bool joined = them != 0 && them != me && AttachThreadInput(me, them, true);
+      try { BringWindowToTop(h); SetForegroundWindow(h); }
+      finally { if (joined) AttachThreadInput(me, them, false); }
+      if (GetForegroundWindow() != h) SwitchToThisWindow(h, true);
+      return GetForegroundWindow() == h ? "1" : "0";
     }
     if (op == "Q" || op == "A") {
       IntPtr h = new IntPtr(hv);
@@ -467,7 +490,7 @@ function ask(line: (n: number) => string, ms: number): Promise<string> {
  * (0), Q = just look. Answers the window's extended style as a number, or a word ('nowindow', 'timeout', 'off' off
  * Windows). The first one waits for the taskbar part to compile (a few seconds); later ones answer in milliseconds.
  */
-export function askHelper(op: 'A' | 'Q' | 'C', w: BaseWindow, on?: boolean, ms = 15000): Promise<string> {
+export function askHelper(op: 'A' | 'Q' | 'C' | 'F', w: BaseWindow, on?: boolean, ms = 15000): Promise<string> {
   const h = hwndOf(w);
   if (!h) return Promise.resolve('nowindow');
   return ask((n) => `${op} ${n} ${h}${op === 'A' ? (on === false ? ' 0' : ' 1') : ''}`, ms);

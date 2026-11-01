@@ -45,7 +45,7 @@ import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
 import { svgToPng } from './svgicon.ts';
 import { lookalike } from './lookalike.ts';
-import { softEdge } from './winedge.ts';
+import { askHelper, softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, LOCK_AFTER, Vault, fillScript, type Login } from './vault.ts';
 import { DETAIL_KINDS, DetailsStore, PIN_MAX, PIN_MIN, PinSeal, cleanDetails, pinOk, detailFor, fillDetailsScript, samePin, type FieldKind } from './autofill.ts';
@@ -323,6 +323,9 @@ export function bringFront(w: BrowserWindow): void {
   if (process.platform === 'darwin') app.focus({ steal: true });
   w.setAlwaysOnTop(true); w.show(); w.moveTop(); w.focus();
   setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 400);
+  // 2026-11-01 (his report: the wheel's Samara still stayed behind): on top was not enough while another app had the
+  // front; the edge helper takes it for real (winedge.ts 'F').
+  if (process.platform === 'win32') setTimeout(() => { if (!w.isDestroyed() && !w.isFocused()) void askHelper('F', w, undefined, 4000); }, 60);
 }
 /**
  * Sheet 87 (his "no smooth motion is applied to this whatsoever"): the secret window fades in over a fifth of a second,
