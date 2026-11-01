@@ -33,12 +33,22 @@ function door() {
 const RESTARTED = 'Samara restarted since this job began (an update or a crash), so its pages and plan are gone. Nothing is locked: send browser_plan again to carry on, then open the pages again by their address. Fields you filled may need filling again.';
 let jobKey = null;
 function forget() { job = null; jobName = ''; jobKey = null; }
+// Sheet 115: this chat's own token, made once for the chat's life. Samara keeps the chat's job and tabs under it, so
+// after a restart (an update, a crash, a quit) the same job comes back with the same page numbers and this chat goes on.
+const token = randomBytes(16).toString('hex');
+const post = (d, op, a, ms = 180_000) => fetch(`http://127.0.0.1:${d.port}/drive`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': d.key }, body: JSON.stringify({ op, a, s: token }), signal: AbortSignal.timeout(ms) });
 async function knock(d, op, a) {
   if (job !== null && jobKey !== null && d.key !== jobKey) {
-    forget();
-    if (op !== 'plan' && op !== 'start' && op !== 'history' && op !== 'companies' && op !== 'note') return { ok: false, error: RESTARTED };
+    // A new door key: Samara restarted. Its job came back (Samara says so on the next step): carry on, else let go.
+    let back = false;
+    try { const r = await post(d, 'resume', { job }, 20_000); back = r.status === 200 && (await r.json())?.ok === true; } catch { /* not back */ }
+    if (back) jobKey = d.key;
+    else {
+      forget();
+      if (op !== 'plan' && op !== 'start' && op !== 'history' && op !== 'companies' && op !== 'note') return { ok: false, error: RESTARTED };
+    }
   }
-  const r = await fetch(`http://127.0.0.1:${d.port}/drive`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': d.key }, body: JSON.stringify({ op, a }), signal: AbortSignal.timeout(180_000) });
+  const r = await post(d, op, a);
   if (r.status === 403) return { ok: false, error: 'The door refused this connector. Aang may have restarted: try again.' };
   const j = await r.json();
   // Sheet 109: he handed his tab back while nobody waited; told with whatever step comes next.
@@ -53,6 +63,9 @@ async function knock(d, op, a) {
   return j;
 }
 const heard = [];
+// Sheet 115: a call in every minute while this chat is open, so Samara knows the chat is still going (a gone chat's
+// group can be carried on by a new chat; a live one never). Never starts Samara.
+setInterval(() => { const d = job !== null ? door() : null; if (d) post(d, 'alive', { job }, 5000).catch(() => {}); }, 60_000).unref();
 /**
  * His ask (2026-10-14): if Samara is not running, start it rather than give up. On the Mac it is its own app,
  * opened in the background (-g: it never jumps in front of him) and waited for. On the PC it is part of Aang himself,
@@ -94,8 +107,8 @@ const WORDS = (t) => { const tag = 'page_words_' + randomBytes(4).toString('hex'
 const PAGE = { type: 'integer' };
 const TASK = { type: 'string', description: 'two to four words naming what you are doing' };
 const TOOLS = [
-  { name: 'browser_plan', description: "Start here. Before using Samara, say what you will do: Joshua sees it (inside Claude, or in Aang's bubble) and can untick sites or ask for a change. task: 2-4 words; sites: every site you will open; steps: short plain steps; wont: what you will NOT do (apply, send, buy, sign in anywhere new). If he asks for a change you get his note: make a new plan and send it again. The same plan he allowed before goes without asking, and so does a plan that only opens or looks at pages on this computer (127.0.0.1, localhost): those also show in his Mockups trail. While working, call it with now: <step number from 1> to move his live checklist on, and done: true at the end.",
-    inputSchema: { type: 'object', properties: { task: TASK, sites: { type: 'array', items: { type: 'string' } }, steps: { type: 'array', items: { type: 'string' } }, wont: { type: 'string' }, now: { type: 'integer' }, done: { type: 'boolean' } } } },
+  { name: 'browser_plan', description: "Start here. Before using Samara, say what you will do: Joshua sees it (inside Claude, or in Aang's bubble) and can untick sites or ask for a change. task: 2-4 words; sites: every site you will open; steps: short plain steps; wont: what you will NOT do (apply, send, buy, sign in anywhere new). If he asks for a change you get his note: make a new plan and send it again. The same plan he allowed before goes without asking, and so does a plan that only opens or looks at pages on this computer (127.0.0.1, localhost): those also show in his Mockups trail. While working, call it with now: <step number from 1> to move his live checklist on, and done: true at the end. carry_on: the name of a group an earlier chat left in Samara (\"Job hunt\"), to take its tabs and plan as they are instead of a new plan; only a chat that is gone leaves one.",
+    inputSchema: { type: 'object', properties: { task: TASK, sites: { type: 'array', items: { type: 'string' } }, steps: { type: 'array', items: { type: 'string' } }, wont: { type: 'string' }, now: { type: 'integer' }, done: { type: 'boolean' }, carry_on: { type: 'string' } } } },
   { name: 'browser_extract', description: "A fixed reader for what a page holds beyond its words. kind: details (facts hidden for search engines: job pay, remote, posted date, prices, event dates), tables (clean rows), images (picture and chart labels), links (where links really go; which leave the site). Cheaper than a picture.",
     inputSchema: { type: 'object', properties: { page: PAGE, kind: { type: 'string', enum: ['details', 'tables', 'images', 'links'] } }, required: ['page', 'kind'] } },
   { name: 'browser_tabs', description: "Joshua's own open tabs in Samara (titles and addresses; banks hidden). He is asked first. Then browser_look_tab to read one.",
@@ -423,6 +436,13 @@ async function plan(a) {
     else if (!st.ok) forget();                                 // Samara does not know the job any more: never locked
   }
   if (job !== null) return text('This session already has a plan running. Tick it with browser_plan now: <step>, or end it with browser_plan done: true, then send the new plan.', true);
+  // Sheet 115 (his pick, "It just takes them"): carry on a group an earlier chat left (that chat is gone), no ask.
+  if (typeof a.carry_on === 'string' && a.carry_on.trim()) {
+    const c = await step('plan', { carry_on: a.carry_on.trim().slice(0, 60) });
+    if (!c.ok) return text(c.error || 'That group could not be carried on.', true);
+    job = c.job; jobName = String(c.name ?? '').slice(0, 30);
+    return text(String(c.note ?? 'Carried on.'));
+  }
   // from (2026-10-22): this session's folder name, for the card's kicker (CLAUDE · WAYMARK). Claude Code starts this connector in the session's folder.
   const body = { task: String(a.task ?? ''), sites: Array.isArray(a.sites) ? a.sites.map(String) : [], steps: Array.isArray(a.steps) ? a.steps.map(String) : [], wont: String(a.wont ?? ''), from: path.basename(process.cwd()) };
   let r = await step('plan', { ...body, elicit: canElicit });
@@ -436,7 +456,7 @@ async function plan(a) {
   // Pages on this computer, only looked at (2026-10-22): no card, and he sees them in Samara's Mockups trail.
   if (r.local) return text(`Pages on this computer need no plan card: go.${r.shown ? ` Joshua can already see ${r.shown === 1 ? 'the page' : `${r.shown} pages`} in Samara's Mockups trail.` : ''} Each local page you open with browser_open also shows in his Mockups trail. To show him a mockup or design page, show_mockup is the direct way.`);
   const out = (r.login || []), rest = (r.sites || []).filter((s) => !out.includes(s)), dropped = body.sites.filter((s) => !(r.sites || []).some((k) => s.includes(k) || k.includes(s)));
-  return text(`${r.same ? 'Same plan as one he allowed before: go.' : 'Joshua allowed the plan.'}${out.length ? ` Signed in as him on: ${out.join(', ')}.` : ''}${rest.length ? ` Logged out on: ${rest.join(', ')}.` : ''}${dropped.length ? ` He unticked (never opened): ${dropped.join(', ')}.` : ''} Open pages with browser_open (same task). Tick his live checklist with browser_plan now: <step>.`);
+  return text(`${r.same ? 'Same plan as one he allowed before: go.' : 'Joshua allowed the plan.'}${out.length ? ` Signed in as him on: ${out.join(', ')}.` : ''}${rest.length ? ` Logged out on: ${rest.join(', ')}.` : ''}${dropped.length ? ` He unticked (never opened): ${dropped.join(', ')}.` : ''} Open pages with browser_open (same task). Tick his live checklist with browser_plan now: <step>.${r.earlier ? ' ' + r.earlier : ''}`);
 }
 
 // When Claude Code closes this connector, the session's group in the tab list shows as finished (no more STOP).

@@ -28,7 +28,17 @@ export function newer(a: string, b: string): boolean {
 
 // ---------------------------------------------------------------- the rules
 /** What the rules look at, read fresh each time. */
-export interface Moment { now: Date; idleSeconds: number; inCall: boolean; inGame: boolean }
+export interface Moment { now: Date; idleSeconds: number; inCall: boolean; inGame: boolean;
+  /** Sheet 115: what Claude is doing in Samara ("filling an application" in Contoso), or null. */
+  work?: { doing: string; where: string } | null }
+/** Sheet 115 (his pick, "After 2 hours, ask me"): how long an update waits for Claude before the key asks him. */
+export const WORK_WAIT_MS = 2 * 3_600_000;
+/** The update key's "waits" line (sheet 115 A): why it waits, or, after two hours, the ask. Pure, for tests. */
+export function waitLine(work: Moment['work'], waitedMs: number): { b: string; t: string; anyway: boolean } | null {
+  if (!work) return null;
+  if (waitedMs >= WORK_WAIT_MS) return { b: 'Claude has been working for 2 hours.', t: ' Restart anyway? Its tabs and your typing come back.', anyway: true };
+  return { b: `Claude is ${work.doing}`, t: ` in ${work.where}. The update waits until it's done.`, anyway: false };
+}
 /** His overnight hours and idle time (sheet 35): between 2 and 5 am, after half an hour with no keyboard or mouse. */
 export const NIGHT = { from: 2, to: 5, idleSeconds: 30 * 60 } as const;
 
@@ -83,6 +93,8 @@ export interface Offer {
   behind?: string;
   /** Sheet 114: a newer one is getting ready behind this one (next), while Restart now still puts this one in (now). */
   coming?: { next: string; now: string };
+  /** Sheet 115: the update waits for Claude (its line; anyway: two hours passed, so it asks). */
+  wait?: { b: string; t: string; anyway: boolean };
 }
 /**
  * A thing that updates. `ready` is set once the update is downloaded, checked against its seal and made ready beside
@@ -117,6 +129,8 @@ export interface EngineOptions {
   beforeGo?: (what: { overnight: boolean; title: string; lines: string[] }) => void;
   /** Something was put in: close the windows and restart (the Mac's script does it itself; the PC's pet restarts). */
   restart: (what: { sources: string[]; overnight: boolean; title: string; lines: string[] }) => void;
+  /** Sheet 115: just before anything goes in, Claude's jobs and the typing in its forms are written down. */
+  saveWork?: () => Promise<void>;
   log?: (s: string) => void;
 }
 
@@ -125,6 +139,8 @@ export const TICK_MS = 10 * 60_000;
 
 export class UpdateEngine {
   private going = false;
+  /** Sheet 115: since when a ready update has been waiting for Claude (0: it is not waiting). */
+  private waitSince = 0;
   private readonly o: EngineOptions;
   constructor(o: EngineOptions) { this.o = o; }
 
@@ -144,7 +160,17 @@ export class UpdateEngine {
       ...(ready.find((r) => r.signin)?.signin ? { signin: ready.find((r) => r.signin)!.signin! } : {}),
       ...(ready.find((r) => r.behind)?.behind ? { behind: ready.find((r) => r.behind)!.behind! } : {}),
       ...(ready.find((r) => r.coming)?.coming ? { coming: ready.find((r) => r.coming)!.coming! } : {}),
+      ...this.waiting(),
     };
+  }
+  /** The waits line for the card, counting how long it has waited. */
+  private waiting(): { wait?: { b: string; t: string; anyway: boolean } } {
+    let work: Moment['work'] = null;
+    try { work = this.o.moment().work ?? null; } catch { /* no line */ }
+    if (!work) { this.waitSince = 0; return {}; }
+    if (!this.waitSince) this.waitSince = Date.now();
+    const w = waitLine(work, Date.now() - this.waitSince);
+    return w ? { wait: w } : {};
   }
   show(): void { this.o.changed(this.card()); }
 
@@ -159,6 +185,7 @@ export class UpdateEngine {
     if (!card || !ready.length) return { ok: false, why: 'The update is not ready yet. It will show up again when it is.' };
     this.going = true;
     try {
+      try { await this.o.saveWork?.(); } catch (e) { this.o.log?.(`update: Claude's work was not saved first: ${(e as Error).message}`); }
       this.o.beforeGo?.({ overnight, title: card.title ?? 'Samara update', lines: card.lines ?? [] });
       const done: string[] = [];
       for (const s of ready) {
@@ -194,7 +221,10 @@ export class UpdateEngine {
   /** One look at the rules: overnight for the key, quiet for the brain. */
   async tick(): Promise<void> {
     const m = this.o.moment();
-    if (this.card() && overnightNow(m, this.o.overnight())) { await this.go(true); return; }
+    // Sheet 115: overnight waits while Claude works or a form has typing; after two hours the key asks him instead.
+    const card = this.card();
+    if (card) this.o.changed(card);
+    if (card && !m.work && overnightNow(m, this.o.overnight())) { await this.go(true); return; }
     for (const s of this.o.sources) if (!s.onKey && s.ready() && quietNow(m)) { const r = await s.go(); if (r.ok) this.o.log?.(`update: ${s.id} put in quietly`); }
   }
 

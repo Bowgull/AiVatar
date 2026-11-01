@@ -551,8 +551,10 @@ export class Driver {
   }
 
   /** A job: one request of his, one trail in the drawer. */
-  startJob(kind: DriverKind, name: string, plan?: { login: string[]; denied: string[]; steps: string[]; allowed?: string[] }): Job {
-    const job: Job = { id: ++this.jobSeq, kind, name: cleanName(name), working: true, stopped: false, at: Date.now(), pages: [],
+  startJob(kind: DriverKind, name: string, plan?: { login: string[]; denied: string[]; steps: string[]; allowed?: string[] }, id?: number): Job {
+    // Sheet 115: a job kept from before a restart comes back with its own number, so the chat's calls still find it.
+    if (id !== undefined && (!Number.isInteger(id) || id <= 0 || this.job(id))) throw new Error('that job number is taken');
+    const job: Job = { id: id ?? ++this.jobSeq, kind, name: cleanName(name), working: true, stopped: false, at: Date.now(), pages: [],
       // A Claude session is fenced (AI lockdown G1, 2026-10-14): signed in only on its job's sites; everything else it
       // reads logged out. A job scan's sites are the job sites; another task's is the first site it opens.
       ...(kind === 'claude' ? { sites: new Set<string>(jobTask(name) ? JOB_SITES : []) } : {}) };
@@ -564,10 +566,13 @@ export class Driver {
       job.planned = true; job.steps = plan.steps.slice(0, 12); job.step = 0;
       job.allowed = new Set((plan.allowed ?? []).map((x) => siteOf(x)).filter(Boolean));
     }
+    this.jobSeq = Math.max(this.jobSeq, job.id);
     this.jobs.push(job);
     this.d.changed();
     return job;
   }
+  /** Sheet 115: numbers kept from before a restart are never handed out again to a new job or page. */
+  reserve(job: number, page: number): void { this.jobSeq = Math.max(this.jobSeq, job | 0); this.pageSeq = Math.max(this.pageSeq, page | 0); }
   job(id: number): Job | undefined { return this.jobs.find((j) => j.id === id); }
   /** A job's group in the tab list is named for what it is doing ("JOB SCAN"), his ask 2026-10-14. */
   rename(id: number, name: string): void { const j = this.job(id); if (j && name.trim()) { j.name = cleanName(name); if (j.sites && jobTask(name)) for (const s of JOB_SITES) j.sites.add(s); this.d.changed(); } }
@@ -680,7 +685,9 @@ export class Driver {
     try { const u = new URL(url); if (u.protocol === 'http:' && !privateHost(u.hostname)) { u.protocol = 'https:'; return u.href; } } catch { /* as is */ }
     return url;
   }
-  async open(jobId: number, url: string): Promise<{ page: number; title: string; url: string; waited?: number; guest?: boolean }> {
+  async open(jobId: number, url: string, o: { id?: number } = {}): Promise<{ page: number; title: string; url: string; waited?: number; guest?: boolean }> {
+    // Sheet 115: a page kept from before a restart opens again under its own number.
+    if (o.id !== undefined && (!Number.isInteger(o.id) || o.id <= 0 || this.pages.some((x) => x.id === o.id))) throw new Error('that page number is taken');
     url = this.secureFirst(url);
     const j = this.live(jobId);
     if (!isWeb(url)) throw new Error('only web addresses (http or https) can be opened');
@@ -710,7 +717,8 @@ export class Driver {
     const wc = tab ? tab.wc : win!.webContents;
     if (win) wc.setFrameRate(2);
     wc.setAudioMuted(true);
-    const p: DPage = { id: ++this.pageSeq, job: j.id, win, wc, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
+    const p: DPage = { id: o.id ?? ++this.pageSeq, job: j.id, win, wc, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
+    this.pageSeq = Math.max(this.pageSeq, p.id);
     this.pages.push(p);
     j.pages.push(p.id);
     // Every listener below is let go if he takes the tab for himself (dragged out of Claude's group).

@@ -54,6 +54,7 @@ import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.t
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
+import { FORM_EVERY_MS, FORM_GRAB_JS, GONE_MS, cleanForm, formFillJs, hasTyping, placeName, readKept, sameName, writeKept, type KeptField, type KeptForm, type KeptJob } from './claudekeep.ts';
 import { HELD_OPS, NEW_CHAT_MAX, cardRows, cleanWhy, newChatLink, newPass, noteDid, pickText, reportLines, reportOf, type Chat, type Hand, type HandReport } from './askclaude.ts';
 import { pastSearches, searchQueryOf, topSites } from './recall.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
@@ -696,7 +697,7 @@ export class AangBrowser {
   }
   private timers: NodeJS.Timeout[] = [];
   /** This browser's jobs on the scheduler (the secret window has its own). */
-  private get jobNames(): string[] { const w = this.o.secret ? 'secret' : 'browser'; return [`${w}.snapshot`, `${w}.sleep-idle`, `${w}.lock`]; }
+  private get jobNames(): string[] { const w = this.o.secret ? 'secret' : 'browser'; return [`${w}.snapshot`, `${w}.sleep-idle`, `${w}.lock`, `${w}.claude-forms`]; }
   private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
   private readonly file: string;
@@ -1010,9 +1011,9 @@ export class AangBrowser {
     this.trustedFile = path.join(sd, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
     this.rules = new SiteRules(path.join(sd, 'site-rules.json'), () => { this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings(); });
-    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true, stateDir: o.stateDir,
+    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => { this.sendTabs(); this.saveClaudeSoon(); }, stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true, stateDir: o.stateDir,
       rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) },
-      tabFor: (t) => this.claudeTab(t.url, t.guest), closeTab: (id) => { if (this.tabs.some((x) => x.id === id)) this.close(id, false); },
+      tabFor: (t) => this.claudeTab(t.url, t.guest), closeTab: (id) => { if (this.tabs.some((x) => x.id === id)) { this.jobClosing.add(id); this.close(id, false); } },
       held: (page) => this.hands.has(page), drawn: (tab, fn) => this.drawnFor(tab, fn) });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { const a = readJson<unknown>(f, null); return Array.isArray(a) ? new Set<string>(a.filter((x: unknown) => typeof x === 'string')) : new Set<string>(); };
@@ -2392,6 +2393,8 @@ export class AangBrowser {
       if (this.prefs.startup === 'home' || !this.restore()) { this.restored = true; if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
       for (const f of this.whenOpen.splice(0)) { this.pane = p; f(); }
+      // Sheet 115: Claude's tabs from before the restart come back after his own.
+      if (!this.o.secret) setTimeout(() => { void this.restoreClaude(); }, 1500);
     });
     void w.loadURL(`${this.o.origin}/browser.html`);
     // The continuous snapshot, and putting idle tabs to sleep: once for the whole browser.
@@ -2400,6 +2403,7 @@ export class AangBrowser {
     if (first) {
       sched.every(this.jobNames[0]!, 8000, () => this.snapshot());
       sched.every(this.jobNames[1]!, 60_000, () => this.sleepIdle());
+      if (!this.o.secret) sched.every(this.jobNames[3]!, FORM_EVERY_MS, () => this.grabForms());
       this.timers.push(setInterval(() => { void this.lookForLogin(); }, 1500));
     }
     // Sheet 87: 15 minutes without a key or a click in the secret window locks it.
@@ -3368,6 +3372,11 @@ export class AangBrowser {
     const at = this.paneTabs().indexOf(this.tabs[i]!);
     // A tab playing in the popout comes back first, so its page is closed here and nowhere else.
     if (this.tabs[i]!.lent) this.onReclaim?.();
+    // Sheet 115: he closed one of Claude's tabs himself: Claude is told with its next step, never a silent disappearance.
+    if (this.tabs[i]!.claude && !this.jobClosing.delete(id)) {
+      const dp = this.driver.pageOfTab(id), dj = dp ? this.driver.job(dp.job) : undefined;
+      if (dp && dj?.kind === 'claude') this.tell(dj.id, `Joshua closed page ${dp.id}. Your other pages keep going.`, dp.title);
+    }
     // 2026-10-28 (his pick: "I always want my older tabs to be there"): the secret window's last tab closing only closes
     // the window. Its tabs are saved as they are first, this one included, and never written over with an empty list.
     if (this.o.secret && lastClosesWindow && this.tabs.length === 1 && this.restored) void this.snapshot(true);
@@ -6176,6 +6185,8 @@ export class AangBrowser {
   frontWindow(): BrowserWindow | null { const p = this.lastPane(); return p?.win && !p.win.isDestroyed() ? p.win : null; }
   closeAll(): void {
     void this.ses.cookies.flushStore().catch(() => {});
+    // Sheet 115: Claude's jobs as they are now, then nothing written while its tabs close (they come back next start).
+    this.saveClaude(); this.keepFrozen = true;
     this.driver.closeAll();
     const open = this.panes.filter((p) => this.alive(p));
     if (open.length) { this.quitting = true; void this.snapshot(true); }
@@ -6474,6 +6485,15 @@ export class AangBrowser {
       text: `${title.length > 30 ? `Let Claude ${w}? ` : ''}In its own tab in your browser. Only if you say yes, and only this once.`, yes: 'Allow once', no: 'No' }, done));
   }
 
+  /** Sheet 115 B: a chat's "update Aang now" while Claude works: asked first, in the same notice as Claude's other asks. */
+  askUpdate(version: string, text: string): Promise<boolean | null> {
+    const p = this.lastPane();
+    if (!p) return Promise.resolve(null);
+    this.pane = p;
+    return new Promise((done) => this.ask({ host: 'Claude', what: `Restart Samara for ${version.slice(0, 20)}?`, kick: 'Claude \u00b7 Aang', from: 'rune', claude: true,
+      text: text.slice(0, 200), yes: 'Restart now', no: 'Not now' }, done));
+  }
+
   // ------------------------------------------------------------------ 6.25a: his view of Aang's pages
   /** The drawer and the address bar: STOP a job, close it, watch one of its pages, or open a page as his own tab. */
   // ------------------------------------------------------------------ sheet 109: handing his tab back and forth
@@ -6655,6 +6675,190 @@ export class AangBrowser {
     this.news.set(job, l.slice(-8));
   }
   private news = new Map<number, string[]>();
+
+  // ------------------------------------------------------------------ sheet 115: Claude's work survives a restart
+  // Every Claude job (its plan, its own tabs, the chat it belongs to) and the typing in its forms are kept in
+  // claude-kept.json (claudekeep.ts), and come back with the same job and page numbers when Samara starts again.
+  private get keepFile(): string { return path.join(this.o.stateDir, 'claude-kept.json'); }
+  /** The chat each job belongs to (its connector's token), and when that chat was last heard from. */
+  private keepTokens = new Map<number, string>();
+  private keepSeen = new Map<number, number>();
+  /** The typing in each of Claude's pages, as last looked at. */
+  private forms = new Map<number, KeptForm>();
+  /** Jobs that came back from before a restart, or that a new chat carried on: the door treats them as its own. */
+  private keptJobs = new Set<number>();
+  private refilling = new Set<number>();
+  private keepT: NodeJS.Timeout | null = null;
+  /** Nothing is written over the kept file until it has been read back (or the browser is closing). */
+  private keepLoaded = false;
+  private keepFrozen = false;
+  /** Claude's tabs the job itself closes (not him). */
+  private jobClosing = new Set<number>();
+  /** Claude's work changed (the update key's "waits" line). */
+  onClaudeWork?: () => void;
+  private lastWork = '';
+
+  /** The door: this chat's token now owns this job. */
+  claudeBind(job: number, token: string): void { if (token) this.keepTokens.set(job, token); this.keepSeen.set(job, Date.now()); this.saveClaudeSoon(); }
+  /** The door: this job's chat called in. */
+  claudeSeen(job: number): void { if (this.driver.job(job)) this.keepSeen.set(job, Date.now()); }
+  /** The door: this job's chat ended. */
+  claudeGone(job: number): void { if (this.driver.job(job)) { this.keepSeen.set(job, 0); this.saveClaudeSoon(); } }
+  /** A job kept from before a restart (or carried on), still here. */
+  claudeKept(job: number): boolean { return this.keptJobs.has(job) && !!this.driver.job(job); }
+  /** May this chat use this job? Another chat's token never; an old connector (no token) as before. */
+  claudeOwner(job: number, token: string): boolean { const t = this.keepTokens.get(job); return !t || !token || t === token; }
+  claudeTokenOf(job: number): string { return this.keepTokens.get(job) ?? ''; }
+  /** A typed form was sent (an allowed send or apply): its kept copy goes (his pick: until sent). */
+  formSent(page: number): void { if (this.forms.delete(page)) this.saveClaudeSoon(); }
+
+  private keptOf(j: Job): KeptJob {
+    const pages = this.driver.pagesOf(j).filter((p) => !p.borrowed || p.borrowed.own).map((p) => {
+      const form = this.forms.get(p.id);
+      return { id: p.id, url: p.url, title: p.title, ...(form ? { form } : {}) };
+    });
+    const plan = j.sites ? { login: [...j.sites], denied: [...(j.denied ?? [])], allowed: [...(j.allowed ?? [])], steps: j.steps ?? [], planned: j.planned === true, step: j.step ?? 0 } : null;
+    return { id: j.id, token: this.keepTokens.get(j.id) ?? '', name: j.name, at: j.at, seen: this.keepSeen.get(j.id) || Date.now(), working: j.working, stopped: j.stopped, plan, pages };
+  }
+  saveClaude(): void {
+    if (this.o.secret || !this.keepLoaded || this.keepFrozen) return;
+    const jobs = this.driver.jobs.filter((j) => j.kind === 'claude').map((j) => this.keptOf(j)).filter((k) => k.pages.length);
+    try { writeKept(this.keepFile, { v: 1, version: app.getVersion(), at: Date.now(), jobs }); } catch (e) { console.error('shell: claude keep: ' + (e as Error).message); }
+  }
+  private saveClaudeSoon(): void {
+    if (this.keepT) return;
+    this.keepT = setTimeout(() => { this.keepT = null; this.saveClaude(); this.workChanged(); }, 1000);
+  }
+  /** Every 15 seconds: the typing in Claude's pages (his own tabs Claude drives too, for the update's wait). */
+  private async grabForms(): Promise<void> {
+    if (this.o.secret) return;
+    let changed = false;
+    const now = Date.now();
+    for (const p of [...this.driver.pages]) {
+      const j = this.driver.job(p.job);
+      if (j?.kind !== 'claude' || (p.borrowed && !p.borrowed.own && !p.borrowed.drive) || this.refilling.has(p.id) || p.wc.isDestroyed()) continue;
+      const got = await run<{ url: string; fields: KeptField[] } | null>(p.wc, FORM_GRAB_JS, { ms: 1500, fallback: null });
+      if (!got || !Array.isArray(got.fields)) continue;
+      const had = this.forms.get(p.id), f = cleanForm({ at: now, url: String(got.url), fields: got.fields }, now);
+      if (!f) { if (had) { this.forms.delete(p.id); changed = true; } continue; }
+      if (had && had.url === f.url && JSON.stringify(had.fields) === JSON.stringify(f.fields)) continue;
+      this.forms.set(p.id, f); changed = true;
+    }
+    for (const id of [...this.forms.keys()]) if (!this.driver.page(id) || now - this.forms.get(id)!.at > 24 * 3_600_000) { this.forms.delete(id); changed = true; }
+    if (changed) { this.saveClaude(); this.workChanged(); }
+  }
+  /** Right away, for one page (after Claude typed or picked, and before a restart). */
+  async grabForm(page: number): Promise<void> {
+    const p = this.driver.page(page);
+    if (!p || this.refilling.has(page)) return;
+    const got = await run<{ url: string; fields: KeptField[] } | null>(p.wc, FORM_GRAB_JS, { ms: 1500, fallback: null });
+    if (!got || !Array.isArray(got.fields)) return;
+    const f = cleanForm({ at: Date.now(), url: String(got.url), fields: got.fields }, Date.now());
+    if (f) this.forms.set(page, f); else this.forms.delete(page);
+    this.saveClaudeSoon();
+  }
+  /** Before a restart (the update's Restart now): every form looked at once more, then everything written. */
+  async saveClaudeNow(): Promise<void> {
+    await Promise.race([this.grabForms(), new Promise((r) => setTimeout(r, 3000))]);
+    this.saveClaude();
+  }
+
+  /** Put the kept typing back in a page that came back, as the page draws its fields (up to 12 seconds). */
+  private async refill(page: number, form: KeptForm): Promise<{ put: number; missing: number }> {
+    let r = { put: 0, missing: form.fields.length };
+    for (let i = 0; i < 12; i++) {
+      const p = this.driver.page(page);
+      if (!p) break;
+      const got = await run<{ put: number; missing: number } | null>(p.wc, formFillJs(form.fields), { ms: 2000, fallback: null });
+      if (got && got.put >= r.put) r = got;
+      if (got && got.missing === 0) break;
+      await new Promise((x) => setTimeout(x, 1000));
+    }
+    return r;
+  }
+
+  /** On start: Claude's jobs from before come back, each tab under its own number, with the typing put back. */
+  private async restoreClaude(): Promise<void> {
+    if (this.o.secret || this.keepLoaded) return;
+    const k = readKept(this.keepFile, Date.now());
+    this.keepLoaded = true;
+    if (!k.jobs.length) { this.saveClaude(); return; }
+    const ver = app.getVersion(), updated = !!k.version && k.version !== ver;
+    const when = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    this.driver.reserve(Math.max(...k.jobs.map((j) => j.id)), Math.max(0, ...k.jobs.flatMap((j) => j.pages.map((p) => p.id))));
+    let back = 0;
+    for (const kj of k.jobs) {
+      let j: Job;
+      try { j = this.driver.startJob('claude', kj.name, undefined, kj.id); } catch { continue; }
+      if (kj.plan) { j.sites = new Set(kj.plan.login); j.denied = new Set(kj.plan.denied); j.allowed = new Set(kj.plan.allowed); j.steps = kj.plan.steps; j.step = kj.plan.step; j.planned = kj.plan.planned; }
+      j.working = false; j.stopped = kj.stopped === true;
+      this.keptJobs.add(j.id);
+      if (kj.token) this.keepTokens.set(j.id, kj.token);
+      // Not heard from yet: a gone chat until its connector calls in (then a new chat may carry it on).
+      this.keepSeen.set(j.id, 0);
+      const said: string[] = [], typed: string[] = [];
+      for (const kp of kj.pages) {
+        if (kp.form) this.refilling.add(kp.id);
+        try {
+          const r = await this.driver.open(j.id, kp.url, { id: kp.id });
+          const p = this.driver.page(r.page), where = placeName(p?.title || kp.title, r.url);
+          said.push(`page ${r.page} ${where}`); back++;
+          if (kp.form) {
+            const f = await this.refill(r.page, kp.form);
+            this.forms.set(r.page, kp.form);
+            typed.push(f.missing ? `Page ${r.page} (${where}) had typing: Samara put ${f.put} answers back, and ${f.missing} could not be found. Fill those again.`
+              : `Page ${r.page} (${where}) had typing, and Samara put it back.`);
+          }
+        } catch (e) { said.push(`page ${kp.id} did not come back (${(e as Error).message})`); }
+        finally { this.refilling.delete(kp.id); }
+      }
+      this.tell(j.id, [`Samara restarted at ${when}${updated ? ` (update ${ver})` : ''}. Your ${said.length} tab${said.length === 1 ? ' is' : 's are'} back, with the same page numbers: ${said.join(', ')}.`,
+        ...typed, typed.length ? 'Check it with browser_check_form, and attach any files again.' : '', j.stopped ? 'This job was stopped (STOP ALL) before the restart: send a new plan to start again.' : ''].filter(Boolean).join(' '));
+    }
+    this.saveClaude();
+    this.sendTabs();
+    if (back) this.note('', { title: "Claude's tabs are back", kick: updated ? `Restarted for ${ver}` : 'Samara restarted', from: 'rune', claude: true, small: true,
+      rows: [{ g: '', v: this.forms.size ? 'Your typing is back in place. Claude checks it before anything is sent.' : 'Claude carries on where it was.' }] });
+  }
+
+  /**
+   * His pick (sheet 115, "It just takes them"): a new chat that carries on an old chat's job takes its group, with no
+   * ask, but only when that chat is gone (not heard from in three minutes). A chat that is still going keeps its own.
+   */
+  carryOn(token: string, name: string): { job: number; name: string; pages: { id: number; title: string }[] } | { live: string } | null {
+    const now = Date.now();
+    const same = this.driver.jobs.filter((j) => j.kind === 'claude' && !j.stopped && sameName(j.name, name) && this.driver.pagesOf(j).length && (!token || this.keepTokens.get(j.id) !== token));
+    const gone = same.filter((j) => now - (this.keepSeen.get(j.id) ?? 0) > GONE_MS).sort((a, b) => (this.keepSeen.get(b.id) ?? 0) - (this.keepSeen.get(a.id) ?? 0));
+    const j = gone[0];
+    if (!j) return same.length ? { live: same[0]!.name } : null;
+    if (token) this.keepTokens.set(j.id, token); else this.keepTokens.delete(j.id);
+    this.keepSeen.set(j.id, now); this.keptJobs.add(j.id); j.working = true;
+    this.saveClaudeSoon(); this.sendTabs();
+    return { job: j.id, name: j.name, pages: this.driver.pagesOf(j).map((p) => ({ id: p.id, title: p.title })) };
+  }
+  /** Groups left by chats that are gone, for a new chat's plan to know it can carry one on. */
+  earlierGroups(token: string): string[] {
+    const now = Date.now();
+    return this.driver.jobs.filter((j) => j.kind === 'claude' && !j.stopped && this.driver.pagesOf(j).length && now - (this.keepSeen.get(j.id) ?? 0) > GONE_MS && (!token || this.keepTokens.get(j.id) !== token))
+      .map((j) => `"${j.name}" (${this.driver.pagesOf(j).length} tab${this.driver.pagesOf(j).length === 1 ? '' : 's'})`);
+  }
+
+  /** What Claude is doing, for the update to wait on (sheet 115): filling a form beats working; null when neither. */
+  claudeWork(): { doing: 'filling an application' | 'working'; where: string; tabs: number } | null {
+    let work: { doing: 'filling an application' | 'working'; where: string; tabs: number } | null = null;
+    for (const j of this.driver.jobs) {
+      if (j.kind !== 'claude') continue;
+      const pages = this.driver.pagesOf(j);
+      const typed = pages.find((p) => hasTyping(this.forms.get(p.id)));
+      if (typed) return { doing: 'filling an application', where: placeName(typed.title, typed.url), tabs: pages.length };
+      if (j.working && !j.stopped && pages.length && !work) work = { doing: 'working', where: placeName(pages[0]!.title, pages[0]!.url), tabs: pages.length };
+    }
+    return work;
+  }
+  private workChanged(): void {
+    const w = this.claudeWork(), k = w ? `${w.doing}|${w.where}` : '';
+    if (k !== this.lastWork) { this.lastWork = k; this.onClaudeWork?.(); }
+  }
   /** A hand on a page ends without a report (the page left the job). */
   private handOff(page: number): void {
     if (!this.hands.delete(page)) return;

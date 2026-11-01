@@ -17,7 +17,7 @@ function fakeBrowser(o: Record<string, unknown>) {
     setPopTab: (f: (id: number) => void) => { b.popTab = f; },
     startSync: (send: (m: unknown) => void) => { b.sync = { send }; return b.sync; },
     openMockupDrop: async (m: unknown) => { b.dropped = m; return null; }, mockStages: () => ['stage'], mockMark: (k: unknown) => { b.marked = k; return null; },
-    isFrame: (wc: unknown) => wc === 'frame', setUpdate: (c: unknown) => b.updates.push(c), setUpdated: (d: unknown) => { b.updated = d; },
+    isFrame: (wc: unknown) => wc === 'frame', claudeWork: () => null, saveClaudeNow: async () => { b.savedWork = true; }, setUpdate: (c: unknown) => b.updates.push(c), setUpdated: (d: unknown) => { b.updated = d; },
   };
   return b;
 }
@@ -181,7 +181,10 @@ for (const [machine, hooks] of [['mac', mac], ['pc', pc]] as const) {
     // The update engine: started, nudged by GitHub, his moment and his overnight switch.
     for (const n of ['newUpdates', 'updates.show', 'updates.start', 'gh', 'updates.check']) assert.ok(names(r).includes(n), `updates: ${n}`);
     const eo = (got(r, 'newUpdates')[0]![1]) as any;
-    assert.deepEqual({ ...eo.moment(), now: 0 }, { now: 0, idleSeconds: 42, inCall: false, inGame: machine === 'pc' });
+    assert.deepEqual({ ...eo.moment(), now: 0 }, { now: 0, idleSeconds: 42, inCall: false, inGame: machine === 'pc', work: null });
+    // Sheet 115: Claude's work is written down before an update goes in, and the key hears when Claude's work changes.
+    await eo.saveWork(); assert.equal(b.savedWork, true);
+    assert.equal(typeof b.onClaudeWork, 'function');
     r.files.set(bp.updates.prefsFile, JSON.stringify({ overnight: true }));
     eo.changed({ title: 'x' });
     assert.deepEqual(b.updates.at(-1), { title: 'x', overnight: true });
