@@ -1,0 +1,94 @@
+import { existsSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { Core } from './core.ts';
+
+const home = os.homedir();
+const core = new Core({
+  port: Number(process.env.AANG_PORT ?? 47831),
+  dataDir: process.env.AANG_DATA_DIR ?? path.join(home, 'Documents', 'Aang'),
+  // The Mac (2026-10-28, the Mac is Aang's home): the same folder Samara keeps its settings in, as %APPDATA%\Aang is on the PC.
+  stateDir: process.env.AANG_STATE_DIR ?? (process.platform === 'darwin'
+    ? path.join(home, 'Library', 'Application Support', 'Aang')
+    : path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang')),
+  claudeExecutable: process.env.AANG_CLAUDE_EXE || undefined,
+  warm: process.env.AANG_WARM !== '0',
+  // 2026-10-21: running Claude sessions show at once after a restart, read from their transcripts (claudescan.ts).
+  scanTranscripts: process.env.AANG_TRANSCRIPT_SCAN !== '0',
+});
+
+process.on('unhandledRejection', e => console.error('unhandled rejection:', e));
+process.on('uncaughtException', e => console.error('uncaught exception:', e));
+/**
+ * Shut down once, cleanly, however the request arrives.
+ *
+ * Only SIGINT was trapped, which in practice meant the cleanup almost never ran: the Body kills the Core
+ * with Kill(entireProcessTree: true), and Windows has no way to send a real SIGTERM from .NET at all, so
+ * every ordinary restart was a hard kill. Pending permission questions were left unanswered and the
+ * database never got a clean close.
+ *
+ * Guarded against running twice, because two signals can arrive together, and bounded by a timer: a stop()
+ * that hangs must not leave a Core alive refusing to die, which is worse than the hard kill it replaced.
+ */
+let stopping = false;
+export async function shutdown(why: string, code = 0): Promise<void> {
+  if (stopping) return;
+  stopping = true;
+  // Worth knowing if you are ever debugging this: core.log will NOT show this line. The Body tears the log
+  // drain down as it closes, so anything written to stderr during shutdown is lost. Proving this path runs
+  // at all took writing to a file instead (2026-10-03).
+  console.error(`shutting down: ${why}`);
+  const giveUp = setTimeout(() => { console.error('shutdown took too long; exiting anyway'); process.exit(0); }, 5000);
+  giveUp.unref?.();
+  try { await core.stop(); } catch (e) { console.error('shutdown failed:', (e as Error).message); }
+  clearTimeout(giveUp);
+  process.exit(code);
+}
+
+process.on('SIGINT', () => { void shutdown('SIGINT'); });
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+core.onShutdownRequest = () => { void shutdown('the Body is closing'); };
+
+await core.start();
+// Aang's brain updates itself from GitHub (his pick, 2026-10-30: quietly, while he is away), on the Mac where it lives:
+// only when it runs from the Mac setup's folder (never from a code folder Claude works in).
+const listener = path.join(home, 'Library', 'Application Support', 'AangListener');
+if (process.platform === 'darwin' && process.env.AANG_BRAIN_UPDATE !== '0' && path.resolve(import.meta.dirname, '..') === path.join(listener, 'core')) {
+  const { BrainUpdates } = await import('./brainupdate.ts');
+  const bu = new BrainUpdates({
+    home: listener, fetch: fetch as never, log: console.log, exit: () => { void shutdown('brain update'); }, sched: core.sched,
+    away: () => { const r = core.macReading(); return r ? { idle: r.idle, call: r.mic || r.cam } : null; },
+  });
+  const v = bu.started();
+  if (v) setTimeout(() => core.announce(`I updated myself to ${v} while you were away.`), 15_000).unref?.();
+  bu.start();
+  core.updateNow = () => bu.updateNow();
+}
+// The PC's brain the same way (2026-11-01): from its installed release, made ready hourly and put in while he is away
+// (pcbrain.ts). Started by index.ts in the code folder, which says which version this is; AANG_BRAIN_HERE=1 (Claude's
+// tests and live checks) leaves it alone.
+if (process.platform === 'win32' && !process.env.AANG_BRAIN_HERE && process.env.AANG_BRAIN_UPDATE !== '0') {
+  const pc = await import('./pcbrain.ts');
+  const root = pc.brainRoot();
+  if (root) {
+    const running = process.env.AANG_BRAIN_VERSION ?? '';
+    const bu = new pc.PcBrainUpdates({
+      root, running, fetch: fetch as never, log: console.log, sched: core.sched,
+      // Exit code 75: the pet's planned restart (CoreSupervisor PlannedRestart), straight back up and not a crash.
+      exit: () => { void shutdown('brain update', 75); },
+      away: () => ({ idle: core.awaySeconds(), call: existsSync(path.join(core.cfg.stateDir, 'in-call.json')) }),
+    });
+    if (running) {
+      setTimeout(() => { if (pc.markGood(root, running)) console.log(`brain update: ${running} is good`); }, pc.TRIAL_MS).unref?.();
+      if (pc.sayOnce(root, running)) setTimeout(() => core.announce(`I updated myself to ${running} while you were away.`), 15_000).unref?.();
+    }
+    bu.start();
+    core.updateNow = () => bu.updateNow();
+  }
+}
+// Discord, if Joshua has set it up. It connects OUT to Discord and back into this Core, and Aang runs without it.
+// Loaded only when used, so Aang without Discord carries none of it.
+if (existsSync(path.join(core.cfg.stateDir, 'discord.token')) || existsSync(path.join(core.cfg.stateDir, 'frontdesk.json'))) {
+  void import('./discord-gateway.ts').then(d => d.startDiscord(core.cfg.stateDir, core.cfg.port, console.log, 0,
+    () => core.announce('Discord is cut off: the front desk on your MacBook stopped recognising this PC. Run the Mac setup again and it reconnects by itself.'))).catch(e => console.error('discord: ' + (e as Error).message));
+}

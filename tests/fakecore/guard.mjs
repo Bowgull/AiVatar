@@ -29,7 +29,8 @@ export function isolatedEnv(extra = {}) {
     d.close();
   }
   const stateDir = mkdtempSync(path.join(os.tmpdir(), 'aang-teststate-'));
-  return { ...process.env, AANG_DATA_DIR: dataDir, AANG_STATE_DIR: stateDir, ...extra };
+  // The code folder's brain, never his installed one (src/Core/src/pcbrain.ts), and it never updates itself.
+  return { ...process.env, AANG_BRAIN_HERE: '1', AANG_DATA_DIR: dataDir, AANG_STATE_DIR: stateDir, ...extra };
 }
 import { createRequire } from 'node:module';
 const req = createRequire(import.meta.url);

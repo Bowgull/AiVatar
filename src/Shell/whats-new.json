@@ -1025,6 +1025,11 @@
       "at": "2026-11-01T11:02:00-05:00",
       "text": "The Satchel tab tucks away when you move off.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T11:40:00-05:00",
+      "text": "Aang on this PC now updates himself, like on the Mac.",
+      "kind": "feature"
     }
   ]
 }

@@ -12,8 +12,9 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } 
 import os from 'node:os';
 import path from 'node:path';
 import { freeVramMiB, gameRunning } from './gpu.ts';
+import { CODE_ROOT } from './coderoot.ts';
 
-const ROOT = process.env.AANG_WHISPER_DIR ?? path.resolve(import.meta.dirname, '..', '..', '..', 'tools', 'whisper');
+const ROOT = process.env.AANG_WHISPER_DIR ?? path.join(CODE_ROOT, 'tools', 'whisper');
 const CLI = path.join(ROOT, 'bin', 'Release', 'whisper-cli.exe');
 const MODEL = path.join(ROOT, 'models', 'ggml-large-v3-turbo-q8_0.bin');
 /** The longest video heard (an hour); longer ones are cut there and said to be. */

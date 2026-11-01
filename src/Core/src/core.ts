@@ -134,6 +134,7 @@ import { ConnectPoller, MediaMux, readPlayback, readDevices, checkDeviceId } fro
 import { HOME_TZ, homeDate, longDate, shortTime, shortTimeUpper } from './clock.ts';
 import { readJson } from './store.ts';
 import { openLog } from './log.ts';
+import { CODE_ROOT } from './coderoot.ts';
 
 export interface CoreConfig {
   port: number;
@@ -2828,6 +2829,7 @@ export class Core {
   /** He came back to (or left) the machine: from the pet on the PC, from the Mac's presence helper on the Mac. */
   private applyDesk(active: boolean): void {
     const was = this.atDesk; this.atDesk = active;
+    if (was && !active) this.awaySince = Date.now(); else if (active) this.awaySince = 0;
     if (active) this.saidAway = false;
     if (was && !active) this.sched.wake();             // jobs waiting for him to step away
     // Back (sheet 102): one line with what went to his phone meanwhile, a row each; nothing is sent again.
@@ -3035,7 +3037,7 @@ export class Core {
       door.starts = this.startBook;
       door.onStart = (session, ev) => this.starter.onEvent(session, ev);
       door.onProbe = (ask) => this.starter.probe(ask, this.cfg.dataDir);
-      door.onUpdateNow = () => this.updateNow ? this.updateNow() : Promise.resolve({ ok: false, message: "Aang doesn't update himself on this machine (only the Mac's brain does)." });
+      door.onUpdateNow = () => this.updateNow ? this.updateNow() : Promise.resolve({ ok: false, message: "Aang doesn't update himself here: this brain runs from the code folder (AANG_BRAIN_HERE), or this machine has no place for releases." });
       this.hookServer.link = door;
     }
     // The message engine's handshake (2026-10-29): on the PC its Qwen writes notices for the Mac's brain (free); on the Mac,
@@ -3417,6 +3419,10 @@ export class Core {
   private readonly clientKind = new WeakMap<WebSocket, 'desktop' | 'discord'>();
   /** Whether he has used this PC in the last few minutes, as the Body last said. */
   private atDesk = true;
+  /** When he left the desk (0 while he is at it). */
+  private awaySince = 0;
+  /** Seconds since he left the desk, 0 while he is at it (the PC's brain update waits for half an hour, pcbrain.ts). */
+  awaySeconds(): number { return this.atDesk || !this.awaySince ? 0 : (Date.now() - this.awaySince) / 1000; }
   /** The Electron Shell's connections: the only desktop client that can actually show the pop-out. */
   private readonly shells = new WeakSet<WebSocket>();
   private shellUp(): boolean { return !!this.wss && [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)); }
@@ -3433,8 +3439,8 @@ export class Core {
   // the old one by itself if the new one will not start). Nothing installs without his press.
   private macHas: { version: string; commit: string } | null = null;
   private macOffer: string | null = null;
-  private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts', 'store.ts', 'log.ts', 'clock.ts'];
-  private repoRoot(): string { return path.join(import.meta.dirname, '..', '..', '..'); }
+  private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts', 'store.ts', 'log.ts', 'clock.ts', 'voice.ts'];
+  private repoRoot(): string { return CODE_ROOT; }
   /**
    * git, '' on any failure. 2026-10-21: these were execFileSync, ~50-200 ms of a frozen brain each, several per Mac
    * offer (and a worktree checkout could take seconds); now git is started from the helper thread (offthread.ts) and

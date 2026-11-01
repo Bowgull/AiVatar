@@ -54,7 +54,7 @@ git(data, 'push', '-q', '-u', 'origin', 'HEAD');
 
 const brain = spawn(process.execPath, ['--no-warnings', 'src/index.ts'], {
   cwd: path.resolve(import.meta.dirname, '..'),
-  env: { ...process.env, AANG_PORT: String(PORT), AANG_DATA_DIR: data, AANG_STATE_DIR: state, AANG_TRANSCRIPT_SCAN: '0' },
+  env: { ...process.env, AANG_BRAIN_HERE: '1', AANG_PORT: String(PORT), AANG_DATA_DIR: data, AANG_STATE_DIR: state, AANG_TRANSCRIPT_SCAN: '0' },
   stdio: ['ignore', 'ignore', 'ignore'],
 });
 // His Google sign-in and the copy of his memory never outlive the run (his rule, 2026-11-01: clean up behind you).
