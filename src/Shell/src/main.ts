@@ -851,6 +851,10 @@ app.whenReady().then(async () => {
       boot = samaraBrowser(base, pcPlatform(), {
         // repoDir: the mockups' repo is the code folder's, also when Samara runs from an installed release (2026-10-29).
         options: { repoDir: path.join(SHELL_HOME, '..', '..') },
+        // 2026-11-01 (his "huge flaw, fix it permanently"): Samara on the PC takes show_mockup at its own signed door too,
+        // as on the Mac (mockupdoor.ts). Before, the PC's only way in was through Aang's brain, so with Samara open on its
+        // own every Claude session's mockup was refused ("Aang is not running") and never reached the trail.
+        mockupDoor: { offWhy: () => "Samara's Mockups trail is switched off. Tell the user where the file is." },
         // Sheet 37: a Claude session's plan goes to Aang's bubble on this PC (when Claude's own window is not in front),
         // and his answer comes back. Five minutes unanswered means no answer. Sheet 41: each plan is a scroll-back row.
         plans: {
