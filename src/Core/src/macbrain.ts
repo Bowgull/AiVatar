@@ -35,6 +35,7 @@ import { readAttachment, safeFileName } from './attachments.ts';
 import { fetchDayWeather } from './weather.ts';
 import { dayKey, homeDate, homeHour } from './clock.ts';
 import { readJson } from './store.ts';
+import { lint } from './voice.ts';
 
 /** How long a message waits for the PC before the Mac answers it. The heartbeat calls the PC off after 30 s. */
 export const HOLD_MS = 45_000;
@@ -339,7 +340,10 @@ export class MacBrain {
         : `I could not answer from the Mac (${why.slice(0, 120)}). This waits for your PC.`, { silent: true });
       return 'keep';
     }
-    const reply = r.text.trim() || 'Done.';
+    // Step V: the same checker the PC runs, so his phone gets the same Aang. Discord draws markdown, so 'rich'.
+    const linted = lint(r.text, [], text, 'rich');
+    if (linted.flags.length) this.log('mac brain: voice: ' + linted.flags.join(', '));
+    const reply = linted.cleaned || r.text.trim() || 'Done.';
     await say(reply, r.files.length ? { files: r.files } : {});
     this.did({ kind: 'turn', user: text.slice(0, 4000), aang: reply.slice(0, 4000), at: Date.now() });
     return 'done';
