@@ -1030,6 +1030,11 @@
       "at": "2026-11-01T11:14:00-05:00",
       "text": "Aang on this PC now updates himself, like on the Mac.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T11:20:00-05:00",
+      "text": "Clicking Samara or a pop-out always brings it forward.",
+      "kind": "fix"
     }
   ]
 }

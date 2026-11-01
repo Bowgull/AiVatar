@@ -114,6 +114,14 @@ export class TaskbarPops {
     w.once('closed', () => { if (this.members.get(m.id)?.w === w) this.untrack(m.id); });
     // Windows makes a new button when a window shows again: whether it should be there is set again.
     for (const ev of ['show', 'hide', 'minimize', 'restore'] as const) w.on(ev as 'show', () => { t.on = null; t.btns = ''; this.schedule(); });
+    // A pop-out that never takes the keyboard (the player, jobs, timers, snips) could not be brought back from its
+    // button once minimized (Show desktop): Windows will not wake a window that may never be active, so his click did
+    // nothing (his report, 2026-11-01: the player sat at -32000 under the lantern). Minimized, it may be woken;
+    // restored, it goes back to never taking the keyboard.
+    if (!w.isFocusable()) {
+      w.on('minimize', () => { if (!w.isDestroyed()) w.setFocusable(true); });
+      w.on('restore', () => { if (!w.isDestroyed()) w.setFocusable(false); });
+    }
     void askHelper('A', w, true).then((r) => {
       t.styled = /^\d+$/.test(r) && (Number(r) & WS_EX_APPWINDOW) ? 'yes' : 'failed';
       this.note(`${m.id} appwindow ${r}`);
@@ -247,7 +255,7 @@ export class TaskbarPops {
   /** Bring a group (or any members) forward together, the lead last so it is on top; the video takes the keyboard. */
   raise(ids: string[], lead?: string): void {
     const order = [...ids.filter((x) => x !== lead), ...(lead ? [lead] : [])];
-    for (const id of order) { const t = this.members.get(id); if (this.live(t) && t.w.isVisible()) { try { t.w.moveTop(); } catch { /* gone */ } } }
+    for (const id of order) { const t = this.members.get(id); if (this.live(t) && t.w.isVisible()) { try { if (t.w.isMinimized()) t.w.restore(); t.w.moveTop(); } catch { /* gone */ } } }
     const l = lead ? this.members.get(lead) : undefined;
     if (this.live(l) && l.kind === 'video' && l.w.isVisible()) { try { l.w.focus(); } catch { /* fine */ } }
   }
