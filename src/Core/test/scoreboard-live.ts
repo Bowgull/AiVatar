@@ -9,7 +9,7 @@
 // Per ask: the lane pickLane() would choose (or "code" when the brain answered without a model), ms to the first word,
 // ms to the finished reply, tools started, whether it asked, voice flags from lint(), and pass/fail on the ask's checks.
 // Costs real quota (about 25 Claude turns): run by hand, once per brain change, never in the suite.
-// Run: node --no-warnings test/scoreboard-live.ts <label>      (writes <label>.json and <label>.md next to asks.json)
+// Run: node --no-warnings test/scoreboard-live.ts <label> [kinds]   (writes <label>.json and <label>.md next to asks.json)
 import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -29,7 +29,9 @@ const home = os.homedir();
 const DIR = path.join(home, 'Documents', 'Aang', 'reports', 'scoreboard');
 const PORT = 47931;
 const TIMEOUT = 150_000;
-const asks: Ask[] = JSON.parse(readFileSync(path.join(DIR, 'asks.json'), 'utf8')).asks;
+// Optional third argument: only these kinds (talk,fact,snip...), so a change to one path re-runs only its asks.
+const only = process.argv[3]?.split(',');
+const asks: Ask[] = JSON.parse(readFileSync(path.join(DIR, 'asks.json'), 'utf8')).asks.filter((a: Ask) => !only || only.includes(a.kind));
 
 // "(?i)" is the asks file's case-insensitive mark (JS has no inline flag).
 const re = (s: string) => s.startsWith('(?i)') ? new RegExp(s.slice(4), 'i') : new RegExp(s);
@@ -86,7 +88,7 @@ sock.on('message', d => {
 
 async function one(kind: string, c: Check): Promise<Result> {
   const id = 'sb-' + c.id, t0 = Date.now();
-  let first: number | null = null, done: number | null = null, reply = '', usedModel = false;
+  let first: number | null = null, done: number | null = null, reply = '', usedModel = false, who = '';
   const tools: string[] = [], asked: string[] = [];
   await new Promise<void>(resolve => {
     const timer = setTimeout(resolve, TIMEOUT);
@@ -99,7 +101,7 @@ async function one(kind: string, c: Check): Promise<Result> {
       if (m.t === 'bubble' && !m.proactive && (m.id === id || m.id === undefined)) {
         if (first === null) first = Date.now() - t0;
         if (m.stream) { usedModel = true; return; }
-        reply = String(m.text ?? ''); done = Date.now() - t0;
+        reply = String(m.text ?? ''); done = Date.now() - t0; who = String(m.who ?? '');
         // A refused ask is often followed by a second line; give it a moment, then the turn is over.
         if (quiet) clearTimeout(quiet);
         quiet = setTimeout(finish, asked.length ? 2500 : 600);
@@ -119,7 +121,9 @@ async function one(kind: string, c: Check): Promise<Result> {
   if (c.maxWords && words > c.maxWords) why.push(`too long (${words} words)`);
   if (/^ERROR|did not finish|took too long/i.test(reply)) why.push('failed turn');
   const voice = lint(reply, tools, c.text, 'rich').flags;
-  const lane = usedModel ? pickLane(c.text, 'auto', false, false).lane : 'code';
+  // Who really answered, from the bubble's own label (Quick, Smart, MiniCPM...): since instant answers the lane is decided
+  // at run time, so pickLane() alone no longer says.
+  const lane = !usedModel ? 'code' : who && who !== 'Aang' ? who : pickLane(c.text, 'auto', false, false).lane;
   return { id: c.id, kind, text: c.text, lane, firstMs: first, doneMs: done, reply, tools, asked, voice, pass: !why.length, why };
 }
 

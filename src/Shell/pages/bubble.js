@@ -518,7 +518,7 @@ const linesIf = (wide, widest) => atWidth(wide, widest, lineCount);
  */
 const SMALL_TALK = /^\s*(?:(?:hey|hi|hiya|hello|yo|sup|morning|evening|afternoon|good (?:morning|night|evening|afternoon)|gm|gn|night|nite|thanks?(?: (?:you|so much|a lot))?|thx|ty|tysm|cheers|lol|lmao|haha+|hehe+|nice|cool|sweet|awesome|bye|later|cya|see ya|how are (?:you|ya|u)|how'?s it going|how you doing|what'?s up|wassup|whats good|checking in|love you|gg)(?:,? (?:bud|buddy|man|aang|dude|bro|pal|my guy|my man|homie))?[\s!.?~]*)+$/i;
 function exchangeWide(question, lane) {
-  const answerWide = typeof lane === 'string' && lane !== '' ? lane !== 'Quick' : !(question.length <= 80 && SMALL_TALK.test(question));
+  const answerWide = typeof lane === 'string' && lane !== '' ? !SHORT_LANES.has(lane) : !(question.length <= 80 && SMALL_TALK.test(question));
   if (answerWide) return true;
   // His question line is cut with "…" when it does not fit: at the narrow width a long one would be cut short.
   return !who.hidden && atWidth(false, false, () => who.scrollWidth > who.clientWidth + 1);
@@ -532,6 +532,8 @@ let holdGen = -1;
  * talk starts narrow unless its first sentence already wraps. `lockGen` is the reply the width was decided for.
  */
 let lockGen = -1, liveWho = '', liveId = null;
+// Lanes whose answers are short, so the bubble starts narrow: Quick, and the local models (2026-11-01, instant answers).
+const SHORT_LANES = new Set(['Quick', 'MiniCPM', 'Qwen']);
 function lockWidth() {
   if (lockGen === reveal.gen) return true;
   // 2026-10-21: the answer to a thinking bubble keeps the width the exchange opened at. Two exceptions, both decided
@@ -550,7 +552,7 @@ function lockWidth() {
   }
   if (!reveal.streaming) return false;
   lockGen = reveal.gen;
-  const wide = liveWho !== 'Quick' || linesIf(false, false) > 2;
+  const wide = !SHORT_LANES.has(liveWho) || linesIf(false, false) > 2;
   bubble.classList.toggle('wide', wide);
   bubble.classList.toggle('widest', wide && linesIf(true, false) > WIDEST_AFTER_LINES);
   return true;
