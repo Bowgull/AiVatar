@@ -2,7 +2,7 @@
 // from satchel.ts over the preload's doors, and every action goes back by the clip's id. His picks: click a clip to copy
 // it (the Satchel stays); type to find, arrows, Enter copies and closes; Esc, a click outside, the hotkey again or the
 // mouse wandering off closes it; pinned on top, filter by type; keys sit on the hovered clip's top edge like tabs.
-import { P, rr, fills, spr, mix, paperAt, loadTex, paper } from './satchelpix.js';
+import { P, rr, fills, spr, mix, paperAt, loadTex, paper, satchelIcon } from './satchelpix.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
@@ -43,12 +43,10 @@ function keycap(dark) {
     return p; } });
 }
 const CAP = clone(keycap(false)), CAP_ASK = clone(keycap(true));
-const SATCHEL = ['....OOOOOOO....', '...OBBBBBBBO...', '..OBO.....OBO..', '..OB.......BO..', 'OOOOOOOOOOOOOOO', 'OLLLLLLLLLLLLLO', 'OLLLLLGGGLLLLLO', 'OHHHHHGYGHHHHHO', 'OLLLLLGGGLLLLLO', 'OLLLLLLLLLLLLLO', 'OLLLLLLLLLLLLLO', 'OSSSSSSSSSSSSSO', '.OOOOOOOOOOOOO.'];
-const satchelIcon = () => spr(SATCHEL, { O: INK, B: '#7a5532', L: '#a8743c', H: '#8a5a2a', S: '#6a4422', G: '#c98c14', Y: '#ffe096' }, { drop: 'rgba(0,0,0,.4)' });
 
 // ---------------------------------------------------------------- the Satchel
 const sat = $('#sat');
-const wood = rr(392 / P, 580 / P, 9, { band: 's2', E: 4, fill: fills.wood(1) }); wood.classList.add('wood'); sat.append(wood);
+const wood = rr(392 / P, 580 / P, 4, { band: 's2', E: 4, shadow: 0, fill: fills.wood(1) }); wood.classList.add('board'); sat.append(wood);
 const hd = el('div', 'hd'); hd.append(satchelIcon(), el('span', 'ttl', 'Satchel')); sat.append(hd);
 const search = el('input', 'search'); search.placeholder = 'Type to find a clip'; search.spellcheck = false; sat.append(search);
 const chips = el('div', 'chips'); sat.append(chips);
@@ -172,13 +170,10 @@ window.satchel?.onData((d) => {
   if (isOpen) for (const c of clips) if (!before.has(c.id)) cards().find((x) => x.dataset.id === c.id)?.classList.add('entering');
 });
 window.satchel?.onOpen((how) => {
-  isOpen = true; entered = false; sat.classList.add('moving'); sat.classList.add('open');
-  setTimeout(() => sat.classList.remove('moving'), 420);
+  isOpen = true; entered = false;
   search.value = ''; filterAt = 0; chips.querySelectorAll('.chip').forEach((x, k) => x.classList.toggle('on', k === 0)); sel = how === 'key' ? 0 : -1; draw();
   setTimeout(() => search.focus({ preventScroll: true }), 80);
 });
 window.satchel?.onClose(() => {
   if (!isOpen) return; isOpen = false; clearTimeout(wander); search.blur();
-  sat.classList.add('moving'); sat.classList.remove('open');
-  setTimeout(() => { sat.classList.remove('moving'); window.satchel?.closed(); }, SPRINGS.close.ms + 30);
 });

@@ -23,6 +23,7 @@ import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { SatchelStore, type Clip, type Lock } from './satchelstore.ts';
 import { neverKeep } from './visits.ts';
+import { softEdge } from './winedge.ts';
 
 export interface SatchelOptions {
   origin: string;
@@ -43,7 +44,7 @@ export interface SatchelOptions {
 
 /** Formats apps put on the clipboard to say "do not keep this" (password managers, private windows). */
 const PRIVATE_FORMATS = ['ExcludeClipboardContentFromMonitorProcessing', 'Clipboard Viewer Ignore', 'KeePass', '1Password', 'Bitwarden'];
-const PANEL_W = 400, PANEL_H = 600, TAB_W = 60, TAB_H = 78;
+const PANEL_W = 392, PANEL_H = 580, TAB_W = 60, TAB_H = 78;
 const POLL_MS = 650, PIC_EVERY_MS = 1500;
 
 /** Windows' DPAPI through Electron. Without it nothing is kept: his clips are never written down unlocked. */
@@ -63,7 +64,6 @@ export class Satchel {
   private tab: BrowserWindow | null = null;
   private open = false;
   private peeking = false;
-  private tabHot = false;
   private leftAt = 0;
   private lastSig = '';
   private lastPicAt = 0;
@@ -198,12 +198,17 @@ export class Satchel {
   private panelWin(): BrowserWindow {
     if (this.panel && !this.panel.isDestroyed()) return this.panel;
     const a = this.home().workArea;
+    // 2026-11-01 (his "frame by frame, it's awful"): a SOLID window, Windows 11's own rounded corners and shadow (the
+    // pop-out's recipe: a hidden title bar, a thick frame, the wood colour behind the page). A see-through window is copied
+    // pixel by pixel on every frame it changes, which over the Shadow stream came out as a slideshow; a solid one that
+    // only MOVES is slid by Windows itself. So nothing inside animates any more: the whole window slides (slide()).
     const w = new BrowserWindow({
-      x: a.x + a.width - PANEL_W, y: Math.round(a.y + (a.height - PANEL_H) / 2), width: PANEL_W, height: PANEL_H,
-      frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, movable: false,
+      x: a.x + a.width, y: Math.round(a.y + (a.height - PANEL_H) / 2), width: PANEL_W, height: PANEL_H,
+      titleBarStyle: 'hidden', thickFrame: true, transparent: false, backgroundColor: '#24160D', resizable: false, movable: false,
       minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, show: false, title: 'Satchel',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
+    softEdge(w);
     if (this.o.iconPath) { try { w.setIcon(this.o.iconPath); } catch { /* default */ } }
     w.setAlwaysOnTop(true, 'screen-saver');
     w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
@@ -236,21 +241,60 @@ export class Satchel {
     this.peek(false);
     if (this.open) { w.focus(); return; }
     this.open = true;
-    const go = () => { if (w.isDestroyed()) return; w.show(); w.focus(); w.webContents.focus(); this.push(); w.webContents.send('satchel:open', how); };
+    const go = () => {
+      if (w.isDestroyed()) return;
+      const a = this.home().workArea, y = Math.round(a.y + (a.height - PANEL_H) / 2);
+      if (!w.isVisible()) w.setBounds({ x: a.x + a.width, y, width: PANEL_W, height: PANEL_H });
+      this.push(); w.webContents.send('satchel:open', how);
+      w.show(); w.focus(); w.webContents.focus();
+      // BotW's slide: in from the edge fast, a soft settle
+      this.slide(a.x + a.width - PANEL_W, 0.42, 0.8);
+    };
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', go); else go();
   }
-  close(): void { if (!this.open) return; this.open = false; const w = this.panel; if (w && !w.isDestroyed()) w.webContents.send('satchel:close', null); }
+  close(): void {
+    if (!this.open) return; this.open = false;
+    const w = this.panel; if (!w || w.isDestroyed()) return;
+    w.webContents.send('satchel:close', null);
+    const a = this.home().workArea;
+    this.slide(a.x + a.width, 0.26, 1, () => { if (!this.open && !w.isDestroyed()) w.hide(); });
+  }
+  /**
+   * Slide the Satchel's window to x on a spring (response: seconds per swing; damping 1 = no overshoot), stepping every
+   * 8 ms from here. Interruptible: a new slide takes over from wherever the window is, at the speed it has.
+   */
+  private slideT: NodeJS.Timeout | null = null;
+  private vx = 0;
+  private slide(to: number, response: number, damping: number, done?: () => void): void {
+    const w = this.panel; if (!w || w.isDestroyed()) return;
+    if (this.slideT) clearTimeout(this.slideT);
+    let x = w.getBounds().x, last = Date.now();
+    const k = 2 * Math.PI / response;
+    const step = () => {
+      if (w.isDestroyed()) return;
+      const now = Date.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+      for (let i = 0; i < 4; i++) { const h = dt / 4; this.vx += (-(k * k) * (x - to) - 2 * damping * k * this.vx) * h; x += this.vx * h; }
+      const b = w.getBounds();
+      if (Math.abs(x - to) < 0.5 && Math.abs(this.vx) < 4) { w.setBounds({ ...b, x: to }); this.vx = 0; this.slideT = null; done?.(); return; }
+      w.setBounds({ ...b, x: Math.round(x) });
+      this.slideT = setTimeout(step, 8);
+    };
+    step();
+  }
   toggle(): void { if (this.open) this.close(); else this.show('key'); }
-  hearClosed(): void { if (!this.open && this.panel && !this.panel.isDestroyed()) this.panel.hide(); }
+  hearClosed(): void { /* the slide out hides the window (close) */ }
 
   // The hover spot: the middle third of the right edge of his main screen.
   private watchEdge(): void {
     if (this.open || this.dragging) return;
     const pt = screen.getCursorScreenPoint(), b = this.home().bounds;
     const inSpot = pt.x >= b.x + b.width - 3 && pt.x < b.x + b.width + 1 && pt.y >= b.y + b.height / 3 && pt.y <= b.y + (b.height * 2) / 3;
-    const nearTab = this.peeking && pt.x >= b.x + b.width - TAB_W - 12 && Math.abs(pt.y - (b.y + b.height / 2)) < TAB_H;
-    if ((inSpot || this.tabHot) && !this.o.inGame()) { this.leftAt = 0; this.peek(true); return; }
-    if (this.peeking && !nearTab && !this.tabHot) { if (!this.leftAt) this.leftAt = Date.now(); else if (Date.now() - this.leftAt > 700) this.peek(false); }
+    // Where the mouse really is decides, never the page's hover word: a mouseleave Windows never delivered kept the tab
+    // out for good (his screenshot, 2026-11-01). Off the tab for 600 ms, it goes back in.
+    const t = this.tab && !this.tab.isDestroyed() ? this.tab.getBounds() : null;
+    const onTab = this.peeking && !!t && pt.x >= t.x - 12 && pt.y >= t.y - 12 && pt.y <= t.y + t.height + 12;
+    if ((inSpot || onTab) && !this.o.inGame()) { this.leftAt = 0; this.peek(true); return; }
+    if (this.peeking) { if (!this.leftAt) this.leftAt = Date.now(); else if (Date.now() - this.leftAt > 600) { this.leftAt = 0; this.peek(false); } }
   }
   private peek(on: boolean): void {
     if (on === this.peeking) return;
@@ -259,7 +303,7 @@ export class Satchel {
     const send = () => { if (w.isDestroyed()) return; if (on) w.showInactive(); w.webContents.send('satchel:peek', on); };
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
   }
-  hearTabHover(on: boolean): void { this.tabHot = on; if (on) this.leftAt = 0; }
+  hearTabHover(on: boolean): void { if (on) this.leftAt = 0; }
   hearTabHidden(): void { if (!this.peeking && this.tab && !this.tab.isDestroyed()) this.tab.hide(); }
   isOurs(sender: Electron.WebContents): boolean { return [this.panel, this.tab].some((w) => w && !w.isDestroyed() && w.webContents === sender); }
 
