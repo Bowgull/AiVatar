@@ -33,15 +33,16 @@ jobs:
             --title "Samara's engine $V" --notes "castLabs $V+wvcus, checked against castLabs' fingerprints and sealed. Signed for video on each machine." --latest=false
       # Samaras from 1.28.1 on read Bowgull/samara-releases; the copy above is for older ones (see samara-release.yml).
       - name: Publish to samara-releases
+        id: publish
         if: steps.find.outputs.engine != ''
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           V: ${{ steps.find.outputs.engine }}
         run: |
-          [ -n "$GH_TOKEN" ] || { echo "::error::No RELEASES_TOKEN secret yet. Copy it by hand on the Mac: node tools/release/mirror.mjs engine-v$V"; exit 1; }
+          [ -n "$GH_TOKEN" ] || { echo "::notice::No RELEASES_TOKEN secret: the machine that shipped copies engine-v$V over and nudges (tools/release/ship.mjs)."; echo "copied=no" >> "$GITHUB_OUTPUT"; exit 0; }
           gh release create "engine-v$V" -R Bowgull/samara-releases out/engine.json out/engine.sig out/castlabs-*.zip \
             --title "Samara's engine $V" --notes "castLabs $V+wvcus, checked against castLabs' fingerprints and sealed. Signed for video on each machine." --latest=false
       # One word, nothing else: a Samara that hears it only checks, and still checks the seal.
       - name: Nudge both Samaras
-        if: steps.find.outputs.engine != ''
+        if: steps.find.outputs.engine != '' && steps.publish.outputs.copied != 'no'
         run: for i in 1 2 3 4 5; do curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null && exit 0; echo "Nudge try $i did not go; trying again in 30 s."; sleep 30; done; echo "The nudge did not go after 5 tries; Samaras will find it within the hour."

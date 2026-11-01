@@ -1,8 +1,9 @@
 // Claude ships a Samara version (his picks, 2026-10-29: when a piece of work is finished and tested, from main).
 // The number and name come from his rule (version.mjs), never by hand: the new lines in whats-new.json decide. This
 // writes the version into releases.json, commits it, and tags it samara-vX.Y.Z with what it brings; pushing main and
-// the tag starts GitHub's release (tests on a Mac and on Windows first).
-// Run: node tools/release/ship.mjs [--dry]
+// the tag starts GitHub's release (tests on a Mac and on Windows first). Then it pushes, waits for that release and copies
+// it to samara-releases with a nudge (mirror.mjs --wait): about 15 minutes, so run it in the background.
+// Run: node tools/release/ship.mjs [--dry] [--no-push]
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -29,4 +30,8 @@ writeFileSync(path.join(REPO, 'src/Shell/releases.json'), JSON.stringify(rec, nu
 git('add', 'src/Shell/releases.json');
 git('commit', '-q', '-m', `Samara ${v.semver}: ${v.name}\n\n${lines.map((l) => '- ' + l.text).join('\n')}`);
 git('tag', '-a', tag, '-m', lines.map((l) => l.text).join('\n'));
-console.log(`Tagged ${tag}. Push: git push origin main ${tag}`);
+console.log(`Tagged ${tag}.`);
+if (process.argv.includes('--no-push')) { console.log(`Push: git push origin main ${tag}, then node tools/release/mirror.mjs ${tag} --wait`); process.exit(0); }
+git('push', '-q', 'origin', 'main', tag);
+console.log('Pushed. Waiting for GitHub to build it, then copying it to samara-releases.');
+execFileSync(process.execPath, [path.join(REPO, 'tools/release/mirror.mjs'), tag, '--wait'], { stdio: 'inherit' });
