@@ -1035,6 +1035,16 @@
       "at": "2026-11-01T11:20:00-05:00",
       "text": "Clicking Samara or a pop-out always brings it forward.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T11:31:00-05:00",
+      "text": "Clicking the Satchel tab opens it every time.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T11:31:00-05:00",
+      "text": "The Satchel icon is back to a sensible size.",
+      "kind": "fix"
     }
   ]
 }
