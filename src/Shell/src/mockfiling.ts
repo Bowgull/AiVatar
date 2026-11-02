@@ -27,7 +27,9 @@ export function plainName(name: string): string {
 }
 /** Names that were used as projects but are not one of their own. */
 const PROJECT_WORDS: Record<string, string> = { samara: 'Samara', aang: 'Aang', waymark: 'Waymark', 'couch mode': 'Couch Mode', couch: 'Couch Mode', showcase: 'Showcase',
-  'aivatar': 'Samara', 'aivatar fixes': 'Samara', aangapp: 'Samara', 'anti slop': 'Anti-slop' };
+  'aivatar': 'Samara', 'aivatar fixes': 'Samara', aangapp: 'Samara', 'anti slop': 'Anti-slop',
+  // 2026-11-02: sessions spelled these two ways each and got two tabs ("Design language", "Botw guide mockups" = its repo)
+  'design language': 'Design Language', botw: 'BotW Guide', 'botw guide': 'BotW Guide', 'botw guide mockups': 'BotW Guide' };
 /** A project's one name: "couch-mode" is Couch Mode, "AiVatar Fixes" is Samara (Samara's own repo); "Live pages" is no project. */
 export function projectName(name: unknown): string | null {
   if (typeof name !== 'string') return null;

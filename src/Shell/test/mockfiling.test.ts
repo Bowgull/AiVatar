@@ -78,6 +78,8 @@ test('names: projects are real projects, topics read plainly', () => {
   for (const n of ['AiVatar-update', 'AiVatar', 'AangApp', 'aivatar-sched']) assert.equal(projectName(n), 'Samara', n);   // every worktree of Samara's repo
   assert.equal(projectName('Live pages'), null);
   assert.equal(projectName('anti-slop'), 'Anti-slop');
+  assert.equal(projectName('Design language'), 'Design Language');
+  assert.equal(projectName('botw-guide-mockups'), 'BotW Guide');
   assert.equal(projectName('my-new-app'), 'My new app');
   assert.equal(plainName('address-bar'), 'Address bar');
   assert.equal(plainName('tv'), 'TV');
