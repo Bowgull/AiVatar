@@ -11,12 +11,21 @@ namespace Aang.Body;
 static class Readings
 {
     [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr hwnd);
 
     /// <summary>Something covers the screen: a full-screen app or video (QUNS_BUSY), an exclusive full-screen game
-    /// (QUNS_RUNNING_D3D_FULL_SCREEN) or presentation mode. One cheap call, so it is read every poll.</summary>
+    /// (QUNS_RUNNING_D3D_FULL_SCREEN) or presentation mode. One cheap call, so it is read every poll.
+    /// A maximized window is not full screen (2026-11-02): with the taskbar hidden it covers the screen too, Windows
+    /// called a maximized Samara "busy", and Samara's update would not go in ("Not during a game").</summary>
     public static bool FullScreen()
     {
-        try { return SHQueryUserNotificationState(out var s) == 0 && s is 2 or 3 or 4; }
+        try
+        {
+            if (SHQueryUserNotificationState(out var s) != 0) return false;
+            if (s is 3 or 4) return true;
+            return s == 2 && !IsZoomed(GetForegroundWindow());
+        }
         catch { return false; }
     }
 
