@@ -65,7 +65,8 @@ function capFace(wA, hA, glyph, { pressed = false, ink = '#3a2a18', r = 6, label
   if (glyph) {
     const g = spr(GLYPH[glyph], { O: ink }); g.style.position = 'absolute';
     const gw = GLYPH[glyph][0].length, gh = GLYPH[glyph].length;
-    g.style.left = a2(Math.round((wA - gw) / 2)) + 'px'; g.style.top = a2(Math.round((hA - gh) / 2) + (pressed ? 1 : 0)) + 'px'; k.append(g);
+    // centred to the screen pixel: the art-pixel rounding put every key's symbol 1 px right (measured 2026-11-01)
+    g.style.left = Math.round((a2(wA) - a2(gw)) / 2) + 'px'; g.style.top = Math.round((a2(hA) - a2(gh)) / 2) + (pressed ? P : 0) + 'px'; k.append(g);
   }
   if (label) { const l = el('span', 'klab', label); l.style.top = (pressed ? P : 0) + Math.round(a2(hA) / 2 - 5) + 'px'; k.append(l); }
   return k;
@@ -99,7 +100,8 @@ function tkey(glyph, onPress, { on = false, size = 14 } = {}) {
     body.style.position = 'absolute';
     const g = g2 === 'pin' ? pin(on2) : spr(GLYPH[g2], { O: '#f1e3c4' }, { drop: 'rgba(0,0,0,.55)' });
     const gw = g2 === 'pin' ? 9 : GLYPH[g2][0].length, gh = g2 === 'pin' ? 12 : GLYPH[g2].length;
-    g.style.position = 'absolute'; g.style.left = a2(Math.floor((size - gw) / 2)) + 'px'; g.style.top = a2(Math.floor((size - gh) / 2)) + 'px';
+    // centred to the screen pixel, not the art pixel: an odd glyph on an even key sat 1 px off (measured 2026-11-01)
+    g.style.position = 'absolute'; g.style.left = Math.round((a2(size) - a2(gw)) / 2) + 'px'; g.style.top = Math.round((a2(size) - a2(gh)) / 2) + 'px';
     k.replaceChildren(body, g);
     k.classList.toggle('on', !!on2);
   };
@@ -231,7 +233,8 @@ function buildFull() {
   F.play = put(makeKey(32, 19, () => api.cmd('toggle')), a2(kx[1]), a2(ky), a2(20)); F.play.title = 'Play / pause';
   F.next = put(makeKey(26, 19, () => api.cmd('next')), a2(kx[2]), a2(ky), a2(20)); F.next.draw('next'); F.next.title = 'Next';
   const vy = TALL ? yb + 44 : 84, gx = TALL ? 8 : 106, vx = TALL ? 21 : 119, vw = W - vx - 12;
-  F.volIcon = put(spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(gx), a2(vy), 20); F.volIcon.classList.add('at');
+  // centred on the groove (its 9 px glyph sat 2 px low against the 7 px groove, measured 2026-11-01)
+  F.volIcon = put(spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(gx), a2(vy) - 2, 20); F.volIcon.classList.add('at');
   F.vx = vx; F.vw = vw;
   F.vol = put(pillCanvas(vw, 7, 0, CREAM), a2(vx), a2(vy), 14); F.vol.classList.add('at', 'volp');   // empty until the volume is known
   F.volGrab = put(el('div', 'grab'), a2(vx) - 8, a2(vy - 4), 26);

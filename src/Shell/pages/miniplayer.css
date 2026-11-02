@@ -126,11 +126,18 @@ html.idling .idle{opacity:1}
 .idle.lyr .ihead,.idle.lyr .ibars{visibility:hidden}
 
 /* pinned idle (2026-11-01, his rule): it stays idle under the mouse; resting on it shows these soft keys */
-.ikeys{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;gap:12px;opacity:0;pointer-events:none;transition:opacity .3s ease}
+.ikeys{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;align-items:center;gap:12px;opacity:0;pointer-events:none;transition:opacity .3s ease}
 .idle.cover .ikeys{left:192px;top:40%}
 .ikeys.show{opacity:1;pointer-events:auto}
-.ikey{width:44px;height:44px;border-radius:50%;border:0;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(14,8,4,.72);box-shadow:0 0 0 2px rgba(255,196,60,.28),0 3px 10px rgba(0,0,0,.5);transition:transform .15s ease,background .15s ease}
+.ikey{flex:none;width:44px;height:44px;border-radius:50%;border:0;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(14,8,4,.72);box-shadow:0 0 0 2px rgba(255,196,60,.28),0 3px 10px rgba(0,0,0,.5);transition:transform .15s ease,background .15s ease}
 .ikey:hover{background:rgba(40,24,10,.85);transform:scale(1.06)}
 .ikey:active{transform:scale(.94)}
+/* the glyph canvas carries a 1 px drop shadow on its right and bottom: nudged so the glyph itself is centred */
+.ikey canvas{transform:translate(1px,1px)}
 .ikey[data-k="pause"],.ikey[data-k="play"]{width:52px;height:52px}
 .ikey.pin{margin-left:10px}
+/* beside a cover the strip is 216 px: a size down so they stay round (they were squeezed into ovals) */
+.idle.cover .ikeys{gap:8px}
+.idle.cover .ikey{width:38px;height:38px}
+.idle.cover .ikey[data-k="pause"],.idle.cover .ikey[data-k="play"]{width:46px;height:46px}
+.idle.cover .ikey.pin{margin-left:6px}

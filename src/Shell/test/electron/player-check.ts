@@ -138,6 +138,12 @@ app.whenReady().then(async () => {
   const fA = await fr(); await wait(350); const fB = await fr();
   check('the scene moves (10 fps)', fA !== fB);
   await pic('playermenu-scene.png');
+  // 2026-11-01 (his ask: "check the buttons and ensure everything is aligned"): the three keys level and evenly spaced,
+  // every symbol centred on its key to the screen pixel (an art-pixel rounding had them all 1 px right)
+  const al = await js(`(() => { const R = (e) => e.getBoundingClientRect(); const ks = ['Previous', 'Play / pause', 'Next'].map((t) => document.querySelector('.full [title="' + t + '"]'));
+    const off = (k, sh) => { const b = R(k), cs = [...(k.querySelector(':scope > .up') || k).querySelectorAll('canvas')], g = R(cs[cs.length - 1]); return [g.left + g.width / 2 - (b.left + b.width / 2), g.top + g.height / 2 - (b.top + (b.height - sh) / 2)]; };
+    const r = ks.map(R); return { ys: r.map((x) => x.top + x.height / 2), gaps: [r[1].left - r[0].right, r[2].left - r[1].right], offs: ks.map((k) => off(k, 2)) }; })()`);
+  check('the keys: level, evenly spaced, every symbol centred', new Set(al.ys).size === 1 && al.gaps[0] === al.gaps[1] && al.offs.every(([x, y]: number[]) => Math.abs(x) < 0.6 && Math.abs(y) < 0.6), al);
   check('it remembers the picture', JSON.parse(readFileSync(prefsFile, 'utf8')).picture === 'fishing', readFileSync(prefsFile, 'utf8'));
   // the tick follows; another scene; back to the cover
   await wait(350); await openMenu(); await wait(150);
@@ -232,6 +238,8 @@ app.whenReady().then(async () => {
   const k1 = await keys();
   check('pinned: the mouse on it keeps it idle, and the soft keys show (back, pause, next, pin)', (await idleNow()).idle && k1.show && k1.op > 0.9 && JSON.stringify(k1.keys) === JSON.stringify(['prev', 'pause', 'next', 'pin']), k1);
   await pic('player-idle-pinned-keys.png');
+  const ik = await js(`[...document.querySelectorAll('.ikey')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), Math.round(r.top + r.height / 2)]; })`);
+  check('the soft keys are round and level (they were squeezed into ovals beside a cover)', ik.every(([w2, h2]: number[]) => w2 === h2) && new Set(ik.map((x: number[]) => x[2])).size === 1, ik);
   const before = cmds.length;
   await js(`document.querySelector('.ikey[data-k="pause"]').click(); 1`); await wait(150);
   check('the soft pause key goes out as a toggle, and it stays idle', cmds.length === before + 1 && cmds.at(-1)!.op === 'toggle' && (await idleNow()).idle, cmds.at(-1));
