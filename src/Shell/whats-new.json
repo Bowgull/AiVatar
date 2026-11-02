@@ -1160,6 +1160,11 @@
       "at": "2026-11-02T07:42:00-05:00",
       "text": "When Claude or Aang gets stuck clicking, Samara shows why, then asks you.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-02T10:03:00-05:00",
+      "text": "In the pop-out, YouTube's own buttons work again: pause, and the controls in fullscreen. The picture holds still under your mouse, and Esc leaves fullscreen.",
+      "kind": "fix"
     }
   ]
 }
