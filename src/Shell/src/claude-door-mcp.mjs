@@ -55,6 +55,8 @@ async function knock(d, op, a) {
   if (j && j.handback && typeof j.handback === 'object') heard.push(`Joshua had page ${j.handback.page} and has handed it back. ${toldText(j.handback)}`);
   // Sheet 111: what else he did in Samara since (took a page over, took one for himself), the same way.
   if (j && Array.isArray(j.news)) for (const n of j.news) if (typeof n === 'string') heard.push(n.slice(0, 600));
+  // The loop catcher (loopcatch.ts): the same step with the same result again; told first, whatever the tool prints.
+  if (j && typeof j.loop === 'string') heard.push(j.loop.slice(0, 400));
   // He stopped the whole job: this session lets go of it, so its next plan starts a fresh one.
   if (j && j.ok === false && /STOP ALL/.test(String(j.error ?? ''))) forget();
   // Samara does not know this session's job (it restarted, or forgot it): let go, never stay locked.
