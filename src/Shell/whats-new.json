@@ -1075,6 +1075,11 @@
       "at": "2026-11-01T20:00:00-05:00",
       "text": "The music player's keys sit level again, with no purple edges.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T20:14:00-05:00",
+      "text": "Mockups: Big view gives a sheet the whole tab.",
+      "kind": "feature"
     }
   ]
 }

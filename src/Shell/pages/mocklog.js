@@ -185,10 +185,27 @@ function nameOf(n) {
   box.append(q, chips, sort);
 })();
 
+// His ask (2026-11-01: "a tad bit small, I'm scrolling to see things a lot"): Big view hides the list and the project
+// tabs so the sheet gets the whole tab. Kept for next time; with no sheet open the list always shows.
+let big = false;
+try { big = localStorage.getItem('mocklog.big') === '1'; } catch {}
+function bigKey() {
+  const b = el('button', 'bigk'); b.type = 'button';
+  b.append(el('i'), el('span', '', big ? 'Show list' : 'Big view'));
+  b.title = big ? 'Bring back the list' : 'Give the sheet the whole tab';
+  b.addEventListener('click', () => {
+    big = !big;
+    try { localStorage.setItem('mocklog.big', big ? '1' : '0'); } catch {}
+    draw();
+  });
+  return b;
+}
+
 let frameSrc = '';
 function drawView(p) {
   const view = document.getElementById('view');
   const w = pick.s ? where(pick.s) : null;
+  document.body.classList.toggle('big', big && Boolean(p && w));
   if (!p || !w) {
     frameSrc = '';
     const f = el('div', 'frame'), r = el('div', 'rest');
@@ -219,7 +236,7 @@ function drawView(p) {
   const mk = el('button', 'mk ' + m[1], m[0]); mk.type = 'button';
   if (v.said || v.note) mk.title = v.said ? `You said: "${v.said}"` : `To fix: ${v.note}`;
   mk.addEventListener('click', (e) => { e.stopPropagation(); markMenu(v, mk); });
-  bar.append(back, dt, chips, mk);
+  bar.append(back, dt, chips, mk, bigKey());
   // The frame is kept while the same version shows, never moved (moving a frame reloads it), so a change elsewhere never
   // reloads the sheet he is reading or loses his place in it.
   let f = view.querySelector('.frame');
