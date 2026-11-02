@@ -368,12 +368,12 @@ function buildIdle(L) {
   I.keys = idleKeys();
   box.append(I.glow, I.scn, I.cov, I.topShade, I.botShade, I.dim, I.words, I.where, I.bars, I.lyr, I.keys);
   // his note (2026-11-01: "sharp edges ... it doesn't fit in there right"): a smooth rounded box laid on pixel wood. Now
-  // it is cut like the player's amber screen: pixel-stepped corners and the same sunken rim (dark above, a lit lip below).
+  // it is cut the same as the player's amber screen: pixel-stepped corners and the same sunken rim (dark above, a lit lip below).
   const aw = IW / P, ah = IHT / P, mask = rrMask(aw, ah, 6);
   box.style.clipPath = `polygon(${stepPath(mask, aw, ah)})`;
   const ring = rr(aw, ah, 6, { band: 'recess', shadow: 0 }); ring.classList.add('iring');
   box.append(ring);
-  I.cov.style.clipPath = `polygon(${stepPath(rrMask(88, 88, 5), 88, 88)})`;   // the cover's corners stepped too, like the small one
+  I.cov.style.clipPath = `polygon(${stepPath(rrMask(88, 88, 5), 88, 88)})`;   // the cover's corners stepped too, as the small one's are
   L.append(box);
   paintIdleCover();
   if (idle) paintIdle();
