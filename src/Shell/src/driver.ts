@@ -260,6 +260,23 @@ const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
 })()`;
 
 /** At the moment of a click (AI lockdown G4/G5): is it still there, is anything lying over it, and what is it NOW? */
+/** Why a control may not be working (the loop catcher, 2026-11-02): greyed out, covered (and by what), no size on
+ *  screen (in a closed menu), or a popup open elsewhere. Labels are the page's words, kept short. */
+const STUCK_JS = (n: number, x: number, y: number) => `(() => {
+  ${DEEP}
+  ${ITEM_FNS}
+  const e = __byN(${Number(n)});
+  if (!e) return { gone: true };
+  const face = __face(e) || e;
+  const r = face.getBoundingClientRect();
+  let hit = document.elementFromPoint(${Number(x)}, ${Number(y)});
+  for (let k = 0; hit && hit.shadowRoot && k < 10; k++) { const h2 = hit.shadowRoot.elementFromPoint(${Number(x)}, ${Number(y)}); if (!h2 || h2 === hit) break; hit = h2; }
+  const inside = (h) => { for (let z = h; z; z = z.parentNode || z.host) if (z === e || z === face) return true; return false; };
+  const say = (h) => String(h.getAttribute('aria-label') || h.innerText || h.tagName).trim().replace(/\\s+/g, ' ').slice(0, 60);
+  const dlg = document.querySelector('dialog[open], [role=dialog], [role=alertdialog], [aria-modal=true]');
+  return { disabled: Boolean(e.disabled || e.getAttribute('aria-disabled') === 'true' || face.getAttribute('aria-disabled') === 'true' || e.closest('fieldset[disabled]')),
+    tiny: r.width < 2 || r.height < 2, over: hit && !inside(hit) ? say(hit) : '', dialog: dlg && !dlg.contains(e) ? say(dlg) : '' };
+})()`;
 const CHECK_JS = (n: number, x: number, y: number) => `(() => {
   ${DEEP}
   ${ITEM_FNS}
@@ -1206,6 +1223,42 @@ export class Driver {
     let host = '';
     try { host = new URL(p?.url ?? '').hostname.replace(/^www\./, ''); } catch { /* none */ }
     return `${it?.label ? `"${it.label}"` : 'a control'} on ${host || 'the page'}`;
+  }
+
+  /**
+   * What Samara sees in the way when a session loops (his ask, 2026-11-02: help fix it, not only refuse): the control's
+   * own state, the form's errors and empty required fields, the page's own errors, and controls with a like name.
+   * Quoted text is the page's words.
+   */
+  async stuck(pageId: number, n?: number): Promise<string[]> {
+    const { p, wc } = this.wcOf(pageId);
+    const out: string[] = [];
+    if (n !== undefined) {
+      const at = await this.spot(wc, n).catch(() => null);
+      const s = at ? await ask(wc, STUCK_JS(n, at.x, at.y)).catch(() => null) as { gone?: boolean; disabled?: boolean; tiny?: boolean; over?: string; dialog?: string } | null : null;
+      if (!s || s.gone) out.push(`control ${n} is not on the page any more (or is hidden): read the page again for its new number`);
+      else {
+        if (s.disabled) out.push(`control ${n} is greyed out (disabled): the page wants something first, usually a required field or a choice above it`);
+        if (s.over) out.push(`something lies over control ${n}: "${s.over}". Close or answer that first (often Escape, or its own close button)`);
+        if (s.tiny) out.push(`control ${n} has no size on screen: it may be inside a closed menu or tab. Open that first`);
+        if (s.dialog) out.push(`a popup is open: "${s.dialog}". It may be waiting for an answer`);
+      }
+    }
+    try {
+      const { fields } = await this.form(pageId);
+      for (const f of fields.filter((x) => x.wrong || x.message).slice(0, 4)) out.push(`form field ${f.n} "${f.label.slice(0, 40)}"${f.message ? ` says: "${f.message.slice(0, 80)}"` : ' is marked wrong'}`);
+      const empty = fields.filter((x) => x.required && !x.value).slice(0, 4);
+      if (empty.length) out.push(`required and still empty: ${empty.map((x) => `${x.n} "${x.label.slice(0, 30)}"`).join(', ')}`);
+    } catch { /* no form */ }
+    try { const c = this.console(pageId, { errors: true, limit: 3 }); if (c.lines.length) out.push(`the page reported errors: ${c.lines.join(' | ').slice(0, 300)}`); } catch { /* none */ }
+    if (n !== undefined) {
+      const items = this.items.get(p.id) ?? [];
+      const words = new Set((items.find((x) => x.n === n)?.label ?? '').toLowerCase().match(/[a-z]{4,}/g) ?? []);
+      const like = items.filter((x) => x.n !== n && (x.label.toLowerCase().match(/[a-z]{4,}/g) ?? []).some((w) => words.has(w))).slice(0, 3);
+      if (like.length) out.push(`other controls with a like name: ${like.map((x) => `[${x.n}] "${x.label.slice(0, 40)}"`).join(', ')}`);
+    }
+    if (!out.length) out.push('nothing on the page is in the way. Try another route: a different control, the site\'s own search, or a direct address');
+    return out;
   }
 
   /** Where a control is on the page, scrolled into view. */

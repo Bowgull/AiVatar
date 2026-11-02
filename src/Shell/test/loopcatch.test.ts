@@ -6,11 +6,14 @@ import { LoopCatch, LOOP_STOP } from '../src/loopcatch.ts';
 const click = { page: 1, n: 4 };
 const same = { ok: true, title: 'Jobs', url: 'https://x.test/a', changed: ['nothing visible changed'] };
 
-test('three of the same step with the same answer warns, the next loop stops and stays stopped', () => {
+test('three of the same step with the same answer warns, the next loop asks him, only the third stops for good', () => {
   const l = new LoopCatch();
   assert.equal(l.after(7, 'click', click, same), null);
   assert.equal(l.after(7, 'click', click, { ...same, waited: 300 }), null);
   assert.equal(l.after(7, 'click', click, { ...same, waited: 900 }), 'warn');
+  assert.equal(l.before(7, 'click', click), null);
+  for (let i = 0; i < 2; i++) assert.equal(l.after(7, 'click', click, same), null);
+  assert.equal(l.after(7, 'click', click, same), 'ask');
   assert.equal(l.before(7, 'click', click), null);
   for (let i = 0; i < 2; i++) assert.equal(l.after(7, 'click', click, same), null);
   assert.equal(l.after(7, 'click', click, same), 'stop');
