@@ -49,6 +49,52 @@ try {
   addEventListener('auxclick', link, true);
 } catch { /* without it a page's own new tabs need the site's own address */ }
 
+// Watch mode (his picks, 2026-11-02): the site's own theater mode fills Samara's whole page area with just the player,
+// its own controls kept; the site's header, title, chat and suggestions go. Fullscreen stays the site's real fullscreen.
+// Esc, or theater pressed again, puts the page back. YouTube and Twitch, the sites with a theater mode. Only marks the
+// page's own boxes; the look is WATCH_CSS (watchmode.ts), put in by the Shell.
+try {
+  const host = location.hostname;
+  const site = window === window.top && (/(^|\.)youtube\.com$/.test(host) ? 'youtube' : /(^|\.)twitch\.tv$/.test(host) ? 'twitch' : '');
+  if (site) {
+    const root = () => document.documentElement;
+    const inTheater = () => !document.fullscreenElement && (site === 'youtube'
+      ? Boolean(document.querySelector('ytd-watch-flexy[theater]')) && location.pathname === '/watch'
+      : Boolean(document.querySelector('button[aria-label^="Exit Theatre Mode"]')));
+    const playerOf = () => document.querySelector(site === 'youtube' ? '#movie_player' : '.video-player');
+    const clear = () => {
+      root().classList.remove('samara-watch');
+      for (const n of document.querySelectorAll('[data-samara-watch],[data-samara-wpath],[data-samara-wfill]')) { n.removeAttribute('data-samara-watch'); n.removeAttribute('data-samara-wpath'); n.removeAttribute('data-samara-wfill'); }
+    };
+    const pin = (p) => {
+      if (p.hasAttribute('data-samara-watch') && root().classList.contains('samara-watch')) return;
+      clear();
+      p.setAttribute('data-samara-watch', '');
+      // As the pop-out does it: Twitch's columns trap a fixed box (transform, contain), and its controls sit in a box
+      // between the player and the video that must fill the player too, or they float halfway up the picture.
+      for (let a = p.parentElement; a && a !== root(); a = a.parentElement) a.setAttribute('data-samara-wpath', '');
+      const v = p.querySelector('video');
+      for (let a = v && v.parentElement; a && a !== p; a = a.parentElement) a.setAttribute('data-samara-wfill', '');
+      root().classList.add('samara-watch');
+      // The site sizes its picture from its window: tell it the player's box changed.
+      setTimeout(() => dispatchEvent(new Event('resize')), 50);
+    };
+    const check = () => {
+      const p = inTheater() && playerOf();
+      if (p) pin(p);
+      else if (root().classList.contains('samara-watch')) { clear(); setTimeout(() => dispatchEvent(new Event('resize')), 50); }
+    };
+    setInterval(check, 400);
+    document.addEventListener('fullscreenchange', check);
+    // Esc leaves watch mode by turning the site's theater off, so the site and Samara always agree.
+    addEventListener('keydown', (e) => {
+      if (!e.isTrusted || e.key !== 'Escape' || document.fullscreenElement || !root().classList.contains('samara-watch')) return;
+      const t = document.querySelector(site === 'youtube' ? '.ytp-size-button' : 'button[aria-label^="Exit Theatre Mode"]');
+      if (t) { e.preventDefault(); t.click(); }
+    }, true);
+  }
+} catch { /* the site's theater mode as the site draws it */ }
+
 try {
   let said = false;
   const po = new PerformanceObserver((list) => {
