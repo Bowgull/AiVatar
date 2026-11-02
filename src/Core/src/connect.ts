@@ -38,7 +38,13 @@ export interface RemoteNow {
   canSeek: boolean;
   /** The smallest cover at least 64 px (Spotify's image host), or null. */
   coverUrl: string | null;
+  /** Sheet 117 (2026-11-01, his note: the cover "really blurry"): the biggest cover (640 px), for the player's idle view. */
+  artUrl: string | null;
 }
+
+/** One song, by name: the same title and artist from Windows and from Spotify read the same. */
+export const songKey = (title: unknown, artist: unknown): string =>
+  [title, artist].map((x) => (typeof x === 'string' ? x : '').toLowerCase().normalize('NFKD').replace(/\p{M}+/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()).join('|');
 
 const str = (x: unknown, max = 200) => (typeof x === 'string' ? x.slice(0, max) : '');
 const sameName = (a: string, b: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -56,7 +62,8 @@ export function readPlayback(j: any, now: number, host: string): RemoteNow | nul
   const device: RemoteDevice = { id, name: str(d.name, 60) || 'Spotify', kind: deviceKind(d.type), volume: vol, thisPc: deviceKind(d.type) === 'computer' && sameName(str(d.name), host) };
   const images: any[] = Array.isArray(it?.album?.images) ? it.album.images : Array.isArray(it?.images) ? it.images : Array.isArray(it?.show?.images) ? it.show.images : [];
   const fit = images.filter((i) => i && typeof i.url === 'string').sort((a, b) => (Number(a.width) || 0) - (Number(b.width) || 0));
-  const cover = fit.find((i) => (Number(i.width) || 0) >= 64) ?? fit.at(-1) ?? null;
+  const cover = fit.find((i) => (Number(i.width) || 0) >= 640) ?? fit.at(-1) ?? null;
+  const art = fit.at(-1) ?? null;
   const artists = Array.isArray(it?.artists) ? it.artists.map((a: any) => str(a?.name)).filter(Boolean).join(', ') : str(it?.show?.name);
   const ts = typeof j.timestamp === 'number' && j.timestamp > 0 && Math.abs(now - j.timestamp) < 60_000 ? j.timestamp : now;
   return {
@@ -66,6 +73,7 @@ export function readPlayback(j: any, now: number, host: string): RemoteNow | nul
     position: Math.max(0, (Number(j.progress_ms) || 0) / 1000), duration: Math.max(0, (Number(it?.duration_ms) || 0) / 1000), at: ts,
     canSeek: j.actions?.disallows?.seeking !== true && !!it,
     coverUrl: cover ? String(cover.url) : null,
+    artUrl: art ? String(art.url) : null,
   };
 }
 
@@ -124,6 +132,8 @@ export class ConnectPoller {
     };
   }
   get running(): boolean { return this.timer !== null || this.busy; }
+  /** The player window is showing (the brain asks Spotify for nothing while it is not). */
+  get showing(): boolean { return this.visible; }
   private get wanted(): boolean { return this.visible && !this.pcPlaying && !this.dead; }
 
   /** The player window showing or not. Showing again also gives a stopped sign-in another go. */
@@ -195,6 +205,9 @@ export class MediaMux {
   private src: Source = 'none';
   private coverFor = '';
   private coverData: string | null = null;
+  /** Sheet 117: Spotify's big cover for the song the PC is playing (Windows only gives a small one), by songKey. */
+  private artFor = '';
+  private artData: string | null = null;
   private readonly send: (m: PlayerNow) => void;
   constructor(send: (m: PlayerNow) => void) { this.send = send; }
 
@@ -205,7 +218,8 @@ export class MediaMux {
     this.pc.take(m);
     const s = chooseSource(this.pc.now(), this.remote);
     if (s !== this.src) { this.src = s; this.send(this.full()); return; }
-    if (s === 'pc') this.send({ ...m, source: 'pc' });
+    // the PC's small cover never replaces Spotify's big one for the same song
+    if (s === 'pc') this.send({ ...m, ...(m.thumb !== undefined && this.bigArt() ? { thumb: this.artData } : {}), source: 'pc' });
   }
   get pcPlaying(): boolean { const p = this.pc.now(); return !!p && p.app !== null && p.status === 'playing'; }
   /** A fresh answer from Spotify (null: nothing playing on his account). Returns true when its cover is wanted. */
@@ -219,6 +233,12 @@ export class MediaMux {
     else if (s === 'remote') this.send({ ...this.remoteMsg(r!), ...(newTrack || was?.device.id !== r!.device.id ? { thumb: this.coverData } : {}) });
     return newTrack && !!r?.coverUrl;
   }
+  private bigArt(): boolean { const p = this.pc.now(); return !!this.artData && !!p && songKey(p.title, p.artist) === this.artFor; }
+  /** Spotify's big cover for a song the PC plays (a data URL), shown if that song is still the one. */
+  pcArt(key: string, data: string): void {
+    this.artFor = key; this.artData = data;
+    if (this.src === 'pc' && this.bigArt()) this.send({ ...this.pc.now()!, source: 'pc', thumb: data });
+  }
   /** The cover of a remote track arrived (a data URL), shown if that track is still the one. */
   cover(track: string, data: string | null): void {
     if (track !== this.coverFor) return;
@@ -229,7 +249,7 @@ export class MediaMux {
   full(): PlayerNow {
     if (this.src === 'remote' && this.remote) return { ...this.remoteMsg(this.remote), thumb: this.coverData };
     const p = this.pc.now();
-    if (this.src === 'pc' && p) return { ...p, source: 'pc', device: null };
+    if (this.src === 'pc' && p) return { ...p, ...(this.bigArt() ? { thumb: this.artData } : {}), source: 'pc', device: null };
     return { t: 'media.now', v: 1, app: null, source: 'none', device: null };
   }
   private remoteMsg(r: RemoteNow): PlayerNow {

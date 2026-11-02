@@ -340,7 +340,7 @@ function volume(f, phase) {
 const IDLE_MS = 20000, IDLE_LYR_MS = 3000, IW = 408, IHT = 192, IN = 8;
 const I = {};
 let idle = false, idleT = 0, mouseIn = false;
-let lyr = { key: '', lines: null, instrumental: false, done: true }, lyrShown = -2;
+let lyr = { key: '', lines: null, instrumental: false, timed: true, failed: false, done: true }, lyrShown = -2;
 const sceneWide = document.createElement('canvas'); sceneWide.width = SW.SW; sceneWide.height = SW.SH;
 function buildIdle(L) {
   const box = el('div', 'idle'); I.box = box;
@@ -423,7 +423,7 @@ function paintLyrics(force = false) {
   if (lines?.length) { const pos = scrubbing ?? tl.shown(Date.now()); at = -1; for (let lo = 0, hi = lines.length - 1; lo <= hi;) { const m = (lo + hi) >> 1; if (lines[m].t <= pos + 0.15) { at = m; lo = m + 1; } else hi = m - 1; } }
   if (at === lyrShown && !force) return;
   lyrShown = at;
-  if (!lines?.length) { I.lyr.replaceChildren(el('span', 'quiet', !lyr.done ? 'Finding the words…' : lyr.instrumental ? 'Instrumental' : 'No lyrics for this one')); return; }
+  if (!lines?.length) { I.lyr.replaceChildren(el('span', 'quiet', !lyr.done ? 'Finding the words…' : lyr.failed ? 'The lyrics site is busy, trying again…' : lyr.instrumental ? 'Instrumental' : 'No lyrics for this one')); return; }
   const text = (i) => (i >= 0 && i < lines.length ? lines[i].text || '♪' : '');
   const now = at < 0 ? '♪' : text(at);
   I.lyr.replaceChildren(el('span', '', text(at - 1)), el('b', '', now), el('span', '', at < 0 ? text(0) : text(at + 1)));
@@ -667,7 +667,7 @@ api.onMedia((m) => {
 });
 api.onLyrics?.((l) => {
   if (!l || typeof l !== 'object') return;
-  lyr = { key: String(l.key ?? ''), lines: Array.isArray(l.lines) ? l.lines.filter((x) => x && Number.isFinite(x.t) && typeof x.text === 'string') : null, instrumental: l.instrumental === true, done: l.done !== false };
+  lyr = { key: String(l.key ?? ''), lines: Array.isArray(l.lines) ? l.lines.filter((x) => x && Number.isFinite(x.t) && typeof x.text === 'string') : null, instrumental: l.instrumental === true, timed: l.timed !== false, failed: l.failed === true, done: l.done !== false };
   paintLyrics(true);
 });
 api.onUi((u) => {

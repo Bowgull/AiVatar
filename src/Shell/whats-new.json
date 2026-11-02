@@ -1080,6 +1080,21 @@
       "at": "2026-11-01T20:14:00-05:00",
       "text": "Mockups: Big view gives a sheet the whole tab.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T20:14:00-05:00",
+      "text": "Music from Aang's wheel always brings the player to the front.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T20:14:00-05:00",
+      "text": "Album covers in the music player are sharp: Spotify's full-size art instead of the small Windows thumbnail.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T20:14:00-05:00",
+      "text": "Lyrics are found far more often: a busy lyrics site is asked again, remastered and featuring titles are tried plain, and untimed lyrics are shown too.",
+      "kind": "fix"
     }
   ]
 }

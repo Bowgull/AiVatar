@@ -26,7 +26,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { softEdge } from './winedge.ts';
 import { readJson, saveJson } from './store.ts';
 import type { FamilyHooks } from './familywin.ts';
-import { fetchLyrics, type Lyrics, type SongKey } from './lyrics.ts';
+import { fetchLyrics, type Lyrics, type LyricsResult, type SongKey } from './lyrics.ts';
 import { checkPlayerCmd, readPrefs, springAt, readDevices, DEVICE_ID, PICTURES, type PlayerCmd, type PlayerPrefs, type PlayerDevice } from './playercmd.ts';
 
 /** CSS pixels: the art is 212 x 104 art pixels at exactly 2x; the shade is 26 art pixels tall, the same width. */
@@ -58,7 +58,7 @@ export interface MiniPlayerOptions {
   onDevices?: () => void;
   onTransfer?: (id: string) => void;
   /** Sheet 117: where lyrics come from (LRCLIB by default; the offscreen test gives its own). */
-  lyrics?: (s: SongKey) => Promise<Lyrics | null>;
+  lyrics?: (s: SongKey) => Promise<LyricsResult>;
 }
 
 
@@ -84,6 +84,7 @@ export class MiniPlayer {
   /** Sheet 117: the song whose lyrics were asked for, and what LRCLIB said (kept for this run, one ask per song). */
   private lyrKey = '';
   private readonly lyrSeen = new Map<string, Lyrics | null>();
+  private lyrRetry: NodeJS.Timeout | null = null;
   /** Its own menu (the ··· key): what the picture is, the bars on or off. */
   readonly menu: PlayerMenu;
 
@@ -171,12 +172,18 @@ export class MiniPlayer {
     if (key === this.lyrKey) return;
     this.lyrKey = key;
     if (!key) { this.send('player:lyrics', { key: '', lines: null, instrumental: false, done: true }); return; }
-    const say = (l: Lyrics | null) => { if (this.lyrKey === key) this.send('player:lyrics', { key, lines: l?.lines ?? null, instrumental: !!l?.instrumental, done: true }); };
+    if (this.lyrRetry) { clearTimeout(this.lyrRetry); this.lyrRetry = null; }
+    const say = (l: Lyrics | null, failed = false) => { if (this.lyrKey === key) this.send('player:lyrics', { key, lines: l?.lines ?? null, instrumental: !!l?.instrumental, timed: l?.timed !== false, failed, done: true }); };
     if (this.lyrSeen.has(key)) { say(this.lyrSeen.get(key)!); return; }
     this.send('player:lyrics', { key, lines: null, instrumental: false, done: false });
     const album = typeof n?.album === 'string' ? n.album : undefined, duration = Number(n?.duration) || undefined;
     const ask = this.o.lyrics ?? ((k: SongKey) => fetchLyrics(net.fetch as never, k));
-    void ask({ title, artist, album, duration }).then((l) => { if (this.lyrSeen.size > 200) this.lyrSeen.clear(); this.lyrSeen.set(key, l); say(l); });
+    void ask({ title, artist, album, duration }).then((l) => {
+      // LRCLIB could not be reached: said so, and asked again in 30 s while it is still this song (never remembered as none)
+      if (l === 'error') { say(null, true); if (this.lyrKey === key) this.lyrRetry = setTimeout(() => { this.lyrRetry = null; if (this.lyrKey === key) { this.lyrKey = ''; this.lyrics(); } }, 30_000); return; }
+      if (this.lyrSeen.size > 200) this.lyrSeen.clear();
+      this.lyrSeen.set(key, l); say(l);
+    });
   }
 
   /** Tell the brain whether the player can be seen, only when that changes. */
@@ -304,6 +311,13 @@ export class MiniPlayer {
     // Minimized (Show desktop), moveTop alone left it at -32000: the wheel's Music did nothing (2026-11-01).
     if (w.isMinimized()) w.restore();
     w.moveTop();
+    // 2026-11-01 (his report: the wheel's Music must ALWAYS bring it forward): the player never takes the keyboard, and
+    // Windows lets a window that is not the active app's slip back behind it, so moveTop alone left it under his app. A
+    // moment on top lifts it over everything without taking focus; then it is an ordinary window again (unless pinned).
+    if (process.platform === 'win32' && !this.pinned) {
+      w.setAlwaysOnTop(true, 'screen-saver');
+      setTimeout(() => { if (!w.isDestroyed() && !this.pinned) { w.setAlwaysOnTop(false); w.moveTop(); } }, 120);
+    }
     if (process.platform === 'darwin' && !this.pinned) w.setAlwaysOnTop(true, 'floating');
   }
   private applyOnTop(on: boolean): void {
@@ -332,7 +346,7 @@ export class MiniPlayer {
     if (this.note) this.send('player:note', this.note);
     // a page that loaded again hears the song's lyrics again (if they came already)
     const l = this.lyrKey ? this.lyrSeen.get(this.lyrKey) : undefined;
-    if (l !== undefined) this.send('player:lyrics', { key: this.lyrKey, lines: l?.lines ?? null, instrumental: !!l?.instrumental, done: true });
+    if (l !== undefined) this.send('player:lyrics', { key: this.lyrKey, lines: l?.lines ?? null, instrumental: !!l?.instrumental, timed: l?.timed !== false, failed: false, done: true });
   }
   private send(ch: string, v: unknown): void {
     const w = this.window;

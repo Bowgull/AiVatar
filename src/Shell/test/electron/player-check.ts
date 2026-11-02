@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
   let lyrAsks = 0;
   const mp = new MiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'playerpreload.cjs'), iconPath: path.join(HERE, '..', '..', 'assets', 'aang.ico'), prefsFile, onCmd: (c) => cmds.push(c), clampToScreen: false,
     // sheet 117: made-up timed lines, one every 5 s (never the real LRCLIB from a test)
-    lyrics: async () => { lyrAsks++; return { lines: Array.from({ length: 50 }, (_, i) => ({ t: i * 5, text: 'line ' + i })), instrumental: false }; } });
+    lyrics: async () => { lyrAsks++; return { lines: Array.from({ length: 50 }, (_, i) => ({ t: i * 5, text: 'line ' + i })), instrumental: false, timed: true }; } });
   const host = new FamilyHost({ origin: pages.origin });
   mp.family = host;
   const w = mp.open();

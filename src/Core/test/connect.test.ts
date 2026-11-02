@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os'; import path from 'node:path';
-import { readPlayback, chooseSource, ConnectPoller, MediaMux, readDevices, checkDeviceId, deviceKind, type RemoteNow } from '../src/connect.ts';
+import { readPlayback, chooseSource, ConnectPoller, MediaMux, readDevices, checkDeviceId, deviceKind, type RemoteNow, songKey } from '../src/connect.ts';
 import { Spotify, SpotifyError } from '../src/spotify.ts';
 import type { MediaNow } from '../src/media.ts';
 
@@ -18,12 +18,12 @@ const answer = (o: Record<string, unknown> = {}, dev: Record<string, unknown> = 
 });
 const pcNow = (status: string | null): MediaNow | null => status === null ? null : ({ t: 'media.now', v: 1, app: 'spotify', spotify: true, title: 'PC Song', artist: 'Here', status: status as 'playing', position: 3, duration: 100, at: T0, canSeek: true, volume: 0.5 });
 
-test('readPlayback: the track, the device (kind, volume 0..1), the 64 px cover; nothing playing is null', () => {
+test('readPlayback: the track, the device (kind, volume 0..1), the 640 px cover (sheet 117: sharp in the idle view); nothing playing is null', () => {
   const r = readPlayback(answer(), T0, 'SHADOW-PC')!;
   assert.equal(r.title, 'Maria También'); assert.equal(r.artist, 'Khruangbin'); assert.equal(r.album, 'Con Todo El Mundo');
   assert.deepEqual(r.device, { id: 'abc123', name: 'iPhone', kind: 'phone', volume: 0.4, thisPc: false });
   assert.equal(r.position, 61.5); assert.equal(r.duration, 241); assert.equal(r.at, T0 - 200); assert.equal(r.playing, true);
-  assert.equal(r.coverUrl, 'https://i.scdn.co/image/64');
+  assert.equal(r.coverUrl, 'https://i.scdn.co/image/640'); assert.equal(r.artUrl, 'https://i.scdn.co/image/640');
   assert.equal(readPlayback(null, T0, 'x'), null);
   assert.equal(readPlayback({}, T0, 'x'), null);
   assert.equal(readPlayback(answer({}, { supports_volume: false }), T0, 'x')!.device.volume, null);
@@ -169,4 +169,19 @@ test('Spotify Web API: the keys hit the right endpoints on that device; 429 carr
   assert.equal(await sp.cover('https://evil.example/x.jpg'), null);
   assert.equal(await sp.cover('http://i.scdn.co/image/64'), null);
   assert.ok(!seen.some((s) => s.includes('evil')), 'never fetched');
+});
+
+test('MediaMux, sheet 117: Spotify\'s big cover for the PC\'s song replaces the small one, never another song\'s', () => {
+  const out: any[] = [];
+  const mux = new MediaMux((m) => out.push(m));
+  mux.fromPc({ ...pcNow('playing')!, thumb: 'data:image/png;base64,SMALL' });
+  const key = songKey(out.at(-1).title, out.at(-1).artist);
+  mux.pcArt(key, 'data:image/jpeg;base64,BIG');
+  assert.equal(out.at(-1).thumb, 'data:image/jpeg;base64,BIG'); assert.equal(out.at(-1).source, 'pc');
+  mux.fromPc({ t: 'media.now', v: 1, app: 'spotify', title: out.at(-1).title, artist: out.at(-1).artist, thumb: 'data:image/png;base64,SMALL2' });
+  assert.equal(out.at(-1).thumb, 'data:image/jpeg;base64,BIG', 'the pet\'s late small cover does not replace it');
+  assert.equal(mux.full().thumb, 'data:image/jpeg;base64,BIG');
+  mux.fromPc({ t: 'media.now', v: 1, app: 'spotify', title: 'Next Song', artist: 'Someone', status: 'playing', thumb: 'data:image/png;base64,NEXT' });
+  assert.equal(out.at(-1).thumb, 'data:image/png;base64,NEXT', 'a new song shows its own cover');
+  assert.equal(songKey('Maria También', 'Khruangbin'), songKey('maria tambien', 'KHRUANGBIN'));
 });
