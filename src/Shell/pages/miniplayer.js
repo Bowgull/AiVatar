@@ -367,7 +367,7 @@ function buildIdle(L) {
   paintIdleCover();
   if (idle) paintIdle();
 }
-const idleAllowed = () => !TALL && W === 212 && !shadeShown() && !!tl.state.app && !ui.menu && !mouseIn;
+const idleAllowed = () => ui.idle !== false && !TALL && W === 212 && !shadeShown() && !!tl.state.app && !ui.menu && !mouseIn;
 function setIdle(on) {
   on = on && idleAllowed();
   if (on === idle) return;
@@ -672,7 +672,7 @@ api.onLyrics?.((l) => {
 });
 api.onUi((u) => {
   if (!u || typeof u !== 'object') return;
-  const modeChanged = u.picture !== ui.picture || u.bars !== ui.bars || u.menu !== ui.menu || u.lyrics !== ui.lyrics, shadeChanged = u.shade !== ui.shade;
+  const modeChanged = u.picture !== ui.picture || u.bars !== ui.bars || u.menu !== ui.menu || u.lyrics !== ui.lyrics || u.idle !== ui.idle, shadeChanged = u.shade !== ui.shade;
   ui = { ...ui, ...u };
   F.pin.draw('pin', ui.pinned); Sh.pin.draw('pin', ui.pinned);
   F.fade.set(ui.opacity);

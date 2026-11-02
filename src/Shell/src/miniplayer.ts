@@ -91,7 +91,7 @@ export class MiniPlayer {
   constructor(o: MiniPlayerOptions) {
     this.o = o;
     this.prefs = readPrefs(o.prefsFile ? readJson<unknown>(o.prefsFile, null) : null);   // first run: null
-    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, lyrics: this.prefs.lyrics, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null, devices: this.devs, devicesError: this.devErr }),
+    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, lyrics: this.prefs.lyrics, idle: this.prefs.idle, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null, devices: this.devs, devicesError: this.devErr }),
       (kind, v) => this.choose(kind, v), (open) => { this.menuOpen = open; this.send('player:ui', this.ui()); },
       () => { this.devs = null; this.devErr = null; this.o.onDevices?.(); });
     players.add(this);
@@ -230,6 +230,7 @@ export class MiniPlayer {
     if (kind === 'picture' && typeof v === 'string' && PICTURES.has(v)) this.prefs.picture = v;
     else if (kind === 'bars' && typeof v === 'boolean') this.prefs.bars = v;
     else if (kind === 'lyrics' && typeof v === 'boolean') this.prefs.lyrics = v;
+    else if (kind === 'idle' && typeof v === 'boolean') this.prefs.idle = v;
     else return;
     this.savePrefs();
     this.send('player:ui', this.ui());
@@ -339,7 +340,7 @@ export class MiniPlayer {
 
   // ---------------------------------------------------------------- what the page is told
 
-  private ui() { return { picture: this.prefs.picture, bars: this.prefs.bars, lyrics: this.prefs.lyrics, menu: this.menuOpen, shade: this.prefs.shade, pinned: this.pinned, opacity: this.opacity, through: this.through }; }
+  private ui() { return { picture: this.prefs.picture, bars: this.prefs.bars, lyrics: this.prefs.lyrics, idle: this.prefs.idle, menu: this.menuOpen, shade: this.prefs.shade, pinned: this.pinned, opacity: this.opacity, through: this.through }; }
   private push(): void {
     this.send('player:ui', this.ui());
     if (this.now) this.send('player:media', this.now);
@@ -391,7 +392,7 @@ export class MiniPlayer {
  * What the menu shows: the picture now, the bars on or off, the album cover (a data: picture) for its thumbnail, and
  * Spotify's devices to move the music to (null while asking; an error line when Spotify cannot be reached).
  */
-export interface PlayerMenuState { picture: string; bars: boolean; lyrics?: boolean; cover: string | null; devices?: PlayerDevice[] | null; devicesError?: string | null }
+export interface PlayerMenuState { picture: string; bars: boolean; lyrics?: boolean; idle?: boolean; cover: string | null; devices?: PlayerDevice[] | null; devicesError?: string | null }
 
 /**
  * The player's own menu (2026-10-22, his report: "shouldn't this just be hidden behind a click somewhere?"). The ··· key
@@ -496,7 +497,7 @@ export class PlayerMenu {
     if (!m || typeof m !== 'object') return;
     const { kind, value } = m as { kind?: unknown; value?: unknown };
     this.close();
-    if (kind === 'picture' || kind === 'bars' || kind === 'lyrics') this.choose(kind, value);
+    if (kind === 'picture' || kind === 'bars' || kind === 'lyrics' || kind === 'idle') this.choose(kind, value);
     // Spotify Connect: move the music to that device
     else if (kind === 'device' && typeof value === 'string' && DEVICE_ID.test(value)) this.o.onTransfer?.(value);
   }
