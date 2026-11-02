@@ -6241,8 +6241,13 @@ export class AangBrowser {
       const stopped = this.loops.before(was, op, a);
       out = stopped ? { ok: false, error: stopped } : await this.driveStep(op, a);
       const loop = stopped ? null : this.loops.after(was, op, a, out);
-      if (loop === 'warn') out = { ...out, loop: LOOP_WARN };
-      if (loop === 'stop') { out = { ...out, ok: false, error: LOOP_STOP }; console.log(`shell: driver: job ${was} looped on ${op} twice; that step is refused now`); }
+      const n = Number.isInteger(Number(a?.n)) && a?.n !== undefined ? Number(a.n) : undefined;
+      if (loop === 'warn') {
+        const why = this.driver.page(pg) ? await this.driver.stuck(pg, n).catch(() => [] as string[]) : [];
+        out = { ...out, loop: `${LOOP_WARN}${why.length ? `\nWhat Samara sees:\n- ${why.join('\n- ')}` : ''}` };
+      }
+      if (loop === 'ask') out = { ...out, loop: await this.stuckAsk(pg, n) };
+      if (loop === 'stop') { out = { ...out, ok: false, error: LOOP_STOP }; console.log(`shell: driver: job ${was} kept looping on ${op} after he was asked; that step is refused now`); }
       if (op === 'finish' && was !== undefined) this.loops.end(was);
     }
     // He handed back while nobody waited: the session hears it with its next step.
@@ -6667,7 +6672,24 @@ export class AangBrowser {
     }
   }
   /** Claude gave him the turn: the card says why, and this waits (up to ~3 minutes) for him to hand back. */
-  private async yourTurn(page: number, why: string): Promise<Record<string, unknown>> {
+  /**
+   * The second loop (loopcatch.ts): he is asked to take over, on the tab, the way browser_your_turn asks ("Stuck on
+   * "Apply". Take over?"), and the session waits for him. A page he cannot take (Aang's hidden pages) or a session that
+   * cannot wait gets words to tell him itself.
+   */
+  private async stuckAsk(page: number, n: number | undefined): Promise<string> {
+    const p = this.driver.page(page);
+    if (!p?.borrowed?.drive || !this.driver.job(p.job)?.working) return 'LOOP AGAIN: this step is still not working. Stop repeating it, and tell Joshua in one line what is stuck and what you tried.';
+    const label = n !== undefined ? (this.driver.describe(page, n).match(/^"([^"]*)"/)?.[1] ?? '') : '';
+    console.log(`shell: driver: job ${p.job} looped twice on page ${page}; asking him to take over`);
+    // Two minutes, not the full wait: the step itself already took some of the door's three (claude-door-mcp.mjs post).
+    const r = await this.yourTurn(page, label ? `Stuck on "${label}". Take over?` : 'Stuck here. Take over?', 120_000);
+    if (r.still) return `LOOP AGAIN: Samara asked Joshua to take over page ${page} (he has not answered yet). Do not repeat the step: call browser_your_turn with page ${page} to keep waiting for him.`;
+    if (!r.ok) return String(r.error ?? 'Joshua was asked to take over, and the job has ended');
+    const said = reportLines(r.report as HandReport);
+    return `LOOP AGAIN, so Samara asked Joshua to take over page ${page}. He has handed it back.\n${said.his}\n${said.seen}\nRead the page again before the next step.`;
+  }
+  private async yourTurn(page: number, why: string, ms = YOUR_TURN_MS): Promise<Record<string, unknown>> {
     const p = this.driver.page(page);
     if (!p?.borrowed?.drive) return { ok: false, error: 'browser_your_turn is for a tab you are driving (your own, or his with browser_drive_tab). This page is not one: tell him in the chat instead.' };
     if (!this.driver.job(p.job)?.working) return { ok: false, error: 'this job has ended' };
@@ -6677,7 +6699,7 @@ export class AangBrowser {
     const prev = this.handWait.get(page);
     if (prev) prev(null);
     const r = await new Promise<HandReport | null | 'wait'>((done) => {
-      const t = setTimeout(() => { if (this.handWait.get(page) === f) { this.handWait.delete(page); done('wait'); } }, YOUR_TURN_MS);
+      const t = setTimeout(() => { if (this.handWait.get(page) === f) { this.handWait.delete(page); done('wait'); } }, ms);
       const f = (x: HandReport | null) => { clearTimeout(t); done(x); };
       this.handWait.set(page, f);
     });
