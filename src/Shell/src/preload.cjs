@@ -258,7 +258,7 @@ contextBridge.exposeInMainWorld('aang', {
   popoutStage: r => ipcRenderer.send('popout:stage', r),
   popoutTabCmd: c => ipcRenderer.send('popout:tabcmd', c),
   onPopoutTabState(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('popout:tabstate', h); return () => ipcRenderer.removeListener('popout:tabstate', h); },
-  onPopoutWake(fn) { const h = () => fn(); ipcRenderer.on('popout:wake', h); return () => ipcRenderer.removeListener('popout:wake', h); },
+  onPopoutWake(fn) { const h = (_e, how) => fn(how === 'out' || how === 'full' ? how : 'in'); ipcRenderer.on('popout:wake', h); return () => ipcRenderer.removeListener('popout:wake', h); },
   /** Send a video tab to the pop-out over WoW. */
   browserPopout: id => ipcRenderer.send('browser:popout', id),
   browserToMac: id => ipcRenderer.send('browser:tomac', id),

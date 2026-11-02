@@ -75,7 +75,7 @@ export class Popout {
   // page to put its player in fullscreen, which, with this window not allowed to go fullscreen itself, fills
   // exactly the space it has here. If a page refuses, the whole page shows instead: still the right video.
   private closeSeq = 0;
-  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null; resync: () => void } | null = null;
+  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null; resync: () => void; esc: (e: Electron.Event, input: Electron.Input) => void } | null = null;
   private stage = { x: 0, y: 34, width: 0, height: 0 };
   /** The picture's corner radius, as the page draws it (0 while the controls show, rounded when it is just the picture). */
   private radius = 0;
@@ -131,14 +131,21 @@ export class Popout {
     // from here, and wake the controls when it is over the window (Flow browser does the same for its sidebar).
     // Only a real move wakes them (2026-10-12): in WoW the pointer sits still, or is put back in one spot while
     // he turns the camera, and the controls kept coming back over the game though he never pointed at them.
-    let last = electronScreen.getCursorScreenPoint();
+    // His report (2026-11-02): he could not pause, nor click the site's controls in fullscreen. The wood came and went
+    // under his mouse, and each time the picture grew or shrank, so YouTube's buttons moved as he went to click them.
+    // Now the wood stays while the mouse is over the window and goes when it leaves (or rests 8 s, WoW's held cursor),
+    // and fullscreen has no wood at all: the picture never changes size under his hand.
+    let last = electronScreen.getCursorScreenPoint(), inside = false, stillSince = Date.now();
     const cursor = setInterval(() => {
       const win = this.window;
-      if (!win || !win.isVisible() || this.pinned) return;
+      if (!win || !win.isVisible() || this.pinned || win.isFullScreen()) { inside = false; return; }
       const p = electronScreen.getCursorScreenPoint(), b = win.getBounds();
       const moved = Math.abs(p.x - last.x) + Math.abs(p.y - last.y) >= 6;
       last = p;
-      if (moved && p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height) win.webContents.send('popout:wake');
+      if (moved) stillSince = Date.now();
+      const over = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+      if (over && moved) { inside = true; win.webContents.send('popout:wake', 'in'); }
+      else if (inside && (!over || Date.now() - stillSince > 8000)) { inside = false; win.webContents.send('popout:wake', 'out'); }
     }, 150);
     // What the video is doing, twice a second, for the controls. Numbers only; the page's own words never travel.
     // At once on opening (the controls were blank for half a second), never while hidden, and slower while paused.
@@ -163,7 +170,12 @@ export class Popout {
     resync();
     wc.on('did-navigate-in-page', resync);
     wc.on('did-finish-load', resync);
-    const lent = { view, back, poll, cursor, css: null as string | null, resync };
+    // Esc leaves the pop-out's fullscreen, though the video has the keyboard (2026-11-02).
+    const esc = (e: Electron.Event, input: Electron.Input) => {
+      if (input.type === 'keyDown' && input.key === 'Escape' && this.window?.isFullScreen()) { e.preventDefault(); this.toggleFullscreen(); }
+    };
+    wc.on('before-input-event', esc);
+    const lent = { view, back, poll, cursor, css: null as string | null, resync, esc };
     this.lent = lent;
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => this.send()); else this.send();
     // The bare picture (his pick): the site's own buttons hidden, the video filling whatever is fullscreen.
@@ -220,7 +232,7 @@ export class Popout {
     clearInterval(l.poll); clearInterval(l.cursor);
     const wc = l.view.webContents;
     // Its Twitch watch goes with it: left on, every pop-out added two more to the tab (the listener warning, 2026-10-30).
-    if (!wc.isDestroyed()) { wc.removeListener('did-navigate-in-page', l.resync); wc.removeListener('did-finish-load', l.resync); }
+    if (!wc.isDestroyed()) { wc.removeListener('did-navigate-in-page', l.resync); wc.removeListener('did-finish-load', l.resync); wc.removeListener('before-input-event', l.esc); }
     const leave = () => {
       try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
       try { l.view.setBorderRadius(0); } catch { /* older Electron */ }
@@ -346,6 +358,9 @@ export class Popout {
       try { after?.(inFront); } catch { /* Samara stays where it is */ }
     });
     this.win.on('closed', () => { this.win = null; });
+    // Fullscreen is the picture alone (2026-11-02). Leaving it, a lent page's own fullscreen goes back inside the window.
+    this.win.on('enter-full-screen', () => this.win?.webContents.send('popout:wake', 'full'));
+    this.win.on('leave-full-screen', () => { if (this.lent) this.win?.setFullScreenable(false); this.win?.webContents.send('popout:wake', 'in'); });
     this.win.webContents.on('did-finish-load', () => {
       this.send();
       this.win?.webContents.send('popout:settings', this.deps.settings());
@@ -715,11 +730,13 @@ export const BEST_QUALITY_JS = `(() => {
  * The bare picture (his pick): the player over everything, the video filling it. The site's own controls show when
  * he moves the mouse over the video and hide again by themselves (2026-10-13, his ask: quality, captions, speed live
  * in YouTube's and Twitch's own menus, so Aang's duplicate buttons are gone). Captions stay.
+ * Inside the player the site's own hiding is kept (his screenshot, 2026-11-02): forcing every part of it visible showed
+ * YouTube's big play button over a playing video, and its hidden layers sat over the controls and took his clicks.
  */
 export const BARE_CSS = `html.aang-bare, html.aang-bare body { overflow:hidden !important; background:#000 !important; }
 html.aang-bare [data-aang-path] { transform:none !important; filter:none !important; contain:none !important; will-change:auto !important; perspective:none !important; backdrop-filter:none !important; }
-html.aang-bare body * { visibility:hidden !important; }
-html.aang-bare [data-aang-player], html.aang-bare [data-aang-player] *, html.aang-bare .ytp-caption-window-container, html.aang-bare .ytp-caption-window-container *, html.aang-bare .player-captions-container, html.aang-bare .player-captions-container * { visibility:visible !important; }
+html.aang-bare body *:not(:is([data-aang-player], [data-aang-player] *, .ytp-caption-window-container, .ytp-caption-window-container *, .player-captions-container, .player-captions-container *)) { visibility:hidden !important; }
+html.aang-bare :is([data-aang-player], .ytp-caption-window-container, .player-captions-container) { visibility:visible !important; }
 html.aang-bare [data-aang-player] { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; max-width:none !important; max-height:none !important; z-index:2147483646 !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }

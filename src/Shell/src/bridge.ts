@@ -19,6 +19,8 @@ export interface ShellBridge {
   popoutToMac(): void;
   popoutPin(): void;
   onPopoutPinned(fn: (on: boolean) => void): () => void;
+  /** The mouse came over the window ('in'), left it ('out'), or the window went fullscreen ('full'). */
+  onPopoutWake(fn: (how: 'in' | 'out' | 'full') => void): () => void;
   /** How many pixels of the window are Aang's own chrome, measured by the page. */
   popoutChrome(px: number): void;
   /** The wooden bar dragged by hand (window family F2): how far since the press, in screen px. */
