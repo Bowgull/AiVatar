@@ -54,19 +54,28 @@ function seen(sheet) {
   if (!w || !w.n.fresh) return;
   window.mocklog?.seen(sheet); w.n.fresh = false; w.p.fresh = Math.max(0, w.p.fresh - 1);
 }
+/**
+ * 2026-11-02 (his rule: "they just need to remain new until I click into another one"): the NEW sheet he opens keeps
+ * its NEW and its place in New while he looks at it, and loses them when he opens another sheet, changes project, or
+ * leaves Mockups. Before, its NEW went on the click and it slid down into its topic, out from under his mouse.
+ */
+let looking = null;
+function doneLooking() { if (looking) { const s = looking; looking = null; seen(s); } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && looking) { doneLooking(); draw(); } });
 function openSheet(sheet, v = null, auto = false) {
   const w = where(sheet);
   if (!w) return;
+  if (looking !== sheet) doneLooking();
   pick.p = w.p.name; pick.s = sheet; pick.v = v; pick.newAtOpen = w.n.fresh;
-  // His own open: its NEW goes at once here; Samara's own copy follows a moment later.
-  if (auto) pendingSeen = w.n.fresh ? sheet : null; else { pendingSeen = null; seen(sheet); }
+  // His own open: NEW stays while he looks (above); an automatic open waits for his first touch to count as looking.
+  if (auto) pendingSeen = w.n.fresh ? sheet : null; else { pendingSeen = null; if (w.n.fresh) looking = sheet; }
   draw();
 }
 for (const ev of ['pointerdown', 'keydown', 'wheel']) {
   window.addEventListener(ev, () => {
     if (!pendingSeen || document.visibilityState !== 'visible' || !document.hasFocus()) return;
     const s = pendingSeen; pendingSeen = null;
-    if (pick.s === s) { seen(s); draw(); }
+    if (pick.s === s) looking = s;
   }, { capture: true, passive: true });
 }
 
@@ -79,7 +88,7 @@ function draw() {
     const em = el('span', 'em'); em.append(emblem(q.name));
     b.append(em, el('span', '', q.name), el('span', 'c', String(q.count)));
     if (q.fresh) b.append(el('span', 'newc', `${q.fresh} NEW`));
-    b.addEventListener('click', () => { if (pick.p !== q.name) { pick.p = q.name; pick.s = pick.v = null; } draw(); });
+    b.addEventListener('click', () => { if (pick.p !== q.name) { doneLooking(); pick.p = q.name; pick.s = pick.v = null; } draw(); });
     tabs.append(b);
   }
   const list = document.getElementById('list'); list.replaceChildren();

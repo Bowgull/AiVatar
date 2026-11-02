@@ -1145,6 +1145,11 @@
       "at": "2026-11-02T06:10:00-05:00",
       "text": "Samara stops retrying an engine update castLabs won't sign every few minutes, which slowed the PC right after Samara opened.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-02T06:43:00-05:00",
+      "text": "In Mockups, a NEW sheet you open stays NEW and in its place until you open another one, instead of sliding away under your mouse.",
+      "kind": "fix"
     }
   ]
 }
