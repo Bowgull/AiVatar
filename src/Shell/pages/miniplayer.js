@@ -367,11 +367,30 @@ function buildIdle(L) {
   I.lyr = el('div', 'ilyr');
   I.keys = idleKeys();
   box.append(I.glow, I.scn, I.cov, I.topShade, I.botShade, I.dim, I.words, I.where, I.bars, I.lyr, I.keys);
+  // his note (2026-11-01: "sharp edges ... it doesn't fit in there right"): a smooth rounded box laid on pixel wood. Now
+  // it is cut like the player's amber screen: pixel-stepped corners and the same sunken rim (dark above, a lit lip below).
+  const aw = IW / P, ah = IHT / P, mask = rrMask(aw, ah, 6);
+  box.style.clipPath = `polygon(${stepPath(mask, aw, ah)})`;
+  const ring = rr(aw, ah, 6, { band: 'recess', shadow: 0 }); ring.classList.add('iring');
+  box.append(ring);
+  I.cov.style.clipPath = `polygon(${stepPath(rrMask(88, 88, 5), 88, 88)})`;   // the cover's corners stepped too, like the small one
   L.append(box);
   paintIdleCover();
   if (idle) paintIdle();
 }
 // Pinned (his rule, 2026-11-01): once idle it STAYS idle under the mouse; only unpinning brings the full player back.
+/** A pixel mask's outline as CSS polygon points (screen px), its corners stepped on the art grid. */
+function stepPath(mask, w, h) {
+  const left = [], right = [];
+  for (let y = 0; y < h; y++) {
+    let l = 0, r = w - 1;
+    while (l < w && !mask[y * w + l]) l++;
+    while (r > 0 && !mask[y * w + r]) r--;
+    left.push(`${l * P}px ${y * P}px`, `${l * P}px ${(y + 1) * P}px`);
+    right.push(`${(r + 1) * P}px ${y * P}px`, `${(r + 1) * P}px ${(y + 1) * P}px`);
+  }
+  return [...left, ...right.reverse()].join(',');
+}
 const idleAllowed = () => ui.idle !== false && !TALL && W === 212 && !shadeShown() && !!tl.state.app && !ui.menu && (!mouseIn || ui.pinned);
 function setIdle(on) {
   on = on && idleAllowed();
@@ -449,8 +468,8 @@ function paintIdleCover() {
  * the column rolls up on a soft spring so the line being sung sits in the middle, lit amber, the colour of the player's time.
  * The lines either side stay readable and fade out at the edges. A seek (or a fresh song) moves it at once, no long roll.
  */
-// a size up over a scene (sheet 118 v3: readable on a full monitor), the smaller rows beside a cover
-const LYR_MID = (IHT - 28) / 2, lyrLh = () => (isScene() ? 44 : 36);
+// the column rolls so the sung line's own middle sits in the window's middle: rows can be one or two lines tall
+const LYR_MID = (IHT - 28) / 2;
 let lyrBuilt = '';
 function paintLyrics(force = false) {
   if (!I.lyr) return;
@@ -480,7 +499,8 @@ function paintLyrics(force = false) {
   if (I.lns[at]) I.lns[at].classList.add('on');
   for (const k of [at - 1, at + 1]) if (I.lns[k]) I.lns[k].classList.add('near');
   I.track.classList.toggle('now', jump);
-  I.track.style.transform = `translateY(${Math.round(LYR_MID - lyrLh() / 2 - Math.max(0, at) * lyrLh())}px)`;
+  const row = I.lns[Math.max(0, at)];
+  I.track.style.transform = `translateY(${Math.round(LYR_MID - (row ? row.offsetTop + row.offsetHeight / 2 : 0))}px)`;
   if (jump) { void I.track.offsetWidth; I.track.classList.remove('now'); }
 }
 

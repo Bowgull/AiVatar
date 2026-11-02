@@ -1125,6 +1125,16 @@
       "at": "2026-11-01T21:06:00-05:00",
       "text": "Every button in the music player is centred to the pixel, the speaker sits level with the volume bar, and the idle keys stay round.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T21:23:00-05:00",
+      "text": "Long lyric lines wrap onto a second row instead of being cut off, and read bigger beside an album cover.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T21:23:00-05:00",
+      "text": "The music player's idle picture sits in the wood like its screen does: pixel corners and a sunken rim.",
+      "kind": "fix"
     }
   ]
 }
