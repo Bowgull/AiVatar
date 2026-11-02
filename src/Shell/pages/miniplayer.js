@@ -362,12 +362,14 @@ function buildIdle(L) {
   const head = el('div', 'ihead'); head.append(I.song, I.artist);
   I.words.append(head, tail);
   I.lyr = el('div', 'ilyr');
-  box.append(I.glow, I.scn, I.cov, I.topShade, I.botShade, I.dim, I.words, I.where, I.bars, I.lyr);
+  I.keys = idleKeys();
+  box.append(I.glow, I.scn, I.cov, I.topShade, I.botShade, I.dim, I.words, I.where, I.bars, I.lyr, I.keys);
   L.append(box);
   paintIdleCover();
   if (idle) paintIdle();
 }
-const idleAllowed = () => ui.idle !== false && !TALL && W === 212 && !shadeShown() && !!tl.state.app && !ui.menu && !mouseIn;
+// Pinned (his rule, 2026-11-01): once idle it STAYS idle under the mouse; only unpinning brings the full player back.
+const idleAllowed = () => ui.idle !== false && !TALL && W === 212 && !shadeShown() && !!tl.state.app && !ui.menu && (!mouseIn || ui.pinned);
 function setIdle(on) {
   on = on && idleAllowed();
   if (on === idle) return;
@@ -381,9 +383,35 @@ function armIdle() {
   if (mouseIn) return;
   idleT = setTimeout(() => setIdle(true), ui.lyrics ? IDLE_LYR_MS : IDLE_MS);
 }
-document.documentElement.addEventListener('mouseenter', () => { mouseIn = true; clearTimeout(idleT); setIdle(false); });
-document.documentElement.addEventListener('mouseleave', () => { mouseIn = false; armIdle(); });
-document.addEventListener('pointermove', () => { if (!mouseIn) { mouseIn = true; clearTimeout(idleT); setIdle(false); } });
+// The mouse wakes it, unless it is pinned: then resting on it a moment shows the soft keys (back, pause, next, pin)
+let keysT = 0;
+const mouseOn = () => {
+  mouseIn = true; clearTimeout(idleT);
+  if (idle && ui.pinned) { clearTimeout(keysT); keysT = setTimeout(() => I.keys?.classList.add('show'), 450); return; }
+  setIdle(false);
+};
+document.documentElement.addEventListener('mouseenter', mouseOn);
+document.documentElement.addEventListener('mouseleave', () => { mouseIn = false; clearTimeout(keysT); I.keys?.classList.remove('show'); armIdle(); });
+document.addEventListener('pointermove', () => { if (!mouseIn) mouseOn(); });
+/** The soft keys over the idle picture while pinned: round, dark, the player's own pixel glyphs; the pin lit. */
+function idleKeys() {
+  const row = el('div', 'ikeys');
+  const key = (glyph, title, fn) => {
+    const b = el('button', 'ikey'); b.type = 'button'; b.title = title; b.dataset.k = glyph;
+    b.addEventListener('pointerdown', (e) => e.stopPropagation());
+    b.addEventListener('dblclick', (e) => e.stopPropagation());
+    b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+    b.draw = (g) => b.replaceChildren(g === 'pin' ? pin(true) : spr(GLYPH[g], { O: '#fff3d8' }, { drop: 'rgba(0,0,0,.6)' }));
+    b.draw(glyph); return b;
+  };
+  I.kPrev = key('prev', 'Previous', () => api.cmd('prev'));
+  I.kPlay = key('pause', 'Play / pause', () => api.cmd('toggle'));
+  I.kNext = key('next', 'Next', () => api.cmd('next'));
+  I.kPin = key('pin', 'Unpin (the full player comes back)', () => api.pin());
+  I.kPin.classList.add('pin');
+  row.append(I.kPrev, I.kPlay, I.kNext, I.kPin);
+  return row;
+}
 /** What idle shows: the wide scene, or the cover whole beside its own glow; the words placed to match. */
 function paintIdle() {
   if (!I.box) return;
@@ -492,6 +520,7 @@ function paintStatus() {
   const s = tl.state, playing = tl.playing;
   F.play.draw(playing ? 'pause' : 'play', { ink: '#8a3e1c' });
   Sh.play.draw(playing ? 'pause7' : 'play7', { ink: '#8a3e1c', r: 6 });
+  I.kPlay?.draw(playing ? 'pause' : 'play');
   F.tags.innerHTML = '';
   const i = el('i', '', !s.app ? 'IDLE' : playing ? 'PLAYING' : s.status === 'paused' ? 'PAUSED' : s.status.toUpperCase());
   F.tags.append(i);
@@ -697,8 +726,11 @@ api.onLyrics?.((l) => {
 api.onUi((u) => {
   if (!u || typeof u !== 'object') return;
   const modeChanged = u.picture !== ui.picture || u.bars !== ui.bars || u.menu !== ui.menu || u.lyrics !== ui.lyrics || u.idle !== ui.idle, shadeChanged = u.shade !== ui.shade;
+  const unpinned = ui.pinned && u.pinned === false;
   ui = { ...ui, ...u };
   F.pin.draw('pin', ui.pinned); Sh.pin.draw('pin', ui.pinned);
+  // unpinned while idle: the full player comes back (his rule); it goes idle again the usual way once the mouse leaves
+  if (unpinned && idle) { I.keys?.classList.remove('show'); setIdle(false); armIdle(); }
   F.fade.set(ui.opacity);
   if (modeChanged) paintMode();
   if (shadeChanged) { marqueeT0 = performance.now(); fit(); }

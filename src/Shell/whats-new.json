@@ -1115,6 +1115,11 @@
       "at": "2026-11-01T20:48:00-05:00",
       "text": "The rolling lyrics are out for real this time (1.39.0 didn't finish building).",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T20:57:00-05:00",
+      "text": "Pin the music player and its idle view stays put: rest your mouse on it for back, pause, next and unpin.",
+      "kind": "feature"
     }
   ]
 }
