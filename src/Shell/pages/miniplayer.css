@@ -108,12 +108,19 @@ html.idling .idle{opacity:1}
 .idle.cover .ibars{top:12px}
 .idim{position:absolute;inset:0;background:rgba(10,6,3,.62);opacity:0;transition:opacity .4s ease}
 .idle.cover .idim{left:192px}
-.ilyr{position:absolute;left:0;right:0;top:36px;display:none;flex-direction:column;align-items:center;gap:9px;font:700 15px/1.2 Figtree,sans-serif;color:#d9ccb4;text-shadow:0 1px 2px #000;text-align:center;padding:0 14px}
-.idle.cover .ilyr{left:192px;top:30px}
-.ilyr b{font:800 21px/1.2 Figtree,sans-serif;color:#fff3d8;background:rgba(14,8,4,.82);padding:5px 12px 6px;border-radius:9px;box-shadow:0 0 0 2px rgba(255,196,60,.55);text-shadow:none;max-width:100%}
-.idle.cover .ilyr b{font-size:18px}
-.ilyr span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ilyr .quiet{font:700 16px Figtree,sans-serif;color:#e8d6b4;margin-top:34px}
+/* the lyrics roll (sheet 118 v2, amber): one column, the sung line in the middle; no box */
+.ilyr{position:absolute;left:0;right:0;top:0;bottom:28px;display:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 26%,#000 74%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 26%,#000 74%,transparent 100%)}
+.idle.cover .ilyr{left:192px}
+.ilyr .track{position:absolute;left:0;right:0;top:0;transition:transform .62s cubic-bezier(.25,1.15,.4,1)}
+.ilyr .track.now,.ilyr .track.now .ln{transition:none}
+.ilyr .ln{height:44px;display:flex;align-items:center;justify-content:center;padding:0 20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:700 19px/1 Figtree,sans-serif;color:#e6d6b8;opacity:.42;transform:scale(.92);transition:opacity .5s ease,transform .62s cubic-bezier(.25,1.15,.4,1),color .5s ease,text-shadow .5s ease;text-shadow:0 1px 2px rgba(0,0,0,.85)}
+.ilyr .ln.near{opacity:.62}
+.ilyr .ln.gap{letter-spacing:8px}
+.ilyr .ln.on{opacity:1;transform:scale(1.2);color:#ffd36a;font-weight:800;text-shadow:0 0 8px rgba(255,170,50,.6),0 0 22px rgba(255,150,40,.25),0 2px 2px rgba(0,0,0,.8)}
+/* beside a cover (sheet 118 v3, his pick X): the narrower strip keeps the smaller size */
+.idle.cover .ilyr .ln{height:36px;font-size:14px;padding:0 12px}
+.idle.cover .ilyr .ln.on{transform:scale(1.1)}
+.ilyr .quiet{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 16px;font:700 16px Figtree,sans-serif;color:#e8d6b4;text-shadow:0 1px 2px #000}
 .idle.lyr .idim{opacity:1}
 .idle.lyr .ilyr{display:flex}
 .idle.lyr .ihead,.idle.lyr .ibars{visibility:hidden}

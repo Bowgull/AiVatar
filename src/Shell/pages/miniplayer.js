@@ -412,21 +412,45 @@ function paintIdleCover() {
   g.filter = 'blur(28px) saturate(1.3)'; g.imageSmoothingEnabled = true; const k = IW * 1.25; g.drawImage(src, (IW - k) / 2, (IHT - k) / 2, k, k);
   g.filter = 'none'; g.fillStyle = 'rgba(8,5,3,.55)'; g.fillRect(0, 0, IW, IHT);
 }
-/** The lyric lines: the one playing now on its plate, the one before and after either side. */
+/**
+ * The lyrics roll (sheet 118 v2, his pick "1: amber", 2026-11-01; his note: "it's just jumping, can it roll into the
+ * next lyric ... the box looks kind of AI slop"). Every line sits in one column; when the song reaches the next line
+ * the column rolls up on a soft spring so the line being sung sits in the middle, lit amber like the player's time.
+ * The lines either side stay readable and fade out at the edges. A seek (or a fresh song) moves it at once, no long roll.
+ */
+// a size up over a scene (sheet 118 v3: readable on a full monitor), the smaller rows beside a cover
+const LYR_MID = (IHT - 28) / 2, lyrLh = () => (isScene() ? 44 : 36);
+let lyrBuilt = '';
 function paintLyrics(force = false) {
   if (!I.lyr) return;
   const on = !!ui.lyrics;
   I.box.classList.toggle('lyr', on);
-  if (!on) { I.lyr.replaceChildren(); lyrShown = -2; return; }
+  if (!on) { I.lyr.replaceChildren(); lyrShown = -2; lyrBuilt = ''; return; }
   const lines = lyr.lines;
-  let at = -3;
-  if (lines?.length) { const pos = scrubbing ?? tl.shown(Date.now()); at = -1; for (let lo = 0, hi = lines.length - 1; lo <= hi;) { const m = (lo + hi) >> 1; if (lines[m].t <= pos + 0.15) { at = m; lo = m + 1; } else hi = m - 1; } }
+  if (!lines?.length) {
+    const msg = !lyr.done ? 'Finding the words…' : lyr.failed ? 'The lyrics site is busy, trying again…' : lyr.instrumental ? 'Instrumental' : 'No lyrics for this one';
+    if (lyrBuilt !== 'q' + msg) { lyrBuilt = 'q' + msg; I.lyr.replaceChildren(el('span', 'quiet', msg)); }
+    lyrShown = -2; return;
+  }
+  if (lyrBuilt !== 'k' + lyr.key) {
+    lyrBuilt = 'k' + lyr.key;
+    I.track = el('div', 'track');
+    I.lns = lines.map((l) => { const d = el('div', 'ln' + (l.text ? '' : ' gap'), l.text || '♪ ♪ ♪'); I.track.append(d); return d; });
+    I.lyr.replaceChildren(I.track);
+    lyrShown = -2; force = true;
+  }
+  const pos = scrubbing ?? tl.shown(Date.now());
+  let at = -1;
+  for (let lo = 0, hi = lines.length - 1; lo <= hi;) { const m = (lo + hi) >> 1; if (lines[m].t <= pos + 0.15) { at = m; lo = m + 1; } else hi = m - 1; }
   if (at === lyrShown && !force) return;
+  const jump = lyrShown === -2 || Math.abs(at - lyrShown) > 3;
+  for (const k of [lyrShown - 1, lyrShown, lyrShown + 1]) if (I.lns[k]) I.lns[k].classList.remove('on', 'near');
   lyrShown = at;
-  if (!lines?.length) { I.lyr.replaceChildren(el('span', 'quiet', !lyr.done ? 'Finding the words…' : lyr.failed ? 'The lyrics site is busy, trying again…' : lyr.instrumental ? 'Instrumental' : 'No lyrics for this one')); return; }
-  const text = (i) => (i >= 0 && i < lines.length ? lines[i].text || '♪' : '');
-  const now = at < 0 ? '♪' : text(at);
-  I.lyr.replaceChildren(el('span', '', text(at - 1)), el('b', '', now), el('span', '', at < 0 ? text(0) : text(at + 1)));
+  if (I.lns[at]) I.lns[at].classList.add('on');
+  for (const k of [at - 1, at + 1]) if (I.lns[k]) I.lns[k].classList.add('near');
+  I.track.classList.toggle('now', jump);
+  I.track.style.transform = `translateY(${Math.round(LYR_MID - lyrLh() / 2 - Math.max(0, at) * lyrLh())}px)`;
+  if (jump) { void I.track.offsetWidth; I.track.classList.remove('now'); }
 }
 
 // ---------------------------------------------------------------- painting what changed
