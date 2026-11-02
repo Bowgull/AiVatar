@@ -1150,6 +1150,16 @@
       "at": "2026-11-02T06:43:00-05:00",
       "text": "In Mockups, a NEW sheet you open stays NEW and in its place until you open another one, instead of sliding away under your mouse.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-02T07:41:00-05:00",
+      "text": "Cookie banners say no for you, on every site.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-02T07:42:00-05:00",
+      "text": "When Claude or Aang gets stuck clicking, Samara shows why, then asks you.",
+      "kind": "feature"
     }
   ]
 }
