@@ -65,7 +65,10 @@ export function readPlayback(j: any, now: number, host: string): RemoteNow | nul
   const cover = fit.find((i) => (Number(i.width) || 0) >= 640) ?? fit.at(-1) ?? null;
   const art = fit.at(-1) ?? null;
   const artists = Array.isArray(it?.artists) ? it.artists.map((a: any) => str(a?.name)).filter(Boolean).join(', ') : str(it?.show?.name);
-  const ts = typeof j.timestamp === 'number' && j.timestamp > 0 && Math.abs(now - j.timestamp) < 60_000 ? j.timestamp : now;
+  // progress_ms is true as Spotify answers. Its `timestamp` is when the playback last CHANGED (a skip, a pause), not when
+  // the progress was read: used as the progress's time it ran the clock (and the karaoke) up to a minute ahead after
+  // every song change (found 2026-11-01, his note: the lyrics "not really following the song").
+  const ts = now;
   return {
     device, playing: j.is_playing === true,
     track: str(it?.id, 64) || str(it?.uri, 128) || str(it?.name),

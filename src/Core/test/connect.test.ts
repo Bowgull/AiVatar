@@ -22,7 +22,7 @@ test('readPlayback: the track, the device (kind, volume 0..1), the 640 px cover 
   const r = readPlayback(answer(), T0, 'SHADOW-PC')!;
   assert.equal(r.title, 'Maria También'); assert.equal(r.artist, 'Khruangbin'); assert.equal(r.album, 'Con Todo El Mundo');
   assert.deepEqual(r.device, { id: 'abc123', name: 'iPhone', kind: 'phone', volume: 0.4, thisPc: false });
-  assert.equal(r.position, 61.5); assert.equal(r.duration, 241); assert.equal(r.at, T0 - 200); assert.equal(r.playing, true);
+  assert.equal(r.position, 61.5); assert.equal(r.duration, 241); assert.equal(r.at, T0, 'progress is true as Spotify answers; its timestamp is only when playback last changed'); assert.equal(r.playing, true);
   assert.equal(r.coverUrl, 'https://i.scdn.co/image/640'); assert.equal(r.artUrl, 'https://i.scdn.co/image/640');
   assert.equal(readPlayback(null, T0, 'x'), null);
   assert.equal(readPlayback({}, T0, 'x'), null);

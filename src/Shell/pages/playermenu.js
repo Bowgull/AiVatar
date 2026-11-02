@@ -15,6 +15,8 @@ const SKATER = 'mustard';
 // ---------------------------------------------------------------- hand-placed 11x11 icons (aangmenu.js's tick, at 2x)
 const ICONS = {
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
+  // his switch (2026-11-01): a small window with the picture filling it
+  idle: ['...........', 'OOOOOOOOOOO', 'O.........O', 'O.OOOOOOO.O', 'O.OOOOOOO.O', 'O.OOOOOOO.O', 'O.OOOOOOO.O', 'O.........O', 'OOOOOOOOOOO', '...........', '...........'],
   // Sheet 117: three lines of words, the middle one lit (the karaoke line)
   lyrics: ['...........', '.OOOOOO....', '...........', '...........', 'OOOOOOOOOO.', 'OOOOOOOOOO.', '...........', '...........', '.OOOOOOO...', '...........', '...........'],
   bars: ['...........', '........O..', '........O..', '....O...O..', '....O...O.O', '.O..O.O.O.O', '.O..O.O.O.O', '.O.OO.O.OOO', '.OOOOOOOOOO', '...........', 'OOOOOOOOOOO'],
@@ -115,6 +117,10 @@ function build(st) {
   const lyr = button(st.lyrics ? 'on' : '', { icon: icon('lyrics'), text: 'Lyrics', tick: !!st.lyrics }, () => api.menuPick('lyrics', !st.lyrics));
   lyr.dataset.lyrics = st.lyrics ? 'on' : 'off'; lyr.setAttribute('role', 'menuitemcheckbox'); lyr.setAttribute('aria-checked', String(!!st.lyrics));
   m.append(lyr);
+  // his switch (2026-11-01, "just have it read idle mode in the menu"): the picture filling the player when he leaves it
+  const idl = button(st.idle !== false ? 'on' : '', { icon: icon('idle'), text: 'Idle mode', tick: st.idle !== false }, () => api.menuPick('idle', st.idle === false));
+  idl.dataset.idle = st.idle !== false ? 'on' : 'off'; idl.setAttribute('role', 'menuitemcheckbox'); idl.setAttribute('aria-checked', String(st.idle !== false));
+  m.append(idl);
   // Spotify Connect: where the music plays. A tick on the device playing now; another one moves it there.
   m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   m.append(Object.assign(document.createElement('div'), { className: 'mhead', textContent: 'PLAY ON' }));

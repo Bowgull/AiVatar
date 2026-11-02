@@ -18,7 +18,7 @@ import { FamilyHost } from '../../src/familywin.ts';
 
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 3).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
-setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 150_000).unref();
+setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 200_000).unref();
 app.on('window-all-closed', () => {});
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'player-check-'));
 app.setPath('userData', tmp);
@@ -120,7 +120,7 @@ app.whenReady().then(async () => {
     return { head: document.querySelector('#pm .mhead').textContent, rows: rows.map((b) => b.innerText.trim()), ticked: rows.filter((b) => b.querySelector('[data-tick]')).map((b) => b.innerText.trim()),
       font: getComputedStyle(rows[0]).fontSize, h: Math.round(rows[1].getBoundingClientRect().height), thumbs: ['cover', 'campfire', 'skate', 'rain', 'fishing'].map(th) }; })()`);
   check('the menu: PICTURE, his five names, the bars, Lyrics (off), a tick on Album cover and on the bars, 16 px words',
-    m0.head === 'PICTURE' && JSON.stringify(m0.rows.slice(0, 7)) === JSON.stringify(['Album cover', 'Algonquin', 'Dem Streez', 'Main Character', 'Pigeon Point', 'Bars on the screen', 'Lyrics']) && JSON.stringify(m0.ticked) === JSON.stringify(['Album cover', 'Bars on the screen']) && m0.font === '16px' && m0.h >= 44, m0);
+    m0.head === 'PICTURE' && JSON.stringify(m0.rows.slice(0, 8)) === JSON.stringify(['Album cover', 'Algonquin', 'Dem Streez', 'Main Character', 'Pigeon Point', 'Bars on the screen', 'Lyrics', 'Idle mode']) && JSON.stringify(m0.ticked) === JSON.stringify(['Album cover', 'Bars on the screen', 'Idle mode']) && m0.font === '16px' && m0.h >= 44, m0);
   check('every thumbnail is drawn', m0.thumbs.every((x: number) => x === 255), m0.thumbs);
   const thumb = () => mjs(`(() => { const c = document.querySelector('canvas.th[data-picture="campfire"]'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); })()`);
   const tA2 = await thumb(); await wait(450); const tB2 = await thumb();
@@ -141,7 +141,7 @@ app.whenReady().then(async () => {
   check('it remembers the picture', JSON.parse(readFileSync(prefsFile, 'utf8')).picture === 'fishing', readFileSync(prefsFile, 'utf8'));
   // the tick follows; another scene; back to the cover
   await wait(350); await openMenu(); await wait(150);
-  check('the tick is on Pigeon Point now', await mjs(`[...document.querySelectorAll('#pm button')].filter((b) => b.querySelector('[data-tick]')).map((b) => b.innerText.trim()).join('|')`) === 'Pigeon Point|Bars on the screen');
+  check('the tick is on Pigeon Point now', await mjs(`[...document.querySelectorAll('#pm button')].filter((b) => b.querySelector('[data-tick]')).map((b) => b.innerText.trim()).join('|')`) === 'Pigeon Point|Bars on the screen|Idle mode');
   await mjs(`document.querySelector('#pm button[data-picture="skate"]').click(); 1`);
   await until(() => !mp.menu.visible, 2000); await wait(200);
   check('Dem Streez', (await face()).title === 'Dem Streez');
@@ -211,6 +211,18 @@ app.whenReady().then(async () => {
   await openMenu(); await wait(100);
   await mjs(`document.querySelector('#pm button[data-picture="cover"]').click(); 1`);
   await until(() => !mp.menu.visible, 2000); await wait(550);
+  // his Idle mode switch: off, and leaving the player no longer makes it go idle; on again
+  await openMenu(); await wait(100);
+  await mjs(`document.querySelector('#pm button[data-idle]').click(); 1`);
+  await until(() => !mp.menu.visible, 2000); await wait(200);
+  await leave(); await wait(21500);
+  check('Idle mode off: remembered, and 21 s after the mouse left it is still awake', JSON.parse(readFileSync(prefsFile, 'utf8')).idle === false && (await idleNow()).idle === false);
+  await enter(); await wait(200);
+  await openMenu(); await wait(100);
+  check('Idle mode unticked in the menu', await mjs(`document.querySelector('#pm button[data-idle]').dataset.idle`) === 'off');
+  await mjs(`document.querySelector('#pm button[data-idle]').click(); 1`);
+  await until(() => !mp.menu.visible, 2000); await wait(200);
+  check('Idle mode on again', JSON.parse(readFileSync(prefsFile, 'utf8')).idle === true);
 
   // 4. Shade: a double-click folds it on the spring, and back.
   const heights: number[] = [];
