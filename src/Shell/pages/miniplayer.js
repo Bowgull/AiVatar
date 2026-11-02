@@ -12,6 +12,7 @@
 // covered (WoW in front): the page's own visibility plus the main process's word.
 import { P, loadTex, rr, rrMask, fills, spr, art, GLYPH, pin, cover, mix, hex, paperAt } from './player/pix.js';
 import * as S from './player/scenes.js';
+import * as SW from './player/scenes-wide.js';
 import { Timeline, fmtTime, marqueeOffset, barLevels, Peaks, pictureName, sliderAt } from './playerstate.js';
 
 const api = window.player;
@@ -238,6 +239,7 @@ function buildFull() {
   F.volBead = put(bead(PLUMK), a2(vx + sliderAt(vw, 0).center - 4), a2(vy - 1), 20); F.volBead.classList.add('bead', 'volb');
   slider(F.seekGrab, (f, phase) => scrub(f, phase));
   slider(F.volGrab, (f, phase) => volume(f, phase));
+  buildIdle(L);
   root.append(L);
 }
 
@@ -328,6 +330,105 @@ function volume(f, phase) {
   if (phase === 'end' || now - volSent > 90) { api.cmd('volume', Math.round(f * 100) / 100); volSent = now; }
 }
 
+// ---------------------------------------------------------------- idle (sheet 117 v3, 2026-11-01, his picks)
+// No mouse on the player for 20 s (3 s with lyrics on) and it goes idle: the picture takes the whole inside of the
+// window and the keys fade. A scene is shown WIDE (scenes-wide.js, 68 x 32 at 6x = exactly the inside, nothing cut
+// off); an album cover is shown whole, as tall as the window, with a soft blurred copy of its own colours behind it.
+// Kept on: the song and artist, where it plays, the bars, the time and a hairline seek. With lyrics on, the picture
+// dims and the timed lines sit over it, the line playing now on its own dark plate. The mouse coming back wakes it.
+// Only the free full player goes idle (not the shade strip, a family strip or a column).
+const IDLE_MS = 20000, IDLE_LYR_MS = 3000, IW = 408, IHT = 192, IN = 8;
+const I = {};
+let idle = false, idleT = 0, mouseIn = false;
+let lyr = { key: '', lines: null, instrumental: false, done: true }, lyrShown = -2;
+const sceneWide = document.createElement('canvas'); sceneWide.width = SW.SW; sceneWide.height = SW.SH;
+function buildIdle(L) {
+  const box = el('div', 'idle'); I.box = box;
+  box.style.cssText = `left:${IN}px;top:${IN}px;width:${IW}px;height:${IHT}px`;
+  I.glow = el('canvas', 'iglow'); I.glow.width = IW; I.glow.height = IHT;
+  I.scn = el('canvas', 'iscn'); I.scn.width = SW.SW; I.scn.height = 32;
+  I.cov = el('canvas', 'icov'); I.cov.width = I.cov.height = 352;
+  I.topShade = el('div', 'ishade top'); I.botShade = el('div', 'ishade bot');
+  I.dim = el('div', 'idim');
+  I.words = el('div', 'iwords');
+  I.song = el('div', 'isong'); I.artist = el('div', 'iartist');
+  I.where = el('span', 'iwhere');
+  I.bars = el('canvas', 'ibars');
+  const tail = el('div', 'itail'), times = el('div', 'itimes');
+  I.tPos = el('span', 'itm'); I.tLen = el('span', 'itm');
+  times.append(I.tPos, I.tLen);
+  I.hair = el('div', 'ihair'); I.fill = el('i'); I.hair.append(I.fill);
+  tail.append(times, I.hair);
+  const head = el('div', 'ihead'); head.append(I.song, I.artist);
+  I.words.append(head, tail);
+  I.lyr = el('div', 'ilyr');
+  box.append(I.glow, I.scn, I.cov, I.topShade, I.botShade, I.dim, I.words, I.where, I.bars, I.lyr);
+  L.append(box);
+  paintIdleCover();
+  if (idle) paintIdle();
+}
+const idleAllowed = () => !TALL && W === 212 && !shadeShown() && !!tl.state.app && !ui.menu && !mouseIn;
+function setIdle(on) {
+  on = on && idleAllowed();
+  if (on === idle) return;
+  idle = on;
+  document.documentElement.classList.toggle('idling', on);
+  if (on) { lyrShown = -2; paintIdle(); paintTime(true); }
+  wake();
+}
+function armIdle() {
+  clearTimeout(idleT);
+  if (mouseIn) return;
+  idleT = setTimeout(() => setIdle(true), ui.lyrics ? IDLE_LYR_MS : IDLE_MS);
+}
+document.documentElement.addEventListener('mouseenter', () => { mouseIn = true; clearTimeout(idleT); setIdle(false); });
+document.documentElement.addEventListener('mouseleave', () => { mouseIn = false; armIdle(); });
+document.addEventListener('pointermove', () => { if (!mouseIn) { mouseIn = true; clearTimeout(idleT); setIdle(false); } });
+/** What idle shows: the wide scene, or the cover whole beside its own glow; the words placed to match. */
+function paintIdle() {
+  if (!I.box) return;
+  const sc = isScene(), s = tl.state;
+  I.box.classList.toggle('cover', !sc);
+  if (sc) drawSceneWide(frame);
+  I.song.textContent = s.title || '';
+  I.artist.textContent = s.artist || '';
+  const d = s.device, app = s.spotify ? 'SPOTIFY' : s.app ? String(s.app).toUpperCase().slice(0, 12) : '';
+  I.where.textContent = (d ? d.name.toUpperCase().slice(0, 16) : 'THIS PC') + (app ? '  ·  ' + app : '');
+  I.bars.style.display = ui.bars ? '' : 'none';
+  paintLyrics(true);
+}
+function drawSceneWide(f) {
+  const g = sceneWide.getContext('2d'), im = g.createImageData(SW.SW, SW.SH), d = im.data;
+  SW[ui.picture](f % 8, f, SKATER)((x, y, col) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= SW.SW || y >= SW.SH || !col) return; const i = (y * SW.SW + x) * 4, v = rgb(col); d[i] = v[0]; d[i + 1] = v[1]; d[i + 2] = v[2]; d[i + 3] = 255; });
+  g.putImageData(im, 0, 0);
+  const o = I.scn.getContext('2d'); o.clearRect(0, 0, SW.SW, 32); o.drawImage(sceneWide, 0, 1, SW.SW, 32, 0, 0, SW.SW, 32);
+}
+/** The cover whole (smooth, at 2x for a sharp edge) and its glow: blown up, blurred, darkened. Redrawn when it changes. */
+function paintIdleCover() {
+  if (!I.cov) return;
+  const src = coverImg ?? cover(34, 1), sm = !!coverImg;
+  const c = I.cov.getContext('2d'); c.clearRect(0, 0, 352, 352); c.imageSmoothingEnabled = sm; c.imageSmoothingQuality = 'high'; c.drawImage(src, 0, 0, 352, 352);
+  const g = I.glow.getContext('2d'); g.clearRect(0, 0, IW, IHT);
+  g.filter = 'blur(28px) saturate(1.3)'; g.imageSmoothingEnabled = true; const k = IW * 1.25; g.drawImage(src, (IW - k) / 2, (IHT - k) / 2, k, k);
+  g.filter = 'none'; g.fillStyle = 'rgba(8,5,3,.55)'; g.fillRect(0, 0, IW, IHT);
+}
+/** The lyric lines: the one playing now on its plate, the one before and after either side. */
+function paintLyrics(force = false) {
+  if (!I.lyr) return;
+  const on = !!ui.lyrics;
+  I.box.classList.toggle('lyr', on);
+  if (!on) { I.lyr.replaceChildren(); lyrShown = -2; return; }
+  const lines = lyr.lines;
+  let at = -3;
+  if (lines?.length) { const pos = scrubbing ?? tl.shown(Date.now()); at = -1; for (let lo = 0, hi = lines.length - 1; lo <= hi;) { const m = (lo + hi) >> 1; if (lines[m].t <= pos + 0.15) { at = m; lo = m + 1; } else hi = m - 1; } }
+  if (at === lyrShown && !force) return;
+  lyrShown = at;
+  if (!lines?.length) { I.lyr.replaceChildren(el('span', 'quiet', !lyr.done ? 'Finding the words…' : lyr.instrumental ? 'Instrumental' : 'No lyrics for this one')); return; }
+  const text = (i) => (i >= 0 && i < lines.length ? lines[i].text || '♪' : '');
+  const now = at < 0 ? '♪' : text(at);
+  I.lyr.replaceChildren(el('span', '', text(at - 1)), el('b', '', now), el('span', '', at < 0 ? text(0) : text(at + 1)));
+}
+
 // ---------------------------------------------------------------- painting what changed
 /** The picture and the bars, as chosen in the menu: a scene cross-fades in over the cover (and back out to it). */
 function paintMode() {
@@ -342,6 +443,8 @@ function paintMode() {
   if (ui.bars) drawBars(F.bars, new Array(F.nb).fill(0.08), new Array(F.nb).fill(0.12));
   F.more.draw('more', !!ui.menu);
   layShade();
+  if (ui.menu) setIdle(false); else armIdle();
+  if (idle) paintIdle();
   wake();
 }
 function paintSong() {
@@ -357,14 +460,14 @@ function paintSong() {
   F.sub.textContent = has ? (s.album || s.artist || '') : 'Play something in Spotify';
   if (note) paintNote();
   marqueeT0 = performance.now();
+  if (I.box) paintIdle();
+  if (!has) setIdle(false); else armIdle();
   paintStatus();
 }
 function paintStatus() {
   const s = tl.state, playing = tl.playing;
   F.play.draw(playing ? 'pause' : 'play', { ink: '#8a3e1c' });
-  F.play.classList.toggle('held', playing);
   Sh.play.draw(playing ? 'pause7' : 'play7', { ink: '#8a3e1c', r: 6 });
-  Sh.play.classList.toggle('held', playing);
   F.tags.innerHTML = '';
   const i = el('i', '', !s.app ? 'IDLE' : playing ? 'PLAYING' : s.status === 'paused' ? 'PAUSED' : s.status.toUpperCase());
   F.tags.append(i);
@@ -420,7 +523,9 @@ function paintTime(force = false) {
   const s = tl.state, now = Date.now();
   const pos = scrubbing ?? tl.shown(now), dur = s.duration;
   const t = fmtTime(pos);
-  if (t !== lastTime || force) { lastTime = t; F.time.textContent = t; Sh.time.textContent = t; F.tPos.textContent = t; F.tLen.textContent = dur > 0 ? fmtTime(dur) : '-:--'; }
+  if (t !== lastTime || force) { lastTime = t; F.time.textContent = t; Sh.time.textContent = t; F.tPos.textContent = t; F.tLen.textContent = dur > 0 ? fmtTime(dur) : '-:--'; if (I.tPos) { I.tPos.textContent = t; I.tLen.textContent = F.tLen.textContent; } }
+  if (I.fill && idle) I.fill.style.width = (dur > 0 ? Math.min(1, pos / dur) * 100 : 0).toFixed(2) + '%';
+  if (idle) paintLyrics();
   const f = dur > 0 ? Math.min(1, pos / dur) : 0;
   const px = sliderAt(F.sw, f).center;
   if (px !== lastPx || force) {
@@ -443,6 +548,7 @@ function needs() {
   const want = (n) => { ms = ms ? Math.min(ms, n) : n; };
   if (tl.playing || scrubbing !== null) want(100);
   if (isScene() && !shadeShown()) want(100);
+  if (idle && ui.lyrics) want(100);
   if (ui.bars && tl.playing) want(33);
   if (marqueeLive()) want(60);
   return ms;
@@ -474,11 +580,11 @@ function tick() {
   if (ui.bars && tl.playing && now - lastBars >= 30) {
     const dt = lastBars ? Math.min(0.1, (now - lastBars) / 1000) : 0.03; lastBars = now; barT += dt;
     const lv = barLevels(barT);
-    if (!shadeShown()) { const l = lv.slice(0, F.nb); drawBars(F.bars, l, peaks.step(l, dt)); }
+    if (!shadeShown()) { const l = lv.slice(0, F.nb); const pk = peaks.step(l, dt); drawBars(F.bars, l, pk); if (idle) drawBars(I.bars, l.slice(0, 10), pk.slice(0, 10)); }
     else { const l6 = [lv[0], lv[2], lv[4], lv[6], lv[9], lv[12]]; drawBars(Sh.bars, l6, peaks6.step(l6, dt), { h: 12 }); }
   }
   // the scene, 10 fps
-  if (isScene() && !shadeShown() && now - lastScene >= 100) { lastScene = now; frame++; drawScene(F.scn, ui.picture, frame % 8, frame); }
+  if (isScene() && !shadeShown() && now - lastScene >= 100) { lastScene = now; frame++; if (idle) drawSceneWide(frame); else drawScene(F.scn, ui.picture, frame % 8, frame); }
   const ms = needs();
   if (ms) timer = setTimeout(tick, Math.max(16, ms - ((performance.now() - now) | 0)));
 }
@@ -519,6 +625,7 @@ function fit() {
     F.L.style.height = a2(hArt) + 'px';
     for (const p of F.parts) p.e.style.visibility = !TALL && p.bottom > h - 6 && hArt < H ? 'hidden' : (p.e === F.mark || p.e === F.lab) && F.fade.classList.contains('show') ? 'hidden' : '';
   }
+  if (idle && !idleAllowed()) setIdle(false);
   wake();
 }
 window.addEventListener('resize', fit);
@@ -552,15 +659,20 @@ api.onMedia((m) => {
   const what = tl.take(m, Date.now());
   if (m && 'thumb' in m) {
     if (typeof m.thumb === 'string' && m.thumb.startsWith('data:image/')) {
-      const img = new Image(); img.onload = () => { coverImg = img; drawCover(F.cov, img); }; img.src = m.thumb;
-    } else { coverImg = null; drawCover(F.cov, null); }
+      const img = new Image(); img.onload = () => { coverImg = img; drawCover(F.cov, img); paintIdleCover(); }; img.src = m.thumb;
+    } else { coverImg = null; drawCover(F.cov, null); paintIdleCover(); }
   }
   if (what === 'song') paintSong(); else if (what === 'status') paintStatus(); else paintTime();
   wake();
 });
+api.onLyrics?.((l) => {
+  if (!l || typeof l !== 'object') return;
+  lyr = { key: String(l.key ?? ''), lines: Array.isArray(l.lines) ? l.lines.filter((x) => x && Number.isFinite(x.t) && typeof x.text === 'string') : null, instrumental: l.instrumental === true, done: l.done !== false };
+  paintLyrics(true);
+});
 api.onUi((u) => {
   if (!u || typeof u !== 'object') return;
-  const modeChanged = u.picture !== ui.picture || u.bars !== ui.bars || u.menu !== ui.menu, shadeChanged = u.shade !== ui.shade;
+  const modeChanged = u.picture !== ui.picture || u.bars !== ui.bars || u.menu !== ui.menu || u.lyrics !== ui.lyrics, shadeChanged = u.shade !== ui.shade;
   ui = { ...ui, ...u };
   F.pin.draw('pin', ui.pinned); Sh.pin.draw('pin', ui.pinned);
   F.fade.set(ui.opacity);

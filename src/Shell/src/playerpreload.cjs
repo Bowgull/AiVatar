@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('player', {
   onAwake: on('player:awake'),
   // Spotify Connect (2026-10-22): one plain line when Spotify cannot be reached (null when all is well again).
   onNote: on('player:note'),
+  // Sheet 117 (2026-11-01): the song's timed lyrics from LRCLIB, asked by the main process only while lyrics are on.
+  onLyrics: on('player:lyrics'),
   ready: () => ipcRenderer.send('player:ready'),
   cmd: (op, value) => ipcRenderer.send('player:cmd', typeof value === 'number' ? { op: String(op), value } : { op: String(op) }),
   // 2026-10-22: the player's own menu (the ··· key). `menu` opens it under the key (its box in page pixels); the menu

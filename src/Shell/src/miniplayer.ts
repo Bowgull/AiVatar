@@ -21,11 +21,12 @@
 //
 // Opened from the wheel's Music slot, from asking Aang ("show the music player") and from Aang's right-click menu
 // ("Music player"). main.ts only creates this and passes messages: see wireMiniPlayer at the bottom.
-import { BrowserWindow, ipcMain, screen } from 'electron';
+import { BrowserWindow, ipcMain, net, screen } from 'electron';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { softEdge } from './winedge.ts';
 import { readJson, saveJson } from './store.ts';
 import type { FamilyHooks } from './familywin.ts';
+import { fetchLyrics, type Lyrics, type SongKey } from './lyrics.ts';
 import { checkPlayerCmd, readPrefs, springAt, readDevices, DEVICE_ID, PICTURES, type PlayerCmd, type PlayerPrefs, type PlayerDevice } from './playercmd.ts';
 
 /** CSS pixels: the art is 212 x 104 art pixels at exactly 2x; the shade is 26 art pixels tall, the same width. */
@@ -56,6 +57,8 @@ export interface MiniPlayerOptions {
   onWatch?: (visible: boolean) => void;
   onDevices?: () => void;
   onTransfer?: (id: string) => void;
+  /** Sheet 117: where lyrics come from (LRCLIB by default; the offscreen test gives its own). */
+  lyrics?: (s: SongKey) => Promise<Lyrics | null>;
 }
 
 
@@ -78,13 +81,16 @@ export class MiniPlayer {
   private devErr: string | null = null;
   /** Set by familywire.ts. */
   family: FamilyHooks | null = null;
+  /** Sheet 117: the song whose lyrics were asked for, and what LRCLIB said (kept for this run, one ask per song). */
+  private lyrKey = '';
+  private readonly lyrSeen = new Map<string, Lyrics | null>();
   /** Its own menu (the ··· key): what the picture is, the bars on or off. */
   readonly menu: PlayerMenu;
 
   constructor(o: MiniPlayerOptions) {
     this.o = o;
     this.prefs = readPrefs(o.prefsFile ? readJson<unknown>(o.prefsFile, null) : null);   // first run: null
-    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null, devices: this.devs, devicesError: this.devErr }),
+    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, lyrics: this.prefs.lyrics, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null, devices: this.devs, devicesError: this.devErr }),
       (kind, v) => this.choose(kind, v), (open) => { this.menuOpen = open; this.send('player:ui', this.ui()); },
       () => { this.devs = null; this.devErr = null; this.o.onDevices?.(); });
     players.add(this);
@@ -155,6 +161,22 @@ export class MiniPlayer {
     if (m.app === null) this.now = { ...m, thumb: null };
     else this.now = { ...(prev ?? {}), ...m, thumb: m.thumb !== undefined ? m.thumb : prev?.thumb ?? null };
     this.send('player:media', m.thumb === undefined && prev ? { ...m } : this.now);
+    this.lyrics();
+  }
+
+  /** The song's lyrics, only while they are switched on: asked once per song, sent to the page (null lines: none). */
+  private lyrics(): void {
+    const n = this.now, title = typeof n?.title === 'string' ? n.title : '', artist = typeof n?.artist === 'string' ? n.artist : '';
+    const key = this.prefs.lyrics && title && artist ? `${artist}${title}` : '';
+    if (key === this.lyrKey) return;
+    this.lyrKey = key;
+    if (!key) { this.send('player:lyrics', { key: '', lines: null, instrumental: false, done: true }); return; }
+    const say = (l: Lyrics | null) => { if (this.lyrKey === key) this.send('player:lyrics', { key, lines: l?.lines ?? null, instrumental: !!l?.instrumental, done: true }); };
+    if (this.lyrSeen.has(key)) { say(this.lyrSeen.get(key)!); return; }
+    this.send('player:lyrics', { key, lines: null, instrumental: false, done: false });
+    const album = typeof n?.album === 'string' ? n.album : undefined, duration = Number(n?.duration) || undefined;
+    const ask = this.o.lyrics ?? ((k: SongKey) => fetchLyrics(net.fetch as never, k));
+    void ask({ title, artist, album, duration }).then((l) => { if (this.lyrSeen.size > 200) this.lyrSeen.clear(); this.lyrSeen.set(key, l); say(l); });
   }
 
   /** Tell the brain whether the player can be seen, only when that changes. */
@@ -200,9 +222,11 @@ export class MiniPlayer {
   choose(kind: string, v: unknown): void {
     if (kind === 'picture' && typeof v === 'string' && PICTURES.has(v)) this.prefs.picture = v;
     else if (kind === 'bars' && typeof v === 'boolean') this.prefs.bars = v;
+    else if (kind === 'lyrics' && typeof v === 'boolean') this.prefs.lyrics = v;
     else return;
     this.savePrefs();
     this.send('player:ui', this.ui());
+    if (kind === 'lyrics') this.lyrics();
   }
   hearShade(): void { this.menu.close(); this.setShade(!this.prefs.shade); }
   hearPin(): void { this.applyOnTop(!this.pinned); this.family?.shared('player', { pinned: this.pinned }); }
@@ -301,11 +325,14 @@ export class MiniPlayer {
 
   // ---------------------------------------------------------------- what the page is told
 
-  private ui() { return { picture: this.prefs.picture, bars: this.prefs.bars, menu: this.menuOpen, shade: this.prefs.shade, pinned: this.pinned, opacity: this.opacity, through: this.through }; }
+  private ui() { return { picture: this.prefs.picture, bars: this.prefs.bars, lyrics: this.prefs.lyrics, menu: this.menuOpen, shade: this.prefs.shade, pinned: this.pinned, opacity: this.opacity, through: this.through }; }
   private push(): void {
     this.send('player:ui', this.ui());
     if (this.now) this.send('player:media', this.now);
     if (this.note) this.send('player:note', this.note);
+    // a page that loaded again hears the song's lyrics again (if they came already)
+    const l = this.lyrKey ? this.lyrSeen.get(this.lyrKey) : undefined;
+    if (l !== undefined) this.send('player:lyrics', { key: this.lyrKey, lines: l?.lines ?? null, instrumental: !!l?.instrumental, done: true });
   }
   private send(ch: string, v: unknown): void {
     const w = this.window;
@@ -350,7 +377,7 @@ export class MiniPlayer {
  * What the menu shows: the picture now, the bars on or off, the album cover (a data: picture) for its thumbnail, and
  * Spotify's devices to move the music to (null while asking; an error line when Spotify cannot be reached).
  */
-export interface PlayerMenuState { picture: string; bars: boolean; cover: string | null; devices?: PlayerDevice[] | null; devicesError?: string | null }
+export interface PlayerMenuState { picture: string; bars: boolean; lyrics?: boolean; cover: string | null; devices?: PlayerDevice[] | null; devicesError?: string | null }
 
 /**
  * The player's own menu (2026-10-22, his report: "shouldn't this just be hidden behind a click somewhere?"). The ··· key
@@ -455,7 +482,7 @@ export class PlayerMenu {
     if (!m || typeof m !== 'object') return;
     const { kind, value } = m as { kind?: unknown; value?: unknown };
     this.close();
-    if (kind === 'picture' || kind === 'bars') this.choose(kind, value);
+    if (kind === 'picture' || kind === 'bars' || kind === 'lyrics') this.choose(kind, value);
     // Spotify Connect: move the music to that device
     else if (kind === 'device' && typeof value === 'string' && DEVICE_ID.test(value)) this.o.onTransfer?.(value);
   }

@@ -15,6 +15,8 @@ const SKATER = 'mustard';
 // ---------------------------------------------------------------- hand-placed 11x11 icons (aangmenu.js's tick, at 2x)
 const ICONS = {
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
+  // Sheet 117: three lines of words, the middle one lit (the karaoke line)
+  lyrics: ['...........', '.OOOOOO....', '...........', '...........', 'OOOOOOOOOO.', 'OOOOOOOOOO.', '...........', '...........', '.OOOOOOO...', '...........', '...........'],
   bars: ['...........', '........O..', '........O..', '....O...O..', '....O...O.O', '.O..O.O.O.O', '.O..O.O.O.O', '.O.OO.O.OOO', '.OOOOOOOOOO', '...........', 'OOOOOOOOOOO'],
 };
 // Spotify Connect's devices (2026-10-22), the same six little pictures as the player's screen, centred in 11 x 11
@@ -109,6 +111,10 @@ function build(st) {
   const bars = button(st.bars ? 'on' : '', { icon: icon('bars'), text: 'Bars on the screen', tick: !!st.bars }, () => api.menuPick('bars', !st.bars));
   bars.dataset.bars = st.bars ? 'on' : 'off'; bars.setAttribute('role', 'menuitemcheckbox'); bars.setAttribute('aria-checked', String(!!st.bars));
   m.append(bars);
+  // Sheet 117 (2026-11-01): lyrics, timed, over the big picture when the player goes idle (from LRCLIB)
+  const lyr = button(st.lyrics ? 'on' : '', { icon: icon('lyrics'), text: 'Lyrics', tick: !!st.lyrics }, () => api.menuPick('lyrics', !st.lyrics));
+  lyr.dataset.lyrics = st.lyrics ? 'on' : 'off'; lyr.setAttribute('role', 'menuitemcheckbox'); lyr.setAttribute('aria-checked', String(!!st.lyrics));
+  m.append(lyr);
   // Spotify Connect: where the music plays. A tick on the device playing now; another one moves it there.
   m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   m.append(Object.assign(document.createElement('div'), { className: 'mhead', textContent: 'PLAY ON' }));

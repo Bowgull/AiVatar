@@ -18,7 +18,7 @@ import { FamilyHost } from '../../src/familywin.ts';
 
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 3).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
-setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 90_000).unref();
+setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 150_000).unref();
 app.on('window-all-closed', () => {});
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'player-check-'));
 app.setPath('userData', tmp);
@@ -47,7 +47,10 @@ app.whenReady().then(async () => {
   const prefsFile = path.join(tmp, 'player.json');
   writeFileSync(prefsFile, JSON.stringify({ picture: 'cover', bars: true, shade: false, x: -6000, y: 200 }));
   const cmds: PlayerCmd[] = [];
-  const mp = new MiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'playerpreload.cjs'), iconPath: path.join(HERE, '..', '..', 'assets', 'aang.ico'), prefsFile, onCmd: (c) => cmds.push(c), clampToScreen: false });
+  let lyrAsks = 0;
+  const mp = new MiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'playerpreload.cjs'), iconPath: path.join(HERE, '..', '..', 'assets', 'aang.ico'), prefsFile, onCmd: (c) => cmds.push(c), clampToScreen: false,
+    // sheet 117: made-up timed lines, one every 5 s (never the real LRCLIB from a test)
+    lyrics: async () => { lyrAsks++; return { lines: Array.from({ length: 50 }, (_, i) => ({ t: i * 5, text: 'line ' + i })), instrumental: false }; } });
   const host = new FamilyHost({ origin: pages.origin });
   mp.family = host;
   const w = mp.open();
@@ -74,7 +77,7 @@ app.whenReady().then(async () => {
   check('song, artist, album and times', /MARIA TAMBIÉN\s+·\s+KHRUANGBIN/.test(a.scroll) && a.sub === 'Con Todo El Mundo' && a.len[1] === '4:01' && /^1:4\d$/.test(a.time), a);
   check('Spotify named with its mark', a.lab.startsWith('SPOTIFY') && a.mark !== 'none', a);
   check('the cover is drawn, its corners cut round', a.cover[3] === 255 && a.cover[0] > 150 && a.corner === 0, a);
-  check('the play key sits down while playing', a.playHeld === true);
+  check('the play key sits level with prev and next while playing (2026-11-01)', a.playHeld === false);
   const tA = await js(`document.querySelector('.full .time').textContent`);
   await wait(1300);
   const tB = await js(`document.querySelector('.full .time').textContent`);
@@ -116,8 +119,8 @@ app.whenReady().then(async () => {
   const m0 = await mjs(`(() => { const rows = [...document.querySelectorAll('#pm button')]; const th = (id) => { const c = document.querySelector('canvas.th[data-picture="' + id + '"]'); const d = c.getContext('2d').getImageData(c.width >> 1, c.height >> 1, 1, 1).data; return d[3]; };
     return { head: document.querySelector('#pm .mhead').textContent, rows: rows.map((b) => b.innerText.trim()), ticked: rows.filter((b) => b.querySelector('[data-tick]')).map((b) => b.innerText.trim()),
       font: getComputedStyle(rows[0]).fontSize, h: Math.round(rows[1].getBoundingClientRect().height), thumbs: ['cover', 'campfire', 'skate', 'rain', 'fishing'].map(th) }; })()`);
-  check('the menu: PICTURE, his five names, a tick on Album cover and on the bars, 16 px words',
-    m0.head === 'PICTURE' && JSON.stringify(m0.rows) === JSON.stringify(['Album cover', 'Algonquin', 'Dem Streez', 'Main Character', 'Pigeon Point', 'Bars on the screen']) && JSON.stringify(m0.ticked) === JSON.stringify(['Album cover', 'Bars on the screen']) && m0.font === '16px' && m0.h >= 44, m0);
+  check('the menu: PICTURE, his five names, the bars, Lyrics (off), a tick on Album cover and on the bars, 16 px words',
+    m0.head === 'PICTURE' && JSON.stringify(m0.rows.slice(0, 7)) === JSON.stringify(['Album cover', 'Algonquin', 'Dem Streez', 'Main Character', 'Pigeon Point', 'Bars on the screen', 'Lyrics']) && JSON.stringify(m0.ticked) === JSON.stringify(['Album cover', 'Bars on the screen']) && m0.font === '16px' && m0.h >= 44, m0);
   check('every thumbnail is drawn', m0.thumbs.every((x: number) => x === 255), m0.thumbs);
   const thumb = () => mjs(`(() => { const c = document.querySelector('canvas.th[data-picture="campfire"]'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); })()`);
   const tA2 = await thumb(); await wait(450); const tB2 = await thumb();
@@ -167,6 +170,47 @@ app.whenReady().then(async () => {
   await js(`document.querySelector(${JSON.stringify(MORE)}).click(); 1`);
   check('··· again closes it', await until(() => !mp.menu.visible, 2000));
   await wait(350);
+
+  // 3b. Idle (sheet 117 v3): the mouse away and the picture takes the window; lyrics from the ··· menu.
+  const idleNow = () => js(`(() => { const b = document.querySelector('.idle'), lyr = [...document.querySelectorAll('.ilyr > *')].map((e) => e.textContent);
+    return { idle: document.documentElement.classList.contains('idling'), op: Number(getComputedStyle(b).opacity), cover: b.classList.contains('cover'), lyrOn: b.classList.contains('lyr'), lyr, song: document.querySelector('.isong').textContent, head: getComputedStyle(document.querySelector('.ihead')).visibility, where: document.querySelector('.iwhere').textContent, hair: document.querySelector('.ihair i').style.width }; })()`);
+  const leave = () => js(`document.documentElement.dispatchEvent(new MouseEvent('mouseleave')); 1`);
+  const enter = () => js(`document.documentElement.dispatchEvent(new MouseEvent('mouseenter')); 1`);
+  await openMenu(); await wait(100);
+  await mjs(`document.querySelector('#pm button[data-lyrics]').click(); 1`);
+  await until(() => !mp.menu.visible, 2000); await wait(200);
+  check('Lyrics on from the menu: remembered, asked once for the song', JSON.parse(readFileSync(prefsFile, 'utf8')).lyrics === true && lyrAsks === 1, lyrAsks);
+  await leave(); await wait(1500);
+  check('not idle yet 1.5 s after the mouse left (3 s with lyrics on)', (await idleNow()).idle === false);
+  await until(async () => (await idleNow()).idle, 3000); await wait(600);
+  const i1 = await idleNow();
+  const n1 = Number(String(i1.lyr[1]).replace('line ', ''));
+  check('idle with the cover: whole beside its glow, the lyric playing now on its plate, the lines either side', i1.idle && i1.op > 0.95 && i1.cover && i1.lyrOn && /^line \d+$/.test(i1.lyr[1]) && i1.lyr[0] === 'line ' + (n1 - 1) && i1.lyr[2] === 'line ' + (n1 + 1) && i1.head === 'hidden', i1);
+  await pic('player-idle-cover-lyrics.png');
+  await enter(); await wait(550);
+  check('the mouse back: awake again, the keys showing', (await idleNow()).idle === false && (await idleNow()).op < 0.05);
+  await openMenu(); await wait(100);
+  await mjs(`document.querySelector('#pm button[data-picture="skate"]').click(); 1`);
+  await until(() => !mp.menu.visible, 2000); await wait(200);
+  await leave(); await until(async () => (await idleNow()).idle, 5000); await wait(600);
+  const wideScene = () => js(`(() => { const c = document.querySelector('.iscn'); return [c.width, c.height, Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(',')]; })()`);
+  const wA = await wideScene(); await wait(350); const wB = await wideScene();
+  check('idle with a scene: the WIDE scene (68 x 32), moving', !(await idleNow()).cover && wA[0] === 68 && wA[1] === 32 && wA[2] !== wB[2], wA.slice(0, 2));
+  await pic('player-idle-scene-lyrics.png');
+  await enter(); await wait(200);
+  await openMenu(); await wait(100);
+  await mjs(`document.querySelector('#pm button[data-lyrics]').click(); 1`);
+  await until(() => !mp.menu.visible, 2000); await wait(200);
+  await leave(); await wait(4000);
+  check('lyrics off: still awake 4 s after the mouse left (20 s now)', (await idleNow()).idle === false);
+  await until(async () => (await idleNow()).idle, 18000); await wait(600);
+  const i3 = await idleNow();
+  check('idle without lyrics: the song, where it plays, the time and the hairline', i3.idle && !i3.lyrOn && i3.head === 'visible' && i3.song === 'Maria También' && /SPOTIFY/.test(i3.where) && parseFloat(i3.hair) > 0, i3);
+  await pic('player-idle-scene.png');
+  await enter(); await wait(200);
+  await openMenu(); await wait(100);
+  await mjs(`document.querySelector('#pm button[data-picture="cover"]').click(); 1`);
+  await until(() => !mp.menu.visible, 2000); await wait(550);
 
   // 4. Shade: a double-click folds it on the spring, and back.
   const heights: number[] = [];

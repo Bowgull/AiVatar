@@ -30,6 +30,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 
 /* keys: a soft press (sheet 59 motion 3): sinks 2 px at once, springs back with a little bounce */
 .key{position:absolute;z-index:2;cursor:pointer}
+/* cockpit.css's plum .key (background, border, lip shadow, padding) must not show behind the pixel keycaps */
+.mp .key{background:none;border:0;border-radius:0;padding:0;box-shadow:none;text-shadow:none}
 .key > canvas{position:absolute;left:0;top:0}
 .key > .dn{visibility:hidden}
 .key.down > .up,.key.held > .up{visibility:hidden}
@@ -74,3 +76,44 @@ html.fam-through .key,html.fam-through .tkey,html.fam-through .grab,html.fam-thr
 .tags .dev canvas{display:inline-block;image-rendering:pixelated}
 .tags .dev b{font-weight:400;color:#ffc43c}
 .sub.note{color:#f0a070}
+
+/* Sheet 117 v3 (2026-11-01): idle. The picture takes the whole inside of the window (8 px in, the rim stays), the keys
+   fade under it; the mouse coming back fades it away again. Words are Figtree (readable, his rule), on soft shades. */
+.idle{position:absolute;z-index:6;border-radius:9px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .45s ease;background:#1a100a}
+html.idling .idle{opacity:1}
+.idle canvas{position:absolute;display:block}
+.idle .iscn{left:0;top:0;width:408px;height:192px;image-rendering:pixelated}
+.idle .iglow,.idle .icov{display:none}
+.idle.cover .iscn{display:none}
+.idle.cover .iglow{display:block;left:0;top:0;width:408px;height:192px}
+.idle.cover .icov{display:block;left:8px;top:8px;width:176px;height:176px;border-radius:8px;box-shadow:0 3px 14px rgba(0,0,0,.55)}
+.ishade{position:absolute;left:0;right:0;pointer-events:none}
+.ishade.top{top:0;height:64px;background:linear-gradient(to top,rgba(10,6,3,0),rgba(10,6,3,.62))}
+.ishade.bot{bottom:0;height:30px;background:linear-gradient(to bottom,rgba(10,6,3,0),rgba(10,6,3,.6))}
+.idle.cover .ishade{display:none}
+.iwords{position:absolute;left:12px;right:12px;top:6px;bottom:6px;display:flex;flex-direction:column;justify-content:space-between}
+.idle.cover .iwords{left:200px;right:14px;top:14px;bottom:12px;justify-content:flex-end;gap:8px}
+.ihead{display:flex;flex-direction:column;gap:3px;min-width:0;max-width:300px}
+.idle.cover .ihead{max-width:none}
+.isong{font:800 19px/1.15 Figtree,sans-serif;color:#fff3d8;text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iartist{font:600 14px/1.15 Figtree,sans-serif;color:#e8d6b4;text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itail{display:flex;flex-direction:column;gap:4px}
+.itimes{display:flex;justify-content:space-between}
+.itm{font:700 12px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#f3e2bc;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.ihair{height:3px;border-radius:2px;background:rgba(255,240,210,.25);overflow:hidden}
+.ihair i{display:block;height:100%;width:0;background:#ffc43c;box-shadow:0 0 6px rgba(255,190,60,.8)}
+.iwhere{position:absolute;right:12px;top:8px;font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#ffe6b0;text-shadow:0 1px 0 #000;background:rgba(20,12,6,.6);padding:3px 6px 2px;border-radius:5px;white-space:nowrap}
+.idle.cover .iwhere{right:auto;left:200px;top:12px}
+.idle .ibars{right:14px;top:28px}
+.idle.cover .ibars{top:12px}
+.idim{position:absolute;inset:0;background:rgba(10,6,3,.62);opacity:0;transition:opacity .4s ease}
+.idle.cover .idim{left:192px}
+.ilyr{position:absolute;left:0;right:0;top:36px;display:none;flex-direction:column;align-items:center;gap:9px;font:700 15px/1.2 Figtree,sans-serif;color:#d9ccb4;text-shadow:0 1px 2px #000;text-align:center;padding:0 14px}
+.idle.cover .ilyr{left:192px;top:30px}
+.ilyr b{font:800 21px/1.2 Figtree,sans-serif;color:#fff3d8;background:rgba(14,8,4,.82);padding:5px 12px 6px;border-radius:9px;box-shadow:0 0 0 2px rgba(255,196,60,.55);text-shadow:none;max-width:100%}
+.idle.cover .ilyr b{font-size:18px}
+.ilyr span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ilyr .quiet{font:700 16px Figtree,sans-serif;color:#e8d6b4;margin-top:34px}
+.idle.lyr .idim{opacity:1}
+.idle.lyr .ilyr{display:flex}
+.idle.lyr .ihead,.idle.lyr .ibars{visibility:hidden}
