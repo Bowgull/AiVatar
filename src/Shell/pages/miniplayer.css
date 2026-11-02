@@ -79,14 +79,15 @@ html.fam-through .key,html.fam-through .tkey,html.fam-through .grab,html.fam-thr
 
 /* Sheet 117 v3 (2026-11-01): idle. The picture takes the whole inside of the window (8 px in, the rim stays), the keys
    fade under it; the mouse coming back fades it away again. Words are Figtree (readable, his rule), on soft shades. */
-.idle{position:absolute;z-index:6;border-radius:9px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .45s ease;background:#1a100a}
+.idle{position:absolute;z-index:6;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .45s ease;background:#1a100a}
 html.idling .idle{opacity:1}
 .idle canvas{position:absolute;display:block}
+.idle .iring{left:0;top:0;pointer-events:none;z-index:3}
 .idle .iscn{left:0;top:0;width:408px;height:192px;image-rendering:pixelated}
 .idle .iglow,.idle .icov{display:none}
 .idle.cover .iscn{display:none}
 .idle.cover .iglow{display:block;left:0;top:0;width:408px;height:192px}
-.idle.cover .icov{display:block;left:8px;top:8px;width:176px;height:176px;border-radius:8px;box-shadow:0 3px 14px rgba(0,0,0,.55)}
+.idle.cover .icov{display:block;left:8px;top:8px;width:176px;height:176px}
 .ishade{position:absolute;left:0;right:0;pointer-events:none}
 .ishade.top{top:0;height:64px;background:linear-gradient(to top,rgba(10,6,3,0),rgba(10,6,3,.62))}
 .ishade.bot{bottom:0;height:30px;background:linear-gradient(to bottom,rgba(10,6,3,0),rgba(10,6,3,.6))}
@@ -113,13 +114,14 @@ html.idling .idle{opacity:1}
 .idle.cover .ilyr{left:192px}
 .ilyr .track{position:absolute;left:0;right:0;top:0;transition:transform .62s cubic-bezier(.25,1.15,.4,1)}
 .ilyr .track.now,.ilyr .track.now .ln{transition:none}
-.ilyr .ln{height:44px;display:flex;align-items:center;justify-content:center;padding:0 20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:700 19px/1 Figtree,sans-serif;color:#e6d6b8;opacity:.42;transform:scale(.92);transition:opacity .5s ease,transform .62s cubic-bezier(.25,1.15,.4,1),color .5s ease,text-shadow .5s ease;text-shadow:0 1px 2px rgba(0,0,0,.85)}
+/* a long line wraps onto a second row instead of being cut off (his note 2026-11-01: "truncated" beside the cover) */
+.ilyr .ln{min-height:44px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px 22px;white-space:normal;overflow-wrap:anywhere;font:700 19px/1.15 Figtree,sans-serif;color:#e6d6b8;opacity:.42;transform:scale(.92);transition:opacity .5s ease,transform .62s cubic-bezier(.25,1.15,.4,1),color .5s ease,text-shadow .5s ease;text-shadow:0 1px 2px rgba(0,0,0,.85)}
 .ilyr .ln.near{opacity:.62}
 .ilyr .ln.gap{letter-spacing:8px}
 .ilyr .ln.on{opacity:1;transform:scale(1.2);color:#ffd36a;font-weight:800;text-shadow:0 0 8px rgba(255,170,50,.6),0 0 22px rgba(255,150,40,.25),0 2px 2px rgba(0,0,0,.8)}
 /* beside a cover (sheet 118 v3, his pick X): the narrower strip keeps the smaller size */
-.idle.cover .ilyr .ln{height:36px;font-size:14px;padding:0 12px}
-.idle.cover .ilyr .ln.on{transform:scale(1.1)}
+.idle.cover .ilyr .ln{min-height:40px;font-size:16px;padding:4px 14px}
+.idle.cover .ilyr .ln.on{transform:scale(1.08)}
 .ilyr .quiet{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 16px;font:700 16px Figtree,sans-serif;color:#e8d6b4;text-shadow:0 1px 2px #000}
 .idle.lyr .idim{opacity:1}
 .idle.lyr .ilyr{display:flex}

@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
   let lyrAsks = 0;
   const mp = new MiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'playerpreload.cjs'), iconPath: path.join(HERE, '..', '..', 'assets', 'aang.ico'), prefsFile, onCmd: (c) => cmds.push(c), clampToScreen: false,
     // sheet 117: made-up timed lines, one every 5 s (never the real LRCLIB from a test)
-    lyrics: async () => { lyrAsks++; return { lines: Array.from({ length: 50 }, (_, i) => ({ t: i * 5, text: 'line ' + i })), instrumental: false, timed: true }; } });
+    lyrics: async () => { lyrAsks++; return { lines: Array.from({ length: 50 }, (_, i) => ({ t: i * 5, text: 'line ' + i + (i % 3 === 0 ? ' with a long tail of words that has to wrap onto a second row' : '') })), instrumental: false, timed: true }; } });
   const host = new FamilyHost({ origin: pages.origin });
   mp.family = host;
   const w = mp.open();
@@ -190,9 +190,13 @@ app.whenReady().then(async () => {
   check('not idle yet 1.5 s after the mouse left (3 s with lyrics on)', (await idleNow()).idle === false);
   await until(async () => (await idleNow()).idle, 3000); await wait(600);
   const i1 = await idleNow();
-  const n1 = Number(String(i1.lyr[1]).replace('line ', ''));
-  check('idle with the cover: whole beside its glow, the lyrics rolled to the line playing now (lit), the lines either side', i1.idle && i1.op > 0.95 && i1.cover && i1.lyrOn && /^line \d+$/.test(i1.lyr[1]) && i1.lyr[0] === 'line ' + (n1 - 1) && i1.lyr[2] === 'line ' + (n1 + 1) && i1.head === 'hidden', i1);
+  const num = (t: unknown) => Number(/^line (\d+)/.exec(String(t))?.[1] ?? NaN), n1 = num(i1.lyr[1]);
+  check('idle with the cover: whole beside its glow, the lyrics rolled to the line playing now (lit), the lines either side', i1.idle && i1.op > 0.95 && i1.cover && i1.lyrOn && n1 >= 0 && num(i1.lyr[0]) === n1 - 1 && num(i1.lyr[2]) === n1 + 1 && i1.head === 'hidden', i1);
   await pic('player-idle-cover-lyrics.png');
+  await wait(900);   // the roll settles (0.62 s spring)
+  const wrap = await js(`(() => { const l = [...document.querySelectorAll('.ilyr .ln')]; const longs = l.filter((e) => /long tail/.test(e.textContent)); const on = document.querySelector('.ilyr .ln.on'), r = on.getBoundingClientRect(), box = document.querySelector('.ilyr').getBoundingClientRect();
+    return { cut: l.filter((e) => e.scrollWidth > e.clientWidth + 1).length, twoRows: longs.every((e) => e.offsetHeight > 40), mid: Math.round(r.top + r.height / 2 - (box.top + box.height / 2)) }; })()`);
+  check('beside the cover a long line wraps onto two rows (never cut off), and the sung line sits in the middle', wrap.cut === 0 && wrap.twoRows && Math.abs(wrap.mid) <= 2, wrap);
   await enter(); await wait(550);
   check('the mouse back: awake again, the keys showing', (await idleNow()).idle === false && (await idleNow()).op < 0.05);
   await openMenu(); await wait(100);
