@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 117 - Player idle mode</title>
+<!-- Sheet 117 v2 (2026-11-01): he picked A, but no drift ("doesnt make sense to bounce up and down") and the lyrics were way too hard to read: Figtree, the picture dims, the lit line on its own dark plate.
+     Sheet 117 v1 (2026-11-01): his interview on the mini player's idle mode. Goes idle by itself after 20 s with no mouse
+     on it (no key). While idle: song + artist, time + a thin seek bar, the bars, where it's playing; a lyrics mode when
+     lyrics are on (over the art, karaoke, switched on in the ··· menu). Scenes drift slowly when big. He asked to SEE the
+     size options: A same size art fills, B grows to a square, C same size picture grows on the left. The frame is the
+     real player (a render of the live page, nine-sliced), the scenes are the player's own scenes.js, drawn at whole
+     pixel scales. The lyric lines are made up (placeholder words, not the song's). Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  @font-face{font-family:"VT323";src:url("sheet-117/VT323.ttf") format("truetype");font-display:block}
+  @font-face{font-family:"Silkscreen";src:url("sheet-117/Silkscreen-Regular.woff2") format("woff2");font-display:block}
+  .row{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;margin:18px 0 8px}
+  .opt{display:flex;flex-direction:column;gap:10px}
+  .opt[hidden]{display:none}
+  .opt h2{font:800 18px Figtree,sans-serif;color:#fffaf0;margin:0}
+  .opt p{font:500 15px/1.45 Figtree,sans-serif;color:#d8cab0;margin:0;max-width:430px}
+  .mp{position:relative;width:424px;border-radius:14px;overflow:hidden;cursor:default}
+  .mp canvas.frame{display:block}
+  .mp img.awake{position:absolute;left:0;top:0;opacity:0;transition:opacity .45s ease;pointer-events:none}
+  .mp.wake img.awake{opacity:1}
+  .mp.wake .ov{opacity:0}
+  .ov{position:absolute;transition:opacity .45s ease;pointer-events:none}
+  .song{font:400 26px/1 VT323,monospace;color:#ffd36a;text-shadow:0 0 6px rgba(255,170,50,.55),0 2px 0 rgba(0,0,0,.8);white-space:nowrap}
+  .artist{font:400 20px/1 VT323,monospace;color:#e9b660;text-shadow:0 2px 0 rgba(0,0,0,.8);white-space:nowrap}
+  .where{font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#ffe6b0;text-shadow:0 1px 0 #000;background:rgba(20,12,6,.55);padding:3px 6px 2px;border-radius:5px}
+  .tm{font:700 12px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#f3e2bc;text-shadow:0 1px 0 rgba(0,0,0,.8)}
+  .hair{height:3px;border-radius:2px;background:rgba(255,240,210,.22);overflow:hidden}
+  .hair i{display:block;height:100%;background:#ffc43c;box-shadow:0 0 6px rgba(255,190,60,.8)}
+  .shade{background:linear-gradient(to bottom,rgba(10,6,3,0),rgba(10,6,3,.78) 55%)}
+  .lyr{display:flex;flex-direction:column;align-items:center;gap:9px;font:700 15px/1.2 Figtree,sans-serif;color:#d9ccb4;text-shadow:0 1px 2px #000;text-align:center}
+  .lyr b{font:800 21px/1.2 Figtree,sans-serif;color:#fff3d8;background:rgba(14,8,4,.82);padding:5px 12px 6px;border-radius:9px;box-shadow:0 0 0 2px rgba(255,196,60,.55);text-shadow:none}
+  .dim{background:rgba(10,6,3,.62);transition:opacity .4s ease}
+  .lyr{transition:transform .5s cubic-bezier(.3,1.3,.5,1)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 0}
+  .bar span{font:700 14px Figtree,sans-serif;color:#bfae8a}
+  .pill{font:700 14px Figtree,sans-serif;color:#2a1c00;background:#e9dcc0;border:0;border-radius:9px;padding:7px 13px;cursor:pointer}
+  .pill.on{background:#ffc43c;box-shadow:0 0 8px rgba(255,190,60,.6)}
+  .right{position:absolute;left:198px;right:16px;top:20px;bottom:16px;display:flex;flex-direction:column;gap:8px}
+</style>
+</head>
+<body>
+<h1>SHEET 117 &middot; PLAYER IDLE MODE</h1>
+<p class="real">v2 &middot; 1 Nov &middot; A picked: the picture sits still, lyrics you can read</p>
+<p class="lead">Leave the mouse off the player for 20 seconds and it goes idle: the picture grows, the keys fade, and the song, time, bars and where it's playing stay. <b>Hover the player to wake it.</b> The picture holds still, a scene or an album cover, filling the window. Lyrics are switched on from the ··· menu: the picture dims and the words sit over it.</p>
+
+<div class="bar">
+  <span>Picture:</span>
+  <button class="pill on" data-sc="fishing">Pigeon Point</button>
+  <button class="pill" data-sc="campfire">Algonquin</button>
+  <button class="pill" data-sc="skate">Dem Streez</button>
+  <button class="pill" data-sc="rain">Main Character</button>
+  <span style="margin-left:18px">Lyrics:</span>
+  <button class="pill" id="lyrBtn">Off</button>
+</div>
+
+<div class="row">
+  <div class="opt">
+    <h2>A &middot; Same size, the picture fills it</h2>
+    <div class="mp" id="A"></div>
+    <p>Nothing moves on your desktop and snapped windows stay put. The picture fills the whole window and holds still; an album cover fills it the same way, cropped to its middle.</p>
+  </div>
+  <div class="opt" hidden>
+    <h2>C &middot; Same size, the picture grows on the left</h2>
+    <div class="mp" id="C"></div>
+    <p>Same window. The small picture grows to the full height and the keys and sliders fade away. You see the whole picture without any cropping, and the words get more room.</p>
+  </div>
+</div>
+<div class="row">
+  <div class="opt" hidden>
+    <h2>B &middot; Grows into a big square</h2>
+    <div class="mp" id="B"></div>
+    <p>The window grows down into a square and shows the whole scene big. Windows snapped below it slide down. It shrinks back when you wake it.</p>
+  </div>
+</div>
+
+<script type="module">
+import * as S from './sheet-117/scenes.js';
+const awake = new Image(); awake.src = 'sheet-117/awake.png'; await awake.decode();
+let scene = 'fishing', lyricsOn = false, frame = 0;
+const W = 424, IN = 8;                    // the wood rim, measured from the live player
+const DUR = 241, START = 106;             // 4:01, from 1:46
+const LINES = ['(first line of the song)', 'the words light up in time', 'one line at a time, karaoke', 'the next line waits below', '(and so on to the end)'];
+
+// one 34 x 34 scene frame, drawn by the player's own scenes.js
+const sc = document.createElement('canvas'); sc.width = S.SW; sc.height = S.SH;
+function drawScene() {
+  const g = sc.getContext('2d'), im = g.createImageData(S.SW, S.SH), d = im.data;
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  S[scene](frame % 8, frame, 'mustard')((x, y, c) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= S.SW || y >= S.SH || !c) return; const v = Array.isArray(c) ? c : hex(c); const i = (y * S.SW + x) * 4; d[i] = v[0]; d[i + 1] = v[1]; d[i + 2] = v[2]; d[i + 3] = 255; });
+  g.putImageData(im, 0, 0);
+}
+// the real frame, nine-sliced to any height (the wood grain runs up and down, so it stretches cleanly)
+function frameTo(c, h) {
+  c.width = W; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const b = 30; g.drawImage(awake, 0, 0, W, b, 0, 0, W, b); g.drawImage(awake, 0, 208 - b, W, b, 0, h - b, W, b);
+  g.drawImage(awake, 0, b, W, 208 - 2 * b, 0, b, W, h - 2 * b);
+}
+function well(g, x, y, w, h, r) {
+  g.save(); g.beginPath(); g.roundRect(x - 2, y - 2, w + 4, h + 4, r + 2); g.fillStyle = '#1a100a'; g.fill(); g.restore();
+  g.beginPath(); g.roundRect(x, y, w, h, r); g.clip();
+}
+function bars(n, bw, h) {
+  const c = document.createElement('canvas'); c.width = n * (bw + 2); c.height = h; c.className = 'ov';
+  c.tick = () => { const g = c.getContext('2d'); g.clearRect(0, 0, c.width, h);
+    for (let i = 0; i < n; i++) { const v = Math.max(2, Math.round((0.35 + 0.65 * Math.abs(Math.sin(frame * 0.21 + i * 1.7) * Math.cos(frame * 0.07 + i))) * h / 2) * 2);
+      for (let y = h - v; y < h; y += 2) { g.fillStyle = y < h - v + 2 ? '#fff3d8' : y < h * 0.4 ? '#ff8040' : y < h * 0.7 ? '#ffc43c' : '#f0a64a'; g.fillRect(i * (bw + 2), y, bw, 1); } } };
+  return c;
+}
+const el = (tag, cls, txt, css) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; if (css) e.style.cssText = css; return e; };
+function words(root, { x, bottom, w }) {
+  const box = el('div', 'ov', null, `left:${x}px;bottom:${bottom}px;width:${w}px;display:flex;flex-direction:column;gap:5px`);
+  const top = el('div', null, null, 'display:flex;justify-content:space-between;align-items:flex-end;gap:10px');
+  const left = el('div', null, null, 'display:flex;flex-direction:column;gap:4px;min-width:0');
+  left.append(el('div', 'song', 'Con Todo El Mundo'), el('div', 'artist', 'Khruangbin'));
+  top.append(left); box.append(top);
+  const hair = el('div', 'hair'); const fill = el('i'); hair.append(fill);
+  const times = el('div', null, null, 'display:flex;justify-content:space-between');
+  const tPos = el('span', 'tm'), tLen = el('span', 'tm', '4:01'); times.append(tPos, tLen);
+  box.append(hair, times); root.append(box);
+  return { box, top, fill, tPos };
+}
+function lyrics(root, css) { const l = el('div', 'ov lyr', null, css); root.append(l); return l; }
+
+const opts = [];
+function build(id, h, layout) {
+  const root = document.getElementById(id), c = el('canvas', 'frame'); root.append(c);
+  const im = awake.cloneNode(); im.className = 'awake'; root.append(im);
+  root.addEventListener('pointerenter', () => id !== 'B' && root.classList.add('wake'));
+  root.addEventListener('pointerleave', () => root.classList.remove('wake'));
+  const o = { root, c, h, layout }; layout(o); opts.push(o);
+}
+// A: the scene fills the inside at 12x, drifting up and down
+build('A', 208, (o) => {
+  o.paint = (g, t) => { const iw = W - 2 * IN, ih = o.h - 2 * IN, k = 12, sh = S.SH * k;
+    const off = Math.round((sh - ih) * 0.6);   // v2: still (his note: no bouncing), a fixed crop on the middle where the scene's life is
+    well(g, IN, IN, iw, ih, 9); g.drawImage(sc, IN + Math.round((iw - S.SW * k) / 2), IN - off, S.SW * k, sh);
+    g.fillStyle = 'rgba(0,0,0,0)'; };
+  o.root.append(el('div', 'ov shade', null, `left:${IN}px;right:${IN}px;bottom:${IN}px;height:96px;border-radius:0 0 9px 9px`));
+  o.w = words(o.root, { x: 22, bottom: 16, w: W - 44 });
+  o.where = el('span', 'ov where', 'PC · SPOTIFY', 'left:20px;top:18px'); o.root.append(o.where);
+  o.bars = bars(10, 4, 22); o.bars.style.cssText += 'right:22px;top:18px'; o.root.append(o.bars);
+  o.dim = el('div', 'ov dim', null, `left:${IN}px;right:${IN}px;top:${IN}px;bottom:${IN}px;border-radius:9px`); o.root.insertBefore(o.dim, o.root.querySelector('.shade'));
+  o.lyr = lyrics(o.root, `left:${IN}px;right:${IN}px;top:30px`);
+});
+// C: the picture grows to the full height on the left (5x, no cropping), the words take the right
+build('C', 208, (o) => {
+  const k = 5, s = S.SW * k, x = IN + 6, y = Math.round((o.h - s) / 2);
+  o.paint = (g) => { well(g, x, y, s, s, 8); g.drawImage(sc, x, y, s, s); };
+  const r = el('div', 'ov right'); o.root.append(r);
+  o.lx = x + s + 10;
+  r.style.left = o.lx + 12 + 'px'; r.style.right = IN + 18 + 'px'; r.style.top = IN + 16 + 'px'; r.style.bottom = IN + 16 + 'px';
+  o.where = el('span', 'where', 'PC · SPOTIFY', 'align-self:flex-start'); r.append(o.where);
+  o.bars = bars(12, 4, 26); o.bars.style.position = 'static'; o.bars.classList.remove('ov'); r.append(o.bars);
+  o.w = words(r, { x: 0, bottom: 0, w: 192 }); o.w.box.style.position = 'absolute';
+  o.lyr = lyrics(o.root, `left:${o.lx + 6}px;right:${IN + 12}px;top:${IN + 34}px;font-size:16px;background:none`);   // C: the lyrics take the screen, the bars step aside
+  o.lyr.dataset.small = '1';
+  o.bg = true;
+});
+// B: the window grows to a square; the whole scene at 12x
+build('B', W, (o) => {
+  const k = 12, s = S.SW * k, x = Math.round((W - s) / 2), y = x;
+  o.paint = (g, t) => { const dx = Math.round(3 * Math.sin(t / 9000 * Math.PI * 2)); well(g, x, y, s, s, 10); g.drawImage(sc, x + dx - 3, y - 3, s + 6, s + 6); };
+  o.root.append(el('div', 'ov shade', null, `left:${x}px;right:${x}px;bottom:${y}px;height:120px;border-radius:0 0 10px 10px`));
+  o.w = words(o.root, { x: x + 14, bottom: y + 12, w: s - 28 });
+  o.where = el('span', 'ov where', 'PC · SPOTIFY', `left:${x + 12}px;top:${y + 12}px`); o.root.append(o.where);
+  o.bars = bars(14, 4, 26); o.bars.style.cssText += `right:${x + 14}px;top:${y + 12}px`; o.root.append(o.bars);
+  o.lyr = lyrics(o.root, `left:${x}px;right:${x}px;top:${y + 110}px`);
+});
+
+function paintLyrics(o, t) {
+  o.lyr.style.display = lyricsOn ? 'flex' : 'none';
+  if (!lyricsOn) return;
+  const i = Math.floor(t / 2600) % LINES.length, small = o.lyr.dataset.small;
+  o.lyr.replaceChildren(...[-1, 0, 1].map((d) => { const s = LINES[(i + d + LINES.length) % LINES.length]; return d === 0 ? el('b', null, s, small ? 'font-size:19px' : '') : el('span', null, s); }));
+}
+document.querySelectorAll('[data-sc]').forEach((b) => b.onclick = () => { scene = b.dataset.sc; document.querySelectorAll('[data-sc]').forEach((x) => x.classList.toggle('on', x === b)); });
+const lb = document.getElementById('lyrBtn'); lb.onclick = () => { lyricsOn = !lyricsOn; lb.textContent = lyricsOn ? 'On' : 'Off'; lb.classList.toggle('on', lyricsOn); };
+
+const t0 = performance.now(); let last = 0;
+function loop(now) {
+  const t = now - t0;
+  if (now - last >= 100) { last = now; frame++; drawScene(); for (const o of opts) o.bars.tick(); }
+  const pos = (START + t / 1000) % DUR, mm = `${Math.floor(pos / 60)}:${String(Math.floor(pos % 60)).padStart(2, '0')}`;
+  for (const o of opts) {
+    frameTo(o.c, o.h); const g = o.c.getContext('2d'); g.imageSmoothingEnabled = false;
+    if (o.bg) {   // C: the keys and sliders gone, the wood's own body (sampled from the rim, so it stays the same wood), then the amber screen
+      g.save(); g.drawImage(awake, 2, 10, 6, 188, IN, IN, W - 2 * IN, o.h - 2 * IN);
+      const lx = o.lx, ly = IN + 6, lw = W - IN - 6 - lx, lh = o.h - 2 * IN - 12;
+      g.beginPath(); g.roundRect(lx - 2, ly - 2, lw + 4, lh + 4, 10); g.fillStyle = '#2c1c10'; g.fill();
+      g.beginPath(); g.roundRect(lx, ly, lw, lh, 8); const gr = g.createLinearGradient(0, ly, 0, ly + lh); gr.addColorStop(0, '#20140b'); gr.addColorStop(1, '#150c06'); g.fillStyle = gr; g.fill();
+      g.fillStyle = 'rgba(0,0,0,.22)'; for (let y = ly; y < ly + lh; y += 2) g.fillRect(lx, y, lw, 1);
+      g.restore(); }
+    g.save(); o.paint(g, t); g.restore();
+    o.w.fill.style.width = (pos / DUR * 100).toFixed(2) + '%'; o.w.tPos.textContent = mm;
+    paintLyrics(o, t);
+    if (o.dim) o.dim.style.opacity = lyricsOn ? '1' : '0';
+    if (o.bg) o.bars.style.visibility = lyricsOn ? 'hidden' : 'visible';
+    o.w.top.style.opacity = lyricsOn && !o.lyr.dataset.small ? '.0' : '1';
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
