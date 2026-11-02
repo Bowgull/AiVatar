@@ -602,11 +602,18 @@ export class Core {
       },
       markOutside: () => { this.tainted = true; },
       quotaGate: async (tool, input) => (await this.askQuota(tool, input)) ? null : this.whyNot(),
-      browse: (a) => this.browse(a),
+      browse: async (a) => {
+        // The loop catcher (Shell loopcatch.ts): its warning rides on the answer, whatever the action prints.
+        const r = await this.browse(a);
+        const loop = this.loopSaid; this.loopSaid = null;
+        return loop ? { ...r, text: `${loop}\n${r.text}` } : r;
+      },
     };
   }
 
   // ------------------------------------------------------------------ 6.25a: Aang drives his browser
+  /** A loop warning from the browser's last step, told with this browse answer. */
+  private loopSaid: string | null = null;
   private drivePending = new Map<number, { resolve: (m: Record<string, unknown>) => void; timer: NodeJS.Timeout }>();
   private driveSeq = 0;
   /** This turn's job (one trail in his drawer), and the links the pages it read offered. */
@@ -4392,6 +4399,7 @@ export class Core {
       }
       case 'drive.result': {
         const p = this.drivePending.get(Number(m.id));
+        if (typeof m.loop === 'string') this.loopSaid = m.loop;
         if (p) { clearTimeout(p.timer); this.drivePending.delete(Number(m.id)); p.resolve(m as unknown as Record<string, unknown>); }
         break;
       }

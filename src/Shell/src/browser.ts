@@ -54,6 +54,8 @@ import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.t
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
+import { LOOP_STOP, LOOP_WARN, LoopCatch } from './loopcatch.ts';
+import { declineCookies } from './cookiedecline.ts';
 import { FORM_EVERY_MS, FORM_GRAB_JS, GONE_MS, cleanForm, formFillJs, hasTyping, placeName, readKept, sameName, writeKept, type KeptField, type KeptForm, type KeptJob } from './claudekeep.ts';
 import { HELD_OPS, NEW_CHAT_MAX, cardRows, cleanWhy, newChatLink, newPass, noteDid, pickText, reportLines, reportOf, type Chat, type Hand, type HandReport } from './askclaude.ts';
 import { pastSearches, searchQueryOf, topSites } from './recall.ts';
@@ -855,6 +857,8 @@ export class AangBrowser {
   private tabPasses = new Map<string, { tab: number; until: number }>();
   /** 6.25a: the pages Aang (and Claude sessions) drive, in hidden windows of their own. */
   readonly driver: Driver;
+  /** Driving sessions stuck repeating one step (loopcatch.ts). */
+  private loops = new LoopCatch();
   /** Set by main: he pressed STOP on a job, so the brain stops that turn. */
   onDriverStop: ((j: Job) => void) | null = null;
   /**
@@ -2676,6 +2680,7 @@ export class AangBrowser {
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
     this.nameFor(wc);
+    if (!tab.internal) declineCookies(wc);                                         // cookiedecline.ts: banners rejected by themselves
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
     // A middle click or Ctrl+click opens it behind, the way every browser does.
     // "Block popups" (on unless he turns it off): a page opening a new WINDOW by itself is refused; a link he
@@ -6230,7 +6235,16 @@ export class AangBrowser {
       if (op === 'yourturn') out = await this.yourTurn(pg, String(a?.why ?? ''));
       else { const r = this.handEnd(pg, ''); out = r ? { ok: true, report: r } : { ok: true, none: true }; }
       if (out.report) out = { ...out, report: reportLines(out.report as HandReport) };
-    } else out = await this.driveStep(op, a);
+    } else {
+      // The loop catcher (loopcatch.ts): a step stopped for looping is refused before it runs.
+      const was = Number.isInteger(Number(a?.job)) && a?.job !== undefined ? Number(a.job) : this.driver.page(pg)?.job;
+      const stopped = this.loops.before(was, op, a);
+      out = stopped ? { ok: false, error: stopped } : await this.driveStep(op, a);
+      const loop = stopped ? null : this.loops.after(was, op, a, out);
+      if (loop === 'warn') out = { ...out, loop: LOOP_WARN };
+      if (loop === 'stop') { out = { ...out, ok: false, error: LOOP_STOP }; console.log(`shell: driver: job ${was} looped on ${op} twice; that step is refused now`); }
+      if (op === 'finish' && was !== undefined) this.loops.end(was);
+    }
     // He handed back while nobody waited: the session hears it with its next step.
     const job = Number.isInteger(Number(a?.job)) && a?.job !== undefined ? Number(a.job) : this.driver.page(pg)?.job;
     for (const [page, t] of this.handTold) {

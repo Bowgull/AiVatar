@@ -23,6 +23,7 @@ import { blockAds, guardRequests } from './skip/ads.ts';
 import { existsSync, statSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import { sched } from './sched.ts';
+import { declineCookies } from './cookiedecline.ts';
 export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
@@ -715,7 +716,7 @@ export class Driver {
     // Hidden pages paint slowly (2 a second): offscreen painting is all CPU, and twelve pages at 10 slowed his MacBook
     // (2026-10-14). The one he is watching paints at 10 (see) .
     const wc = tab ? tab.wc : win!.webContents;
-    if (win) wc.setFrameRate(2);
+    if (win) { wc.setFrameRate(2); declineCookies(wc); }                         // a tab got it as a tab already
     wc.setAudioMuted(true);
     const p: DPage = { id: o.id ?? ++this.pageSeq, job: j.id, win, wc, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
     this.pageSeq = Math.max(this.pageSeq, p.id);
