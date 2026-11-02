@@ -29,7 +29,7 @@ export function checkPlayerCmd(m: unknown): PlayerCmd | null {
  * picture spot (the album cover, or one of the four looping scenes); `bars` is the dancing bars on the screen, on or off.
  * Folded or not, and where he left it. An old file (vis + scene) is read into the new two.
  */
-export interface PlayerPrefs { picture: string; bars: boolean; shade: boolean; x?: number; y?: number }
+export interface PlayerPrefs { picture: string; bars: boolean; shade: boolean; lyrics: boolean; x?: number; y?: number }
 export const SCENES = new Set(['campfire', 'skate', 'rain', 'fishing']);
 export const PICTURES = new Set(['cover', ...SCENES]);
 export function readPrefs(raw: unknown): PlayerPrefs {
@@ -37,7 +37,8 @@ export function readPrefs(raw: unknown): PlayerPrefs {
   const pic = typeof o.picture === 'string' && PICTURES.has(o.picture) ? o.picture
     : o.vis === 'scene' && typeof o.scene === 'string' && SCENES.has(o.scene) ? o.scene : 'cover';
   const bars = typeof o.bars === 'boolean' ? o.bars : o.vis !== 'off';
-  const p: PlayerPrefs = { picture: pic, bars, shade: o.shade === true };
+  // lyrics (sheet 117, 2026-11-01): switched on in the ··· menu; shown over the big picture when it goes idle
+  const p: PlayerPrefs = { picture: pic, bars, shade: o.shade === true, lyrics: o.lyrics === true };
   if (Number.isFinite(o.x) && Number.isFinite(o.y)) { p.x = Math.round(o.x as number); p.y = Math.round(o.y as number); }
   return p;
 }

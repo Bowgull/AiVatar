@@ -86,12 +86,14 @@ test('the keys: only the seven ops, numbers in range, rebuilt clean', () => {
 test('the picture and the bars: his names; what it remembers is read back safely, old VIS files too', () => {
   assert.deepEqual(PICTURES.map((p) => p.name), ['Album cover', 'Algonquin', 'Dem Streez', 'Main Character', 'Pigeon Point']);
   assert.equal(pictureName('skate'), 'Dem Streez'); assert.equal(pictureName('junk'), 'Album cover');
-  assert.deepEqual(readPrefs({ picture: 'rain', bars: false, shade: true, x: 10.4, y: 20 }), { picture: 'rain', bars: false, shade: true, x: 10, y: 20 });
-  assert.deepEqual(readPrefs({ picture: '../evil', bars: 'yes', shade: 'yes', x: 'a' }), { picture: 'cover', bars: true, shade: false });
-  assert.deepEqual(readPrefs(null), { picture: 'cover', bars: true, shade: false });
+  assert.deepEqual(readPrefs({ picture: 'rain', bars: false, shade: true, x: 10.4, y: 20 }), { picture: 'rain', bars: false, shade: true, lyrics: false, x: 10, y: 20 });
+  assert.deepEqual(readPrefs({ picture: '../evil', bars: 'yes', shade: 'yes', x: 'a' }), { picture: 'cover', bars: true, shade: false, lyrics: false });
+  assert.deepEqual(readPrefs(null), { picture: 'cover', bars: true, shade: false, lyrics: false });
   // an old file: SCENE kept its scene, OFF meant no bars
-  assert.deepEqual(readPrefs({ vis: 'scene', scene: 'fishing' }), { picture: 'fishing', bars: true, shade: false });
-  assert.deepEqual(readPrefs({ vis: 'off', scene: 'rain' }), { picture: 'cover', bars: false, shade: false });
+  assert.deepEqual(readPrefs({ vis: 'scene', scene: 'fishing' }), { picture: 'fishing', bars: true, shade: false, lyrics: false });
+  assert.deepEqual(readPrefs({ vis: 'off', scene: 'rain' }), { picture: 'cover', bars: false, shade: false, lyrics: false });
+  assert.equal(readPrefs({ lyrics: true }).lyrics, true);   // sheet 117: the ··· menu's Lyrics, remembered
+  assert.equal(readPrefs({ lyrics: 'yes' }).lyrics, false);
 });
 
 test('marquee: rests 1.5 s, then 1 px every 60 ms, only when too long; springs settle; peaks hang then fall', () => {

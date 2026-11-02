@@ -1060,6 +1060,21 @@
       "at": "2026-11-01T18:36:00-05:00",
       "text": "Clicking the Satchel's tab opens it again, every time.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-01T20:00:00-05:00",
+      "text": "The music player goes idle when you leave it: the picture fills the window, your scenes painted wide, album covers whole with their own glow.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T20:00:00-05:00",
+      "text": "Lyrics in the music player, timed line by line. Turn them on in its ··· menu.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-01T20:00:00-05:00",
+      "text": "The music player's keys sit level again, with no purple edges.",
+      "kind": "fix"
     }
   ]
 }
