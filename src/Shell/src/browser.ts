@@ -99,6 +99,7 @@ import { blockAds, guardRequests, privacyHooks, type AdBlock } from './skip/ads.
 import { CookieWall, cleanLink, cookieHeaders, guardPrivacy } from './privacy.ts';
 import { createRequire } from 'node:module';
 import { pageMenuItems, sendKindFor } from './sendtoaang.ts';
+import { WATCH_CSS, WATCH_HOSTS } from './watchmode.ts';
 
 /**
  * Dark mode for web pages (X, his "Dark Reader is a must", 2026-10-14): Dark Reader's own engine (darkreader 4.9.133,
@@ -2814,7 +2815,12 @@ export class AangBrowser {
       if (isWeb(x.url)) void this.veilUp(tab);
       this.sendTabs();
     });
-    on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
+    on('dom-ready', () => {
+      this.paintDark(tab);
+      // Watch mode's look (watchmode.ts): the tab's own script turns it on with the site's theater mode.
+      try { if (WATCH_HOSTS.test(new URL(wc.getURL()).hostname)) void wc.insertCSS(WATCH_CSS).catch(() => {}); } catch { /* not a page */ }
+      if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); }
+    });
     on('did-navigate', (_e, u, status) => {
       if (/^https:\/\/(www\.)?netflix\.com(:\d+)?\/watch\//i.test(u)) this.watchPlays(tab, u);
       if (STREMIO_WEB.test(u)) { void startStremio(); this.stremioMoved(tab, u); }
