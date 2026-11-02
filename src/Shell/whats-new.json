@@ -1097,12 +1097,12 @@
       "kind": "fix"
     },
     {
-      "at": "2026-11-02T01:35:00-05:00",
+      "at": "2026-11-01T20:33:00-05:00",
       "text": "Idle mode has its own switch in the music player's ··· menu.",
       "kind": "feature"
     },
     {
-      "at": "2026-11-02T01:35:00-05:00",
+      "at": "2026-11-01T20:33:00-05:00",
       "text": "Songs playing on another device (your phone, the Mac) keep true time in the player, so lyrics follow them.",
       "kind": "fix"
     }
