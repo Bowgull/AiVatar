@@ -193,8 +193,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 @keyframes vpulse{0%{box-shadow:0 0 0 0 rgba(255,196,60,.65)}70%{box-shadow:0 0 0 8px rgba(255,196,60,0)}100%{box-shadow:0 0 0 0 rgba(255,196,60,0)}}
 @media (prefers-reduced-motion:reduce){.slot .vkey.pulse{animation:none}}
 /* His window buttons, B (2026-10-12): bold gold pixel symbols on the wood, a soft glow on hover, red for close. */
-.winkeys{position:absolute;right:10px;top:0;height:100%;display:flex;align-items:center;gap:4px;-webkit-app-region:no-drag}
-.wk{width:40px;height:34px;display:grid;place-items:center;padding:0;border:none;border-radius:8px;background:none;cursor:pointer}
+/* 2026-11-02 (his report: wood around the buttons that would not drag): only the buttons themselves are keys; the wood
+   around and between them carries the window and double-clicks like the rest of the band. */
+.winkeys{position:absolute;right:10px;top:0;height:100%;display:flex;align-items:center;gap:4px;-webkit-app-region:drag}
+.wk{width:40px;height:34px;display:grid;place-items:center;padding:0;border:none;border-radius:8px;background:none;cursor:pointer;-webkit-app-region:no-drag}
 .wk svg path{fill:var(--gold-lit)}
 .wk:hover{background:rgba(255,224,150,.12)}
 .wk.close:hover{background:rgba(255,90,74,.85)}

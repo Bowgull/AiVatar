@@ -263,7 +263,7 @@ function paintStash() {
   }));
 }
 /** What on the band is not its wood: its keys, the address, its menus and asks. */
-const BAND_KEYS = 'button, input, .slot, .winkeys, .menu, .suggest, .bandchip, .dltray, .rnd';
+const BAND_KEYS = 'button, input, .slot, .menu, .suggest, .bandchip, .dltray, .rnd';
 // His own window buttons. Double-clicking the band still maximises (Windows does that for the drag area).
 el('wmin').addEventListener('click', () => window.aang?.browserAct?.('winmin'));
 el('wmax').addEventListener('click', () => window.aang?.browserAct?.('winmax'));
