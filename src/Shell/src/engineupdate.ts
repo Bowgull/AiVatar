@@ -130,7 +130,9 @@ export class EngineUpdates {
     return true;
   }
   /** Check for updates now (Samara's ... menu): what was put away comes back, and a look right now. */
-  async checkNow(): Promise<void> { try { unlinkSync(this.filedFile()); } catch { /* none */ } await this.check(); }
+  async checkNow(): Promise<void> { try { unlinkSync(this.filedFile()); } catch { /* none */ } this.denied.clear(); await this.check(); }
+  /** castLabs said no to signing these engines: not asked again until the time here. */
+  private denied = new Map<string, number>();
 
   /** Ten minutes after start, then once a day (the scheduler; held through a call or a game, then run). */
   start(): void {
@@ -204,6 +206,10 @@ export class EngineUpdates {
       if (!found || this.failed().has(found.m.version) || this.filed().has(found.m.version)) { if (this.ready) this.set(null); return; }
       const { m, asset } = found, v = m.version;
       if (this.ready?.version === v && !this.signin) return;
+      // 2026-11-02 (his report: the PC lagged right after Samara opened): castLabs refusing to sign this engine was
+      // tried again on every check and nudge, each time rewriting the engine's switches and hashing it whole. A refusal
+      // waits a day now; his own "Check for updates" tries straight away.
+      if ((this.denied.get(v) ?? 0) > Date.now()) return;
       const stable = await chromeStable(fetch as never);
       this.behind = stable.length ? `Your engine today is ${behindWords(behindMs(process.versions.chrome, stable))} behind Chrome's security fixes. This one is ${behindWords(behindMs(m.chrome, stable))} behind.` : '';
       // Never when the logins here are already locked: an engine as castLabs shipped it cannot read them, and they
@@ -222,7 +228,9 @@ export class EngineUpdates {
         await this.unzip(zip, 'castlabs-' + v);
       }
       this.pendingMajor = v.split('.')[0] !== cur.split('.')[0];
-      if ((await this.switchesAndSign(v)) !== 'ok') return;
+      const signed = await this.switchesAndSign(v);
+      if (signed === 'denied') this.denied.set(v, Date.now() + DAY);
+      if (signed !== 'ok') return;
       if (!(await this.test(v))) return;
       this.set({ version: v, since: Date.parse(m.published) || Date.now(), castlabs: true, major: this.pendingMajor, fixed: true });
       console.log(`shell: castLabs engine ${v} is ready; the update key is showing`);

@@ -1135,6 +1135,16 @@
       "at": "2026-11-01T21:23:00-05:00",
       "text": "The music player's idle picture sits in the wood like its screen does: pixel corners and a sunken rim.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-02T06:10:00-05:00",
+      "text": "The wood around the minimise, maximise and close buttons drags the window and double-clicks to full size, like the rest of the top bar.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-02T06:10:00-05:00",
+      "text": "Samara stops retrying an engine update castLabs won't sign every few minutes, which slowed the PC right after Samara opened.",
+      "kind": "fix"
     }
   ]
 }
