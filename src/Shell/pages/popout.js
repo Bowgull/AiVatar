@@ -234,19 +234,22 @@ player.onUpdate = st => { paintControls(st); reportPlayback(st); };
 // something.
 let fadeTimer = null;
 let fadingAllowed = true;
+// A tab from Samara (2026-11-02): the main process says when the mouse is over the window ('in'), gone ('out'), or the
+// window is fullscreen. While it is over, the wood stays, so the picture never resizes under his hand.
+let hovering = false, full = false;
 
 function showChrome() {
-  if (pinned) return;
+  if (pinned || full) return;
   frame.classList.remove('faded');
   if (fadeTimer) clearTimeout(fadeTimer);
-  if (!fadingAllowed || !player.state.playing) return;
+  if (!fadingAllowed || !player.state.playing || hovering) return;
   fadeTimer = setTimeout(() => frame.classList.add('faded'), 2000);
 }
 
 for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown']) {
   window.addEventListener(ev, showChrome, { passive: true });
 }
-window.addEventListener('pointerleave', () => { if (fadingAllowed && player.state.playing) frame.classList.add('faded'); });
+window.addEventListener('pointerleave', () => { if (!hovering && fadingAllowed && player.state.playing) frame.classList.add('faded'); });
 
 window.aang.onPopoutSettings(s => {
   fadingAllowed = s.fadeControls !== false;
@@ -285,7 +288,13 @@ frame.addEventListener('transitionend', sayStage);
 // The controls fading in or out changes the picture area at once: say so then, not only when a size is noticed.
 new MutationObserver(() => setTimeout(sayStage, 0)).observe(frame, { attributes: true, attributeFilter: ['class'] });
 // The lent page swallows the mouse, so the main process says when it is over the window.
-window.aang?.onPopoutWake?.(() => showChrome());
+window.aang?.onPopoutWake?.((how) => {
+  full = how === 'full';
+  hovering = how === 'in';
+  if (full) { if (fadeTimer) clearTimeout(fadeTimer); frame.classList.add('faded'); return; }
+  if (how === 'out') { if (fadingAllowed && player.state.playing) frame.classList.add('faded'); return; }
+  showChrome();
+});
 
 paintControls();
 paintSeeThrough();
