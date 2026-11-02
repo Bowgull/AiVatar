@@ -172,7 +172,7 @@ app.whenReady().then(async () => {
   await wait(350);
 
   // 3b. Idle (sheet 117 v3): the mouse away and the picture takes the window; lyrics from the ··· menu.
-  const idleNow = () => js(`(() => { const b = document.querySelector('.idle'), lyr = [...document.querySelectorAll('.ilyr > *')].map((e) => e.textContent);
+  const idleNow = () => js(`(() => { const b = document.querySelector('.idle'), lns = [...document.querySelectorAll('.ilyr .ln')], on = lns.findIndex((e) => e.classList.contains('on')), lyr = on < 0 ? [] : [lns[on - 1]?.textContent, lns[on].textContent, lns[on + 1]?.textContent];
     return { idle: document.documentElement.classList.contains('idling'), op: Number(getComputedStyle(b).opacity), cover: b.classList.contains('cover'), lyrOn: b.classList.contains('lyr'), lyr, song: document.querySelector('.isong').textContent, head: getComputedStyle(document.querySelector('.ihead')).visibility, where: document.querySelector('.iwhere').textContent, hair: document.querySelector('.ihair i').style.width }; })()`);
   const leave = () => js(`document.documentElement.dispatchEvent(new MouseEvent('mouseleave')); 1`);
   const enter = () => js(`document.documentElement.dispatchEvent(new MouseEvent('mouseenter')); 1`);
@@ -185,7 +185,7 @@ app.whenReady().then(async () => {
   await until(async () => (await idleNow()).idle, 3000); await wait(600);
   const i1 = await idleNow();
   const n1 = Number(String(i1.lyr[1]).replace('line ', ''));
-  check('idle with the cover: whole beside its glow, the lyric playing now on its plate, the lines either side', i1.idle && i1.op > 0.95 && i1.cover && i1.lyrOn && /^line \d+$/.test(i1.lyr[1]) && i1.lyr[0] === 'line ' + (n1 - 1) && i1.lyr[2] === 'line ' + (n1 + 1) && i1.head === 'hidden', i1);
+  check('idle with the cover: whole beside its glow, the lyrics rolled to the line playing now (lit), the lines either side', i1.idle && i1.op > 0.95 && i1.cover && i1.lyrOn && /^line \d+$/.test(i1.lyr[1]) && i1.lyr[0] === 'line ' + (n1 - 1) && i1.lyr[2] === 'line ' + (n1 + 1) && i1.head === 'hidden', i1);
   await pic('player-idle-cover-lyrics.png');
   await enter(); await wait(550);
   check('the mouse back: awake again, the keys showing', (await idleNow()).idle === false && (await idleNow()).op < 0.05);
