@@ -18,7 +18,7 @@ import { FamilyHost } from '../../src/familywin.ts';
 
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 3).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
-setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 200_000).unref();
+setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 260_000).unref();
 app.on('window-all-closed', () => {});
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'player-check-'));
 app.setPath('userData', tmp);
@@ -223,6 +223,21 @@ app.whenReady().then(async () => {
   await mjs(`document.querySelector('#pm button[data-idle]').click(); 1`);
   await until(() => !mp.menu.visible, 2000); await wait(200);
   check('Idle mode on again', JSON.parse(readFileSync(prefsFile, 'utf8')).idle === true);
+  // pinned (his rule): idle STAYS idle under the mouse; resting on it shows back / pause / next / pin; unpin brings it back
+  await js(`document.querySelector('.full [title^="Pin on top"]').click(); 1`);
+  await until(() => w.isAlwaysOnTop() === true, 2000);
+  await leave(); await until(async () => (await idleNow()).idle, 23000); await wait(500);
+  await enter(); await wait(900);
+  const keys = () => js(`(() => { const k = document.querySelector('.ikeys'); return { show: k.classList.contains('show'), op: Number(getComputedStyle(k).opacity), keys: [...k.querySelectorAll('.ikey')].map((b) => b.dataset.k) }; })()`);
+  const k1 = await keys();
+  check('pinned: the mouse on it keeps it idle, and the soft keys show (back, pause, next, pin)', (await idleNow()).idle && k1.show && k1.op > 0.9 && JSON.stringify(k1.keys) === JSON.stringify(['prev', 'pause', 'next', 'pin']), k1);
+  await pic('player-idle-pinned-keys.png');
+  const before = cmds.length;
+  await js(`document.querySelector('.ikey[data-k="pause"]').click(); 1`); await wait(150);
+  check('the soft pause key goes out as a toggle, and it stays idle', cmds.length === before + 1 && cmds.at(-1)!.op === 'toggle' && (await idleNow()).idle, cmds.at(-1));
+  await js(`document.querySelector('.ikey.pin').click(); 1`);
+  await until(async () => !w.isAlwaysOnTop() && !(await idleNow()).idle, 2000);
+  check('the soft pin key unpins it and the full player comes back', !w.isAlwaysOnTop() && !(await idleNow()).idle);
 
   // 4. Shade: a double-click folds it on the spring, and back.
   const heights: number[] = [];
