@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 118 - Karaoke flow</title>
+<!-- Sheet 118 v1 (2026-11-01): his note on the live karaoke: "in better time now but it's not very smooth, can we find
+     better ways to display this and have it flow a bit better". Today a line just swaps for the next. Three ways for
+     the words to FLOW, live in the real player frame over a wide scene: A the lines glide up as one column (Apple
+     Music's way), B the words fill with gold as they are sung, C both. The words are made up (placeholder lyrics, not a
+     real song); their timing copies a real song's shape: quick lines, slow lines, a gap. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  .row{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;margin:16px 0 8px}
+  .opt{display:flex;flex-direction:column;gap:10px}
+  .opt h2{font:800 17px Figtree,sans-serif;color:#fffaf0;margin:0}
+  .opt p{font:500 15px/1.45 Figtree,sans-serif;color:#d8cab0;margin:0;max-width:424px}
+  .mp{position:relative;width:424px;height:208px;border-radius:14px;overflow:hidden}
+  .mp canvas.frame{position:absolute;left:0;top:0}
+  .in{position:absolute;left:8px;top:8px;width:408px;height:192px;border-radius:9px;overflow:hidden}
+  .in canvas.scn{position:absolute;left:0;top:0;width:408px;height:192px;image-rendering:pixelated}
+  .dim{position:absolute;inset:0;background:rgba(10,6,3,.64)}
+  .tm{position:absolute;left:12px;right:12px;bottom:8px;display:flex;flex-direction:column;gap:4px}
+  .tms{display:flex;justify-content:space-between;font:700 12px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#f3e2bc;text-shadow:0 1px 2px #000}
+  .hair{height:3px;border-radius:2px;background:rgba(255,240,210,.25);overflow:hidden}
+  .hair i{display:block;height:100%;background:#ffc43c;box-shadow:0 0 6px rgba(255,190,60,.8)}
+  /* A and C: the column. Every line is there; the column glides so the line being sung sits in the middle. */
+  .col{position:absolute;left:0;right:0;top:0;bottom:26px;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%)}
+  .col .track{position:absolute;left:0;right:0;top:0;transition:transform .7s cubic-bezier(.22,1,.36,1)}
+  .col .ln{height:34px;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 18px;font:800 17px/1.15 Figtree,sans-serif;color:#efe2c8;opacity:.38;transform:scale(.9);transition:opacity .6s ease,transform .7s cubic-bezier(.22,1,.36,1),color .6s ease;white-space:nowrap}
+  .col .ln.near{opacity:.6}
+  .col .ln.on{opacity:1;transform:scale(1.12);color:#fff3d8;text-shadow:0 0 14px rgba(255,190,80,.35),0 2px 3px rgba(0,0,0,.8)}
+  .col .ln.gap{font-size:15px;letter-spacing:6px}
+  /* B: one line at a time, sung in gold, the next one rising in */
+  .one{position:absolute;left:0;right:0;top:0;bottom:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .sung{position:relative;font:800 21px/1.2 Figtree,sans-serif;white-space:nowrap;padding:5px 14px 6px;border-radius:10px;background:rgba(14,8,4,.78);box-shadow:0 0 0 2px rgba(255,196,60,.4)}
+  .sung .base{color:rgba(255,243,216,.42)}
+  .sung .fill{position:absolute;left:14px;top:5px;color:#ffd36a;text-shadow:0 0 10px rgba(255,180,60,.55);white-space:nowrap;clip-path:inset(0 100% 0 0)}
+  .next{font:700 15px/1.2 Figtree,sans-serif;color:rgba(239,226,200,.5);white-space:nowrap}
+  .swap-out{animation:out .38s cubic-bezier(.4,0,1,1) forwards}
+  .swap-in{animation:in .5s cubic-bezier(.22,1,.36,1)}
+  @keyframes out{to{transform:translateY(-16px);opacity:0}}
+  @keyframes in{from{transform:translateY(14px);opacity:0}}
+  /* C: the column, and the line being sung fills with gold */
+  .col .ln .w{position:relative;display:inline-block}
+  .col .ln .w .f{position:absolute;left:0;top:0;color:#ffd36a;white-space:nowrap;text-shadow:0 0 10px rgba(255,180,60,.55);clip-path:inset(0 100% 0 0)}
+</style>
+</head>
+<body>
+<h1>SHEET 118 &middot; KARAOKE FLOW</h1>
+<p class="real">v1 &middot; 1 Nov &middot; three ways for the lyrics to flow; pick one</p>
+<p class="lead">Today a line just jumps to the next. Here the words move with the song. The words below are made up; their timing has a real song's shape, with quick lines, slow ones and a gap.</p>
+<div class="row">
+  <div class="opt"><h2>A &middot; The lines glide</h2><div class="mp" id="A"></div>
+    <p>All the lines sit in one column that glides up as the song goes. The line being sung grows and lights up; the ones before and after fade out at the edges.</p></div>
+  <div class="opt"><h2>B &middot; The words fill with gold</h2><div class="mp" id="B"></div>
+    <p>One line at a time, with gold filling it from left to right as it's sung. The next line waits underneath and rises in to take its place.</p></div>
+</div>
+<div class="row">
+  <div class="opt"><h2>C &middot; Both</h2><div class="mp" id="C"></div>
+    <p>The gliding column, with the line being sung filling with gold.</p></div>
+</div>
+
+<script type="module">
+import * as S from './sheet-117/scenes-wide.js';
+const awake = new Image(); awake.src = 'sheet-117/awake.png'; await awake.decode();
+// made-up words, timed like a real song: a run of quick lines, a long held one, a gap, then steady lines
+const L = [[0, 'Rolling out before the morning'], [3.2, 'streetlights fading one by one'], [6.1, 'wheels humming on the pavement'], [8.4, 'quick turn'], [9.3, 'quick step'], [10.2, 'quick breath'], [11.1, 'go'],
+  [12.6, 'and the city starts to wake up slow'], [17.8, ''], [21.0, 'down the hill and past the corner'], [24.2, 'everybody knows my name'], [27.5, 'every block a little warmer'], [30.6, 'nothing ever stays the same'], [34.5, '']];
+const LOOP = 36, W = 424;
+const sc = document.createElement('canvas'); sc.width = S.SW; sc.height = S.SH;
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+let frame = 0;
+function drawScene() {
+  const g = sc.getContext('2d'), im = g.createImageData(S.SW, S.SH), d = im.data;
+  S.skate(frame % 8, frame, 'mustard')((x, y, c) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= S.SW || y >= S.SH || !c) return; const v = Array.isArray(c) ? c : hex(c), i = (y * S.SW + x) * 4; d[i] = v[0]; d[i + 1] = v[1]; d[i + 2] = v[2]; d[i + 3] = 255; });
+  g.putImageData(im, 0, 0);
+}
+const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+const lineAt = (p) => { let a = -1; for (let i = 0; i < L.length; i++) if (L[i][0] <= p) a = i; return a; };
+const fillOf = (i, p) => { if (i < 0) return 0; const end = (L[i + 1]?.[0] ?? LOOP) - 0.25, len = Math.max(0.4, Math.min(end - L[i][0], L[i][1].length * 0.11 + 0.6)); return Math.max(0, Math.min(1, (p - L[i][0]) / len)); };
+const boxes = [];
+function build(id, kind) {
+  const root = document.getElementById(id);
+  const fr = el('canvas', 'frame'); fr.width = W; fr.height = 208; fr.getContext('2d').drawImage(awake, 0, 0);
+  const inn = el('div', 'in'), scn = el('canvas', 'scn'); scn.width = S.SW; scn.height = 32;
+  inn.append(scn, el('div', 'dim'));
+  const b = { kind, scn, last: -2 };
+  if (kind !== 'B') {
+    const col = el('div', 'col'), track = el('div', 'track'); col.append(track); inn.append(col);
+    b.lines = L.map(([, t]) => { const ln = el('div', 'ln' + (t ? '' : ' gap')); if (kind === 'C' && t) { const w = el('span', 'w', t), f = el('span', 'f', t); w.append(f); ln.append(w); ln.f = f; } else ln.textContent = t || '♪  ♪  ♪'; track.append(ln); return ln; });
+    b.track = track;
+  } else {
+    const one = el('div', 'one'); b.one = one; inn.append(one);
+  }
+  const tm = el('div', 'tm'), tms = el('div', 'tms'); b.tPos = el('span'); tms.append(b.tPos, el('span', '', '0:36'));
+  const hair = el('div', 'hair'); b.fill = el('i'); hair.append(b.fill); tm.append(tms, hair); inn.append(tm);
+  root.append(fr, inn); boxes.push(b);
+}
+build('A', 'A'); build('B', 'B'); build('C', 'C');
+function paintB(b, i, p) {
+  if (i !== b.last) {
+    const old = b.one.querySelector('.sung'), nx = b.one.querySelector('.next');
+    if (old) { old.classList.add('swap-out'); setTimeout(() => old.remove(), 380); }
+    nx?.remove();
+    const t = i >= 0 ? L[i][1] || '♪' : '♪', s = el('div', 'sung swap-in');
+    s.append(el('span', 'base', t)); b.f = el('span', 'fill', t); s.append(b.f);
+    s.style.position = old ? 'absolute' : 'relative';
+    setTimeout(() => { s.style.position = 'relative'; }, 380);
+    b.one.prepend(s);
+    b.one.append(el('div', 'next swap-in', L[i + 1]?.[1] || ''));
+  }
+  if (b.f) b.f.style.clipPath = `inset(0 ${(100 - fillOf(i, p) * 100).toFixed(1)}% 0 0)`;
+}
+let lastScene = 0; const t0 = performance.now();
+function loop(now) {
+  const p = ((now - t0) / 1000) % LOOP;
+  if (now - lastScene > 100) { lastScene = now; frame++; drawScene(); }
+  const i = lineAt(p);
+  for (const b of boxes) {
+    const g = b.scn.getContext('2d'); g.clearRect(0, 0, S.SW, 32); g.drawImage(sc, 0, 1, S.SW, 32, 0, 0, S.SW, 32);
+    b.tPos.textContent = `0:${String(Math.floor(p)).padStart(2, '0')}`; b.fill.style.width = (p / LOOP * 100).toFixed(2) + '%';
+    if (b.kind === 'B') paintB(b, i, p);
+    else {
+      if (i !== b.last) {
+        b.track.style.transform = `translateY(${83 - 17 - Math.max(0, i) * 34}px)`;
+        b.lines.forEach((ln, k) => { ln.classList.toggle('on', k === i); ln.classList.toggle('near', Math.abs(k - i) === 1); if (ln.f && k !== i) ln.f.style.clipPath = k < i ? 'inset(0 0 0 0)' : 'inset(0 100% 0 0)'; });
+      }
+      if (b.kind === 'C' && i >= 0 && b.lines[i].f) b.lines[i].f.style.clipPath = `inset(0 ${(100 - fillOf(i, p) * 100).toFixed(1)}% 0 0)`;
+    }
+    b.last = i;
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
