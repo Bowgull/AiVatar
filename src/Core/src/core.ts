@@ -130,7 +130,7 @@ import { exactOf, meansOf } from './plain.ts';
 import { saveDigest, weeklySweep } from './watch.ts';
 import { AddonDesk, realDeps as addonDeskDeps, type Said as AddonSaid } from './addondesk.ts';
 import { checkMediaCmd, checkMediaNow, wantsPlayer, type MediaCmd } from './media.ts';
-import { ConnectPoller, MediaMux, readPlayback, readDevices, checkDeviceId } from './connect.ts';
+import { ConnectPoller, MediaMux, readPlayback, readDevices, checkDeviceId, songKey } from './connect.ts';
 import { HOME_TZ, homeDate, longDate, shortTime, shortTimeUpper } from './clock.ts';
 import { readJson, saveJson } from './store.ts';
 import { openLog } from './log.ts';
@@ -3691,6 +3691,29 @@ export class Core {
     },
     onNote: (t) => this.noteToPlayer(t),
   });
+  /**
+   * Sheet 117 (2026-11-01, his note: the album art "really blurry"): Windows hands over only Spotify's small thumbnail,
+   * so while the player shows and the PC plays a Spotify song, Spotify is asked ONCE for that song's 640 px cover. Its
+   * answer can trail the PC's by a moment: asked again after 1.5 and 4 s while the names still differ.
+   */
+  private artKey = '';
+  private pcArt(): void {
+    const p = this.media.pc.now();
+    if (!this.connect.showing || !p || !p.app || !p.spotify || !p.title) return;
+    const key = songKey(p.title, p.artist);
+    if (key === this.artKey) return;
+    this.artKey = key;
+    const sp = this.connectSpotify();
+    if (!sp.connected) return;
+    const ask = async (n: number): Promise<void> => {
+      if (this.artKey !== key) return;
+      const r = readPlayback(await sp.playback(), Date.now(), os.hostname());
+      if (!r?.artUrl || songKey(r.title, r.artist) !== key) { if (n < 2) setTimeout(() => void ask(n + 1).catch(() => {}), n ? 4000 : 1500); return; }
+      const d = await sp.cover(r.artUrl);
+      if (d && this.artKey === key) this.media.pcArt(key, d);
+    };
+    void ask(0).catch(() => { if (this.artKey === key) this.artKey = ''; });
+  }
   /** A key on the player while it shows a remote device: done through the Web API, on that device. */
   private async remoteCmd(c: MediaCmd): Promise<void> {
     const r = this.media.remoteNow;
@@ -3868,7 +3891,7 @@ export class Core {
       case 'media.now': {
         if (this.shells.has(ws) || this.kindOfSocket(ws) !== 'desktop') break;
         const now = checkMediaNow(m); if (!now) break;
-        this.media.fromPc(now); this.connect.setPcPlaying(this.media.pcPlaying); break;
+        this.media.fromPc(now); this.connect.setPcPlaying(this.media.pcPlaying); this.pcArt(); break;
       }
       case 'media.cmd': {
         if (!this.shells.has(ws)) break;
@@ -3879,7 +3902,7 @@ export class Core {
       }
       // Spotify Connect (connect.ts): the player window showing or not (Spotify is asked only while it shows), its
       // device menu, and moving playback to another device. Only the Shell sends these.
-      case 'player.watch': { if (this.shells.has(ws)) this.connect.setVisible(m.visible === true); break; }
+      case 'player.watch': { if (this.shells.has(ws)) { this.connect.setVisible(m.visible === true); this.pcArt(); } break; }
       case 'media.devices.get': {
         if (!this.shells.has(ws)) break;
         const sp = this.connectSpotify();
