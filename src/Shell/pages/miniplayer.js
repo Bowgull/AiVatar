@@ -415,7 +415,7 @@ function paintIdleCover() {
 /**
  * The lyrics roll (sheet 118 v2, his pick "1: amber", 2026-11-01; his note: "it's just jumping, can it roll into the
  * next lyric ... the box looks kind of AI slop"). Every line sits in one column; when the song reaches the next line
- * the column rolls up on a soft spring so the line being sung sits in the middle, lit amber like the player's time.
+ * the column rolls up on a soft spring so the line being sung sits in the middle, lit amber, the colour of the player's time.
  * The lines either side stay readable and fade out at the edges. A seek (or a fresh song) moves it at once, no long roll.
  */
 // a size up over a scene (sheet 118 v3: readable on a full monitor), the smaller rows beside a cover
