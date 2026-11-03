@@ -352,7 +352,7 @@ export type ToBody =
   /** Sheet 17: every note, newest first, after any change and when a Shell connects. */
   | { t: 'notes.state'; notes: import('./notes.ts').Note[]; cats?: { builtin: string[]; own: string[] } }
   /** Sheet 17: "show my notes": the bubble opens the board. */
-  | { t: 'notes.board' }
+  | { t: 'notes.board'; open?: string; type?: boolean }
   /** Sheet 17: "set a timer" with no time: the bubble shows the dial. */
   | { t: 'timer.setup' }
   /** Sheet 17: a timer ran out. The bubble asks Got it / 5 more. */
@@ -629,7 +629,7 @@ export type FromBody =
   | { t: 'notes.keep'; text: string; url: string; site: string }
   /** BG5: a Zelda note at a spot on the Hyrule map (x, z in objmap world units); with id, that note's pin moves; with
    *  id + off, it comes off the map and stays a sticky note. docs/BOTW-STATE.md "notes.json". */
-  | { t: 'notes.place'; id?: string; title?: string; text?: string; x?: number; z?: number; off?: boolean }
+  | { t: 'notes.place'; id?: string; title?: string; text?: string; x?: number; z?: number; off?: boolean; open?: boolean }
   /** Sheet 25: what the Hyrule map made of a route ask (botw_route_add): planned (with the route's title and stop count),
    *  queued (the map is not open; it goes on when he opens it) or off (no Samara). */
   | { t: 'hyrule.route.done'; id: string; state: 'planned' | 'queued' | 'off'; title?: string; stops?: number }

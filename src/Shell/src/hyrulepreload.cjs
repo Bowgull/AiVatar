@@ -16,6 +16,13 @@ contextBridge.exposeInMainWorld('hyrule', {
 });
 const nudges = [];
 
+// The map's two settings-and-menu doors, under the name its pages call (app/spoilers.js, app/addroute.js):
+// Settings › Spoilers › Puzzle help, and the right-click "Note here" (a Zelda sticky note pinned there, opened to type).
+contextBridge.exposeInMainWorld('aangHyrule', {
+  setGuide: (g) => ipcRenderer.send('hyrule:guide', { puzzle: g && g.puzzle }),
+  newNote: (n) => ipcRenderer.send('hyrule:newnote', { at: n && Array.isArray(n.at) ? [Number(n.at[0]), Number(n.at[1])] : null }),
+});
+
 // Sheet 25: "Ask Aang: add the general store to my route". What Aang adds (or takes off) goes in the map's own queue,
 // hy.routeAdds ([{ goal, at }] or [{ remove, at }]), the same one the Journal uses; app/route.js takes it when the map is
 // seen, or at once when it hears the queue change (the storage event, raised here since this page wrote it itself).
