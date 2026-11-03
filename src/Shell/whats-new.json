@@ -1232,12 +1232,12 @@
       "kind": "fix"
     },
     {
-      "at": "2026-11-03T12:37:00-05:00",
+      "at": "2026-11-03T12:35:30-05:00",
       "text": "The music player's pin turns when you pin it.",
       "kind": "fix"
     },
     {
-      "at": "2026-11-03T12:38:00-05:00",
+      "at": "2026-11-03T12:36:00-05:00",
       "text": "The volume mixer shows your music player.",
       "kind": "feature"
     }
