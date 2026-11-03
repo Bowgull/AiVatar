@@ -1011,6 +1011,7 @@ app.whenReady().then(async () => {
     const width = Math.max(220, Math.min(1400, Math.round(Number(size.width) || 0)));
     const height = Math.max(80, Math.min(900, Math.round(Number(size.height) || 0)));
     if (!width || !height) return;
+    const wasUp = w.isVisible();
     const [haveW, haveH] = w.getSize();
     if (haveW !== width || haveH !== height) {
       // setBounds, NEVER setSize: on a window made with `resizable: false`, setSize is silently ignored
@@ -1031,6 +1032,9 @@ app.whenReady().then(async () => {
       aimTail(w, box);
     }
     bubble?.show();
+    // His rule (2026-11-02, a Claude plan's checklist floated alone over Claude's window): the bubble never shows without
+    // him. Tucked at the edge, he comes out with it; the windows re-place when he is out, so the tail finds him. Not in a game.
+    if (!wasUp && w.isVisible() && petAt?.peeking && !gameQuiet) link?.send({ t: 'summon' });
   });
   // His answer to an ask. Translated here into the reply the brain expects, because each kind answers
   // differently and the page should not have to know that. "show" is not a reply at all: it is a
