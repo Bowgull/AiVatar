@@ -16,7 +16,8 @@ import { NEEDS_AANG, POPOUT_TASKS, type PopoutTask } from './taskbarplan.ts';
 
 // Sheet 66 A (2026-10-22): a "Pop-outs" section above the Tasks (Show all, Hide all, Gather them by Aang, New note,
 // Timer, Music player). Same door: main.ts hands these six to taskbar.ts instead of the browser.
-export const SAMARA_TASKS = ['new-tab', 'new-window', 'mockups', 'settings', 'reopen', ...POPOUT_TASKS] as const;
+// 'hyrule' (2026-11-03) is asked for by the Shrine dock's right-click; it is not in the taskbar list itself.
+export const SAMARA_TASKS = ['new-tab', 'new-window', 'mockups', 'hyrule', 'settings', 'reopen', ...POPOUT_TASKS] as const;
 export type SamaraTask = typeof SAMARA_TASKS[number];
 const FLAG = '--samara-task=';
 
@@ -42,6 +43,7 @@ const WORDS: Record<SamaraTask, [string, string]> = {
   'new-window': ['New window', 'Open a new Samara window'],
   'reopen': ['Reopen closed tab', 'Bring back the tab you just closed'],
   'mockups': ['Mockups', "Open the MOCKUPS trail, Claude's mockups"],
+  'hyrule': ['Hyrule', 'Open the Hyrule map'],
   'settings': ['Settings', "Samara's settings"],
   'popouts-show': ['Show all pop-outs', 'Bring every pop-out back on screen'],
   'popouts-hide': ['Hide all pop-outs', 'Put every pop-out away (Show all brings them back)'],
