@@ -3888,6 +3888,8 @@ export class Core {
       case 'notes.place': {
         const done = m.off === true ? this.notes.unpin(String(m.id ?? '')) : this.notes.pin({ id: m.id, title: m.title, text: m.text, x: m.x, z: m.z });
         if (done) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
+        // Sheet 25 "Note here": the new note opens on his board to type in, like any note he starts.
+        if (done && m.open === true && m.id === undefined) this.sendTo('desktop', { t: 'notes.board', open: done.id, type: true });
         break;
       }
       case 'notes.keep': { if (this.notes.keep(String(m.text ?? ''), String(m.url ?? ''), String(m.site ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }

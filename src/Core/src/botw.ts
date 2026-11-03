@@ -210,6 +210,13 @@ export class BotwGuide {
     return this.st;
   }
   close(): void { try { this.dbh?.close(); } catch { /* fine */ } this.dbh = null; }
+  /**
+   * Settings › Spoilers › Puzzle help on his Hyrule map (guide-settings.json, written by the Shell): 'straight' gives
+   * puzzles (shrines, Koroks) the answer at once, as "just tell me" does. Missing or anything else: hints first (his rule).
+   */
+  puzzleStraight(): boolean {
+    try { const f = path.join(this.dir, 'guide-settings.json'); return existsSync(f) && JSON.parse(readFileSync(f, 'utf8')).puzzle === 'straight'; } catch { return false; }
+  }
 
   private all(sql: string, ...a: any[]): Row[] { return this.db()!.prepare(sql).all(...a) as Row[]; }
   private one(sql: string, ...a: any[]): Row | undefined { return this.db()!.prepare(sql).get(...a) as Row | undefined; }
@@ -362,7 +369,7 @@ export class BotwGuide {
         const found = s?.shrines.found.includes(r.id), done = s?.shrines.done.includes(r.id);
         const status = !s ? '' : done ? 'He has done it.' : found ? 'He has found it, not done it yet.' : 'He has not found it yet.';
         const where = found || tell ? ` It is in ${r.x != null ? square(r.x, r.z) : '?'}, ${this.from(r as Spot)}.` : ' Where it is: a hint only, via botw_hint (he has not found it).';
-        return `${r.name}${r.subtitle ? `, "${r.subtitle}"` : ''}${r.dlc ? " (Champions' Ballad)" : ''}. ${status}${where}\nThe puzzle inside gets hints, never the solution, unless he says just tell me.`;
+        return `${r.name}${r.subtitle ? `, "${r.subtitle}"` : ''}${r.dlc ? " (Champions' Ballad)" : ''}. ${status}${where}\n${this.puzzleStraight() ? 'His Puzzle help setting is Straight answers: if he asks how to solve the puzzle inside, tell him.' : 'The puzzle inside gets hints, never the solution, unless he says just tell me.'}`;
       }
       case 'tower': {
         const on = s?.towers.active.includes(r.id);
@@ -518,6 +525,8 @@ export class BotwGuide {
     const s = this.state(); if (!s) return BotwGuide.NO_SAVE;
     const t = this.target(what, s);
     if (!t) return `Nothing to hint at called "${what}" (shrines, Koroks, towers, places and quests have hints). If it is a puzzle in front of him, hint from what you see: what to look at, never the move.`;
+    // Puzzle help: Straight answers (his map setting) takes shrines and Koroks straight to the spot; story and quests keep the ladder
+    if (!tell && (t.kind === 'shrine' || t.kind === 'korok') && this.puzzleStraight()) tell = true;
     const prev = this.ladder.get(t.key), fresh = prev && this.now() - prev.at < 30 * 60_000;
     const lv = tell ? 3 : Math.max(1, Math.min(3, level ?? (fresh ? prev!.level + 1 : 1)));
     this.ladder.set(t.key, { level: Math.max(lv, fresh ? prev!.level : 0), at: this.now() });

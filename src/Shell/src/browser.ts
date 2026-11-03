@@ -29,7 +29,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { servePages, type PageServer } from './pageserver.ts';
-import { hyruleNotesFile, notePlaceMsg, type NotePlaceMsg } from './hyrulenotes.ts';
+import { hyruleNotesFile, notePlaceMsg, writeGuide, type NotePlaceMsg } from './hyrulenotes.ts';
 import { RouteQueue, routeAsk, routeReport } from './hyruleroute.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture, captureWindow, type CaptureOpts, type Shot, type WindowShot } from './capture.ts';
@@ -4825,6 +4825,14 @@ export class AangBrowser {
   isHyrule(sender: Electron.WebContents): boolean { return this.tabs.some((x) => x.internal === 'hyrule' && x.view?.webContents === sender); }
   hyruleNotes(): string | null { return hyruleNotesFile(); }
   hyruleNotePlace(raw: unknown): void { const m = notePlaceMsg(raw); if (m) this.onNotePlace?.(m); }
+  /** Sheet 25 "Note here": a new Zelda note at the spot, opened on his board to type, like his other notes. */
+  hyruleNewNote(raw: unknown): void {
+    const at = (raw as { at?: unknown } | null)?.at;
+    const m = Array.isArray(at) && at.length === 2 ? notePlaceMsg({ x: at[0], z: at[1], title: '', text: '' }) : null;
+    if (m && m.id === undefined) this.onNotePlace?.({ ...m, open: true });
+  }
+  /** Settings › Spoilers › Puzzle help, for the guide tools (guide-settings.json beside his save's state). */
+  hyruleGuide(raw: unknown): void { writeGuide(raw); }
   /**
    * Sheet 25: a route ask from the brain (botw_route_add). Kept (hyruleroute.ts) until the Hyrule page is loaded, then
    * handed to its preload, which puts it in the map's own queue. Never brings the map forward: a map he is not looking

@@ -77,7 +77,7 @@ const CHARACTER_EXAMPLES = `<example>
  *  short: it rides on every turn. */
 export const BOTW_RULES = `<botw>
 He is playing Breath of the Wild for the first time (Cemu), going for 100%. For anything about it, call the botw_ tools first: they hold the game's own data and his save, so never guess a place, a count or a recipe from memory. His save is read after he stops playing: say "as of your last save" when it matters.
-Spoilers go by topic. Items, materials, recipes, cooking, prices, where to buy, what drops what: the straight answer. Puzzles (shrines, Koroks, riddles) and story: a hint first, through botw_hint, one rung each time he asks: warm, then warmer, then the spot. A puzzle in a snip gets a nudge about what to look at, never the move. Never name a boss, an event or a twist he has not reached.
+Spoilers go by topic. Items, materials, recipes, cooking, prices, where to buy, what drops what: the straight answer. Puzzles (shrines, Koroks, riddles) and story: a hint first, through botw_hint, one rung each time he asks: warm, then warmer, then the spot. A puzzle in a snip gets a nudge about what to look at, never the move, unless a botw_ tool says his Puzzle help setting is Straight answers: then puzzles (never story) get the answer. Never name a boss, an event or a twist he has not reached.
 "Just tell me" (or "spoil it", "just say it") lifts the rule for that one question: the full answer at once, with just_tell_me set. His next question is under the rule again.
 </botw>`;
 

@@ -2085,7 +2085,7 @@ function onBrain(m) {
     const want = m.openNotice === true ? heldId : typeof m.open === 'string' ? m.open : null;
     if (m.openNotice === true && !want) return;
     if (want) noticeNote = null;
-    openBoard(); if (m.fresh === true) newNote(); else if (want) openNote(want);
+    openBoard(); if (m.fresh === true) newNote(); else if (want) openNote(want, m.type === true);
     return;
   }
   // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.

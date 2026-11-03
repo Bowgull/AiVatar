@@ -41,3 +41,19 @@ test('Aang says what the map made of it, in one line', () => {
   assert.equal(routeLine({ name: 'Kakariko Village', state: 'queued' }), "I'll put Kakariko Village on your route when you open your Hyrule map.");
   assert.match(routeLine({ name: 'x', state: 'off' }), /Samara is closed/);
 });
+
+test('Puzzle help: Straight answers takes a shrine hint straight to the spot; hints first otherwise', { skip: !existsSync(REAL_DB) }, async () => {
+  const { BotwGuide } = await import('../src/botw.ts');
+  const { mkdtempSync, copyFileSync, writeFileSync } = await import('node:fs');
+  const os = await import('node:os');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-puzzle-'));
+  copyFileSync(REAL_DB, path.join(dir, 'botw.db'));
+  writeFileSync(path.join(dir, 'state.json'), JSON.stringify(FIXTURE_STATE));
+  const g = new BotwGuide(dir);
+  try {
+    assert.match(g.hint('nearest shrine'), /rung 1 of 3/);
+    writeFileSync(path.join(dir, 'guide-settings.json'), JSON.stringify({ puzzle: 'straight' }));
+    assert.match(g.hint('nearest korok'), /rung 3 of 3/);
+    assert.equal(g.puzzleStraight(), true);
+  } finally { g.close(); }
+});

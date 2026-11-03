@@ -22,3 +22,15 @@ test('the notes file: its text, or null when there is none', () => {
   writeFileSync(path.join(d, 'notes.json'), '{"v":1,"notes":[]}');
   assert.equal(hyruleNotesFile({ AANG_BOTW_DIR: d }), '{"v":1,"notes":[]}');
 });
+
+test('Puzzle help from the map: hints or straight, kept for the guide tools; anything else is ignored', async () => {
+  const { writeGuide } = await import('../src/hyrulenotes.ts');
+  const { readFileSync } = await import('node:fs');
+  const d = mkdtempSync(path.join(os.tmpdir(), 'aang-guide-'));
+  const env = { AANG_BOTW_DIR: path.join(d, 'botw') };
+  assert.equal(writeGuide({ puzzle: 'straight' }, env), true);
+  assert.deepEqual(JSON.parse(readFileSync(path.join(d, 'botw', 'guide-settings.json'), 'utf8')), { puzzle: 'straight' });
+  assert.equal(writeGuide({ puzzle: 'everything' }, env), false);
+  assert.equal(writeGuide({ puzzle: 'hints' }, env), true);
+  assert.deepEqual(JSON.parse(readFileSync(path.join(d, 'botw', 'guide-settings.json'), 'utf8')), { puzzle: 'hints' });
+});
