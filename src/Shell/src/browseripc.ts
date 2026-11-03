@@ -122,6 +122,7 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('hyrule:routetook', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleRouteTook(a); });
   ipcMain.on('hyrule:routereport', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleRouteReport(a); });
   ipcMain.on('hyrule:newnote', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleNewNote(a); });
+  ipcMain.on('hyrule:ask', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleAsk(a); });
   ipcMain.on('hyrule:guide', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleGuide(a); });
   ipcMain.on('hyrule:noteopen', (e, id) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).noteOpen(id); });
   ipcMain.handle('mocklog:get', (e) => (top(e) && b(e)?.isMockLog(e.sender)) ? b(e).mockLogData() : null);

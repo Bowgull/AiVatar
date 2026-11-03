@@ -17,9 +17,11 @@ contextBridge.exposeInMainWorld('hyrule', {
 const nudges = [];
 
 // The map's two settings-and-menu doors, under the name its pages call (app/spoilers.js, app/addroute.js):
-// Settings › Spoilers › Puzzle help, and the right-click "Note here" (a Zelda sticky note pinned there, opened to type).
+// Settings › Spoilers › Puzzle help, the right-click "Note here" (a Zelda sticky note pinned there, opened to type), and
+// (sheet 26c) the "Ask Aang" bar: his words go to Aang as if typed in his box; the answer comes in Aang's bubble.
 contextBridge.exposeInMainWorld('aangHyrule', {
   setGuide: (g) => ipcRenderer.send('hyrule:guide', { puzzle: g && g.puzzle }),
+  ask: (text) => { ipcRenderer.send('hyrule:ask', String(text ?? '')); },
   newNote: (n) => ipcRenderer.send('hyrule:newnote', { at: n && Array.isArray(n.at) ? [Number(n.at[0]), Number(n.at[1])] : null }),
 });
 

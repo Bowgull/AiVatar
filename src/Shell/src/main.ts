@@ -919,6 +919,12 @@ app.whenReady().then(async () => {
       aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
       aangBrowser.onNotePlace = (m) => link?.send(m);
       aangBrowser.onRouteDone = (r) => link?.send({ t: 'hyrule.route.done', ...r });
+      // Sheet 26c: the Hyrule map's "Ask Aang" bar, sent as if typed in his box (his one chat door): his words show in
+      // the bubble above Aang's answer, as with the box.
+      aangBrowser.onAsk = (text) => {
+        if (link?.send({ t: 'submit', id: 'h' + Date.now(), text, mode: inputMode })) bubble?.send('brain:message', { t: 'asked', text });
+        else bubble?.send('brain:message', { t: 'whisper', text: 'My brain is not there, so that question did not reach me.' });
+      };
       // C7 (2026-10-21): the rune's panel, already checked in browser.ts (claudewire.ts), the same doors as the cockpit's.
       aangBrowser.onClaude = (m) => { link?.send(m as never); };
       aangBrowser.onClaudeOpen = (target) => openInClaude(target);
