@@ -162,6 +162,16 @@ ok(!has('AoC_HardMode_Enabled'), 'his newest save is normal mode (no Master Mode
 const st = one("SELECT count(*) n, sum(people IS NOT NULL) p, sum(hours IS NOT NULL) h, sum(hours LIKE '%\"step\"%') own FROM quest_steps");
 console.log(`     quest steps: ${st.p}/${st.n} name their people, ${st.h} with hours (${st.own} from the step's own timeline); ${one('SELECT count(*) n FROM quests WHERE unlocks IS NOT NULL').n} quests unlock another; rewards: not in the quest files (event flows)`);
 
+// where people are: the flags their schedules and placements wait on
+const cflags = new Set(), walk = (c) => { if (c.flag) cflags.add(c.flag); (c.of || []).forEach(walk); };
+let spots = 0, conds = 0;
+for (const r of all('SELECT schedule, places FROM people')) {
+  if (r.schedule) for (const w of JSON.parse(r.schedule).when) cflags.add(w.flag);
+  for (const p of JSON.parse(r.places)) { spots++; const c = [...(p.appears || []), ...(p.vanishes || [])]; if (c.length) conds++; c.forEach(walk); }
+}
+const cIn = [...cflags].filter(has);
+console.log(`     people's spots: ${spots}, ${conds} with an appear / vanish condition; ${cflags.size} condition flags, ${cIn.length} kept in the save, ${cIn.filter((f) => val(f)).length} set in his`);
+
 // ---- E2: tracking, every slot (copies) ----
 console.log('\n== E2 tracking: chests opened and people met, every slot (read from copies)');
 const readCopy = (f) => { const c = path.join(tmpdir(), `botw-check-${process.pid}-${path.basename(path.dirname(f))}.sav`); copyFileSync(f, c); const b = readFileSync(c); rmSync(c);
