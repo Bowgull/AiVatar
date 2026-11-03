@@ -311,8 +311,10 @@ sealed class PetWindow : Form
 
         mode = ModelChip.Normalize(cfg.Mode); saving = cfg.Saving;
         MakeInput();
+        menuWaitTimer.Tick += (_, _) => EndMenuWait(false);
         link.ConnectionChanged += up =>
         {
+            if (up && IsHandleCreated) BeginInvoke(() => EndMenuWait(true));
             // 2026-10-21 (his report: the mark and the job list disagreed): with the brain gone, nothing can say what
             // Claude is doing, so the mark goes rather than stay stuck from a turn that may have ended meanwhile. A
             // brain that comes back sends the true mark on hello (core.ts), from the one list the card reads.
@@ -1548,8 +1550,16 @@ sealed class PetWindow : Form
                 if (row > 0) { ShowTurnMenu(row, e.Location); return; }
             }
             // Sheet 56 (2026-10-21): with the new front end the Shell draws his new menu in Samara's wood. The old gold
-            // menu stays for the old front end, the tray icon, and a brain that is not there to carry the message.
-            if (NewFrontEnd && link.IsConnected) { OpenShellMenu(); return; }
+            // menu stays for the old front end and the tray icon only (2026-11-03, his "why did i just start aang and its
+            // got his old context right click menu": a right-click in the seconds before the brain connected, or while a
+            // brain update stalled it, fell back to the old menu). No brain yet: Aang looks busy and the menu opens when
+            // it connects, within MenuWaitMs; later than that, nothing.
+            if (NewFrontEnd)
+            {
+                if (link.IsConnected) OpenShellMenu();
+                else WaitForBrainMenu(Cursor.Position);
+                return;
+            }
             SetClickAwayHook(true);
             tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left);
             return;   // to his left: he is drawn above a menu that opens under him
@@ -3123,9 +3133,9 @@ sealed class PetWindow : Form
     /// the pet says what is ticked (the brain adds when a hush ends). The menu takes the keyboard (Esc closes it), so
     /// the pet hands the foreground on first, as it does for the typing box.
     /// </summary>
-    void OpenShellMenu()
+    void OpenShellMenu(Point? at = null)
     {
-        var c = Cursor.Position;
+        var c = at ?? Cursor.Position;
         Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
         _ = link.SendAsync(new
         {
@@ -3137,6 +3147,34 @@ sealed class PetWindow : Form
                 models = ModelChip.Modes.Select(md => new { id = md, label = ModelChip.Describe(md) }).ToArray(),
             },
         });
+    }
+
+    /// <summary>How long a right-click waits for a brain that is not connected yet before it is dropped.</summary>
+    const int MenuWaitMs = 5000;
+    Point? menuWaitAt;
+    DateTime menuWaitUntil;
+    readonly System.Windows.Forms.Timer menuWaitTimer = new() { Interval = MenuWaitMs };
+
+    /// <summary>The new front end, no brain yet: Aang looks busy, the menu opens where he clicked as soon as the brain
+    /// connects (ConnectionChanged), or not at all after MenuWaitMs. Never the old gold menu.</summary>
+    void WaitForBrainMenu(Point at)
+    {
+        Log.Write("right-click before the brain connected: waiting for it");
+        menuWaitAt = at; menuWaitUntil = DateTime.UtcNow.AddMilliseconds(MenuWaitMs);
+        Wake(); anim.Play("think"); dirty = true;
+        menuWaitTimer.Stop(); menuWaitTimer.Start();
+    }
+
+    /// <summary>The brain is here (or the wait is over): open the waiting menu, or drop it.</summary>
+    void EndMenuWait(bool open)
+    {
+        menuWaitTimer.Stop();
+        if (menuWaitAt is not Point at) return;
+        menuWaitAt = null;
+        if (anim.State == "think") PlayRest();
+        dirty = true;
+        if (open && DateTime.UtcNow <= menuWaitUntil && link.IsConnected) OpenShellMenu(at);
+        else Log.Write("the brain did not come in time: no menu");
     }
 
     /// <summary>Sheet 56 (2026-10-21): a pick from the Shell's menu runs the same handler the old gold menu item runs.</summary>

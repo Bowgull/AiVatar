@@ -14,7 +14,10 @@
 // AANG_BRAIN_HERE=1 runs the code folder's brain (Claude's tests and live checks).
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
+// The big copies and deletes (a brain's node_modules: thousands of files) go through fs/promises, off the event loop:
+// done with cpSync/rmSync they froze the brain 12-15 s every time a release was made ready (core.log 2026-11-02/03).
+import { cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, saveJson, saveText } from './store.ts';
 import { AWAY_S, LATEST_API, RELEASES, checkBrain, downloadPart, newer, type BrainRelease, type Fetch, type Run } from './brainupdate.ts';
@@ -77,12 +80,14 @@ export function pick(root: string, now = Date.now()): { version: string; dir: st
 }
 
 /** Five minutes up: the trial is good, and every version but this one and the one before goes (best effort: a folder in use stays). */
-export function markGood(root: string, version: string): boolean {
+export async function markGood(root: string, version: string): Promise<boolean> {
   const p = pointer(root);
   if (!p || p.version !== version || p.status !== 'trial') return false;
   setPointer(root, { ...p, status: 'good', starts: [] });
   const keep = new Set([p.version, p.previous?.version]);
-  try { for (const v of readdirSync(path.join(root, 'versions'))) if (!keep.has(v)) rmSync(dirOf(root, v), { recursive: true, force: true }); } catch { /* best effort */ }
+  let old: string[] = [];
+  try { old = readdirSync(path.join(root, 'versions')).filter(v => !keep.has(v)); } catch { /* none */ }
+  for (const v of old) await rm(dirOf(root, v), { recursive: true, force: true }).catch(() => { /* best effort */ });
   return true;
 }
 /** The version to tell him about once ("I updated myself"), then never again. */
@@ -150,7 +155,7 @@ export class PcBrainUpdates {
     if (!(await downloadPart(this.o.fetch, `${RELEASES}${tag}/${m.brain.file}`, m.brain, tgz))) { this.o.log(`brain update: ${m.version} did not download whole`); return false; }
     const run = this.o.run ?? runIt;
     try {
-      rmSync(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
+      await rm(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
       // Windows' own tar (bsdtar), so a drive letter is never read as a remote host.
       const tar = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe');
       if (await run(tar, ['-xzf', tgz, '-C', part], part) !== 0) throw new Error('unpacking failed');
@@ -158,12 +163,12 @@ export class PcBrainUpdates {
       if (!existsSync(path.join(part, 'src', 'brain.ts'))) { this.skip.add(m.version); throw new Error('a brain from before the PC ran its own release'); }
       const lock = (d: string) => { try { return createHash('sha256').update(readFileSync(path.join(d, 'package-lock.json'))).digest('hex'); } catch { return ''; } };
       const now = pointer(root)?.version ?? '';
-      if (now && lock(dirOf(root, now)) === lock(part) && existsSync(path.join(dirOf(root, now), 'node_modules'))) cpSync(path.join(dirOf(root, now), 'node_modules'), path.join(part, 'node_modules'), { recursive: true });
+      if (now && lock(dirOf(root, now)) === lock(part) && existsSync(path.join(dirOf(root, now), 'node_modules'))) await cp(path.join(dirOf(root, now), 'node_modules'), path.join(part, 'node_modules'), { recursive: true });
       else if (await run(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm ci --omit=dev --ignore-scripts --no-audit --no-fund'], part) !== 0) throw new Error("installing the brain's libraries failed");
-      rmSync(dest, { recursive: true, force: true });
+      await rm(dest, { recursive: true, force: true });
       renameSync(part, dest);
       return true;
-    } catch (e) { this.o.log(`brain update: getting ${m.version} ready failed: ${(e as Error).message}`); rmSync(part, { recursive: true, force: true }); return false; }
+    } catch (e) { this.o.log(`brain update: getting ${m.version} ready failed: ${(e as Error).message}`); await rm(part, { recursive: true, force: true }).catch(() => {}); return false; }
     finally { rmSync(tgz, { force: true }); }
   }
 
