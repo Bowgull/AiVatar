@@ -64,6 +64,8 @@ export interface Catalog {
   people?: { id: string; flag: string }[];
   /** Every flag a person's schedule or placement waits on (people.schedule `when`, places `appears` / `vanishes`). */
   peopleFlags?: string[];
+  /** Great Fairy fountains: n and the flag set when he opens it. */
+  fairies?: { n: number; flag: string }[];
 }
 
 interface Cond { flag?: string; of?: Cond[] }
@@ -99,6 +101,7 @@ export function loadCatalog(dbPath: string): Catalog {
       items: new Map(all<{ id: string; name: string; kind: string | null }>('SELECT id, name, kind FROM items').map(r => [r.id, { name: r.name, kind: r.kind ?? '' }])),
       chests: has('chests') ? all<{ hash: number; flag: string }>('SELECT hash_id hash, flag FROM chests WHERE flag IS NOT NULL ORDER BY hash_id') : [],
       people: has('people') ? all<{ id: string; flag: string }>('SELECT id, met_flag flag FROM people WHERE met_flag IS NOT NULL ORDER BY id') : [],
+      fairies: has('great_fairies') ? all<{ n: number; flag: string }>('SELECT n, revive_flag flag FROM great_fairies WHERE revive_flag IS NOT NULL ORDER BY n') : [],
       peopleFlags: has('people') ? personFlags(all<{ schedule: string | null; places: string }>('SELECT schedule, places FROM people')) : [],
     };
   } finally { db.close(); }
@@ -129,6 +132,7 @@ export interface BotwState {
   chests: { opened: number[] };   // E2: botw.db chests.hash_id of every chest he has opened
   people: { met: string[]; flags: string[] };  // E2: met = people.id the game has introduced (name shown, or first talk);
                                   // flags = the schedule / placement condition flags set in his save (where people are)
+  greatFairies: number[];         // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   dlc: BotwDlc;                   // E2: the add-ons' completion marks (docs/BOTW-STATE.md)
 }
 export interface BotwDlc {
@@ -205,6 +209,7 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     heroPath: path.length ? { points: path } : null,
     chests: { opened: (cat.chests ?? []).filter(c => s.int(c.flag)).map(c => c.hash) },
     people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id), flags: (cat.peopleFlags ?? []).filter(f => s.int(f)) },
+    greatFairies: (cat.fairies ?? []).filter(f => s.int(f.flag)).map(f => f.n),
     dlc: {
       masterMode: s.int('AoC_HardMode_Enabled') !== 0,
       trialOfTheSword: { beginning: !!s.int('100enemy_Clear_Junior'), middle: !!s.int('100enemy_Clear_Middle'), final: !!s.int('100enemy_Clear_Senior') },

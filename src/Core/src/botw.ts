@@ -13,6 +13,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { isSmallTalk } from './route.ts';
 import { DO_IT } from './instant.ts';
+import { Engine, parseGoal, type EngineState } from './botwengine.ts';
 
 export const botwDir = (): string => process.env.AANG_BOTW_DIR || path.join(process.env.LOCALAPPDATA || '', 'Aang', 'botw');
 
@@ -472,6 +473,16 @@ export class BotwGuide {
       ? tell ? ` The marker: ${square(now.x, now.z)}, ${this.from(now as Spot)}.` : ` It points ${direction(s.pos, now as Spot)} of where he saved, ${sayDistance(dist(s.pos, now as Spot), true)} (warm hint; the spot only if he asks again or says just tell me).`
       : '';
     return `${hit.name}, his next step (what his quest log says now): ${clean(now?.text) || 'no log text'}${where}\nOnly this step: never what comes after it. ${this.asOf(s)}`;
+  }
+
+  // ------------------------------------------------ botw_plan (E5: the engine, botwengine.ts)
+  plan(goal: string, tell = false): string {
+    const db = this.db(); if (!db) return BotwGuide.NO_DB;
+    const s = this.state(); if (!s) return BotwGuide.NO_SAVE;
+    const g = parseGoal(db, goal);
+    if (!g) return `Nothing to plan from "${goal}": an armour set (and how many stars), an item and how many, "shrines near <place>", a kind of dish, a quest, or more hearts / stamina.`;
+    const e = new Engine(db, s as unknown as EngineState);
+    return `${e.say(e.plan(e.tree(g)), { spoil: tell })}\n${this.asOf(s)}`;
   }
 
   // ------------------------------------------------ botw_hint

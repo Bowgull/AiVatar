@@ -66,6 +66,7 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
     "met": ["Npc_Kakariko001"],            // botw.db people.id of everyone the game has introduced
     "flags": ["Npc_Kakariko001_Talk"]      // the flags people's whereabouts wait on that his save has set
   },
+  "greatFairies": [1],                     // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
     "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save
     "trialOfTheSword": { "beginning": false, "middle": false, "final": false },  // 100enemy_Clear_Junior/Middle/Senior
@@ -178,6 +179,15 @@ reads `notes.json` again. Editing the words happens on the note itself (`notes.s
 stopped." (within 300 m); he said no 2026-11-03, it stays off. Instead the **morning brief** carries `zelda: [{ id,
 title }]` (up to 3 notes within 300 m of his last save, nearest first; `briefZeldaNotes`), drawn under Today with the
 title as a link that opens the note.
+
+## The engine (E3-E6, `src/Core/src/botwengine.ts`)
+
+`parseGoal(db, words)` turns his words into a goal (an armour set and stars, an item and how many, shrines near a place,
+a kind of dish, a quest, more hearts / stamina); `new Engine(db, state).tree(goal)` lists its needs, what he has and
+every source (shops with their hours, chests he has not opened, enemies, shrines, statues, Great Fairies);
+`.plan(tree)` orders the stops from where he saved with warps and opening hours, and gives `routeGoals` in the route
+engine's own shape for the map; `.say(plan)` is the plan in his words (unfound shrines unnamed unless "just tell me").
+Aang's tool: `botw_plan`. Rewards are not planned yet (they live in event flows, `quests.reward` is empty).
 
 ## Using it from code
 
