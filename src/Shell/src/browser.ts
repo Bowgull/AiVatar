@@ -30,6 +30,7 @@ import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { hyruleNotesFile, notePlaceMsg, type NotePlaceMsg } from './hyrulenotes.ts';
+import { RouteQueue, routeAsk, routeReport } from './hyruleroute.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture, captureWindow, type CaptureOpts, type Shot, type WindowShot } from './capture.ts';
 import { trouble } from './flight.ts';
@@ -2972,7 +2973,7 @@ export class AangBrowser {
     tab.view = view; tab.crashed = false; tab.loading = true; tab.title = 'Hyrule';
     wc.on('before-input-event', (e, input) => { this.inTab(tab); if (this.key(input)) e.preventDefault(); });
     wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
-    wc.on('did-finish-load', () => { tab.loading = false; this.sendTabs(); });
+    wc.on('did-finish-load', () => { tab.loading = false; this.sendTabs(); this.routeDeliver(); });
     wc.on('enter-html-full-screen', () => {
       const w = this.win;
       if (!w || w.isDestroyed()) return;
@@ -4824,6 +4825,35 @@ export class AangBrowser {
   isHyrule(sender: Electron.WebContents): boolean { return this.tabs.some((x) => x.internal === 'hyrule' && x.view?.webContents === sender); }
   hyruleNotes(): string | null { return hyruleNotesFile(); }
   hyruleNotePlace(raw: unknown): void { const m = notePlaceMsg(raw); if (m) this.onNotePlace?.(m); }
+  /**
+   * Sheet 25: a route ask from the brain (botw_route_add). Kept (hyruleroute.ts) until the Hyrule page is loaded, then
+   * handed to its preload, which puts it in the map's own queue. Never brings the map forward: a map he is not looking
+   * at takes it when he next opens it, and the brain hears "queued".
+   */
+  onRouteDone: ((r: { id: string; state: 'planned' | 'queued' | 'off'; title?: string; stops?: number }) => void) | null = null;
+  private routeQ: RouteQueue | null = null;
+  private get routeQueue(): RouteQueue { return this.routeQ ??= new RouteQueue(path.join(this.o.stateDir, 'hyrule-route.json')); }
+  private routeWaiting: { id: string; t: ReturnType<typeof setTimeout> }[] = [];
+  hyruleRoute(raw: unknown): void { const a = routeAsk(raw); if (!a) return; this.routeQueue.add(a); this.routeDeliver(); }
+  private routeDeliver(): void {
+    if (!this.routeQ && !this.routeQueue.size) return;
+    const t = this.tabs.find((x) => x.internal === 'hyrule'), wc = t?.view?.webContents;
+    if (!t || !wc || wc.isDestroyed() || t.loading) { for (const a of this.routeQueue.untold()) this.onRouteDone?.({ id: a.id, state: 'queued' }); return; }
+    for (const a of this.routeQueue.take()) wc.send('hyrule:route', { id: a.id, ...(a.goal ? { goal: a.goal } : { remove: a.remove }) });
+  }
+  /** The preload put it in the map's queue. A hidden map plans it when he opens it; a map on screen reports the route. */
+  hyruleRouteTook(raw: unknown): void {
+    const r = raw as { id?: unknown; hidden?: unknown } | null, id = typeof r?.id === 'string' ? r.id : '';
+    if (!/^route\d{1,9}$/.test(id)) return;
+    if (r!.hidden !== false) { this.onRouteDone?.({ id, state: 'queued' }); return; }
+    const w = { id, t: setTimeout(() => { this.routeWaiting = this.routeWaiting.filter((x) => x !== w); this.onRouteDone?.({ id, state: 'planned' }); }, 6000) };
+    this.routeWaiting.push(w);
+  }
+  hyruleRouteReport(raw: unknown): void {
+    const r = routeReport(raw), w = r && this.routeWaiting.shift();
+    if (!r || !w) return;
+    clearTimeout(w.t); this.onRouteDone?.({ id: w.id, state: 'planned', ...r });
+  }
 
   claudeNews(m: { t?: unknown; jobs?: unknown; items?: unknown } | null): void {
     if (!m) this.claudeLast = null;

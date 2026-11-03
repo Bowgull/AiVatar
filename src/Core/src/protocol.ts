@@ -381,6 +381,9 @@ export type ToBody =
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
    *  senders are companies he is tracking, new job matches overnight, and his Claude week. */
   | { t: 'brief.card'; card: BriefCard }
+  /** Sheet 25: one thing for the route on his Hyrule map (botw_route_add): a goal in the map's shapes, or a stop's name
+   *  to take off. The Shell queues it into the map page; it answers hyrule.route.done. */
+  | { t: 'hyrule.route'; id: string; name: string; goal?: import('./botwroute.ts').RouteGoal; remove?: string }
   /** Sheet 21: a drawn card that goes with his question in Discord (his email, his week). Discord only. */
   /** E7: link buttons that go with his answer in Discord (Open in Waze, Join). */
   | { t: 'links.show'; id: string; links: { label: string; url: string }[] }
@@ -627,6 +630,9 @@ export type FromBody =
   /** BG5: a Zelda note at a spot on the Hyrule map (x, z in objmap world units); with id, that note's pin moves; with
    *  id + off, it comes off the map and stays a sticky note. docs/BOTW-STATE.md "notes.json". */
   | { t: 'notes.place'; id?: string; title?: string; text?: string; x?: number; z?: number; off?: boolean }
+  /** Sheet 25: what the Hyrule map made of a route ask (botw_route_add): planned (with the route's title and stop count),
+   *  queued (the map is not open; it goes on when he opens it) or off (no Samara). */
+  | { t: 'hyrule.route.done'; id: string; state: 'planned' | 'queued' | 'off'; title?: string; stops?: number }
   /** The one switch for "Aang notices things in your notes" (notenotice.ts); its place in Settings comes with sheet 60. */
   | { t: 'notice.set'; on: boolean }
   /** Sheet 60: "+ Category" on the board, a category of his own (it takes the next colour). */

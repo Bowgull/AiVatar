@@ -14,6 +14,7 @@ import path from 'node:path';
 import { isSmallTalk } from './route.ts';
 import { DO_IT } from './instant.ts';
 import { Engine, parseGoal, type EngineState } from './botwengine.ts';
+import { resolveRouteGoal, type Resolved } from './botwroute.ts';
 
 export const botwDir = (): string => process.env.AANG_BOTW_DIR || path.join(process.env.LOCALAPPDATA || '', 'Aang', 'botw');
 
@@ -483,6 +484,13 @@ export class BotwGuide {
     if (!g) return `Nothing to plan from "${goal}": an armour set (and how many stars), an item and how many, "shrines near <place>", a kind of dish, a quest, or more hearts / stamina.`;
     const e = new Engine(db, s as unknown as EngineState);
     return `${e.say(e.plan(e.tree(g)), { spoil: tell })}\n${this.asOf(s)}`;
+  }
+
+  // ------------------------------------------------ botw_route_add (sheet 25, botwroute.ts)
+  routeGoal(words: string): Resolved {
+    const db = this.db(); if (!db) return { why: BotwGuide.NO_DB };
+    const s = this.state(); if (!s) return { why: BotwGuide.NO_SAVE };
+    return resolveRouteGoal(db, s, words);
   }
 
   // ------------------------------------------------ botw_hint
