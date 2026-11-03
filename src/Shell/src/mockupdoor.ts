@@ -67,6 +67,13 @@ export function repoOf(dir: string): string | null {
   }
   return null;
 }
+/** What Claude is told when Samara would not open a sheet: Samara's own reason, and what to do about it. */
+export function refused(name: string, why: string, live: boolean): string {
+  const said = why.trim().slice(0, 400) || (live ? 'it could not open that page' : 'it could not keep the page in the mockups repo (~/projects/mockups missing, or the page could not be read)');
+  return `Samara refused ${name.slice(0, 200)}: ${said}${/[.!?]$/.test(said) ? '' : '.'} It is NOT in the Mockups trail. ${live
+    ? 'Save the page as a file and send that.'
+    : 'If it says commit: copy the page and its art folder into the private mockups repo ~/projects/mockups under <project folder>/<same path> (never a public project repo), commit it there, and send that copy. Otherwise tell the user where the file is.'}`;
+}
 export const NEED_TOPIC = "Give branch: the topic inside its project (\"Top bar\", \"TV\"), 1 to 40 characters, so it is filed in its place and never under Other. Then call show_mockup again.";
 const inside = (p: string, dir: string) => { const r = path.relative(dir, p); return r === '' || (!!r && !r.startsWith('..') && !path.isAbsolute(r)); };
 // eslint-disable-next-line no-control-regex
@@ -116,12 +123,12 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
 }
 
 /**
- * Opens the door. `open` puts a checked drop in the trail (AangBrowser.openMockupDrop; null = not opened, e.g. not
- * committed). `why` says why mockups are off on this Mac, or null when they are on. Returns a close function.
+ * Opens the door. `open` puts a checked drop in the trail (AangBrowser.openMockupDropWhy): a string is why it was not
+ * opened, and Claude is told exactly that (2026-11-03: ten refused sheets used to come back as "Showing"). `why` says why mockups are off on this Mac, or null when they are on. Returns a close function.
  */
 /** Sheet 79: the marks in the trail, for Claude: every marked version, and one mark set on a sheet in his repo. */
 export interface DoorMarks { list(): unknown[]; set(a: { repo: string; sheet: string; v: number | null; stage: string; said: string; note: string }): string }
-export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promise<MockVersion | null>, why: () => string | null, port = MOCKUP_DOOR_PORT, marks?: DoorMarks): () => void {
+export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promise<MockVersion | string | null>, why: () => string | null, port = MOCKUP_DOOR_PORT, marks?: DoorMarks): () => void {
   const key = randomBytes(32).toString('hex');
   const keyFile = mockupDoorKeyFile(stateDir);
   try { writeFileSync(keyFile, key, { mode: 0o600 }); chmodSync(keyFile, 0o600); } catch (e) { console.error('aang: the mockup door has no key: ' + (e as Error).message); return () => {}; }
@@ -171,9 +178,9 @@ export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promi
         if (!(typeof ask.branch === 'string' && cleanBranch(ask.branch))) { json(200, { ok: false, message: NEED_TOPIC }); return; }
         const c = checkAsk(ask);
         if (!c.ok) { json(200, c); return; }
-        busy = busy.then(() => open(c.drop).then((v) => json(200, v
-          ? { ok: true, message: `Showing ${c.name} in Samara's Mockups trail on this Mac${c.drop.branch ? ` (branch ${c.drop.branch})` : ''}.` }
-          : { ok: false, message: c.drop.url ? 'Samara could not open that page.' : `Samara could not keep ${c.name} in the mockups repo (~/projects/mockups missing, or the page could not be read). Tell the user where the file is.` }),
+        busy = busy.then(() => open(c.drop).then((v) => json(200, v && typeof v === 'object'
+          ? { ok: true, message: `Showing ${c.name} in Samara's Mockups trail${c.drop.branch ? ` (branch ${c.drop.branch})` : ''}.` }
+          : { ok: false, message: refused(c.name, typeof v === 'string' ? v : '', !!c.drop.url) }),
         () => json(500, { ok: false, message: 'Samara could not open it.' })));
         return;
       }

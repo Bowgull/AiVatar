@@ -142,6 +142,25 @@ test('the door answers only signed requests, proves its key, and opens the page'
   } finally { close(); }
 });
 
+test('2026-11-03: a sheet Samara refuses comes back as a failure with its reason, never "Showing"', { timeout: 20_000 }, async () => {
+  const state = mkdtempSync(path.join(os.tmpdir(), 'mockdoor-state-')), r = repo();
+  const port = 47900 + Math.floor(Math.random() * 90);
+  const close = startMockupDoor(state, async () => "@x/docs/sheet-1.html is not in the repo's last commit, not opened.", () => null, port);
+  try {
+    const key = readFileSync(path.join(state, 'mockup-door.key'), 'utf8');
+    const body = JSON.stringify({ cwd: r, path: 'docs/sheet-1.html', title: '01 · One', branch: 'One' }), ts = String(Date.now());
+    await new Promise((res) => setTimeout(res, 150));
+    const res = await fetch(`http://127.0.0.1:${port}/mockup`, { method: 'POST', body,
+      headers: { 'x-aang-link-ts': ts, 'x-aang-link-sig': createHmac('sha256', key).update(['req', ts, 'POST', '/mockup', body].join('\n')).digest('hex') } });
+    const j = (await res.json()) as { ok: boolean; message: string };
+    assert.equal(j.ok, false);
+    assert.match(j.message, /^Samara refused docs\/sheet-1\.html: .*not in the repo's last commit/);
+    assert.match(j.message, /NOT in the Mockups trail/);
+    assert.match(j.message, /private mockups repo ~\/projects\/mockups/, 'it says what to do');
+    assert.doesNotMatch(j.message, /Showing/);
+  } finally { close(); }
+});
+
 // ------------------------------------------------------------------ the Mac setup's merges into his Claude files
 const runJs = (js: string, ...args: string[]) => execFileSync(process.execPath, ['-e', js, ...args], { encoding: 'utf8' }).trim();
 

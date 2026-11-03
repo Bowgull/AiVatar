@@ -271,7 +271,7 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   // show_mockup from this machine's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).
   if (bp.mockupDoor) {
     const off = bp.mockupDoor.offWhy;
-    const close = d.startMockupDoor(p.stateDir, (m) => browser.openMockupDrop(m), () => (browser.mockupsOn ? null : off()),
+    const close = d.startMockupDoor(p.stateDir, (m) => browser.openMockupDropWhy(m), () => (browser.mockupsOn ? null : off()),
       { list: () => browser.mockStages(), set: (a) => browser.mockMark(a) });
     d.onQuit(close);
   }
