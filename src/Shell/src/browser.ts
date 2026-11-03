@@ -2985,11 +2985,18 @@ export class AangBrowser {
     this.place();
     this.sendTabs();
   }
-  /** Open the Hyrule tab (or bring it forward). Nothing happens on a machine without the map's folder. */
+  /**
+   * The Hyrule key (his rule, 2026-11-03: "this was behaviour I cut out with the mockups"): like Mockups, never a tab in
+   * his list. The key takes the page area over and lights up; the key again (or any of his tabs) puts him back on the
+   * tab he was on, and the map stays where he left it for next time. Nothing happens on a machine without the map's folder.
+   */
   openHyrule(): boolean {
     if (!this.o.hyruleDir) return false;
     if (!this.win || this.win.isDestroyed()) { this.whenOpen.push(() => this.openHyrule()); if (!this.lastPane()) this.createPane(); return true; }
     let t = this.tabs.find((x) => x.internal === 'hyrule');
+    const was = this.cur();
+    if (t && was === t) { this.hyruleLeave(); return true; }
+    if (was && was.internal !== 'hyrule') this.hyruleFrom = was.id;
     if (!t) {
       t = { id: ++this.seq, internal: 'hyrule', view: null, opener: null, title: 'Hyrule', url: 'aang:hyrule', favicon: '', loading: false, audible: false, muted: false, crashed: false,
         scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
@@ -2998,6 +3005,17 @@ export class AangBrowser {
     this.activate(t.id);
     this.win?.focus();
     return true;
+  }
+  /** The tab he was on before the Hyrule key. */
+  private hyruleFrom: number | null = null;
+  /** Back from Hyrule to the tab he was on (the newest of his own if that one is gone, else a new one). */
+  hyruleLeave(): void {
+    const h = this.tabs.find((x) => x.internal === 'hyrule');
+    if (!h) return;
+    const mine = (x: Tab) => x !== h && !x.done && x.pane === h.pane;
+    const back = this.tabs.find((x) => x.id === this.hyruleFrom && mine(x)) ?? [...this.tabs].filter((x) => mine(x) && !x.internal).sort((a, b) => b.lastSeen - a.lastSeen)[0];
+    this.hyruleFrom = null;
+    if (back) this.activate(back.id); else this.newTab(this.HOME);
   }
   isSettings(sender: Electron.WebContents): boolean { const t = this.tabs.find((x) => x.internal === 'settings' && x.view?.webContents === sender); if (t) this.inTab(t); return Boolean(t); }
   /** Open Settings (or bring its tab forward), at a section. */
