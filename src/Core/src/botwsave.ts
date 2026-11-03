@@ -113,10 +113,19 @@ export interface BotwState {
   heroPath: { points: [number, number][] } | null;
   chests: { opened: number[] };   // E2: botw.db chests.hash_id of every chest he has opened
   people: { met: string[] };      // E2: botw.db people.id of everyone the game has introduced (name shown, or first talk)
+  dlc: BotwDlc;                   // E2: the add-ons' completion marks (docs/BOTW-STATE.md)
+}
+export interface BotwDlc {
+  masterMode: boolean;            // AoC_HardMode_Enabled: only ever set in a Master Mode save
+  trialOfTheSword: { beginning: boolean; middle: boolean; final: boolean };  // 100enemy_Clear_Junior/Middle/Senior
+  ballad: { champions: string[]; done: boolean };  // BalladOfHero<Rito|Goron|Zora|Gerudo>_Finish, BalladOfHeroes_Finish
+  finalTrial: boolean;            // Clear_FinalTrial
+  mazKoshia: boolean;             // Defeated_Priest_Boss_Normal_Num > 0
 }
 
 const VERSIONS: Record<number, string> = { 0x471b: 'v1.5', 0x471e: 'v1.6' };
 const BEASTS = ['Water', 'Fire', 'Wind', 'Electric'];
+const CHAMPIONS = ['Rito', 'Goron', 'Zora', 'Gerudo'];
 /** Weapons, bows and shields keep durability x100 in PorchItem_Value1, everything else a count. */
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
 
@@ -180,6 +189,12 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     heroPath: path.length ? { points: path } : null,
     chests: { opened: (cat.chests ?? []).filter(c => s.int(c.flag)).map(c => c.hash) },
     people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id) },
+    dlc: {
+      masterMode: s.int('AoC_HardMode_Enabled') !== 0,
+      trialOfTheSword: { beginning: !!s.int('100enemy_Clear_Junior'), middle: !!s.int('100enemy_Clear_Middle'), final: !!s.int('100enemy_Clear_Senior') },
+      ballad: { champions: CHAMPIONS.filter(c => s.int(`BalladOfHero${c}_Finish`)), done: !!s.int('BalladOfHeroes_Finish') },
+      finalTrial: !!s.int('Clear_FinalTrial'), mazKoshia: s.int('Defeated_Priest_Boss_Normal_Num') > 0,
+    },
   };
 }
 

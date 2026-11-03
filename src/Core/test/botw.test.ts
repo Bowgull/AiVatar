@@ -88,6 +88,8 @@ test('E2: his six real slots: chests opened and people met only ever grow, and a
     const st = states[i]!;
     assert.ok(st.chests.opened.length > 0 && st.chests.opened.every(h => known.has(h)), `slot ${st.slot}: opened chests are botw.db chests`);
     assert.ok(st.people.met.includes('Npc_Kakariko001'), `slot ${st.slot}: he has met Impa`);
+    // he has not started either add-on yet, and plays normal mode
+    assert.deepEqual(st.dlc, { masterMode: false, trialOfTheSword: { beginning: false, middle: false, final: false }, ballad: { champions: [], done: false }, finalTrial: false, mazKoshia: false }, `slot ${st.slot} dlc`);
     if (!i) continue;
     const prev = states[i - 1]!;
     assert.ok(prev.chests.opened.every(h => st.chests.opened.includes(h)), `slot ${prev.slot} -> ${st.slot}: no chest closes again`);
@@ -173,6 +175,9 @@ test('E2 made-up: chests opened and people met, and a state from before E2', () 
   // an older botw.db (no E1 tables): the fields are there, empty
   const st = parseState({ save: game({ chests: 2 }), slot: 0, savedAt: 0 }, { ...CAT, chests: undefined, people: undefined });
   assert.deepEqual([st.chests, st.people], [{ opened: [] }, { met: [] }]);
+  // the DLC marks
+  const dlc = parse(makeSave({ AoC_HardMode_Enabled: 1, '100enemy_Clear_Junior': 1, BalladOfHeroZora_Finish: 1, BalladOfHeroRito_Finish: 1, Defeated_Priest_Boss_Normal_Num: 1 })).dlc;
+  assert.deepEqual(dlc, { masterMode: true, trialOfTheSword: { beginning: true, middle: false, final: false }, ballad: { champions: ['Rito', 'Zora'], done: false }, finalTrial: false, mazKoshia: true });
 });
 
 // ------------------------------------------------------------------ the watcher
