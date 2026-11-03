@@ -39,8 +39,27 @@ export interface Note {
   /** "Aang can bring this up" (2026-10-22, notenotice.ts). On by default: stored only as `false` when he turns it off,
    *  so every note saved before this existed is on, with no migration step beyond tidy(). */
   notice?: false | undefined;
+  /** BG5 (docs/BOTW-GUIDE.md): pinned on his Hyrule map, in objmap world units (botw.db, state.json pos). The same
+   *  note is a normal sticky note everywhere else; botwnotes.ts hands the placed ones to the map. */
+  place?: NotePlace | undefined;
   updated: number;
 }
+export interface NotePlace { game: 'botw'; x: number; z: number }
+
+/** BotW's world runs about -5000..5000 east-west and -4000..4000 north-south; a little slack, then refused. */
+const BOTW_SPAN = 6000;
+/** A note's place: a known game and two finite numbers inside its world, rounded to 0.1. Anything else is no place. */
+export function cleanPlace(raw: unknown): NotePlace | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  if (r.game !== 'botw') return undefined;
+  const num = (v: unknown) => typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  const x = num(r.x), z = num(r.z);
+  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > BOTW_SPAN || Math.abs(z) > BOTW_SPAN) return undefined;
+  return { game: 'botw', x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10 };
+}
+/** BG5: the one category every note on the Hyrule map gets. One of his own, so it takes his next free colour. */
+export const ZELDA_CAT = 'Zelda';
 
 /** A note's source link: http(s) only, not absurdly long, and its site (short). Anything else is no source. */
 export function cleanSrc(raw: unknown): { url: string; site: string } | undefined {
@@ -190,8 +209,11 @@ export class Notes {
   /** His own categories, in the order he made them: that order is which colour each one gets. Kept beside the notes. */
   private own: string[] = [];
   private readonly catsFile: string;
-  constructor(file: string) {
+  /** Told after every save (BG5: botwnotes.ts rewrites the map's notes.json). Its errors never stop a save. */
+  private readonly onChange: ((notes: Note[], own: string[]) => void) | undefined;
+  constructor(file: string, opts: { onChange?: (notes: Note[], own: string[]) => void } = {}) {
     this.file = file;
+    this.onChange = opts.onChange;
     this.catsFile = path.join(path.dirname(file), 'note-cats.json');
     this.own = readJson(this.catsFile, this.own, (raw) => (Array.isArray(raw) ? this.cleanOwn(raw) : null));
     this.all = readJson(file, this.all, (raw) => (Array.isArray(raw) ? (raw as Note[]).map(n => this.tidy(n)).filter((n): n is Note => n !== null).slice(0, MAX_NOTES) : null));
@@ -248,6 +270,32 @@ export class Notes {
     if (at >= 0) { this.all[at] = { ...this.all[at]!, src }; this.save(); }
     return { ...n, src };
   }
+  /**
+   * BG5: a note pinned at a spot on his Hyrule map ("Note here" on the map, or "Keep as a note?" at his saved spot).
+   * Plain lines like keep(), in the Zelda category. With an id: that note moves there (a pin dragged), its words kept.
+   */
+  pin(raw: { id?: unknown; title?: unknown; text?: unknown; x?: unknown; z?: unknown }, now = Date.now()): Note | null {
+    const place = cleanPlace({ game: 'botw', x: raw.x, z: raw.z });
+    if (!place) return null;
+    if (raw.id !== undefined) {
+      const n = this.all.find(x => x.id === String(raw.id));
+      if (!n) return null;
+      n.place = place; n.updated = now; this.save(); return { ...n, place: { ...place } };
+    }
+    const lines = String(raw.text ?? '').replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 40).map(l => l.slice(0, 400));
+    const title = String(raw.title ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || lines[0]?.slice(0, 60) || 'Hyrule note';
+    const n = this.make(title, lines.map(l => `<div>${esc(l)}</div>`).join(''), ZELDA_CAT, now);
+    if (!n) return null;
+    const at = this.all.findIndex(x => x.id === n.id);
+    this.all[at] = { ...this.all[at]!, place }; this.save();
+    return { ...n, place: { ...place } };
+  }
+  /** BG5: take a note off the map. It stays a sticky note, in its category. */
+  unpin(id: string, now = Date.now()): Note | null {
+    const n = this.all.find(x => x.id === id);
+    if (!n?.place) return null;
+    delete n.place; n.updated = now; this.save(); return { ...n };
+  }
   /** Find a note by the name he says: "my raid note" finds "Raid night". */
   find(name: string): Note | null {
     const k = name.toLowerCase().replace(/\s+note$/, '').trim();
@@ -273,6 +321,8 @@ export class Notes {
     const at = this.all.findIndex(x => x.id === r.id);
     // A note's source link is the Shell's to set (Keep as a note), never lost because an editor did not send it back.
     if (at >= 0 && !r.src && this.all[at]!.src) r.src = this.all[at]!.src;
+    // Its place on the Hyrule map likewise: set by pin(), never dropped by an editor that does not know about it.
+    if (at >= 0 && !r.place && this.all[at]!.place) r.place = this.all[at]!.place;
     if (at < 0) { if (this.all.length >= MAX_NOTES) return null; this.all.push(r); } else this.all[at] = r;
     this.save(); return { ...r };
   }
@@ -308,8 +358,14 @@ export class Notes {
       ...(o ? { out: { x: num(o.x, -20000, 20000, 100), y: num(o.y, -20000, 20000, 100), w: num(o.w, 170, 900, 220), h: num(o.h, 120, 900, 170), opacity: Math.max(0.25, Math.min(1, Number(o.opacity) || 1)), pinned: o.pinned === true } } : {}),
       ...(cleanSrc(n.src) ? { src: cleanSrc(n.src) } : {}),
       ...(n.notice === false ? { notice: false as const } : {}),
+      ...(cleanPlace(n.place) ? { place: cleanPlace(n.place) } : {}),
       updated: Number.isFinite(n.updated) ? n.updated : Date.now(),
     };
   }
-  private save(): void { writeFileAtomic(this.file, JSON.stringify(this.all)); }
+  private save(): void {
+    writeFileAtomic(this.file, JSON.stringify(this.all));
+    try { this.onChange?.(this.list(), [...this.own]); } catch { /* the map's copy is best effort */ }
+  }
+  /** Hand the notes to onChange now (startup), without saving. */
+  told(): void { try { this.onChange?.(this.list(), [...this.own]); } catch { /* best effort */ } }
 }

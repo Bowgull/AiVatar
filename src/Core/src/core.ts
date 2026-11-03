@@ -13,8 +13,9 @@ import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS, MAX_TIMERS, TIMER_ACTIONS, type TimerAction } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
+import { afterPlayNote, botwNoteSettings, rememberPin, rememberThis, writeBotwNotes } from './botwnotes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
-import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState, type NoteLike } from './botwwatch.ts';
+import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
 import { botwLane } from './botw.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
@@ -3868,6 +3869,12 @@ export class Core {
       case 'notes.cat': { if (this.notes.addCat(m.name)) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       case 'notes.delete': { if (this.notes.remove(String(m.id ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       // Sheet 62 (2026-10-22): "Keep as a note" on Aang's line after a Send to Aang. A plain note with the link; Notes.keep checks it.
+      // BG5: "Note here" on the Hyrule map (a new Zelda note at x, z), a pin dragged (id + x, z), or taken off (id, off).
+      case 'notes.place': {
+        const done = m.off === true ? this.notes.unpin(String(m.id ?? '')) : this.notes.pin({ id: m.id, title: m.title, text: m.text, x: m.x, z: m.z });
+        if (done) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
+        break;
+      }
       case 'notes.keep': { if (this.notes.keep(String(m.text ?? ''), String(m.url ?? ''), String(m.site ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       case 'timer.act': {
         // Sheet 67 v2: the hourglass's keys, scroll, hold, menu, and Aang's Got it / 5 more on a finished one.
@@ -4219,7 +4226,20 @@ export class Core {
         // played within a day; otherwise it goes on to the model like any question.
         if (m.ephemeral !== true && isWhereWasI(text) && meansBotw(text, readBotwState(this.botw.p))) {
           this.send(ws, { t: 'ack', id });
-          this.send(ws, { t: 'bubble', text: this.botw.whereWasI(this.notes.list() as NoteLike[]), stream: false, id, who: 'Aang' });
+          this.send(ws, { t: 'bubble', text: this.botw.whereWasI(this.notes.list()), stream: false, id, who: 'Aang' });
+          break;
+        }
+        // BG5 hook, off until he says yes (note-settings.json keepOffer): "remember this" about BotW asks "Keep as a
+        // note?" and, on Yes, pins his words where he saved. Off = the message goes on as it always did.
+        const remembered = m.ephemeral !== true ? rememberThis(text) : null;
+        const botwNow = remembered !== null && botwNoteSettings(this.botw.p.dir).keepOffer ? readBotwState(this.botw.p) : null;
+        if (remembered !== null && botwNow && meansBotw(text, botwNow)) {
+          this.send(ws, { t: 'ack', id });
+          void this.askChoice('Keep as a note?', [{ label: 'Yes, pin it where I saved' }, { label: 'No' }]).then(r => {
+            const n = r.ok && /^He picked "Yes/.test(r.detail) ? this.notes.pin(rememberPin(remembered, botwNow)) : null;
+            if (n) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
+            this.send(ws, { t: 'bubble', text: n ? `Pinned "${n.title}" on your Hyrule map.` : 'Okay, not kept.', stream: false, id, who: 'Aang' });
+          });
           break;
         }
         // Sheet 17: a timer is plain code, never a model turn. "set a timer for 25 minutes for the pizza".
@@ -4982,7 +5002,14 @@ export class Core {
 
   /** Sheet 17: kept on disk, so a restart never loses one. */
   private notesStore: Notes | null = null;
-  private get notes(): Notes { return this.notesStore ??= new Notes(path.join(this.cfg.stateDir, 'notes.json')); }
+  private get notes(): Notes {
+    if (this.notesStore) return this.notesStore;
+    // BG5: every save also rewrites the Hyrule map's copy of the placed notes (botwnotes.ts, docs/BOTW-STATE.md).
+    const dir = botwPaths().dir;
+    this.notesStore = new Notes(path.join(this.cfg.stateDir, 'notes.json'), { onChange: (all, own) => writeBotwNotes(dir, all, own) });
+    this.notesStore.told();
+    return this.notesStore;
+  }
   /** The window title the pet last reported (with fgProcess): what Qwen may see of what he is doing, nothing more. */
   private fgTitle = '';
   /** 2026-10-22: "Aang notices things in your notes" (notenotice.ts). Qwen only; Claude only if he replies. */
@@ -5024,6 +5051,9 @@ export class Core {
       gameRunning: async () => this.bodyQuiet || (await gameRunning()).running,
       say: line => {
         // The same door as every proactive line (sendTo -> FrontGate), stored so a reply to it works.
+        // BG5 hook, off until he says yes (note-settings.json afterPlay): a Zelda note near where he stopped.
+        const extra = botwNoteSettings(this.botw.p.dir).afterPlay ? afterPlayNote(this.notes.list(), readBotwState(this.botw.p)) : null;
+        if (extra) line = `${line} ${extra}`;
         const msg: Extract<ToBody, { t: 'bubble' }> = { t: 'bubble', text: line, stream: false, proactive: true };
         const row = this.memory.saveSaid(line, 'say', { kind: 'botw.today' });
         if (row !== null) msg.turn = row;

@@ -622,6 +622,9 @@ export type FromBody =
   | { t: 'notes.delete'; id: string }
   /** Sheet 62 (2026-10-22): "Keep as a note" on something he sent to Aang: its words (or name), the link and the site. */
   | { t: 'notes.keep'; text: string; url: string; site: string }
+  /** BG5: a Zelda note at a spot on the Hyrule map (x, z in objmap world units); with id, that note's pin moves; with
+   *  id + off, it comes off the map and stays a sticky note. docs/BOTW-STATE.md "notes.json". */
+  | { t: 'notes.place'; id?: string; title?: string; text?: string; x?: number; z?: number; off?: boolean }
   /** The one switch for "Aang notices things in your notes" (notenotice.ts); its place in Settings comes with sheet 60. */
   | { t: 'notice.set'; on: boolean }
   /** Sheet 60: "+ Category" on the board, a category of his own (it takes the next colour). */
