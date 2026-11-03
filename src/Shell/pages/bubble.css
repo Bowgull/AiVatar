@@ -581,6 +581,8 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .lt-tile img.lt-art{width:28px;height:28px;border-radius:0;image-rendering:pixelated}
 .lt-tile:has(.lt-art){background:transparent;box-shadow:none}
 .lt-txt{flex:1;min-width:0}
+/* BG5: a Zelda note's title in the brief reads as a link (it opens the note) */
+.lt-note .lt-txt b{text-decoration:underline;text-decoration-color:rgba(138,62,28,.45);text-underline-offset:3px}
 .lt-txt b{display:block;font:700 14.5px/1.25 var(--body);color:#2a1c0c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lt-txt span{display:block;font:500 12.5px/1.3 var(--body);color:#6a5236;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lt-when{flex:none;font:700 13px var(--body);color:#8a3e1c;text-align:right}

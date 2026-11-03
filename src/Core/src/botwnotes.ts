@@ -66,6 +66,15 @@ export function rememberPin(words: string, st: BotwState): { title: string; text
   return { title, text: words || 'Remembered here.', x: st.pos.x, z: st.pos.z };
 }
 
+/**
+ * His pick (2026-11-03, "in morning brief"): a Zelda note within NOTE_NEAR of where he last saved goes in the morning
+ * brief, its title a link that opens the note. Up to three, nearest first; none without a save.
+ */
+export function briefZeldaNotes(notes: Note[], st: BotwState | null): { id: string; title: string }[] {
+  if (!st) return [];
+  return (nearNotes(notes, st) as Note[]).slice(0, 3).map(n => ({ id: n.id, title: n.title }));
+}
+
 /** The after-play addition: a Zelda note near where he stopped, or null. Never anything about what is left. */
 export function afterPlayNote(notes: Note[], st: BotwState | null): string | null {
   if (!st) return null;

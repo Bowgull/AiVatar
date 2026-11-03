@@ -139,7 +139,10 @@ reads `notes.json` again. Editing the words happens on the note itself (`notes.s
 
 **Two hooks waiting on his yes** read `note-settings.json` here: `{ "keepOffer": false, "afterPlay": false }`. Missing
 = both off. `keepOffer`: a BotW message starting "remember this" asks "Keep as a note?" and on Yes pins the words at
-`state.json` pos. `afterPlay`: the "today" line adds "Your note "…" is near where you stopped." (within 300 m).
+`state.json` pos (he said yes 2026-11-03: on). `afterPlay`: the "today" line adds "Your note "…" is near where you
+stopped." (within 300 m); he said no 2026-11-03, it stays off. Instead the **morning brief** carries `zelda: [{ id,
+title }]` (up to 3 notes within 300 m of his last save, nearest first; `briefZeldaNotes`), drawn under Today with the
+title as a link that opens the note.
 
 ## Using it from code
 
