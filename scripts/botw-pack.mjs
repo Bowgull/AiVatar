@@ -18,7 +18,7 @@
 // --out \\localhost\c$\Users\Shadow\AppData\Local\Aang\botw to reach the real folder, from PowerShell (Git Bash
 // turns that path into C:\localhost\..., a stray folder). Check it with scripts/botw-pack-check.mjs.
 import { DatabaseSync } from 'node:sqlite';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { crc32 } from 'node:zlib';
 import path from 'node:path';
 
@@ -29,8 +29,9 @@ const REFRESH = process.argv.includes('--refresh');
 const CEMU = 'C:/Games/Cemu/portable/mlc01/usr/title';
 // The update folder holds the full v1.5 Bootup pack, ActorInfo and text; the base game is not needed on top.
 const UPD = `${CEMU}/0005000e/101c9400/content/`, DLC = `${CEMU}/0005000c/101c9400/content/0010/`;
+const BASE = `${CEMU}/00050000/101c9400/content/`; // E1: shrine interiors and the base map units (to tell what the DLC added)
 const UA = { 'user-agent': 'aang-personal-botw-guide (one-off, private)' };
-export const PACK_VERSION = 2; // 2 (BG3): cook_items, cook_effects, shops for the guide tools
+export const PACK_VERSION = 3; // 2 (BG3): cook_items, cook_effects, shops for the guide tools; 3 (E1): chests, people and the world's other sources
 
 // ---- readers for the game's formats (Wii U, big-endian) ----
 function yaz0(b) {
@@ -155,6 +156,24 @@ db.exec(`
     boost_time INTEGER, boost_hp INTEGER, boost_max INTEGER, boost_stamina INTEGER, buy INTEGER);
   CREATE TABLE cook_effects (effect TEXT PRIMARY KEY, base_time INTEGER, min INTEGER, max INTEGER, rate REAL);
   CREATE TABLE shops (npc TEXT PRIMARY KEY, name TEXT, items TEXT NOT NULL, x REAL, z REAL, ${SPOIL});
+  CREATE TABLE chests (hash_id INTEGER PRIMARY KEY, actor TEXT NOT NULL, map TEXT NOT NULL, unit TEXT NOT NULL, kind TEXT NOT NULL,
+    shrine TEXT, item TEXT, item_name TEXT, buried INTEGER NOT NULL, under_water INTEGER NOT NULL, camp INTEGER,
+    dlc INTEGER NOT NULL, master_mode INTEGER NOT NULL, near TEXT, x REAL, y REAL, z REAL, flag TEXT, ${SPOIL});
+  CREATE TABLE people (id TEXT PRIMARY KEY, name TEXT, kind TEXT NOT NULL, met_flag TEXT, met_by TEXT, places TEXT NOT NULL,
+    x REAL, z REAL, near TEXT, sells TEXT, starts TEXT, ends TEXT, in_quests TEXT, schedule TEXT, day_cycle INTEGER NOT NULL,
+    dlc INTEGER NOT NULL, ${SPOIL});
+  CREATE TABLE great_fairies (n INTEGER PRIMARY KEY, name TEXT, fountain TEXT NOT NULL, near TEXT, x REAL, z REAL,
+    revive_flag TEXT, ${SPOIL});
+  CREATE TABLE goddess_statues (hash_id INTEGER PRIMARY KEY, actor TEXT NOT NULL, kind TEXT NOT NULL, near TEXT, x REAL, z REAL, ${SPOIL});
+  CREATE TABLE camps (n INTEGER PRIMARY KEY, chests TEXT NOT NULL, locked INTEGER NOT NULL, enemies TEXT NOT NULL, near TEXT,
+    x REAL, z REAL, master_mode INTEGER NOT NULL, ${SPOIL});
+  CREATE TABLE memories (n INTEGER PRIMARY KEY, photo TEXT, spot_hash INTEGER NOT NULL, near TEXT, x REAL, y REAL, z REAL,
+    seen_flag TEXT, ${SPOIL});
+  CREATE TABLE bosses (hash_id INTEGER PRIMARY KEY, actor TEXT NOT NULL, kind TEXT NOT NULL, name TEXT, map TEXT NOT NULL,
+    near TEXT, x REAL, y REAL, z REAL, master_mode INTEGER NOT NULL, dlc INTEGER NOT NULL, defeat_flag TEXT, ${SPOIL});
+  CREATE TABLE stables (hash_id INTEGER PRIMARY KEY, name TEXT, place_flag TEXT, x REAL, z REAL, ${SPOIL});
+  CREATE TABLE horses (hash_id INTEGER PRIMARY KEY, actor TEXT NOT NULL, kind TEXT NOT NULL, name TEXT, near TEXT, x REAL, z REAL, ${SPOIL});
+  CREATE INDEX chests_flag ON chests(flag);
   CREATE INDEX places_flag ON places(flag);
   CREATE INDEX names_name ON names(name COLLATE NOCASE);
 `);
@@ -308,6 +327,183 @@ insert('enemies', AI.filter((a) => killed.has(a.name) || (/Enemy|Guardian/.test(
   spoiler_kind: STORY_BOSS.test(a.name) ? 'story' : 'mechanics', spoiler_level: STORY_BOSS.test(a.name) ? 3 : 0,
 })));
 
+// ================= E1 (docs/BOTW-ENGINE.md): the world's sources, from the game's map units =================
+// MainField's 80 squares come from the DLC's copies (the base game plus what the DLC adds; the update's own copies say
+// which is which), the shrines from Pack/DungeonNNN.pack, the Divine Beasts and the Final Trial from MainFieldDungeon,
+// the Trial of the Sword from AocField. A chest's save flag is <map>_<actor>_<hash>; a boss's <map>_IsDefeat_<actor>_<hash>.
+console.log('reading map units (read-only)...');
+const PLACED = [], BASE_H = new Set(); // every placed object once; the hash ids the game had without the DLC
+const mubin = (b) => byml(yaz0(b)).Objs || [];
+const placeAll = (map, unit, buf) => { for (const o of mubin(buf)) PLACED.push({ map, unit, o }); };
+const TITLEBG = pack(UPD + 'Pack/TitleBG.pack');
+for (const sq of readdirSync(DLC + 'Map/MainField').filter((d) => /^[A-J]-\d$/.test(d))) for (const k of ['Static', 'Dynamic']) {
+  placeAll('MainField', sq, readFileSync(`${DLC}Map/MainField/${sq}/${sq}_${k}.smubin`));
+  for (const o of mubin(k === 'Static' ? TITLEBG.get(`Map/MainField/${sq}/${sq}_Static.smubin`) : readFileSync(`${UPD}Map/MainField/${sq}/${sq}_Dynamic.smubin`))) BASE_H.add(o.HashId);
+}
+const unitsIn = (f, into) => { for (const [k, v] of pack(f)) { const m = k.match(/^Map\/(\w+)\/(\w+)\/\w+_(Static|Dynamic)\.smubin$/); if (m) into(m[1], m[2], v); } };
+for (const f of readdirSync(BASE + 'Pack').filter((f) => /^(Dungeon\d+|Remains\w+)\.pack$/.test(f)))
+  unitsIn(BASE + 'Pack/' + f, (map, unit, v) => { if (map === 'CDungeon') placeAll(map, unit, v); for (const o of mubin(v)) BASE_H.add(o.HashId); });
+for (const f of readdirSync(DLC + 'Pack').filter((f) => /^(Dungeon\d+|Remains\w+|FinalTrial)\.pack$/.test(f))) unitsIn(DLC + 'Pack/' + f, placeAll);
+for (const sq of readdirSync(DLC + 'Map/AocField').filter((d) => /^[A-J]-\d$/.test(d))) for (const k of ['Static', 'Dynamic']) {
+  const f = `${DLC}Map/AocField/${sq}/${sq}_${k}.smubin`; if (existsSync(f)) placeAll('AocField', sq, readFileSync(f));
+}
+const OBJ = new Map(PLACED.map((p) => [p.o.HashId, p]));
+const prm = (o) => o['!Parameters'] || {}, hard = (o) => prm(o).IsHardModeActor ? 1 : 0, r1 = (v) => Math.round(v * 10) / 10;
+const placed = (re, map = 'MainField') => PLACED.filter((p) => (!map || p.map === map) && re.test(p.o.UnitConfigName));
+const NAMED = MARK.places.map(([flag, msg, , x, z]) => ({ flag, name: PLACE[msg], x, z })).filter((p) => p.name);
+const nearest = (x, z, list) => { let best = null, d = Infinity; for (const p of list) { const e = (p.x - x) ** 2 + (p.z - z) ** 2; if (e < d) { d = e; best = p; } } return best; };
+// "near": the closest map name in the overworld; inside a shrine or a Divine Beast, its own name
+const nearOf = ({ map, unit, o }) => map === 'MainField' ? nearest(o.Translate[0], o.Translate[2], NAMED)?.name : tidy(DMSG[unit]) || nameOf(unit) || unit;
+const dist2 = (a, b) => (a.o.Translate[0] - b.o.Translate[0]) ** 2 + (a.o.Translate[2] - b.o.Translate[2]) ** 2;
+// under water: over 1 m below the water's surface in the route engine's 8 m water and height grid (the same terrain
+// files); a wooden chest at the surface floats or sits on a dock
+const { loadGround } = await import('file:///' + path.join(SRC, 'tools/routetest/ground.mjs').replace(/\\/g, '/'));
+const GROUND = loadGround(path.join(SRC, 'tools/routetest/cache'));
+const underWater = ([x, y, z]) => { const d = GROUND.depth(x, z); return d > 0.5 && y < GROUND.height(x, z) + d - 1; };
+
+// chests: every TBox. kind (one): shrine / divine beast / final trial / trial of the sword inside those maps; in the
+// overworld buried (IsInGround: dig or bomb), under water, camp (the locked camp chest, or 3+ Bokoblins, Moblins or
+// Lizalfos within 20 m), else field. master_mode: only in Master Mode (his saves are normal mode). The 3 Gamble chests
+// (a minigame, refilled) have no save flag: flag null.
+const FOES = placed(/^Enemy_(Bokoblin|Moblin|Lizalfos)/).filter((p) => !hard(p.o));
+const foesNear = (p, r) => FOES.filter((f) => dist2(f, p) < r * r);
+const MAPKIND = { CDungeon: 'shrine', MainFieldDungeon: 'divine beast', AocField: 'trial of the sword' };
+const chests = placed(/^TBox/, null).map((p) => {
+  const { map, unit, o } = p, a = o.UnitConfigName, flag = `${map}_${a}_${o.HashId}`, field = map === 'MainField';
+  need(FLAGS.has(flag) || /Gamble/.test(a), `save flag for chest ${o.HashId}`);
+  const buried = !!prm(o).IsInGround, water = field && !buried && underWater(o.Translate), camp = field && (a === 'TBox_Field_Enemy' || foesNear(p, 20).length >= 3);
+  const item = prm(o).DropActor || null, itemName = item && (nameOf(item) || nameOf(item.replace(/^Obj_(\w+?)_A_01$/, '$1')) || nameOf(item.replace(/^Obj_(\w+?_A)_01$/, '$1')));
+  need(!item || itemName, `name for chest item ${item}`); // a single arrow's name is on the arrow itself (Bullet)
+  return { hash_id: o.HashId, actor: a, map, unit, kind: !field ? (unit === 'FinalTrial' ? 'final trial' : MAPKIND[map]) : buried ? 'buried' : water ? 'under water' : camp ? 'camp' : 'field',
+    shrine: map === 'CDungeon' ? unit : null, item, item_name: itemName, buried: buried ? 1 : 0, under_water: water ? 1 : 0, camp: field ? (camp ? 1 : 0) : null,
+    dlc: BASE_H.has(o.HashId) ? 0 : 1, master_mode: hard(o), near: nearOf(p), x: r1(o.Translate[0]), y: r1(o.Translate[1]), z: r1(o.Translate[2]),
+    flag: FLAGS.get(flag) ? flag : null, spoiler_kind: 'location', spoiler_level: 1, p };
+});
+insert('chests', chests.map(({ p, ...c }) => c));
+
+// monster camps: camp chests within 40 m of each other are one camp; its enemies are those within 40 m of its middle.
+const camps = [];
+for (const c of chests.filter((c) => c.camp)) {
+  const k = camps.find((k) => k.master === c.master_mode && k.list.some((d) => dist2(d.p, c.p) < 40 * 40));
+  if (k) k.list.push(c); else camps.push({ master: c.master_mode, list: [c] });
+}
+insert('camps', camps.map((k, n) => {
+  const x = k.list.reduce((s, c) => s + c.x, 0) / k.list.length, z = k.list.reduce((s, c) => s + c.z, 0) / k.list.length, mid = { o: { Translate: [x, 0, z] } }, foes = {};
+  for (const f of foesNear(mid, 40)) foes[f.o.UnitConfigName] = (foes[f.o.UnitConfigName] || 0) + 1;
+  return { n, chests: JSON.stringify(k.list.map((c) => c.hash_id)), locked: k.list.some((c) => c.actor === 'TBox_Field_Enemy') ? 1 : 0, enemies: JSON.stringify(foes),
+    near: nearest(x, z, NAMED)?.name, x: r1(x), z: r1(z), master_mode: k.master, spoiler_kind: 'location', spoiler_level: 1 };
+}));
+
+// people: every placed NPC-profile actor (Koroks have their own table), grouped by actor, with every place it stands.
+// Day schedule: the actor pack's AISchedule (a timeline of hours and AI names) joined to the anchors its placement links
+// to (AIName Action1 -> its AnchorAction1, Sleep -> AnchorSleep; _Rain anchors where it shelters). A conditional
+// timeline replaces the default once its flag is set (Impa sleeps at night only after he has talked to her).
+// met: <actor>_DispNameFlag (set when the game first shows the name), else the actor's own first-talk flag.
+const actorPack = (n) => { for (const d of [UPD, BASE]) { const f = `${d}Actor/Pack/${n}.sbactorpack`; if (existsSync(f)) return pack(f); } return null; };
+const isPerson = (n) => (ACTOR.get(n)?.profile === 'NPC' || /^Npc_/.test(n)) && !/^Npc_HiddenKorok/.test(n);
+const SHOPS = json('data/shops.json');
+const QTOUCH = new Map(); // actor -> { starts, ends, in }
+const touch = (n, k, q) => { if (!n) return; const t = QTOUCH.get(n) || QTOUCH.set(n, { starts: new Set(), ends: new Set(), in: new Set() }).get(n); t[k].add(q); };
+for (const q of QL) {
+  touch(q.Orderer, 'starts', q.Name);
+  q.Steps.forEach((s, i) => { for (const a of s.IndicatorActors || []) { const n = a.Name ?? a.ActorName; touch(n, 'in', q.Name); if (i === q.Steps.length - 1) touch(n, 'ends', q.Name); } });
+}
+const set = (s) => s?.size ? JSON.stringify([...s]) : null;
+const MET = (n) => [[`${n}_DispNameFlag`, 'name shown'], ...['_talk', '_Talk', '_First', '_first', '_Talked'].map((k) => [n + k, 'talked'])].find(([f]) => FLAGS.get(f));
+const byActor = new Map();
+for (const p of PLACED) if (isPerson(p.o.UnitConfigName)) (byActor.get(p.o.UnitConfigName) || byActor.set(p.o.UnitConfigName, []).get(p.o.UnitConfigName)).push(p);
+const people = [];
+for (const [n, ps] of byActor) {
+  const places = ps.map((p) => {
+    const anchors = {};
+    for (const l of p.o.LinksToObj || []) { const d = OBJ.get(l.DestUnitHashId)?.o; if (d && /Anchor/.test(d.UnitConfigName) && !anchors[d.UnitConfigName]) anchors[d.UnitConfigName] = [r1(d.Translate[0]), r1(d.Translate[1]), r1(d.Translate[2])]; }
+    return { map: p.map, unit: p.unit, hash: p.o.HashId, x: r1(p.o.Translate[0]), y: r1(p.o.Translate[1]), z: r1(p.o.Translate[2]), anchors };
+  });
+  const ap = actorPack(n), sk = ap && [...ap.keys()].find((k) => k.endsWith('.baischedule')), y = sk && byml(ap.get(sk)), home = places[0];
+  const nodes = (t) => (t?.Nodes || []).map((nd) => {
+    const at = home.anchors['Anchor' + nd.AIName], rain = home.anchors[`Anchor${nd.AIName}_Rain`];
+    return { from: nd.StartTime, to: nd.EndTime, ai: nd.AIName, doing: nd.WaitAnchorASName || null, x: at?.[0] ?? null, z: at?.[2] ?? null, ...(rain ? { rain: [rain[0], rain[2]] } : {}) };
+  });
+  const schedule = y && { always: nodes(y.DefaultTimeline), when: (y.ConditionalTimelines || []).map((t) => ({ flag: t.Condition, nodes: nodes(t) })) };
+  const cycle = schedule && [schedule.always, ...schedule.when.map((w) => w.nodes)].some((l) => l.length > 1) ? 1 : 0, met = MET(n), q = QTOUCH.get(n);
+  people.push({ id: n, name: TXT[n]?.Name || null, kind: /^Npc_DungeonPriest/.test(n) ? 'monk' : /^(Npc_DressFairy|GreatFairy|HorseGod)/.test(n) ? 'great fairy' : /^Npc_(Road|Attacked)_/.test(n) ? 'traveller' : 'person',
+    met_flag: met?.[0] || null, met_by: met?.[1] || null, places: JSON.stringify(places), x: home.x, z: home.z, near: nearOf(ps[0]), sells: SHOPS[n] ? JSON.stringify(SHOPS[n].items) : null,
+    starts: set(q?.starts), ends: set(q?.ends), in_quests: set(q?.in), schedule: schedule ? JSON.stringify(schedule) : null, day_cycle: cycle,
+    dlc: ps.every((p) => !BASE_H.has(p.o.HashId)) ? 1 : 0, spoiler_kind: 'location', spoiler_level: /^Npc_DungeonPriest/.test(n) ? 1 : 0 });
+}
+// The roaming merchants (Npc_Road_*: Beedle's kin on the roads) are not placed in any map unit: the game spawns them
+// on their roads. Their rows come from the shop list's own points (places map 'road').
+for (const [n, s] of Object.entries(SHOPS)) {
+  if (byActor.has(n)) continue;
+  const met = MET(n), pts = s.pts || [];
+  people.push({ id: n, name: TXT[n]?.Name || s.name || null, kind: 'traveller', met_flag: met?.[0] || null, met_by: met?.[1] || null,
+    places: JSON.stringify(pts.map(([x, z]) => ({ map: 'road', x, z }))), x: pts[0]?.[0], z: pts[0]?.[1], near: pts[0] && nearest(pts[0][0], pts[0][1], NAMED)?.name,
+    sells: JSON.stringify(s.items), starts: set(QTOUCH.get(n)?.starts), ends: set(QTOUCH.get(n)?.ends), in_quests: set(QTOUCH.get(n)?.in), schedule: null, day_cycle: 0,
+    dlc: 0, spoiler_kind: 'location', spoiler_level: 0 });
+}
+insert('people', people);
+
+// Great Fairy fountains: TwnObj_FairySpring_A..E, revived by RevivalGreatFairy1..5 in the same order (E = Malanya, the
+// horse god: GreatFairy5_HorseRLife). The fairy's name is the DressFairy / HorseGod standing in it.
+const FAIRIES = placed(/^(Npc_DressFairy_0\d|HorseGod001)$/);
+insert('great_fairies', placed(/^TwnObj_FairySpring_[A-E]_01$/).map((p) => {
+  const n = 'ABCDE'.indexOf(p.o.UnitConfigName[19]) + 1, f = FAIRIES.reduce((b, q) => !b || dist2(q, p) < dist2(b, p) ? q : b, null);
+  need(FLAGS.has(`RevivalGreatFairy${n}`), `RevivalGreatFairy${n}`);
+  return { n, name: f && TXT[f.o.UnitConfigName]?.Name, fountain: p.o.UnitConfigName, near: nearOf(p), x: r1(p.o.Translate[0]), z: r1(p.o.Translate[2]),
+    revive_flag: `RevivalGreatFairy${n}`, spoiler_kind: 'location', spoiler_level: 0 };
+}));
+
+// Goddess statues: the 11 he can pray at (orbs to hearts / stamina), the 3 dragon springs' statues, the Horned Statue.
+// TwnObj_GoddesStatue_A_03 are the small figures round the Temple of Time's big one: not statues of their own.
+insert('goddess_statues', placed(/^(TwnObj_(Super)?GoddesStatue_A_(01|02|10)|TwnObj_SuperGoddesStatue_A_01|Obj_CursedStatue)$/).map((p) => ({
+  hash_id: p.o.HashId, actor: p.o.UnitConfigName, kind: /_10$/.test(p.o.UnitConfigName) ? 'spring' : /Cursed/.test(p.o.UnitConfigName) ? 'horned' : 'prayable',
+  near: nearOf(p), x: r1(p.o.Translate[0]), z: r1(p.o.Translate[2]), spoiler_kind: 'location', spoiler_level: 0 })));
+
+// captured memories: the 13 RememberTag spots (Impa's 12 photos and the hidden 13th). Photo n is the album's own place
+// name (LayoutMsg/AppAlbum_00 000n), matched to the spot nearest a map label of that name; seen = the IsPlayed flag of
+// the memory's cutscene, from the closest link tag that waits on one. The album's 18 titles are in meta.memory_titles:
+// the other 5 come from story events, not spots, and the game files do not say which title belongs to which spot.
+const ALBUM = MSG['LayoutMsg/AppAlbum_00'] || {}, SPOTS = placed(/^RememberTag$/), free = new Set(SPOTS);
+const DEMOTAGS = placed(/^LinkTag/).filter((p) => /^IsPlayed_Demo1\d\d_0$/.test(prm(p.o).SaveFlag || ''));
+const photoOf = new Map();
+for (const [n, label] of Object.entries(ALBUM).map(([k, v]) => [+k, v]).filter(([n]) => n < 12).sort((a, b) => a[0] - b[0])) {
+  const labels = NAMED.filter((l) => l.name === label); let best = null, d = Infinity;
+  for (const s of free) for (const l of labels) { const e = (l.x - s.o.Translate[0]) ** 2 + (l.z - s.o.Translate[2]) ** 2; if (e < d) { d = e; best = s; } }
+  need(best, `memory spot for photo ${n} (${label})`); if (best) { photoOf.set(best, [n, label]); free.delete(best); }
+}
+need(free.size === 1, `one spot left for the 13th memory (${free.size})`);
+for (const s of free) photoOf.set(s, [12, null]);
+insert('memories', SPOTS.map((s) => {
+  const [n, photo] = photoOf.get(s), tag = DEMOTAGS.reduce((b, t) => !b || dist2(t, s) < dist2(b, s) ? t : b, null), close = tag && dist2(tag, s) < 60 * 60;
+  need(close, `cutscene flag for memory spot ${s.o.HashId}`);
+  return { n, photo, spot_hash: s.o.HashId, near: nearOf(s), x: r1(s.o.Translate[0]), y: r1(s.o.Translate[1]), z: r1(s.o.Translate[2]),
+    seen_flag: close ? prm(tag.o).SaveFlag : null, spoiler_kind: 'story', spoiler_level: 2 };
+}));
+const MEMORY_TITLES = Array.from({ length: 18 }, (_, i) => tidy(MSG['LayoutMsg/PauseMenu_00']?.[String(41 + i).padStart(4, '0')]));
+
+// bosses: every Hinox (and Stalnox), Talus, Molduga and Lynel in the overworld and the Trial of the Sword.
+const BOSS = { Giant_Bone: 'Stalnox', Giant: 'Hinox', Golem: 'Talus', Sandworm: 'Molduga', Lynel: 'Lynel' };
+insert('bosses', PLACED.filter((p) => p.map !== 'CDungeon' && p.map !== 'MainFieldDungeon' && /^Enemy_(Giant_(Junior|Middle|Senior|Bone|Bone_AllDay)|Golem_(Junior|Middle|Senior|Fire|Fire_R|Ice)|Sandworm|SandwormR|Lynel_\w+)$/.test(p.o.UnitConfigName)).map((p) => {
+  const a = p.o.UnitConfigName, flag = `${p.map}_IsDefeat_${a}_${p.o.HashId}`;
+  return { hash_id: p.o.HashId, actor: a, kind: BOSS[Object.keys(BOSS).find((k) => a.startsWith('Enemy_' + k))], name: nameOf(a), map: p.map, near: p.map === 'MainField' ? nearOf(p) : 'Trial of the Sword',
+    x: r1(p.o.Translate[0]), y: r1(p.o.Translate[1]), z: r1(p.o.Translate[2]), master_mode: hard(p.o), dlc: BASE_H.has(p.o.HashId) ? 0 : 1, defeat_flag: FLAGS.get(flag) ? flag : null, spoiler_kind: 'location', spoiler_level: 1 };
+}));
+
+// stables: the stable buildings; name = the nearest map label with "Stable" in it, place_flag its visit counter.
+// Snowfield Stable has both buildings (plain and snowy) at one spot: one stable.
+const STABLE_NAMES = NAMED.filter((l) => /Stable/.test(l.name)), stableSeen = new Set();
+insert('stables', placed(/^TwnObj_StableHostel(Snow)?_A_01$/).filter((p) => { const k = p.o.Translate.map(Math.round).join(); return !stableSeen.has(k) && stableSeen.add(k); }).map((p) => {
+  const l = nearest(p.o.Translate[0], p.o.Translate[2], STABLE_NAMES);
+  return { hash_id: p.o.HashId, name: l?.name, place_flag: NAMED.find((m) => m.name === l?.name && FLAGS.get(m.flag))?.flag || null,
+    x: r1(p.o.Translate[0]), z: r1(p.o.Translate[2]), spoiler_kind: 'location', spoiler_level: 0 };
+}));
+
+// horses: the special ones placed in the world and where wild herds spawn (not Master Mode).
+const HORSE = { GameRomHorseNushi: 'Lord of the Mountain', GameRomHorseZelda: 'royal', GameRomHorse00L: 'giant', GameRomHorseBone: 'stalhorse' };
+insert('horses', placed(/^(GameRomHorse(Nushi|Zelda|00L|Bone)|WildHorseCreateTag\d*)$/).filter((p) => !hard(p.o)).map((p) => ({
+  hash_id: p.o.HashId, actor: p.o.UnitConfigName, kind: HORSE[p.o.UnitConfigName] || 'wild herd', name: nameOf(p.o.UnitConfigName), near: nearOf(p),
+  x: r1(p.o.Translate[0]), z: r1(p.o.Translate[2]), spoiler_kind: 'location', spoiler_level: HORSE[p.o.UnitConfigName] ? 2 : 0 })));
+
 // names: one lookup for "what is X called" across actors, places, shrines and quests.
 const names = [];
 for (const [id, t] of Object.entries(TXT)) if (t.Name) names.push({ id, name: t.Name, source: 'actor', spoiler_kind: 'item', spoiler_level: 0 });
@@ -316,14 +512,14 @@ for (const [id, n] of Object.entries(DMSG)) if (/^Dungeon\d+$/.test(id) && tidy(
 for (const q of QL) { const n = tidy(qtext(q.Name, 'Name')); if (n) names.push({ id: q.Name, name: n, source: 'quest', spoiler_kind: 'story', spoiler_level: 1 }); }
 insert('names', names);
 
-const meta = { pack_version: PACK_VERSION, built: new Date().toISOString(), game: 'BotW Wii U v1.5.0 + DLC (Cemu)', flags: FLAGS.size, cook_lrmr: CD.System.LRMR, missing: JSON.stringify(missing) };
+const meta = { pack_version: PACK_VERSION, built: new Date().toISOString(), game: 'BotW Wii U v1.5.0 + DLC (Cemu)', flags: FLAGS.size, cook_lrmr: CD.System.LRMR, memory_titles: JSON.stringify(MEMORY_TITLES), missing: JSON.stringify(missing) };
 insert('meta', Object.entries(meta).map(([key, value]) => ({ key, value: String(value) })));
 db.exec('COMMIT');
 db.close();
 rmSync(DB, { force: true }); renameSync(TMP, DB);
 
 const check = new DatabaseSync(DB, { readOnly: true });
-for (const t of ['shrines', 'towers', 'koroks', 'places', 'quests', 'quest_steps', 'items', 'armor_upgrades', 'recipes', 'cook_items', 'cook_effects', 'shops', 'compendium', 'enemies', 'names'])
+for (const t of ['shrines', 'towers', 'koroks', 'places', 'quests', 'quest_steps', 'items', 'armor_upgrades', 'recipes', 'cook_items', 'cook_effects', 'shops', 'compendium', 'enemies', 'chests', 'people', 'great_fairies', 'goddess_statues', 'camps', 'memories', 'bosses', 'stables', 'horses', 'names'])
   console.log(t.padEnd(15), check.prepare(`SELECT count(*) n FROM ${t}`).get().n);
 check.close();
 console.log(missing.length ? `missing (${missing.length}):\n  ${missing.slice(0, 30).join('\n  ')}` : 'nothing missing');

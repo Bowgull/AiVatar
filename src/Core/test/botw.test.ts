@@ -77,6 +77,27 @@ test('his six real slots: every one reads, and agrees with itself', { skip: !rea
   assert.ok(where.length > 3);
 });
 
+test('E2: his six real slots: chests opened and people met only ever grow, and a newer save shows more', { skip: !real && 'no Cemu saves or botw.db here' }, () => {
+  const dir = copyHisSaves();
+  const cat = loadCatalog(DB);
+  if (!cat.chests?.length) return; // a pack older than E1
+  assert.ok(cat.chests.length > 1600 && cat.people!.length > 300, `catalog: ${cat.chests.length} chests, ${cat.people!.length} people`);
+  const states = slots(dir).map(s => parseState({ save: readFileSync(s.file), slot: s.slot, savedAt: s.t }, cat)).sort((a, b) => a.playtime - b.playtime);
+  const known = new Set(cat.chests.map(c => c.hash));
+  for (let i = 0; i < states.length; i++) {
+    const st = states[i]!;
+    assert.ok(st.chests.opened.length > 0 && st.chests.opened.every(h => known.has(h)), `slot ${st.slot}: opened chests are botw.db chests`);
+    assert.ok(st.people.met.includes('Npc_Kakariko001'), `slot ${st.slot}: he has met Impa`);
+    if (!i) continue;
+    const prev = states[i - 1]!;
+    assert.ok(prev.chests.opened.every(h => st.chests.opened.includes(h)), `slot ${prev.slot} -> ${st.slot}: no chest closes again`);
+    assert.ok(prev.people.met.every(id => st.people.met.includes(id)), `slot ${prev.slot} -> ${st.slot}: no one is forgotten`);
+  }
+  const d = diffStates(states[0]!, states.at(-1)!);
+  assert.equal(d.chests.length, states.at(-1)!.chests.opened.length - states[0]!.chests.opened.length);
+  assert.ok(d.chests.length > 0, 'his oldest and newest slots differ by at least one chest');
+});
+
 // ------------------------------------------------------------------ made-up saves
 
 /** A save in the real format: header, (crc32(name), value) records sorted by hash, a 4-byte tail. */
@@ -98,12 +119,14 @@ const CAT: Catalog = {
   koroks: Array.from({ length: 20 }, (_, i) => ({ hash: 1000 + i, flag: `MainField_Npc_HiddenKorokGround_${1000 + i}` })),
   places: ['Location_Kakariko', 'Location_Hateno'],
   dishes: [{ id: 'Item_Cook_A_01', flag: 'IsGet_Item_Cook_A_01' }],
+  chests: [{ hash: 11, flag: 'MainField_TBox_Field_Iron_11' }, { hash: 22, flag: 'CDungeon_TBox_Dungeon_Stone_22' }],
+  people: [{ id: 'Npc_Kakariko001', flag: 'Npc_Kakariko001_DispNameFlag' }, { id: 'Npc_Road_024', flag: 'Npc_Road_024_DispNameFlag' }],
   quests: [{ id: 'Q1', type: 'side', steps: [{ n: 0, flag: 'Q1_Activated' }, { n: 1, flag: 'Q1_Finish' }] }],
   items: new Map([['Weapon_Sword_001', { name: 'Traveler\'s Sword', kind: 'one-handed' }]]),
 };
 
 /** A made-up game: how many shrines done, Koroks found, towers, and so on. */
-function game(o: { shrines?: number; koroks?: number; towers?: number; quest?: 0 | 1 | 2; hearts?: number; time?: number; x?: number; z?: number; dish?: boolean }): Buffer {
+function game(o: { shrines?: number; koroks?: number; towers?: number; quest?: 0 | 1 | 2; hearts?: number; time?: number; x?: number; z?: number; dish?: boolean; chests?: number; met?: number }): Buffer {
   const f: Record<string, number | number[]> = {
     PlayReport_PlayTime: o.time ?? 3600, MaxHartValue: (o.hearts ?? 3) * 4, CurrentHart: (o.hearts ?? 3) * 4, StaminaMax: f32(1000),
     HiddenKorok_Number: o.koroks ?? 0, PlayerSavePos: [f32(o.x ?? 1600), f32(120), f32(o.z ?? 470)],
@@ -117,6 +140,8 @@ function game(o: { shrines?: number; koroks?: number; towers?: number; quest?: 0
   if ((o.quest ?? 0) >= 2) f['Q1_Finish'] = 1;
   f['Location_Kakariko'] = 2;
   if (o.dish) f['IsGet_Item_Cook_A_01'] = 1;
+  CAT.chests!.forEach((c, i) => { f[c.flag] = i < (o.chests ?? 0) ? 1 : 0; });
+  CAT.people!.forEach((p, i) => { f[p.flag] = i < (o.met ?? 0) ? 1 : 0; });
   return makeSave(f);
 }
 const parse = (b: Buffer, t = 0): BotwState => parseState({ save: b, slot: 0, savedAt: t }, CAT);
@@ -133,6 +158,21 @@ test('a made-up session: the diff and his one line', () => {
   assert.equal(todayLine(d), 'Today: 3 shrines, 1 tower, 12 Koroks, 1 quest.');
   assert.equal(todayLine(diffStates(a, parse(game({ shrines: 1, koroks: 2, quest: 1, time: 3600 + 2700 })))), 'Today: 45m in Hyrule.');
   assert.equal(todayLine(diffStates(a, a)), null);
+});
+
+test('E2 made-up: chests opened and people met, and a state from before E2', () => {
+  const a = parse(game({ chests: 1, met: 1 })), b = parse(game({ chests: 2, met: 2 }));
+  assert.deepEqual(a.chests, { opened: [11] }); assert.deepEqual(a.people, { met: ['Npc_Kakariko001'] });
+  const d = diffStates(a, b);
+  assert.deepEqual(d.chests, [22]); assert.deepEqual(d.people, ['Npc_Road_024']);
+  assert.equal(todayLine(d), null, 'the line is unchanged: chests and people are not in it');
+  // base.json written by the older watcher has neither field: nothing counts as new
+  const { chests: _c, people: _p, ...old } = a;
+  const d2 = diffStates(old as BotwState, b);
+  assert.deepEqual([d2.chests, d2.people], [[], []]);
+  // an older botw.db (no E1 tables): the fields are there, empty
+  const st = parseState({ save: game({ chests: 2 }), slot: 0, savedAt: 0 }, { ...CAT, chests: undefined, people: undefined });
+  assert.deepEqual([st.chests, st.people], [{ opened: [] }, { met: [] }]);
 });
 
 // ------------------------------------------------------------------ the watcher

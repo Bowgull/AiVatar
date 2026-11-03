@@ -59,6 +59,9 @@ export interface Catalog {
   dishes: { id: string; flag: string }[];
   quests: QuestDef[];
   items: Map<string, { name: string; kind: string }>;
+  /** E1 (pack 3): every chest with a save flag, and every person the game can mark as met. Empty on an older botw.db. */
+  chests?: { hash: number; flag: string }[];
+  people?: { id: string; flag: string }[];
 }
 
 /** The flag names from botw.db. Small (a few thousand rows), read once. */
@@ -66,6 +69,7 @@ export function loadCatalog(dbPath: string): Catalog {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
     const all = <T>(sql: string) => db.prepare(sql).all() as T[];
+    const has = (t: string) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
     const steps = new Map<string, { n: number; flag: string }[]>();
     for (const s of all<{ quest_id: string; n: number; next_flag: string }>(
       "SELECT quest_id, n, next_flag FROM quest_steps WHERE saved = 1 AND next_flag IS NOT NULL AND next_flag != '' ORDER BY quest_id, n")) {
@@ -79,6 +83,8 @@ export function loadCatalog(dbPath: string): Catalog {
       dishes: all<{ id: string; flag: string }>("SELECT id, got_flag flag FROM items WHERE kind = 'dish' AND got_flag IS NOT NULL ORDER BY id"),
       quests: all<{ id: string; type: string }>('SELECT id, type FROM quests ORDER BY rowid').map(q => ({ ...q, steps: steps.get(q.id) ?? [] })),
       items: new Map(all<{ id: string; name: string; kind: string | null }>('SELECT id, name, kind FROM items').map(r => [r.id, { name: r.name, kind: r.kind ?? '' }])),
+      chests: has('chests') ? all<{ hash: number; flag: string }>('SELECT hash_id hash, flag FROM chests WHERE flag IS NOT NULL ORDER BY hash_id') : [],
+      people: has('people') ? all<{ id: string; flag: string }>('SELECT id, met_flag flag FROM people WHERE met_flag IS NOT NULL ORDER BY id') : [],
     };
   } finally { db.close(); }
 }
@@ -105,6 +111,8 @@ export interface BotwState {
   dishes: string[];
   gear: BotwGear[];
   heroPath: { points: [number, number][] } | null;
+  chests: { opened: number[] };   // E2: botw.db chests.hash_id of every chest he has opened
+  people: { met: string[] };      // E2: botw.db people.id of everyone the game has introduced (name shown, or first talk)
 }
 
 const VERSIONS: Record<number, string> = { 0x471b: 'v1.5', 0x471e: 'v1.6' };
@@ -170,6 +178,8 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     dishes: cat.dishes.filter(d => s.int(d.flag)).map(d => d.id),
     gear,
     heroPath: path.length ? { points: path } : null,
+    chests: { opened: (cat.chests ?? []).filter(c => s.int(c.flag)).map(c => c.hash) },
+    people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id) },
   };
 }
 
@@ -216,6 +226,7 @@ export interface BotwDiff {
   questsDone: string[]; questsStarted: string[];
   places: string[]; dishes: string[];
   hearts: number; stamina: number;
+  chests: number[]; people: string[];   // E2: opened / met this session
 }
 
 const added = <T>(a: T[], b: T[]): T[] => { const had = new Set(a); return b.filter(x => !had.has(x)); };
@@ -236,6 +247,9 @@ export function diffStates(a: BotwState, b: BotwState): BotwDiff {
     dishes: added(a.dishes, b.dishes),
     hearts: Math.max(0, b.hearts.max - a.hearts.max),
     stamina: round(Math.max(0, b.stamina.max - a.stamina.max)),
+    // a state written before E2 has neither: then nothing counts as new (the whole list is not one session's)
+    chests: a.chests && b.chests ? added(a.chests.opened, b.chests.opened) : [],
+    people: a.people && b.people ? added(a.people.met, b.people.met) : [],
   };
 }
 

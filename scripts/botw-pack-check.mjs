@@ -1,4 +1,5 @@
-// BG1 check: the data pack's counts, and every table held against his real save (docs/BOTW-GUIDE.md).
+// BG1 + E1/E2 check: the data pack's counts, and every table held against his real save (docs/BOTW-GUIDE.md,
+// docs/BOTW-ENGINE.md). E2 reads all six slots (copies) and shows what each has opened and met.
 //
 //   node scripts/botw-pack-check.mjs [--db <botw.db>] [--saves <Cemu user folder>]
 //
@@ -7,7 +8,7 @@
 // flag name), which proves the Switch-sourced game data lines up with his Wii U build. Prints counts, no save
 // contents beyond totals.
 import { DatabaseSync } from 'node:sqlite';
-import { copyFileSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { crc32 } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -36,7 +37,8 @@ const EXPECT = [
 console.log('== counts');
 for (const [what, sql, n] of EXPECT) { const got = one(sql).n; ok(got === n, `${what}: ${got}${got === n ? '' : ` (want ${n})`}`); }
 for (const t of ['places', 'items', 'armor_upgrades', 'recipes', 'enemies', 'names']) console.log(`     ${t}: ${one(`SELECT count(*) n FROM ${t}`).n}`);
-const unset = all("SELECT name FROM sqlite_master WHERE type = 'table' AND name != 'meta'").filter(({ name }) =>
+// cook_items and cook_effects (BG3) are the cooking maths, not things to say: no spoiler columns
+const unset = all("SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE '%spoiler_kind%'").filter(({ name }) =>
   one(`SELECT count(*) n FROM ${name} WHERE spoiler_kind IS NULL OR spoiler_level NOT BETWEEN 0 AND 3`).n);
 ok(!unset.length, `spoiler kind + level on every row${unset.length ? ` (not in ${unset.map((t) => t.name)})` : ''}`);
 
@@ -93,6 +95,75 @@ const worn = bag.filter((id) => /^Armor_/.test(id)), wornIn = worn.filter((id) =
 ok(!armorLoose.length && wornIn.length === worn.length, `armour upgrades: ${armor.length - armorLoose.length}/${armor.length} levels are items; ${wornIn.length}/${worn.length} armour pieces in his bag found in the upgrade chains`);
 const dishes = all('SELECT DISTINCT dish FROM recipes'), dishLoose = dishes.filter((r) => !ITEM.has(r.dish));
 ok(!dishLoose.length, `recipes: ${dishes.length - dishLoose.length}/${dishes.length} dishes are items with IsGet flags${dishLoose.length ? ` (not: ${dishLoose.slice(0, 5).map((r) => r.dish)})` : ''}`);
+
+// ---- E1: the world's sources (docs/BOTW-ENGINE.md) ----
+console.log('\n== E1 counts (against the game files and the game\'s known totals)');
+const E1 = [
+  ['chests, every TBox in every map unit', 'SELECT count(*) n FROM chests', 1611],
+  ['chests in the base game (normal mode, no DLC)', 'SELECT count(*) n FROM chests WHERE dlc = 0 AND master_mode = 0', 1392],
+  ['Master Mode-only chests', 'SELECT count(*) n FROM chests WHERE master_mode = 1', 120],
+  ['shrine chests', "SELECT count(*) n FROM chests WHERE kind = 'shrine'", 205],
+  ['Divine Beast chests', "SELECT count(*) n FROM chests WHERE kind = 'divine beast'", 35],
+  ['Trial of the Sword chests (normal mode)', "SELECT count(*) n FROM chests WHERE kind = 'trial of the sword' AND master_mode = 0", 47],
+  ['chests without a save flag (the Gamble minigame)', 'SELECT count(*) n FROM chests WHERE flag IS NULL', 3],
+  ['chests whose item has no name', 'SELECT count(*) n FROM chests WHERE item IS NOT NULL AND item_name IS NULL', 0],
+  ['locked camp chests (TBox_Field_Enemy)', "SELECT count(*) n FROM chests WHERE actor = 'TBox_Field_Enemy'", 54],
+  ['Great Fairies (4 fountains + Malanya)', 'SELECT count(*) n FROM great_fairies', 5],
+  ['Goddess statues he can pray at', "SELECT count(*) n FROM goddess_statues WHERE kind = 'prayable'", 11],
+  ['stables', 'SELECT count(*) n FROM stables', 15],
+  ['memory spots (Impa\'s 12 photos + the 13th)', 'SELECT count(*) n FROM memories', 13],
+  ['memory spots with their cutscene flag', 'SELECT count(*) n FROM memories WHERE seen_flag IS NOT NULL', 13],
+  ['Hinox + Stalnox (base, normal mode)', "SELECT count(*) n FROM bosses WHERE kind IN ('Hinox','Stalnox') AND map = 'MainField' AND master_mode = 0", 40],
+  ['Talus (base, normal mode)', "SELECT count(*) n FROM bosses WHERE kind = 'Talus' AND map = 'MainField' AND master_mode = 0 AND dlc = 0", 40],
+  ['Molduga (base)', "SELECT count(*) n FROM bosses WHERE kind = 'Molduga' AND dlc = 0", 4],
+  ['shops joined to a person', 'SELECT count(*) n FROM shops JOIN people ON people.id = shops.npc', one('SELECT count(*) n FROM shops').n],
+];
+for (const [what, sql, n] of E1) { const got = one(sql).n; ok(got === n, `${what}: ${got}${got === n ? '' : ` (want ${n})`}`); }
+const memTitles = JSON.parse(one("SELECT value FROM meta WHERE key = 'memory_titles'").value);
+ok(memTitles.length === 18 && memTitles.every(Boolean), `album titles: ${memTitles.length} (the game's 18 captured memories)`);
+const flagged = (table, col) => all(`SELECT ${col} f FROM ${table} WHERE ${col} IS NOT NULL`);
+for (const [t, c] of [['chests', 'flag'], ['people', 'met_flag'], ['bosses', 'defeat_flag'], ['memories', 'seen_flag'], ['great_fairies', 'revive_flag']]) {
+  const r = flagged(t, c), miss = r.filter((x) => !has(x.f));
+  ok(!miss.length, `${t}.${c}: ${r.length - miss.length}/${r.length} in his save${miss.length ? ` (missing e.g. ${miss.slice(0, 3).map((x) => x.f)})` : ''}`);
+}
+const ppl = one("SELECT count(*) n, sum(name IS NOT NULL) named, sum(met_flag IS NOT NULL) met, sum(schedule IS NOT NULL) sch, sum(day_cycle) cyc FROM people WHERE kind != 'monk'");
+console.log(`     people: ${ppl.n} (${ppl.named} named, ${ppl.met} with a met flag, ${ppl.sch} with a schedule, ${ppl.cyc} whose day changes by the hour)`);
+for (const k of ['field', 'buried', 'under water', 'camp']) console.log(`     ${k} chests (normal mode): ${one(`SELECT count(*) n FROM chests WHERE kind = '${k}' AND master_mode = 0`).n}`);
+// a second reading of the same game files: radar.zeldamods.org's object index (the Switch v1.6 files), fetched once
+const radarFile = path.join(path.dirname(DB), 'cache', 'radar_tbox.json');
+let radar = null;
+try { radar = JSON.parse(readFileSync(radarFile, 'utf8')); } catch {
+  try {
+    radar = {};
+    for (const m of ['MainField', 'CDungeon', 'MainFieldDungeon', 'AocField']) {
+      const r = await fetch(`https://radar.zeldamods.org/objs/${m}?q=TBox&limit=5000`, { headers: { 'user-agent': 'aang-personal-botw-guide (one-off, private)' } });
+      radar[m] = (await r.json()).filter((o) => /^TBox/.test(o.name)).map((o) => o.hash_id);
+    }
+    writeFileSync(radarFile, JSON.stringify(radar));
+  } catch (e) { radar = null; console.log(`     radar not reachable (${e.message}): second reading skipped`); }
+}
+if (radar) for (const [m, hs] of Object.entries(radar)) {
+  const ours = new Set(all(`SELECT hash_id h FROM chests WHERE map = '${m}'`).map((r) => r.h)), theirs = new Set(hs);
+  const onlyOurs = [...ours].filter((h) => !theirs.has(h)), onlyTheirs = [...theirs].filter((h) => !ours.has(h));
+  console.log(`     radar ${m}: ours ${ours.size}, radar ${theirs.size}, same ${ours.size - onlyOurs.length}${onlyOurs.length ? `, only ours ${onlyOurs.length}` : ''}${onlyTheirs.length ? `, only radar ${onlyTheirs.length}` : ''}`);
+}
+
+// ---- E2: tracking, every slot (copies) ----
+console.log('\n== E2 tracking: chests opened and people met, every slot (read from copies)');
+const readCopy = (f) => { const c = path.join(tmpdir(), `botw-check-${process.pid}-${path.basename(path.dirname(f))}.sav`); copyFileSync(f, c); const b = readFileSync(c); rmSync(c);
+  const m = new Map(); for (let o = 12; o + 8 <= b.length - 4; o += 8) { const h = b.readUInt32BE(o); if (!m.has(h)) m.set(h, b.readUInt32BE(o + 4)); } return m; };
+const CH = all('SELECT hash_id, flag, kind, chests.near, coalesce(shrines.name, shrine) shrine, item_name FROM chests LEFT JOIN shrines ON shrines.id = chests.shrine WHERE flag IS NOT NULL'), PE = all('SELECT id, name, met_flag f FROM people WHERE met_flag IS NOT NULL');
+const per = slots.map(({ f, t }) => { const m = readCopy(f); const on = (fl) => (m.get(crc32(fl)) ?? 0) !== 0;
+  return { slot: path.basename(path.dirname(f)), t, play: m.get(crc32('PlayReport_PlayTime')) ?? 0, chests: CH.filter((c) => on(c.flag)), met: PE.filter((p) => on(p.f)) }; })
+  .sort((a, b) => a.play - b.play);
+for (const s of per) console.log(`     slot ${s.slot} (played ${Math.round(s.play / 60)} min): ${s.chests.length} chests opened (${s.chests.filter((c) => c.kind === 'shrine').length} in shrines), ${s.met.length} people met`);
+// never lost: what an older save has opened, every newer save has too (a chest stays open, a name stays known)
+let lost = 0;
+for (let i = 1; i < per.length; i++) for (const k of ['chests', 'met']) { lost += per[i - 1][k].filter((x) => !per[i][k].some((y) => y === x)).length; }
+ok(!lost, `nothing opened or met in an older save is missing from a newer one (${lost} lost)`);
+const [first, last] = [per[0], per.at(-1)], newCh = last.chests.filter((c) => !first.chests.includes(c)), newMet = last.met.filter((p) => !first.met.includes(p));
+ok(newCh.length > 0, `chests opened after slot ${first.slot} by slot ${last.slot}: ${newCh.length} (${newCh.map((c) => `${c.item_name} in ${c.kind} ${c.shrine || c.near}`).join(', ')})`);
+console.log(`     people met after slot ${first.slot} by slot ${last.slot}: ${newMet.length}${newMet.length ? ` (${newMet.map((p) => p.name || p.id).join(', ')})` : ''}`);
 
 console.log(bad ? `\n${bad} check(s) failed` : '\nall checks pass');
 process.exitCode = bad ? 1 : 0;
