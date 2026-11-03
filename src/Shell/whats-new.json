@@ -1170,6 +1170,16 @@
       "at": "2026-11-02T10:24:00-05:00",
       "text": "Theater mode on YouTube and Twitch fills Samara's whole page with just the video. Esc, or theater again, brings the page back.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-03T06:10:32-05:00",
+      "text": "A Hyrule key sits above Mockups: it opens your Breath of the Wild map in a tab of its own, with its icon bar, game menu (M) and a full screen button (F, Esc to leave).",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-03T06:11:32-05:00",
+      "text": "Typing aang:hyrule (or another of Samara's own pages) in the address bar opens it, instead of searching the web for it.",
+      "kind": "fix"
     }
   ]
 }
