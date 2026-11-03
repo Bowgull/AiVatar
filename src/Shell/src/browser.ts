@@ -28,6 +28,7 @@ import { connect as netConnect } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import { servePages, type PageServer } from './pageserver.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture, captureWindow, type CaptureOpts, type Shot, type WindowShot } from './capture.ts';
 import { trouble } from './flight.ts';
@@ -149,7 +150,10 @@ export interface BrowserOptions { origin: string; preloadPath: string; stateDir:
   /** Sheet 87: where the settings, autofill and site rules it shares with normal Samara live (normal Samara's folder). */
   sharedDir?: string;
   /** Sheet 87 (his "really glitchy"): normal Samara's fake-site lists, shared, so the secret window never loads its own. */
-  phish?: PhishCheck }
+  phish?: PhishCheck;
+  /** 2026-11-03 (BG4): the Hyrule map's own private folder (its page, the Journal, the 80 squares of Hyrule). Only the
+   *  real Samara on the PC passes it, and only when the folder is there; no folder, no Hyrule tab. */
+  hyruleDir?: string }
 
 interface Tab {
   id: number;
@@ -160,7 +164,7 @@ interface Tab {
   /** The window it is in (a Pane's id). */
   pane: number;
   /** One of the browser's own pages (Settings, Your things), not a website: it gets its own small preload and never navigates. */
-  internal?: 'settings' | 'things' | 'night' | 'mocklog';
+  internal?: 'settings' | 'things' | 'night' | 'mocklog' | 'hyrule';
   /** null while the tab is asleep: its page is closed to save memory, its snapshot kept. */
   view: WebContentsView | null;
   opener: number | null;
@@ -2653,6 +2657,7 @@ export class AangBrowser {
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
   private wake(tab: Tab): void {
+    if (tab.internal === 'hyrule') { void this.wakeHyrule(tab); return; }
     if (tab.internal) { this.wakeSettings(tab); return; }
     // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
@@ -2933,6 +2938,66 @@ export class AangBrowser {
     wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
     if (log) wc.once('did-finish-load', () => { this.mockLogSig = ''; this.pushMockLog(); });
     void wc.loadURL(`${this.o.origin}/${night ? 'night' : log ? 'mocklog' : things ? 'things' : 'settings'}.html`).catch(() => {});
+  }
+  /**
+   * The Hyrule tab (2026-11-03, BG4): his Breath of the Wild map and Journal as a tab of its own, like Settings. Its
+   * files are Nintendo's art and his save, so they live in their own private folder (never in Samara's code): Samara
+   * serves that folder on this machine only, and the tab may move between its own pages and nowhere else. Its full
+   * screen button (sheet 19) asks for the page's own full screen, which fills the screen like a video's: band and drawer
+   * gone, back as they were on F, Esc or the button.
+   */
+  private hyrulePages: Promise<PageServer> | null = null;
+  private async wakeHyrule(tab: Tab): Promise<void> {
+    const dir = this.o.hyruleDir;
+    if (!dir) return;
+    this.hyrulePages ??= servePages(dir, '/index.html');
+    let pages: PageServer;
+    try { pages = await this.hyrulePages; } catch (e) { this.hyrulePages = null; console.error('hyrule: the map could not be served: ' + (e as Error).message); return; }
+    if (tab.view || !this.tabs.includes(tab)) return;
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES } });
+    const wc = view.webContents;
+    lockDown(wc, { sameOrigin: pages.origin });
+    view.setBackgroundColor('#06121c');
+    try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
+    view.setVisible(false);
+    this.inTab(tab);
+    this.win?.contentView.addChildView(view);
+    this.raiseTray();
+    tab.view = view; tab.crashed = false; tab.loading = false; tab.title = 'Hyrule';
+    wc.on('before-input-event', (e, input) => { this.inTab(tab); if (this.key(input)) e.preventDefault(); });
+    wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
+    wc.on('enter-html-full-screen', () => {
+      const w = this.win;
+      if (!w || w.isDestroyed()) return;
+      this.fullTab = tab.id;
+      try { view.setBorderRadius(0); } catch { /* square anyway */ }
+      w.setFullScreen(true);
+      this.place();
+    });
+    wc.on('leave-html-full-screen', () => {
+      if (this.fullTab !== tab.id) return;
+      this.fullTab = null;
+      try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime */ }
+      if (this.win && !this.win.isDestroyed() && this.win.isFullScreen()) this.win.setFullScreen(false);
+      this.place();
+    });
+    void wc.loadURL(`${pages.origin}/index.html`).catch(() => {});
+    this.place();
+    this.sendTabs();
+  }
+  /** Open the Hyrule tab (or bring it forward). Nothing happens on a machine without the map's folder. */
+  openHyrule(): boolean {
+    if (!this.o.hyruleDir) return false;
+    if (!this.win || this.win.isDestroyed()) { this.whenOpen.push(() => this.openHyrule()); if (!this.lastPane()) this.createPane(); return true; }
+    let t = this.tabs.find((x) => x.internal === 'hyrule');
+    if (!t) {
+      t = { id: ++this.seq, internal: 'hyrule', view: null, opener: null, title: 'Hyrule', url: 'aang:hyrule', favicon: '', loading: false, audible: false, muted: false, crashed: false,
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
+      this.tabs.push(t);
+    }
+    this.activate(t.id);
+    this.win?.focus();
+    return true;
   }
   isSettings(sender: Electron.WebContents): boolean { const t = this.tabs.find((x) => x.internal === 'settings' && x.view?.webContents === sender); if (t) this.inTab(t); return Boolean(t); }
   /** Open Settings (or bring its tab forward), at a section. */
@@ -5802,6 +5867,7 @@ export class AangBrowser {
   private cur(): Tab | undefined { return this.tabs.find((x) => x.id === this.active); }
 
   go(address: string): void {
+    if (/^\s*aang:hyrule\s*$/i.test(address) && this.openHyrule()) return;
     const url = addressFor(address, this.engine);
     const t = this.cur();
     if (!url) return;

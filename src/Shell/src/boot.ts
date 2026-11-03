@@ -25,6 +25,7 @@ import { serviceFor } from './services.ts';
 import { sched } from './sched.ts';
 import { describeJobs } from './scheduler.ts';
 import { mockHomeDir } from './mockhome.ts';
+import { hyruleHomeDir } from './hyrulehome.ts';
 
 type Box = { x: number; y: number; width: number; height: number };
 type MockDrop = NonNullable<ReturnType<BootDeps['takeMockupFile']>>;
@@ -221,7 +222,9 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   const pre = (f: string) => path.join(p.here, f);
   const preloads = { preloadPath: pre('preload.cjs'), tabPreloadPath: pre('tabpreload.cjs'), settingsPreloadPath: pre('settingspreload.cjs'), thingsPreloadPath: pre('thingspreload.cjs') };
   // 2026-10-31: every mockup kept in his one private repo, ~/projects/mockups on both machines (mockhome.ts).
-  const browser = d.newBrowser({ origin: pages.origin, stateDir: p.stateDir, ...preloads, mockHome: mockHomeDir(), ...bp.options });
+  // 2026-11-03 (BG4): the Hyrule map's own private folder, on a machine that has it (hyrulehome.ts).
+  const hyrule = hyruleHomeDir();
+  const browser = d.newBrowser({ origin: pages.origin, stateDir: p.stateDir, ...preloads, mockHome: mockHomeDir(), ...(hyrule ? { hyruleDir: hyrule } : {}), ...bp.options });
   b0.setBrowser(browser);
 
   // Sheet 87 (his "go", 2026-10-25): ⇧⌘N opens the secret window. Its own folder (tabs, bookmarks, history), its own

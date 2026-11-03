@@ -19,6 +19,11 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
+  // the Hyrule map (2026-11-03): its pictures, tiles and data, from its own private folder
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.json': 'application/json; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
 };
 
 export interface PageServer {
@@ -29,8 +34,8 @@ export interface PageServer {
   close(): void;
 }
 
-/** Serve `dir` on a port the operating system picks, on this machine only. */
-export function servePages(dir: string): Promise<PageServer> {
+/** Serve `dir` on a port the operating system picks, on this machine only. `home` is the page for '/'. */
+export function servePages(dir: string, home = '/popout.html'): Promise<PageServer> {
   const root = path.resolve(dir);
 
   let origin = '';
@@ -51,7 +56,7 @@ export function servePages(dir: string): Promise<PageServer> {
     }
 
     const name = decodeURIComponent((req.url ?? '/').split('?')[0]!);
-    const file = path.resolve(root, '.' + (name === '/' ? '/popout.html' : name));
+    const file = path.resolve(root, '.' + (name === '/' ? home : name));
     // The one rule that matters: whatever the address says, the file has to be inside the folder.
     if (file !== root && !file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
     if (!existsSync(file) || !statSync(file).isFile()) { res.writeHead(404).end(); return; }
