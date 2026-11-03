@@ -1190,6 +1190,11 @@
       "at": "2026-11-03T06:30:20-05:00",
       "text": "The Hyrule key opens your map now (it did nothing before).",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T09:02:30-05:00",
+      "text": "Aang reads your Zelda save after you play, so your Hyrule map keeps up.",
+      "kind": "feature"
     }
   ]
 }
