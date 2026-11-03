@@ -288,6 +288,8 @@ export const BRANCH_MAX = 40;
  * A branch name Claude gave in a .mockup file (or open-mockup --branch): control characters removed, whitespace collapsed
  * and trimmed, 1 to 40 characters. Null for anything else (the field is then ignored; the mockup still opens).
  */
+/** A topic's project as kept: its one name (2026-11-03: "Design Language" topics are ShrineDock's now, saved so). */
+const storedProject = (p: string): string => projectName(p) ?? p;
 export function cleanBranch(x: unknown): string | null {
   if (typeof x !== 'string' || x.length > 1000) return null;
   // eslint-disable-next-line no-control-regex
@@ -369,7 +371,7 @@ export class MockStore {
         // Marks set before the log existed (2026-10-23) join it, so they travel too.
         for (const v of this.list) if (v.stage && !this.stageLog.has(v.key)) this.stageLog.set(v.key, { key: v.key, sheet: bareSheet(v.sheet), stage: v.stage, ...(v.note ? { note: v.note } : {}), ...(v.said ? { said: v.said } : {}), by: v.by ?? 'you', at: v.stageAt ?? 0 });
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
-          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true, ...(cleanBranch(b.project) ? { project: cleanBranch(b.project)! } : {}), ...(cleanIcon(b.icon) ? { icon: b.icon } : {}) })).slice(0, 100);
+          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true, ...(cleanBranch(b.project) ? { project: storedProject(cleanBranch(b.project)!) } : {}), ...(cleanIcon(b.icon) ? { icon: b.icon } : {}) })).slice(0, 100);
         const pj = s?.projects && typeof s.projects === 'object' ? s.projects as Record<string, unknown> : {};
         for (const [k, v] of Object.entries(pj)) if ((k === '' || REPO_NAME_RE.test(k)) && cleanBranch(v)) this.projects.set(k, cleanBranch(v)!);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};

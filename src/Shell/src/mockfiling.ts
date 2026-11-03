@@ -29,7 +29,9 @@ export function plainName(name: string): string {
 const PROJECT_WORDS: Record<string, string> = { samara: 'Samara', aang: 'Aang', waymark: 'Waymark', 'couch mode': 'Couch Mode', couch: 'Couch Mode', showcase: 'Showcase',
   'aivatar': 'Samara', 'aivatar fixes': 'Samara', aangapp: 'Samara', 'anti slop': 'Anti-slop',
   // 2026-11-02: sessions spelled these two ways each and got two tabs ("Design language", "Botw guide mockups" = its repo)
-  'design language': 'Design Language', botw: 'BotW Guide', 'botw guide': 'BotW Guide', 'botw guide mockups': 'BotW Guide' };
+  'design language': 'ShrineDock', botw: 'BotW Guide', 'botw guide': 'BotW Guide', 'botw guide mockups': 'BotW Guide',
+  // 2026-11-03 (his ask): the Shrine desktop sheets (repo design-language) are ShrineDock's, one tab with its seal
+  shrinedock: 'ShrineDock', 'shrine dock': 'ShrineDock' };
 /** A project's one name: "couch-mode" is Couch Mode, "AiVatar Fixes" is Samara (Samara's own repo); "Live pages" is no project. */
 export function projectName(name: unknown): string | null {
   if (typeof name !== 'string') return null;
@@ -103,7 +105,7 @@ export function projectFromSrc(src: string, repoProjects: Map<string, string> = 
   const repo = src.slice(1, src.indexOf('/'));
   // The home's first folder is the project's (samara, couch-mode, waymark).
   if (repo === HOME_NAME) return projectName(src.split('/')[1] ?? '') ?? NO_PROJECT;
-  return repoProjects.get(repo) ?? (isSamaraRepo(repo) ? 'Samara' : plainName(path.basename(repo)));
+  return repoProjects.get(repo) ?? (isSamaraRepo(repo) ? 'Samara' : projectName(path.basename(repo)) ?? plainName(path.basename(repo)));
 }
 
 // ------------------------------------------------------------------ the tidy-once (sheet 107)
