@@ -3539,8 +3539,10 @@ export class AangBrowser {
    * if it was closed (his tabs come back first, as always), then does the one thing. New window opens another window
    * beside the one he has. Reopen closed tab with Samara closed simply opens it: his tabs coming back IS the reopen.
    */
-  jumpTask(task: 'new-tab' | 'new-window' | 'mockups' | 'settings' | 'reopen'): void {
+  jumpTask(task: 'new-tab' | 'new-window' | 'mockups' | 'hyrule' | 'settings' | 'reopen'): void {
     if (task === 'new-window') { this.createPane(); return; }
+    // 2026-11-03: the Shrine dock's right-click asks for Hyrule too (openHyrule waits for a window itself)
+    if (task === 'hyrule') { const p = this.lastPane(); if (p) { this.pane = p; bringFront(p.win!); } this.openHyrule(); return; }
     const go = () => {
       if (task === 'new-tab') this.act('newtab');
       else if (task === 'settings') this.openSettings();
