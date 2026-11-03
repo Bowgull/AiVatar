@@ -1245,6 +1245,11 @@
       "at": "2026-11-03T13:58:00-05:00",
       "text": "The music player sees Spotify on your Mac again.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T16:15:00-05:00",
+      "text": "Prime Video on the PC goes out through your Mac's home internet, so it stops saying a title isn't available where you are.",
+      "kind": "fix"
     }
   ]
 }
