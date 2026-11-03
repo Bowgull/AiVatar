@@ -13,6 +13,9 @@ import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS, MAX_TIMERS, TIMER_ACTIONS, type TimerAction } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
+import { botwGuide } from './botw.ts';
+import { routeLine } from './botwroute.ts';
+type RouteSaid = { state: 'planned' | 'queued' | 'off'; title?: string | undefined; stops?: number | undefined };
 import { afterPlayNote, botwNoteSettings, briefZeldaNotes, rememberPin, rememberThis, writeBotwNotes } from './botwnotes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
 import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
@@ -563,6 +566,7 @@ export class Core {
       followCreator: ch => this.followCreator(ch),
       unfollowCreator: w => { const c = this.feeds.unfollow(w); return Promise.resolve(c ? { ok: true, detail: `Stopped following ${c.name}.` } : { ok: false, detail: `You do not follow anyone called "${w}". You follow: ${this.feeds.creators.map(x => x.name).join(', ') || 'nobody'}.` }); },
       apexMap: () => this.apexRanked(),
+      botwRoute: (what, remove) => this.botwRoute(what, remove),
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10, rows => this.cardForTurn('inbox', inboxCardData(rows, this.jobCompanies())))),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       mailAttachment: (id, name, save) => this.mailAttachment(id, name, save),
@@ -3876,6 +3880,11 @@ export class Core {
       case 'notes.delete': { if (this.notes.remove(String(m.id ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       // Sheet 62 (2026-10-22): "Keep as a note" on Aang's line after a Send to Aang. A plain note with the link; Notes.keep checks it.
       // BG5: "Note here" on the Hyrule map (a new Zelda note at x, z), a pin dragged (id + x, z), or taken off (id, off).
+      case 'hyrule.route.done': {
+        const done = this.routeAsks.get(String(m.id ?? ''));
+        if (done) { this.routeAsks.delete(String(m.id)); done({ state: m.state === 'planned' || m.state === 'queued' ? m.state : 'off', title: typeof m.title === 'string' ? m.title.slice(0, 80) : undefined, stops: Number.isFinite(m.stops) ? Number(m.stops) : undefined }); }
+        break;
+      }
       case 'notes.place': {
         const done = m.off === true ? this.notes.unpin(String(m.id ?? '')) : this.notes.pin({ id: m.id, title: m.title, text: m.text, x: m.x, z: m.z });
         if (done) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
@@ -5048,6 +5057,28 @@ export class Core {
     if (row !== null) msg.turn = row;
     this.actions.add({ tool: 'notice', did: `noticed in a note: "${n.line.slice(0, 70)}"`, ok: true, note: '' });
     this.sendTo('desktop', msg);
+  }
+  /**
+   * Sheet 25: "add the general store to my route". The words become one goal (botwroute.ts, spoiler rules kept); the
+   * Shell puts it in the Hyrule map's queue and says what the map made of it (planned, or queued until he opens it).
+   */
+  private routeAsks = new Map<string, (r: RouteSaid | null) => void>();
+  private routeSeq = 0;
+  private async botwRoute(what: string, remove: boolean): Promise<{ ok: boolean; detail: string }> {
+    let goal: import('./botwroute.ts').RouteGoal | undefined, name: string;
+    if (remove) name = what.replace(/\b(?:from|off)\s+(?:my|the)\s+route\b/i, '').replace(/^\s*(?:take|remove)\s+/i, '').trim().slice(0, 80);
+    else { const r = botwGuide().routeGoal(what); if ('why' in r) return { ok: false, detail: r.why }; goal = r.goal; name = r.name; }
+    if (!name) return { ok: false, detail: 'Say what to take off.' };
+    if (!this.clientsOf('desktop').length) return { ok: false, detail: routeLine({ name, remove, state: 'off' }) };
+    const id = `route${++this.routeSeq}`;
+    const said = new Promise<RouteSaid | null>((ok) => {
+      this.routeAsks.set(id, ok);
+      setTimeout(() => { if (this.routeAsks.delete(id)) ok(null); }, 9_000);
+    });
+    this.sendTo('desktop', { t: 'hyrule.route', id, name, ...(goal ? { goal } : { remove: name }) });
+    const r = await said;
+    if (!r) return { ok: true, detail: `Sent ${name} to your Hyrule map.` };
+    return { ok: r.state !== 'off', detail: routeLine({ name, remove, ...r }) };
   }
   /** BG2 + BG6 (docs/BOTW-GUIDE.md): the BotW save watcher, its one "today" line, and "Where was I?". */
   private botwLiveStore: BotwLive | null = null;

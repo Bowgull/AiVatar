@@ -449,6 +449,8 @@ const link = new CoreLink({
       return;
     }
     if (m.t === 'menu.pick') return;               // for the pet, not for us
+    // Sheet 25: a route ask for his Hyrule map (botw_route_add); with no Samara, the brain hears so at once.
+    if (m.t === 'hyrule.route') { if (aangBrowser) aangBrowser.hyruleRoute(m); else link?.send({ t: 'hyrule.route.done', id: String(m.id ?? ''), state: 'off' }); return; }
     // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
     if (m.t === 'notes.state' && Array.isArray(m.notes)) {
       // Sheet 60: his own categories travel with the list, so every note window and Samara's rail colour them alike.
@@ -916,6 +918,7 @@ app.whenReady().then(async () => {
       aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
       aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
       aangBrowser.onNotePlace = (m) => link?.send(m);
+      aangBrowser.onRouteDone = (r) => link?.send({ t: 'hyrule.route.done', ...r });
       // C7 (2026-10-21): the rune's panel, already checked in browser.ts (claudewire.ts), the same doors as the cockpit's.
       aangBrowser.onClaude = (m) => { link?.send(m as never); };
       aangBrowser.onClaudeOpen = (target) => openInClaude(target);

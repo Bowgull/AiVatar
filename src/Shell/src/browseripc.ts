@@ -119,6 +119,8 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   // BG5: the Hyrule map's notes doors (hyrulepreload.cjs), from its own page only.
   ipcMain.handle('hyrule:notes', (e) => (top(e) && b(e)?.isHyrule(e.sender)) ? b(e).hyruleNotes() : null);
   ipcMain.on('hyrule:noteplace', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleNotePlace(a); });
+  ipcMain.on('hyrule:routetook', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleRouteTook(a); });
+  ipcMain.on('hyrule:routereport', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleRouteReport(a); });
   ipcMain.on('hyrule:noteopen', (e, id) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).noteOpen(id); });
   ipcMain.handle('mocklog:get', (e) => (top(e) && b(e)?.isMockLog(e.sender)) ? b(e).mockLogData() : null);
   ipcMain.on('mocklog:seen', (e, sheet) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && typeof sheet === 'string' && sheet.length <= 2000) b(e).mockLogSeen(sheet); });
