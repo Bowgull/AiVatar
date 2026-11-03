@@ -269,3 +269,23 @@ test('where was I: the whole answer on his real save', { skip: !real && 'no Cemu
   assert.match(a, /^You saved (in|at|near) .+, (today|yesterday|\d+ days ago)/);
   console.log(`     ${a}`);
 });
+
+/** A made-up Hero's Path file: one segment, n overworld points walking east from (100, 200). */
+function track(n: number): Buffer {
+  const b = Buffer.alloc(0x40 + 48 * 0x4c0);
+  b.writeUInt32BE(1, 0x40);                                   // t1
+  for (let i = 0; i < n; i++) { const x = 100 + i * 3, z = 200; b.writeUInt32BE(((1 << 31) | ((x & 0xfff) << 13) | (z & 0xfff)) >>> 0, 0x40 + 16 + i * 4); }
+  return b;
+}
+
+test('sessions say where their Hero\'s Path walk starts and ends (pathFrom, pathTo)', async () => {
+  const r = rig();
+  const walk = (n: number) => { mkdirSync(path.join(r.p.saves, 'tracker'), { recursive: true }); writeFileSync(path.join(r.p.saves, 'tracker', 'trackblock00.sav'), track(n)); };
+  walk(40); r.save(game({ shrines: 1 })); await r.w.tick();
+  assert.equal(readBotwState(r.p)?.heroPath?.points.length, 40);
+  r.set({ cemu: true, now: r.now + 60_000 }); walk(100); r.save(game({ shrines: 2, time: 5000 })); await r.w.tick();
+  assert.equal(readBotwSessions(r.p)?.open?.pathFrom, 40, 'the open session knows where it began');
+  r.set({ cemu: false, now: r.now + 60_000 }); await r.w.tick();
+  const s = readBotwSessions(r.p)!.list.at(-1)!;
+  assert.equal(s.pathFrom, 40); assert.equal(s.pathTo, 100);
+});

@@ -36,10 +36,15 @@ export function botwPaths(env: NodeJS.ProcessEnv = process.env): BotwPaths {
   };
 }
 
-export interface BotwSession { start: string; end: string; from: string; to: string; line: string | null; diff: BotwDiff }
+export interface BotwSession {
+  start: string; end: string; from: string; to: string; line: string | null; diff: BotwDiff;
+  /** Hero's Path points in the state it is measured from, and at its end: points[pathFrom..pathTo) are this session's
+   *  walk (the points carry no times). Absent on sessions recorded before 2026-11-03. */
+  pathFrom?: number; pathTo?: number;
+}
 export interface BotwSessions {
   v: 1;
-  open: { since: string; baseline: string; lastSave: string } | null;
+  open: { since: string; baseline: string; lastSave: string; pathFrom?: number } | null;
   /** The line of the last session, waiting for no game to be running. */
   held: string | null;
   list: BotwSession[];
@@ -146,10 +151,10 @@ export class BotwWatch {
       else if (s.held && s.list.length && existsSync(this.file('base.json'))) {
         // He came back before the last line was said: the same session carries on, from the same start.
         const last = s.list.pop()!;
-        s.open = { since: last.start, baseline: last.from, lastSave: at }; s.held = null; changed = true;
+        s.open = { since: last.start, baseline: last.from, lastSave: at, ...(last.pathFrom !== undefined ? { pathFrom: last.pathFrom } : {}) }; s.held = null; changed = true;
       } else {
         this.writeBase(state);
-        s.open = { since: at, baseline: state.savedAt, lastSave: at }; s.held = null; changed = true;
+        s.open = { since: at, baseline: state.savedAt, lastSave: at, pathFrom: state.heroPath?.points.length ?? 0 }; s.held = null; changed = true;
       }
     }
     if (s.open && (now - Date.parse(s.open.lastSave) >= STILL_MS || !(await this.d.cemuRunning()))) {
@@ -158,7 +163,8 @@ export class BotwWatch {
         const base = readJsonFile<BotwState>(this.file('base.json')) ?? state;
         const diff = diffStates(base, cur);
         const line = todayLine(diff);
-        s.list.push({ start: s.open.since, end: s.open.lastSave, from: base.savedAt, to: cur.savedAt, line, diff });
+        s.list.push({ start: s.open.since, end: s.open.lastSave, from: base.savedAt, to: cur.savedAt, line, diff,
+          ...(s.open.pathFrom !== undefined ? { pathFrom: s.open.pathFrom } : {}), pathTo: cur.heroPath?.points.length ?? 0 });
         s.list = s.list.slice(-KEEP_SESSIONS);
         const fresh = now - Date.parse(s.open.lastSave) < STALE_MS;
         s.open = null;
