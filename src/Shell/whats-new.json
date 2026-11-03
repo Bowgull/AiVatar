@@ -1225,6 +1225,11 @@
       "at": "2026-11-03T11:46:55-05:00",
       "text": "Aang's updates no longer get lost before he restarts.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T12:35:00-05:00",
+      "text": "Mockups load smoothly, with a simple loading bar.",
+      "kind": "fix"
     }
   ]
 }
