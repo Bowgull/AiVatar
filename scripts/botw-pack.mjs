@@ -30,7 +30,7 @@ const CEMU = 'C:/Games/Cemu/portable/mlc01/usr/title';
 // The update folder holds the full v1.5 Bootup pack, ActorInfo and text; the base game is not needed on top.
 const UPD = `${CEMU}/0005000e/101c9400/content/`, DLC = `${CEMU}/0005000c/101c9400/content/0010/`;
 const UA = { 'user-agent': 'aang-personal-botw-guide (one-off, private)' };
-export const PACK_VERSION = 1;
+export const PACK_VERSION = 2; // 2 (BG3): cook_items, cook_effects, shops for the guide tools
 
 // ---- readers for the game's formats (Wii U, big-endian) ----
 function yaz0(b) {
@@ -151,6 +151,10 @@ db.exec(`
   CREATE TABLE compendium (actor TEXT PRIMARY KEY, number INTEGER, name TEXT, category TEXT, descr TEXT, flag TEXT NOT NULL, ${SPOIL});
   CREATE TABLE enemies (id TEXT PRIMARY KEY, name TEXT, profile TEXT, life INTEGER, attack INTEGER, rank INTEGER, drops TEXT,
     areas TEXT, kill_flag TEXT, ${SPOIL});
+  CREATE TABLE cook_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, tags TEXT NOT NULL, hp INTEGER, effect TEXT, potency INTEGER, time INTEGER,
+    boost_time INTEGER, boost_hp INTEGER, boost_max INTEGER, boost_stamina INTEGER, buy INTEGER);
+  CREATE TABLE cook_effects (effect TEXT PRIMARY KEY, base_time INTEGER, min INTEGER, max INTEGER, rate REAL);
+  CREATE TABLE shops (npc TEXT PRIMARY KEY, name TEXT, items TEXT NOT NULL, x REAL, z REAL, ${SPOIL});
   CREATE INDEX places_flag ON places(flag);
   CREATE INDEX names_name ON names(name COLLATE NOCASE);
 `);
@@ -259,6 +263,26 @@ insert('recipes', [...CD.Recipes.map((r) => [r, 0]), ...CD.SingleRecipes.map((r)
 // CookVegetable sits beside CookPlant in the vegetable dishes but no ingredient carries it (any_of 0).
 for (const r of [...CD.Recipes, ...CD.SingleRecipes]) for (const h of [].concat(r.Tags || []).flat()) if (!TAG[h >>> 0]) need(false, `name for recipe tag ${(h >>> 0).toString(16)}`);
 
+// cook_items + cook_effects (BG3, botw_cook): each ingredient's own cooking numbers from ActorInfo and the effect
+// table from CookData System, so the guide works dishes out the way the game does (hearts x LRMR, potency x rate).
+// Same rules as botw-guide-mockups/tools/cookengine.mjs; the recipe match itself lives in Core's botw.ts.
+const ING = /^(Item_(Fruit|Mushroom|Plant|PlantGet|Meat|FishGet|InsectGet|Material|Ore_H|Enemy|Chilled|ChilledFish|Roast|RoastFish|Boiled)|Animal_Insect_|BeeHome)/;
+insert('cook_items', AI.filter((a) => ING.test(a.name) && TXT[a.name]?.Name).map((a) => ({
+  id: a.name, name: TXT[a.name].Name, tags: JSON.stringify(Object.values(a.tags || {}).map((t) => TAG[t >>> 0]).filter(Boolean)),
+  hp: a.cureItemHitPointRecover || 0, effect: a.cureItemEffectType && a.cureItemEffectType !== 'None' ? a.cureItemEffectType : null,
+  potency: a.cureItemEffectLevel || 0, time: Math.round((a.cureItemEffectiveTime || 0) / 30), boost_time: a.cookSpiceBoostEffectiveTime || 0,
+  boost_hp: a.cookSpiceBoostHitPointRecover || 0, boost_max: a.cookSpiceBoostMaxHeartLevel || 0, boost_stamina: a.cookSpiceBoostStaminaLevel || 0, buy: a.itemBuyingPrice || 0,
+})));
+// Two stamina entries are stored under hashes that are not crc32 of their names: matched by their limits (cookengine.mjs).
+const CEI = new Map(CD.System.CEI.map((e) => [e.T >>> 0, e]));
+const CEI_HASH = { MovingSpeed: crc32('AllSpeed'), GutsRecover: 3663771853, ExGutsMaxUp: 2930788100 };
+insert('cook_effects', ['LifeMaxUp', 'GutsRecover', 'ExGutsMaxUp', 'ResistHot', 'ResistCold', 'ResistElectric', 'Fireproof', 'MovingSpeed', 'AttackUp', 'DefenseUp', 'Quietness']
+  .map((effect) => { const c = CEI.get(CEI_HASH[effect] ?? crc32(effect)); need(c, `cook effect ${effect}`); return { effect, base_time: c?.BT ?? 0, min: c?.Mi, max: c?.Ma, rate: c?.MR }; }));
+
+// shops (BG3, where-to-buy is a straight answer): who sells what and where, from the shop lists read earlier.
+insert('shops', Object.entries(json('data/shops.json')).map(([npc, s]) => ({ npc, name: s.name, items: JSON.stringify(s.items), x: s.pts?.[0]?.[0], z: s.pts?.[0]?.[1],
+  spoiler_kind: 'item', spoiler_level: 0 })));
+
 // compendium: the game's 394 IsRegisteredPictureBook_ flags. Numbers from the Hyrule Compendium API (389 entries),
 // joined by English name; the 5 Master Mode entries (Golden Bokoblin/Moblin/Lizalfos/Lynel, Sky Octorok) keep a null.
 const api = await cached('compendium_api.json', async () => (await getJson('https://api.hyrule-compendium.com/v3/compendium/all')).data);
@@ -292,14 +316,14 @@ for (const [id, n] of Object.entries(DMSG)) if (/^Dungeon\d+$/.test(id) && tidy(
 for (const q of QL) { const n = tidy(qtext(q.Name, 'Name')); if (n) names.push({ id: q.Name, name: n, source: 'quest', spoiler_kind: 'story', spoiler_level: 1 }); }
 insert('names', names);
 
-const meta = { pack_version: PACK_VERSION, built: new Date().toISOString(), game: 'BotW Wii U v1.5.0 + DLC (Cemu)', flags: FLAGS.size, missing: JSON.stringify(missing) };
+const meta = { pack_version: PACK_VERSION, built: new Date().toISOString(), game: 'BotW Wii U v1.5.0 + DLC (Cemu)', flags: FLAGS.size, cook_lrmr: CD.System.LRMR, missing: JSON.stringify(missing) };
 insert('meta', Object.entries(meta).map(([key, value]) => ({ key, value: String(value) })));
 db.exec('COMMIT');
 db.close();
 rmSync(DB, { force: true }); renameSync(TMP, DB);
 
 const check = new DatabaseSync(DB, { readOnly: true });
-for (const t of ['shrines', 'towers', 'koroks', 'places', 'quests', 'quest_steps', 'items', 'armor_upgrades', 'recipes', 'compendium', 'enemies', 'names'])
+for (const t of ['shrines', 'towers', 'koroks', 'places', 'quests', 'quest_steps', 'items', 'armor_upgrades', 'recipes', 'cook_items', 'cook_effects', 'shops', 'compendium', 'enemies', 'names'])
   console.log(t.padEnd(15), check.prepare(`SELECT count(*) n FROM ${t}`).get().n);
 check.close();
 console.log(missing.length ? `missing (${missing.length}):\n  ${missing.slice(0, 30).join('\n  ')}` : 'nothing missing');
