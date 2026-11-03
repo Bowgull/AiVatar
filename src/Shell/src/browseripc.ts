@@ -116,6 +116,10 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('browser:dldrag', (e, id) => { if ((top(e) && b(e)?.isFrame(e.sender)) && Number.isInteger(id)) b(e).dlDrag(e.sender, id); });
   ipcMain.on('browser:dlhello', (e) => { if ((top(e) && b(e)?.isFrame(e.sender))) b(e).resendDownloads(); });
   // Sheet 100: the Mockups quest log's only doors: read the tree; sheet 107: a sheet opened (seen), a mark, Send to Aang.
+  // BG5: the Hyrule map's notes doors (hyrulepreload.cjs), from its own page only.
+  ipcMain.handle('hyrule:notes', (e) => (top(e) && b(e)?.isHyrule(e.sender)) ? b(e).hyruleNotes() : null);
+  ipcMain.on('hyrule:noteplace', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleNotePlace(a); });
+  ipcMain.on('hyrule:noteopen', (e, id) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).noteOpen(id); });
   ipcMain.handle('mocklog:get', (e) => (top(e) && b(e)?.isMockLog(e.sender)) ? b(e).mockLogData() : null);
   ipcMain.on('mocklog:seen', (e, sheet) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && typeof sheet === 'string' && sheet.length <= 2000) b(e).mockLogSeen(sheet); });
   ipcMain.on('mocklog:stage', (e, a) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && a && Number.isInteger(a.id) && (a.to === null || ['ok', 'fix', 'park'].includes(a.to))) b(e).mockLogStage(a.id, a.to, typeof a.note === 'string' ? a.note.slice(0, 300) : ''); });
