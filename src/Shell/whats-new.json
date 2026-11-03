@@ -1215,6 +1215,16 @@
       "at": "2026-11-03T11:04:50-05:00",
       "text": "Aang's Zelda plans know the armour you already carry.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T11:46:50-05:00",
+      "text": "Ask Aang to add or remove stops on your Hyrule route.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-03T11:46:55-05:00",
+      "text": "Aang's updates no longer get lost before he restarts.",
+      "kind": "fix"
     }
   ]
 }
