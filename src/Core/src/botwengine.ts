@@ -60,7 +60,8 @@ export class Engine {
   constructor(db: DatabaseSync, st: EngineState) { this.db = db; this.st = st; }
   private all(sql: string, ...a: any[]): Row[] { return this.db.prepare(sql).all(...a) as Row[]; }
   private one(sql: string, ...a: any[]): Row | undefined { return this.db.prepare(sql).get(...a) as Row | undefined; }
-  private bag(id: string): number { return this.st.gear.filter(g => g.id === id).reduce((s, g) => s + g.n, 0); }
+  // gear n is a count, except weapons, bows and shields (durability x100) and armour (0): each of those slots is one owned
+  private bag(id: string): number { return this.st.gear.filter(g => g.id === id).reduce((s, g) => s + (/^(Weapon_|Armor_)/.test(g.id) ? 1 : g.n), 0); }
   private itemName(id: string): string { return this.one('SELECT name FROM items WHERE id = ?', id)?.name ?? this.one('SELECT name FROM cook_items WHERE id = ?', id)?.name ?? id; }
 
   /** When a person is at work: the hours of their schedule they are not asleep (the timeline his save has switched on). */

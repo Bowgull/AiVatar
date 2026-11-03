@@ -73,6 +73,20 @@ test('E6: more hearts: Spirit Orbs from shrines first, then a Goddess statue; sh
   const night = { ...st, clock: { ...st.clock, hour: 23 } };
   const { p: q } = run(db, night, 'Flamebreaker armor fully upgraded');
   for (const s of q.stops) if (s.source.hours) {
-    const h = s.arrive; // arrive is after any wait assert.ok(s.source.hours.some(([a, b]) => h >= a - 0.05 && h < b + 0.05), `${s.source.name} open at ${h}`);
+    const h = s.arrive; // arrive is after any wait
+    assert.ok(s.source.hours.some(([a, b]) => h >= a - 0.05 && h < b + 0.05), `${s.source.name} open at ${h}`);
+  }
+});
+
+test('E6: armour he already wears or carries is owned: no stop to buy it', { skip }, () => {
+  const { db, st } = his();
+  // every armour piece in his pouch (state.json keeps n = 0 for armour, durability x100 for weapons)
+  const worn = db.prepare('SELECT DISTINCT a.piece, i.name FROM armor_upgrades a JOIN items i ON i.id = a.piece WHERE a.star = 0').all()
+    .filter((r: any) => st.gear.some(g => g.id === r.piece));
+  assert.ok(worn.length > 0, 'he has some base-level armour');
+  for (const r of worn as any[]) {
+    const e = new Engine(db, st as any), p = e.plan(e.tree({ kind: 'armor', name: r.name }));
+    assert.ok(!p.tree.needs.some(n => n.id === r.piece), `${r.name}: not asked for again`);
+    assert.ok(!p.stops.some(s => s.what === r.name), `${r.name}: no stop to buy it`);
   }
 });
