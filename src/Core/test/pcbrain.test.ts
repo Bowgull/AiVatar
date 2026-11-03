@@ -18,7 +18,7 @@ test('no installed brain: the code folder', () => {
   assert.equal(pick(root()), null);
 });
 
-test('a ready brain goes in at the next start as a trial, and is good after five minutes', () => {
+test('a ready brain goes in at the next start as a trial, and is good after five minutes', async () => {
   const r = root(); install(r, '1.33.1'); install(r, '1.33.2');
   point(r, { version: '1.33.1', status: 'good', previous: null, starts: [], said: true });
   writeFileSync(path.join(r, 'next.txt'), '1.33.2\n');
@@ -27,7 +27,7 @@ test('a ready brain goes in at the next start as a trial, and is good after five
   assert.ok(!existsSync(path.join(r, 'next.txt')));
   assert.ok(sayOnce(r, '1.33.2') && !sayOnce(r, '1.33.2'), 'told once');
   install(r, '1.30.0');
-  assert.ok(markGood(r, '1.33.2'));
+  assert.ok(await markGood(r, '1.33.2'));
   assert.equal(pointer(r)?.status, 'good');
   assert.ok(existsSync(path.join(r, 'versions', '1.33.1')) && !existsSync(path.join(r, 'versions', '1.30.0')), 'this one and the one before are kept');
 });
@@ -123,4 +123,19 @@ test('a release from before brain.ts is not made ready', async () => {
   assert.equal(bu.ready, '');
   assert.ok(!existsSync(path.join(r, 'versions', '1.33.1')) && !existsSync(path.join(r, 'versions', '1.33.1.part')));
   assert.ok(logs.some((l) => /before the PC ran its own release/.test(l)));
+});
+
+test('making a release ready never freezes the brain (node_modules copied off the event loop)', async () => {
+  // 2026-11-03: "the brain's event loop stalled ... worst 15365 ms" while 1.45.0 was made ready: cpSync of node_modules.
+  const r = root(); install(r, '1.33.1'); point(r, { version: '1.33.1', status: 'good', previous: null, starts: [], said: true });
+  const mods = path.join(r, 'versions', '1.33.1', 'node_modules');
+  for (let i = 0; i < 60; i++) { const d = path.join(mods, `lib${i}`); mkdirSync(d); for (let k = 0; k < 40; k++) writeFileSync(path.join(d, `f${k}.js`), 'x'.repeat(2000)); }
+  const bu = new PcBrainUpdates({ root: r, running: '1.33.1', fetch: fetchFor('1.33.2') as never, away: () => ({ idle: 0, call: false }), log: () => {}, exit: () => {}, run: runner(), pub: PUB, sched: new Scheduler() });
+  let last = Date.now(), worst = 0, ticks = 0;
+  const beat = setInterval(() => { const n = Date.now(); worst = Math.max(worst, n - last); last = n; ticks++; }, 5);
+  try { await bu.check(); } finally { clearInterval(beat); }
+  assert.equal(bu.ready, '1.33.2');
+  assert.ok(existsSync(path.join(r, 'versions', '1.33.2', 'node_modules', 'lib59', 'f39.js')), 'the libraries came along');
+  assert.ok(ticks > 5, `the loop kept ticking during the copy (${ticks} beats)`);
+  assert.ok(worst < 400, `the longest the loop stood still: ${worst} ms`);
 });

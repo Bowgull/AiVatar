@@ -20,6 +20,8 @@
 import { spawn } from 'node:child_process';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { createWriteStream, existsSync, openSync, readFileSync, renameSync, rmSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
+// node_modules is copied and whole folders removed through fs/promises: done sync they froze the brain for seconds.
+import { cp, rm } from 'node:fs/promises';
 import { readJson, saveJson } from './store.ts';
 import { Scheduler } from './scheduler.ts';
 import path from 'node:path';
@@ -249,22 +251,22 @@ export class BrainUpdates {
     if (!(await this.download(`${RELEASES}${tag}/${m.brain.file}`, m.brain, tgz))) { this.o.log(`brain update: ${m.version} did not download whole`); return false; }
     const run = this.o.run ?? runIt;
     try {
-      rmSync(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
+      await rm(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
       if (await run('tar', ['-xzf', tgz, '-C', part], part) !== 0) throw new Error('unpacking failed');
       if (!existsSync(path.join(part, 'src', 'index.ts'))) throw new Error('not a brain');
       const lock = (d: string) => { try { return createHash('sha256').update(readFileSync(path.join(d, 'package-lock.json'))).digest('hex'); } catch { return ''; } };
-      if (lock(this.core) && lock(this.core) === lock(part) && existsSync(path.join(this.core, 'node_modules'))) cpSync(path.join(this.core, 'node_modules'), path.join(part, 'node_modules'), { recursive: true });
+      if (lock(this.core) && lock(this.core) === lock(part) && existsSync(path.join(this.core, 'node_modules'))) await cp(path.join(this.core, 'node_modules'), path.join(part, 'node_modules'), { recursive: true });
       else {
         const npm = path.join(this.o.home, 'node', 'bin', 'npm');
         if (await run(existsSync(npm) ? npm : 'npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--cache', path.join(this.o.home, 'npm-cache')], part) !== 0) throw new Error("installing the brain's libraries failed");
       }
       // The Mac's presence helper is built on this Mac, never shipped: the one here comes along.
-      if (existsSync(path.join(this.core, 'bin'))) cpSync(path.join(this.core, 'bin'), path.join(part, 'bin'), { recursive: true });
+      if (existsSync(path.join(this.core, 'bin'))) await cp(path.join(this.core, 'bin'), path.join(part, 'bin'), { recursive: true });
       if (!saveJson(path.join(part, 'brain.json'), { version: m.version, commit: m.commit.slice(0, 12), status: 'trial', said: false })) throw new Error('could not write brain.json');
-      rmSync(this.nextDir, { recursive: true, force: true }); renameSync(part, this.nextDir);
+      await rm(this.nextDir, { recursive: true, force: true }); renameSync(part, this.nextDir);
       rmSync(tgz, { force: true });
       return true;
-    } catch (e) { this.o.log(`brain update: getting ${m.version} ready failed: ${(e as Error).message}`); rmSync(part, { recursive: true, force: true }); return false; }
+    } catch (e) { this.o.log(`brain update: getting ${m.version} ready failed: ${(e as Error).message}`); await rm(part, { recursive: true, force: true }).catch(() => {}); return false; }
   }
 
   /** Aang's app made ready beside the running one (aang-app.next): its code and art from the release, its libraries
@@ -275,7 +277,7 @@ export class BrainUpdates {
     if (!(await this.download(`${RELEASES}${tag}/${a.file}`, a, tgz))) { this.o.log(`brain update: Aang's app ${m.version} did not download whole`); return false; }
     const run = this.o.run ?? runIt;
     try {
-      rmSync(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
+      await rm(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
       if (await run('tar', ['-xzf', tgz, '-C', part], part) !== 0) throw new Error('unpacking failed');
       if (!existsSync(path.join(part, 'src', 'macaang.ts'))) throw new Error("not Aang's app");
       // His art where the app looks for it (AANG_ASSETS_DIR = <app>/assets, as tools/install-mac-aang.sh lays it out).
@@ -300,10 +302,10 @@ export class BrainUpdates {
         if (existsSync(old)) cpSync(old, to);
       }
       if (!saveJson(path.join(part, 'app.json'), { version: m.version, commit: m.commit.slice(0, 12) })) throw new Error('could not write app.json');
-      rmSync(this.appNext, { recursive: true, force: true }); renameSync(part, this.appNext);
+      await rm(this.appNext, { recursive: true, force: true }); renameSync(part, this.appNext);
       rmSync(tgz, { force: true });
       return true;
-    } catch (e) { this.o.log(`brain update: getting Aang's app ${m.version} ready failed: ${(e as Error).message}`); rmSync(part, { recursive: true, force: true }); rmSync(tgz, { force: true }); return false; }
+    } catch (e) { this.o.log(`brain update: getting Aang's app ${m.version} ready failed: ${(e as Error).message}`); await rm(part, { recursive: true, force: true }).catch(() => {}); rmSync(tgz, { force: true }); return false; }
   }
 
   private download(url: string, m: Part, dest: string): Promise<boolean> { return downloadPart(this.o.fetch, url, m, dest); }

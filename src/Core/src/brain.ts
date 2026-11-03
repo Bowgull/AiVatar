@@ -79,7 +79,7 @@ if (process.platform === 'win32' && !process.env.AANG_BRAIN_HERE && process.env.
       away: () => ({ idle: core.awaySeconds(), call: existsSync(path.join(core.cfg.stateDir, 'in-call.json')) }),
     });
     if (running) {
-      setTimeout(() => { if (pc.markGood(root, running)) console.log(`brain update: ${running} is good`); }, pc.TRIAL_MS).unref?.();
+      setTimeout(() => { void pc.markGood(root, running).then(ok => { if (ok) console.log(`brain update: ${running} is good`); }); }, pc.TRIAL_MS).unref?.();
       if (pc.sayOnce(root, running)) setTimeout(() => core.announce(`I updated myself to ${running} while you were away.`), 15_000).unref?.();
     }
     bu.start();
