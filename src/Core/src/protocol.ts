@@ -88,6 +88,8 @@ export interface BriefCard {
   engine?: { title: string };
   /** Sheet 65: the Addons slip (addonbrief.ts), from CurseForge's own list. Absent when nothing has an update or errors. */
   addons?: import('./addonbrief.ts').AddonsSection;
+  /** BG5 (his pick 2026-11-03): Zelda notes near where he last saved in BotW (botwnotes.ts); the title opens the note. */
+  zelda?: { id: string; title: string }[];
   error?: string;
 }
 

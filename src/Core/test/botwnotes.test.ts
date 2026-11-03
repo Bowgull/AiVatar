@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Notes, cleanPlace, ZELDA_CAT } from '../src/notes.ts';
-import { afterPlayNote, botwNoteSettings, botwNotesFile, rememberPin, rememberThis, writeBotwNotes } from '../src/botwnotes.ts';
+import { afterPlayNote, botwNoteSettings, briefZeldaNotes, botwNotesFile, rememberPin, rememberThis, writeBotwNotes } from '../src/botwnotes.ts';
 import { nearNotes } from '../src/botwwatch.ts';
 import type { BotwState } from '../src/botwsave.ts';
 
@@ -74,4 +74,16 @@ test('the unconfirmed hooks: off unless note-settings.json says true; "remember 
   assert.equal(rememberThis('remember this'), '');
   assert.equal(rememberThis('do you remember this song'), null);
   assert.deepEqual(rememberPin('', st), { title: 'Saved spot, G-5', text: 'Remembered here.', x: 1610, z: 475 });
+});
+
+test('morning brief (his pick): Zelda notes near where he last saved, nearest first, at most three; none without a save', () => {
+  const s = new Notes(path.join(tmp(), 'notes.json'));
+  const far = s.pin({ title: 'Far', x: -3000, z: 2000 })!;
+  const a = s.pin({ title: 'Close', x: 1620, z: 475 })!, b = s.pin({ title: 'Closer', x: 1611, z: 475 })!;
+  s.make('Not on the map', '<div>Eggs</div>');
+  assert.deepEqual(briefZeldaNotes(s.list(), st), [{ id: b.id, title: 'Closer' }, { id: a.id, title: 'Close' }]);
+  assert.ok(!briefZeldaNotes(s.list(), st).some(n => n.id === far.id));
+  for (let i = 0; i < 4; i++) s.pin({ title: `More ${i}`, x: 1615, z: 475 });
+  assert.equal(briefZeldaNotes(s.list(), st).length, 3);
+  assert.deepEqual(briefZeldaNotes(s.list(), null), []);
 });

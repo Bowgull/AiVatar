@@ -13,7 +13,7 @@ import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS, MAX_TIMERS, TIMER_ACTIONS, type TimerAction } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
-import { afterPlayNote, botwNoteSettings, rememberPin, rememberThis, writeBotwNotes } from './botwnotes.ts';
+import { afterPlayNote, botwNoteSettings, briefZeldaNotes, rememberPin, rememberThis, writeBotwNotes } from './botwnotes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
 import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
 import { botwLane } from './botw.ts';
@@ -1508,6 +1508,7 @@ export class Core {
     const past = mail.filter(couldBeWaiting);
     console.log(`brief: ${mail.length} unread from the last two days; ${past.length} past the rules (${past.map(m => m.from).join(', ') || 'none'}); ${waiting.length} waiting on him (${waiting.map(w => w.from).join(', ') || 'none'})`);
     const addons = this.addonDesk.section();
+    const zelda = briefZeldaNotes(this.notes.list(), readBotwState(this.botw.p));
     const card: BriefCard = {
       ...(weather ? { weather } : {}),
       ...(parts ? { parts: parts.parts, rainFrom: parts.rainFrom, rainIsSnow: parts.rainIsSnow } : {}),
@@ -1525,6 +1526,7 @@ export class Core {
       ...(this.engineNews ? { engine: { title: `Version ${this.engineNews.label}: ${this.engineNews.name}` } } : {}),
       // Sheet 65: the Addons slip, from the list kept by the morning look (addondesk.ts). Absent when nothing to show.
       ...(addons ? { addons } : {}),
+      ...(zelda.length ? { zelda } : {}),
       week: q ? q.week : null,
       weekResetsAt: q ? q.weekResetsAt : null,
       ...(d.error ? { error: d.error } : {}),

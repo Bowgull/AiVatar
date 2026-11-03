@@ -1312,6 +1312,14 @@ function showBrief(b) {
   // Samara has an update ready (his ask, 2026-10-14): the lantern on its own, and an Update button.
   if (b.engine && typeof b.engine.title === 'string') row(today, { art: 'art/samara/samara-lantern-32.png', item: 0, title: 'Samara has an update', sub: b.engine.title, when: 'UPDATE',
     more: ["Chrome's newest security fixes. Samara restarts in a few seconds and your tabs come back."], acts: [['Update', 'engine']] });
+  // BG5 (his pick, 2026-11-03): a Zelda note near where he last saved in Breath of the Wild. The title opens the note.
+  for (const z of Array.isArray(b.zelda) ? b.zelda : []) {
+    if (typeof z?.id !== 'string' || typeof z.title !== 'string') continue;
+    row(today, { icon: 'scroll', title: z.title, sub: 'Your Zelda note, near where you saved' });
+    const r = today.lastElementChild;
+    r.classList.add('can', 'lt-note');
+    r.querySelector('.lt-head').addEventListener('click', () => { noticeNote = null; openBoard(); openNote(z.id); });
+  }
   for (const s of [job, wait, today]) if (s.children.length > 1) body.append(s);
   // Sheet 65: the Addons slip under Today (addonslip.js). Update ticked sends the ids still ticked; Not now folds it away.
   const addons = addonsSlip(b.addons, { update: (ids) => window.aang?.addonsUpdate?.(ids), later: () => { fit(); reportSize(); } });
