@@ -3069,6 +3069,18 @@ sealed class PetWindow : Form
         muteItem.Click += (_, _) => SetMuted(!cfg.Muted);
         var quit = new ToolStripMenuItem("Quit Aang");
         quit.Click += (_, _) => { tray.Visible = false; Application.Exit(); };
+        // The Shrine dock's right-click (his picks, 2026-11-03: show or hide, restart, quit): Aang.exe --pet-toggle or
+        // --pet-quit sets one of these, and the tray's own action runs here. Nothing else is ever done through them.
+        var toggleAsk = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Aang.Body.Toggle");
+        var quitAsk = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Aang.Body.Quit");
+        new Thread(() =>
+        {
+            while (true)
+            {
+                int which = WaitHandle.WaitAny([toggleAsk, quitAsk]);
+                try { BeginInvoke(which == 0 ? ToggleVisible : () => { tray.Visible = false; Application.Exit(); }); } catch { return; }
+            }
+        }) { IsBackground = true, Name = "Aang dock door" }.Start();
         var modelMenu = new ToolStripMenuItem("Model");
         foreach (var md in ModelChip.Modes)
         {

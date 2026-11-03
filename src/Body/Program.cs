@@ -22,6 +22,13 @@ static class Program
             if (link == null) { Log.Write("default browser: refused a link that was not a plain http or https address"); return 0; }
             try { DefaultBrowser.Queue(link); } catch (Exception e) { Log.Write("default browser: could not hand over a link: " + e.Message); return 0; }
         }
+        // The Shrine dock's right-click (2026-11-03): a running Aang shows or hides, or quits. With no Aang running these
+        // do nothing at all (they never start him).
+        if (args.Contains("--pet-toggle") || args.Contains("--pet-quit"))
+        {
+            if (EventWaitHandle.TryOpenExisting(args.Contains("--pet-quit") ? @"Local\Aang.Body.Quit" : @"Local\Aang.Body.Toggle", out var ask)) using (ask) ask.Set();
+            return 0;
+        }
         var samara = args.Contains("--samara");
         if (args.Contains("--open-browser") || samara) { try { DefaultBrowser.OpenFlag(); } catch { /* best effort */ } }
 
