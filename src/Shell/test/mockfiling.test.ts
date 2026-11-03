@@ -78,7 +78,8 @@ test('names: projects are real projects, topics read plainly', () => {
   for (const n of ['AiVatar-update', 'AiVatar', 'AangApp', 'aivatar-sched']) assert.equal(projectName(n), 'Samara', n);   // every worktree of Samara's repo
   assert.equal(projectName('Live pages'), null);
   assert.equal(projectName('anti-slop'), 'Anti-slop');
-  assert.equal(projectName('Design language'), 'Design Language');
+  for (const n of ['Design language', 'Design Language', 'design-language', 'ShrineDock', 'shrinedock', 'Shrine Dock']) assert.equal(projectName(n), 'ShrineDock', n);
+  assert.equal(projectFromSrc('@design-language/sheet-21-shrine-tasks.html'), 'ShrineDock');
   assert.equal(projectName('botw-guide-mockups'), 'BotW Guide');
   assert.equal(projectName('my-new-app'), 'My new app');
   assert.equal(plainName('address-bar'), 'Address bar');
@@ -91,7 +92,7 @@ test('names: projects are real projects, topics read plainly', () => {
   assert.deepEqual(branchHome('settings'), { project: null, topic: 'Settings' });
   assert.equal(cleanTitle('99 · Send to TV, one click (v3)'), '99 · Send to TV, one click');
   assert.equal(projectFromSrc('@AiVatar-fixes/docs/x.html'), 'Samara');
-  assert.equal(projectFromSrc('@couch-mode/mockups/x.html'), 'Couch mode');
+  assert.equal(projectFromSrc('@couch-mode/mockups/x.html'), 'Couch Mode');   // a repo's name is its project's one name
   assert.equal(projectFromSrc('http://127.0.0.1:8792/docs/cockpit/sheet-1-x.html'), 'Samara');
   assert.equal(projectFromSrc('http://127.0.0.1:9000/x.html'), 'Other');
 });

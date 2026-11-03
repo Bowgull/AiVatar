@@ -1250,6 +1250,11 @@
       "at": "2026-11-03T16:15:00-05:00",
       "text": "Prime Video on the PC goes out through your Mac's home internet, so it stops saying a title isn't available where you are.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T16:50:00-05:00",
+      "text": "Mockups: the Shrine desktop sheets sit under one ShrineDock tab, with ShrineDock's seal on it.",
+      "kind": "fix"
     }
   ]
 }

@@ -20,6 +20,8 @@ const LOGOS = {
   samara: { src: 'art/samara/samara-lantern-64.png', px: true, sm: 32, lg: 64 },
   aang: { src: 'art/aang-face.png', px: true, sm: 27, lg: 54 },
   waymark: { src: 'art/mockups/waymark.png', px: false, sm: 32, lg: 64 },
+  // 2026-11-03: ShrineDock's Start seal (design-language art/shrine/seal-start.png), drawn art, scaled down.
+  shrinedock: { src: 'art/mockups/shrinedock.png', px: false, sm: 32, lg: 64 },
 };
 const PIX = { 'couch mode': 'fire', showcase: 'video' };
 function emblem(name, big = false) {
