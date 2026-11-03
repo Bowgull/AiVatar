@@ -33,7 +33,7 @@ export const SAFE_WEB_PREFERENCES = {
  * `allow` is the short list of things THIS window may ask Chromium for. The pop-out needs none of it.
  * A browser tab needs a few, and asks him first (step 6.22).
  */
-export function lockDown(contents: WebContents, opts: { allow?: readonly string[]; openExternally?: boolean } = {}): void {
+export function lockDown(contents: WebContents, opts: { allow?: readonly string[]; openExternally?: boolean; sameOrigin?: string } = {}): void {
   const allow = new Set(opts.allow ?? []);
 
   // A page that opens a window is either an advert or an attack. His own links open in his real
@@ -45,6 +45,9 @@ export function lockDown(contents: WebContents, opts: { allow?: readonly string[
 
   // A page may not take the window somewhere else. Aang decides what a window shows, not its content.
   contents.on('will-navigate', (e, url) => {
+    // The Hyrule tab (2026-11-03) is several pages of one map (the Journal opens the map at a quest's spot): it may go
+    // between its own pages on its own little server, and nowhere else.
+    if (opts.sameOrigin && url.startsWith(opts.sameOrigin + '/')) return;
     e.preventDefault();
     if (opts.openExternally && /^https?:\/\//i.test(url)) void shell.openExternal(url);
   });
