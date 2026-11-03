@@ -58,8 +58,12 @@ export function pick(root: string, now = Date.now()): { version: string; dir: st
   let p = pointer(root);
   const nx = readyNext(root);
   if (nx) {
-    rmSync(path.join(root, 'next.txt'), { force: true });
-    if (newer(nx, p?.version ?? '') && hasBrain(root, nx) && !failed(root).includes(nx)) {
+    // next.txt goes only when its version starts, or can never start (not newer, or failed). One that is newer but not
+    // whole yet stays named (2026-11-03: 1.45.0's folder went missing and its name was dropped with it, so it was
+    // downloaded twice); check() makes it whole again and the next start takes it.
+    const stale = !newer(nx, p?.version ?? '') || failed(root).includes(nx);
+    if (stale || hasBrain(root, nx)) rmSync(path.join(root, 'next.txt'), { force: true });
+    if (!stale && hasBrain(root, nx)) {
       const keep = p && p.status === 'good' ? { version: p.version } : p?.previous ?? null;
       p = { version: nx, status: 'trial', previous: keep, starts: [], said: false };
       setPointer(root, p);
@@ -84,9 +88,11 @@ export async function markGood(root: string, version: string): Promise<boolean> 
   const p = pointer(root);
   if (!p || p.version !== version || p.status !== 'trial') return false;
   setPointer(root, { ...p, status: 'good', starts: [] });
-  const keep = new Set([p.version, p.previous?.version]);
+  // Kept: this one, the one before, the one made ready to go in next, and anything newer (one being made ready). The
+  // 2026-11-03 bug: 1.42.0 turning good deleted 1.45.0, ready in next.txt five minutes earlier.
+  const keep = new Set([p.version, p.previous?.version, readyNext(root)]);
   let old: string[] = [];
-  try { old = readdirSync(path.join(root, 'versions')).filter(v => !keep.has(v)); } catch { /* none */ }
+  try { old = readdirSync(path.join(root, 'versions')).filter(v => !keep.has(v) && !(isVersion(v.replace(/\.part$/, '')) && newer(v.replace(/\.part$/, ''), p.version))); } catch { /* none */ }
   for (const v of old) await rm(dirOf(root, v), { recursive: true, force: true }).catch(() => { /* best effort */ });
   return true;
 }
