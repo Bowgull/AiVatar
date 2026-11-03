@@ -14,6 +14,7 @@ import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS, MAX_TIMERS, TIMER_ACTIONS, type TimerAction } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
+import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState, type NoteLike } from './botwwatch.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync, watchFile } from 'node:fs';
@@ -3149,6 +3150,9 @@ export class Core {
     // 2026-10-22: Qwen looks over his notes on a slow timer (notenotice.ts); first look ten minutes after start. Quiet:
     // Qwen fills the graphics card, so never during a game.
     this.sched.every('notes.notice', NOTICE_EVERY_MS, () => this.noteNotice.check(), { first: 10 * 60_000, quiet: true });
+    // BG2: his Breath of the Wild save (botwwatch.ts). Not quiet: it must see Cemu close. While he plays it only looks
+    // at the slots' times; it reads when the session ends. PC only (the saves are on the Shadow).
+    if (process.platform === 'win32') this.sched.every('botw.watch', 60_000, () => this.botw.tick(), { first: 30_000 });
     // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look). Waits out a game or call.
     let feedFirst = true;
     this.sched.every('feeds', 20 * 60_000, () => this.checkFeeds(feedFirst ? (feedFirst = false, true) : ++this.feedTick % 6 === 0), { first: 2 * 60_000, quiet: true });
@@ -4210,6 +4214,13 @@ export class Core {
           this.send(ws, { t: 'error', id, message: 'That message was empty or malformed.', next: 'Type something and send it again.' });
           break;
         }
+        // BG6: "where was I?" about BotW is plain code (his save + notes), no model. Only when he named the game or
+        // played within a day; otherwise it goes on to the model like any question.
+        if (m.ephemeral !== true && isWhereWasI(text) && meansBotw(text, readBotwState(this.botw.p))) {
+          this.send(ws, { t: 'ack', id });
+          this.send(ws, { t: 'bubble', text: this.botw.whereWasI(this.notes.list() as NoteLike[]), stream: false, id, who: 'Aang' });
+          break;
+        }
         // Sheet 17: a timer is plain code, never a model turn. "set a timer for 25 minutes for the pizza".
         const timerCmd = m.ephemeral !== true ? parseTimerCommand(text) : null;
         if (timerCmd) {
@@ -5000,6 +5011,22 @@ export class Core {
     if (row !== null) msg.turn = row;
     this.actions.add({ tool: 'notice', did: `noticed in a note: "${n.line.slice(0, 70)}"`, ok: true, note: '' });
     this.sendTo('desktop', msg);
+  }
+  /** BG2 + BG6 (docs/BOTW-GUIDE.md): the BotW save watcher, its one "today" line, and "Where was I?". */
+  private botwStore: BotwWatch | null = null;
+  private get botw(): BotwWatch {
+    return this.botwStore ??= new BotwWatch(botwPaths(), {
+      cemuRunning,
+      gameRunning: async () => this.bodyQuiet || (await gameRunning()).running,
+      say: line => {
+        // The same door as every proactive line (sendTo -> FrontGate), stored so a reply to it works.
+        const msg: Extract<ToBody, { t: 'bubble' }> = { t: 'bubble', text: line, stream: false, proactive: true };
+        const row = this.memory.saveSaid(line, 'say', { kind: 'botw.today' });
+        if (row !== null) msg.turn = row;
+        this.lastAnnounced = { text: line, at: Date.now() };
+        this.sendTo('desktop', msg);
+      },
+    });
   }
   private timersStore: Timers | null = null;
   private get timers(): Timers { return this.timersStore ??= new Timers(path.join(this.cfg.stateDir, 'timers.json')); }
