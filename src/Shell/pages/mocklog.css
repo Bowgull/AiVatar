@@ -85,8 +85,18 @@ body.big .body{grid-template-columns:1fr}
 .tag1{display:inline-block;flex:none;font:800 10.5px var(--body);color:#08203a;background:#4aa8ff;border-radius:4px;padding:2px 6px;margin-left:8px;text-shadow:none}
 /* the sheet itself, at its true size: never shrunk, it scrolls when it is wider */
 .frame{flex:1;min-height:0;overflow:hidden;background:#0B0718;position:relative}
-.frame iframe{display:block;width:100%;height:100%;border:0;background:transparent}
-.frame iframe.ready{background:#fff}
+/* 2026-11-03: a sheet loads hidden on top of the one showing and fades in whole once it has settled */
+.frame iframe{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .2s ease}
+.frame iframe.ready{opacity:1;pointer-events:auto}
+.frame iframe:first-child{z-index:1}
+.log{transition:opacity .18s ease}
+body.wait .log{opacity:0}
+/* the loader: only after a moment, Samara's gold bar and nothing else */
+.frame .ld{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:#0B0718;opacity:0;pointer-events:none;transition:opacity .18s ease}
+.frame .ld.on{opacity:1}
+.ld .prog{width:220px;height:6px;border-radius:3px;background:#06040c;box-shadow:0 0 0 2px #120A05;overflow:hidden}
+.ld .prog i{display:block;height:100%;width:40%;background:linear-gradient(90deg,#c98c14,#ffe28c);box-shadow:0 0 8px rgba(255,226,140,.6);animation:mlprog 1.6s ease-in-out infinite alternate}
+@keyframes mlprog{from{transform:translateX(-10%)}to{transform:translateX(160%)}}
 .frame .rest{position:absolute;inset:0;display:grid;place-items:center;opacity:.35}
 .frame .rest img.px{image-rendering:pixelated}
 
@@ -136,4 +146,4 @@ body.big .body{grid-template-columns:1fr}
 .mmenu button:hover{background:rgba(255,224,150,.10)}
 .mmenu .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
 .mmenu input{box-sizing:border-box;width:100%;margin:2px 0;font:600 13px var(--body);color:#FFE096;background:#0B0718;border:2px solid #120A05;border-radius:4px;padding:5px 7px;outline:none}
-@media (prefers-reduced-motion:reduce){.chev,.ptab,.leave{transition:none}}
+@media (prefers-reduced-motion:reduce){.chev,.ptab,.leave,.log,.frame iframe,.frame .ld{transition:none}.ld .prog i{animation:none}}

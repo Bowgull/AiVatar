@@ -70,6 +70,7 @@ function openSheet(sheet, v = null, auto = false) {
   // His own open: NEW stays while he looks (above); an automatic open waits for his first touch to count as looking.
   if (auto) pendingSeen = w.n.fresh ? sheet : null; else { pendingSeen = null; if (w.n.fresh) looking = sheet; }
   draw();
+  if (auto) document.querySelector('#list .sh.on')?.scrollIntoView({ block: 'nearest' });
 }
 for (const ev of ['pointerdown', 'keydown', 'wheel']) {
   window.addEventListener(ev, () => {
@@ -82,7 +83,10 @@ for (const ev of ['pointerdown', 'keydown', 'wheel']) {
 function draw() {
   const ps = projects();
   const p = ps.find((x) => x.name === pick.p) ?? ps[0];
-  const tabs = document.getElementById('ptabs'); tabs.replaceChildren(leaveKey());
+  // 2026-11-03: a redraw keeps where the list and the tabs were scrolled (emptying them threw both back to the top).
+  const tabs = document.getElementById('ptabs'), list = document.getElementById('list');
+  const tabsX = tabs.scrollLeft, listY = list.scrollTop;
+  tabs.replaceChildren(leaveKey());
   for (const q of ps) {
     const b = el('button', 'ptab' + (q === p ? ' on' : '')); b.type = 'button';
     const em = el('span', 'em'); em.append(emblem(q.name));
@@ -91,7 +95,8 @@ function draw() {
     b.addEventListener('click', () => { if (pick.p !== q.name) { doneLooking(); pick.p = q.name; pick.s = pick.v = null; } draw(); });
     tabs.append(b);
   }
-  const list = document.getElementById('list'); list.replaceChildren();
+  tabs.scrollLeft = tabsX;
+  list.replaceChildren();
   if (!p) { list.append(el('div', 'empty', 'No mockups yet.')); drawView(null); return; }
   pick.p = p.name;
   if (pick.s && !sheetsOf(p).some((x) => x.sheet === pick.s)) pick.s = pick.v = null;
@@ -153,6 +158,7 @@ function draw() {
     list.append(d);
   }
   if (!any) list.append(el('div', 'empty', finding() ? 'Nothing matches.' : 'No mockups yet.'));
+  list.scrollTop = listY;
   drawView(p);
   tellWhere();
 }
@@ -249,23 +255,36 @@ function drawView(p) {
   // The frame is kept while the same version shows, never moved (moving a frame reloads it), so a change elsewhere never
   // reloads the sheet he is reading or loses his place in it.
   let f = view.querySelector('.frame');
-  if (f && frameSrc === v.url && f.querySelector('iframe')) {
-    const old = view.querySelector('.vbar');
-    if (old) old.replaceWith(bar); else view.prepend(bar);
-    return;
-  }
-  {
-    f = el('div', 'frame');
-    const ifr = el('iframe');
-    ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-    ifr.setAttribute('referrerpolicy', 'no-referrer');
-    ifr.title = n.name; ifr.src = v.url;
-    // A sheet with no background of its own sits on white, as it would in a tab (after it loads: no white flash).
-    ifr.addEventListener('load', () => ifr.classList.add('ready'), { once: true });
-    f.append(ifr);
-    frameSrc = v.url;
-  }
-  view.replaceChildren(bar, f);
+  const swapBar = () => { const old = view.querySelector('.vbar'); if (old) old.replaceWith(bar); else view.prepend(bar); };
+  if (f && frameSrc === v.url && f.querySelector('iframe')) { swapBar(); return; }
+  // 2026-11-03 (his ask: "a proper loading state, it's glitchy and jumpy"): the new sheet loads out of sight, on top of
+  // the one showing (that one stays put); a quiet loader comes up only if it takes a moment; then it fades in whole,
+  // never paints in pieces. A sheet with no background of its own sits on white, as it would in a tab.
+  const keep = f?.querySelector('iframe.ready') ? f : null;
+  if (!keep) f = el('div', 'frame');
+  for (const x of f.querySelectorAll('iframe:not(.ready), .ld')) x.remove();
+  const ifr = el('iframe');
+  ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+  ifr.setAttribute('referrerpolicy', 'no-referrer');
+  ifr.title = n.name;
+  // The loader: Samara's gold bar, nothing else (his word, 2026-11-03: "just give me a loading state").
+  const ld = el('div', 'ld'), prog = el('div', 'prog'); prog.append(el('i')); ld.append(prog);
+  const showT = setTimeout(() => ld.classList.add('on'), 180);
+  ifr.addEventListener('load', () => {
+    clearTimeout(showT);
+    // A breath after load, so its fonts and pictures settle before he sees it.
+    setTimeout(() => {
+      if (!ifr.isConnected) return;
+      ifr.classList.add('ready'); ld.classList.remove('on');
+      setTimeout(() => { for (const o of f.querySelectorAll('iframe')) if (o !== ifr) o.remove(); ld.remove(); }, 220);
+    }, 90);
+  }, { once: true });
+  // The address goes on before the frame goes in (a frame put in with none first loads a blank page, and that load
+  // would count as the sheet's). The newest sheet goes first (it draws on top, see mocklog.css), the loader last.
+  ifr.src = v.url;
+  f.prepend(ifr); f.append(ld);
+  frameSrc = v.url;
+  if (keep) swapBar(); else view.replaceChildren(bar, f);
 }
 
 // ---- The mark: tap it for the rest (his marks, sheet 79): approve, needs a fix, park, take it off, Send to Aang.
@@ -318,6 +337,8 @@ function tellWhere() {
   window.mocklog?.where(pick.p, pick.s, pick.v, focusN);
 }
 function take(d) {
+  // The page shows once it has something to show, never empty first and filled a moment later.
+  requestAnimationFrame(() => document.body.classList.remove('wait'));
   if (!d) return;
   tree = d;
   if (!started) {
