@@ -34,3 +34,11 @@ test('Puzzle help from the map: hints or straight, kept for the guide tools; any
   assert.equal(writeGuide({ puzzle: 'hints' }, env), true);
   assert.deepEqual(JSON.parse(readFileSync(path.join(d, 'botw', 'guide-settings.json'), 'utf8')), { puzzle: 'hints' });
 });
+
+test('the map\'s Ask Aang bar: plain words only, trimmed, never empty', async () => {
+  const { askText } = await import('../src/hyrulenotes.ts');
+  assert.equal(askText('  where is the nearest shrine?\u0007 '), 'where is the nearest shrine?');
+  assert.equal(askText('   '), '');
+  assert.equal(askText({ text: 'x' }), '');
+  assert.equal(askText('a'.repeat(5000)).length, 2000);
+});

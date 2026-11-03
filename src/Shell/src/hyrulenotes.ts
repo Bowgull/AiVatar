@@ -22,6 +22,11 @@ export function notePlaceMsg(raw: unknown): NotePlaceMsg | null {
   return { t: 'notes.place', x: r.x as number, z: r.z as number, title: words(r.title, 60), text: words(r.text, 8000) };
 }
 
+/** Sheet 26c: what he typed in the map's "Ask Aang" bar, as plain words (no control characters, at most 2000). */
+export function askText(raw: unknown): string {
+  return typeof raw === 'string' ? raw.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ').trim().slice(0, 2000) : '';
+}
+
 /** The BotW folder the brain reads (AANG_BOTW_DIR in tests). */
 export function botwFolder(env: NodeJS.ProcessEnv = process.env): string {
   return env.AANG_BOTW_DIR || path.join(env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Aang', 'botw');

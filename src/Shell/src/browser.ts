@@ -29,7 +29,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { servePages, type PageServer } from './pageserver.ts';
-import { hyruleNotesFile, notePlaceMsg, writeGuide, type NotePlaceMsg } from './hyrulenotes.ts';
+import { askText, hyruleNotesFile, notePlaceMsg, writeGuide, type NotePlaceMsg } from './hyrulenotes.ts';
 import { RouteQueue, routeAsk, routeReport } from './hyruleroute.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture, captureWindow, type CaptureOpts, type Shot, type WindowShot } from './capture.ts';
@@ -4830,6 +4830,12 @@ export class AangBrowser {
     const at = (raw as { at?: unknown } | null)?.at;
     const m = Array.isArray(at) && at.length === 2 ? notePlaceMsg({ x: at[0], z: at[1], title: '', text: '' }) : null;
     if (m && m.id === undefined) this.onNotePlace?.({ ...m, open: true });
+  }
+  /** Sheet 26c: the map's "Ask Aang" bar. His words go to Aang as if typed in his box; the answer is Aang's, in his bubble. */
+  onAsk: ((text: string) => void) | null = null;
+  hyruleAsk(raw: unknown): void {
+    const text = askText(raw);
+    if (text) this.onAsk?.(text);
   }
   /** Settings › Spoilers › Puzzle help, for the guide tools (guide-settings.json beside his save's state). */
   hyruleGuide(raw: unknown): void { writeGuide(raw); }
