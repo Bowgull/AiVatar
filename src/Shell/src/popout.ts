@@ -687,9 +687,13 @@ export const FOCUS_JS = `(() => {
   if (!player) {
     const vr = v.getBoundingClientRect();
     player = v;
+    // A box that brings in a lot of words is the page around the player, not its control bar (his report, 2026-11-03:
+    // on spelunkr.tv the re-pin for the next show, with the video already filling the window, took the column with the
+    // show's title, write-up and timeline and laid it over the picture). textContent: the bare page's hidden words count too.
+    const words = (e) => (e.textContent || '').replace(/\\s+/g, ' ').length;
     for (let a = v.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
       const r = a.getBoundingClientRect();
-      if (r.width <= vr.width * 1.25 + 8 && r.height <= vr.height * 1.6 + 8) player = a; else break;
+      if (r.width <= vr.width * 1.25 + 8 && r.height <= vr.height * 1.6 + 8 && words(a) - words(player) <= 160) player = a; else break;
     }
   }
   player.setAttribute('data-aang-player', '');
