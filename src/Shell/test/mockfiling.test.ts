@@ -173,6 +173,13 @@ test('the store: filed once with a copy kept, then a new arrival joins the sheet
   const w = again.add('http://127.0.0.1:8765/92-bag-rounds.html', '92 · Bag rounds', '', 'live', Date.now(), { project: 'Waymark' });
   assert.equal(w.sheet, 'http://127.0.0.1:8765/92-bag-rounds.html');
   assert.equal(again.add(R('sheet-108-new'), '108 · New', C(99), 'k108').sheet, R('sheet-108-new'));
+  // 2026-11-03: the same number in the same project but another file is another sheet, never its next version.
+  // (That day: shrine-reddit/01-…html sent to ShrineDock became version 2 of ShrineDock's sheet-01-shrine-language.)
+  const kin = again.add('@mockups/samara/docs/reddit/98-feed-shapes.html', '98 · Feed shapes', C(1), 'kr98', Date.now(), { project: 'Samara' });
+  assert.equal(again.projectOf(R('sheet-98-bar-and-notices')), 'Samara', 'the same project: only the file tells them apart');
+  assert.equal(kin.sheet, '@mockups/samara/docs/reddit/98-feed-shapes.html');
+  assert.equal(kin.src, undefined);
+  assert.equal(kin.v, 1);
   // NEW until he opens it, and saved.
   again.setFresh(R('sheet-108-new'), true);
   assert.equal(new MockStore(file).meta.get(R('sheet-108-new'))?.fresh, true);

@@ -227,6 +227,8 @@ export interface MockVersion {
 }
 /** Where a version opens from: its own address, else its sheet's. */
 export const srcOf = (x: { sheet: string; src?: string }): string => x.src ?? x.sheet;
+/** A sheet's file name, whatever its address (repo, home, live page, ?v=2): what two addresses of one page share. */
+export const fileOf = (sheet: string): string => (sheet.split(/[?#]/)[0]!.split('/').pop() ?? '').toLowerCase();
 /** FIX (needs changes), OK (approved by his click), CHAT (approved: he said yes to Claude), BUILT (in Samara), PARK (a no). */
 export type MockStage = 'fix' | 'ok' | 'chat' | 'built' | 'park';
 export const MOCK_STAGES: MockStage[] = ['fix', 'ok', 'chat', 'built', 'park'];
@@ -584,7 +586,10 @@ export class MockStore {
     if (canon === src && !this.list.some((x) => x.sheet === src)) {
       const proj = projectName(o.project) ?? this.projectOf(src), id = sheetIdent(proj, name, src);
       const newest = (s: string) => this.list.filter((x) => x.sheet === s).sort((p, q) => q.at - p.at || q.id - p.id)[0]!;
-      const same = id ? [...new Set(this.list.map((x) => x.sheet))].find((s) => this.projectOf(s) === proj && sheetIdent(proj, newest(s).title, srcOf(newest(s))) === id) : undefined;
+      // 2026-11-03: and the same file name. Thirteen Reddit sheets (shrine-reddit/01-…html) became new versions of
+      // ShrineDock's design-language sheets 01-13 for sharing only a number and a project.
+      const same = id ? [...new Set(this.list.map((x) => x.sheet))].find((s) => this.projectOf(s) === proj && fileOf(s) === fileOf(src)
+        && sheetIdent(proj, newest(s).title, srcOf(newest(s))) === id) : undefined;
       if (same) canon = same;
     }
     const mine = this.list.filter((x) => x.sheet === canon);
