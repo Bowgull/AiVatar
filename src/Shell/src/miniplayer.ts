@@ -22,6 +22,8 @@
 // Opened from the wheel's Music slot, from asking Aang ("show the music player") and from Aang's right-click menu
 // ("Music player"). main.ts only creates this and passes messages: see wireMiniPlayer at the bottom.
 import { BrowserWindow, ipcMain, net, screen } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { softEdge } from './winedge.ts';
 import { readJson, saveJson } from './store.ts';
@@ -87,6 +89,10 @@ export class MiniPlayer {
   private lyrRetry: NodeJS.Timeout | null = null;
   /** Its own menu (the ··· key): what the picture is, the bars on or off. */
   readonly menu: PlayerMenu;
+  /** The Shrine mixer's row: the last word written, the write waiting, and the watch on the mixer's slider. */
+  private shared = '';
+  private shareT: NodeJS.Timeout | null = null;
+  private asks: fs.FSWatcher | null = null;
 
   constructor(o: MiniPlayerOptions) {
     this.o = o;
@@ -105,7 +111,7 @@ export class MiniPlayer {
   /** Open it (or bring it back where it was). */
   open(): BrowserWindow {
     const had = this.window;
-    if (had) { if (!had.isVisible()) had.showInactive(); this.raise(had); this.family?.add(this.member()); this.push(); this.watch(); return had; }
+    if (had) { if (!had.isVisible()) had.showInactive(); this.raise(had); this.family?.add(this.member()); this.push(); this.watch(); this.share(); return had; }
     const h = this.prefs.shade ? SHADE_H : FULL_H;
     const at = this.spot(h);
     const w = new BrowserWindow({
@@ -130,7 +136,7 @@ export class MiniPlayer {
     // behind whatever full-screen app he is in (Samara), so his clicks landed on that app instead.
     if (process.platform === 'darwin') w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     this.w = w;
-    w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); this.menu.close(); this.watch(); } });
+    w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); this.menu.close(); this.watch(); this.share(); } });
     // Hidden, minimised or covered: the page stops its scenes and bars (it also hears the page's own visibility), and
     // the brain stops asking Spotify about his other devices.
     const awake = () => { this.send('player:awake', !w.isDestroyed() && w.isVisible() && !w.isMinimized()); this.watch(); };
@@ -140,6 +146,7 @@ export class MiniPlayer {
     void w.loadURL(`${this.o.origin}/miniplayer.html`);
     w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.showInactive(); this.raise(w); this.applyMouse(); this.watch(); } });
     this.family?.add(this.member());
+    this.share();
     return w;
   }
 
@@ -152,6 +159,7 @@ export class MiniPlayer {
     w.destroy();
     this.w = null;
     this.watch();
+    this.share();
   }
   toggle(): void { if (this.visible) this.close(); else this.open(); }
 
@@ -163,6 +171,39 @@ export class MiniPlayer {
     else this.now = { ...(prev ?? {}), ...m, thumb: m.thumb !== undefined ? m.thumb : prev?.thumb ?? null };
     this.send('player:media', m.thumb === undefined && prev ? { ...m } : this.now);
     this.lyrics();
+    this.share();
+  }
+
+  /**
+   * The Shrine mixer's row (2026-11-03, his ask: on the Shadow the player is how the music reaches him, so the mixer shows
+   * it as "Spotify" with Samara's mark, wherever Spotify is playing). While the player is open, what it plays is written
+   * next to player.json as player-now.json (only when it changes); the mixer's slider comes back as player-ask.json,
+   * read once, removed, and checked like the player's own volume bead. Windows only: ShrineDock is the PC's.
+   */
+  private share(): void {
+    if (!this.o.prefsFile || process.platform !== 'win32' || this.shareT) return;
+    this.shareT = setTimeout(() => {
+      this.shareT = null;
+      const dir = path.dirname(this.o.prefsFile!), n = this.now, open = !!this.window;
+      const dev = n?.device && typeof n.device === 'object' ? (n.device as Record<string, unknown>).name : null;
+      // pid: Samara closing without closing the player leaves open: true behind; the mixer checks this process is still there
+      const now = { pid: process.pid, open, app: open && typeof n?.app === 'string' ? n.app : null, spotify: n?.spotify === true, playing: open && n?.status === 'playing',
+        volume: typeof n?.volume === 'number' && Number.isFinite(n.volume) ? n.volume : null, device: typeof dev === 'string' ? dev.slice(0, 40) : null };
+      const json = JSON.stringify(now);
+      if (json !== this.shared) { this.shared = json; saveJson(path.join(dir, 'player-now.json'), now); }
+      if (open && !this.asks) {
+        try {
+          this.asks = fs.watch(dir, (_ev, name) => { if (name === 'player-ask.json') this.hearMixer(path.join(dir, name)); });
+          this.asks.on('error', () => { this.asks?.close(); this.asks = null; });
+        } catch { this.asks = null; }
+      } else if (!open && this.asks) { this.asks.close(); this.asks = null; }
+    }, 150);
+  }
+  private hearMixer(file: string): void {
+    let raw: unknown = null;
+    try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); fs.unlinkSync(file); } catch { return; }   // half-written: the next change event reads it
+    const v = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).volume : undefined;
+    if (this.window) this.hearCmd({ op: 'volume', value: v });
   }
 
   /** The song's lyrics, only while they are switched on: asked once per song, sent to the page (null lines: none). */

@@ -1230,6 +1230,16 @@
       "at": "2026-11-03T12:35:00-05:00",
       "text": "Mockups load smoothly, with a simple loading bar.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T12:37:00-05:00",
+      "text": "The music player's pin turns when you pin it.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T12:38:00-05:00",
+      "text": "The volume mixer shows your music player.",
+      "kind": "feature"
     }
   ]
 }
