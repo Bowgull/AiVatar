@@ -6216,11 +6216,13 @@ export class AangBrowser {
       update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
-      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined,
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined, hyrule: x.internal === 'hyrule' ? true : undefined,
         // Sheet 111: a tab a Claude job has shows in Claude's group, not in his list.
         claudeJob: (() => { const p = this.driver.pageOfTab(x.id); return p && this.driver.job(p.job)?.kind === 'claude' ? p.job : undefined; })() })),
       // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
       mockups: this.mockView(),
+      // 2026-11-03: the Hyrule key above Mockups, only on a machine with the map's folder.
+      hyrule: Boolean(this.o.hyruleDir),
       // 2026-10-22: the notes rail needs Aang (its notes live in his brain). Samara alone or on the Mac: the row is hidden.
       notes: Boolean(this.onNoteSave),
       // The trails with a tab in this window (or the one about to start here).

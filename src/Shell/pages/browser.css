@@ -1356,6 +1356,10 @@ html.secret .hnd .newn{background:linear-gradient(180deg,#e6edff,#aebce4);color:
 /* Sheet 107 v5: lit while he is in Mockups, with the ring a picked tab wears. */
 .drawer .mq.lit{filter:brightness(1.12);box-shadow:0 4px 0 var(--outline),0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 0 0 2px var(--gold-lit),inset 0 0 0 4px rgba(0,0,0,.2)}
 @media (prefers-reduced-motion:reduce){.drawer .mq{transition:none}}
+/* 2026-11-03: the Hyrule key sits right above Mockups (it takes the push to the bottom), Hyrule green with the same gold trim */
+.drawer .mq.hy{background:linear-gradient(180deg,#3f7a4a 0 3px,#2c5e38 3px 55%,#1d4327 calc(100% - 4px),#0f2414 calc(100% - 4px));margin-bottom:0}
+.drawer .mq.hy .nm{text-shadow:0 2px 0 #0f2414}
+.drawer .mq.hy:not([hidden]) + .mq{margin-top:8px}
 .drawer .bh .bi{flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px}
 .drawer .bh .bi svg,.drawer .bh .bi img{display:block;max-width:20px;max-height:20px}
 

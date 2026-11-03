@@ -210,6 +210,7 @@ el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.bro
 el('m-history').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('history'); });
 // Sheet 107 (his pick, 2026-10-30: "I only need the one"): the one way to Mockups, its plaque at the top of the tray.
 el('mqkey').addEventListener('click', () => window.aang?.browserMockup?.({ act: 'log' }));
+el('hykey').addEventListener('click', () => window.aang?.browserGo?.('aang:hyrule'));
 el('m-downloads').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('downloads'); });
 // ---- Trail clean up: the broom at the bottom of the drawer, the panel just above it
 el('broom').addEventListener('click', () => window.aang?.browserAct?.('tidy'));
@@ -542,6 +543,9 @@ function paintSuggest() {
 function choose(i) {
   const s = sugg[i];
   if (!s) return;
+  // 2026-11-03: Samara's own pages (aang:hyrule) go straight to Samara, never through a suggestion (the top one for
+  // "aang:hyrule" was a search, so typing it searched the web)
+  if (/^aang:[a-z]+$/i.test(edit.value.trim())) { window.aang?.browserGo?.(edit.value.trim()); hideSuggest(); closeSlot(); return; }
   if (s.kind === 'tab' && Number.isInteger(s.id)) window.aang?.browserTab?.({ id: s.id, act: 'show' });
   else if (s.kind === 'search' || s.kind === 'go') window.aang?.browserGo?.(edit.value.trim());
   else if (s.kind === 'guess' || s.kind === 'past') window.aang?.browserGo?.(String(s.title));
@@ -722,7 +726,7 @@ function paintUrl(u) {
   urlEl.replaceChildren();
   // The browser's own pages (Settings) say their name, with no shield: they are not websites.
   if (String(u) === 'aang:night') { lock.hidden = true; return; }      // sheet 87: the secret window's blank night page
-  if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: String(u) === 'aang:things' ? 'Your things' : String(u) === 'aang:mockups' ? 'Mockups' : 'Settings' })); lock.hidden = true; return; }
+  if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: String(u) === 'aang:things' ? 'Your things' : String(u) === 'aang:mockups' ? 'Mockups' : String(u) === 'aang:hyrule' ? 'Hyrule' : 'Settings' })); lock.hidden = true; return; }
   let parsed = null;
   try { parsed = new URL(u); } catch { /* not a URL */ }
   if (!parsed) { urlEl.textContent = u; lock.hidden = true; return; }
@@ -1272,6 +1276,7 @@ window.aang?.onBrowserTabs?.((s) => {
   railTabs(s);
   paintMarks(s.marks);
   paintMockKey(s.mockups);
+  paintHyruleKey(s);
   el('m-sitenotes').hidden = s.notes === false;
   paintTidy();
   paintStash();
@@ -1479,6 +1484,26 @@ function fixNote(id, at) {
  * Sheet 107 (his pick, 2026-10-30): the one Mockups entry, the sealed scroll on FFX blue with gold trim; its gold gem
  * says how many sheets Claude sent that he has not opened yet. The scroll is drawn for it, pixel by pixel, at 3x.
  */
+/** 2026-11-03: the Hyrule key, above Mockups, where the map is on this machine: a folded map in 16 x 14 hand-placed
+ *  pixels (parchment, green land, a river, a red pin), lit like a picked tab while he is in the Hyrule tab. */
+function paintHyruleKey(s) {
+  const key = el('hykey');
+  key.hidden = !s.hyrule;
+  if (!s.hyrule) return;
+  if (!key.dataset.drawn) {
+    key.dataset.drawn = '1';
+    const g = key.querySelector('canvas').getContext('2d');
+    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    R(1, 2, 14, 11, '#120A05');                                                // the outline
+    R(2, 3, 4, 9, '#F0DCB4'); R(6, 3, 4, 9, '#e2c58e'); R(10, 3, 4, 9, '#F0DCB4');   // three folds, the middle in shade
+    R(2, 6, 3, 4, '#6faa4c'); R(7, 4, 3, 3, '#5e9a40'); R(10, 8, 3, 3, '#6faa4c');   // the land
+    R(3, 10, 2, 1, '#4a8fc8'); R(5, 9, 3, 1, '#4a8fc8'); R(8, 8, 2, 1, '#4a8fc8'); R(10, 7, 3, 1, '#4a8fc8');   // a river across it
+    R(10, 1, 4, 4, '#120A05'); R(11, 2, 2, 2, '#C8322A'); R(11, 2, 1, 1, '#f07a6a'); R(11, 5, 2, 1, '#120A05');   // the pin
+  }
+  const on = state.tabs.some((t) => t.hyrule && t.id === state.active);
+  key.classList.toggle('lit', on);
+  key.setAttribute('aria-pressed', String(on));
+}
 function paintMockKey(mk) {
   const key = el('mqkey');
   key.hidden = !mk;
