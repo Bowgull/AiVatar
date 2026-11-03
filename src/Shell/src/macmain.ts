@@ -24,6 +24,7 @@ import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.
 import { holdHotkey } from './hotkey.ts';
 import { serviceFor } from './services.ts';
 import { CardRenderer } from './cardrender.ts';
+import { homeGate, myTailnetAddr } from './homeroute.ts';
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 
@@ -241,6 +242,12 @@ app.whenReady().then(async () => {
   // ---- the sync, through the brain on the PC
   const read = (f: string) => { try { return readFileSync(path.join(LISTENER, f), 'utf8').trim(); } catch { return ''; } };
   const key = read('bsync.key'), shadow = read('shadow');
+  // Prime from home (his yes, 2026-11-03): the PC's Prime goes out through this Mac's home line (homeroute.ts). Tailscale
+  // may come up after Aang does: it waits for this Mac's Tailscale address.
+  if (/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(shadow)) {
+    const openGate = () => { const me = myTailnetAddr(); if (me) homeGate({ pc: shadow, bind: me, log }); else setTimeout(openGate, 60_000).unref?.(); };
+    openGate();
+  }
   let retry = 15_000;
   const connect = () => {
     if (!key || !/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(shadow)) { console.log('aang: no sync key or PC address yet; run the Mac setup again'); return; }

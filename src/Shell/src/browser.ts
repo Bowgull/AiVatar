@@ -56,6 +56,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
+import { routeHome } from './homeroute.ts';
 import { Driver, type Job } from './driver.ts';
 import { LOOP_STOP, LOOP_WARN, LoopCatch } from './loopcatch.ts';
 import { declineCookies } from './cookiedecline.ts';
@@ -942,6 +943,8 @@ export class AangBrowser {
     });
     // Sheet 87: what the secret window shares with normal Samara (settings, autofill, site rules); the rest is its own.
     const sd = o.sharedDir ?? o.stateDir;
+    // Prime from home (his yes, 2026-11-03): on the Shadow PC, Prime's addresses go out through the MacBook (homeroute.ts).
+    if (!o.secret && process.platform === 'win32') void routeHome(this.ses, o.stateDir, (s) => console.log('shell: ' + s)).catch((e: Error) => console.error('shell: prime from home: ' + e.message));
     if (!o.secret) {
       const repo = findRepo(o.repoDir ?? path.join(import.meta.dirname, '..', '..', '..'));
       if (repo || o.mockupsAnywhere) {
