@@ -108,14 +108,18 @@ Notes for readers:
 ```jsonc
 {
   "v": 1,
-  "open": { "since": "...", "baseline": "2026-11-01T13:15:23.507Z", "lastSave": "..." } | null,
+  "open": { "since": "...", "baseline": "2026-11-01T13:15:23.507Z", "lastSave": "...", "pathFrom": 8436 } | null,
                                            // a session in progress: when it began, the savedAt it is measured
-                                           // from (the state.json before it), the newest save time seen
+                                           // from (the state.json before it), the newest save time seen,
+                                           // Hero's Path points in that starting state
   "held": "Today: 3 shrines, 12 Koroks." | null,   // a line waiting for Cemu to close
   "list": [                                // the last 30 sessions, oldest first
     {
       "start": "...", "end": "...",        // first save seen, the save it ended on
       "from": "...", "to": "...",          // savedAt of the two states compared
+      "pathFrom": 8436, "pathTo": 9120,    // Hero's Path points at its start and end: heroPath.points[pathFrom..pathTo)
+                                           // is this session's walk (points have no times). Added 2026-11-03 within
+                                           // v:1: missing on older sessions, so treat as unknown when absent
       "line": "Today: 3 shrines, 12 Koroks.",
       "diff": {
         "playtime": 5400,                  // seconds played
