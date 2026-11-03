@@ -56,8 +56,9 @@ const sameName = (a: string, b: string) => !!a && !!b && a.trim().toLowerCase() 
 export function readPlayback(j: any, now: number, host: string): RemoteNow | null {
   if (!j || typeof j !== 'object' || !j.device || typeof j.device !== 'object') return null;
   const d = j.device, it = j.item && typeof j.item === 'object' ? j.item : null;
-  const id = str(d.id, 128);
-  if (!id) return null;
+  // Spotify may give a device no id (2026-11-03, his Mac: playing, yet the player said "Nothing playing"): the song is
+  // still real, so it is kept; the keys then act on whatever device is playing (no device_id), as Spotify allows.
+  const id = /^[A-Za-z0-9_-]{1,128}$/.test(str(d.id, 128)) ? str(d.id, 128) : '';
   const vol = typeof d.volume_percent === 'number' && Number.isFinite(d.volume_percent) && d.supports_volume !== false ? Math.max(0, Math.min(100, d.volume_percent)) / 100 : null;
   const device: RemoteDevice = { id, name: str(d.name, 60) || 'Spotify', kind: deviceKind(d.type), volume: vol, thisPc: deviceKind(d.type) === 'computer' && sameName(str(d.name), host) };
   const images: any[] = Array.isArray(it?.album?.images) ? it.album.images : Array.isArray(it?.images) ? it.images : Array.isArray(it?.show?.images) ? it.show.images : [];
