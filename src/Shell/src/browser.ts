@@ -956,15 +956,9 @@ export class AangBrowser {
         this.mockReady = this.mockServer.start();
         // 2026-10-31 (his pick): every mockup kept in one private repo, ~/projects/mockups (mockhome.ts). Samara's own art
         // for its sheets there comes from Samara; Claude's commits made while Samara was off are filed a moment after start.
-        const home = o.mockHome ?? '';
-        if (home && homeReady(home)) {
-          this.mockHome = home;
-          this.mockStore.setHome(home);
-          this.mockServer.art = (commit, rel) => this.mockArt(commit, rel);
-          this.mockSeenFile = path.join(o.stateDir, 'mockhome-seen.json');
-          setTimeout(() => { void this.mockHomeWake(); }, 8000).unref?.();
-          setInterval(() => { void this.mockHomeWake(); }, 20 * 60_000).unref?.();
-        }
+        this.mockHomeWant = o.mockHome ?? '';
+        this.mockSeenFile = path.join(o.stateDir, 'mockhome-seen.json');
+        this.mockHomeAdopt();
         // The tidy (2026-10-22): at most once a day, a while after start, plain code only (no quota, no Qwen).
         setTimeout(() => { void this.mockTidy(false); }, 30_000).unref?.();
       }
@@ -5344,12 +5338,13 @@ export class AangBrowser {
    * branch: the branch Claude was told to file it in (mockups.ts fileInto has the rules).
    */
   async openMockup(sheet: string, title = '', branch: string | null = null, o: { project?: string | null; icon?: string | null } = {}): Promise<MockVersion | null> {
-    if (!this.mockServer || !this.mockStore || cleanSheet(sheet) !== sheet) return null;
-    if (!(await this.mockReady)) return null;
+    if (!this.mockServer || !this.mockStore) return this.mockNo("Samara's Mockups trail is not on.");
+    if (cleanSheet(sheet) !== sheet) return this.mockNo(`${sheet.slice(0, 200)} is not a sheet name Samara takes.`);
+    if (!(await this.mockReady)) return this.mockNo("Samara's mockup server did not start.");
     // 2026-10-22: a live page has no versions to look up: it is shown as it is, always V1.
     const where = this.mockWhere(sheet);
     const r = sheetKind(sheet) === 'live' ? { commit: '', key: 'live', title: liveTitle(sheet) } : where ? await resolveVersion(where.repo, where.rel) : null;
-    if (!r) { console.log(`shell: mockups: ${sheet} is not in the repo's last commit, not opened`); return null; }
+    if (!r) return this.mockNo(`${sheet} is not in the repo's last commit, not opened. Commit it into the private mockups repo (${this.mockHomeWant || '~/projects/mockups'}, under <project folder>/<same path>), never a public project repo, then send again.`);
     const ver = this.mockStore.add(sheet, title || r.title, r.commit, r.key, Date.now(), { project: o.project ?? null });
     // A branch Claude named (checked in cleanBranch): the same move as his Move to branch, children following.
     if (branch) this.mockStore.fileInto(ver.sheet, branch, o);
@@ -5366,7 +5361,8 @@ export class AangBrowser {
    * (registered by name in mockups.json, then @<name>/<path>), or a live page on this computer.
    */
   async openMockupDrop(m: MockupDrop): Promise<MockVersion | null> {
-    if (!this.mockStore) return null;
+    if (!this.mockStore) return this.mockNo("Samara's Mockups trail is not on.");
+    this.mockHomeAdopt();
     const o = { project: m.project ?? null, icon: m.icon ?? null };
     if (m.url) return this.openMockup(m.url, m.title, m.branch, o);
     // 2026-10-31: a page from any project is copied into the mockups home and shown from there (mockhome.ts).
@@ -5374,15 +5370,36 @@ export class AangBrowser {
     if (!m.repo) return this.openMockup(m.path, m.title, m.branch, o);
     const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
     // AangApp itself, named by its folder: its own rules (only the mockup folders are served).
-    if (this.mockRepo && same(path.resolve(m.repo), path.resolve(this.mockRepo))) return cleanPath(m.path) ? this.openMockup(m.path, m.title, m.branch, o) : null;
-    if (!findRepo(m.repo)) { console.log('shell: mockups: not a git repo, not opened: ' + m.repo); return null; }
+    if (this.mockRepo && same(path.resolve(m.repo), path.resolve(this.mockRepo))) return cleanPath(m.path) ? this.openMockup(m.path, m.title, m.branch, o) : this.mockNo('In AangApp, mockups live under docs/, src/Shell/pages/ or assets/.');
+    if (!findRepo(m.repo)) return this.mockNo('not a git repo, not opened: ' + m.repo);
     const sheet = `@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`;
     this.mockFindLogo(path.resolve(m.repo), m.project ?? this.mockStore.projectOf(sheet));
     return this.openMockup(`@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`, m.title, m.branch, o);
   }
+  /** openMockupDrop, with why it was not opened (Samara's mockup door answers Claude with it, never a silent no). */
+  async openMockupDropWhy(m: MockupDrop): Promise<MockVersion | string> {
+    this.mockWhy = '';
+    const v = await this.openMockupDrop(m);
+    return v ?? (this.mockWhy || 'Samara did not open it (see shell.log).');
+  }
   /** The mockups home's folder (~/projects/mockups), or '' when it is not cloned on this machine. */
   private mockHome = '';
   private mockSeenFile = '';
+  /** Where the home should be. 2026-11-03: a home cloned after Samara started is taken at the next show, not ignored
+   *  until a restart (that day ten sheets were refused as "not in the repo's last commit" while it sat ready). */
+  private mockHomeWant = '';
+  private mockHomeAdopt(): void {
+    const home = this.mockHomeWant;
+    if (this.mockHome || !home || !this.mockStore || !this.mockServer || !homeReady(home)) return;
+    this.mockHome = home;
+    this.mockStore.setHome(home);
+    this.mockServer.art = (commit, rel) => this.mockArt(commit, rel);
+    setTimeout(() => { void this.mockHomeWake(); }, 8000).unref?.();
+    setInterval(() => { void this.mockHomeWake(); }, 20 * 60_000).unref?.();
+  }
+  /** Why the last mockup was not opened, in words Claude can act on (the door answers with it). */
+  private mockWhy = '';
+  private mockNo(why: string): null { this.mockWhy = why; console.log('shell: mockups: ' + why); return null; }
   /**
    * A page Claude showed, kept in the mockups home (his pick, 2026-10-31): the page, its helper folder and what it links,
    * copied from its project's folder as it is now under <project>/<same path>, committed, sent to GitHub for the other
@@ -5390,16 +5407,16 @@ export class AangBrowser {
    */
   private async mockKeep(m: MockupDrop): Promise<MockVersion | null> {
     const root = m.repo ?? this.mockRepo;
-    if (!root || !this.mockStore) return null;
+    if (!root || !this.mockStore) return this.mockNo('The page has no project folder.');
     const samara = isSamaraRepo(path.basename(root)) || (!!this.mockRepo && path.resolve(root) === path.resolve(this.mockRepo));
     const project = projectName(m.project) ?? (m.branch ? branchHome(m.branch).project : null) ?? (samara ? 'Samara' : plainName(path.basename(root)));
     const files = await gather(diskReader(root), m.path, samara ? (rel) => ART_DIRS.some((d) => rel.startsWith(d)) : undefined);
-    if (!files.has(m.path)) { console.log(`shell: mockups: ${m.path} could not be read in ${root}, not kept`); return null; }
+    if (!files.has(m.path)) return this.mockNo(`${m.path} could not be read in ${root}, not kept.`);
     // Which Samara the art comes from: the repo's commit now (and the repo, remembered by name for the art).
     let art = '';
     if (samara) { this.mockStore.repoName(path.resolve(root)); art = await homeHead(root); }
     const kept = await keep(this.mockHome, projectFolder(project), files, { page: m.path, title: m.title, topic: m.branch ?? '', project, icon: m.icon ?? '', art: /^[0-9a-f]{40}$/.test(art) ? art : '' });
-    if (!kept) { console.log(`shell: mockups: ${m.path} could not be kept in ${this.mockHome}`); return null; }
+    if (!kept) return this.mockNo(`${m.path} could not be committed into the mockups repo ${this.mockHome} (git failed there).`);
     this.mockFindLogo(path.resolve(root), project);
     void pushHome(this.mockHome).then((ok) => { if (!ok) console.log('shell: mockups: the home could not be sent to GitHub now; the next show or start tries again'); });
     const v = await this.openMockup(`@${HOME_NAME}/${kept.sheet}`, m.title, m.branch, { project, icon: m.icon ?? null });

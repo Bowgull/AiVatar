@@ -480,18 +480,20 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   // On his MacBook (2026-10-22): no brain there; Samara on the Mac takes it itself, at its own signed door.
   const mac = await macHome($)
   if (mac) return macMockup($, L, mac, a.body)
-  // 2026-11-01: no brain, but Samara open on its own: Samara's own door on this PC, the same one the Mac uses. Before,
-  // this refused ("Aang is not running") and two mockups that day never reached the trail.
-  if (!L.sessionId || !(await proven($, L))) {
-    const roaming = (await within($, $.env.get('APPDATA'), 500)) || ''
-    return roaming ? samaraDoor($, L, `${roaming}\\Aang\\mockup-door.key`, 'Samara is not running on this PC', a.body)
-      : { result: `Aang and Samara are not running, so the mockup cannot reach Samara now. ${MOCKUP_FALLBACK}`, isError: true }
-  }
+  // 2026-11-03: Samara's own door on this PC first (the one the Mac uses), so the answer is Samara's: shown, or why not.
+  // The brain only leaves a file for Samara and said "Showing" before Samara had looked; that day ten sheets it refused
+  // (not committed) were reported shown. The brain is the way in only while Samara's door is shut.
+  const roaming = (await within($, $.env.get('APPDATA'), 500)) || ''
+  const door = roaming ? await samaraAsk($, L, `${roaming}\\Aang\\mockup-door.key`, a.body) : null
+  if (door) return door
+  if (!L.sessionId || !(await proven($, L))) return { result: `Samara is not running on this PC, so the mockup cannot reach it now. ${MOCKUP_FALLBACK}`, isError: true }
   const r = await call($, L, 'POST', '/link/mockup', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...a.body }), 8000)
   let j: { ok?: unknown; message?: unknown } = {}
   try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
   const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Aang did not answer, so the mockup was not shown.'
-  return j.ok === true ? { result: msg } : { result: msg, isError: true }
+  if (j.ok !== true) return { result: msg, isError: true }
+  // Handed over, but Samara has not said yes: never claim it is in front of him.
+  return { result: `Aang left it for Samara, but Samara did not answer at its own door, so it is NOT confirmed in the Mockups trail (Samara may be closed; it files it when it starts and may still refuse it then). ${MOCKUP_FALLBACK}`, isError: true }
 }
 
 /**
@@ -565,7 +567,11 @@ async function macMockup($: $T, L: Link, home: string, body: Record<string, stri
 
 /** Samara's own mockup door (src/Shell/src/mockupdoor.ts), on the Mac always and on the PC whenever the brain is down. */
 async function samaraDoor($: $T, L: Link, keyFile: string, notRunning: string, body: Record<string, string>): Promise<{ result: string; isError?: true }> {
-  const down = { result: `${notRunning}, so the mockup cannot reach it now. ${MOCKUP_FALLBACK}`, isError: true as const }
+  return (await samaraAsk($, L, keyFile, body)) ?? { result: `${notRunning}, so the mockup cannot reach it now. ${MOCKUP_FALLBACK}`, isError: true }
+}
+/** Samara's answer at its door (shown, or why it refused: always an error then), or null when the door is shut. */
+async function samaraAsk($: $T, L: Link, keyFile: string, body: Record<string, string>): Promise<{ result: string; isError?: true } | null> {
+  const down = null
   const key = (await within($, $.fs.read(keyFile), 500))?.trim() || ''
   if (key.length < 32) return down
   const base = 'http://127.0.0.1:47844'

@@ -9,6 +9,7 @@ import type { Task } from '../hooks/link.ts'
 
 const KEY = 'test-key-for-aang-link-0123456789abcdefghij'
 const SESSION = 'S1'
+const DOOR_KEY = 'test-key-for-samaras-mockup-door-0123456789'
 
 describe('plain parts', () => {
   test('the MAC is real HMAC-SHA256 (RFC 4231 case 2)', async () => {
@@ -39,7 +40,7 @@ describe('plain parts', () => {
 })
 
 /** A pretend brain: proves the key, takes events, and answers one waiting item with `answer` (or a forged MAC). */
-function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown; goneOnResolved?: boolean; env?: Record<string, string> }) {
+function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown; goneOnResolved?: boolean; env?: Record<string, string>; samara?: { ok: boolean; message: string } }) {
   const seen: string[] = []
   const events: Record<string, unknown>[] = []
   const posts: Record<string, unknown>[] = []
@@ -58,7 +59,12 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
   if (opts.mcp) on('mcp.call', ($, e) => { const x = e as unknown as { server: string; tool: string; args: unknown }; mcpCalls.push(x); return { value: opts.mcp!(x.server, x.tool, x.args) as never } })
   const starts: string[] = []
   const reads: string[] = []
-  on('fs.read', ($, e) => { reads.push(String(e.path)); return String(e.path).endsWith('link.key') ? { value: opts.key ?? KEY } : { deny: 'no such file' } })
+  on('fs.read', ($, e) => {
+    reads.push(String(e.path))
+    if (String(e.path).endsWith('link.key')) return { value: opts.key ?? KEY }
+    return opts.samara && String(e.path).endsWith('mockup-door.key') ? { value: DOOR_KEY } : { deny: 'no such file' }
+  })
+  const doorMockups: Record<string, unknown>[] = []
   // The session's tools (2026-10-21): TodoWrite unless a test says otherwise; what the mod registers is kept.
   const registered: Record<string, unknown>[] = []
   on('tool.list', () => ({ value: (opts.tools ?? ['Bash', 'TodoWrite']).map(name => ({ name, description: '', mcp: false })) }))
@@ -89,6 +95,11 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     if (opts.down) throw new Error('connection refused')
     const n = u.searchParams.get('n') ?? ''
     const reply = (v: unknown) => ({ value: { status: 200, ok: true, headers: {}, text: JSON.stringify(v) } })
+    // Samara's own mockup door (src/Shell/src/mockupdoor.ts), when a test opens one: proves its key, answers as Samara.
+    if (opts.samara && u.port === '47844') {
+      if (u.pathname === '/hello') return reply({ proof: await hmacHex(DOOR_KEY, 'hello', n) })
+      if (u.pathname === '/mockup') { doorMockups.push(JSON.parse(e.init?.body ?? '{}')); return reply(opts.samara) }
+    }
     if (u.pathname === '/link/hello') return reply({ proof: opts.squatter ? 'f'.repeat(64) : await hmacHex(opts.key ?? KEY, 'hello', n), ...(opts.v1 ? {} : { v: 2 }) })
     if (u.pathname === '/link/event' && opts.failPosts && opts.failPosts > 0) { opts.failPosts--; throw new Error('timed out') }
     if (u.pathname === '/link/event') {
@@ -141,7 +152,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     }
     return reply({ items: [] })
   }
-  return { seen, clock, events, posts, quiet, until, count, registered, mockups, starts, mcpCalls, reads }
+  return { seen, clock, events, posts, quiet, until, count, registered, mockups, starts, mcpCalls, reads, doorMockups }
 }
 
 const start = { cwd: 'C:\\code\\Waymark', surface: null, isInteractive: true } as const
@@ -699,14 +710,38 @@ test('show_mockup (2026-10-22): registered in every session, one prompt line, th
   const bad = await $.tool.call({ tool: MOCKUP_TOOL_FULL, url: 'https://example.com/x' } as never)
   expect(bad).toMatchObject({ isError: true })
   expect(mockups).toHaveLength(0)
-  // A good one: signed with the key, the session and its folder with it, the title cut, the brain's words back.
+  // A good one: signed with the key, the session and its folder with it, the title cut. Samara's door is shut here, so
+  // the brain only left it for Samara: never reported as shown (2026-11-03).
   const ok = await $.tool.call({ tool: MOCKUP_TOOL_FULL, path: 'docs/motion.html', title: 'Waymark motion ' + 'x'.repeat(200), branch: 'Waymark' } as never)
-  expect(ok).toMatchObject({ result: 'Showing docs/motion.html in the Mockups trail.' })
+  expect(ok).toMatchObject({ isError: true, result: expect.stringMatching(/NOT confirmed in the Mockups trail/) })
+  expect(String((ok as { result: unknown }).result)).not.toMatch(/^Showing/)
   expect(mockups).toHaveLength(1)
   expect(mockups[0]!.signed).toBe(true)
   expect(mockups[0]!.body).toMatchObject({ session: SESSION, cwd: start.cwd, path: 'docs/motion.html', branch: 'Waymark' })
   expect(String(mockups[0]!.body.title).length).toBe(80)
   expect(seen.filter(p => p === '/link/mockup')).toHaveLength(1)
+})
+
+test('show_mockup (2026-11-03): Samara refuses the sheet at its own door, and the call fails with its reason, never "Showing"', async ($, on) => {
+  const why = 'Samara refused @Aang/mockups/shrine-reddit/01.html: @Aang/mockups/shrine-reddit/01.html is not in the repo\'s last commit, not opened. It is NOT in the Mockups trail.'
+  const { quiet, mockups, doorMockups } = brain(on, { tools: ['Bash'], env: { APPDATA: 'C:\\Users\\T\\AppData\\Roaming' }, samara: { ok: false, message: why } })
+  await $.session.start(start)
+  await quiet()
+  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, path: 'mockups/shrine-reddit/01.html', branch: 'Reddit' } as never)
+  expect(r).toEqual({ result: why, isError: true })
+  // Asked at Samara's door, with the session's folder; the brain never asked, so nothing says "Showing" behind it.
+  expect(doorMockups).toHaveLength(1)
+  expect(doorMockups[0]).toMatchObject({ cwd: start.cwd, path: 'mockups/shrine-reddit/01.html', branch: 'Reddit' })
+  expect(mockups).toHaveLength(0)
+})
+
+test('show_mockup (2026-11-03): Samara says yes at its door, and that is the answer', async ($, on) => {
+  const { quiet, mockups } = brain(on, { tools: ['Bash'], env: { APPDATA: 'C:\\Users\\T\\AppData\\Roaming' }, samara: { ok: true, message: 'Showing docs/motion.html in Samara\'s Mockups trail (branch Motion).' } })
+  await $.session.start(start)
+  await quiet()
+  const r = await $.tool.call({ tool: MOCKUP_TOOL_FULL, path: 'docs/motion.html', branch: 'Motion' } as never)
+  expect(r).toEqual({ result: 'Showing docs/motion.html in Samara\'s Mockups trail (branch Motion).' })
+  expect(mockups).toHaveLength(0)
 })
 
 test('show_mockup with Aang down says so and sends nothing', async ($, on) => {
