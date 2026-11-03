@@ -451,8 +451,12 @@ export class BotwGuide {
       const open = s.quests.filter(q => !q.done).map(q => ({ q, r: info(q.id) })).filter(x => x.r && x.r.type !== 'minigame' && x.r.name);
       if (!open.length) return `No quests on the go. ${this.asOf(s)}`;
       const order = ['main', 'side', 'shrine'];
-      open.sort((a, b) => order.indexOf(a.r!.type) - order.indexOf(b.r!.type));
-      return `On the go: ${open.map(x => `${x.r!.name} (${x.r!.type})`).join(', ')}.\nAsk botw_quest with one name for its next step. ${this.asOf(s)}`;
+      // The DLC drops a dozen "EX" quests into his log by itself, and the Xenoblade tie-in is not one he chose: those
+      // go last, so his own quests lead and the list stays short.
+      const auto = (r: Row) => r.dlc || r.collab ? 1 : 0;
+      open.sort((a, b) => auto(a.r!) - auto(b.r!) || order.indexOf(a.r!.type) - order.indexOf(b.r!.type));
+      const shown = open.slice(0, 8), more = open.length - shown.length;
+      return `On the go: ${shown.map(x => `${x.r!.name} (${x.r!.type})`).join(', ')}${more ? `, and ${more} more (mostly the DLC's EX quests)` : ''}.\nAsk botw_quest with one name for its next step. ${this.asOf(s)}`;
     }
     const hit = this.all('SELECT * FROM quests WHERE name IS NOT NULL').map(r => ({ r, sc: nameScore(name, r.name) + (s.quests.some(q => q.id === r.id) ? 5 : 0) }))
       .filter(x => x.sc > 5).sort((a, b) => b.sc - a.sc)[0]?.r;
