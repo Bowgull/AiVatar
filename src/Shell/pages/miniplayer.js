@@ -102,6 +102,12 @@ function tkey(glyph, onPress, { on = false, size = 14 } = {}) {
     const gw = g2 === 'pin' ? 9 : GLYPH[g2][0].length, gh = g2 === 'pin' ? 12 : GLYPH[g2].length;
     // centred to the screen pixel, not the art pixel: an odd glyph on an even key sat 1 px off (measured 2026-11-01)
     g.style.position = 'absolute'; g.style.left = Math.round((a2(size) - a2(gw)) / 2) + 'px'; g.style.top = Math.round((a2(size) - a2(gh)) / 2) + 'px';
+    // pinned, the pin lies on its side, as on the family's pin key (pinkey.js, sheet 38); a change of state turns it there
+    if (g2 === 'pin') {
+      if (on2) g.classList.add('lying');
+      if (k.pinOn !== undefined && k.pinOn !== !!on2) g.classList.add(on2 ? 'pin-in' : 'pin-out');
+      k.pinOn = !!on2;
+    }
     k.replaceChildren(body, g);
     k.classList.toggle('on', !!on2);
   };
