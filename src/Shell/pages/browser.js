@@ -773,9 +773,10 @@ function paintTabs() {
   const flipWas = performance.now() < flipUntil ? rowSpots() : null;
   const open = new Set(state.tabs.map((t) => t.id));
   const trails = Array.isArray(state.trails) ? state.trails : [];
-  // Sheet 107 v5 (his pick): Mockups is the plaque, never a row in the tab list.
+  // Sheet 107 v5 (his pick): Mockups is the plaque, never a row in the tab list. Hyrule the same (his rule, 2026-11-03):
+  // its key is the only way in, never a tab.
   // Sheet 111: a tab a Claude job has is in Claude's group below, not here (it comes back when the job lets go of it).
-  const live = state.tabs.filter((t) => !t.done && !t.mocklog && t.claudeJob == null);
+  const live = state.tabs.filter((t) => !t.done && !t.mocklog && !t.hyrule && t.claudeJob == null);
   const groups = [{ id: null, tabs: live.filter((t) => t.trail == null) }];
   for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length && !tr.mock) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
