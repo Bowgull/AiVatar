@@ -62,6 +62,20 @@ export interface Catalog {
   /** E1 (pack 3): every chest with a save flag, and every person the game can mark as met. Empty on an older botw.db. */
   chests?: { hash: number; flag: string }[];
   people?: { id: string; flag: string }[];
+  /** Every flag a person's schedule or placement waits on (people.schedule `when`, places `appears` / `vanishes`). */
+  peopleFlags?: string[];
+}
+
+interface Cond { flag?: string; of?: Cond[] }
+/** The flags people's whereabouts hang on: conditional schedules, and the link tags that make a placement appear or go. */
+function personFlags(rows: { schedule: string | null; places: string }[]): string[] {
+  const out = new Set<string>();
+  const walk = (c: Cond) => { if (c.flag) out.add(c.flag); c.of?.forEach(walk); };
+  for (const r of rows) {
+    if (r.schedule) for (const w of (JSON.parse(r.schedule) as { when: { flag: string }[] }).when) out.add(w.flag);
+    for (const p of JSON.parse(r.places) as { appears?: Cond[]; vanishes?: Cond[] }[]) [...p.appears ?? [], ...p.vanishes ?? []].forEach(walk);
+  }
+  return [...out].sort();
 }
 
 /** The flag names from botw.db. Small (a few thousand rows), read once. */
@@ -85,6 +99,7 @@ export function loadCatalog(dbPath: string): Catalog {
       items: new Map(all<{ id: string; name: string; kind: string | null }>('SELECT id, name, kind FROM items').map(r => [r.id, { name: r.name, kind: r.kind ?? '' }])),
       chests: has('chests') ? all<{ hash: number; flag: string }>('SELECT hash_id hash, flag FROM chests WHERE flag IS NOT NULL ORDER BY hash_id') : [],
       people: has('people') ? all<{ id: string; flag: string }>('SELECT id, met_flag flag FROM people WHERE met_flag IS NOT NULL ORDER BY id') : [],
+      peopleFlags: has('people') ? personFlags(all<{ schedule: string | null; places: string }>('SELECT schedule, places FROM people')) : [],
     };
   } finally { db.close(); }
 }
@@ -112,7 +127,8 @@ export interface BotwState {
   gear: BotwGear[];
   heroPath: { points: [number, number][] } | null;
   chests: { opened: number[] };   // E2: botw.db chests.hash_id of every chest he has opened
-  people: { met: string[] };      // E2: botw.db people.id of everyone the game has introduced (name shown, or first talk)
+  people: { met: string[]; flags: string[] };  // E2: met = people.id the game has introduced (name shown, or first talk);
+                                  // flags = the schedule / placement condition flags set in his save (where people are)
   dlc: BotwDlc;                   // E2: the add-ons' completion marks (docs/BOTW-STATE.md)
 }
 export interface BotwDlc {
@@ -188,7 +204,7 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     gear,
     heroPath: path.length ? { points: path } : null,
     chests: { opened: (cat.chests ?? []).filter(c => s.int(c.flag)).map(c => c.hash) },
-    people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id) },
+    people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id), flags: (cat.peopleFlags ?? []).filter(f => s.int(f)) },
     dlc: {
       masterMode: s.int('AoC_HardMode_Enabled') !== 0,
       trialOfTheSword: { beginning: !!s.int('100enemy_Clear_Junior'), middle: !!s.int('100enemy_Clear_Middle'), final: !!s.int('100enemy_Clear_Senior') },

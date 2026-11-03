@@ -62,7 +62,10 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   ],                                       // n = count; for weapons, bows and shields it is durability x100
   "heroPath": { "points": [[1610, 475]] }, // Hero's Path, every overworld point in order, rounded; null if none
   "chests": { "opened": [91802921] },     // E2: botw.db chests.hash_id of every chest he has opened
-  "people": { "met": ["Npc_Kakariko001"] }, // E2: botw.db people.id of everyone the game has introduced
+  "people": {                             // E2
+    "met": ["Npc_Kakariko001"],            // botw.db people.id of everyone the game has introduced
+    "flags": ["Npc_Kakariko001_Talk"]      // the flags people's whereabouts wait on that his save has set
+  },
   "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
     "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save
     "trialOfTheSword": { "beginning": false, "middle": false, "final": false },  // 100enemy_Clear_Junior/Middle/Senior
@@ -87,6 +90,13 @@ Notes for readers:
   save itself carries AoC_HardMode_Enabled; his normal saves do not hold that flag at all. Not yet seen on a real Master
   Mode save (he has none, and where Cemu keeps one is unchecked): a reader must keep a `masterMode` state apart from
   his normal progress. option.sav's IsLastPlayHardMode says which mode he played last (0 today), not read by Aang yet.
+- **Where a person is now** (the game never reports other people's positions; BG8 gives only Link's): from botw.db
+  `people` + this file. Pick the placement whose `appears` conditions hold and whose `vanishes` do not (a condition:
+  `flag` set when `set` is true / unset when false, `of` = sub-conditions, `tag` And / Or / NAnd / NOr; a condition
+  with only `signals`, such as enemies or a traveller being attacked, is live game state: treat it as unknown). Then the
+  schedule: the `when` timeline whose flag is in `people.flags` (else `always`), the node whose `from`-`to` holds
+  `clock.hour`, at its `x`, `z` (null = at the placement itself). Rain: `rain` instead when it rains (weather is not in
+  the save). Quest steps can override this: `quest_steps.hours` for the step he is on.
 - Region (tower area) is not in the state yet: BG1 has no tower polygons. Work it out from `pos` when they exist.
 - Spoilers: the state holds only what his save already shows. Names of things he has not found stay in botw.db,
   under its spoiler levels.

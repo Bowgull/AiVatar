@@ -88,6 +88,7 @@ test('E2: his six real slots: chests opened and people met only ever grow, and a
     const st = states[i]!;
     assert.ok(st.chests.opened.length > 0 && st.chests.opened.every(h => known.has(h)), `slot ${st.slot}: opened chests are botw.db chests`);
     assert.ok(st.people.met.includes('Npc_Kakariko001'), `slot ${st.slot}: he has met Impa`);
+    assert.ok(st.people.flags.includes('Npc_Kakariko001_Talk'), `slot ${st.slot}: Impa's night-time schedule is on (he has talked to her)`);
     // he has not started either add-on yet, and plays normal mode
     assert.deepEqual(st.dlc, { masterMode: false, trialOfTheSword: { beginning: false, middle: false, final: false }, ballad: { champions: [], done: false }, finalTrial: false, mazKoshia: false }, `slot ${st.slot} dlc`);
     if (!i) continue;
@@ -164,7 +165,7 @@ test('a made-up session: the diff and his one line', () => {
 
 test('E2 made-up: chests opened and people met, and a state from before E2', () => {
   const a = parse(game({ chests: 1, met: 1 })), b = parse(game({ chests: 2, met: 2 }));
-  assert.deepEqual(a.chests, { opened: [11] }); assert.deepEqual(a.people, { met: ['Npc_Kakariko001'] });
+  assert.deepEqual(a.chests, { opened: [11] }); assert.deepEqual(a.people, { met: ['Npc_Kakariko001'], flags: [] });
   const d = diffStates(a, b);
   assert.deepEqual(d.chests, [22]); assert.deepEqual(d.people, ['Npc_Road_024']);
   assert.equal(todayLine(d), null, 'the line is unchanged: chests and people are not in it');
@@ -174,7 +175,7 @@ test('E2 made-up: chests opened and people met, and a state from before E2', () 
   assert.deepEqual([d2.chests, d2.people], [[], []]);
   // an older botw.db (no E1 tables): the fields are there, empty
   const st = parseState({ save: game({ chests: 2 }), slot: 0, savedAt: 0 }, { ...CAT, chests: undefined, people: undefined });
-  assert.deepEqual([st.chests, st.people], [{ opened: [] }, { met: [] }]);
+  assert.deepEqual([st.chests, st.people], [{ opened: [] }, { met: [], flags: [] }]);
   // the DLC marks
   const dlc = parse(makeSave({ AoC_HardMode_Enabled: 1, '100enemy_Clear_Junior': 1, BalladOfHeroZora_Finish: 1, BalladOfHeroRito_Finish: 1, Defeated_Priest_Boss_Normal_Num: 1 })).dlc;
   assert.deepEqual(dlc, { masterMode: true, trialOfTheSword: { beginning: true, middle: false, final: false }, ballad: { champions: ['Rito', 'Zora'], done: false }, finalTrial: false, mazKoshia: true });

@@ -349,6 +349,8 @@ for (const sq of readdirSync(DLC + 'Map/AocField').filter((d) => /^[A-J]-\d$/.te
   const f = `${DLC}Map/AocField/${sq}/${sq}_${k}.smubin`; if (existsSync(f)) placeAll('AocField', sq, readFileSync(f));
 }
 const OBJ = new Map(PLACED.map((p) => [p.o.HashId, p]));
+const INTO = new Map(); // hash -> [{ from, def }]: who links to an object (link tags that create or delete it)
+for (const p of PLACED) for (const l of p.o.LinksToObj || []) (INTO.get(l.DestUnitHashId) || INTO.set(l.DestUnitHashId, []).get(l.DestUnitHashId)).push({ from: p, def: l.DefinitionName });
 const prm = (o) => o['!Parameters'] || {}, hard = (o) => prm(o).IsHardModeActor ? 1 : 0, r1 = (v) => Math.round(v * 10) / 10;
 const placed = (re, map = 'MainField') => PLACED.filter((p) => (!map || p.map === map) && re.test(p.o.UnitConfigName));
 const NAMED = MARK.places.map(([flag, msg, , x, z]) => ({ flag, name: PLACE[msg], x, z })).filter((p) => p.name);
@@ -411,6 +413,25 @@ for (const q of QL) {
 }
 const set = (s) => s?.size ? JSON.stringify([...s]) : null;
 const MET = (n) => [[`${n}_DispNameFlag`, 'name shown'], ...['_talk', '_Talk', '_First', '_first', '_Talked'].map((k) => [n + k, 'talked'])].find(([f]) => FLAGS.get(f));
+// when a placement is there: link tags that Create it (it appears while the tag is on) or Delete it (gone while on).
+// A tag is on from its own SaveFlag (LinkTagAnd/Or: flag set; LinkTagNAnd/NOr: flag not set) and/or the signals that
+// feed it: other link tags are followed (up to 5 deep), anything else (a person, an area, an event) is named. A tag
+// with inputs and a flag needs both (And) or either (Or); N- tags invert. No tag = always there.
+const TAG_NOT = /^LinkTagN(And|Or)$/;
+const tagInfo = (t, depth = 0, seen = new Set()) => {
+  seen.add(t.o.HashId);
+  const ins = (INTO.get(t.o.HashId) || []).map((i) => i.from), info = { tag: t.o.UnitConfigName.replace(/^LinkTag/, '') };
+  if (prm(t.o).SaveFlag) Object.assign(info, { flag: prm(t.o).SaveFlag, set: !TAG_NOT.test(t.o.UnitConfigName) });
+  const sub = ins.filter((f) => /^LinkTag/.test(f.o.UnitConfigName) && !seen.has(f.o.HashId) && depth < 5).map((f) => tagInfo(f, depth + 1, seen));
+  const other = [...new Set(ins.filter((f) => !/^LinkTag/.test(f.o.UnitConfigName)).map((f) => f.o.UnitConfigName))];
+  if (sub.length) info.of = sub; if (other.length) info.signals = other;
+  return info;
+};
+const whenHere = (p) => {
+  const into = (INTO.get(p.o.HashId) || []).filter((i) => /^LinkTag/.test(i.from.o.UnitConfigName) && /Create|Delete/.test(i.def));
+  const appear = into.filter((i) => /Create/.test(i.def)).map((i) => tagInfo(i.from)), vanish = into.filter((i) => /Delete/.test(i.def)).map((i) => tagInfo(i.from));
+  return { ...(appear.length ? { appears: appear } : {}), ...(vanish.length ? { vanishes: vanish } : {}) };
+};
 const nodesOf = (t, home) => (t?.Nodes || []).map((nd) => {
   const at = home?.anchors?.['Anchor' + nd.AIName], rain = home?.anchors?.[`Anchor${nd.AIName}_Rain`];
   return { from: nd.StartTime, to: nd.EndTime, ai: nd.AIName, doing: nd.WaitAnchorASName || null, x: at?.[0] ?? null, z: at?.[2] ?? null, ...(rain ? { rain: [rain[0], rain[2]] } : {}) };
@@ -422,7 +443,7 @@ for (const [n, ps] of byActor) {
   const places = ps.map((p) => {
     const anchors = {};
     for (const l of p.o.LinksToObj || []) { const d = OBJ.get(l.DestUnitHashId)?.o; if (d && /Anchor/.test(d.UnitConfigName) && !anchors[d.UnitConfigName]) anchors[d.UnitConfigName] = [r1(d.Translate[0]), r1(d.Translate[1]), r1(d.Translate[2])]; }
-    return { map: p.map, unit: p.unit, hash: p.o.HashId, x: r1(p.o.Translate[0]), y: r1(p.o.Translate[1]), z: r1(p.o.Translate[2]), anchors };
+    return { map: p.map, unit: p.unit, hash: p.o.HashId, x: r1(p.o.Translate[0]), y: r1(p.o.Translate[1]), z: r1(p.o.Translate[2]), anchors, ...whenHere(p) };
   });
   const ap = actorPack(n), sk = ap && [...ap.keys()].find((k) => k.endsWith('.baischedule')), y = sk && byml(ap.get(sk)), home = places[0];
   const nodes = (t) => nodesOf(t, home);
