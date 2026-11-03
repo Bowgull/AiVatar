@@ -2273,11 +2273,17 @@ export class AangBrowser {
       // 2026-10-28 (his report: ⇧⌘N did nothing and no secret window showed): the secret window is never "restored"
       // while locked, so this returned with the window still behind others, minimized or never shown. It comes forward.
       if (this.o.secret) { p.win!.setOpacity(1); bringFront(p.win!); }
+      // 2026-11-03 (his report: after the 1.45 update Samara stayed invisible and the dock could not open it): asked to
+      // open, a hidden window always comes up, still starting or not.
+      else if (!p.win!.isVisible() || p.win!.isMinimized()) { console.log('shell: browser: open while still starting; the hidden window comes up'); bringFront(p.win!); }
       return;
     }
     if (p) {
       this.pane = p;
+      const hidden = !p.win!.isVisible();
       bringFront(p.win!);
+      // the same report: say when a hidden window was asked up, and whether it really came up, for next time
+      if (hidden) setTimeout(() => { if (!p.win || p.win.isDestroyed()) return; console.log(`shell: browser: open found the window hidden; now ${p.win.isVisible() ? 'showing' : 'STILL HIDDEN'}`); if (!p.win.isVisible()) p.win.show(); }, 600);
       if (url) this.newTab(url);
       return;
     }
