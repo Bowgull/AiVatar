@@ -915,6 +915,7 @@ app.whenReady().then(async () => {
       // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
       aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
       aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
+      aangBrowser.onNotePlace = (m) => link?.send(m);
       // C7 (2026-10-21): the rune's panel, already checked in browser.ts (claudewire.ts), the same doors as the cockpit's.
       aangBrowser.onClaude = (m) => { link?.send(m as never); };
       aangBrowser.onClaudeOpen = (target) => openInClaude(target);

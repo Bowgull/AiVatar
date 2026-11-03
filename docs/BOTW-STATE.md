@@ -166,7 +166,10 @@ is served read-only, so the Shell passes it on like `notes.save`):
 - `{ t: 'notes.place', id, x, z }`: a pin dragged; the note's words are untouched.
 - `{ t: 'notes.place', id, off: true }`: off the map; it stays a sticky note in its category.
 
-A place outside -6000..6000 or not a number is refused. The brain answers with the usual `notes.state`; the map then
+In Samara the Hyrule page reaches these through its own small preload, `window.hyrule` (`src/Shell/src/hyrulepreload.cjs`:
+`notes()` reads this file, `notePlace(x, z, title, text)`, `noteMove(id, x, z)`, `noteOff(id)`, `noteOpen(id)` opens it
+on his board); the Shell takes them only from the Hyrule page and checks them (`hyrulenotes.ts`) before main.ts sends
+`notes.place`. A place outside -6000..6000 or not a number is refused. The brain answers with the usual `notes.state`; the map then
 reads `notes.json` again. Editing the words happens on the note itself (`notes.save`), which never drops the place.
 
 **Two hooks waiting on his yes** read `note-settings.json` here: `{ "keepOffer": false, "afterPlay": false }`. Missing

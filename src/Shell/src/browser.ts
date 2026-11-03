@@ -29,6 +29,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { servePages, type PageServer } from './pageserver.ts';
+import { hyruleNotesFile, notePlaceMsg, type NotePlaceMsg } from './hyrulenotes.ts';
 import { run, within } from './page.ts';
 import { SIZES, capture, captureWindow, type CaptureOpts, type Shot, type WindowShot } from './capture.ts';
 import { trouble } from './flight.ts';
@@ -2953,7 +2954,8 @@ export class AangBrowser {
     const dir = this.o.hyruleDir;
     if (!dir) return;
     this.hyrulePages ??= servePages(dir, '/index.html');
-    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES } });
+    // BG5: its own small preload (hyrulepreload.cjs), only the notes' doors.
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.thingsPreloadPath), 'hyrulepreload.cjs') } });
     const wc = view.webContents;
     view.setBackgroundColor('#06121c');
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
@@ -4809,6 +4811,11 @@ export class AangBrowser {
       src: was?.src ?? { url, site }, updated: Date.now() });
   }
   noteOpen(id: unknown): void { if (typeof id === 'string' && /^n[a-z0-9]{1,20}$/.test(id)) this.onNoteOpen?.(id); }
+  /** BG5: a pin made, moved or taken off on the Hyrule map (main.ts sends it to the brain as notes.place). */
+  onNotePlace: ((m: NotePlaceMsg) => void) | null = null;
+  isHyrule(sender: Electron.WebContents): boolean { return this.tabs.some((x) => x.internal === 'hyrule' && x.view?.webContents === sender); }
+  hyruleNotes(): string | null { return hyruleNotesFile(); }
+  hyruleNotePlace(raw: unknown): void { const m = notePlaceMsg(raw); if (m) this.onNotePlace?.(m); }
 
   claudeNews(m: { t?: unknown; jobs?: unknown; items?: unknown } | null): void {
     if (!m) this.claudeLast = null;
