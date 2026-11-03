@@ -15,6 +15,7 @@ import { Timers, parseTimerCommand, sayDuration, MAX_MS, MAX_TIMERS, TIMER_ACTIO
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
 import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState, type NoteLike } from './botwwatch.ts';
+import { botwLane } from './botw.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync, watchFile } from 'node:fs';
@@ -4512,6 +4513,9 @@ export class Core {
         : route === 'know' ? (game.running ? claude : 'local')
           : route === null ? fallback : claude;
     }
+    // BG3: while Cemu runs, a BotW question in words is Haiku's (Quick carries the botw tools), a snip is Sonnet's.
+    const botw = lane === 'local' ? null : botwLane(words, hasAttachment(sub.text), game);
+    if (botw) lane = botw;
     if (lane === 'local') {
       const local = this.lane('local') as unknown as LocalLane;
       local.brain = brain; local.images = images;

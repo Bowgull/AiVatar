@@ -1,0 +1,44 @@
+// A made-up BotW save in state.json's shape (docs/BOTW-STATE.md), shaped like his first ~13 hours: Great Plateau done,
+// Kakariko and Hateno reached, saved out east of the Dueling Peaks heading for Zora's Domain. Not his real save: no
+// personal data in the public repo (botwguide.test.ts). Ids are the game's own, as in botw.db.
+export const FIXTURE_STATE = {
+  v: 1,
+  readAt: '2026-11-01T16:43:10.000Z',
+  savedAt: '2026-11-01T16:42:22.937Z',
+  slot: 3, version: 'v1.5', playtime: 48297,
+  clock: { day: 17, hour: 10.69, bloodMoon: 1 },
+  hearts: { max: 3, now: 3 }, stamina: { max: 1.4 }, rupees: 286, mons: 0,
+  pos: { x: 1610.01, y: 116.56, z: 475.09, facing: 12.5, map: 'MainField', square: 'G-5', label: '' },
+  shrines: {
+    found: ['Dungeon041', 'Dungeon038', 'Dungeon009', 'Dungeon065', 'Dungeon007', 'Dungeon029', 'Dungeon099', 'Dungeon045', 'Dungeon047', 'Dungeon112'],
+    done: ['Dungeon041', 'Dungeon038', 'Dungeon009', 'Dungeon065', 'Dungeon007', 'Dungeon029', 'Dungeon099', 'Dungeon045', 'Dungeon047'],
+  },
+  towers: { found: ['MapTower_07', 'MapTower_08', 'MapTower_09', 'MapTower_13', 'MapTower_14', 'MapTower_12'], active: ['MapTower_07', 'MapTower_08', 'MapTower_09', 'MapTower_13', 'MapTower_14'] },
+  koroks: { seeds: 0, found: [] as number[] },   // filled from botw.db by the test: the 7 Koroks nearest Kakariko
+  divineBeasts: [] as string[],
+  quests: [
+    { id: 'FindDungeon', type: 'main', step: 4, steps: 4, done: true },
+    { id: 'Find_Impa', type: 'main', step: 2, steps: 2, done: true },
+    { id: 'Water_Relic', type: 'main', step: 1, steps: 9, done: false },
+    { id: 'PictureMemory', type: 'main', step: 1, steps: 6, done: false },
+    { id: 'KorokMini_RiddleShiren', type: 'side', step: 2, steps: 6, done: false },
+  ],
+  places: ['Location_Kakariko', 'Location_Hateno'],
+  dishes: ['Item_Cook_A_01'],
+  gear: [
+    { id: 'Weapon_Sword_001', name: "Traveler's Sword", kind: 'one-handed', n: 1400, equipped: true },
+    { id: 'Weapon_Shield_040', name: 'Pot Lid', kind: 'shield', n: 800, equipped: true },
+    { id: 'Armor_044_Upper', name: 'Warm Doublet', kind: 'armor', n: 1, equipped: true },
+    { id: 'Armor_043_Lower', name: 'Well-Worn Trousers', kind: 'armor', n: 1, equipped: true },
+    { id: 'Item_Fruit_A', name: 'Apple', kind: 'material', n: 12, equipped: false },
+    { id: 'Item_Fruit_I', name: 'Spicy Pepper', kind: 'material', n: 6, equipped: false },
+    { id: 'Item_Meat_01', name: 'Raw Meat', kind: 'material', n: 4, equipped: false },
+    { id: 'Item_Mushroom_E', name: 'Hylian Shroom', kind: 'material', n: 9, equipped: false },
+    { id: 'Item_Mushroom_A', name: 'Stamella Shroom', kind: 'material', n: 5, equipped: false },
+    { id: 'Item_Fruit_D', name: 'Hearty Durian', kind: 'material', n: 2, equipped: false },
+    { id: 'Animal_Insect_S', name: 'Hightail Lizard', kind: 'material', n: 2, equipped: false },
+    { id: 'Item_Enemy_00', name: 'Bokoblin Horn', kind: 'material', n: 3, equipped: false },
+    { id: 'Item_Ore_F', name: 'Amber', kind: 'material', n: 4, equipped: false },
+  ],
+  heroPath: null,
+};

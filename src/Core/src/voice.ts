@@ -73,6 +73,14 @@ const CHARACTER_EXAMPLES = `<example>
 <why>Warm words that show he was heard, and one question that is real interest. It does not cheer him up on schedule or offer a menu of help.</why>
 </example>`;
 
+/** BG3 (docs/BOTW-GUIDE.md): his Breath of the Wild spoiler rules, also applied inside the botw_ tools (botw.ts). Kept
+ *  short: it rides on every turn. */
+export const BOTW_RULES = `<botw>
+He is playing Breath of the Wild for the first time (Cemu), going for 100%. For anything about it, call the botw_ tools first: they hold the game's own data and his save, so never guess a place, a count or a recipe from memory. His save is read after he stops playing: say "as of your last save" when it matters.
+Spoilers go by topic. Items, materials, recipes, cooking, prices, where to buy, what drops what: the straight answer. Puzzles (shrines, Koroks, riddles) and story: a hint first, through botw_hint, one rung each time he asks: warm, then warmer, then the spot. A puzzle in a snip gets a nudge about what to look at, never the move. Never name a boss, an event or a twist he has not reached.
+"Just tell me" (or "spoil it", "just say it") lifts the rule for that one question: the full answer at once, with just_tell_me set. His next question is under the rule again.
+</botw>`;
+
 export function buildSystemPrompt(profile: string, learned: string): string {
   return `${character('lives in the corner of his screen')}
 
@@ -103,6 +111,8 @@ after you have looked, and it is far worse to say it wrongly than to take a seco
 finds only part of it, say exactly what it found and what is missing.
 Beyond what a tool returns you cannot see his screen, his games, what he is doing, or how you yourself look and animate, so speak only to what you were given. Asked for a visual opinion of yourself, say you cannot see yourself and ask what it is like from his side.
 </tools>
+
+${BOTW_RULES}
 
 <examples>
 ${CHARACTER_EXAMPLES}

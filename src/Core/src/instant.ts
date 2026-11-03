@@ -44,7 +44,7 @@ const FOLLOW_UP = /^(and|also|plus|what about|how about|then|so|but|yes|yeah|yep
  * book Dune?" to Claude. Here the router (65/72 on his real messages) judges those; the rule only takes what cannot be
  * anything else. Typos he really makes ("oput on", "opne") are in the list.
  */
-const DO_IT = /\b(open|opne|oepn|launch|start|run|close|quit|kill|play|paly|plya|pause|skip|put\s*(?:it|that|this|some|something)?\s*on|[a-z]pu?t on|stream|watch|send|snd|sned|e-?mail|text|message|dm|reply|draft|remind|reminder|timer|alarm|note (?:this|that|down)|save|remember|forget|make (?:a|me|the)|create|write (?:a|me|the) (?:file|note|page)|move|rename|copy|delete|remove|download|install|uninstall|set (?:a|an|the|up)|turn (?:on|off)|schedule|cancel|undo|screenshot|search (?:my|for|the web)|look (?:it )?up|check (?:my|if|the|on)|show me|pull up|navigate|directions|take me to)\b/i;
+export const DO_IT = /\b(open|opne|oepn|launch|start|run|close|quit|kill|play|paly|plya|pause|skip|put\s*(?:it|that|this|some|something)?\s*on|[a-z]pu?t on|stream|watch|send|snd|sned|e-?mail|text|message|dm|reply|draft|remind|reminder|timer|alarm|note (?:this|that|down)|save|remember|forget|make (?:a|me|the)|create|write (?:a|me|the) (?:file|note|page)|move|rename|copy|delete|remove|download|install|uninstall|set (?:a|an|the|up)|turn (?:on|off)|schedule|cancel|undo|screenshot|search (?:my|for|the web)|look (?:it )?up|check (?:my|if|the|on)|show me|pull up|navigate|directions|take me to)\b/i;
 /**
  * Games: guides, places, quests, items, builds. Measured 2026-11-01: the local model answered "fastest way from Undercity
  * to Thunder Bluff" with a zeppelin that does not exist and put BotW's Warm Doublet in Akkala, both confidently, where

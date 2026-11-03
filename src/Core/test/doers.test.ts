@@ -10,7 +10,7 @@ import path from 'node:path';
 import { WebSocket } from 'ws';
 import { Core } from '../src/core.ts';
 import { kindOf } from '../src/trust.ts';
-import { describeCall, TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_WRITE } from '../src/tools.ts';
+import { describeCall, TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_WRITE, BOTW_TOOLS } from '../src/tools.ts';
 
 process.env.AANG_UNDO_DIR = mkdtempSync(path.join(os.tmpdir(), 'aang-undo-'));
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-doers-'));
@@ -124,7 +124,11 @@ test('Quick gets a short shelf of tools, Smart gets all of them', () => {
   // worst and the small model is what answers in the bubble, so Quick sees only what chat needs. Nothing is
   // lost: doing routes to Smart first, and a Quick "I can't" is re-run there.
   assert.ok(TOOL_NAMES.length > 40, 'if this ever drops below the cliff, the split can go');
-  assert.ok(QUICK_TOOLS.length <= 20, `Quick sees ${QUICK_TOOLS.length}; keep it well under the cliff`);
+  // BG3 (2026-11-03): + the 7 botw_ tools, one family with its own prefix, so a BotW question in words can stay on Haiku
+  // while Cemu runs (his rule). The chat shelf itself keeps its cap of 20; the whole shelf stays far under the cliff.
+  const chat = QUICK_TOOLS.filter(t => !BOTW_TOOLS.includes(t));
+  assert.ok(chat.length <= 20, `Quick sees ${chat.length} chat tools; keep it well under the cliff`);
+  assert.ok(QUICK_TOOLS.length <= 27, `Quick sees ${QUICK_TOOLS.length} in all`);
   assert.deepEqual(QUICK_TOOLS.filter(t => !TOOL_NAMES.includes(t)), [], 'no typos: every Quick tool is a real one');
   assert.equal(QUICK_TOOLS.length + QUICK_HIDDEN.length, TOOL_NAMES.length, 'every tool is either seen or hidden');
   // the doing tools are the ones that must be hidden from Quick
