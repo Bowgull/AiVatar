@@ -99,6 +99,48 @@ Notes for readers:
 }
 ```
 
+## notes.json (`v: 1`, BG5)
+
+His notes pinned on the Hyrule map. Each one IS a sticky note (one note, two places); the note itself lives in Aang's
+own `notes.json` (state folder), and `src/Core/src/botwnotes.ts` copies every note that has a BotW place here after
+each save. Not made until the first pin (so it may be missing); once made, kept current (the last pin taken off leaves
+`notes: []`).
+
+```jsonc
+{
+  "v": 1,
+  "writtenAt": "2026-11-03T10:00:00.000Z",
+  "own": ["Recipes", "Zelda"],             // his own categories in order: the colour of a cat is
+                                           // catColour(cat, own) in src/Shell/pages/notecats.js (Zelda = his next free one)
+  "notes": [                               // newest first
+    {
+      "id": "nmh2k1",                      // the sticky note's id (the same note on the board and his screen)
+      "title": "Korok here",
+      "cat": "Zelda",                      // "Zelda" when pinned; he may change it on the board, the pin stays
+      "lines": ["Rock ring", "Top of hill"],   // plain lines; ticked ones end " (done)"
+      "html": "<div>Rock ring</div>...",   // the note's own cleaned HTML (notes.ts cleanHtml), safe to show
+      "x": 1650, "z": 470,                 // objmap / state.json world units, 0.1 precision
+      "updated": "2026-11-03T09:59:58.000Z"
+    }
+  ]
+}
+```
+
+**Making, moving, removing a pin** goes to the brain as one message on the Shell's link (no file drop: the map page
+is served read-only, so the Shell passes it on like `notes.save`):
+
+- `{ t: 'notes.place', title?, text?, x, z }`: "Note here". A new note, category Zelda, at x, z. Text is plain lines
+  (escaped, never markup); no title = its first line.
+- `{ t: 'notes.place', id, x, z }`: a pin dragged; the note's words are untouched.
+- `{ t: 'notes.place', id, off: true }`: off the map; it stays a sticky note in its category.
+
+A place outside -6000..6000 or not a number is refused. The brain answers with the usual `notes.state`; the map then
+reads `notes.json` again. Editing the words happens on the note itself (`notes.save`), which never drops the place.
+
+**Two hooks waiting on his yes** read `note-settings.json` here: `{ "keepOffer": false, "afterPlay": false }`. Missing
+= both off. `keepOffer`: a BotW message starting "remember this" asks "Keep as a note?" and on Yes pins the words at
+`state.json` pos. `afterPlay`: the "today" line adds "Your note "…" is near where you stopped." (within 300 m).
+
 ## Using it from code
 
 `botwwatch.ts` exports `readBotwState()` and `readBotwSessions()` (null when missing or unreadable) and
