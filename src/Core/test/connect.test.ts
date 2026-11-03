@@ -27,6 +27,9 @@ test('readPlayback: the track, the device (kind, volume 0..1), the 640 px cover 
   assert.equal(readPlayback(null, T0, 'x'), null);
   assert.equal(readPlayback({}, T0, 'x'), null);
   assert.equal(readPlayback(answer({}, { supports_volume: false }), T0, 'x')!.device.volume, null);
+  // 2026-11-03: Spotify on his Mac played with no device id, and the whole song was thrown away ("Nothing playing")
+  const noId = readPlayback(answer({}, { id: null, name: 'MacBook Pro', type: 'Computer' }), T0, 'SHADOW-PC')!;
+  assert.equal(noId.title, 'Maria También'); assert.equal(noId.device.id, ''); assert.equal(noId.device.name, 'MacBook Pro');
   // Spotify's desktop app here is named after this PC: that device is the PC (the pet's feed covers it)
   assert.equal(readPlayback(answer({}, { name: 'shadow-pc', type: 'Computer' }), T0, 'SHADOW-PC')!.device.thisPc, true);
   assert.equal(readPlayback(answer({}, { name: 'Joshua’s MacBook Air', type: 'Computer' }), T0, 'SHADOW-PC')!.device.thisPc, false);

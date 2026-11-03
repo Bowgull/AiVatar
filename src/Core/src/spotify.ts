@@ -129,7 +129,8 @@ export class Spotify {
   }
   /** One of the player's keys, on that device. Positions in seconds, volume 0..1. */
   async control(op: 'play' | 'pause' | 'next' | 'prev' | 'seek' | 'volume', device: string, value?: number): Promise<void> {
-    const d = `device_id=${encodeURIComponent(device)}`;
+    // no id (Spotify gave none): the device that is playing now, which is the one shown
+    const d = device ? `device_id=${encodeURIComponent(device)}` : '';
     if (op === 'play') await this.call('PUT', `/me/player/play?${d}`);
     else if (op === 'pause') await this.call('PUT', `/me/player/pause?${d}`);
     else if (op === 'next') await this.call('POST', `/me/player/next?${d}`);
