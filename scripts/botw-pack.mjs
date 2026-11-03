@@ -138,20 +138,20 @@ db.exec(`
     found_flag TEXT NOT NULL, done_flag TEXT NOT NULL, ${SPOIL});
   CREATE TABLE koroks (hash_id INTEGER PRIMARY KEY, korok_id TEXT, kind TEXT NOT NULL, puzzle TEXT, x REAL, y REAL, z REAL,
     flag TEXT NOT NULL, ${SPOIL});
-  CREATE TABLE places (n INTEGER PRIMARY KEY, flag TEXT, msg_id TEXT NOT NULL, name TEXT, type TEXT, x REAL, z REAL, ${SPOIL});
+  CREATE TABLE places (n INTEGER PRIMARY KEY, flag TEXT, msg_id TEXT NOT NULL, name TEXT, type TEXT, x REAL, z REAL, dlc INTEGER NOT NULL DEFAULT 0, ${SPOIL});
   CREATE TABLE quests (id TEXT PRIMARY KEY, type TEXT NOT NULL, dlc INTEGER NOT NULL, in_log INTEGER NOT NULL, collab INTEGER NOT NULL,
-    name TEXT, giver TEXT, giver_name TEXT, location TEXT, location_name TEXT, needs_flag TEXT, steps INTEGER NOT NULL, ${SPOIL});
+    name TEXT, giver TEXT, giver_name TEXT, location TEXT, location_name TEXT, needs_flag TEXT, steps INTEGER NOT NULL, unlocks TEXT, reward TEXT, ${SPOIL});
   CREATE TABLE quest_steps (quest_id TEXT NOT NULL, n INTEGER NOT NULL, name TEXT NOT NULL, next_flag TEXT, saved INTEGER NOT NULL, text TEXT,
-    x REAL, y REAL, z REAL, ${SPOIL}, PRIMARY KEY (quest_id, n));
+    x REAL, y REAL, z REAL, people TEXT, hours TEXT, ${SPOIL}, PRIMARY KEY (quest_id, n));
   CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT, profile TEXT, descr TEXT, sell INTEGER, buy INTEGER,
-    heal INTEGER, effect TEXT, effect_level INTEGER, attack INTEGER, guard INTEGER, durability INTEGER, got_flag TEXT, ${SPOIL});
+    heal INTEGER, effect TEXT, effect_level INTEGER, attack INTEGER, guard INTEGER, durability INTEGER, got_flag TEXT, dlc INTEGER NOT NULL DEFAULT 0, ${SPOIL});
   CREATE TABLE armor_upgrades (piece TEXT NOT NULL, level_id TEXT NOT NULL, star INTEGER NOT NULL, defense INTEGER, sell INTEGER,
-    materials TEXT, slot TEXT, series TEXT, set_bonus INTEGER, effect TEXT, ${SPOIL}, PRIMARY KEY (piece, star));
+    materials TEXT, slot TEXT, series TEXT, set_bonus INTEGER, effect TEXT, dlc INTEGER NOT NULL DEFAULT 0, ${SPOIL}, PRIMARY KEY (piece, star));
   CREATE TABLE recipes (n INTEGER PRIMARY KEY, dish TEXT NOT NULL, dish_name TEXT, single INTEGER NOT NULL, hearts INTEGER,
     needs TEXT NOT NULL, ${SPOIL});
-  CREATE TABLE compendium (actor TEXT PRIMARY KEY, number INTEGER, name TEXT, category TEXT, descr TEXT, flag TEXT NOT NULL, ${SPOIL});
+  CREATE TABLE compendium (actor TEXT PRIMARY KEY, number INTEGER, name TEXT, category TEXT, descr TEXT, flag TEXT NOT NULL, dlc INTEGER NOT NULL DEFAULT 0, ${SPOIL});
   CREATE TABLE enemies (id TEXT PRIMARY KEY, name TEXT, profile TEXT, life INTEGER, attack INTEGER, rank INTEGER, drops TEXT,
-    areas TEXT, kill_flag TEXT, ${SPOIL});
+    areas TEXT, kill_flag TEXT, dlc INTEGER NOT NULL DEFAULT 0, ${SPOIL});
   CREATE TABLE cook_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, tags TEXT NOT NULL, hp INTEGER, effect TEXT, potency INTEGER, time INTEGER,
     boost_time INTEGER, boost_hp INTEGER, boost_max INTEGER, boost_stamina INTEGER, buy INTEGER);
   CREATE TABLE cook_effects (effect TEXT PRIMARY KEY, base_time INTEGER, min INTEGER, max INTEGER, rate REAL);
@@ -173,6 +173,7 @@ db.exec(`
     near TEXT, x REAL, y REAL, z REAL, master_mode INTEGER NOT NULL, dlc INTEGER NOT NULL, defeat_flag TEXT, ${SPOIL});
   CREATE TABLE stables (hash_id INTEGER PRIMARY KEY, name TEXT, place_flag TEXT, x REAL, z REAL, ${SPOIL});
   CREATE TABLE horses (hash_id INTEGER PRIMARY KEY, actor TEXT NOT NULL, kind TEXT NOT NULL, name TEXT, near TEXT, x REAL, z REAL, ${SPOIL});
+  CREATE TABLE dlc_things (id TEXT PRIMARY KEY, pack INTEGER, kind TEXT NOT NULL, name TEXT, ref TEXT, done_flag TEXT, ${SPOIL});
   CREATE INDEX chests_flag ON chests(flag);
   CREATE INDEX places_flag ON places(flag);
   CREATE INDEX names_name ON names(name COLLATE NOCASE);
@@ -410,6 +411,10 @@ for (const q of QL) {
 }
 const set = (s) => s?.size ? JSON.stringify([...s]) : null;
 const MET = (n) => [[`${n}_DispNameFlag`, 'name shown'], ...['_talk', '_Talk', '_First', '_first', '_Talked'].map((k) => [n + k, 'talked'])].find(([f]) => FLAGS.get(f));
+const nodesOf = (t, home) => (t?.Nodes || []).map((nd) => {
+  const at = home?.anchors?.['Anchor' + nd.AIName], rain = home?.anchors?.[`Anchor${nd.AIName}_Rain`];
+  return { from: nd.StartTime, to: nd.EndTime, ai: nd.AIName, doing: nd.WaitAnchorASName || null, x: at?.[0] ?? null, z: at?.[2] ?? null, ...(rain ? { rain: [rain[0], rain[2]] } : {}) };
+});
 const byActor = new Map();
 for (const p of PLACED) if (isPerson(p.o.UnitConfigName)) (byActor.get(p.o.UnitConfigName) || byActor.set(p.o.UnitConfigName, []).get(p.o.UnitConfigName)).push(p);
 const people = [];
@@ -420,10 +425,7 @@ for (const [n, ps] of byActor) {
     return { map: p.map, unit: p.unit, hash: p.o.HashId, x: r1(p.o.Translate[0]), y: r1(p.o.Translate[1]), z: r1(p.o.Translate[2]), anchors };
   });
   const ap = actorPack(n), sk = ap && [...ap.keys()].find((k) => k.endsWith('.baischedule')), y = sk && byml(ap.get(sk)), home = places[0];
-  const nodes = (t) => (t?.Nodes || []).map((nd) => {
-    const at = home.anchors['Anchor' + nd.AIName], rain = home.anchors[`Anchor${nd.AIName}_Rain`];
-    return { from: nd.StartTime, to: nd.EndTime, ai: nd.AIName, doing: nd.WaitAnchorASName || null, x: at?.[0] ?? null, z: at?.[2] ?? null, ...(rain ? { rain: [rain[0], rain[2]] } : {}) };
-  });
+  const nodes = (t) => nodesOf(t, home);
   const schedule = y && { always: nodes(y.DefaultTimeline), when: (y.ConditionalTimelines || []).map((t) => ({ flag: t.Condition, nodes: nodes(t) })) };
   const cycle = schedule && [schedule.always, ...schedule.when.map((w) => w.nodes)].some((l) => l.length > 1) ? 1 : 0, met = MET(n), q = QTOUCH.get(n);
   people.push({ id: n, name: TXT[n]?.Name || null, kind: /^Npc_DungeonPriest/.test(n) ? 'monk' : /^(Npc_DressFairy|GreatFairy|HorseGod)/.test(n) ? 'great fairy' : /^Npc_(Road|Attacked)_/.test(n) ? 'traveller' : 'person',
@@ -504,6 +506,66 @@ insert('horses', placed(/^(GameRomHorse(Nushi|Zelda|00L|Bone)|WildHorseCreateTag
   hash_id: p.o.HashId, actor: p.o.UnitConfigName, kind: HORSE[p.o.UnitConfigName] || 'wild herd', name: nameOf(p.o.UnitConfigName), near: nearOf(p),
   x: r1(p.o.Translate[0]), z: r1(p.o.Translate[2]), spoiler_kind: 'location', spoiler_level: HORSE[p.o.UnitConfigName] ? 2 : 0 })));
 
+// ---- quests as goals (BOTW-ENGINE 4b): each step's people and their hours, what each quest unlocks ----
+// A step names its people twice: IndicatorActors (the marker on the map) and Actors (who takes part, often with a
+// timeline of their own for that step: where they stand while the step is open). hours: that step timeline if there is
+// one ("step"), else the person's everyday schedule ("schedule"). Rewards are not in the quest files: they are given
+// inside the event flows (the conversations), so quests.reward stays empty until those are read.
+const PEOPLE = new Map(people.map((p) => [p.id, p]));
+const stepUpd = db.prepare('UPDATE quest_steps SET people = ?, hours = ? WHERE quest_id = ? AND n = ?');
+for (const q of QL) q.Steps.forEach((s, n) => {
+  const ids = [...new Set([...(s.IndicatorActors || []).map((a) => a.Name ?? a.ActorName), ...(s.Actors || []).map((a) => a.Name)])].filter((id) => PEOPLE.has(id));
+  if (!ids.length) return;
+  const hours = {};
+  for (const id of ids) {
+    const own = (s.Actors || []).find((a) => a.Name === id && a.DefaultTimeline?.Nodes?.length), p = PEOPLE.get(id);
+    if (own) hours[id] = { from: 'step', nodes: nodesOf(own.DefaultTimeline, JSON.parse(p.places)[0]) };
+    else if (p.schedule) hours[id] = { from: 'schedule', nodes: JSON.parse(p.schedule).always };
+  }
+  stepUpd.run(JSON.stringify(ids), Object.keys(hours).length ? JSON.stringify(hours) : null, q.Name, n);
+});
+// unlocks: a quest whose QuestDependencyFlag is one of this quest's step flags opens once this one reaches that step.
+const SET_BY = new Map(steps.filter((s) => s.next_flag).map((s) => [s.next_flag, s.quest_id])), UNLOCKS = new Map();
+for (const q of QL) { const by = q.QuestDependencyFlag && SET_BY.get(q.QuestDependencyFlag); if (by) (UNLOCKS.get(by) || UNLOCKS.set(by, []).get(by)).push(q.Name); }
+const unlUpd = db.prepare('UPDATE quests SET unlocks = ? WHERE id = ?');
+for (const [id, l] of UNLOCKS) unlUpd.run(JSON.stringify(l), id);
+
+// ---- the DLC (BOTW-ENGINE 4c): dlc = 1 on every row the add-ons brought ----
+// Both packs' actors and text ship in the update; the DLC title (0005000c) holds only maps, so "DLC" is: not in the
+// base game's own v1.0 ActorInfo / text, minus the free updates' gear (found in chests that are not DLC: the Xenoblade 2
+// tie-in's Salvager set, the Nintendo Switch Shirt). The Champions' Ballad (pack 2) is story: its quests go to level 2.
+const BASE_ACTORS = new Set(byml(yaz0(readFileSync(BASE + 'Actor/ActorInfo.product.sbyml'))).Actors.map((a) => a.name));
+const FREE = new Set(chests.filter((c) => !c.dlc && c.item && !BASE_ACTORS.has(c.item)).map((c) => c.item));
+const isDlc = (id) => !!id && !BASE_ACTORS.has(id) && !FREE.has(id);
+const BASE_TEXT = new Set();
+for (const [, v] of sarc(yaz0(pack(BASE + 'Pack/Bootup_USen.pack').get('Message/Msg_USen.product.ssarc')))) for (const k of Object.keys(msbt(v))) BASE_TEXT.add(k);
+const tagDlc = (table, col, test) => { const st = db.prepare(`UPDATE ${table} SET dlc = 1 WHERE ${col} = ?`);
+  for (const r of db.prepare(`SELECT DISTINCT ${col} v FROM ${table}`).all()) if (test(r.v)) st.run(r.v); };
+tagDlc('items', 'id', isDlc); tagDlc('enemies', 'id', isDlc); tagDlc('compendium', 'actor', isDlc);
+tagDlc('armor_upgrades', 'level_id', isDlc); tagDlc('places', 'msg_id', (m) => !BASE_TEXT.has(m));
+db.exec('UPDATE armor_upgrades SET dlc = 1 WHERE piece IN (SELECT piece FROM armor_upgrades WHERE dlc = 1)');
+for (const q of QL.filter((q) => q.AocVersion === 2)) db.prepare('UPDATE quests SET spoiler_level = max(spoiler_level, 2) WHERE id = ?').run(q.Name);
+
+// dlc_things: one list of what each pack adds, each with the flag that says he has done it. pack = 1 The Master
+// Trials, 2 The Champions' Ballad (EX chests: null, the files do not say which pack's EX quest a chest belongs to).
+const lastStep = (q) => q.Steps.map((s) => s.NextFlag).filter((f) => FLAGS.get(f)).at(-1) || null, // the last step the save keeps
+   itemByName = (n) => db.prepare('SELECT id FROM items WHERE name = ? AND dlc = 1').get(n)?.id;
+const DLC_ROWS = [];
+const dlcRow = (id, pack, kind, name, ref, done, level = 1) => { need(!done || FLAGS.has(done), `DLC flag ${done}`);
+  DLC_ROWS.push({ id, pack, kind, name, ref, done_flag: done, spoiler_kind: kind === 'EX chest' ? 'location' : 'story', spoiler_level: level }); };
+for (const q of QL.filter((q) => q.AocVersion)) dlcRow(q.Name, q.AocVersion, 'quest', tidy(qtext(q.Name, 'Name')), `quests:${q.Name}`, lastStep(q), q.AocVersion === 2 ? 2 : 1);
+for (const [lvl, k] of [['Junior', 'Beginning'], ['Middle', 'Middle'], ['Senior', 'Final']]) dlcRow(`TrialOfTheSword_${k}`, 1, 'trial', `Trial of the Sword: ${k} Trials`, 'quests:100enemy', `100enemy_Clear_${lvl}`);
+dlcRow('MasterMode', 1, 'mode', 'Master Mode', null, 'AoC_HardMode_Enabled', 0);
+for (const s of db.prepare('SELECT id, name FROM shrines WHERE dlc = 1 ORDER BY num').all()) dlcRow(s.id, 2, 'shrine', s.name, `shrines:${s.id}`, 'Clear_' + s.id, 1);
+dlcRow('FinalTrial', 2, 'trial', 'Final Trial (map unit MainFieldDungeon/FinalTrial)', 'chests:unit=FinalTrial', 'Clear_FinalTrial', 2);
+dlcRow('Priest_Boss_Normal', 2, 'boss', nameOf('Priest_Boss_Normal'), 'enemies:Priest_Boss_Normal', FLAGS.has('Defeated_Priest_Boss_Normal_Num') ? 'Defeated_Priest_Boss_Normal_Num' : null, 2);
+for (const [n, pk] of [['Travel Medallion', 1], ['Korok Mask', 1], ['One-Hit Obliterator', 2], ['Master Cycle Zero', 2], ['Picture of the Champions', 2]]) {
+  const id = itemByName(n); need(id, `DLC item ${n}`);
+  if (id) dlcRow(id, pk, 'item', n, `items:${id}`, FLAGS.has('IsGet_' + id) ? 'IsGet_' + id : null, pk === 2 ? 2 : 1);
+}
+for (const c of chests.filter((c) => /NoReaction_Aoc/.test(c.actor))) dlcRow(`chest_${c.hash_id}`, null, 'EX chest', c.item_name, `chests:${c.hash_id}`, c.flag, 1);
+insert('dlc_things', DLC_ROWS);
+
 // names: one lookup for "what is X called" across actors, places, shrines and quests.
 const names = [];
 for (const [id, t] of Object.entries(TXT)) if (t.Name) names.push({ id, name: t.Name, source: 'actor', spoiler_kind: 'item', spoiler_level: 0 });
@@ -519,7 +581,7 @@ db.close();
 rmSync(DB, { force: true }); renameSync(TMP, DB);
 
 const check = new DatabaseSync(DB, { readOnly: true });
-for (const t of ['shrines', 'towers', 'koroks', 'places', 'quests', 'quest_steps', 'items', 'armor_upgrades', 'recipes', 'cook_items', 'cook_effects', 'shops', 'compendium', 'enemies', 'chests', 'people', 'great_fairies', 'goddess_statues', 'camps', 'memories', 'bosses', 'stables', 'horses', 'names'])
+for (const t of ['shrines', 'towers', 'koroks', 'places', 'quests', 'quest_steps', 'items', 'armor_upgrades', 'recipes', 'cook_items', 'cook_effects', 'shops', 'compendium', 'enemies', 'chests', 'people', 'great_fairies', 'goddess_statues', 'camps', 'memories', 'bosses', 'stables', 'horses', 'dlc_things', 'names'])
   console.log(t.padEnd(15), check.prepare(`SELECT count(*) n FROM ${t}`).get().n);
 check.close();
 console.log(missing.length ? `missing (${missing.length}):\n  ${missing.slice(0, 30).join('\n  ')}` : 'nothing missing');

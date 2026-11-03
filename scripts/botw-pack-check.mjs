@@ -148,6 +148,20 @@ if (radar) for (const [m, hs] of Object.entries(radar)) {
   console.log(`     radar ${m}: ours ${ours.size}, radar ${theirs.size}, same ${ours.size - onlyOurs.length}${onlyOurs.length ? `, only ours ${onlyOurs.length}` : ''}${onlyTheirs.length ? `, only radar ${onlyTheirs.length}` : ''}`);
 }
 
+// ---- the DLC (BOTW-ENGINE 4c) and quests as goals (4b) ----
+console.log('\n== DLC and quest steps');
+for (const t of ['items', 'enemies', 'compendium', 'armor_upgrades', 'places', 'chests', 'people', 'quests', 'shrines']) console.log(`     ${t}: ${one(`SELECT sum(dlc) n FROM ${t}`).n} DLC rows`);
+ok(one("SELECT count(*) n FROM items WHERE dlc = 1 AND name IN ('Travel Medallion', 'Korok Mask', 'Master Cycle Zero', 'One-Hit Obliterator')").n === 4, 'DLC key items tagged (Travel Medallion, Korok Mask, Master Cycle Zero, One-Hit Obliterator)');
+ok(one("SELECT count(*) n FROM items WHERE dlc = 1 AND name LIKE 'Salvager%'").n === 0, 'free-update gear (the Xenoblade 2 Salvager set) is not DLC');
+// AoC_HardMode_Enabled is written only into a Master Mode save; every other DLC mark is in his normal-mode save
+// MiniGame100enemy (the Trial of the Sword's run itself) saves none of its steps: no done flag, tracked by the 3 trials
+const dl = all("SELECT id, done_flag f FROM dlc_things WHERE id != 'MasterMode' AND done_flag IS NOT NULL"), dlMiss = dl.filter((r) => !has(r.f));
+console.log(`     dlc_things without a done flag: ${all('SELECT id FROM dlc_things WHERE done_flag IS NULL').map((r) => r.id).join(', ') || 'none'}`);
+ok(!dlMiss.length, `dlc_things: ${dl.length - dlMiss.length}/${dl.length} done flags in his save${dlMiss.length ? ` (missing ${dlMiss.slice(0, 3).map((r) => r.f)})` : ''} · he has done ${dl.filter((r) => val(r.f)).length}`);
+ok(!has('AoC_HardMode_Enabled'), 'his newest save is normal mode (no Master Mode mark)');
+const st = one("SELECT count(*) n, sum(people IS NOT NULL) p, sum(hours IS NOT NULL) h, sum(hours LIKE '%\"step\"%') own FROM quest_steps");
+console.log(`     quest steps: ${st.p}/${st.n} name their people, ${st.h} with hours (${st.own} from the step's own timeline); ${one('SELECT count(*) n FROM quests WHERE unlocks IS NOT NULL').n} quests unlock another; rewards: not in the quest files (event flows)`);
+
 // ---- E2: tracking, every slot (copies) ----
 console.log('\n== E2 tracking: chests opened and people met, every slot (read from copies)');
 const readCopy = (f) => { const c = path.join(tmpdir(), `botw-check-${process.pid}-${path.basename(path.dirname(f))}.sav`); copyFileSync(f, c); const b = readFileSync(c); rmSync(c);

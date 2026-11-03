@@ -62,7 +62,14 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   ],                                       // n = count; for weapons, bows and shields it is durability x100
   "heroPath": { "points": [[1610, 475]] }, // Hero's Path, every overworld point in order, rounded; null if none
   "chests": { "opened": [91802921] },     // E2: botw.db chests.hash_id of every chest he has opened
-  "people": { "met": ["Npc_Kakariko001"] } // E2: botw.db people.id of everyone the game has introduced
+  "people": { "met": ["Npc_Kakariko001"] }, // E2: botw.db people.id of everyone the game has introduced
+  "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
+    "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save
+    "trialOfTheSword": { "beginning": false, "middle": false, "final": false },  // 100enemy_Clear_Junior/Middle/Senior
+    "ballad": { "champions": ["Rito"], "done": false },  // BalladOfHero<Rito|Goron|Zora|Gerudo>_Finish, BalladOfHeroes_Finish
+    "finalTrial": false,                   // Clear_FinalTrial
+    "mazKoshia": false                     // Defeated_Priest_Boss_Normal_Num > 0
+  }
 }
 ```
 
@@ -76,6 +83,10 @@ Notes for readers:
   own first-talk flag (`people.met_flag`, `met_by`). 105 of 503 have no met flag (96 of them never get a name: guards,
   crowds, shrine monks) and are never in the list. Both lists are empty with a botw.db older than pack 3, and a `state.json` written before E2 lacks
   them: readers treat a missing field as unknown, not as none.
+- `dlc` (E2): his 6 slots have every mark at 0 (he has not started either pack). `masterMode` is true only when the
+  save itself carries AoC_HardMode_Enabled; his normal saves do not hold that flag at all. Not yet seen on a real Master
+  Mode save (he has none, and where Cemu keeps one is unchecked): a reader must keep a `masterMode` state apart from
+  his normal progress. option.sav's IsLastPlayHardMode says which mode he played last (0 today), not read by Aang yet.
 - Region (tower area) is not in the state yet: BG1 has no tower polygons. Work it out from `pos` when they exist.
 - Spoilers: the state holds only what his save already shows. Names of things he has not found stay in botw.db,
   under its spoiler levels.
