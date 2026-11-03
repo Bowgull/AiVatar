@@ -1180,6 +1180,11 @@
       "at": "2026-11-03T06:11:32-05:00",
       "text": "Typing aang:hyrule (or another of Samara's own pages) in the address bar opens it, instead of searching the web for it.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-03T06:20:45-05:00",
+      "text": "The Hyrule key works like Mockups: the map is never a tab in your list. The key opens it, and the key again (or any of your tabs) takes you back where you were.",
+      "kind": "fix"
     }
   ]
 }
