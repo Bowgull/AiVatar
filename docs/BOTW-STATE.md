@@ -12,6 +12,7 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
 - `sessions.json`: what each play session changed, newest last.
 - `base.json` (internal, not for readers): `state.json` as it was when the open session began, so the session's diff
   survives a restart.
+- `pos.json` (BG8): where Link is right now, while Cemu runs. See "pos.json" below.
 
 ## When they change
 
@@ -188,6 +189,29 @@ every source (shops with their hours, chests he has not opened, enemies, shrines
 `.plan(tree)` orders the stops from where he saved with warps and opening hours, and gives `routeGoals` in the route
 engine's own shape for the map; `.say(plan)` is the plan in his words (unfound shrines unnamed unless "just tell me").
 Aang's tool: `botw_plan`. Rewards are not planned yet (they live in event flows, `quests.reward` is empty).
+
+## pos.json (`v: 1`, BG8 live position)
+
+```jsonc
+{ "v": 1, "at": "2026-11-03T15:00:01.000Z", "x": 1612.4, "y": 116.5, "z": 475.1, "facing": 90, "live": true }
+```
+
+- x / y / z: Link's position now, the same world units as `state.json` `pos` (y = height). `facing`: degrees from his
+  movement, 0 = north (-z), 90 = east (+x), clockwise; `-1` until he has moved; kept while he stands still.
+- Written when he moves, and every 5 s while he stands still, so an `at` older than ~10 s with `live: true` means the
+  reader is stuck (a loading screen briefly, or a fault): treat it as not live.
+- `live: false` once Cemu closes (the last position stays). No file at all: never read this launch, or the address
+  failed (below). Readers must handle all three.
+- Who writes it: the brain (`botwlive.ts`) starts `AangReader --botw-pos` (`src/Reader/BotwPos.cs`) within 20 s of
+  Cemu opening, and nothing runs while Cemu is closed. The reader takes this launch's guest memory base from Cemu's
+  `portable\log.txt` (`Init Wii U memory space (base: 0x…)`, opened read-only, shared) and reads three big-endian floats
+  at base + `0x1055300C` once a second with ReadProcessMemory (`PROCESS_VM_READ`). Read-only: no injection, no writes,
+  no debugger port, no keys. It leaves when Cemu closes or the brain that started it is gone.
+- **Fails safe.** The address was verified on the JP v208 copy only; his is US v208. If nothing believable (xnavi's
+  bounds: real floats, |x|,|z| < 7000, -600 < y < 5000, not all zero) comes back in the first 2 minutes, the reader
+  removes `pos.json`, logs "the position address gave nothing believable" in the brain's log and is not started again
+  until Cemu restarts. **To check (QA, his first play session):** `pos.json` appears, and x/z sit on his spot (stand at
+  a shrine whose `x`/`z` are in botw.db). Inside shrines the numbers become small local ones (|x|,|z| < ~300).
 
 ## Using it from code
 

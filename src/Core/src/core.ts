@@ -17,6 +17,7 @@ import { afterPlayNote, botwNoteSettings, briefZeldaNotes, rememberPin, remember
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
 import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
 import { botwLane } from './botw.ts';
+import { BotwLive, LIVE_EVERY_MS } from './botwlive.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync, watchFile } from 'node:fs';
@@ -91,7 +92,7 @@ import { Reminders } from './reminders.ts';
 import { describeJobs, Scheduler } from './scheduler.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
-import { clearReadCache, looksVisual, readWindow } from './screen.ts';
+import { clearReadCache, looksVisual, readWindow, READER } from './screen.ts';
 import { CLAUDE_WINDOW, asksSomething, frameJob, isFrom, lastAssistantText, newsFor, nextState, openClaudeLink, openInClaude } from './claude.ts';
 import { StartBook } from './jobstart.ts';
 import { JobStarter } from './jobstarter.ts';
@@ -3157,6 +3158,8 @@ export class Core {
     // BG2: his Breath of the Wild save (botwwatch.ts). Not quiet: it must see Cemu close. While he plays it only looks
     // at the slots' times; it reads when the session ends. PC only (the saves are on the Shadow).
     if (process.platform === 'win32') this.sched.every('botw.watch', 60_000, () => this.botw.tick(), { first: 30_000 });
+    // BG8: Link's live position while Cemu runs (botwlive.ts starts AangReader --botw-pos; nothing while Cemu is closed).
+    if (process.platform === 'win32') this.sched.every('botw.live', LIVE_EVERY_MS, () => this.botwLive.tick(), { first: 15_000 });
     // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look). Waits out a game or call.
     let feedFirst = true;
     this.sched.every('feeds', 20 * 60_000, () => this.checkFeeds(feedFirst ? (feedFirst = false, true) : ++this.feedTick % 6 === 0), { first: 2 * 60_000, quiet: true });
@@ -3194,6 +3197,7 @@ export class Core {
   }
 
   async stop(): Promise<void> {
+    this.botwLiveStore?.stop();
     this.macPresence?.stop();
     this.shadowLink?.stop();
     // A stale password must not outlive the Core that issued it.
@@ -5046,6 +5050,10 @@ export class Core {
     this.sendTo('desktop', msg);
   }
   /** BG2 + BG6 (docs/BOTW-GUIDE.md): the BotW save watcher, its one "today" line, and "Where was I?". */
+  private botwLiveStore: BotwLive | null = null;
+  private get botwLive(): BotwLive {
+    return this.botwLiveStore ??= new BotwLive(botwPaths(), { reader: READER, cemuRunning, log: line => console.error(line) });
+  }
   private botwStore: BotwWatch | null = null;
   private get botw(): BotwWatch {
     return this.botwStore ??= new BotwWatch(botwPaths(), {

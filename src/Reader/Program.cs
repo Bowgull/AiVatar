@@ -27,6 +27,7 @@ static class Program
     static int Main(string[] args)
     {
         if (Array.IndexOf(args, "--act") >= 0) return Act.Run(args);     // acting in an app: see Act.cs
+        if (Array.IndexOf(args, "--botw-pos") >= 0) return BotwPos.Run(args);  // BG8: Link's live position, see BotwPos.cs
         if (Array.IndexOf(args, "--selection") >= 0) return Selection();  // 6.17 Highlight: what he has selected
         Clock.Restart();
         long hwnd = Arg(args, "--hwnd", 0);
