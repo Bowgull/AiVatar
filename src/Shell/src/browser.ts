@@ -2657,7 +2657,7 @@ export class AangBrowser {
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
   private wake(tab: Tab): void {
-    if (tab.internal === 'hyrule') { void this.wakeHyrule(tab); return; }
+    if (tab.internal === 'hyrule') { this.wakeHyrule(tab); return; }
     if (tab.internal) { this.wakeSettings(tab); return; }
     // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
@@ -2947,25 +2947,24 @@ export class AangBrowser {
    * gone, back as they were on F, Esc or the button.
    */
   private hyrulePages: Promise<PageServer> | null = null;
-  private async wakeHyrule(tab: Tab): Promise<void> {
+  // The page is made at once, like every tab's (the window lays the tab out as soon as it is picked: a page that came
+  // later left it null and threw, 2026-11-03, his "it doesn't work"); it loads the map once its server is up.
+  private wakeHyrule(tab: Tab): void {
     const dir = this.o.hyruleDir;
     if (!dir) return;
     this.hyrulePages ??= servePages(dir, '/index.html');
-    let pages: PageServer;
-    try { pages = await this.hyrulePages; } catch (e) { this.hyrulePages = null; console.error('hyrule: the map could not be served: ' + (e as Error).message); return; }
-    if (tab.view || !this.tabs.includes(tab)) return;
     const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES } });
     const wc = view.webContents;
-    lockDown(wc, { sameOrigin: pages.origin });
     view.setBackgroundColor('#06121c');
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
     view.setVisible(false);
     this.inTab(tab);
     this.win?.contentView.addChildView(view);
     this.raiseTray();
-    tab.view = view; tab.crashed = false; tab.loading = false; tab.title = 'Hyrule';
+    tab.view = view; tab.crashed = false; tab.loading = true; tab.title = 'Hyrule';
     wc.on('before-input-event', (e, input) => { this.inTab(tab); if (this.key(input)) e.preventDefault(); });
     wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
+    wc.on('did-finish-load', () => { tab.loading = false; this.sendTabs(); });
     wc.on('enter-html-full-screen', () => {
       const w = this.win;
       if (!w || w.isDestroyed()) return;
@@ -2981,9 +2980,11 @@ export class AangBrowser {
       if (this.win && !this.win.isDestroyed() && this.win.isFullScreen()) this.win.setFullScreen(false);
       this.place();
     });
-    void wc.loadURL(`${pages.origin}/index.html`).catch(() => {});
-    this.place();
-    this.sendTabs();
+    this.hyrulePages.then((pages) => {
+      if (wc.isDestroyed()) return;
+      lockDown(wc, { sameOrigin: pages.origin });
+      void wc.loadURL(`${pages.origin}/index.html`).catch(() => {});
+    }, (e: Error) => { this.hyrulePages = null; console.error('hyrule: the map could not be served: ' + e.message); });
   }
   /**
    * The Hyrule key (his rule, 2026-11-03: "this was behaviour I cut out with the mockups"): like Mockups, never a tab in
