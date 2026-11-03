@@ -139,3 +139,27 @@ test('making a release ready never freezes the brain (node_modules copied off th
   assert.ok(ticks > 5, `the loop kept ticking during the copy (${ticks} beats)`);
   assert.ok(worst < 400, `the longest the loop stood still: ${worst} ms`);
 });
+
+test('a version made ready survives the running one turning good, and still goes in at the next start', async () => {
+  // 2026-11-03: 1.45.0 was ready (next.txt) at 10:41; at 10:46 "1.42.0 is good" deleted its folder and its name went too.
+  const r = root(); install(r, '1.42.0'); install(r, '1.40.0'); install(r, '1.45.0'); install(r, '1.30.0');
+  mkdirSync(path.join(r, 'versions', '1.46.0.part'), { recursive: true });                  // one being made ready right now
+  point(r, { version: '1.42.0', status: 'trial', previous: { version: '1.40.0' }, starts: [], said: true });
+  writeFileSync(path.join(r, 'next.txt'), '1.45.0\n');
+  assert.ok(await markGood(r, '1.42.0'));
+  for (const v of ['1.42.0', '1.40.0', '1.45.0', '1.46.0.part']) assert.ok(existsSync(path.join(r, 'versions', v)), `${v} kept`);
+  assert.ok(!existsSync(path.join(r, 'versions', '1.30.0')), 'an old one still goes');
+  assert.equal(readFileSync(path.join(r, 'next.txt'), 'utf8').trim(), '1.45.0', 'still named');
+  assert.equal(pick(r)?.version, '1.45.0', 'the next start takes it');
+  assert.ok(!existsSync(path.join(r, 'next.txt')), 'and only then is next.txt cleared');
+});
+
+test('next.txt naming a version that is not whole yet is kept, not dropped', () => {
+  const r = root(); install(r, '1.42.0'); point(r, { version: '1.42.0', status: 'good', previous: null, starts: [], said: true });
+  writeFileSync(path.join(r, 'next.txt'), '1.45.0\n');
+  assert.equal(pick(r)?.version, '1.42.0');
+  assert.ok(existsSync(path.join(r, 'next.txt')), 'kept for when it is whole');
+  writeFileSync(path.join(r, 'next.txt'), '1.41.0\n');
+  pick(r);
+  assert.ok(!existsSync(path.join(r, 'next.txt')), 'an older one is dropped');
+});
