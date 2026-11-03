@@ -179,7 +179,7 @@ export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promi
         const c = checkAsk(ask);
         if (!c.ok) { json(200, c); return; }
         busy = busy.then(() => open(c.drop).then((v) => json(200, v && typeof v === 'object'
-          ? { ok: true, message: `Showing ${c.name} in Samara's Mockups trail${c.drop.branch ? ` (branch ${c.drop.branch})` : ''}.` }
+          ? { ok: true, message: `Showing ${c.name} in Samara's Mockups trail${c.drop.branch ? ` (branch ${c.drop.branch})` : ''}.${v.src ? ` It joined the sheet ${v.sheet.slice(0, 200)} as its version ${v.v} (same project, number and file name); if that is wrong, give it its own number.` : ''}` }
           : { ok: false, message: refused(c.name, typeof v === 'string' ? v : '', !!c.drop.url) }),
         () => json(500, { ok: false, message: 'Samara could not open it.' })));
         return;
