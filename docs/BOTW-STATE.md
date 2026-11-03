@@ -60,13 +60,22 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   "gear": [                                // his bag, in the game's order
     { "id": "Weapon_Sword_029", "name": "Soldier's Claymore", "kind": "two-handed", "n": 2800, "equipped": true }
   ],                                       // n = count; for weapons, bows and shields it is durability x100
-  "heroPath": { "points": [[1610, 475]] }  // Hero's Path, every overworld point in order, rounded; null if none
+  "heroPath": { "points": [[1610, 475]] }, // Hero's Path, every overworld point in order, rounded; null if none
+  "chests": { "opened": [91802921] },     // E2: botw.db chests.hash_id of every chest he has opened
+  "people": { "met": ["Npc_Kakariko001"] } // E2: botw.db people.id of everyone the game has introduced
 }
 ```
 
 Notes for readers:
 - Quest steps the game never saves (85 of 627, `quest_steps.saved = 0`) are skipped when working out `step`.
 - `gear[].name` and `kind` come from botw.db; an item the pack does not know keeps its id as its name and kind `""`.
+- `chests` and `people` (E2, 2026-11-03) were added within `v: 1`. A chest's save flag is `<map>_<actor>_<hash>`
+  (`MainField_TBox_Field_Iron_2415552866`, `CDungeon_TBox_Dungeon_Stone_…` for shrines), set once he opens it and never
+  cleared; botw.db `chests.flag` names it (1,608 of 1,611 chests: the 3 Gamble minigame chests have none). A person is
+  met when `<actor>_DispNameFlag` is set (the game shows their name from then on) or, for 8 people without one, their
+  own first-talk flag (`people.met_flag`, `met_by`). 105 of 503 have no met flag (96 of them never get a name: guards,
+  crowds, shrine monks) and are never in the list. Both lists are empty with a botw.db older than pack 3, and a `state.json` written before E2 lacks
+  them: readers treat a missing field as unknown, not as none.
 - Region (tower area) is not in the state yet: BG1 has no tower polygons. Work it out from `pos` when they exist.
 - Spoilers: the state holds only what his save already shows. Names of things he has not found stay in botw.db,
   under its spoiler levels.
@@ -92,7 +101,9 @@ Notes for readers:
         "koroks": [123456789],             // hash_ids
         "divineBeasts": [], "questsDone": ["FindDungeon"], "questsStarted": [],
         "places": ["Location_Kakariko"], "dishes": ["Item_Cook_G_12"],
-        "hearts": 1, "stamina": 0.2        // gained
+        "hearts": 1, "stamina": 0.2,       // gained
+        "chests": [91802921], "people": ["Npc_Road_024"]   // E2: opened / met this session ([] when the
+                                           // state it is measured from was written before E2)
       }
     }
   ]
