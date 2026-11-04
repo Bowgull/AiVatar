@@ -7,8 +7,13 @@
 // It serves Aang's own files and nothing else. No directory listing, no path that can climb out of the
 // folder, no method but GET, and it binds to 127.0.0.1 so nothing outside this machine can reach it.
 // It is not a general web server and must never become one.
-import { createServer, type Server } from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+//
+// BG10 (2026-11-04): one push channel, GET /live/events (Server-Sent Events). The Hyrule pages read his game through
+// the live/ junction; instead of polling it once a minute they open this stream once, and when one of the live files is
+// rewritten they hear its name (`event: change`, `data: {"file":"state"}`) and fetch that one file. One fs.watch on the
+// folder, only while a page is listening; nothing runs with no page open.
+import { createServer, type Server, type ServerResponse } from 'node:http';
+import { createReadStream, existsSync, statSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
 const TYPES: Record<string, string> = {
@@ -26,6 +31,19 @@ const TYPES: Record<string, string> = {
   '.mjs': 'text/javascript; charset=utf-8',
 };
 
+export interface PageServerOpts {
+  /** BG10: the folder whose files' changes are pushed on GET /live/events (the live/ junction = %LOCALAPPDATA%\Aang\botw). */
+  live?: string;
+}
+/** The live files pages may be told about, by base name (state.json -> "state"). A temp file beside them never matches. */
+export const LIVE_FILES = new Set(['state', 'cook', 'pos', 'sessions', 'notes', 'live']);
+/** A few writes land together (state.json then cook.json): one short wait, then every name at once. */
+export const LIVE_DEBOUNCE_MS = 150;
+/** A comment line this often keeps the socket alive through anything between (nothing, here: it is all one machine). */
+export const KEEP_ALIVE_MS = 25_000;
+/** A handful of pages at most: the map, the Journal, the character window and a spare or two. */
+export const MAX_LIVE_CLIENTS = 6;
+
 export interface PageServer {
   /** Where the pages are, e.g. http://127.0.0.1:51234 */
   origin: string;
@@ -35,10 +53,58 @@ export interface PageServer {
 }
 
 /** Serve `dir` on a port the operating system picks, on this machine only. `home` is the page for '/'. */
-export function servePages(dir: string, home = '/popout.html'): Promise<PageServer> {
+export function servePages(dir: string, home = '/popout.html', o: PageServerOpts = {}): Promise<PageServer> {
   const root = path.resolve(dir);
 
   let origin = '';
+
+  // ---- BG10: the live event stream. The watcher and the keep-alive live only while someone listens.
+  const clients = new Set<ServerResponse>();
+  let watcher: FSWatcher | null = null;
+  let keepAlive: ReturnType<typeof setInterval> | null = null;
+  let flush: ReturnType<typeof setTimeout> | null = null;
+  const pending = new Set<string>();
+  const send = (text: string) => { for (const c of clients) { try { c.write(text); } catch { /* gone: its close handler drops it */ } } };
+  const changed = (name: string) => {
+    const base = name.replace(/\.json$/i, '');
+    if (base === name || !LIVE_FILES.has(base)) return;
+    pending.add(base);
+    flush ??= setTimeout(() => {
+      flush = null;
+      const names = [...pending]; pending.clear();
+      for (const n of names) send(`event: change\ndata: ${JSON.stringify({ file: n })}\n\n`);
+    }, LIVE_DEBOUNCE_MS);
+  };
+  const startLive = () => {
+    if (!watcher && o.live && existsSync(o.live)) {
+      try {
+        const w = watch(o.live, { persistent: false }, (_ev, name) => { if (name) changed(String(name)); });
+        w.on('error', () => { w.close(); if (watcher === w) watcher = null; });
+        watcher = w;
+      } catch { watcher = null; }
+    }
+    keepAlive ??= setInterval(() => send(': keep-alive\n\n'), KEEP_ALIVE_MS);
+    keepAlive.unref?.();
+  };
+  const stopLive = () => {
+    watcher?.close(); watcher = null;
+    if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+    if (flush) { clearTimeout(flush); flush = null; }
+    pending.clear();
+  };
+  const liveEvents = (res: ServerResponse) => {
+    if (clients.size >= MAX_LIVE_CLIENTS) { res.writeHead(503, { 'Retry-After': '30' }).end(); return; }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Connection': 'keep-alive',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.write('retry: 3000\n\n');
+    clients.add(res);
+    startLive();
+    res.on('close', () => { clients.delete(res); if (!clients.size) stopLive(); });
+  };
   const server: Server = createServer((req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
 
@@ -56,6 +122,7 @@ export function servePages(dir: string, home = '/popout.html'): Promise<PageServ
     }
 
     const name = decodeURIComponent((req.url ?? '/').split('?')[0]!);
+    if (name === '/live/events') { if (req.method === 'HEAD') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }).end(); return; } liveEvents(res); return; }
     const file = path.resolve(root, '.' + (name === '/' ? home : name));
     // The one rule that matters: whatever the address says, the file has to be inside the folder.
     if (file !== root && !file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
@@ -80,7 +147,7 @@ export function servePages(dir: string, home = '/popout.html'): Promise<PageServ
       resolve({
         origin,
         host: '127.0.0.1',
-        close: () => server.close(),
+        close: () => { for (const c of clients) c.end(); clients.clear(); stopLive(); server.close(); server.closeAllConnections?.(); },
       });
     });
   });

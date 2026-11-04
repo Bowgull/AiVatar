@@ -21,9 +21,11 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
 
 ## When they change
 
-- Aang never opens a Cemu file. Once a minute it only looks at the six slots' times
-  (`C:\Games\Cemu\portable\mlc01\usr\save\00050000\101c9400\user\80000001\{0-5}\game_data.sav`). A newer one opens a
-  session.
+- Aang never opens a Cemu file. Since 2026-11-04 (BG10) it watches the six slot folders
+  (`C:\Games\Cemu\portable\mlc01\usr\save\00050000\101c9400\user\80000001\{0-5}`, one `fs.watch` each plus one on
+  their parent, asleep until the OS wakes them) and reads a save 2 s after its folder has gone quiet, so a half-written
+  autosave is never read. The slots' times are only stat-ed every 5 minutes, as a fallback for a dead watcher (which the
+  same look puts back), and once a minute while a session is open, to see Cemu close. A newer save opens a session.
 - Every new save (autosave or his own) is read straight away, also while he plays (his call 2026-11-04, so the
   Journal's bag keeps up): the newest slot is copied to a temp file, the copy is read and deleted, and `state.json` and
   `cook.json` are rewritten. Nothing is said, and the session still measures from `base.json`.
@@ -35,6 +37,27 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   session that ended over 3 hours ago (Aang was off) is recorded but not announced.
 - "Where was I?" (BG6, on ask only) reads a newer save on the spot if there is one, without closing the session.
 - `v` goes up on any change a reader must know about. Fields are only added, never renamed, within one `v`.
+
+### How a page hears about it (BG10, 2026-11-04)
+
+Samara's page server (the one serving the Hyrule folder) has one push channel, `GET /live/events`: Server-Sent Events
+(`text/event-stream`). It watches this folder (through the `live/` junction) only while a page is listening, and when
+`state.json`, `cook.json`, `pos.json`, `sessions.json`, `notes.json` or `live.json` is rewritten it sends, 150 ms later
+(so a `state` + `cook` pair arrives together), one event per file:
+
+```
+event: change
+data: {"file":"state"}
+```
+
+A comment line every 25 s keeps the socket alive; at most 6 pages at once (a seventh gets 503); the stream tells the
+browser to reconnect after 3 s if it drops. A temp file beside the live ones (`state.json.<pid>.tmp`) is never announced.
+The map (`app/save.js`) and the Journal (`sheet-16/journal.js`) open it with `EventSource('live/events')` while visible,
+fetch the named file on an event, close the stream while hidden (nothing runs then) and reopen it when shown; a slow
+5-minute look remains as a fallback for a dead stream. The map still never reloads mid-play (a newer save seen while
+`pos.json` says live is looked at again once a minute until he stops); the Journal takes a newer save on the same tab
+once he has not touched it for 30 s. `app/live.js` (Link's position, 1 Hz by design) polls as before. So a save shows in
+every open page within about 2–3 s of the game writing it: 2 s settle, one read, one event, one fetch.
 
 ## state.json (`v: 1`)
 

@@ -47,3 +47,33 @@ test('the map is served from its own folder, with its home page and file types, 
     assert.equal((await get(s.origin + '/index.html', { Origin: 'https://example.com' })).status, 403);
   } finally { s.close(); }
 });
+
+// BG10 (2026-11-04): one event stream, GET /live/events, names a live file the moment it is rewritten. Watched only while
+// a page listens; a temp file beside the live ones (atomic.ts's state.json.<pid>.tmp) is never announced.
+test('a rewritten live file reaches the page as one event within a second, and the stream closes cleanly', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'hyrule-live-'));
+  const dir = path.join(root, 'Hyrule'), live = path.join(root, 'botw');
+  mkdirSync(dir); mkdirSync(live);
+  writeFileSync(path.join(dir, 'index.html'), '<!doctype html>');
+  const s = await servePages(dir, '/index.html', { live });
+  try {
+    const events: string[] = [];
+    const req = http.get(s.origin + '/live/events', { agent: false });
+    const res = await new Promise<http.IncomingMessage>((done, fail) => { req.on('response', done); req.on('error', fail); });
+    assert.equal(res.statusCode, 200);
+    assert.match(String(res.headers['content-type']), /^text\/event-stream/);
+    res.setEncoding('utf8'); res.on('data', (c: string) => events.push(c));
+    await new Promise((r) => setTimeout(r, 200));           // the watcher is up once the stream is open
+    writeFileSync(path.join(live, 'state.json.123.tmp'), '{}');   // never announced
+    writeFileSync(path.join(live, 'state.json'), '{"v":1}');
+    writeFileSync(path.join(live, 'cook.json'), '{"v":1}');
+    const t0 = Date.now();
+    while (Date.now() - t0 < 1500 && !events.join('').includes('"cook"')) await new Promise((r) => setTimeout(r, 25));
+    const all = events.join('');
+    assert.match(all, /^retry: 3000\n\n/);
+    assert.match(all, /event: change\ndata: \{"file":"state"\}\n\n/);
+    assert.match(all, /event: change\ndata: \{"file":"cook"\}\n\n/);
+    assert.doesNotMatch(all, /tmp/);
+    req.destroy();
+  } finally { s.close(); }
+});
