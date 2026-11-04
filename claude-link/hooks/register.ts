@@ -497,8 +497,8 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
 }
 
 /**
- * mockup_mark (sheet 79, 2026-10-23): on his Mac, Samara's own signed door (the same lock as show_mockup's); on the PC,
- * the brain over the signed link (/link/mockupmark), which checks the sheet and hands the mark to Samara.
+ * mockup_mark (sheet 79, 2026-10-23): Samara's own signed door (the same lock as show_mockup's), on the Mac and the PC;
+ * on the PC, while that door is shut, the brain over the signed link (/link/mockupmark), never claiming it is set.
  */
 async function markMockup($: $T, L: Link, input: Record<string, unknown>): Promise<{ result: string; isError?: true }> {
   const a = markArgs(input)
@@ -509,20 +509,26 @@ async function markMockup($: $T, L: Link, input: Record<string, unknown>): Promi
       return `${String(v.sheet)} v${String(v.v)} (commit ${String(v.commit).slice(0, 7)}): ${NAME[String(v.stage)] ?? String(v.stage)}${v.note ? ` · fix: ${String(v.note)}` : ''}${v.said ? ` · his words: "${String(v.said)}"` : ''}` })
     return { result: lines.length ? lines.join('\n') : 'No marks yet: nothing is approved in the Mockups trail.' }
   }
+  // 2026-11-03: Samara's own door first on the PC too, as on the Mac, so the answer is Samara's. The brain only checked
+  // the session's own repo (a sheet kept in ~/projects/mockups could not be marked) and said "Marked" before Samara had
+  // looked; Samara then refused it ("not in the Mockups trail yet") and the approval was lost.
   const home = await macHome($)
-  if (!home) {
-    // On the PC: the brain checks it and hands it to Samara (src/Core/src/mockupdrop.ts markMockup).
+  const roaming = home ? '' : (await within($, $.env.get('APPDATA'), 500)) || ''
+  const keyFile = home ? `${home}/Library/Application Support/Aang/mockup-door.key` : roaming ? `${roaming}\\Aang\\mockup-door.key` : ''
+  const key = keyFile ? (await within($, $.fs.read(keyFile), 500))?.trim() || '' : ''
+  const viaBrain = async (): Promise<{ result: string; isError?: true }> => {
+    // Samara's door is shut: the brain (src/Core/src/mockupdrop.ts markMockup) leaves the mark for Samara.
     if (!L.sessionId) L.sessionId = (await within($, $.session.id(), 1000)) ?? ''
-    if (!L.sessionId || !(await proven($, L))) return { result: 'Aang is not running, so the marks cannot be read. Ask him which version he approved.', isError: true }
+    if (!L.sessionId || !(await proven($, L))) return { result: 'Samara and Aang are not running, so the marks cannot be read. Ask him which version he approved.', isError: true }
     const r = await call($, L, 'POST', '/link/mockupmark', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...(a.list ? { list: true } : a.body) }), 6000)
     let j: { ok?: unknown; message?: unknown; stages?: unknown[] } = {}
     try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
     if (j.ok === true && a.list) return listed(Array.isArray(j.stages) ? j.stages : [])
     const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Aang did not answer, so nothing was marked.'
-    return j.ok === true ? { result: msg } : { result: msg, isError: true }
+    if (j.ok !== true) return { result: msg, isError: true }
+    return { result: 'Aang left the mark for Samara, but Samara did not answer at its own door, so it is NOT confirmed (Samara may be closed, and may still refuse it). Ask him to check the sheet in Mockups.', isError: true }
   }
-  const key = (await within($, $.fs.read(`${home}/Library/Application Support/Aang/mockup-door.key`), 500))?.trim() || ''
-  if (key.length < 32) return { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true }
+  if (key.length < 32) return home ? { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true } : viaBrain()
   const base = 'http://127.0.0.1:47844'
   const signed = async (method: 'GET' | 'POST', pathQ: string, b: string, ms: number) => {
     const ts = String(Date.now())
@@ -534,7 +540,7 @@ async function markMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   const hello = await signed('GET', `/hello?n=${n}`, '', 1000)
   let ok = false
   try { ok = !!hello?.ok && sameMac(String(JSON.parse(hello.text)?.proof ?? ''), await hmacHex(key, 'hello', n)) } catch { ok = false }
-  if (!ok) return { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true }
+  if (!ok) return home ? { result: 'Samara is not running on this Mac, so the marks cannot be read.', isError: true } : viaBrain()
   if (a.list) {
     const r = await signed('GET', '/stages', '', 4000)
     let j: { ok?: unknown; stages?: unknown[]; message?: unknown } = {}
