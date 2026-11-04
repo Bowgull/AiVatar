@@ -13,14 +13,22 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
 - `base.json` (internal, not for readers): `state.json` as it was when the open session began, so the session's diff
   survives a restart.
 - `pos.json` (BG8): where Link is right now, while Cemu runs. See "pos.json" below.
+- `cook.json`: what his bag cooks, rewritten with `state.json` (Core `cookMenu` in botw.ts, the game's cooking rules).
+  `{ v: 1, savedAt, mine, ver }`: `savedAt` matches `state.json` (a reader ignores a cook.json that doesn't);
+  `mine` = the strongest version of each dish x effect, rows `[dish id, name, icon '', effect '', level, seconds,
+  hearts in quarters, ids]`; `ver["name|effect"]` = every smallest way to make it, `[ids, hearts, level, seconds]`.
+  The Journal's On the Menu counts and plans from these.
 
 ## When they change
 
 - Aang never opens a Cemu file. Once a minute it only looks at the six slots' times
   (`C:\Games\Cemu\portable\mlc01\usr\save\00050000\101c9400\user\80000001\{0-5}\game_data.sav`). A newer one opens a
   session.
-- A session ends when Cemu closes, or when the save has sat still for 30 minutes. Then, and only then, the newest slot
-  is copied to a temp file, the copy is read and deleted, and both files are rewritten. Nothing is read while he plays.
+- Every new save (autosave or his own) is read straight away, also while he plays (his call 2026-11-04, so the
+  Journal's bag keeps up): the newest slot is copied to a temp file, the copy is read and deleted, and `state.json` and
+  `cook.json` are rewritten. Nothing is said, and the session still measures from `base.json`.
+- A session ends when Cemu closes, or when the save has sat still for 30 minutes. Then the newest slot is read the same
+  way and `sessions.json` gets the session and its line.
 - When Aang starts and Cemu is not running, a save newer than `state.json` is read the same way.
 - The one "today" line goes to his bubble when the session ends and no game is running (with Cemu still open after
   30 still minutes, the line waits until Cemu closes; if he saves again first, the same session carries on). A

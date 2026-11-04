@@ -290,7 +290,8 @@ const ING = /^(Item_(Fruit|Mushroom|Plant|PlantGet|Meat|FishGet|InsectGet|Materi
 insert('cook_items', AI.filter((a) => ING.test(a.name) && TXT[a.name]?.Name).map((a) => ({
   id: a.name, name: TXT[a.name].Name, tags: JSON.stringify(Object.values(a.tags || {}).map((t) => TAG[t >>> 0]).filter(Boolean)),
   hp: a.cureItemHitPointRecover || 0, effect: a.cureItemEffectType && a.cureItemEffectType !== 'None' ? a.cureItemEffectType : null,
-  potency: a.cureItemEffectLevel || 0, time: Math.round((a.cureItemEffectiveTime || 0) / 30), boost_time: a.cookSpiceBoostEffectiveTime || 0,
+  // an ingredient with no time listed adds 30 s (the game's default of 900 frames): his own dishes prove it (bug 39)
+  potency: a.cureItemEffectLevel || 0, time: Math.round((a.cureItemEffectiveTime ?? 900) / 30), boost_time: a.cookSpiceBoostEffectiveTime || 0,
   boost_hp: a.cookSpiceBoostHitPointRecover || 0, boost_max: a.cookSpiceBoostMaxHeartLevel || 0, boost_stamina: a.cookSpiceBoostStaminaLevel || 0, buy: a.itemBuyingPrice || 0,
 })));
 // Two stamina entries are stored under hashes that are not crc32 of their names: matched by their limits (cookengine.mjs).

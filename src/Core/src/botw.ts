@@ -99,7 +99,7 @@ const WANT: [RegExp, string][] = [
 ];
 interface CookItem { id: string; name: string; tags: string[]; hp: number; effect: string | null; potency: number; time: number; boost_time: number; boost_hp: number; boost_max: number; boost_stamina: number }
 interface Recipe { n: number; dish: string; dish_name: string; single: number; hearts: number | null; groups: { actor?: string; tag?: string }[][] }
-export interface Dish { name: string; ids: string[]; hp: number; effect: string | null; level?: number; time?: number }
+export interface Dish { name: string; dish?: string; ids: string[]; hp: number; effect: string | null; level?: number; time?: number }
 
 class Kitchen {
   readonly items = new Map<string, CookItem>();
@@ -165,7 +165,36 @@ class Kitchen {
     if (E && !ids.some(id => eff(id) === E)) return null;
     const s = this.stats(ids, r);
     if (E && s.effect !== E) return null;
-    return { name: r.dish_name, ids, ...s };
+    return { name: r.dish_name, dish: r.dish, ids, ...s };
+  }
+  /**
+   * The SMALLEST ways his bag makes a dish (name x effect): one ingredient per recipe group, plus one of the effect's
+   * ingredients when no group brought it, each checked with dishOf + stats. The Journal's On the Menu counts cooks
+   * from these (the strongest version alone undercounts: 1 Stamella makes an Energizing skewer as well as 5 do).
+   * Same rules as botw-guide-mockups/tools/cookversions.mjs.
+   */
+  ways(name: string, E: string | null, pool: Record<string, number>, cap = 400): Dish[] {
+    const have = Object.keys(pool).filter(id => pool[id] > 0 && this.items.has(id));
+    const eff = (id: string) => this.items.get(id)?.effect ?? null, ok = (id: string) => eff(id) === null || eff(id) === E;
+    const out: Dish[] = [], seen = new Set<string>();
+    const add = (ids: string[]) => {
+      const k = [...ids].sort().join(','); if (seen.has(k) || out.length >= cap) return; seen.add(k);
+      const r = this.dishOf(ids); if (!r || r.dish_name !== name) return;
+      const s = this.stats(ids, r); if ((s.effect ?? null) !== E) return;
+      out.push({ name, dish: r.dish, ids, ...s });
+    };
+    for (const r of this.recipes) {
+      if (r.dish_name !== name) continue;
+      const opts = r.groups.map(g => have.filter(id => ok(id) && this.meets(g, id)));
+      if (opts.some(o => !o.length)) continue;
+      const pick = (i: number, ids: string[]): void => {
+        if (out.length >= cap) return;
+        if (i === opts.length) { if (!E || ids.some(x => eff(x) === E)) add(ids); else for (const x of have.filter(x => eff(x) === E)) add([...ids, x]); return; }
+        for (const id of opts[i]) if (!ids.includes(id)) pick(i + 1, [...ids, id]);
+      };
+      pick(0, []);
+    }
+    return out;
   }
   /** Every dish he can make from this bag, the best version of each (dish x effect). */
   book(pool: Record<string, number>): Dish[] {
@@ -182,6 +211,26 @@ class Kitchen {
     }
     return [...out.values()];
   }
+}
+
+/**
+ * cook.json, written beside state.json each time it changes: what his bag cooks, for the Journal's On the Menu.
+ * mine = the strongest version of every dish x effect he can make, in the Journal's row shape
+ * [dish id, name, icon ('' = the page picks), effect ('' = none), level, seconds, hearts in quarters, ids];
+ * ver = every smallest way to make each one, as [ids, hearts, level, seconds], keyed "name|effect".
+ */
+export interface CookMenu { v: 1; savedAt: string; mine: [string, string, string, string, number, number, number, string[]][]; ver: Record<string, [string[], number, number, number][]> }
+export function cookMenu(db: DatabaseSync, st: { savedAt: string; gear: { id: string; n: number }[] }): CookMenu {
+  const K = new Kitchen(db), pool: Record<string, number> = {};
+  for (const g of st.gear) if (K.items.has(g.id) && g.n > 0) pool[g.id] = (pool[g.id] || 0) + g.n;
+  const mine: CookMenu['mine'] = [], ver: CookMenu['ver'] = {};
+  for (const d of K.book(pool)) {
+    const key = `${d.name}|${d.effect ?? ''}`;
+    mine.push([d.dish ?? '', d.name, '', d.effect ?? '', d.level ?? 0, d.time ?? 0, d.hp, d.ids]);
+    const w = K.ways(d.name, d.effect, pool);
+    ver[key] = (w.length ? w : [d]).map(x => [x.ids, x.hp, x.level ?? 0, x.time ?? 0]);
+  }
+  return { v: 1, savedAt: st.savedAt, mine, ver };
 }
 
 // ---------------------------------------------------------------- the guide
