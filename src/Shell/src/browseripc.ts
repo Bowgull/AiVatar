@@ -125,6 +125,9 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('hyrule:ask', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleAsk(a); });
   ipcMain.on('hyrule:guide', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleGuide(a); });
   ipcMain.on('hyrule:noteopen', (e, id) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).noteOpen(id); });
+  // the map's save (hy.* keys), mirrored to a file because its page server's port, and so its origin, changes each launch
+  ipcMain.on('hyrule:saveload', (e) => { e.returnValue = (top(e) && b(e)?.isHyrule(e.sender)) ? b(e).hyruleSaveLoad() : {}; });
+  ipcMain.on('hyrule:save', (e, a) => { if (top(e) && b(e)?.isHyrule(e.sender)) b(e).hyruleSave(a); });
   ipcMain.handle('mocklog:get', (e) => (top(e) && b(e)?.isMockLog(e.sender)) ? b(e).mockLogData() : null);
   ipcMain.on('mocklog:seen', (e, sheet) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && typeof sheet === 'string' && sheet.length <= 2000) b(e).mockLogSeen(sheet); });
   ipcMain.on('mocklog:stage', (e, a) => { if ((top(e) && b(e)?.isMockLog(e.sender)) && a && Number.isInteger(a.id) && (a.to === null || ['ok', 'fix', 'park'].includes(a.to))) b(e).mockLogStage(a.id, a.to, typeof a.note === 'string' ? a.note.slice(0, 300) : ''); });

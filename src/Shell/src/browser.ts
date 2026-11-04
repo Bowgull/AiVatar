@@ -22,7 +22,7 @@
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
 import { BrowserWindow, Menu, WebContentsView, app, net, powerMonitor, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile, spawn } from 'node:child_process';
 import { connect as netConnect } from 'node:net';
 import os from 'node:os';
@@ -4865,6 +4865,24 @@ export class AangBrowser {
     if (!r || !w) return;
     clearTimeout(w.t); this.onRouteDone?.({ id: w.id, state: 'planned', ...r });
   }
+  /**
+   * The map's save (2026-11-04, his ask: "remember what I did last"). The map keeps everything in hy.* localStorage keys
+   * (filters, cooking plan, route, Journal tab, map spot), but its page server takes a new port each launch, so the
+   * origin changes and those keys were lost on every Samara restart. The preload mirrors them here and puts them back.
+   * Only hy.* string values, at most 4 MB in all.
+   */
+  private get hyruleSaveFile(): string { return path.join(this.o.stateDir, 'hyrule-save.json'); }
+  hyruleSaveLoad(): Record<string, string> {
+    try { return hyruleSaveClean(JSON.parse(readFileSync(this.hyruleSaveFile, 'utf8'))) ?? {}; } catch { return {}; }
+  }
+  hyruleSave(raw: unknown): void {
+    if (typeof raw !== 'string' || raw.length > 4_000_000) return;
+    let o: Record<string, string> | null = null;
+    try { o = hyruleSaveClean(JSON.parse(raw)); } catch { return; }
+    if (!o) return;
+    try { const tmp = this.hyruleSaveFile + '.tmp'; writeFileSync(tmp, JSON.stringify(o)); renameSync(tmp, this.hyruleSaveFile); }
+    catch (e) { console.error('hyrule: the map save could not be written: ' + (e as Error).message); }
+  }
 
   claudeNews(m: { t?: unknown; jobs?: unknown; items?: unknown } | null): void {
     if (!m) this.claudeLast = null;
@@ -7137,4 +7155,12 @@ export class AangBrowser {
     if (show && t?.view && !t.lent && !this.drawerOpen) { this.place(); t.view.setVisible(true); }
     this.sendTabs();
   }
+}
+
+/** The Hyrule map's save, checked: only hy.* keys (short names) with string values, else null. */
+export function hyruleSaveClean(o: unknown): Record<string, string> | null {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(o as Record<string, unknown>)) if (/^hy\.[A-Za-z0-9_.-]{1,40}$/.test(k) && typeof v === 'string') out[k] = v;
+  return out;
 }
