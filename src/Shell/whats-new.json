@@ -1,1265 +1,1270 @@
 {
-  "note": "What each update brings, in plain words for Joshua. One line per change that reaches the Mac, newest last, each with a kind: major (a big change: new major version and a new name), feature (bumps the middle number) or fix (the last number). Keep each line short (under 10 words) and plain: no tech words.",
-  "items": [
-    {
-      "at": "2026-10-14T13:10:00-04:00",
-      "text": "Your browser is now called Samara.",
-      "kind": "major"
-    },
-    {
-      "at": "2026-10-14T13:11:00-04:00",
-      "text": "Only one Samara in your Dock.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T13:12:00-04:00",
-      "text": "Updates get ready in the background. No more freezing.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T13:13:00-04:00",
-      "text": "Each update has a number and a name.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T13:14:00-04:00",
-      "text": "The Update button glows when an update is ready.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T13:15:00-04:00",
-      "kind": "feature",
-      "text": "Big updates get a new name."
-    },
-    {
-      "at": "2026-10-14T13:16:00-04:00",
-      "kind": "feature",
-      "text": "Aang can tell you what each update brought."
-    },
-    {
-      "at": "2026-10-14T13:35:03-04:00",
-      "kind": "fix",
-      "text": "Your logins are no longer saved in a sync file."
-    },
-    {
-      "at": "2026-10-14T14:14:57-04:00",
-      "kind": "feature",
-      "text": "A new update window with tick boxes."
-    },
-    {
-      "at": "2026-10-14T14:14:57-04:00",
-      "kind": "feature",
-      "text": "The Update button changes color the longer you wait."
-    },
-    {
-      "at": "2026-10-14T14:14:57-04:00",
-      "kind": "feature",
-      "text": "Skipping an update asks you twice."
-    },
-    {
-      "at": "2026-10-14T14:14:57-04:00",
-      "kind": "feature",
-      "text": "You can go back a version, or update overnight."
-    },
-    {
-      "at": "2026-10-14T14:14:57-04:00",
-      "kind": "feature",
-      "text": "Check for updates is in Samara's menu."
-    },
-    {
-      "at": "2026-10-14T14:17:19-04:00",
-      "kind": "feature",
-      "text": "New lantern icon: lit when open, dark when closed."
-    },
-    {
-      "at": "2026-10-14T14:19:46-04:00",
-      "kind": "feature",
-      "text": "The lantern fades on and off smoothly."
-    },
-    {
-      "at": "2026-10-14T14:25:48-04:00",
-      "kind": "fix",
-      "text": "Restarting for an update takes seconds."
-    },
-    {
-      "at": "2026-10-14T14:53:01-04:00",
-      "kind": "feature",
-      "text": "Claude asks you first before using Samara."
-    },
-    {
-      "at": "2026-10-14T14:53:01-04:00",
-      "kind": "feature",
-      "text": "Claude asks before sending your details anywhere."
-    },
-    {
-      "at": "2026-10-14T14:53:01-04:00",
-      "kind": "fix",
-      "text": "Web pages can't trick Claude into pressing Send."
-    },
-    {
-      "at": "2026-10-14T14:53:01-04:00",
-      "kind": "fix",
-      "text": "AI can never open your bank sites."
-    },
-    {
-      "at": "2026-10-14T15:20:00-04:00",
-      "text": "Bank sites open in Chrome, with one big button.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T15:30:00-04:00",
-      "text": "Claude can read your tabs, but only if you say yes.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T15:30:00-04:00",
-      "text": "Claude can find hidden job details, like pay.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T15:30:00-04:00",
-      "text": "Shops and PayPal checkouts work as normal.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T16:10:00-04:00",
-      "text": "Claude can't see hidden trick text on pages.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T16:40:00-04:00",
-      "text": "Web pages can't reach your home network.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T16:40:00-04:00",
-      "text": "Mac updates are now signed by your PC.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T16:40:00-04:00",
-      "text": "Mac downloads get Apple's safety check.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T16:55:00-04:00",
-      "text": "More scam sites are blocked, checked daily.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T17:00:00-04:00",
-      "text": "Name a bookmark as you save it.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T17:00:00-04:00",
-      "text": "The popout's see-through icon is just an icon now.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T17:05:00-04:00",
-      "text": "Sites trusted on one computer ask once on the other.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T17:10:00-04:00",
-      "text": "Your Mac remembers Samara's mic permission now.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T18:10:00-04:00",
-      "text": "Update tick boxes now glow turquoise.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T19:30:00-04:00",
-      "text": "Click the shield to set each site's rules.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T19:30:00-04:00",
-      "text": "All your site rules, in Settings.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T19:30:00-04:00",
-      "text": "Settings labels are easy to read again.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T20:30:00-04:00",
-      "text": "Claude shows you its plan before it starts.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T20:30:00-04:00",
-      "text": "Untick a site, or tell Claude what to change.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-14T20:30:00-04:00",
-      "text": "Real job boards like Greenhouse are no longer blocked.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T21:30:00-04:00",
-      "text": "Netflix on the Mac opens in the paid-video window.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T21:30:00-04:00",
-      "text": "Netflix shows really open in their own window now.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-14T21:30:00-04:00",
-      "text": "One Samara in your Dock after updates, for good.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-15T01:00:00-04:00",
-      "text": "Pinned pop-out: the pin lies down and turns gold.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T07:15:00-04:00",
-      "text": "Videos wait for your click; leaving a tab pauses it.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T10:30:00-04:00",
-      "text": "Samara is smoother: quicker tabs, menus and start.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T11:15:00-04:00",
-      "text": "The tab rail slides out carrying its handle.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T13:00:00-04:00",
-      "text": "Pop-out opens fast and fades smoothly.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T13:00:00-04:00",
-      "text": "Claude browses in Samara much faster.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T14:00:00-04:00",
-      "text": "Streaming sign-ins stay on each machine.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T15:30:00-04:00",
-      "text": "Sleeping tabs keep their logos.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T15:30:00-04:00",
-      "text": "Pop-out: unpinned is a normal window; closing pauses.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T16:30:00-04:00",
-      "text": "The tab shows what's playing in the pop-out.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T18:30:00-04:00",
-      "text": "Scroll up on Aang to see everything he showed you.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T18:30:00-04:00",
-      "text": "Undo things you said yes to, right in the history.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T18:30:00-04:00",
-      "text": "Links from Aang open in Samara.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T19:30:00-04:00",
-      "text": "Samara's lantern has a real maple leaf now.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T19:30:00-04:00",
-      "text": "The pop-out has its own turquoise lantern icon.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T20:00:00-04:00",
-      "text": "Samara's taskbar icon is bigger and clearer.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T20:30:00-04:00",
-      "text": "Dragging the pop-out no longer makes it jump.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T21:00:00-04:00",
-      "text": "Samara's desktop icon lights up while it's open.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T21:00:00-04:00",
-      "text": "Samara's taskbar lantern lights up crisply.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T21:15:00-04:00",
-      "text": "Closing the pop-out brings Samara back.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T21:45:00-04:00",
-      "text": "Picking a spelling in the right-click menu works.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T21:45:00-04:00",
-      "text": "Dark mode comes on as pages open, Gmail too.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T21:45:00-04:00",
-      "text": "Right-click: save links, send words to Aang, pop out videos.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T22:15:00-04:00",
-      "text": "Bookmarks are big raised keys with name banners.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T22:40:00-04:00",
-      "text": "Bookmarks sit in a carved frame with gold corners.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T23:00:00-04:00",
-      "text": "Tabs got the same look as bookmarks, easier to read.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T23:30:00-04:00",
-      "text": "Adding a bookmark from the tab list no longer freezes.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T23:30:00-04:00",
-      "text": "Right-click a bookmark: rename, move, remove and more.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-20T23:45:00-04:00",
-      "text": "Bookmark names always show in full, never cut off.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-20T23:55:00-04:00",
-      "text": "Going back a version never adds a second Samara to your Dock.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-21T00:10:00-04:00",
-      "text": "Dark mode is lighter: sites use their own dark look first.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-21T00:30:00-04:00",
-      "text": "Updates never leave a second Samara in your Dock.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-21T13:30:00-04:00",
-      "text": "Claude's mockups get their own trail, with every version.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T15:00:00-04:00",
-      "text": "Right-click a mockup to send it to Aang.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T16:00:00-04:00",
-      "text": "Claude can file mockups into a branch.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T18:00:00-04:00",
-      "text": "The one cockpit bubble is built: talk, look back and answer in one place (off until you switch it on).",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T19:00:00-04:00",
-      "text": "Aang now hears every Claude session on this PC: its to-do list, and when it needs your yes or an answer.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T19:00:00-04:00",
-      "text": "Claude's questions now come in plain words, and your answers go back clear and precise.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T20:00:00-04:00",
-      "text": "Briefs, videos and plans now open inside the cockpit.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T22:00:00-04:00",
-      "text": "Marks over Aang's head and wooden chimes for Claude's work.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T22:30:00-04:00",
-      "text": "Smoother tab dragging: slide right to tuck under.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T23:00:00-04:00",
-      "text": "Each kind of message has its own paper; hover for its label.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T23:30:00-04:00",
-      "text": "A Claude rune in Samara's bar shows job progress.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-21T23:45:00-04:00",
-      "text": "Aang's chat box holds still and opens small.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-21T23:55:00-04:00",
-      "text": "Right-click Samara's taskbar icon for shortcuts; rune wears Claude's logo.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T00:10:00-04:00",
-      "text": "Claude job bars move live and say what Claude is doing.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T00:40:00-04:00",
-      "text": "Aang talks in one light speech bubble again.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T01:10:00-04:00",
-      "text": "Hold a Claude job in Aang's bubble to pop it out onto your desktop.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T02:00:00-04:00",
-      "text": "Aang's speech bubble has a slim wooden edge.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T02:30:00-04:00",
-      "text": "Right-click Aang for his new wooden menu.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T03:00:00-04:00",
-      "text": "Claude progress bars move the instant Claude does.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T04:00:00-04:00",
-      "text": "Claude bars learn real times and show stalls.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T04:10:00-04:00",
-      "text": "Claude's jobs and questions now live in the cockpit.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T04:10:00-04:00",
-      "text": "Aang answers sooner, and his replies flow in smoothly.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T12:40:00-04:00",
-      "text": "Samara's tab list is bigger and easier to read, with a small x to close a tab.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T12:42:00-04:00",
-      "text": "Closing Samara also closes the pop-out playing its tab.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T12:44:00-04:00",
-      "text": "Twitch in the pop-out catches up to live after an ad, so sound and picture match.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T12:46:00-04:00",
-      "text": "One broom tidies both your tabs and Claude's mockups.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T12:48:00-04:00",
-      "text": "Labels and links in Samara are easier to read.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T12:55:00-04:00",
-      "text": "On your Mac, mockups Claude makes now open in Samara's Mockups trail.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T12:56:00-04:00",
-      "text": "Claude on your Mac now knows: mockups always go to Samara.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T12:57:00-04:00",
-      "text": "On your Mac, Notes for this site is hidden for now; your notes live with Aang on the PC.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T19:20:00-04:00",
-      "text": "Samara opens much faster, even the first time each day.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T19:21:00-04:00",
-      "text": "Pages come back where you left them, no jump.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T19:22:00-04:00",
-      "text": "Dark pages no longer flash white when Samara opens.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T19:23:00-04:00",
-      "text": "Letting ads through on a site now really works.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T19:45:00-04:00",
-      "text": "Keyboard sites like Epomaker can connect, once you say yes.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T20:00:00-04:00",
-      "text": "Closing the pop-out puts the video straight back in Samara.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T20:01:00-04:00",
-      "text": "The first pop-out opens as fast as the rest.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T20:02:00-04:00",
-      "text": "On your Mac, Samara fades aside for the pop-out instead of shrinking into the Dock.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T20:20:00-04:00",
-      "text": "The tab list slides out smoothly the first time too.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T20:45:00-04:00",
-      "text": "With two keyboards plugged in, Samara asks which one, like Chrome.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T20:46:00-04:00",
-      "text": "The tab list arrow turns over as the list slides; closing eases in.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T21:00:00-04:00",
-      "text": "Bookmarks get the site's real icon more often, not just a letter.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T21:15:00-04:00",
-      "text": "Sites with only a fancy icon still get their real icon on bookmarks.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-22T21:40:00-04:00",
-      "text": "Pick Small, Medium or Large tabs in Settings, for each computer.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-22T21:41:00-04:00",
-      "text": "The broom no longer sits on top of your tabs.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-23T00:05:00-04:00",
-      "text": "The Settings tab wears Samara's lantern.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-29T13:55:00Z",
-      "text": "The search bar is bigger, steadier and remembers your searches.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-29T13:56:00Z",
-      "text": "Click the search bar to see recent searches and sites.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-29T13:57:00Z",
-      "text": "ALL MOCKUPS in the trail opens your quest log.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-29T13:58:00Z",
-      "text": "Samara keeps your data yours, the way Brave does.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-29T13:59:00Z",
-      "text": "Samara updates itself from GitHub on both computers.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-29T14:24:52Z",
-      "text": "Every version always lists the version you are on.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-29T14:56:18Z",
-      "text": "Claude's memory, rules and notes sync through your private repo.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T05:30:00-04:00",
-      "text": "Updates always open Samara again afterwards.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T05:31:00-04:00",
-      "text": "Samara notes crashes and frozen pages in its log.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T05:32:00-04:00",
-      "text": "Videos in the pop-out no longer slowly eat memory.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T05:33:00-04:00",
-      "text": "Sleeping tabs never freeze while you look at them.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T06:15:00-04:00",
-      "text": "Claude's plan card: tick centred, empty Change never says Go.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T06:58:00-04:00",
-      "text": "A slow start after an update no longer undoes it.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T07:10:00-04:00",
-      "text": "A page that won't load shows Jiji the cat.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T07:15:00-04:00",
-      "text": "Claude's mark turns with Aang at every edge.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T09:10:00-04:00",
-      "text": "Updates no longer get stuck on an old copy.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T10:08:00-04:00",
-      "text": "Notices drop from what caused them, in Samara's style.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T10:09:00-04:00",
-      "text": "All your mockups live in one Mockups tab.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T10:10:00-04:00",
-      "text": "New engines arrive on your UPDATE key too.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T10:11:00-04:00",
-      "text": "Claude and Aang can picture Samara's whole window.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T10:12:00-04:00",
-      "text": "Aang decides when to speak the same on both computers.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T10:13:00-04:00",
-      "text": "The address bar shows the page, never a frame in it.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T10:14:00-04:00",
-      "text": "A dead phishing list swapped for its working copy.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T10:38:00-04:00",
-      "text": "The Mockups key sits at the bottom, a size smaller.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T11:33:00-04:00",
-      "text": "Mac and PC start Samara the same way.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T11:34:00-04:00",
-      "text": "Claude's plan cards reach Aang's bubble on the Mac.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T11:35:00-04:00",
-      "text": "Pop-out videos on the Mac skip ads too.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T11:36:00-04:00",
-      "text": "An update always ends with Samara open.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T11:54:00-04:00",
-      "text": "The Mockups key is plum, and it is its own tab.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T11:55:00-04:00",
-      "text": "Mockups opens where you left it.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T12:08:00-04:00",
-      "text": "A woken tab stays silent until you press play.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T12:36:00-04:00",
-      "text": "Aang asks his AI one steady way, with time limits.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T12:37:00-04:00",
-      "text": "Aang keeps one list of your Claude sessions.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T13:03:00-04:00",
-      "text": "Your settings and lists save safely, even in a power cut.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T13:27:00-04:00",
-      "text": "Background chores wait while you're in a call or a game.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T14:30:00-04:00",
-      "text": "One site's bot check no longer stops Claude's whole task.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T14:38:00-04:00",
-      "text": "Claude's page reads are shorter, so they cost less.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T15:16:00-04:00",
-      "text": "Every mockup lands in its project and topic, never Other.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T15:17:00-04:00",
-      "text": "Claude's short page reads are short in every mode.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T16:04:00-04:00",
-      "text": "Claude opens and searches a page in one step.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T17:15:00-04:00",
-      "text": "Claude's page reads skip off-screen clutter and keep every form field.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T17:49:00-04:00",
-      "text": "Claude's reads of one part of a page are short too.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T17:52:00-04:00",
-      "text": "Updates show up within minutes, even after sleep or a Wi-Fi change.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T18:20:00-04:00",
-      "text": "Claude's page search no longer mixes up items in a list.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T18:26:00-04:00",
-      "text": "Claude can look at a tab that was asleep or still loading.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-30T19:10:00-04:00",
-      "text": "Right-click picked words to ask Claude about them.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T19:11:00-04:00",
-      "text": "Take over a tab while Claude drives it.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T19:12:00-04:00",
-      "text": "Claude hands you the tab at sign ins, then waits.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T19:13:00-04:00",
-      "text": "Hand back with a note; Claude hears what changed.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-30T21:24:00-04:00",
-      "text": "The right-click menu shows Mac keys on your Mac.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T10:52:00-04:00",
-      "text": "Claude's tabs show its spark and glow soft orange.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T10:52:00-04:00",
-      "text": "Each mockup mark has its own colour.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T10:52:00-04:00",
-      "text": "Mockups shown from a live page no longer break.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T10:52:00-04:00",
-      "text": "The browser is called Samara everywhere.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T10:52:00-04:00",
-      "text": "Aang's notes go to the right folder on each machine.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T10:58:00-04:00",
-      "text": "Updates now come from their own public home.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T11:11:00-04:00",
-      "text": "Mockups: new ones sit in their own New section.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T11:11:00-04:00",
-      "text": "Mockups: search by name or number, filter by mark, sort newest.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T11:35:00-04:00",
-      "text": "Aang's Mac app updates itself with his brain, and is running again after every update.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T11:35:00-04:00",
-      "text": "A new engine is signed for Netflix and Prime on each machine before it is offered.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T11:35:00-04:00",
-      "text": "The update key stays when a newer version comes out: Restart now puts in the ready one, and the newer one comes next.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T11:41:00-04:00",
-      "text": "Claude's tabs are real tabs you can click into.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T11:41:00-04:00",
-      "text": "Take over one tab; Claude keeps working in the others.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T11:41:00-04:00",
-      "text": "Drag a tab out of Claude's group to keep it.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T11:41:00-04:00",
-      "text": "After STOP ALL, Claude can start again in the same chat.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T12:32:00-04:00",
-      "text": "Claude can update Aang right away when you ask, without waiting for you to step away.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T13:00:00-04:00",
-      "text": "Claude can tick hidden boxes and choices on forms.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T13:01:00-04:00",
-      "text": "No more asking when Claude only moves through a page.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T13:02:00-04:00",
-      "text": "Words in your essays no longer look like buying.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T13:22:00-04:00",
-      "text": "A Samara restart never locks Claude out of its chat.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-10-31T21:04:00-04:00",
-      "text": "Claude's tabs and your typing come back after a restart, and the same chat carries on.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T21:04:00-04:00",
-      "text": "An update waits while Claude is working or a form isn't sent. After 2 hours it asks you.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-10-31T21:04:00-04:00",
-      "text": "A new chat can carry on an old chat's tabs.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T07:20:00-05:00",
-      "text": "Aang sounds warmer and more like himself, Discord too.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T08:00:00-05:00",
-      "text": "Aang's replies finish sooner, no extra wait at the end.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T09:15:00-05:00",
-      "text": "Small talk and simple questions answered instantly on your PC.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T09:15:00-05:00",
-      "text": "Snips you ask about are read instantly on your PC.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T09:45:00-05:00",
-      "text": "Claude's mockups always reach Samara, even without Aang.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T09:45:00-05:00",
-      "text": "New mockups stay marked NEW until you look.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T10:45:00-05:00",
-      "text": "The Satchel: everything you copy, kept. Ctrl + Alt + V.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T10:45:00-05:00",
-      "text": "Hover the middle of the right edge for the Satchel's tab.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T11:00:00-05:00",
-      "text": "The Satchel slides in smoothly now.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T11:01:00-05:00",
-      "text": "The Satchel has a full frame and a new icon.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T11:02:00-05:00",
-      "text": "The Satchel tab tucks away when you move off.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T11:14:00-05:00",
-      "text": "Aang on this PC now updates himself, like on the Mac.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T11:20:00-05:00",
-      "text": "Clicking Samara or a pop-out always brings it forward.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T11:31:00-05:00",
-      "text": "Clicking the Satchel tab opens it every time.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T11:31:00-05:00",
-      "text": "The Satchel icon is back to a sensible size.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T11:38:00-05:00",
-      "text": "Aang tells you in his bubble when an update is ready.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T12:27:00-05:00",
-      "text": "The Satchel no longer shuts itself a moment after you click its tab.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T18:36:00-05:00",
-      "text": "Clicking the Satchel's tab opens it again, every time.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:00:00-05:00",
-      "text": "The music player goes idle when you leave it: the picture fills the window, your scenes painted wide, album covers whole with their own glow.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T20:00:00-05:00",
-      "text": "Lyrics in the music player, timed line by line. Turn them on in its ··· menu.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T20:00:00-05:00",
-      "text": "The music player's keys sit level again, with no purple edges.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:14:00-05:00",
-      "text": "Mockups: Big view gives a sheet the whole tab.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T20:14:00-05:00",
-      "text": "Music from Aang's wheel always brings the player to the front.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:14:00-05:00",
-      "text": "Album covers in the music player are sharp: Spotify's full-size art instead of the small Windows thumbnail.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:14:00-05:00",
-      "text": "Lyrics are found far more often: a busy lyrics site is asked again, remastered and featuring titles are tried plain, and untimed lyrics are shown too.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:33:00-05:00",
-      "text": "Idle mode has its own switch in the music player's ··· menu.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T20:33:00-05:00",
-      "text": "Songs playing on another device (your phone, the Mac) keep true time in the player, so lyrics follow them.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:44:00-05:00",
-      "text": "The music player's lyrics roll smoothly into the next line, lit amber, and read bigger over your scenes.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T20:48:00-05:00",
-      "text": "The rolling lyrics are out for real this time (1.39.0 didn't finish building).",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T20:57:00-05:00",
-      "text": "Pin the music player and its idle view stays put: rest your mouse on it for back, pause, next and unpin.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-01T21:06:00-05:00",
-      "text": "Every button in the music player is centred to the pixel, the speaker sits level with the volume bar, and the idle keys stay round.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T21:23:00-05:00",
-      "text": "Long lyric lines wrap onto a second row instead of being cut off, and read bigger beside an album cover.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-01T21:23:00-05:00",
-      "text": "The music player's idle picture sits in the wood like its screen does: pixel corners and a sunken rim.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-02T06:10:00-05:00",
-      "text": "The wood around the minimise, maximise and close buttons drags the window and double-clicks to full size, like the rest of the top bar.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-02T06:10:00-05:00",
-      "text": "Samara stops retrying an engine update castLabs won't sign every few minutes, which slowed the PC right after Samara opened.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-02T06:43:00-05:00",
-      "text": "In Mockups, a NEW sheet you open stays NEW and in its place until you open another one, instead of sliding away under your mouse.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-02T07:41:00-05:00",
-      "text": "Cookie banners say no for you, on every site.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-02T07:42:00-05:00",
-      "text": "When Claude or Aang gets stuck clicking, Samara shows why, then asks you.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-02T10:03:00-05:00",
-      "text": "In the pop-out, YouTube's own buttons work again: pause, and the controls in fullscreen. The picture holds still under your mouse, and Esc leaves fullscreen.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-02T10:24:00-05:00",
-      "text": "Theater mode on YouTube and Twitch fills Samara's whole page with just the video. Esc, or theater again, brings the page back.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T06:10:32-05:00",
-      "text": "A Hyrule key sits above Mockups: it opens your Breath of the Wild map in a tab of its own, with its icon bar, game menu (M) and a full screen button (F, Esc to leave).",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T06:11:32-05:00",
-      "text": "Typing aang:hyrule (or another of Samara's own pages) in the address bar opens it, instead of searching the web for it.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T06:20:45-05:00",
-      "text": "The Hyrule key works like Mockups: the map is never a tab in your list. The key opens it, and the key again (or any of your tabs) takes you back where you were.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T06:30:20-05:00",
-      "text": "The Hyrule key opens your map now (it did nothing before).",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T09:02:30-05:00",
-      "text": "Aang reads your Zelda save after you play, so your Hyrule map keeps up.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T09:03:20-05:00",
-      "text": "Ask Aang how to get armour, hearts or a dish: he plans the stops.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T09:19:30-05:00",
-      "text": "While you play Zelda, your Hyrule map arrow follows Link.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T11:04:40-05:00",
-      "text": "Aang no longer freezes while an update gets ready.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T11:04:50-05:00",
-      "text": "Aang's Zelda plans know the armour you already carry.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T11:46:50-05:00",
-      "text": "Ask Aang to add or remove stops on your Hyrule route.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T11:46:55-05:00",
-      "text": "Aang's updates no longer get lost before he restarts.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T12:35:00-05:00",
-      "text": "Mockups load smoothly, with a simple loading bar.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T12:35:30-05:00",
-      "text": "The music player's pin turns when you pin it.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T12:36:00-05:00",
-      "text": "The volume mixer shows your music player.",
-      "kind": "feature"
-    },
-    {
-      "at": "2026-11-03T13:58:00-05:00",
-      "text": "The music player sees Spotify on your Mac again.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T16:15:00-05:00",
-      "text": "Prime Video on the PC goes out through your Mac's home internet, so it stops saying a title isn't available where you are.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T16:50:00-05:00",
-      "text": "Mockups: the Shrine desktop sheets sit under one ShrineDock tab, with ShrineDock's seal on it.",
-      "kind": "fix"
-    },
-    {
-      "at": "2026-11-03T18:55:00-05:00",
-      "text": "Mockups Samara turns away now say so and why, instead of silently going missing.",
-      "kind": "fix"
-    }
-  ]
+ "note": "What each update brings, in plain words for Joshua. One line per change that reaches the Mac, newest last, each with a kind: major (a big change: new major version and a new name), feature (bumps the middle number) or fix (the last number). Keep each line short (under 10 words) and plain: no tech words.",
+ "items": [
+  {
+   "at": "2026-10-14T13:10:00-04:00",
+   "text": "Your browser is now called Samara.",
+   "kind": "major"
+  },
+  {
+   "at": "2026-10-14T13:11:00-04:00",
+   "text": "Only one Samara in your Dock.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T13:12:00-04:00",
+   "text": "Updates get ready in the background. No more freezing.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T13:13:00-04:00",
+   "text": "Each update has a number and a name.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T13:14:00-04:00",
+   "text": "The Update button glows when an update is ready.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T13:15:00-04:00",
+   "kind": "feature",
+   "text": "Big updates get a new name."
+  },
+  {
+   "at": "2026-10-14T13:16:00-04:00",
+   "kind": "feature",
+   "text": "Aang can tell you what each update brought."
+  },
+  {
+   "at": "2026-10-14T13:35:03-04:00",
+   "kind": "fix",
+   "text": "Your logins are no longer saved in a sync file."
+  },
+  {
+   "at": "2026-10-14T14:14:57-04:00",
+   "kind": "feature",
+   "text": "A new update window with tick boxes."
+  },
+  {
+   "at": "2026-10-14T14:14:57-04:00",
+   "kind": "feature",
+   "text": "The Update button changes color the longer you wait."
+  },
+  {
+   "at": "2026-10-14T14:14:57-04:00",
+   "kind": "feature",
+   "text": "Skipping an update asks you twice."
+  },
+  {
+   "at": "2026-10-14T14:14:57-04:00",
+   "kind": "feature",
+   "text": "You can go back a version, or update overnight."
+  },
+  {
+   "at": "2026-10-14T14:14:57-04:00",
+   "kind": "feature",
+   "text": "Check for updates is in Samara's menu."
+  },
+  {
+   "at": "2026-10-14T14:17:19-04:00",
+   "kind": "feature",
+   "text": "New lantern icon: lit when open, dark when closed."
+  },
+  {
+   "at": "2026-10-14T14:19:46-04:00",
+   "kind": "feature",
+   "text": "The lantern fades on and off smoothly."
+  },
+  {
+   "at": "2026-10-14T14:25:48-04:00",
+   "kind": "fix",
+   "text": "Restarting for an update takes seconds."
+  },
+  {
+   "at": "2026-10-14T14:53:01-04:00",
+   "kind": "feature",
+   "text": "Claude asks you first before using Samara."
+  },
+  {
+   "at": "2026-10-14T14:53:01-04:00",
+   "kind": "feature",
+   "text": "Claude asks before sending your details anywhere."
+  },
+  {
+   "at": "2026-10-14T14:53:01-04:00",
+   "kind": "fix",
+   "text": "Web pages can't trick Claude into pressing Send."
+  },
+  {
+   "at": "2026-10-14T14:53:01-04:00",
+   "kind": "fix",
+   "text": "AI can never open your bank sites."
+  },
+  {
+   "at": "2026-10-14T15:20:00-04:00",
+   "text": "Bank sites open in Chrome, with one big button.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T15:30:00-04:00",
+   "text": "Claude can read your tabs, but only if you say yes.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T15:30:00-04:00",
+   "text": "Claude can find hidden job details, like pay.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T15:30:00-04:00",
+   "text": "Shops and PayPal checkouts work as normal.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T16:10:00-04:00",
+   "text": "Claude can't see hidden trick text on pages.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T16:40:00-04:00",
+   "text": "Web pages can't reach your home network.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T16:40:00-04:00",
+   "text": "Mac updates are now signed by your PC.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T16:40:00-04:00",
+   "text": "Mac downloads get Apple's safety check.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T16:55:00-04:00",
+   "text": "More scam sites are blocked, checked daily.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T17:00:00-04:00",
+   "text": "Name a bookmark as you save it.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T17:00:00-04:00",
+   "text": "The popout's see-through icon is just an icon now.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T17:05:00-04:00",
+   "text": "Sites trusted on one computer ask once on the other.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T17:10:00-04:00",
+   "text": "Your Mac remembers Samara's mic permission now.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T18:10:00-04:00",
+   "text": "Update tick boxes now glow turquoise.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T19:30:00-04:00",
+   "text": "Click the shield to set each site's rules.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T19:30:00-04:00",
+   "text": "All your site rules, in Settings.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T19:30:00-04:00",
+   "text": "Settings labels are easy to read again.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T20:30:00-04:00",
+   "text": "Claude shows you its plan before it starts.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T20:30:00-04:00",
+   "text": "Untick a site, or tell Claude what to change.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-14T20:30:00-04:00",
+   "text": "Real job boards like Greenhouse are no longer blocked.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T21:30:00-04:00",
+   "text": "Netflix on the Mac opens in the paid-video window.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T21:30:00-04:00",
+   "text": "Netflix shows really open in their own window now.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-14T21:30:00-04:00",
+   "text": "One Samara in your Dock after updates, for good.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-15T01:00:00-04:00",
+   "text": "Pinned pop-out: the pin lies down and turns gold.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T07:15:00-04:00",
+   "text": "Videos wait for your click; leaving a tab pauses it.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T10:30:00-04:00",
+   "text": "Samara is smoother: quicker tabs, menus and start.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T11:15:00-04:00",
+   "text": "The tab rail slides out carrying its handle.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T13:00:00-04:00",
+   "text": "Pop-out opens fast and fades smoothly.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T13:00:00-04:00",
+   "text": "Claude browses in Samara much faster.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T14:00:00-04:00",
+   "text": "Streaming sign-ins stay on each machine.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T15:30:00-04:00",
+   "text": "Sleeping tabs keep their logos.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T15:30:00-04:00",
+   "text": "Pop-out: unpinned is a normal window; closing pauses.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T16:30:00-04:00",
+   "text": "The tab shows what's playing in the pop-out.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T18:30:00-04:00",
+   "text": "Scroll up on Aang to see everything he showed you.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T18:30:00-04:00",
+   "text": "Undo things you said yes to, right in the history.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T18:30:00-04:00",
+   "text": "Links from Aang open in Samara.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T19:30:00-04:00",
+   "text": "Samara's lantern has a real maple leaf now.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T19:30:00-04:00",
+   "text": "The pop-out has its own turquoise lantern icon.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T20:00:00-04:00",
+   "text": "Samara's taskbar icon is bigger and clearer.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T20:30:00-04:00",
+   "text": "Dragging the pop-out no longer makes it jump.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T21:00:00-04:00",
+   "text": "Samara's desktop icon lights up while it's open.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T21:00:00-04:00",
+   "text": "Samara's taskbar lantern lights up crisply.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T21:15:00-04:00",
+   "text": "Closing the pop-out brings Samara back.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T21:45:00-04:00",
+   "text": "Picking a spelling in the right-click menu works.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T21:45:00-04:00",
+   "text": "Dark mode comes on as pages open, Gmail too.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T21:45:00-04:00",
+   "text": "Right-click: save links, send words to Aang, pop out videos.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T22:15:00-04:00",
+   "text": "Bookmarks are big raised keys with name banners.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T22:40:00-04:00",
+   "text": "Bookmarks sit in a carved frame with gold corners.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T23:00:00-04:00",
+   "text": "Tabs got the same look as bookmarks, easier to read.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T23:30:00-04:00",
+   "text": "Adding a bookmark from the tab list no longer freezes.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T23:30:00-04:00",
+   "text": "Right-click a bookmark: rename, move, remove and more.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-20T23:45:00-04:00",
+   "text": "Bookmark names always show in full, never cut off.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-20T23:55:00-04:00",
+   "text": "Going back a version never adds a second Samara to your Dock.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-21T00:10:00-04:00",
+   "text": "Dark mode is lighter: sites use their own dark look first.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-21T00:30:00-04:00",
+   "text": "Updates never leave a second Samara in your Dock.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-21T13:30:00-04:00",
+   "text": "Claude's mockups get their own trail, with every version.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T15:00:00-04:00",
+   "text": "Right-click a mockup to send it to Aang.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T16:00:00-04:00",
+   "text": "Claude can file mockups into a branch.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T18:00:00-04:00",
+   "text": "The one cockpit bubble is built: talk, look back and answer in one place (off until you switch it on).",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T19:00:00-04:00",
+   "text": "Aang now hears every Claude session on this PC: its to-do list, and when it needs your yes or an answer.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T19:00:00-04:00",
+   "text": "Claude's questions now come in plain words, and your answers go back clear and precise.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T20:00:00-04:00",
+   "text": "Briefs, videos and plans now open inside the cockpit.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T22:00:00-04:00",
+   "text": "Marks over Aang's head and wooden chimes for Claude's work.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T22:30:00-04:00",
+   "text": "Smoother tab dragging: slide right to tuck under.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T23:00:00-04:00",
+   "text": "Each kind of message has its own paper; hover for its label.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T23:30:00-04:00",
+   "text": "A Claude rune in Samara's bar shows job progress.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-21T23:45:00-04:00",
+   "text": "Aang's chat box holds still and opens small.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-21T23:55:00-04:00",
+   "text": "Right-click Samara's taskbar icon for shortcuts; rune wears Claude's logo.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T00:10:00-04:00",
+   "text": "Claude job bars move live and say what Claude is doing.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T00:40:00-04:00",
+   "text": "Aang talks in one light speech bubble again.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T01:10:00-04:00",
+   "text": "Hold a Claude job in Aang's bubble to pop it out onto your desktop.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T02:00:00-04:00",
+   "text": "Aang's speech bubble has a slim wooden edge.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T02:30:00-04:00",
+   "text": "Right-click Aang for his new wooden menu.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T03:00:00-04:00",
+   "text": "Claude progress bars move the instant Claude does.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T04:00:00-04:00",
+   "text": "Claude bars learn real times and show stalls.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T04:10:00-04:00",
+   "text": "Claude's jobs and questions now live in the cockpit.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T04:10:00-04:00",
+   "text": "Aang answers sooner, and his replies flow in smoothly.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T12:40:00-04:00",
+   "text": "Samara's tab list is bigger and easier to read, with a small x to close a tab.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T12:42:00-04:00",
+   "text": "Closing Samara also closes the pop-out playing its tab.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T12:44:00-04:00",
+   "text": "Twitch in the pop-out catches up to live after an ad, so sound and picture match.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T12:46:00-04:00",
+   "text": "One broom tidies both your tabs and Claude's mockups.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T12:48:00-04:00",
+   "text": "Labels and links in Samara are easier to read.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T12:55:00-04:00",
+   "text": "On your Mac, mockups Claude makes now open in Samara's Mockups trail.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T12:56:00-04:00",
+   "text": "Claude on your Mac now knows: mockups always go to Samara.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T12:57:00-04:00",
+   "text": "On your Mac, Notes for this site is hidden for now; your notes live with Aang on the PC.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T19:20:00-04:00",
+   "text": "Samara opens much faster, even the first time each day.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T19:21:00-04:00",
+   "text": "Pages come back where you left them, no jump.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T19:22:00-04:00",
+   "text": "Dark pages no longer flash white when Samara opens.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T19:23:00-04:00",
+   "text": "Letting ads through on a site now really works.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T19:45:00-04:00",
+   "text": "Keyboard sites like Epomaker can connect, once you say yes.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T20:00:00-04:00",
+   "text": "Closing the pop-out puts the video straight back in Samara.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T20:01:00-04:00",
+   "text": "The first pop-out opens as fast as the rest.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T20:02:00-04:00",
+   "text": "On your Mac, Samara fades aside for the pop-out instead of shrinking into the Dock.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T20:20:00-04:00",
+   "text": "The tab list slides out smoothly the first time too.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T20:45:00-04:00",
+   "text": "With two keyboards plugged in, Samara asks which one, like Chrome.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T20:46:00-04:00",
+   "text": "The tab list arrow turns over as the list slides; closing eases in.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T21:00:00-04:00",
+   "text": "Bookmarks get the site's real icon more often, not just a letter.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T21:15:00-04:00",
+   "text": "Sites with only a fancy icon still get their real icon on bookmarks.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-22T21:40:00-04:00",
+   "text": "Pick Small, Medium or Large tabs in Settings, for each computer.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-22T21:41:00-04:00",
+   "text": "The broom no longer sits on top of your tabs.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-23T00:05:00-04:00",
+   "text": "The Settings tab wears Samara's lantern.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-29T13:55:00Z",
+   "text": "The search bar is bigger, steadier and remembers your searches.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-29T13:56:00Z",
+   "text": "Click the search bar to see recent searches and sites.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-29T13:57:00Z",
+   "text": "ALL MOCKUPS in the trail opens your quest log.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-29T13:58:00Z",
+   "text": "Samara keeps your data yours, the way Brave does.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-29T13:59:00Z",
+   "text": "Samara updates itself from GitHub on both computers.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-29T14:24:52Z",
+   "text": "Every version always lists the version you are on.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-29T14:56:18Z",
+   "text": "Claude's memory, rules and notes sync through your private repo.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T05:30:00-04:00",
+   "text": "Updates always open Samara again afterwards.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T05:31:00-04:00",
+   "text": "Samara notes crashes and frozen pages in its log.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T05:32:00-04:00",
+   "text": "Videos in the pop-out no longer slowly eat memory.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T05:33:00-04:00",
+   "text": "Sleeping tabs never freeze while you look at them.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T06:15:00-04:00",
+   "text": "Claude's plan card: tick centred, empty Change never says Go.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T06:58:00-04:00",
+   "text": "A slow start after an update no longer undoes it.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T07:10:00-04:00",
+   "text": "A page that won't load shows Jiji the cat.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T07:15:00-04:00",
+   "text": "Claude's mark turns with Aang at every edge.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T09:10:00-04:00",
+   "text": "Updates no longer get stuck on an old copy.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T10:08:00-04:00",
+   "text": "Notices drop from what caused them, in Samara's style.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T10:09:00-04:00",
+   "text": "All your mockups live in one Mockups tab.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T10:10:00-04:00",
+   "text": "New engines arrive on your UPDATE key too.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T10:11:00-04:00",
+   "text": "Claude and Aang can picture Samara's whole window.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T10:12:00-04:00",
+   "text": "Aang decides when to speak the same on both computers.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T10:13:00-04:00",
+   "text": "The address bar shows the page, never a frame in it.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T10:14:00-04:00",
+   "text": "A dead phishing list swapped for its working copy.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T10:38:00-04:00",
+   "text": "The Mockups key sits at the bottom, a size smaller.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T11:33:00-04:00",
+   "text": "Mac and PC start Samara the same way.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T11:34:00-04:00",
+   "text": "Claude's plan cards reach Aang's bubble on the Mac.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T11:35:00-04:00",
+   "text": "Pop-out videos on the Mac skip ads too.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T11:36:00-04:00",
+   "text": "An update always ends with Samara open.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T11:54:00-04:00",
+   "text": "The Mockups key is plum, and it is its own tab.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T11:55:00-04:00",
+   "text": "Mockups opens where you left it.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T12:08:00-04:00",
+   "text": "A woken tab stays silent until you press play.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T12:36:00-04:00",
+   "text": "Aang asks his AI one steady way, with time limits.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T12:37:00-04:00",
+   "text": "Aang keeps one list of your Claude sessions.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T13:03:00-04:00",
+   "text": "Your settings and lists save safely, even in a power cut.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T13:27:00-04:00",
+   "text": "Background chores wait while you're in a call or a game.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T14:30:00-04:00",
+   "text": "One site's bot check no longer stops Claude's whole task.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T14:38:00-04:00",
+   "text": "Claude's page reads are shorter, so they cost less.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T15:16:00-04:00",
+   "text": "Every mockup lands in its project and topic, never Other.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T15:17:00-04:00",
+   "text": "Claude's short page reads are short in every mode.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T16:04:00-04:00",
+   "text": "Claude opens and searches a page in one step.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T17:15:00-04:00",
+   "text": "Claude's page reads skip off-screen clutter and keep every form field.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T17:49:00-04:00",
+   "text": "Claude's reads of one part of a page are short too.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T17:52:00-04:00",
+   "text": "Updates show up within minutes, even after sleep or a Wi-Fi change.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T18:20:00-04:00",
+   "text": "Claude's page search no longer mixes up items in a list.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T18:26:00-04:00",
+   "text": "Claude can look at a tab that was asleep or still loading.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-30T19:10:00-04:00",
+   "text": "Right-click picked words to ask Claude about them.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T19:11:00-04:00",
+   "text": "Take over a tab while Claude drives it.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T19:12:00-04:00",
+   "text": "Claude hands you the tab at sign ins, then waits.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T19:13:00-04:00",
+   "text": "Hand back with a note; Claude hears what changed.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-30T21:24:00-04:00",
+   "text": "The right-click menu shows Mac keys on your Mac.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T10:52:00-04:00",
+   "text": "Claude's tabs show its spark and glow soft orange.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T10:52:00-04:00",
+   "text": "Each mockup mark has its own colour.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T10:52:00-04:00",
+   "text": "Mockups shown from a live page no longer break.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T10:52:00-04:00",
+   "text": "The browser is called Samara everywhere.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T10:52:00-04:00",
+   "text": "Aang's notes go to the right folder on each machine.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T10:58:00-04:00",
+   "text": "Updates now come from their own public home.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T11:11:00-04:00",
+   "text": "Mockups: new ones sit in their own New section.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T11:11:00-04:00",
+   "text": "Mockups: search by name or number, filter by mark, sort newest.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T11:35:00-04:00",
+   "text": "Aang's Mac app updates itself with his brain, and is running again after every update.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T11:35:00-04:00",
+   "text": "A new engine is signed for Netflix and Prime on each machine before it is offered.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T11:35:00-04:00",
+   "text": "The update key stays when a newer version comes out: Restart now puts in the ready one, and the newer one comes next.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T11:41:00-04:00",
+   "text": "Claude's tabs are real tabs you can click into.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T11:41:00-04:00",
+   "text": "Take over one tab; Claude keeps working in the others.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T11:41:00-04:00",
+   "text": "Drag a tab out of Claude's group to keep it.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T11:41:00-04:00",
+   "text": "After STOP ALL, Claude can start again in the same chat.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T12:32:00-04:00",
+   "text": "Claude can update Aang right away when you ask, without waiting for you to step away.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T13:00:00-04:00",
+   "text": "Claude can tick hidden boxes and choices on forms.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T13:01:00-04:00",
+   "text": "No more asking when Claude only moves through a page.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T13:02:00-04:00",
+   "text": "Words in your essays no longer look like buying.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T13:22:00-04:00",
+   "text": "A Samara restart never locks Claude out of its chat.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-10-31T21:04:00-04:00",
+   "text": "Claude's tabs and your typing come back after a restart, and the same chat carries on.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T21:04:00-04:00",
+   "text": "An update waits while Claude is working or a form isn't sent. After 2 hours it asks you.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-10-31T21:04:00-04:00",
+   "text": "A new chat can carry on an old chat's tabs.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T07:20:00-05:00",
+   "text": "Aang sounds warmer and more like himself, Discord too.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T08:00:00-05:00",
+   "text": "Aang's replies finish sooner, no extra wait at the end.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T09:15:00-05:00",
+   "text": "Small talk and simple questions answered instantly on your PC.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T09:15:00-05:00",
+   "text": "Snips you ask about are read instantly on your PC.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T09:45:00-05:00",
+   "text": "Claude's mockups always reach Samara, even without Aang.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T09:45:00-05:00",
+   "text": "New mockups stay marked NEW until you look.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T10:45:00-05:00",
+   "text": "The Satchel: everything you copy, kept. Ctrl + Alt + V.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T10:45:00-05:00",
+   "text": "Hover the middle of the right edge for the Satchel's tab.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T11:00:00-05:00",
+   "text": "The Satchel slides in smoothly now.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T11:01:00-05:00",
+   "text": "The Satchel has a full frame and a new icon.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T11:02:00-05:00",
+   "text": "The Satchel tab tucks away when you move off.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T11:14:00-05:00",
+   "text": "Aang on this PC now updates himself, like on the Mac.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T11:20:00-05:00",
+   "text": "Clicking Samara or a pop-out always brings it forward.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T11:31:00-05:00",
+   "text": "Clicking the Satchel tab opens it every time.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T11:31:00-05:00",
+   "text": "The Satchel icon is back to a sensible size.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T11:38:00-05:00",
+   "text": "Aang tells you in his bubble when an update is ready.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T12:27:00-05:00",
+   "text": "The Satchel no longer shuts itself a moment after you click its tab.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T18:36:00-05:00",
+   "text": "Clicking the Satchel's tab opens it again, every time.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:00:00-05:00",
+   "text": "The music player goes idle when you leave it: the picture fills the window, your scenes painted wide, album covers whole with their own glow.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T20:00:00-05:00",
+   "text": "Lyrics in the music player, timed line by line. Turn them on in its ··· menu.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T20:00:00-05:00",
+   "text": "The music player's keys sit level again, with no purple edges.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:14:00-05:00",
+   "text": "Mockups: Big view gives a sheet the whole tab.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T20:14:00-05:00",
+   "text": "Music from Aang's wheel always brings the player to the front.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:14:00-05:00",
+   "text": "Album covers in the music player are sharp: Spotify's full-size art instead of the small Windows thumbnail.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:14:00-05:00",
+   "text": "Lyrics are found far more often: a busy lyrics site is asked again, remastered and featuring titles are tried plain, and untimed lyrics are shown too.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:33:00-05:00",
+   "text": "Idle mode has its own switch in the music player's ··· menu.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T20:33:00-05:00",
+   "text": "Songs playing on another device (your phone, the Mac) keep true time in the player, so lyrics follow them.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:44:00-05:00",
+   "text": "The music player's lyrics roll smoothly into the next line, lit amber, and read bigger over your scenes.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T20:48:00-05:00",
+   "text": "The rolling lyrics are out for real this time (1.39.0 didn't finish building).",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T20:57:00-05:00",
+   "text": "Pin the music player and its idle view stays put: rest your mouse on it for back, pause, next and unpin.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-01T21:06:00-05:00",
+   "text": "Every button in the music player is centred to the pixel, the speaker sits level with the volume bar, and the idle keys stay round.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T21:23:00-05:00",
+   "text": "Long lyric lines wrap onto a second row instead of being cut off, and read bigger beside an album cover.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-01T21:23:00-05:00",
+   "text": "The music player's idle picture sits in the wood like its screen does: pixel corners and a sunken rim.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-02T06:10:00-05:00",
+   "text": "The wood around the minimise, maximise and close buttons drags the window and double-clicks to full size, like the rest of the top bar.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-02T06:10:00-05:00",
+   "text": "Samara stops retrying an engine update castLabs won't sign every few minutes, which slowed the PC right after Samara opened.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-02T06:43:00-05:00",
+   "text": "In Mockups, a NEW sheet you open stays NEW and in its place until you open another one, instead of sliding away under your mouse.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-02T07:41:00-05:00",
+   "text": "Cookie banners say no for you, on every site.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-02T07:42:00-05:00",
+   "text": "When Claude or Aang gets stuck clicking, Samara shows why, then asks you.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-02T10:03:00-05:00",
+   "text": "In the pop-out, YouTube's own buttons work again: pause, and the controls in fullscreen. The picture holds still under your mouse, and Esc leaves fullscreen.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-02T10:24:00-05:00",
+   "text": "Theater mode on YouTube and Twitch fills Samara's whole page with just the video. Esc, or theater again, brings the page back.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T06:10:32-05:00",
+   "text": "A Hyrule key sits above Mockups: it opens your Breath of the Wild map in a tab of its own, with its icon bar, game menu (M) and a full screen button (F, Esc to leave).",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T06:11:32-05:00",
+   "text": "Typing aang:hyrule (or another of Samara's own pages) in the address bar opens it, instead of searching the web for it.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T06:20:45-05:00",
+   "text": "The Hyrule key works like Mockups: the map is never a tab in your list. The key opens it, and the key again (or any of your tabs) takes you back where you were.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T06:30:20-05:00",
+   "text": "The Hyrule key opens your map now (it did nothing before).",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T09:02:30-05:00",
+   "text": "Aang reads your Zelda save after you play, so your Hyrule map keeps up.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T09:03:20-05:00",
+   "text": "Ask Aang how to get armour, hearts or a dish: he plans the stops.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T09:19:30-05:00",
+   "text": "While you play Zelda, your Hyrule map arrow follows Link.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T11:04:40-05:00",
+   "text": "Aang no longer freezes while an update gets ready.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T11:04:50-05:00",
+   "text": "Aang's Zelda plans know the armour you already carry.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T11:46:50-05:00",
+   "text": "Ask Aang to add or remove stops on your Hyrule route.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T11:46:55-05:00",
+   "text": "Aang's updates no longer get lost before he restarts.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T12:35:00-05:00",
+   "text": "Mockups load smoothly, with a simple loading bar.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T12:35:30-05:00",
+   "text": "The music player's pin turns when you pin it.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T12:36:00-05:00",
+   "text": "The volume mixer shows your music player.",
+   "kind": "feature"
+  },
+  {
+   "at": "2026-11-03T13:58:00-05:00",
+   "text": "The music player sees Spotify on your Mac again.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T16:15:00-05:00",
+   "text": "Prime Video on the PC goes out through your Mac's home internet, so it stops saying a title isn't available where you are.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T16:50:00-05:00",
+   "text": "Mockups: the Shrine desktop sheets sit under one ShrineDock tab, with ShrineDock's seal on it.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T18:55:00-05:00",
+   "text": "Mockups Samara turns away now say so and why, instead of silently going missing.",
+   "kind": "fix"
+  },
+  {
+   "at": "2026-11-03T20:41:00-05:00",
+   "text": "Samara now reads your Reddit every 30 minutes for the Shrine feed widget and learns what you like from what you open, read and upvote.",
+   "kind": "feature"
+  }
+ ]
 }
