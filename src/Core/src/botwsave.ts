@@ -66,6 +66,8 @@ export interface Catalog {
   peopleFlags?: string[];
   /** Great Fairy fountains: n and the flag set when he opens it. */
   fairies?: { n: number; flag: string }[];
+  /** Captured memories: n (botw.db memories.n) and the flag the game sets when its cutscene has played. */
+  memories?: { n: number; flag: string }[];
 }
 
 interface Cond { flag?: string; of?: Cond[] }
@@ -102,6 +104,7 @@ export function loadCatalog(dbPath: string): Catalog {
       chests: has('chests') ? all<{ hash: number; flag: string }>('SELECT hash_id hash, flag FROM chests WHERE flag IS NOT NULL ORDER BY hash_id') : [],
       people: has('people') ? all<{ id: string; flag: string }>('SELECT id, met_flag flag FROM people WHERE met_flag IS NOT NULL ORDER BY id') : [],
       fairies: has('great_fairies') ? all<{ n: number; flag: string }>('SELECT n, revive_flag flag FROM great_fairies WHERE revive_flag IS NOT NULL ORDER BY n') : [],
+      memories: has('memories') ? all<{ n: number; flag: string }>('SELECT n, seen_flag flag FROM memories WHERE seen_flag IS NOT NULL ORDER BY n') : [],
       peopleFlags: has('people') ? personFlags(all<{ schedule: string | null; places: string }>('SELECT schedule, places FROM people')) : [],
     };
   } finally { db.close(); }
@@ -132,6 +135,9 @@ export interface BotwState {
   chests: { opened: number[] };   // E2: botw.db chests.hash_id of every chest he has opened
   people: { met: string[]; flags: string[] };  // E2: met = people.id the game has introduced (name shown, or first talk);
                                   // flags = the schedule / placement condition flags set in his save (where people are)
+  /** botw.db memories.n of each captured memory he has found: its cutscene played (IsPlayed_Demo1xx_0). Not the
+   *  IsGet_MemoryPhoto_ flags: those mark Impa's album photos, all given at the start (checked on his save 2026-11-04). */
+  memories?: number[];
   greatFairies: number[];         // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   dlc: BotwDlc;                   // E2: the add-ons' completion marks (docs/BOTW-STATE.md)
 }
@@ -210,6 +216,7 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     chests: { opened: (cat.chests ?? []).filter(c => s.int(c.flag)).map(c => c.hash) },
     people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id), flags: (cat.peopleFlags ?? []).filter(f => s.int(f)) },
     greatFairies: (cat.fairies ?? []).filter(f => s.int(f.flag)).map(f => f.n),
+    memories: (cat.memories ?? []).filter(m => s.int(m.flag)).map(m => m.n),
     dlc: {
       masterMode: s.int('AoC_HardMode_Enabled') !== 0,
       trialOfTheSword: { beginning: !!s.int('100enemy_Clear_Junior'), middle: !!s.int('100enemy_Clear_Middle'), final: !!s.int('100enemy_Clear_Senior') },

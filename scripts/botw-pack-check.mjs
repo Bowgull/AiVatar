@@ -186,7 +186,7 @@ let lost = 0;
 for (let i = 1; i < per.length; i++) for (const k of ['chests', 'met']) { lost += per[i - 1][k].filter((x) => !per[i][k].some((y) => y === x)).length; }
 ok(!lost, `nothing opened or met in an older save is missing from a newer one (${lost} lost)`);
 const [first, last] = [per[0], per.at(-1)], newCh = last.chests.filter((c) => !first.chests.includes(c)), newMet = last.met.filter((p) => !first.met.includes(p));
-ok(newCh.length > 0, `chests opened after slot ${first.slot} by slot ${last.slot}: ${newCh.length} (${newCh.map((c) => `${c.item_name} in ${c.kind} ${c.shrine || c.near}`).join(', ')})`);
+console.log(`     chests opened after slot ${first.slot} by slot ${last.slot}: ${newCh.length} (${newCh.map((c) => `${c.item_name} in ${c.kind} ${c.shrine || c.near}`).join(', ')})`);   // a count, not a check: a run without a chest is fine
 console.log(`     people met after slot ${first.slot} by slot ${last.slot}: ${newMet.length}${newMet.length ? ` (${newMet.map((p) => p.name || p.id).join(', ')})` : ''}`);
 
 console.log(bad ? `\n${bad} check(s) failed` : '\nall checks pass');

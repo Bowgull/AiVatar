@@ -75,6 +75,8 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
     "met": ["Npc_Kakariko001"],            // botw.db people.id of everyone the game has introduced
     "flags": ["Npc_Kakariko001_Talk"]      // the flags people's whereabouts wait on that his save has set
   },
+  "memories": [],                        // botw.db memories.n of each captured memory found (its cutscene played,
+                                           // IsPlayed_Demo1xx_0); not IsGet_MemoryPhoto_ (Impa's album, set from the start)
   "greatFairies": [1],                     // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
     "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save
