@@ -4,11 +4,11 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChildProcess } from 'node:child_process';
-import { BotwLive, GAVE_UP, posFile, readBotwPos } from '../src/botwlive.ts';
+import { BotwLive, GAVE_UP, posFile, readBotwPos, walksDir } from '../src/botwlive.ts';
 
 const root = mkdtempSync(path.join(tmpdir(), 'aang-botw-live-'));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -60,4 +60,18 @@ test('a pos.json left saying live is marked not live once Cemu is closed', async
   writeFileSync(posFile(r.p), JSON.stringify({ v: 1, at: '2026-11-03T15:00:00.000Z', x: 1, y: 2, z: 3, facing: 90, live: true }));
   await r.live.tick();
   assert.deepEqual(readBotwPos(r.p), { v: 1, at: '2026-11-03T15:00:00.000Z', x: 1, y: 2, z: 3, facing: 90, live: false });
+});
+
+test('the walk log: one line per move while the reader runs, nothing for a standstill, nothing after it stops', async () => {
+  const r = rig();
+  r.cemu(true); await r.live.tick();
+  const at = (n: number) => new Date(Date.parse('2026-11-04T15:00:00Z') + n * 1000).toISOString();
+  const pos = (n: number, x: number) => writeFileSync(posFile(r.p), JSON.stringify({ v: 1, at: at(n), x, y: 100, z: 5, facing: 90, live: true }));
+  pos(0, 10); r.live.logWalk(); r.live.logWalk();               // the same pos.json twice: one line
+  pos(2, 14.04); r.live.logWalk();
+  const f = path.join(walksDir(r.p), '2026-11-04.jsonl');
+  const lines = readFileSync(f, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  assert.deepEqual(lines.map(l => l.x), [10, 14]);
+  assert.deepEqual(lines[1], { t: at(2), x: 14, y: 100, z: 5, f: 90 });
+  r.live.stop();
 });

@@ -6,7 +6,7 @@
 // an injection or the debugger port, never a key. A wrong address fails safe: the reader removes pos.json, says why
 // (logged here) and exits 3, and it is not started again until Cemu restarts.
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import type { BotwPaths } from './botwwatch.ts';
@@ -15,6 +15,12 @@ import type { BotwPaths } from './botwwatch.ts';
 export const LIVE_EVERY_MS = 20_000;
 /** The reader's code for "the address gave nothing believable": not again until Cemu restarts. */
 export const GAVE_UP = 3;
+/** The walk log (bugs 29-31: route times, climb and swim limits were guesses): while the reader runs, his position every
+ *  2 s goes into walks/<day>.jsonl beside pos.json, one line { t, x, y, z, f } when it changed. Kept 14 days. Tiny:
+ *  a 2 s file read of pos.json, never Cemu. scripts/botw-walks.mjs turns it into the route engine's numbers. */
+export const WALK_EVERY_MS = 2000;
+export const WALK_KEEP_DAYS = 14;
+export const walksDir = (p: BotwPaths): string => path.join(p.dir, 'walks');
 
 export interface BotwPos { v: 1; at: string; x: number; y: number; z: number; facing: number; live: boolean }
 export const posFile = (p: BotwPaths): string => path.join(p.dir, 'pos.json');
@@ -36,6 +42,8 @@ export class BotwLive {
   private child: ChildProcess | null = null;
   /** The reader gave up on this Cemu launch (wrong address): wait for Cemu to close before trying again. */
   private gaveUp = false;
+  private rec: ReturnType<typeof setInterval> | null = null;
+  private lastAt = '';
   constructor(p: BotwPaths, d: LiveDeps) { this.p = p; this.d = d; }
   get reading(): boolean { return this.child !== null; }
 
@@ -52,6 +60,7 @@ export class BotwLive {
     const args = ['--botw-pos', '--out', posFile(this.p), '--parent', String(process.pid)];
     const child = (this.d.spawn ?? ((exe, a) => spawn(exe, a, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })))(this.d.reader, args);
     this.child = child;
+    this.startWalkLog();
     let buf = '';
     child.stdout?.on('data', (b: Buffer) => {
       buf += b.toString('utf8');
@@ -62,11 +71,33 @@ export class BotwLive {
     const done = (code: number | null) => {
       if (this.child !== child) return;
       this.child = null;
+      this.stopWalkLog();
       if (code === GAVE_UP) this.gaveUp = true;
     };
     child.on('exit', done);
     child.on('error', e => { this.d.log(`botw live: could not start the reader (${e.message})`); done(GAVE_UP); });
   }
 
-  stop(): void { try { this.child?.kill(); } catch { /* gone */ } this.child = null; }
+  stop(): void { try { this.child?.kill(); } catch { /* gone */ } this.child = null; this.stopWalkLog(); }
+
+  private startWalkLog(): void {
+    this.stopWalkLog();
+    const dir = walksDir(this.p);
+    try {
+      mkdirSync(dir, { recursive: true });
+      const keep = new Date(Date.now() - WALK_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10);
+      for (const f of readdirSync(dir)) if (/^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f) && f.slice(0, 10) < keep) rmSync(path.join(dir, f), { force: true });
+    } catch { /* the log is a nice-to-have */ }
+    this.rec = setInterval(() => this.logWalk(), WALK_EVERY_MS);
+    this.rec.unref?.();
+  }
+  private stopWalkLog(): void { if (this.rec) clearInterval(this.rec); this.rec = null; }
+  /** One line when Link has moved since the last one (pos.json's own time changes on each move). */
+  logWalk(): void {
+    const p = readBotwPos(this.p);
+    if (!p?.live || p.at === this.lastAt) return;
+    this.lastAt = p.at;
+    const r1 = (n: number) => Math.round(n * 10) / 10;
+    try { appendFileSync(path.join(walksDir(this.p), p.at.slice(0, 10) + '.jsonl'), JSON.stringify({ t: p.at, x: r1(p.x), y: r1(p.y), z: r1(p.z), f: Math.round(p.facing) }) + '\n'); } catch { /* skip a beat */ }
+  }
 }
