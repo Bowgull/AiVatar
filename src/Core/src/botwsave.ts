@@ -113,7 +113,15 @@ export function loadCatalog(dbPath: string): Catalog {
 // ------------------------------------------------------------------ the state (docs/BOTW-STATE.md)
 
 export interface BotwQuest { id: string; type: string; step: number; steps: number; done: boolean }
-export interface BotwGear { id: string; name: string; kind: string; n: number; equipped: boolean }
+export interface BotwGear {
+  id: string; name: string; kind: string; n: number; equipped: boolean;
+  /** Cooked dishes and elixirs only (bug 32): what THIS one does, from the save's own table (CookEffect0 = [effect,
+   *  level], StaminaRecover = [hearts in quarters, seconds]), which lines up with the Item_Cook_ entries in his pouch in
+   *  order. The same decoding as botw-guide-mockups tools/routetest/save.mjs, checked on his dishes (Spicy = 5). */
+  cook?: { effect: string | null; level: number; hp: number; time: number };
+}
+/** The save's cooking effect numbers, the game's own order. */
+const COOK_FX: Record<number, string> = { 1: 'LifeRecover', 2: 'LifeMaxUp', 4: 'ResistHot', 5: 'ResistCold', 6: 'ResistElectric', 10: 'AttackUp', 11: 'DefenseUp', 12: 'Quietness', 13: 'MovingSpeed', 14: 'GutsRecover', 15: 'ExGutsMaxUp', 16: 'Fireproof' };
 export interface BotwState {
   v: 1;
   readAt: string; savedAt: string; slot: number; version: string;
@@ -170,10 +178,14 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
   const [x = 0, y = 0, z = 0] = s.floats('PlayerSavePos');
   const bag = s.str('PorchItem', 16), value = s.all('PorchItem_Value1'), equip = s.all('PorchItem_EquipFlag');
   const gear: BotwGear[] = [];
+  const fx = s.floats('CookEffect0'), sr = s.floats('StaminaRecover');
+  let k = 0;   // the k-th Item_Cook_ in the pouch owns pair k of the cooking tables
   bag.forEach((id, i) => {
     if (!id) return;
     const it = cat.items.get(id);
-    gear.push({ id, name: it?.name ?? id, kind: it?.kind ?? '', n: (value[i] ?? 0) | 0, equipped: (equip[i] ?? 0) !== 0 });
+    const g: BotwGear = { id, name: it?.name ?? id, kind: it?.kind ?? '', n: (value[i] ?? 0) | 0, equipped: (equip[i] ?? 0) !== 0 };
+    if (id.startsWith('Item_Cook_')) { const e = fx[k * 2] ?? -1; g.cook = { effect: COOK_FX[e] ?? null, level: round(fx[k * 2 + 1] ?? 0), hp: round(sr[k * 2] ?? 0), time: Math.round(sr[k * 2 + 1] ?? 0) }; k++; }
+    gear.push(g);
   });
   const quests: BotwQuest[] = [];
   for (const q of cat.quests) {

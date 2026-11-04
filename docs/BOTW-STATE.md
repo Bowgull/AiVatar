@@ -69,6 +69,8 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   "gear": [                                // his bag, in the game's order
     { "id": "Weapon_Sword_029", "name": "Soldier's Claymore", "kind": "two-handed", "n": 2800, "equipped": true }
   ],                                       // n = count; for weapons, bows and shields it is durability x100
+                                           // dishes and elixirs also carry cook: { effect, level, hp, time }, their own effect
+                                           // from the save (CookEffect0 / StaminaRecover, in pouch order)
   "heroPath": { "points": [[1610, 475]] }, // Hero's Path, every overworld point in order, rounded; null if none
   "chests": { "opened": [91802921] },     // E2: botw.db chests.hash_id of every chest he has opened
   "people": {                             // E2
