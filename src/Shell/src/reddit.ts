@@ -200,7 +200,12 @@ export class RedditFeed {
     this.asked++;
     saveJson(this.stateFile, { ...st, day, asked: today + 1 });
     const r = await this.o.reddit(url, { signal: AbortSignal.timeout(15_000) });
-    if (r.status === 401 || r.status === 403 || r.status === 429) throw new Refused(`Reddit said no (${r.status}) to ${url.replace(WWW, '').split('?')[0]}`);
+    if (r.status === 401 || r.status === 403 || r.status === 429) {
+      // how it said no tells a rate limit (a wait, Retry-After) from a block (an HTML page): logged, never retried here
+      const why = [r.headers.get('retry-after') ? `wait ${r.headers.get('retry-after')} s` : '', /html/.test(r.headers.get('content-type') ?? '') ? 'a block page' : '',
+        r.headers.get('x-ratelimit-remaining') ? `${r.headers.get('x-ratelimit-remaining')} left` : ''].filter(Boolean).join(', ');
+      throw new Refused(`Reddit said no (${r.status}${why ? ': ' + why : ''}) to ${url.replace(WWW, '').split('?')[0]} after ${this.asked} asks`);
+    }
     if (!r.ok) throw new Error(`reddit ${r.status} for ${url.replace(WWW, '').split('?')[0]}`);
     return r.json();
   }
