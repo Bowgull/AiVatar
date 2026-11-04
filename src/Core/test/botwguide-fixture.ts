@@ -6,7 +6,7 @@ export const FIXTURE_STATE = {
   readAt: '2026-11-01T16:43:10.000Z',
   savedAt: '2026-11-01T16:42:22.937Z',
   slot: 3, version: 'v1.5', playtime: 48297,
-  clock: { day: 17, hour: 10.69, bloodMoon: 1 },
+  clock: { day: 17, hour: 10.69, bloodMoon: 1, bloodTimer: 1834.5 },
   hearts: { max: 3, now: 3 }, stamina: { max: 1.4 }, rupees: 286, mons: 0,
   pos: { x: 1610.01, y: 116.56, z: 475.09, facing: 12.5, map: 'MainField', square: 'G-5', label: '' },
   shrines: {
@@ -41,4 +41,6 @@ export const FIXTURE_STATE = {
     { id: 'Item_Ore_F', name: 'Amber', kind: 'material', n: 4, equipped: false },
   ],
   heroPath: null,
+  kills: { Enemy_Bokoblin_Junior: 23, Enemy_Keese: 6, Enemy_Chuchu_Junior: 4, Enemy_Moriblin_Junior: 2, Enemy_Guardian_Mini_Baby: 1 } as Record<string, number>,
+  photos: ['Enemy_Bokoblin_Junior', 'Enemy_Keese', 'Animal_Boar_A'],
 };
