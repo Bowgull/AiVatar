@@ -41,3 +41,18 @@ ipcRenderer.on('hyrule:route', (_e, m) => {
   window.dispatchEvent(new StorageEvent('storage', { key: ADDS, newValue: v }));
   for (const f of nudges) { try { f(v); } catch {} }
 });
+
+// The map's save (2026-11-04, his ask: "remember what I did last"). Everything the map and Journal remember lives in hy.*
+// localStorage keys, but the page server takes a new port each launch, and a new port is a new origin with empty storage.
+// So: put the saved keys back before the page's own scripts run (the file wins: it is the newest copy), then mirror any
+// change to the file every few seconds and when the page goes away. Checked again in the Shell (hyruleSaveClean).
+const KEEP = /^hy\./;
+const snap = () => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && KEEP.test(k)) o[k] = localStorage.getItem(k); } return JSON.stringify(o); };
+try {
+  const saved = ipcRenderer.sendSync('hyrule:saveload');
+  if (saved && typeof saved === 'object') for (const [k, v] of Object.entries(saved)) if (KEEP.test(k) && typeof v === 'string') localStorage.setItem(k, v);
+} catch {}
+let kept = ''; try { kept = snap(); } catch {}
+const keep = () => { let now; try { now = snap(); } catch { return; } if (now !== kept) { kept = now; ipcRenderer.send('hyrule:save', now); } };
+setInterval(keep, 3000);
+addEventListener('pagehide', keep);
