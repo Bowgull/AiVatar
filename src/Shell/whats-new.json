@@ -1265,6 +1265,11 @@
       "at": "2026-11-03T20:41:00-05:00",
       "text": "Samara now reads your Reddit every 30 minutes for the Shrine feed widget and learns what you like from what you open, read and upvote.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-11-03T21:20:00-05:00",
+      "text": "The Reddit feed reads more gently: it stops the moment Reddit says no and waits an hour, asks far less often, and brings in your WoW: Forever subs.",
+      "kind": "fix"
     }
   ]
 }
