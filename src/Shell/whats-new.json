@@ -1270,6 +1270,21 @@
       "at": "2026-11-03T21:04:00-05:00",
       "text": "The Reddit feed reads more gently: it stops the moment Reddit says no and waits an hour, asks far less often, and brings in your WoW: Forever subs.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-04T08:46:00-05:00",
+      "kind": "feature",
+      "text": "Your Zelda Journal's bag updates every time the game saves."
+    },
+    {
+      "at": "2026-11-04T08:47:00-05:00",
+      "kind": "fix",
+      "text": "Zelda cooking times are right, and found memories count."
+    },
+    {
+      "at": "2026-11-04T08:48:00-05:00",
+      "kind": "feature",
+      "text": "Aang notes how you move in Zelda to time routes."
     }
   ]
 }
