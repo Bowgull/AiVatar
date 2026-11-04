@@ -68,6 +68,10 @@ export interface Catalog {
   fairies?: { n: number; flag: string }[];
   /** Captured memories: n (botw.db memories.n) and the flag the game sets when its cutscene has played. */
   memories?: { n: number; flag: string }[];
+  /** Every enemy's kill counter (botw.db enemies.kill_flag, Defeated_<actor>_Num, an s32) and every Compendium entry's
+   *  photo flag (compendium.flag, IsRegisteredPictureBook_<actor>). Empty on an older botw.db. */
+  kills?: { id: string; flag: string }[];
+  photos?: { id: string; flag: string }[];
 }
 
 interface Cond { flag?: string; of?: Cond[] }
@@ -105,6 +109,8 @@ export function loadCatalog(dbPath: string): Catalog {
       people: has('people') ? all<{ id: string; flag: string }>('SELECT id, met_flag flag FROM people WHERE met_flag IS NOT NULL ORDER BY id') : [],
       fairies: has('great_fairies') ? all<{ n: number; flag: string }>('SELECT n, revive_flag flag FROM great_fairies WHERE revive_flag IS NOT NULL ORDER BY n') : [],
       memories: has('memories') ? all<{ n: number; flag: string }>('SELECT n, seen_flag flag FROM memories WHERE seen_flag IS NOT NULL ORDER BY n') : [],
+      kills: has('enemies') ? all<{ id: string; flag: string }>("SELECT id, kill_flag flag FROM enemies WHERE kill_flag IS NOT NULL AND kill_flag != '' ORDER BY id") : [],
+      photos: has('compendium') ? all<{ id: string; flag: string }>('SELECT actor id, flag FROM compendium ORDER BY actor') : [],
       peopleFlags: has('people') ? personFlags(all<{ schedule: string | null; places: string }>('SELECT schedule, places FROM people')) : [],
     };
   } finally { db.close(); }
@@ -126,7 +132,8 @@ export interface BotwState {
   v: 1;
   readAt: string; savedAt: string; slot: number; version: string;
   playtime: number;
-  clock: { day: number; hour: number; bloodMoon: number };
+  /** bloodTimer: WM_BloodyMoonTimer (f32), +0.25 a second of play; the Blood Moon is due past 2520. */
+  clock: { day: number; hour: number; bloodMoon: number; bloodTimer?: number };
   hearts: { max: number; now: number };
   stamina: { max: number };
   rupees: number; mons: number;
@@ -146,6 +153,11 @@ export interface BotwState {
   /** botw.db memories.n of each captured memory he has found: its cutscene played (IsPlayed_Demo1xx_0). Not the
    *  IsGet_MemoryPhoto_ flags: those mark Impa's album photos, all given at the start (checked on his save 2026-11-04). */
   memories?: number[];
+  /** botw.db enemies.id -> how many he has beaten (Defeated_<actor>_Num), only those beaten at least once: the game
+   *  writes the counter at the first kill. */
+  kills?: Record<string, number>;
+  /** botw.db compendium.actor of every entry he has photographed (IsRegisteredPictureBook_<actor> set). */
+  photos?: string[];
   greatFairies: number[];         // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   dlc: BotwDlc;                   // E2: the add-ons' completion marks (docs/BOTW-STATE.md)
 }
@@ -208,7 +220,7 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     slot: inp.slot,
     version: VERSIONS[head] ?? `0x${head.toString(16)}`,
     playtime: s.int('PlayReport_PlayTime'),
-    clock: { day: s.int('WM_NumberOfDays'), hour: round(s.float('WM_Time') / 15), bloodMoon: s.int('WM_BloodyDay') },
+    clock: { day: s.int('WM_NumberOfDays'), hour: round(s.float('WM_Time') / 15), bloodMoon: s.int('WM_BloodyDay'), bloodTimer: round(s.float('WM_BloodyMoonTimer')) },
     hearts: { max: s.int('MaxHartValue') / 4, now: s.int('CurrentHart') / 4 },
     stamina: { max: round(s.float('StaminaMax') / 1000) },
     rupees: s.int('CurrentRupee'), mons: s.int('CurrentMamo'),
@@ -229,6 +241,8 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     people: { met: (cat.people ?? []).filter(p => s.int(p.flag)).map(p => p.id), flags: (cat.peopleFlags ?? []).filter(f => s.int(f)) },
     greatFairies: (cat.fairies ?? []).filter(f => s.int(f.flag)).map(f => f.n),
     memories: (cat.memories ?? []).filter(m => s.int(m.flag)).map(m => m.n),
+    kills: Object.fromEntries((cat.kills ?? []).map(k => [k.id, s.int(k.flag)] as const).filter(([, n]) => n > 0)),
+    photos: (cat.photos ?? []).filter(p => s.int(p.flag)).map(p => p.id),
     dlc: {
       masterMode: s.int('AoC_HardMode_Enabled') !== 0,
       trialOfTheSword: { beginning: !!s.int('100enemy_Clear_Junior'), middle: !!s.int('100enemy_Clear_Middle'), final: !!s.int('100enemy_Clear_Senior') },

@@ -46,8 +46,9 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   "slot": 3,                               // 0-5, Cemu's slot folder (autosaves + manual saves)
   "version": "v1.5",                       // from the header (0x471b v1.5, 0x471e v1.6)
   "playtime": 48297,                       // seconds of play (PlayReport_PlayTime)
-  "clock": { "day": 17, "hour": 10.69, "bloodMoon": 1 },
-                                           // WM_NumberOfDays, WM_Time (degrees / 15 = hour of day), WM_BloodyDay raw
+  "clock": { "day": 17, "hour": 10.69, "bloodMoon": 1, "bloodTimer": 1834.5 },
+                                           // WM_NumberOfDays, WM_Time (degrees / 15 = hour of day), WM_BloodyDay raw;
+                                           // bloodTimer = WM_BloodyMoonTimer (f32, +0.25 a second of play, due past 2520)
   "hearts": { "max": 3, "now": 3 },        // in hearts (the save keeps quarters)
   "stamina": { "max": 1.4 },               // in wheels (1000 = one wheel, +0.2 a vessel)
   "rupees": 286, "mons": 0,
@@ -79,6 +80,9 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   },
   "memories": [],                        // botw.db memories.n of each captured memory found (its cutscene played,
                                            // IsPlayed_Demo1xx_0); not IsGet_MemoryPhoto_ (Impa's album, set from the start)
+  "kills": { "Enemy_Bokoblin_Junior": 23 }, // botw.db enemies.id -> Defeated_<actor>_Num, only the ones beaten (the
+                                           // game writes a counter at its first kill)
+  "photos": ["Enemy_Bokoblin_Junior"],     // botw.db compendium.actor of every entry photographed (IsRegisteredPictureBook_)
   "greatFairies": [1],                     // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
     "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save

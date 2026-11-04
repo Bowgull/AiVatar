@@ -85,6 +85,8 @@ test('E2: his six real slots: chests opened and people met only ever grow, and a
   assert.ok(cat.chests.length > 1600 && cat.people!.length > 300, `catalog: ${cat.chests.length} chests, ${cat.people!.length} people`);
   const states = slots(dir).map(s => parseState({ save: readFileSync(s.file), slot: s.slot, savedAt: s.t }, cat)).sort((a, b) => a.playtime - b.playtime);
   const known = new Set(cat.chests.map(c => c.hash));
+  assert.equal(cat.kills!.length, 82, 'every Defeated_<actor>_Num the game has');
+  const kills = new Set(cat.kills!.map(k => k.id)), photos = new Set(cat.photos!.map(p => p.id));
   for (let i = 0; i < states.length; i++) {
     const st = states[i]!;
     assert.ok(st.chests.opened.length > 0 && st.chests.opened.every(h => known.has(h)), `slot ${st.slot}: opened chests are botw.db chests`);
@@ -92,8 +94,14 @@ test('E2: his six real slots: chests opened and people met only ever grow, and a
     assert.ok(st.people.flags.includes('Npc_Kakariko001_Talk'), `slot ${st.slot}: Impa's night-time schedule is on (he has talked to her)`);
     // he has not started either add-on yet, and plays normal mode
     assert.deepEqual(st.dlc, { masterMode: false, trialOfTheSword: { beginning: false, middle: false, final: false }, ballad: { champions: [], done: false }, finalTrial: false, mazKoshia: false }, `slot ${st.slot} dlc`);
+    // Linkadex: the counters are botw.db enemies, the photos compendium entries, the timer a sane number
+    assert.ok(Object.keys(st.kills!).length > 0 && Object.entries(st.kills!).every(([id, n]) => kills.has(id) && n > 0), `slot ${st.slot}: kills`);
+    assert.ok(st.photos!.every(id => photos.has(id)), `slot ${st.slot}: photos`);
+    assert.ok(st.clock.bloodTimer! >= 0 && st.clock.bloodTimer! < 4000, `slot ${st.slot}: blood timer ${st.clock.bloodTimer}`);
     if (!i) continue;
     const prev = states[i - 1]!;
+    assert.ok(Object.entries(prev.kills!).every(([id, n]) => (st.kills![id] ?? 0) >= n), `slot ${prev.slot} -> ${st.slot}: no kill count goes down`);
+    assert.ok(prev.photos!.every(id => st.photos!.includes(id)), `slot ${prev.slot} -> ${st.slot}: no photo is lost`);
     assert.ok(prev.chests.opened.every(h => st.chests.opened.includes(h)), `slot ${prev.slot} -> ${st.slot}: no chest closes again`);
     assert.ok(prev.people.met.every(id => st.people.met.includes(id)), `slot ${prev.slot} -> ${st.slot}: no one is forgotten`);
   }
@@ -125,6 +133,8 @@ const CAT: Catalog = {
   dishes: [{ id: 'Item_Cook_A_01', flag: 'IsGet_Item_Cook_A_01' }],
   chests: [{ hash: 11, flag: 'MainField_TBox_Field_Iron_11' }, { hash: 22, flag: 'CDungeon_TBox_Dungeon_Stone_22' }],
   people: [{ id: 'Npc_Kakariko001', flag: 'Npc_Kakariko001_DispNameFlag' }, { id: 'Npc_Road_024', flag: 'Npc_Road_024_DispNameFlag' }],
+  kills: [{ id: 'Enemy_Bokoblin_Junior', flag: 'Defeated_Enemy_Bokoblin_Junior_Num' }, { id: 'Enemy_Keese', flag: 'Defeated_Enemy_Keese_Num' }],
+  photos: [{ id: 'Enemy_Bokoblin_Junior', flag: 'IsRegisteredPictureBook_Enemy_Bokoblin_Junior' }, { id: 'Animal_Boar_A', flag: 'IsRegisteredPictureBook_Animal_Boar_A' }],
   quests: [{ id: 'Q1', type: 'side', steps: [{ n: 0, flag: 'Q1_Activated' }, { n: 1, flag: 'Q1_Finish' }] }],
   items: new Map([['Weapon_Sword_001', { name: 'Traveler\'s Sword', kind: 'one-handed' }]]),
 };
@@ -180,6 +190,20 @@ test('E2 made-up: chests opened and people met, and a state from before E2', () 
   // the DLC marks
   const dlc = parse(makeSave({ AoC_HardMode_Enabled: 1, '100enemy_Clear_Junior': 1, BalladOfHeroZora_Finish: 1, BalladOfHeroRito_Finish: 1, Defeated_Priest_Boss_Normal_Num: 1 })).dlc;
   assert.deepEqual(dlc, { masterMode: true, trialOfTheSword: { beginning: true, middle: false, final: false }, ballad: { champions: ['Rito', 'Zora'], done: false }, finalTrial: false, mazKoshia: true });
+});
+
+test('Linkadex made-up: kill counters, Compendium photos and the Blood Moon timer', () => {
+  const st = parse(makeSave({ Defeated_Enemy_Bokoblin_Junior_Num: 23, IsRegisteredPictureBook_Animal_Boar_A: 1, IsRegisteredPictureBook_Enemy_Bokoblin_Junior: 0, WM_BloodyMoonTimer: f32(1834.5), WM_BloodyDay: 1 }));
+  // Keese has no counter in the save yet (none beaten): left out, not 0
+  assert.deepEqual(st.kills, { Enemy_Bokoblin_Junior: 23 });
+  assert.deepEqual(st.photos, ['Animal_Boar_A']);
+  assert.deepEqual(st.clock, { day: 0, hour: 0, bloodMoon: 1, bloodTimer: 1834.5 });
+  // a fresh game: nothing beaten, nothing photographed, timer 0
+  const none = parse(makeSave({}));
+  assert.deepEqual([none.kills, none.photos, none.clock.bloodTimer], [{}, [], 0]);
+  // an older botw.db (no enemies / compendium lists): empty, not missing
+  const old = parseState({ save: makeSave({ Defeated_Enemy_Keese_Num: 4 }), slot: 0, savedAt: 0 }, { ...CAT, kills: undefined, photos: undefined });
+  assert.deepEqual([old.kills, old.photos], [{}, []]);
 });
 
 // ------------------------------------------------------------------ the watcher
