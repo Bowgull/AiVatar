@@ -1295,6 +1295,11 @@
       "at": "2026-11-04T09:18:00-05:00",
       "kind": "feature",
       "text": "The Zelda map remembers where you left off."
+    },
+    {
+      "at": "2026-11-04T12:20:00-05:00",
+      "kind": "fix",
+      "text": "Zelda live tracking now starts every time you play."
     }
   ]
 }
