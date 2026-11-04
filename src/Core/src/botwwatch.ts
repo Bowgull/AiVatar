@@ -3,7 +3,8 @@
 // His rules, all enforced here:
 //   - Read-only, always. Only the slots' times are looked at; to read one, the newest slot is copied to a temp file, the
 //     copy is read and deleted. Nothing in Cemu is ever opened for writing, moved or locked.
-//   - Quiet while he plays: while Cemu runs and he keeps saving, nothing is read and nothing is said.
+//   - Quiet while he plays: nothing is said. Each new autosave is read (a copy, about a second, his call 2026-11-04)
+//     so state.json and cook.json keep up for the Journal; the session and its line work as before.
 //   - A session ends when Cemu closes or the save sits still for 30 minutes. Then the state is read and Aang says ONE
 //     line ("Today: 3 shrines, 12 Koroks."). Never anything about what is left.
 //   - "Where was I?" only when he asks.
@@ -14,6 +15,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { writeFileAtomic } from './atomic.ts';
+import { cookMenu } from './botw.ts';
 import { dayKey, shortTime } from './clock.ts';
 import { diffStates, loadCatalog, parseState, sayPlaytime, todayLine, type BotwDiff, type BotwState, type Catalog } from './botwsave.ts';
 
@@ -119,7 +121,11 @@ export class BotwWatch {
     return s?.v === 1 ? s : { v: 1, open: null, held: null, list: [] };
   }
   private write(n: string, data: unknown): void { writeFileAtomic(this.file(n), JSON.stringify(data)); }
-  private writeState(st: BotwState): void { this.write('state.json', st); }
+  /** state.json, and cook.json beside it (what his bag cooks, for the Journal's On the Menu). */
+  private writeState(st: BotwState): void {
+    this.write('state.json', st);
+    try { const db = new DatabaseSync(this.p.db, { readOnly: true }); try { this.write('cook.json', cookMenu(db, st)); } finally { db.close(); } } catch { /* the Journal falls back to its own copy */ }
+  }
   /** The state a session is measured from: state.json as it was when the session began, Hero's Path left out. */
   private writeBase(st: BotwState): void { this.write('base.json', { ...st, heroPath: null }); }
 
@@ -156,6 +162,10 @@ export class BotwWatch {
         this.writeBase(state);
         s.open = { since: at, baseline: state.savedAt, lastSave: at, pathFrom: state.heroPath?.points.length ?? 0 }; s.held = null; changed = true;
       }
+      // His call (2026-11-04): every autosave refreshes state.json during play, so the Journal's bag keeps up. One copy
+      // of the save, read and deleted (about a second); the session still measures from base.json and ends as before.
+      const cur = readNewest(this.p, this.catalog(), now);
+      if (cur) this.writeState(cur);
     }
     if (s.open && (now - Date.parse(s.open.lastSave) >= STILL_MS || !(await this.d.cemuRunning()))) {
       const cur = readNewest(this.p, this.catalog(), now);

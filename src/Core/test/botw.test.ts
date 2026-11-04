@@ -195,18 +195,20 @@ function rig() {
   return { w, said, save, p: { saves, dir, db }, set: (o: { now?: number; cemu?: boolean }) => { if (o.now !== undefined) now = o.now; if (o.cemu !== undefined) cemu = o.cemu; }, get now() { return now; } };
 }
 
-test('watcher: quiet while Cemu runs, one line when it closes', async () => {
+test('watcher: every autosave keeps state.json up while Cemu runs, quiet, one line when it closes', async () => {
   const r = rig();
   r.save(game({ shrines: 1, koroks: 2 }));
   await r.w.tick();                                   // first time: learns the state, says nothing
   assert.equal(readBotwState(r.p)?.shrines.done.length, 1); assert.deepEqual(r.said, []);
 
   r.set({ cemu: true, now: r.now + 60_000 }); r.save(game({ shrines: 2, koroks: 5, time: 5000 }));
-  await r.w.tick();                                   // he saves while playing: nothing read, nothing said
-  assert.equal(readBotwState(r.p)?.shrines.done.length, 1); assert.ok(readBotwSessions(r.p)?.open); assert.deepEqual(r.said, []);
+  await r.w.tick();                                   // he saves while playing: the state follows (his call 2026-11-04), nothing said
+  assert.equal(readBotwState(r.p)?.shrines.done.length, 2); assert.ok(readBotwSessions(r.p)?.open); assert.deepEqual(r.said, []);
   r.set({ now: r.now + 10 * 60_000 }); r.save(game({ shrines: 4, koroks: 14, time: 8000 }));
   await r.w.tick();
-  assert.equal(readBotwState(r.p)?.shrines.done.length, 1); assert.deepEqual(r.said, []);
+  assert.equal(readBotwState(r.p)?.shrines.done.length, 4); assert.deepEqual(r.said, []);
+  await r.w.tick();                                   // no new save: nothing read again
+  assert.equal(readBotwState(r.p)?.shrines.done.length, 4);
 
   r.set({ cemu: false, now: r.now + 60_000 });        // Cemu closes
   await r.w.tick();
