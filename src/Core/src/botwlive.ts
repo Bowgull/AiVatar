@@ -4,7 +4,7 @@
 //
 // His rules: nothing at all while Cemu is closed; one small read a second while it runs; never a write into Cemu, never
 // an injection or the debugger port, never a key. A wrong address fails safe: the reader removes pos.json, says why
-// (logged here) and exits 3, and it is not started again until Cemu restarts.
+// (logged here) and exits 3, and it is started again RETRY_MS later. Exit 4 (no base in Cemu's log yet) retries at once.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -13,8 +13,13 @@ import type { BotwPaths } from './botwwatch.ts';
 
 /** How often the brain looks for Cemu (one tasklist call). Reading starts within this long of Cemu opening. */
 export const LIVE_EVERY_MS = 20_000;
-/** The reader's code for "the address gave nothing believable": not again until Cemu restarts. */
+/** The reader's code for "the address gave nothing believable": rest a while, then try again. It used to wait for a
+ *  Cemu restart, which left tracking off for a whole session after a slow start (2026-11-04). */
 export const GAVE_UP = 3;
+/** The reader's code for "Cemu's log has no base yet": try again at the next look. */
+export const NOT_READY = 4;
+/** How long the brain rests after a give-up before it starts the reader again (one 12-byte read a second, read-only). */
+export const RETRY_MS = 3 * 60_000;
 /** The walk log (bugs 29-31: route times, climb and swim limits were guesses): while the reader runs, his position every
  *  2 s goes into walks/<day>.jsonl beside pos.json, one line { t, x, y, z, f } when it changed. Kept 14 days. Tiny:
  *  a 2 s file read of pos.json, never Cemu. scripts/botw-walks.mjs turns it into the route engine's numbers. */
@@ -34,29 +39,32 @@ export interface LiveDeps {
   log: (line: string) => void;
   /** Tests pass a fake; the real one is child_process.spawn. */
   spawn?: (exe: string, args: string[]) => ChildProcess;
+  now?: () => number;
 }
 
 export class BotwLive {
   private p: BotwPaths;
   private d: LiveDeps;
   private child: ChildProcess | null = null;
-  /** The reader gave up on this Cemu launch (wrong address): wait for Cemu to close before trying again. */
-  private gaveUp = false;
+  /** When the reader last gave up (nothing believable): rest RETRY_MS before trying again; 0 = ready. */
+  private gaveUpAt = 0;
+  private now: () => number;
   private rec: ReturnType<typeof setInterval> | null = null;
   private lastAt = '';
-  constructor(p: BotwPaths, d: LiveDeps) { this.p = p; this.d = d; }
+  constructor(p: BotwPaths, d: LiveDeps) { this.p = p; this.d = d; this.now = d.now ?? Date.now; }
   get reading(): boolean { return this.child !== null; }
 
   async tick(): Promise<void> {
     if (!existsSync(this.d.reader)) return;
     const running = await this.d.cemuRunning();
     if (!running) {
-      this.gaveUp = false;
+      this.gaveUpAt = 0;
       // A reader killed with the brain can leave pos.json saying live: it is not.
       if (!this.child) { const pos = readBotwPos(this.p); if (pos?.live) writeFileAtomic(posFile(this.p), JSON.stringify({ ...pos, live: false })); }
       return;
     }
-    if (this.child || this.gaveUp) return;
+    if (this.child || (this.gaveUpAt && this.now() - this.gaveUpAt < RETRY_MS)) return;
+    this.gaveUpAt = 0;
     const args = ['--botw-pos', '--out', posFile(this.p), '--parent', String(process.pid)];
     const child = (this.d.spawn ?? ((exe, a) => spawn(exe, a, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })))(this.d.reader, args);
     this.child = child;
@@ -72,7 +80,8 @@ export class BotwLive {
       if (this.child !== child) return;
       this.child = null;
       this.stopWalkLog();
-      if (code === GAVE_UP) this.gaveUp = true;
+      // NOT_READY (no base in Cemu's log yet) and a plain exit simply try again at the next look
+      if (code === GAVE_UP) this.gaveUpAt = this.now();
     };
     child.on('exit', done);
     child.on('error', e => { this.d.log(`botw live: could not start the reader (${e.message})`); done(GAVE_UP); });

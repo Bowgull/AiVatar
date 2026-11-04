@@ -1,4 +1,4 @@
-// AangReader --botw-pos --out <pos.json> [--log <Cemu log.txt>] [--parent <pid>] [--every <ms>] [--give-up <ms>]
+// AangReader --botw-pos --out <pos.json> [--log <Cemu log.txt>] [--parent <pid>] [--every <ms>] [--give-up <ms>] [--base-wait <ms>]
 //
 // BG8 (docs/BOTW-GUIDE.md, research: Aang/research_notes/BotW guide/live_position.md): where Link is right now, while
 // Cemu runs. The brain starts this when Cemu is running and it stays until Cemu closes.
@@ -9,8 +9,9 @@
 //   - Cemu itself is opened with PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION and read with ReadProcessMemory,
 //     12 bytes once a second. No injection, no writes, no debugger port, no keys.
 // Link's position (BotW v1.5.0 / v208) is three big-endian floats at base + 0x1055300C: x (east), height, z (south).
-// The address was verified on the JP copy only; a wrong address fails safe: if no read in the first --give-up ms is a
-// believable position, it removes pos.json, prints why and exits 3. The brain does not try again until Cemu restarts.
+// The address was verified on the JP copy only; a wrong address fails safe: if no read in the first --give-up ms (5 min)
+// is a believable position, it removes pos.json, prints why and exits 3; the brain tries again a few minutes later (he may
+// still have been in Cemu's game list). Cemu's base line is waited for (--base-wait, 3 min); none: exit 4, tried again soon.
 //
 // pos.json (docs/BOTW-STATE.md): { v:1, at, x, y, z, facing, live } written whole (temp + rename). Facing comes from
 // movement (degrees, 0 = north, 90 = east), kept while he stands still; -1 until he has moved. live:false when Cemu
@@ -36,6 +37,9 @@ static class BotwPos
     const uint PROCESS_VM_READ = 0x0010, PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
     public const long POS_OFFSET = 0x1055300C;
+    /// <summary>Exit codes the brain acts on: 3 = the address gave nothing believable (wait a while), 4 = Cemu's log had
+    /// no base yet (try again at the next look).</summary>
+    public const int GAVE_UP = 3, NOT_READY = 4;
     public const string DEFAULT_LOG = @"C:\Games\Cemu\portable\log.txt";
     static readonly Regex BaseRe = new(@"Init Wii U memory space \(base: 0x([0-9a-fA-F]+)\)", RegexOptions.Compiled);
 
@@ -44,15 +48,25 @@ static class BotwPos
         string? outFile = Str(args, "--out");
         if (outFile == null) { Say("fail", "no --out given"); return 2; }
         string logFile = Str(args, "--log") ?? DEFAULT_LOG;
-        int every = (int)Num(args, "--every", 1000), giveUp = (int)Num(args, "--give-up", 120_000);
+        int every = (int)Num(args, "--every", 1000), giveUp = (int)Num(args, "--give-up", 300_000);
 
         var cemu = Process.GetProcessesByName("Cemu").OrderBy(p => SafeStart(p)).LastOrDefault();
         if (cemu == null) { MarkClosed(outFile); Say("end", "Cemu is not running"); return 0; }
+        // Cemu writes its base line a few seconds after it starts, and the brain can look in that gap (2026-11-04: it
+        // looked at 12:03:38, the line came at 12:03:41, and live tracking stayed off all session). So wait for it.
+        int baseWait = (int)Num(args, "--base-wait", 180_000);
+        var waited = Stopwatch.StartNew();
         long? mem = BaseFromLog(logFile, SafeStart(cemu));
-        if (mem == null) { Remove(outFile); Say("fail", "no memory base for this Cemu launch in its log"); return 3; }
+        while (mem == null && waited.ElapsedMilliseconds < baseWait && !cemu.HasExited)
+        {
+            Thread.Sleep(1000);
+            mem = BaseFromLog(logFile, SafeStart(cemu));
+        }
+        if (cemu.HasExited) { MarkClosed(outFile); Say("end", "Cemu closed"); return 0; }
+        if (mem == null) { Remove(outFile); Say("fail", "no memory base for this Cemu launch in its log"); return NOT_READY; }
 
         IntPtr h = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION, false, cemu.Id);
-        if (h == IntPtr.Zero) { Remove(outFile); Say("fail", $"could not open Cemu to read (error {Marshal.GetLastWin32Error()})"); return 3; }
+        if (h == IntPtr.Zero) { Remove(outFile); Say("fail", $"could not open Cemu to read (error {Marshal.GetLastWin32Error()})"); return GAVE_UP; }
         Say("start", $"reading Cemu {cemu.Id} at base 0x{mem.Value:x}");
         try
         {
@@ -82,7 +96,7 @@ static class BotwPos
                 {
                     Remove(outFile);
                     Say("fail", "the position address gave nothing believable (wrong game version or region?)");
-                    return 3;
+                    return GAVE_UP;
                 }
                 Thread.Sleep(every);
             }

@@ -220,13 +220,16 @@ Aang's tool: `botw_plan`. Rewards are not planned yet (they live in event flows,
   failed (below). Readers must handle all three.
 - Who writes it: the brain (`botwlive.ts`) starts `AangReader --botw-pos` (`src/Reader/BotwPos.cs`) within 20 s of
   Cemu opening, and nothing runs while Cemu is closed. The reader takes this launch's guest memory base from Cemu's
-  `portable\log.txt` (`Init Wii U memory space (base: 0x…)`, opened read-only, shared) and reads three big-endian floats
+  `portable\log.txt` (`Init Wii U memory space (base: 0x…)`, opened read-only, shared; it waits up to 3 minutes for that
+  line, since Cemu writes it a few seconds after it starts, and if it never comes it exits 4 and the brain tries again at
+  its next look) and reads three big-endian floats
   at base + `0x1055300C` once a second with ReadProcessMemory (`PROCESS_VM_READ`). Read-only: no injection, no writes,
   no debugger port, no keys. It leaves when Cemu closes or the brain that started it is gone.
 - **Fails safe.** The address was verified on the JP v208 copy only; his is US v208. If nothing believable (xnavi's
-  bounds: real floats, |x|,|z| < 7000, -600 < y < 5000, not all zero) comes back in the first 2 minutes, the reader
-  removes `pos.json`, logs "the position address gave nothing believable" in the brain's log and is not started again
-  until Cemu restarts. **To check (QA, his first play session):** `pos.json` appears, and x/z sit on his spot (stand at
+  bounds: real floats, |x|,|z| < 7000, -600 < y < 5000, not all zero) comes back in the first 5 minutes, the reader
+  removes `pos.json`, logs "the position address gave nothing believable" in the brain's log and the brain starts it
+  again 3 minutes later (he may still have been in Cemu's game list). Until 2026-11-04 both failures waited for a Cemu
+  restart, so a reader that looked 3 s too early left tracking off for a whole session. **To check (QA, his first play session):** `pos.json` appears, and x/z sit on his spot (stand at
   a shrine whose `x`/`z` are in botw.db). Inside shrines the numbers become small local ones (|x|,|z| < ~300).
 
 ## Using it from code
