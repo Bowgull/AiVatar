@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { RedditFeed, fromRss, listing, media, merge, prune, toPost, topComments, type Fetch } from '../src/reddit.ts';
 
-const none = { blockSubs: [], blockWords: [] };
+const none = { blockSubs: [], blockWords: [], dial: 0.5 };
 const post = (d: Record<string, unknown>) => ({ id: 'a1', subreddit: 'wow', title: 'A title', author: 'x', permalink: '/r/wow/comments/a1/a_title/', created_utc: 1_790_000_000, score: 10, num_comments: 3, ...d });
 const pic = (u: string, w = 640, h = 360) => ({ preview: { images: [{ source: { url: u + '?full', width: 3000, height: 2000 }, resolutions: [{ url: u + '?108', width: 108, height: 60 }, { url: u, width: w, height: h }] }] } });
 const listingOf = (...ds: Record<string, unknown>[]) => ({ data: { children: ds.map((d) => ({ kind: 't3', data: d })) } });
@@ -34,9 +34,9 @@ test('NSFW, pinned, removed and his blocked subs and words never show', () => {
   assert.equal(toPost(post({ over_18: true }), 'yours', none), null);
   assert.equal(toPost(post({ stickied: true }), 'yours', none), null);
   assert.equal(toPost(post({ removed_by_category: 'moderator' }), 'yours', none), null);
-  assert.equal(toPost(post({ subreddit: 'Politics' }), 'yours', { blockSubs: ['r/politics'], blockWords: [] }), null);
-  assert.equal(toPost(post({ title: 'Big ELECTION news' }), 'yours', { blockSubs: [], blockWords: ['election'] }), null);
-  assert.ok(toPost(post({}), 'yours', { blockSubs: ['politics'], blockWords: ['  '] }));
+  assert.equal(toPost(post({ subreddit: 'Politics' }), 'yours', { blockSubs: ['r/politics'], blockWords: [], dial: 0.5 }), null);
+  assert.equal(toPost(post({ title: 'Big ELECTION news' }), 'yours', { blockSubs: [], blockWords: ['election'], dial: 0.5 }), null);
+  assert.ok(toPost(post({}), 'yours', { blockSubs: ['politics'], blockWords: ['  '], dial: 0.5 }));
 });
 
 test('spoilers: marked ones, and late-game Breath of the Wild talk in the Zelda subs', () => {
@@ -91,6 +91,9 @@ test('one full read: signed in, his front page, comments, pictures saved, the fe
     if (url.includes('/api/me')) return ok({ name: 'him' });
     if (url.includes('/.json')) return ok(listingOf(post({ id: 'f1', post_hint: 'image', url: 'https://i.redd.it/f.jpg', ...pic('https://preview.redd.it/f.jpg') }), post({ id: 'nsfw', over_18: true })));
     if (url.includes('/hot.json')) return ok(listingOf(post({ id: 't1', subreddit: 'science', num_comments: 0 }), post({ id: 'f1' })));
+    if (url.includes('/r/popular.json')) return ok(listingOf(post({ id: 'd1', subreddit: 'gardening', num_comments: 0 }), post({ id: 'd2', subreddit: 'wow', num_comments: 0 })));
+    if (url.includes('/user/him/upvoted')) return ok(listingOf(post({ id: 'u1', subreddit: 'gardening' })));
+    if (url.includes('/user/him/saved')) return ok(listingOf());
     if (url.includes('/comments/f1')) return ok([{}, { data: { children: [{ kind: 't1', data: { author: 'c', body: 'nice', score: 5 } }] } }]);
     if (url.includes('/subreddits/mine')) return { ...ok({ data: { children: [{ kind: 't5', data: { display_name: 'wow', community_icon: 'https://styles.redditmedia.com/wow.png' } }] } }) };
     if (url.includes('/about.json')) return ok({ data: { icon_img: '' } });
@@ -101,16 +104,18 @@ test('one full read: signed in, his front page, comments, pictures saved, the fe
     const feed = new RedditFeed({ reddit, plain, dir, log: () => {}, gap: 0 });
     const f = (await feed.run())!;
     assert.equal(f.signedIn, true);
-    assert.deepEqual(f.posts.map((p) => [p.id, p.source]), [['f1', 'yours'], ['t1', 'trending']]);
+    assert.deepEqual(f.posts.map((p) => [p.id, p.pick]).sort(), [['d1', 'discovery'], ['f1', 'yours'], ['t1', 'trending']]);
+    assert.equal(f.posts.find((p) => p.id === 'd1')!.why, 'You upvote posts in r/gardening');   // his own upvotes, the head start
+    assert.ok(!f.posts.some((p) => p.id === 'd2'), 'a sub he already joined is never "new for you"');
     assert.deepEqual(f.posts[0]!.top, [{ author: 'c', body: 'nice', score: 5 }]);
     assert.ok(f.posts[0]!.image && existsSync(path.join(dir, 'reddit-cache', f.posts[0]!.image)));
     assert.ok(f.icons.wow && f.icons.science === null);
     assert.ok(!asked.some((u) => u.includes('/comments/t1')), 'no comments asked for a post without any');
     // the next read keeps fresh comments instead of asking again, and a failed read leaves the feed alone
     asked.length = 0; await feed.run();
-    assert.ok(!asked.some((u) => u.includes('/comments/')));
+    assert.ok(!asked.some((u) => u.includes('/comments/') || u.includes('/upvoted') || u.includes('/subreddits/mine')), 'comments, subs and the head start are not asked again so soon');
     down = true; assert.equal(await feed.run(), null);
-    assert.equal(JSON.parse(readFileSync(path.join(dir, 'reddit-feed.json'), 'utf8')).posts.length, 2);
+    assert.equal(JSON.parse(readFileSync(path.join(dir, 'reddit-feed.json'), 'utf8')).posts.length, 3);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -118,12 +123,37 @@ test('signed out on the Shadow: the data page is refused, the RSS fills the feed
   const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-out-'));
   const rss = readFileSync(path.join(import.meta.dirname, 'fixtures', 'reddit', 'hot.rss'), 'utf8');
   const no = { ok: false, status: 403, json: async () => ({}), arrayBuffer: async () => new ArrayBuffer(0), headers: { get: () => null } };
-  const reddit: Fetch = async (url) => url.endsWith('.rss?limit=40') ? { ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => new TextEncoder().encode(rss).buffer as ArrayBuffer, headers: { get: () => null } } : no;
+  const reddit: Fetch = async (url) => url.includes('.rss?limit=') ? { ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => new TextEncoder().encode(rss).buffer as ArrayBuffer, headers: { get: () => null } } : no;
   const plain: Fetch = async () => no;
   try {
     const f = (await new RedditFeed({ reddit, plain, dir, log: () => {}, gap: 0 }).run())!;
     assert.equal(f.signedIn, false);
-    assert.equal(f.posts.length, 5);
-    assert.ok(f.posts.every((p) => p.source === 'trending' && p.image === null));   // pictures that will not come are left out, not broken
+    assert.equal(f.posts.length, 5);   // the same five came for trending and for popular: each shows once
+    assert.ok(f.posts.every((p) => p.image === null));   // pictures that will not come are left out, not broken
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('his clicks in the widget teach the taste, hide a sub at once and send a vote only when he votes', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-asks-'));
+  const sent: { url: string; body?: string; mh?: string }[] = [];
+  const reddit: Fetch = async (url, init) => {
+    if (url.includes('/api/me')) return { ok: true, status: 200, json: async () => ({ data: { name: 'him', modhash: 'mh1' } }), arrayBuffer: async () => new ArrayBuffer(0), headers: { get: () => null } };
+    sent.push({ url, body: init?.body, mh: init?.headers?.['X-Modhash'] });
+    return { ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => new ArrayBuffer(0), headers: { get: () => null } };
+  };
+  try {
+    const p = (id: string, sub: string) => ({ ...toPost(post({ id, subreddit: sub }), 'yours', none)!, pick: 'yours', why: null });
+    writeFileSync(path.join(dir, 'reddit-feed.json'), JSON.stringify({ v: 1, posts: [p('a', 'wow'), p('b', 'politics')] }));
+    const feed = new RedditFeed({ reddit, plain: reddit, dir, log: () => {}, gap: 0 });
+    await feed.hear([{ t: 'open', id: 'a', sub: 'wow' }, { t: 'read', id: 'a', sub: 'wow', ms: 240_000 }, { t: 'more', sub: 'wow' }, { t: 'hide', sub: 'Politics' }]);
+    assert.equal(sent.length, 0, 'nothing goes to Reddit for opening, reading, more or hide');
+    const taste = JSON.parse(readFileSync(path.join(dir, 'reddit-taste.json'), 'utf8'));
+    assert.equal(taste.subs.wow.w, 1 + 1.5 + 3);   // open 1, three minutes at most of reading 1.5, more 3
+    assert.deepEqual(taste.hidden, ['politics']); assert.deepEqual(taste.opened, ['a']);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'reddit-feed.json'), 'utf8')).posts.map((x: { id: string }) => x.id), ['a']);
+    await feed.hear([{ t: 'vote', id: 'a', dir: 1 }]);
+    assert.equal(sent.length, 1); assert.equal(sent[0]!.url, 'https://www.reddit.com/api/vote'); assert.equal(sent[0]!.body, 'id=t3_a&dir=1&rank=1'); assert.equal(sent[0]!.mh, 'mh1');
+    const after = JSON.parse(readFileSync(path.join(dir, 'reddit-feed.json'), 'utf8')).posts[0];
+    assert.deepEqual([after.vote, after.score], [1, 11]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

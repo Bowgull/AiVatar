@@ -927,6 +927,7 @@ app.whenReady().then(async () => {
         const ses = session.fromPartition('persist:aang-browser');
         const reddit = new RedditFeed({ reddit: ((u: string, i?: RequestInit) => ses.fetch(u, i)) as never, plain: ((u: string, i?: RequestInit) => net.fetch(u, i)) as never, dir: STATE_DIR, log: (s) => console.log('shell: ' + s) });
         sched.every('reddit.feed', 30 * 60_000, () => reddit.run(), { quiet: true, catchUp: true, first: 90_000 });
+        reddit.listen();   // his opens, reads, more / less, hide and votes from the widget (reddit-ask.json)
       }
       // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
       aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
