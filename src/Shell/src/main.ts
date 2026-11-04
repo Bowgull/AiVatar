@@ -73,7 +73,13 @@ import { Satchel } from './satchel.ts';
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 // One engine (his yes, 2026-10-13): on castLabs' engine, paid video plays in the browser's tabs. Shadow cannot capture a
 // protected picture drawn as an overlay (6.1, black box), so that one overlay is turned off; acceleration stays on.
-if (onCastlabs()) app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
+// His report (2026-11-03): Frieren went to Shadow's "protected video" screen only in fullscreen. A bigger picture asks
+// the site for its HD stream, which Windows decrypts in hardware and always draws on a display-only surface, overlay
+// switch or not. Kept to software decryption, the picture stays one Shadow can stream (at the site's non-hardware best).
+if (onCastlabs()) {
+  app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
+  app.commandLine.appendSwitch('disable-features', 'HardwareSecureDecryption,HardwareSecureDecryptionExperiment,HardwareSecureDecryptionFallback');
+}
 const STATE_DIR = process.env.AANG_STATE_DIR
   ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
 const DATA_DIR = process.env.AANG_DATA_DIR ?? path.join(os.homedir(), 'Documents', 'Aang');

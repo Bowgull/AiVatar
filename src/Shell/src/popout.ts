@@ -359,8 +359,8 @@ export class Popout {
     });
     this.win.on('closed', () => { this.win = null; });
     // Fullscreen is the picture alone (2026-11-02). Leaving it, a lent page's own fullscreen goes back inside the window.
-    this.win.on('enter-full-screen', () => this.win?.webContents.send('popout:wake', 'full'));
-    this.win.on('leave-full-screen', () => { if (this.lent) this.win?.setFullScreenable(false); this.win?.webContents.send('popout:wake', 'in'); });
+    this.win.on('enter-full-screen', () => { this.fullUntil = Date.now() + 1000; this.win?.webContents.send('popout:wake', 'full'); });
+    this.win.on('leave-full-screen', () => { this.fullUntil = Date.now() + 1000; if (this.lent) this.win?.setFullScreenable(false); this.win?.webContents.send('popout:wake', 'in'); });
     this.win.webContents.on('did-finish-load', () => {
       this.send();
       this.win?.webContents.send('popout:settings', this.deps.settings());
@@ -425,9 +425,13 @@ export class Popout {
    * that match what he can see.
    */
   private correcting = false;
+  /** Until when the window is still settling out of fullscreen, so its restore is not taken for his drag. */
+  private fullUntil = 0;
 
   private afterDrag(): void {
-    if (this.correcting) return;
+    // Going in and out of fullscreen fires these too (his report, 2026-11-03: it always opened huge). The fullscreen box,
+    // held to 16 by 9, was written down as his size. Only a size he made himself is remembered.
+    if (this.correcting || this.fullUntil > Date.now() || this.window?.isFullScreen()) return;
     if (this.pending) clearTimeout(this.pending);
     this.pending = setTimeout(() => {
       const w = this.window;
