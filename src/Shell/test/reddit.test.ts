@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RedditFeed, fromRss, listing, media, merge, prune, toPost, topComments, type Fetch } from '../src/reddit.ts';
+import { READ_CAP, RedditFeed, media, merge, prune, toPost, topComments, type Fetch } from '../src/reddit.ts';
 
-const none = { blockSubs: [], blockWords: [], dial: 0.5 };
+const none = { blockSubs: [], blockWords: [], dial: 0.5, picks: [] };
 const post = (d: Record<string, unknown>) => ({ id: 'a1', subreddit: 'wow', title: 'A title', author: 'x', permalink: '/r/wow/comments/a1/a_title/', created_utc: 1_790_000_000, score: 10, num_comments: 3, ...d });
 const pic = (u: string, w = 640, h = 360) => ({ preview: { images: [{ source: { url: u + '?full', width: 3000, height: 2000 }, resolutions: [{ url: u + '?108', width: 108, height: 60 }, { url: u, width: w, height: h }] }] } });
 const listingOf = (...ds: Record<string, unknown>[]) => ({ data: { children: ds.map((d) => ({ kind: 't3', data: d })) } });
@@ -34,9 +34,11 @@ test('NSFW, pinned, removed and his blocked subs and words never show', () => {
   assert.equal(toPost(post({ over_18: true }), 'yours', none), null);
   assert.equal(toPost(post({ stickied: true }), 'yours', none), null);
   assert.equal(toPost(post({ removed_by_category: 'moderator' }), 'yours', none), null);
-  assert.equal(toPost(post({ subreddit: 'Politics' }), 'yours', { blockSubs: ['r/politics'], blockWords: [], dial: 0.5 }), null);
-  assert.equal(toPost(post({ title: 'Big ELECTION news' }), 'yours', { blockSubs: [], blockWords: ['election'], dial: 0.5 }), null);
-  assert.ok(toPost(post({}), 'yours', { blockSubs: ['politics'], blockWords: ['  '], dial: 0.5 }));
+  assert.equal(toPost(post({ author: '[deleted]' }), 'yours', none), null);
+  assert.equal(toPost(post({ is_self: true, selftext: '[removed]' }), 'yours', none), null);
+  assert.equal(toPost(post({ subreddit: 'Politics' }), 'yours', { blockSubs: ['r/politics'], blockWords: [], dial: 0.5, picks: [] }), null);
+  assert.equal(toPost(post({ title: 'Big ELECTION news' }), 'yours', { blockSubs: [], blockWords: ['election'], dial: 0.5, picks: [] }), null);
+  assert.ok(toPost(post({}), 'yours', { blockSubs: ['politics'], blockWords: ['  '], dial: 0.5, picks: [] }));
 });
 
 test('spoilers: marked ones, and late-game Breath of the Wild talk in the Zelda subs', () => {
@@ -56,17 +58,6 @@ test('the top two comments skip bots, pinned notes and removed ones', () => {
 test('his posts come first, each post once', () => {
   const a = toPost(post({ id: 'a' }), 'yours', none)!, b = toPost(post({ id: 'b' }), 'trending', none)!, a2 = toPost(post({ id: 'a' }), 'trending', none)!;
   assert.deepEqual(merge([a], [a2, b]).map((p) => [p.id, p.source]), [['a', 'yours'], ['b', 'trending']]);
-});
-
-test('signed out, a real Reddit RSS reply still gives posts (titles, subs, links, thumbnails)', () => {
-  const posts = fromRss(readFileSync(path.join(import.meta.dirname, 'fixtures', 'reddit', 'hot.rss'), 'utf8'), 'trending', none);
-  assert.equal(posts.length, 5);
-  for (const p of posts) {
-    assert.match(p.id, /^[a-z0-9]+$/); assert.ok(p.sub && p.title && !p.title.includes('&amp;'));
-    assert.match(p.link, /^https:\/\/www\.reddit\.com\/r\/.+\/comments\//);
-    assert.ok(p.created > 1.7e12);
-  }
-  assert.equal(listing({}).length, 0);
 });
 
 test('the cache drops its oldest files first and never one the feed still shows', () => {
@@ -119,17 +110,67 @@ test('one full read: signed in, his front page, comments, pictures saved, the fe
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('signed out on the Shadow: the data page is refused, the RSS fills the feed', async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-out-'));
-  const rss = readFileSync(path.join(import.meta.dirname, 'fixtures', 'reddit', 'hot.rss'), 'utf8');
-  const no = { ok: false, status: 403, json: async () => ({}), arrayBuffer: async () => new ArrayBuffer(0), headers: { get: () => null } };
-  const reddit: Fetch = async (url) => url.includes('.rss?limit=') ? { ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => new TextEncoder().encode(rss).buffer as ArrayBuffer, headers: { get: () => null } } : no;
-  const plain: Fetch = async () => no;
+// a fake Reddit for the gentle-reading rules: answers by path, counts every ask
+function fakeReddit(answer: (url: string) => unknown | number) {
+  const asked: string[] = [];
+  const reply = (status: number, body: unknown = {}) => ({ ok: status === 200, status, json: async () => body, arrayBuffer: async () => new TextEncoder().encode('PIC').buffer as ArrayBuffer, headers: { get: () => null } });
+  const reddit: Fetch = async (url) => { asked.push(url.replace('https://www.reddit.com', '')); const a = answer(url); return typeof a === 'number' ? reply(a) : reply(200, a); };
+  return { asked, reddit, plain: (async () => reply(200, 'PIC')) as Fetch };
+}
+
+test("Reddit's first no stops the whole read, keeps the last feed, and leaves Reddit alone for an hour", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-no-'));
+  let now = 1_800_000_000_000;
+  writeFileSync(path.join(dir, 'reddit-feed.json'), JSON.stringify({ v: 1, posts: [{ id: 'old' }] }));
+  const f = fakeReddit((url) => url.includes('/api/me') ? { name: 'him' } : url.includes('/subreddits/mine') ? listingOf() : 429);
   try {
-    const f = (await new RedditFeed({ reddit, plain, dir, log: () => {}, gap: 0 }).run())!;
-    assert.equal(f.signedIn, false);
-    assert.equal(f.posts.length, 5);   // the same five came for trending and for popular: each shows once
-    assert.ok(f.posts.every((p) => p.image === null));   // pictures that will not come are left out, not broken
+    const feed = new RedditFeed({ reddit: f.reddit, plain: f.plain, dir, log: () => {}, gap: 0, now: () => now });
+    assert.equal(await feed.run(), null);
+    const first = f.asked.length;
+    assert.ok(first <= 4, `stopped at the first no, after ${first} asks`);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'reddit-feed.json'), 'utf8')).posts, [{ id: 'old' }]);
+    now += 30 * 60_000; assert.equal(await feed.run(), null);
+    assert.equal(f.asked.length, first, 'half an hour later: still resting, not one ask');
+    now += 31 * 60_000; await feed.run();
+    assert.ok(f.asked.length > first, 'after the hour it tries again');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('signed out: nothing is read, Reddit is left alone, no RSS', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-out-'));
+  const f = fakeReddit(() => 403);
+  try {
+    assert.equal(await new RedditFeed({ reddit: f.reddit, plain: f.plain, dir, log: () => {}, gap: 0 }).run(), null);
+    assert.deepEqual(f.asked, ['/api/me.json?raw_json=1']);
+    assert.ok(JSON.parse(readFileSync(path.join(dir, 'reddit-state.json'), 'utf8')).restUntil > Date.now());
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a read never asks more than 60 times, and still writes what it got', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-cap-'));
+  const many = Array.from({ length: 80 }, (_, i) => post({ id: 'm' + i, subreddit: 's' + (i % 40), num_comments: 9 }));
+  const f = fakeReddit((url) => url.includes('/api/me') ? { name: 'him' } : url.includes('/comments/') ? [{}, { data: { children: [] } }] : url.includes('/about.json') ? { data: {} } : url.includes('/subreddits/mine') ? listingOf() : listingOf(...many));
+  try {
+    const out = (await new RedditFeed({ reddit: f.reddit, plain: f.plain, dir, log: () => {}, gap: 0 }).run())!;
+    assert.equal(f.asked.length, READ_CAP);
+    assert.ok(out.posts.length > 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('his picks (WoW: Forever) are read as his own, and comments are asked again only when a post gets busy', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'reddit-picks-'));
+  writeFileSync(path.join(dir, 'reddit-prefs.json'), JSON.stringify({ picks: ['r/wowforever', 'classicwow', 'bad name!'] }));
+  let count = 10;
+  const f = fakeReddit((url) => url.includes('/api/me') ? { name: 'him' } : url.includes('/r/wowforever+classicwow/hot') ? listingOf(post({ id: 'w1', subreddit: 'wowforever', num_comments: count }))
+    : url.includes('/comments/') ? [{}, { data: { children: [{ kind: 't1', data: { author: 'x', body: 'gz', score: 1 } }] } }] : url.includes('/about.json') ? { data: {} } : url.includes('/subreddits/mine') ? listingOf() : listingOf());
+  try {
+    const feed = new RedditFeed({ reddit: f.reddit, plain: f.plain, dir, log: () => {}, gap: 0 });
+    const a = (await feed.run())!;
+    assert.deepEqual(a.posts.map((p) => [p.id, p.pick]), [['w1', 'yours']]);
+    f.asked.length = 0; count = 25; await feed.run();
+    assert.ok(!f.asked.some((u) => u.includes('/comments/w1')), '10 to 25 comments: not busy enough to ask again');
+    f.asked.length = 0; count = 60; await feed.run();
+    assert.ok(f.asked.some((u) => u.includes('/comments/w1')), '25 to 60: busy, asked again');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
