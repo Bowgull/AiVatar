@@ -1285,6 +1285,11 @@
       "at": "2026-11-04T08:48:00-05:00",
       "kind": "feature",
       "text": "Aang notes how you move in Zelda to time routes."
+    },
+    {
+      "at": "2026-11-04T09:00:00-05:00",
+      "kind": "fix",
+      "text": "Zelda route warnings now see your cold and heat dishes."
     }
   ]
 }
