@@ -98,7 +98,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     // Samara's own mockup door (src/Shell/src/mockupdoor.ts), when a test opens one: proves its key, answers as Samara.
     if (opts.samara && u.port === '47844') {
       if (u.pathname === '/hello') return reply({ proof: await hmacHex(DOOR_KEY, 'hello', n) })
-      if (u.pathname === '/mockup') { doorMockups.push(JSON.parse(e.init?.body ?? '{}')); return reply(opts.samara) }
+      if (u.pathname === '/mockup' || u.pathname === '/stage') { doorMockups.push({ at: u.pathname, ...JSON.parse(e.init?.body ?? '{}') }); return reply(opts.samara) }
     }
     if (u.pathname === '/link/hello') return reply({ proof: opts.squatter ? 'f'.repeat(64) : await hmacHex(opts.key ?? KEY, 'hello', n), ...(opts.v1 ? {} : { v: 2 }) })
     if (u.pathname === '/link/event' && opts.failPosts && opts.failPosts > 0) { opts.failPosts--; throw new Error('timed out') }
@@ -733,6 +733,19 @@ test('show_mockup (2026-11-03): Samara refuses the sheet at its own door, and th
   expect(doorMockups).toHaveLength(1)
   expect(doorMockups[0]).toMatchObject({ cwd: start.cwd, path: 'mockups/shrine-reddit/01.html', branch: 'Reddit' })
   expect(mockups).toHaveLength(0)
+})
+
+test('mockup_mark (2026-11-03): a mark goes to Samara\'s door on the PC, and its refusal is the answer, never "Marked"', async ($, on) => {
+  const why = 'That sheet is not in the Mockups trail yet: show it first (show_mockup).'
+  const { quiet, doorMockups, seen } = brain(on, { tools: ['Bash'], env: { APPDATA: 'C:\\Users\\T\\AppData\\Roaming' }, samara: { ok: false, message: why } })
+  await $.session.start(start)
+  await quiet()
+  const path = 'C:\\Users\\T\\projects\\mockups\\shrine\\mockups\\shrine-reddit\\reddit-shrine-kit.html'
+  const r = await $.tool.call({ tool: 'mcp__aang-link__mockup_mark', path, stage: 'approved', said: 'Yes, approve R18' } as never)
+  expect(r).toEqual({ result: why, isError: true })
+  expect(doorMockups).toHaveLength(1)
+  expect(doorMockups[0]).toMatchObject({ at: '/stage', cwd: start.cwd, path, stage: 'approved', said: 'Yes, approve R18' })
+  expect(seen.filter(p => p === '/link/mockupmark')).toHaveLength(0)
 })
 
 test('show_mockup (2026-11-03): Samara says yes at its door, and that is the answer', async ($, on) => {
