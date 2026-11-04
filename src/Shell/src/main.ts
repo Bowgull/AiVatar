@@ -53,6 +53,7 @@ import { wireTaskbarPops } from './taskbarwire.ts';
 import { jumpIcons, type TaskbarPops } from './taskbar.ts';
 import { isPopoutTask } from './taskbarplan.ts';
 import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
+import { RedditFeed } from './reddit.ts';
 import type { FamilyHost } from './familywin.ts';
 import type { TimerData } from './timerwin.ts';
 import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
@@ -920,6 +921,13 @@ app.whenReady().then(async () => {
       }, bootDeps((s) => console.log('shell: ' + s)));
       aangBrowser = boot.browserNow;
       updates = boot.updates;
+      // The Shrine Reddit feed (sheet R18, phase 1): every 30 minutes, quietly, read with his own session, written for
+      // ShrineDock's widget (reddit.ts). The PC's only: ShrineDock is the PC's desktop.
+      if (process.platform === 'win32' && !process.env.AANG_TEST) {
+        const ses = session.fromPartition('persist:aang-browser');
+        const reddit = new RedditFeed({ reddit: ((u: string, i?: RequestInit) => ses.fetch(u, i)) as never, plain: ((u: string, i?: RequestInit) => net.fetch(u, i)) as never, dir: STATE_DIR, log: (s) => console.log('shell: ' + s) });
+        sched.every('reddit.feed', 30 * 60_000, () => reddit.run(), { quiet: true, catchUp: true, first: 90_000 });
+      }
       // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
       aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
       aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
