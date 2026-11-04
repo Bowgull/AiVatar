@@ -1,5 +1,5 @@
-// BG8: the brain's side of the live position (botwlive.ts): start the reader only while Cemu runs, once, never again
-// after it gave up on this launch, and never leave pos.json saying live after Cemu closed. The reader is a fake here.
+// BG8: the brain's side of the live position (botwlive.ts): start the reader only while Cemu runs, one at a time, rest a
+// while after it gave up, and never leave pos.json saying live after Cemu closed. The reader is a fake here.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChildProcess } from 'node:child_process';
-import { BotwLive, GAVE_UP, posFile, readBotwPos, walksDir } from '../src/botwlive.ts';
+import { BotwLive, GAVE_UP, NOT_READY, RETRY_MS, posFile, readBotwPos, walksDir } from '../src/botwlive.ts';
 
 const root = mkdtempSync(path.join(tmpdir(), 'aang-botw-live-'));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -17,14 +17,14 @@ function rig() {
   const dir = mkdtempSync(path.join(root, 'r-'));
   const reader = path.join(dir, 'AangReader.exe'); writeFileSync(reader, '');
   const p = { saves: dir, dir, db: '' };
-  let cemu = false;
+  let cemu = false, now = Date.parse('2026-11-04T17:00:00Z');
   const started: { args: string[]; child: ChildProcess & EventEmitter; out: PassThrough }[] = [];
   const logs: string[] = [];
   const live = new BotwLive(p, {
-    reader, cemuRunning: async () => cemu, log: l => logs.push(l),
+    reader, cemuRunning: async () => cemu, log: l => logs.push(l), now: () => now,
     spawn: (_exe, args) => { const out = new PassThrough(); const child = Object.assign(new EventEmitter(), { stdout: out, kill: () => true }) as unknown as ChildProcess & EventEmitter; started.push({ args, child, out }); return child; },
   });
-  return { live, p, started, logs, cemu: (on: boolean) => { cemu = on; } };
+  return { live, p, started, logs, cemu: (on: boolean) => { cemu = on; }, wait: (ms: number) => { now += ms; } };
 }
 
 test('the reader runs only while Cemu does, one at a time', async () => {
@@ -44,15 +44,26 @@ test('the reader runs only while Cemu does, one at a time', async () => {
   assert.equal(r.started.length, 2);
 });
 
-test('a wrong address fails safe: not tried again until Cemu restarts', async () => {
+test('a wrong address fails safe: it rests, then tries again (or at once on a new Cemu launch)', async () => {
   const r = rig();
   r.cemu(true); await r.live.tick();
   r.started[0]!.child.emit('exit', GAVE_UP);
-  await r.live.tick(); await r.live.tick();
-  assert.equal(r.started.length, 1);
+  await r.live.tick(); r.wait(RETRY_MS - 1000); await r.live.tick();
+  assert.equal(r.started.length, 1, 'resting');
+  r.wait(1000); await r.live.tick();
+  assert.equal(r.started.length, 2, 'tried again after the rest: he may have been in the game list');
+  r.started[1]!.child.emit('exit', GAVE_UP);
   r.cemu(false); await r.live.tick();
   r.cemu(true); await r.live.tick();
-  assert.equal(r.started.length, 2, 'a new Cemu launch tries again');
+  assert.equal(r.started.length, 3, 'a new Cemu launch tries again at once');
+});
+
+test('2026-11-04: the brain looked before Cemu wrote its base line; the next look tries again', async () => {
+  const r = rig();
+  r.cemu(true); await r.live.tick();
+  r.started[0]!.child.emit('exit', NOT_READY);
+  await r.live.tick();
+  assert.equal(r.started.length, 2, 'no rest for a log that was not ready');
 });
 
 test('a pos.json left saying live is marked not live once Cemu is closed', async () => {
