@@ -82,7 +82,9 @@ export function gameLabel(name: string): string {
 export function clientVersion(installPath: string, fallback: string): string {
   try {
     const flavour = path.basename(path.resolve(installPath));               // _classic_beta_
-    const product = 'wow' + flavour.replace(/^_+|_+$/g, '').replace(/^(?=.)/, '_');   // wow_classic_beta
+    // Forever's launch install (2026-11-03) is `_forever_`, but its .build.info row says `wowf`, not wow_forever.
+    const product = /^_?forever_?$/i.test(flavour) ? 'wowf'
+      : 'wow' + flavour.replace(/^_+|_+$/g, '').replace(/^(?=.)/, '_');   // _classic_beta_ -> wow_classic_beta
     const lines = readFileSync(path.join(installPath, '..', '.build.info'), 'utf8').split(/\r?\n/).filter(Boolean);
     const head = (lines[0] ?? '').split('|').map(h => h.split('!')[0]!.trim());
     const vi = head.indexOf('Version'), pi = head.indexOf('Product');

@@ -250,3 +250,12 @@ test('the button is found by name, exactly one; WoW’s processes are known', ()
   assert.equal((installButton([b('Update', 3)]) as { i: number }).i, 3, 'Update when there is no Install');
   assert.ok(isWowProcess('WowB.exe') && isWowProcess('Wow') && !isWowProcess('CurseForge'));
 });
+
+test('the launch install: `_forever_` reads the `wowf` row of .build.info', () => {
+  const root = mkdtempSync(path.join(tmpdir(), "aang-wowf-"));
+  try {
+    mkdirSync(path.join(root, '_forever_'));
+    writeFileSync(path.join(root, '.build.info'), 'Branch!STRING:0|Active!DEC:1|Version!STRING:0|Product!STRING:0\nus|1|1.60.1.70755|wowf\n');
+    assert.equal(clientVersion(path.join(root, '_forever_'), 'fallback'), '1.60.1.70755');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
