@@ -84,6 +84,12 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
                                            // game writes a counter at its first kill)
   "photos": ["Enemy_Bokoblin_Junior"],     // botw.db compendium.actor of every entry photographed (IsRegisteredPictureBook_)
   "greatFairies": [1],                     // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
+  "horses": [                              // BG9 (2026-11-04): his stable, one per filled slot 0-4 (slot 5 = the game's
+    { "slot": 0, "name": "Luther",         // temporary one, left out). Horse_UserName, Horse_ActorName (the horse type,
+      "actor": "GameRomHorse23",           // whose actor params hold its stats), Horse_Familiarity (bond 0..1),
+      "bond": 1, "saddle": "GameRomHorseSaddle_00", "reins": "GameRomHorseReins_00",   // Horse_SaddleName / ReinsName
+      "mane": "Horse_Link_Mane", "rideSec": 693 }                                     // Horse_ManeName, Horse_RideTimeSec
+  ],                                       // missing on a state.json written before 2026-11-04: unknown, not none
   "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
     "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save
     "trialOfTheSword": { "beginning": false, "middle": false, "final": false },  // 100enemy_Clear_Junior/Middle/Senior
