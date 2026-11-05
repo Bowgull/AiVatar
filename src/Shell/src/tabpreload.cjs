@@ -287,6 +287,15 @@ try {
       // "Do not sell or share my data" (Global Privacy Control, 2026-10-26): the page can read it too, as in Brave and
       // Firefox; every request already says it (privacy.ts).
       try { Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: () => true, configurable: true, enumerable: true }); } catch { /* already there */ }
+      // Pop-under ads (2026-11-05, his report: PMV Haven in the secret window, "every single click opens a new tab").
+      // ExoClick's popMagic hooks every click: it opens the link he clicked in a NEW tab and sends his own tab to the ad,
+      // so the new tab passes the link-he-clicked rule in browser.ts and the ad hides behind it. Sites ship it inside
+      // their own code, where the ad lists cannot reach it. popMagic is already here and does nothing, so a site that
+      // checks for it skips its setup, and one that loads it from a script cannot replace it.
+      try {
+        const none = Object.freeze({ init() {}, shouldShow: () => false, config: Object.freeze({}) });
+        Object.defineProperty(window, 'popMagic', { configurable: false, enumerable: false, get: () => none, set: () => {} });
+      } catch { /* already defined */ }
       try { Object.defineProperty(window, 'PublicKeyCredential', { value: undefined, configurable: false, writable: false }); } catch { /* already gone */ }
       // FedCM (Chrome's built-in "Sign in with Google" prompt) has no screen in Electron and hangs like passkeys did.
       // Without it, Google's button falls back to its normal popup, which works (2026-10-12).
