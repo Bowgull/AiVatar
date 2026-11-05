@@ -2,7 +2,7 @@
 // the page server serving it: the map's own home page and file types, and still nothing from outside its folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
@@ -75,5 +75,26 @@ test('a rewritten live file reaches the page as one event within a second, and t
     assert.match(all, /event: change\ndata: \{"file":"cook"\}\n\n/);
     assert.doesNotMatch(all, /tmp/);
     req.destroy();
+  } finally { s.close(); }
+});
+
+// BG10 (his interview, 2026-11-04): the live reader works only while a guide page is open. A listening page is an open
+// page, so while one listens the lease want.json sits in the live folder, and it goes when the last one leaves.
+test('a listening page keeps the lease want.json in the live folder; it goes when the page does', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'hyrule-lease-'));
+  const dir = path.join(root, 'Hyrule'), live = path.join(root, 'botw'), want = path.join(live, 'want.json');
+  mkdirSync(dir); mkdirSync(live);
+  writeFileSync(path.join(dir, 'index.html'), '<!doctype html>');
+  const s = await servePages(dir, '/index.html', { live });
+  try {
+    assert.ok(!existsSync(want), 'no page, no lease');
+    const req = http.get(s.origin + '/live/events', { agent: false });
+    const res = await new Promise<http.IncomingMessage>((done, fail) => { req.on('response', done); req.on('error', fail); });
+    res.resume();
+    assert.equal(JSON.parse(readFileSync(want, 'utf8')).pages, 1);
+    req.destroy();
+    const t0 = Date.now();
+    while (Date.now() - t0 < 1500 && existsSync(want)) await new Promise((r) => setTimeout(r, 25));
+    assert.ok(!existsSync(want), 'the page left: the lease is gone');
   } finally { s.close(); }
 });

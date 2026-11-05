@@ -13,7 +13,7 @@
 // rewritten they hear its name (`event: change`, `data: {"file":"state"}`) and fetch that one file. One fs.watch on the
 // folder, only while a page is listening; nothing runs with no page open.
 import { createServer, type Server, type ServerResponse } from 'node:http';
-import { createReadStream, existsSync, statSync, watch, type FSWatcher } from 'node:fs';
+import { createReadStream, existsSync, rmSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
 const TYPES: Record<string, string> = {
@@ -43,6 +43,8 @@ export const LIVE_DEBOUNCE_MS = 150;
 export const KEEP_ALIVE_MS = 25_000;
 /** A handful of pages at most: the map, the Journal, the character window and a spare or two. */
 export const MAX_LIVE_CLIENTS = 6;
+/** How often the lease (want.json) is refreshed while a page listens; the reader calls it stale after 25 s. */
+export const LEASE_EVERY_MS = 10_000;
 
 export interface PageServer {
   /** Where the pages are, e.g. http://127.0.0.1:51234 */
@@ -92,6 +94,16 @@ export function servePages(dir: string, home = '/popout.html', o: PageServerOpts
     if (flush) { clearTimeout(flush); flush = null; }
     pending.clear();
   };
+  // BG10 (his interview, 2026-11-04): the live reader works only while a guide page is open. A page that listens here
+  // IS an open page (pages close the stream while hidden), so while anyone listens a small lease, want.json, is kept
+  // fresh in the live folder; AangReader --botw-live reads hearts, gear and the pouch only while it is under 25 s old.
+  let lease: ReturnType<typeof setInterval> | null = null;
+  const want = () => { if (!o.live) return; try { writeFileSync(path.join(o.live, 'want.json'), JSON.stringify({ v: 1, at: new Date().toISOString(), pages: clients.size })); } catch { /* the next beat writes again */ } };
+  const startLease = () => { if (!o.live || !existsSync(o.live)) return; want(); lease ??= setInterval(want, LEASE_EVERY_MS); lease.unref?.(); };
+  const stopLease = () => {
+    if (lease) { clearInterval(lease); lease = null; }
+    if (o.live) { try { rmSync(path.join(o.live, 'want.json'), { force: true }); } catch { /* it goes stale by itself */ } }
+  };
   const liveEvents = (res: ServerResponse) => {
     if (clients.size >= MAX_LIVE_CLIENTS) { res.writeHead(503, { 'Retry-After': '30' }).end(); return; }
     res.writeHead(200, {
@@ -102,8 +114,8 @@ export function servePages(dir: string, home = '/popout.html', o: PageServerOpts
     });
     res.write('retry: 3000\n\n');
     clients.add(res);
-    startLive();
-    res.on('close', () => { clients.delete(res); if (!clients.size) stopLive(); });
+    startLive(); startLease();
+    res.on('close', () => { clients.delete(res); if (!clients.size) { stopLive(); stopLease(); } });
   };
   const server: Server = createServer((req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
@@ -147,7 +159,7 @@ export function servePages(dir: string, home = '/popout.html', o: PageServerOpts
       resolve({
         origin,
         host: '127.0.0.1',
-        close: () => { for (const c of clients) c.end(); clients.clear(); stopLive(); server.close(); server.closeAllConnections?.(); },
+        close: () => { for (const c of clients) c.end(); clients.clear(); stopLive(); stopLease(); server.close(); server.closeAllConnections?.(); },
       });
     });
   });

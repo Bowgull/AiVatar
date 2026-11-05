@@ -176,7 +176,7 @@ static class BotwPos
         live,
     });
 
-    static void Write(string file, Track t, bool live)
+    internal static void Write(string file, Track t, bool live)
     {
         try
         {
@@ -201,10 +201,10 @@ static class BotwPos
         }
         catch { Remove(file); }
     }
-    static void Remove(string file) { try { File.Delete(file); } catch { } }
+    internal static void Remove(string file) { try { File.Delete(file); } catch { } }
 
-    static DateTime SafeStart(Process p) { try { return p.StartTime; } catch { return DateTime.MinValue; } }
-    static void Say(string what, string detail) => Console.WriteLine(JsonSerializer.Serialize(new { botw = what, detail }));
-    static string? Str(string[] a, string name) { int i = Array.IndexOf(a, name); return i >= 0 && i + 1 < a.Length ? a[i + 1] : null; }
-    static long Num(string[] a, string name, long d) => long.TryParse(Str(a, name), out var v) ? v : d;
+    internal static DateTime SafeStart(Process p) { try { return p.StartTime; } catch { return DateTime.MinValue; } }
+    internal static void Say(string what, string detail) => Console.WriteLine(JsonSerializer.Serialize(new { botw = what, detail }));
+    internal static string? Str(string[] a, string name) { int i = Array.IndexOf(a, name); return i >= 0 && i + 1 < a.Length ? a[i + 1] : null; }
+    internal static long Num(string[] a, string name, long d) => long.TryParse(Str(a, name), out var v) ? v : d;
 }
