@@ -18,7 +18,7 @@ import { routeLine } from './botwroute.ts';
 type RouteSaid = { state: 'planned' | 'queued' | 'off'; title?: string | undefined; stops?: number | undefined };
 import { afterPlayNote, botwNoteSettings, briefZeldaNotes, rememberPin, rememberThis, writeBotwNotes } from './botwnotes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
-import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
+import { BotwWatch, FALLBACK_MS as BOTW_FALLBACK_MS, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
 import { botwLane } from './botw.ts';
 import { BotwLive, LIVE_EVERY_MS } from './botwlive.ts';
 import { WebSocketServer } from 'ws';
@@ -3159,9 +3159,10 @@ export class Core {
     // 2026-10-22: Qwen looks over his notes on a slow timer (notenotice.ts); first look ten minutes after start. Quiet:
     // Qwen fills the graphics card, so never during a game.
     this.sched.every('notes.notice', NOTICE_EVERY_MS, () => this.noteNotice.check(), { first: 10 * 60_000, quiet: true });
-    // BG2: his Breath of the Wild save (botwwatch.ts). Not quiet: it must see Cemu close. While he plays it only looks
-    // at the slots' times; it reads when the session ends. PC only (the saves are on the Shadow).
-    if (process.platform === 'win32') this.sched.every('botw.watch', 60_000, () => this.botw.tick(), { first: 30_000 });
+    // BG2: his Breath of the Wild save (botwwatch.ts). Not quiet: it must see Cemu close. PC only (the saves are on the
+    // Shadow). BG10 (2026-11-04): the slot folders are watched, so a save is read 2 s after it lands; this slow tick is
+    // the fallback for a dead watcher (the watcher itself looks for Cemu once a minute while a session is open).
+    if (process.platform === 'win32') { this.botw.start(); this.sched.every('botw.watch', BOTW_FALLBACK_MS, () => this.botw.tick(), { first: 30_000 }); }
     // BG8: Link's live position while Cemu runs (botwlive.ts starts AangReader --botw-pos; nothing while Cemu is closed).
     if (process.platform === 'win32') this.sched.every('botw.live', LIVE_EVERY_MS, () => this.botwLive.tick(), { first: 15_000 });
     // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look). Waits out a game or call.
@@ -3202,6 +3203,7 @@ export class Core {
 
   async stop(): Promise<void> {
     this.botwLiveStore?.stop();
+    this.botwStore?.stop();
     this.macPresence?.stop();
     this.shadowLink?.stop();
     // A stale password must not outlive the Core that issued it.
