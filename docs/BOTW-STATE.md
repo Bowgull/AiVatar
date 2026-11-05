@@ -265,6 +265,53 @@ Aang's tool: `botw_plan`. Rewards are not planned yet (they live in event flows,
   restart, so a reader that looked 3 s too early left tracking off for a whole session. **To check (QA, his first play session):** `pos.json` appears, and x/z sit on his spot (stand at
   a shrine whose `x`/`z` are in botw.db). Inside shrines the numbers become small local ones (|x|,|z| < ~300).
 
+## live.json, pouch.json, want.json (`v: 1`, BG10 the live reader)
+
+Built 2026-11-04/05 from his interview (docs/BOTW-GUIDE.md BG10). The reader is now started as
+`AangReader --botw-live` (`src/Reader/BotwLive.cs`); `pos.json` is written exactly as above. The rest is read **only
+while a guide page is open**, twice a second, read-only like the position.
+
+- **`want.json`** `{ v: 1, at, pages }`: the lease. The Shell's page server writes it when a page starts listening on
+  `live/events`, rewrites it every 10 s while one listens, and removes it when the last one leaves. The reader treats
+  one older than 25 s as "no page open" and then reads the position only. Pages do nothing for this: listening is it.
+- **`live.json`**
+
+```jsonc
+{
+  "v": 1, "at": "2026-11-05T01:10:00.000Z", "seq": 42,
+  "live": true,                       // false once the page closed or Cemu did (the last numbers are kept)
+  "state": "play",                    // play | loading (a load or warp: numbers not believable) | menu (no player yet) | closed
+  "hearts":  { "life": 14, "cap": 12, "yellow": 2 },             // quarter hearts: now (red + yellow), red cap, yellow he has now
+  "stamina": { "green": 812, "cap": 1000, "yellow": 0 },         // 1000 = one wheel
+  "rupees": 396,                      // the game flag CurrentRupee
+  "arrows": 12,                       // the count of the arrows on the bow
+  "equip": { "sword": "Weapon_Sword_062", "bow": "Weapon_Bow_001", "arrow": "NormalArrow", "shield": null,
+             "head": "Armor_001_Head", "upper": "Armor_001_Upper", "lower": "Armor_001_Lower" }   // botw.db items.id
+}
+```
+
+  Written whole (temp + rename) when anything in it changes, and every 5 s as a heartbeat. `rupees`, `arrows` and
+  `equip` are missing when that part could not be read. Readers treat `at` older than 10 s as not live.
+- **`pouch.json`** `{ v: 1, at, seq, live, items: [{ t, id, n, on? , hp?, time?, effect?, level? }] }`: his whole pouch
+  as the game holds it now, in its order. `t` = kind (0 sword, 1 bow, 2 arrow, 3 shield, 4/5/6 head/body/legs,
+  7 material, 8 food, 9 key item), `n` = count (durability x100 for gear), `on` = worn or in hand (gear only); food
+  also carries its own hearts (quarters), seconds, effect id and level. Written once a second when it changed. It is
+  NOT pushed to pages (not in the page server's list): the brain reads it.
+- **`cook.json` while the live bag is known**: the brain (botwlive.ts, a 2 s look at `pouch.json`'s time) works the
+  menu out again from the live pouch once the cookable part has held still for 4 s, and adds `bagAt` (the pouch's
+  `at`) and `bag` (`[id, name, count]` of everything that is not gear). `savedAt` stays the save's. The Journal uses
+  `bag` for the bag's counts and takes a new `bagAt` like a newer save (on the same tab, never under his hands, never
+  twice within 5 s). When the reader stops, or a save lands, `cook.json` is the save's again (and is put back to the
+  live bag at the next look if the reader is still running).
+- **Not verified on his running game yet.** Every address is from the research note
+  (`Aang/research_notes/BotW guide/live_memory.md`). The reader proves the build first (two names at their v208
+  addresses), follows only real guest pointers, and writes only believable numbers. Its first good read prints one
+  **`botw live probe:`** line in the brain's log with the raw values (life, cap, the stale max at +0x1320, yellow
+  hearts and stamina, rupees, the pouch count, the position from PlayerInfo beside the position from the heap).
+  **To check (QA, his next session with the Hyrule tab open):** that line appears and its numbers match the game's
+  screen; eat one hearty and one enduring dish and the yellow values follow. Still not found: the active buff and its
+  timer.
+
 ## Using it from code
 
 `botwwatch.ts` exports `readBotwState()` and `readBotwSessions()` (null when missing or unreadable) and
