@@ -160,6 +160,18 @@ export interface BotwState {
   photos?: string[];
   greatFairies: number[];         // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
   dlc: BotwDlc;                   // E2: the add-ons' completion marks (docs/BOTW-STATE.md)
+  /** His stable horses (BG9, 2026-11-04): the Horse_* arrays, one entry per filled stable slot (slots 0-4; slot 5 is
+   *  the game's temporary one and is left out). Stats live in each horse type's actor, not in the save. */
+  horses?: BotwHorse[];
+}
+export interface BotwHorse {
+  slot: number;                   // 0-4, the game's stable slot
+  name: string;                   // Horse_UserName: the name he gave it
+  actor: string;                  // Horse_ActorName: the horse type (GameRomHorse23), the key for its stats
+  bond: number;                   // Horse_Familiarity, 0..1 (the game shows it as hearts)
+  saddle: string; reins: string;  // Horse_SaddleName / Horse_ReinsName: botw.db items.id
+  mane: string;                   // Horse_ManeName
+  rideSec: number;                // Horse_RideTimeSec: time ridden
 }
 export interface BotwDlc {
   masterMode: boolean;            // AoC_HardMode_Enabled: only ever set in a Master Mode save
@@ -182,6 +194,18 @@ export interface ParseInput {
   slot: number;
   savedAt: number;
   now?: number;
+}
+
+/** The stable: Horse_* arrays (6 entries; 0-4 are stable slots, 5 is temporary). An empty ActorName = an empty slot. */
+function horses(s: Save): BotwHorse[] {
+  const actor = s.str('Horse_ActorName', 16), name = s.str('Horse_UserName', 16), saddle = s.str('Horse_SaddleName', 16);
+  const reins = s.str('Horse_ReinsName', 16), mane = s.str('Horse_ManeName', 16), bond = s.floats('Horse_Familiarity'), ride = s.all('Horse_RideTimeSec');
+  const out: BotwHorse[] = [];
+  for (let i = 0; i < Math.min(5, actor.length); i++) {
+    if (!actor[i]) continue;
+    out.push({ slot: i, name: name[i] ?? '', actor: actor[i]!, bond: round(bond[i] ?? 0), saddle: saddle[i] ?? '', reins: reins[i] ?? '', mane: mane[i] ?? '', rideSec: (ride[i] ?? 0) | 0 });
+  }
+  return out;
 }
 
 export function parseState(inp: ParseInput, cat: Catalog): BotwState {
@@ -243,6 +267,7 @@ export function parseState(inp: ParseInput, cat: Catalog): BotwState {
     memories: (cat.memories ?? []).filter(m => s.int(m.flag)).map(m => m.n),
     kills: Object.fromEntries((cat.kills ?? []).map(k => [k.id, s.int(k.flag)] as const).filter(([, n]) => n > 0)),
     photos: (cat.photos ?? []).filter(p => s.int(p.flag)).map(p => p.id),
+    horses: horses(s),
     dlc: {
       masterMode: s.int('AoC_HardMode_Enabled') !== 0,
       trialOfTheSword: { beginning: !!s.int('100enemy_Clear_Junior'), middle: !!s.int('100enemy_Clear_Middle'), final: !!s.int('100enemy_Clear_Senior') },
