@@ -2957,7 +2957,8 @@ export class AangBrowser {
   private wakeHyrule(tab: Tab): void {
     const dir = this.o.hyruleDir;
     if (!dir) return;
-    this.hyrulePages ??= servePages(dir, '/index.html');
+    // BG10: the pages hear a rewritten live file (state.json, pos.json...) on GET /live/events, watched through live/.
+    this.hyrulePages ??= servePages(dir, '/index.html', { live: path.join(dir, 'live') });
     // BG5: its own small preload (hyrulepreload.cjs), only the notes' doors.
     const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.thingsPreloadPath), 'hyrulepreload.cjs') } });
     const wc = view.webContents;
