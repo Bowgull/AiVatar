@@ -154,3 +154,68 @@ test('paid streaming sign-ins stay on their own machine (his yes, 2026-10-20), e
   for (const d of ['.reddit.com', 'www.linkedin.com', '.twitch.tv', '.youtube.com']) assert.equal(cookieKept(d), true, d);
   assert.equal(cookieKept('notdisney.com'), true, 'only the real domain and its subdomains');
 });
+
+// 2026-11-06 (his report: "tabs are duplicating, not updating, not in real time"). Two machines with their own clocks,
+// and a link that can drop, as over Tailscale.
+function pairApart(skewB = 0) {
+  const a = new Pretend(), b = new Pretend();
+  let sa: BrowserSync, sb: BrowserSync, linked = true, toA = 0, toB = 0;
+  let t0 = 5_000_000;
+  sa = new BrowserSync({ target: a, stateDir: mkdtempSync(path.join(os.tmpdir(), 'bs-')), now: () => (t0 += 10), send: (m: SyncMsg) => { if (linked) { toB++; void sb.got(JSON.parse(JSON.stringify(m))); } } });
+  sb = new BrowserSync({ target: b, stateDir: mkdtempSync(path.join(os.tmpdir(), 'bs-')), now: () => (t0 += 10) + skewB, send: (m: SyncMsg) => { if (linked) { toA++; void sa.got(JSON.parse(JSON.stringify(m))); } } });
+  return {
+    a, b, sa, sb, sent: () => ({ toA, toB }),
+    up: async () => { linked = true; await sa.link(true); await sb.link(true); await wait(30); },
+    down: async () => { linked = false; await sa.link(false); await sb.link(false); },
+  };
+}
+const urls = (s: TabSnap) => s.tabs.map(x => x.url);
+
+test('tabs fix: a machine whose clock runs behind still sends its tabs', async () => {
+  const { a, b, sa, sb, up } = pairApart(-60_000);
+  await up();
+  a.t = { tabs: [tab('https://github.com/')], trails: [] }; sa.changed('tabs');
+  await wait(20);
+  assert.deepEqual(urls(b.t), ['https://github.com/']);
+  b.t = { tabs: [tab('https://github.com/'), tab('https://www.wowhead.com/')], trails: [] }; sb.changed('tabs');
+  await wait(20);
+  assert.deepEqual(urls(a.t), ['https://github.com/', 'https://www.wowhead.com/'], 'the PC tab arrives on the Mac');
+  a.t = { tabs: [tab('https://www.wowhead.com/')], trails: [] }; sa.changed('tabs');
+  await wait(20);
+  assert.deepEqual(urls(b.t), ['https://www.wowhead.com/'], 'and back again');
+});
+
+test('tabs fix: after the link drops, tabs closed or moved on one machine do not come back as copies', async () => {
+  const { a, b, sa, sb, up, down } = pairApart();
+  await up();
+  a.t = { tabs: [tab('https://x.com/'), tab('https://y.com/')], trails: [] }; sa.changed('tabs');
+  await wait(20);
+  assert.deepEqual(urls(b.t), ['https://x.com/', 'https://y.com/']);
+  await down();
+  // Apart: on the Mac he closes y and moves x on to z; on the PC he opens w.
+  a.t = { tabs: [tab('https://z.com/')], trails: [] }; sa.changed('tabs');
+  b.t = { tabs: [tab('https://x.com/'), tab('https://y.com/'), tab('https://w.com/')], trails: [] }; sb.changed('tabs');
+  await up();
+  await wait(30);
+  assert.deepEqual([...urls(a.t)].sort(), ['https://w.com/', 'https://z.com/'], 'no old x or y back, the new w kept');
+  assert.deepEqual([...urls(b.t)].sort(), [...urls(a.t)].sort(), 'the same tabs on both');
+  // Dropping and coming back again with nothing changed adds nothing.
+  await down(); await up(); await wait(30);
+  assert.deepEqual([...urls(a.t)].sort(), ['https://w.com/', 'https://z.com/']);
+});
+
+test('tabs fix: a tab that loads what the other machine sent is not sent straight back', async () => {
+  const { a, b, sa, sb, up, sent } = pairApart();
+  await up();
+  a.t = { tabs: [tab('https://x.com/')], trails: [] }; sa.changed('tabs');
+  await wait(20);
+  // The real browser moves an open tab only once the new page has started loading: here it still shows x.
+  b.setTabs = (s: TabSnap) => { b.t = { tabs: s.tabs.map((t, i) => b.t.tabs[i] && s.tabs.length === b.t.tabs.length ? { ...t, url: b.t.tabs[i]!.url } : t), trails: s.trails }; };
+  a.t = { tabs: [tab('https://y.com/')], trails: [] }; sa.changed('tabs');
+  await wait(20);
+  assert.deepEqual(urls(b.t), ['https://x.com/'], 'still loading');
+  const before = sent().toA;
+  b.t = { tabs: [tab('https://y.com/')], trails: [] }; sb.changed('tabs');
+  await wait(20);
+  assert.equal(sent().toA, before, 'nothing echoed back to the Mac');
+});
