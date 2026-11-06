@@ -1305,6 +1305,16 @@
       "at": "2026-11-05T05:23:00-05:00",
       "kind": "fix",
       "text": "Pop-up ads no longer open a tab on every click."
+    },
+    {
+      "at": "2026-11-06T10:20:00-05:00",
+      "kind": "fix",
+      "text": "Closed tabs stop coming back as copies."
+    },
+    {
+      "at": "2026-11-06T10:21:00-05:00",
+      "kind": "fix",
+      "text": "Tabs keep in step between Mac and PC again."
     }
   ]
 }

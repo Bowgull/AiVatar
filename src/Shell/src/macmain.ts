@@ -268,10 +268,20 @@ app.whenReady().then(async () => {
         }).catch((e: Error) => console.error('aang: look: ' + e.message));
       }
     });
+    // A link that died quietly (the Mac slept, the Wi-Fi changed) still looked open, so tabs sent into it went nowhere
+    // and nothing reconnected (2026-11-06, his "not in real time"). A ping every 30 s; no answer by the next one ends it.
+    let alive = true;
+    const beat = setInterval(() => {
+      if (s.readyState !== WebSocket.OPEN) return;
+      if (!alive) { s.terminate(); return; }
+      alive = false; try { s.ping(); } catch { /* close follows */ }
+    }, 30_000);
+    beat.unref?.();
+    s.on('pong', () => { alive = true; });
     s.on('open', () => { retry = 15_000; if (process.uptime() > 75) reportUpdate(); });
     // On the scheduler (2026-10-30): 15 s, then longer each miss up to 2 minutes, while the PC is off (it was every
     // 15 s for as long as the PC stayed off). Back to 15 s once it answers.
-    s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); sched.at(Date.now() + retry, connect, { name: 'bsync.reconnect' }); retry = Math.min(retry * 2, 2 * 60_000); } });
+    s.on('close', () => { clearInterval(beat); if (ws === s) { ws = null; void sync.link(false); sched.at(Date.now() + retry, connect, { name: 'bsync.reconnect' }); retry = Math.min(retry * 2, 2 * 60_000); } });
     s.on('error', () => { /* close follows */ });
   };
   connect();

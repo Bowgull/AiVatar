@@ -40,7 +40,7 @@ export interface SyncTarget {
 
 export type SyncMsg =
   | { t: 'bsync.hello' } | { t: 'bsync.down' } | { t: 'bsync.media' }
-  | { t: 'bsync.full'; marks: { at: number; list: Mark[] }; prefs: { at: number; data: Record<string, unknown> }; tabs: { at: number; snap: TabSnap }; visits: Visit[]; cookies: Record<string, { at: number; c: SyncCookie | null }> }
+  | { t: 'bsync.full'; marks: { at: number; list: Mark[] }; prefs: { at: number; data: Record<string, unknown> }; tabs: { at: number; snap: TabSnap; base?: string[] }; visits: Visit[]; cookies: Record<string, { at: number; c: SyncCookie | null }> }
   | { t: 'bsync.marks'; at: number; list: Mark[] }
   | { t: 'bsync.prefs'; at: number; data: Record<string, unknown> }
   | { t: 'bsync.tabs'; at: number; snap: TabSnap }
@@ -82,15 +82,23 @@ export function cookieUrl(c: SyncCookie): string {
 export const tabSig = (s: TabSnap) => JSON.stringify(s.tabs.map(t => [t.url, t.trail, t.done]));
 
 /**
- * Two machines' tabs after time apart: the newer side's tabs in its order, then any the older side opened that the
- * newer side does not have. Both machines work this out from the same two lists, so both end with the same tabs.
+ * Two machines' tabs after time apart: the newer side's tabs in its order, then any the older side has that the
+ * newer side does not. Both machines work this out from the same lists, so both end with the same tabs.
+ *
+ * `base` (2026-11-06, his "tabs are duplicating"): the tabs both machines last agreed on, as each side remembers it.
+ * A tab a side had back then and has no more was closed (or moved on) there while apart: it does not come back from
+ * the other side. Every other tab either side has is kept. Both sides see both bases, so both end with the same tabs.
  */
-export function joinTabs(a: { at: number; snap: TabSnap }, b: { at: number; snap: TabSnap }): TabSnap {
-  const [first, second] = a.at >= b.at ? [a.snap, b.snap] : [b.snap, a.snap];
+export function joinTabs(a: { at: number; snap: TabSnap; base?: string[] }, b: { at: number; snap: TabSnap; base?: string[] }): TabSnap {
+  const [newer, older] = a.at >= b.at ? [a, b] : [b, a];
+  const first = newer.snap, second = older.snap;
+  const gone = (x: { snap: TabSnap; base?: string[] }) => { const now = new Set(x.snap.tabs.map(t => t.url)); return new Set((Array.isArray(x.base) ? x.base : []).filter(u => !now.has(u))); };
+  const goneNewer = gone(newer), goneOlder = gone(older);
   const have = new Map<string, number>();
   for (const t of first.tabs) have.set(t.url, (have.get(t.url) ?? 0) + 1);
   const extra: SyncTab[] = [];
-  for (const t of second.tabs) { const n = have.get(t.url) ?? 0; if (n > 0) have.set(t.url, n - 1); else extra.push(t); }
+  for (const t of second.tabs) { const n = have.get(t.url) ?? 0; if (n > 0) have.set(t.url, n - 1); else if (!goneNewer.has(t.url)) extra.push(t); }
+  const kept = first.tabs.filter(t => !goneOlder.has(t.url));
   // Trails keep their numbers from the side that made them; one the newer side does not know comes along with its tabs.
   const trails = [...first.trails];
   const used = new Set(trails.map(x => x.id));
@@ -102,7 +110,7 @@ export function joinTabs(a: { at: number; snap: TabSnap }, b: { at: number; snap
     let id = x.id; while (used.has(id)) id++;
     used.add(id); remap.set(x.id, id); trails.push({ id, name: x.name });
   }
-  return { tabs: [...first.tabs, ...extra.map(t => ({ ...t, trail: t.trail === null ? null : remap.get(t.trail) ?? null }))].slice(0, 80), trails };
+  return { tabs: [...kept, ...extra.map(t => ({ ...t, trail: t.trail === null ? null : remap.get(t.trail) ?? null }))].slice(0, 80), trails };
 }
 
 /** The other machine's visits this one does not have yet (each page-time once, 90 days, money sites never). */
@@ -112,7 +120,7 @@ export function joinVisits(mine: Visit[], theirs: Visit[], now = Date.now()): Vi
   return add;
 }
 
-interface SyncState { marksAt: number; prefsAt: number; tabsAt: number; cookies: Record<string, { at: number; c: SyncCookie | null }> }
+interface SyncState { marksAt: number; prefsAt: number; tabsAt: number; tabsBase?: string[]; cookies: Record<string, { at: number; c: SyncCookie | null }> }
 
 /**
  * The sync itself, the same on both machines. `send` reaches the other machine (through the brain); `got` is called
@@ -134,12 +142,17 @@ export class BrowserSync {
   constructor(o: { target: SyncTarget; send: (m: SyncMsg) => void; stateDir: string; log?: (s: string) => void; now?: () => number }) {
     this.o = o;
     this.file = `${o.stateDir}/browser-sync.json`;
-    this.s = readJson<SyncState>(this.file, this.s, (r) => { const s = r as any; return { marksAt: +s.marksAt || 0, prefsAt: +s.prefsAt || 0, tabsAt: +s.tabsAt || 0, cookies: s.cookies && typeof s.cookies === 'object' ? s.cookies : {} }; });   // none: fresh
+    this.s = readJson<SyncState>(this.file, this.s, (r) => { const s = r as any; return { marksAt: +s.marksAt || 0, prefsAt: +s.prefsAt || 0, tabsAt: +s.tabsAt || 0, ...(Array.isArray(s.tabsBase) ? { tabsBase: s.tabsBase.filter((u: unknown) => typeof u === 'string').slice(0, 80) } : {}), cookies: s.cookies && typeof s.cookies === 'object' ? s.cookies : {} }; });   // none: fresh
     this.lastTabSig = tabSig(o.target.tabSnap());
     // A file written before 2026-10-14 still holds login values: rewritten without them, now.
     if (Object.values(this.s.cookies).some((v) => v.c && typeof (v.c as SyncCookie).value === 'string')) this.save(true);
   }
   private now() { return (this.o.now ?? Date.now)(); }
+  /**
+   * When a change here happened, for the other machine to compare. Never earlier than the last change this machine
+   * knows of (2026-11-06): the two machines' clocks differ, and a PC running behind had its tabs ignored by the Mac.
+   */
+  private stamp(last: number) { return Math.max(this.now(), last + 1); }
   /** `now`: the old file still holds login values, so it is scrubbed before anything else; otherwise in the background. */
   private save(now = false) {
     // Old removals are forgotten after 30 days: by then both machines have long agreed.
@@ -161,14 +174,17 @@ export class BrowserSync {
     if (this.applying) return;
     // Sheet 79: the mockup marks carry their own times, one each; the whole list goes and the other side keeps the newer.
     if (kind === 'mstages') { const list = this.o.target.mockStages?.(); if (list) this.send({ t: 'bsync.mstages', list }); return; }
-    const at = this.now();
-    if (kind === 'marks') { this.s.marksAt = at; this.save(); this.send({ t: 'bsync.marks', at, list: this.o.target.marks() }); }
-    else if (kind === 'prefs') { this.s.prefsAt = at; this.save(); this.send({ t: 'bsync.prefs', at, data: this.o.target.prefs() }); }
+    if (kind === 'marks') { const at = this.stamp(this.s.marksAt); this.s.marksAt = at; this.save(); this.send({ t: 'bsync.marks', at, list: this.o.target.marks() }); }
+    else if (kind === 'prefs') { const at = this.stamp(this.s.prefsAt); this.s.prefsAt = at; this.save(); this.send({ t: 'bsync.prefs', at, data: this.o.target.prefs() }); }
     else {
       const snap = keptTabs(this.o.target.tabSnap());
       const sig = tabSig(snap);
       if (sig === this.lastTabSig) return;
-      this.lastTabSig = sig; this.s.tabsAt = at; this.save();
+      const at = this.stamp(this.s.tabsAt);
+      this.lastTabSig = sig; this.s.tabsAt = at;
+      // Only what really reached the other machine counts as agreed (the join after time apart leans on it).
+      if (this.connected) this.s.tabsBase = snap.tabs.map(t => t.url);
+      this.save();
       this.send({ t: 'bsync.tabs', at, snap });
     }
   }
@@ -216,7 +232,7 @@ export class BrowserSync {
     this.send({
       t: 'bsync.full',
       marks: { at: this.s.marksAt, list: t.marks() }, prefs: { at: this.s.prefsAt, data: t.prefs() },
-      tabs: { at: this.s.tabsAt, snap: keptTabs(t.tabSnap()) },
+      tabs: { at: this.s.tabsAt, snap: keptTabs(t.tabSnap()), ...(this.s.tabsBase ? { base: this.s.tabsBase } : {}) },
       visits: t.visits().filter(v => v.at > now - 90 * DAY && urlKept(v.url)),
       cookies,
     });
@@ -236,7 +252,7 @@ export class BrowserSync {
         case 'bsync.media': t.pauseAll?.(); break;
         case 'bsync.marks': if (m.at > this.s.marksAt && Array.isArray(m.list)) { t.setMarks(m.list); this.s.marksAt = m.at; this.save(); } break;
         case 'bsync.prefs': if (m.at > this.s.prefsAt && m.data && typeof m.data === 'object') { t.setPrefs(m.data); this.s.prefsAt = m.at; this.save(); } break;
-        case 'bsync.tabs': if (m.at > this.s.tabsAt && m.snap) { this.applyTabs(m.snap); this.s.tabsAt = m.at; this.save(); } break;
+        case 'bsync.tabs': if (m.at > this.s.tabsAt && m.snap) { this.applyTabs(m.snap); this.s.tabsAt = m.at; this.s.tabsBase = keptTabs(m.snap).tabs.map(x => x.url); this.save(); } break;
         case 'bsync.visit':
           if (m.op === 'add' && Array.isArray(m.list)) t.addVisits(joinVisits(t.visits(), m.list, this.now()));
           else if (m.op === 'forget') t.forgetVisit(String(m.url), Number(m.at));
@@ -259,10 +275,11 @@ export class BrowserSync {
           }
           if (m.prefs?.at > this.s.prefsAt) { t.setPrefs(m.prefs.data); this.s.prefsAt = m.prefs.at; }
           if (m.tabs?.snap) {
-            const mine = { at: this.s.tabsAt, snap: keptTabs(t.tabSnap()) };
+            const mine = { at: this.s.tabsAt, snap: keptTabs(t.tabSnap()), ...(this.s.tabsBase ? { base: this.s.tabsBase } : {}) };
             const joined = joinTabs(mine, m.tabs);
             if (tabSig(joined) !== tabSig(mine.snap)) this.applyTabs(joined);
             this.s.tabsAt = Math.max(this.s.tabsAt, m.tabs.at);
+            this.s.tabsBase = keptTabs(joined).tabs.map(x => x.url);
           }
           if (Array.isArray(m.visits)) t.addVisits(joinVisits(t.visits(), m.visits, this.now()));
           // A login both machines already have, and neither changed since syncing began, stays as each has it.
@@ -279,7 +296,9 @@ export class BrowserSync {
   private applyTabs(snap: TabSnap): void {
     const kept = keptTabs(snap);
     this.o.target.setTabs(kept);
-    this.lastTabSig = tabSig(keptTabs(this.o.target.tabSnap()));
+    // What was asked for, not what the tabs show this instant: an open tab moves only once its new page starts
+    // loading, and that move was sent straight back as news (2026-11-06), reloading tabs on the other machine.
+    this.lastTabSig = tabSig(kept);
   }
   private async takeCookie(key: string, at: number, c: SyncCookie | null, mineAt = this.s.cookies[key]?.at ?? -1): Promise<void> {
     if (mineAt >= at) return;                                  // ours is as new or newer
