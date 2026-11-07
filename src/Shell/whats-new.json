@@ -1330,6 +1330,11 @@
       "at": "2026-11-07T08:05:00-05:00",
       "kind": "fix",
       "text": "The music player has rounder corners, with nothing square or grey showing behind them."
+    },
+    {
+      "at": "2026-11-07T13:45:00-05:00",
+      "kind": "fix",
+      "text": "New note and Music player are always in Samara's right-click list, even with Aang closed: picking one starts Aang for you."
     }
   ]
 }
