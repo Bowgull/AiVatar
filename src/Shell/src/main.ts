@@ -51,7 +51,7 @@ import { JobPops } from './jobpop.ts';
 import { wireFamily } from './familywire.ts';
 import { wireTaskbarPops } from './taskbarwire.ts';
 import { jumpIcons, type TaskbarPops } from './taskbar.ts';
-import { isPopoutTask } from './taskbarplan.ts';
+import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './taskbarplan.ts';
 import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import { RedditFeed } from './reddit.ts';
 import type { FamilyHost } from './familywin.ts';
@@ -140,12 +140,38 @@ app.on('second-instance', (_e, argv, _cwd, data) => {
   if (!t) return;
   console.log('shell: taskbar task ' + t);
   // Sheet 66 A: the Pop-outs section's six go to the pop-outs (taskbar.ts), the rest to the browser.
-  if (isPopoutTask(t)) { if (taskbarPops) void taskbarPops.runTask(t); else pendingTask = t; return; }
+  if (isPopoutTask(t)) { runPopoutTask(t); return; }
   if (aangBrowser) aangBrowser.jumpTask(t); else pendingTask = t;
 });
 /** Sheet 66 A (2026-10-22): every pop-out under Samara's lantern (taskbar.ts), and the brain's messages it reads. */
 let taskbarPops: TaskbarPops | null = null, taskbarHear: ((m: Record<string, unknown>) => void) | null = null;
-/** Samara's right-click list, written again when Aang comes or goes (New note, Timer, Music need him). */
+/**
+ * New note, Timer and the Music player are always in the list (his rule, 2026-11-07: "I need to always have access to
+ * mini player and notes"; Aang and Samara are one program). The brain fills them, so with Aang closed Samara starts him
+ * (Aang.exe joins this running Shell) and does the task once he is connected; after 45 s it does it anyway.
+ */
+function runPopoutTask(t: PopoutTask): void {
+  const ready = () => !!taskbarPops && (!NEEDS_AANG.has(t) || (bodyAlive() && link.connected));
+  if (ready()) { void taskbarPops!.runTask(t); return; }
+  if (NEEDS_AANG.has(t) && !bodyAlive()) wakeAang();
+  const until = Date.now() + 45_000;
+  const tick = setInterval(() => {
+    if (!ready() && Date.now() < until) return;
+    clearInterval(tick);
+    if (taskbarPops) void taskbarPops.runTask(t); else pendingTask = t;
+  }, 400);
+}
+/** Start Aang.exe (the pet, then the brain); it finds this Shell running and joins it. */
+let wokeAangAt = 0;
+function wakeAang(): void {
+  if (Date.now() - wokeAangAt < 30_000) return;   // one start, however many clicks
+  wokeAangAt = Date.now();
+  try {
+    const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
+    if (exe && existsSync(exe)) { spawn(exe, [], { detached: true, stdio: 'ignore', cwd: path.dirname(exe) }).unref(); console.log('shell: starting Aang for a list item'); }
+  } catch (e) { console.error('shell: could not start Aang: ' + (e as Error).message); }
+}
+/** Samara's right-click list (every item always there; runPopoutTask starts Aang when one needs him). */
 function writeJumpList(aang: boolean): void {
   if (process.env.AANG_TEST) return;
   const popouts = { aang, icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON) };
@@ -955,7 +981,7 @@ app.whenReady().then(async () => {
       if (!onCastlabs()) aangBrowser.onPaid = (url) => openPopout(url);
       // Samara's taskbar right-click list (2026-10-21): a task this Shell was started with, then the list itself, written
       // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
-      if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) void taskbarPops?.runTask(t); else aangBrowser.jumpTask(t); }
+      if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) runPopoutTask(t); else aangBrowser.jumpTask(t); }
       writeJumpList(bodyAlive());
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
       // The engine keeps its own timers (ten minutes after start, then daily, its trial check); the engine's rules tick.
@@ -1665,8 +1691,6 @@ setInterval(() => {
   if (up !== bodyWas) {
     const first = bodyWas === null;
     bodyWas = up;
-    // Sheet 66 A: New note, Timer and Music player are in Samara's right-click list only while Aang runs.
-    if (!first && aangBrowser) writeJumpList(up);
     if (up) { if (!first) { console.log('shell: Aang is back'); freshen(); if (input) takeAangKeys(); } }
     else if (!first) {
       console.log('shell: Aang closed; Samara stays');
