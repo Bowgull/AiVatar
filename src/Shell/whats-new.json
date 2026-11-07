@@ -1315,6 +1315,11 @@
       "at": "2026-11-06T10:21:00-05:00",
       "kind": "fix",
       "text": "Tabs keep in step between Mac and PC again."
+    },
+    {
+      "at": "2026-11-07T06:55:00-05:00",
+      "kind": "fix",
+      "text": "Prime, Netflix and the other paid shows play full screen again, instead of Shadow's protected video screen."
     }
   ]
 }
