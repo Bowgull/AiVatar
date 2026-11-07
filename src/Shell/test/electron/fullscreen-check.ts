@@ -1,7 +1,8 @@
 // 2026-11-07, his report: a video's own full screen button (Prime) no longer fills the screen; core.log showed the window
 // entering full screen and leaving it one second later. Samara built off his screen and see-through, a video's full
 // screen button pressed with a real click, and every full screen event timed for four seconds; then Esc.
-// Run (from src/Shell): engines/castlabs-44.5.1/electron.exe test/electron/fullscreen-check.ts   (or npx electron ...)
+// Run it through its launcher, which keeps any error box off his screen (from src/Shell):
+//   engines/castlabs-44.5.1/electron.exe test/electron/fullscreen-check-run.mjs
 //   FS_URL=<a watch page>     (default: a YouTube video; a Prime detail page plays its Resume/Play button first)
 //   FS_USERDATA=<folder>      a profile folder to use (his cookies copied in, for a signed-in site); default: a fresh one
 import { app, BrowserWindow, dialog, screen } from 'electron';
