@@ -218,6 +218,33 @@ export function cornerSteps(radius: number): number[] {
 }
 
 /**
+ * The mini player's corner (sheet 119 B, his pick 2026-11-07): the wood's own staircase, 13 art px, clamped to just under
+ * half the body so the folded strip is nearly a pill. The same formula as miniplayer.js bodyR; keep them together.
+ */
+export const PLAYER_CORNER_ART = 13;
+export const bodyCornerArt = (r: number, wArt: number, hArt: number) => Math.max(0, Math.min(r, Math.floor(Math.min(wArt, hArt) / 2) - 1));
+
+/**
+ * The steps of a corner drawn in art pixels (pix.js rrMask: pixel centres inside radius r + 0.01), each art pixel `px`
+ * screen pixels, so a window cut by these rows follows the wood's staircase exactly. Rows from the corner's edge inwards.
+ */
+export function artCornerSteps(r: number, px: number): number[] {
+  const R = Math.max(0, Math.round(r)), artRow: number[] = [];
+  for (let y = 0; y < R; y++) {
+    let x = 0;
+    while (x < R && Math.hypot(x + 0.5 - R, y + 0.5 - R) > R + 0.01) x++;
+    artRow.push(x);
+  }
+  const rows = Math.round(R * px), out: number[] = [];
+  for (let i = 0; i < rows; i++) {
+    const inset = Math.round(artRow[Math.min(R - 1, Math.floor(i / px))]! * px);
+    if (inset <= 0) break;
+    out.push(inset);
+  }
+  return out;
+}
+
+/**
  * The window's shape as rows (what the native helper builds as a polygon region, the same rules): runs of pixel rows
  * [y0, y1) with the same left and right insets. Round corners take the steps; square ones none. Exported for the tests.
  */

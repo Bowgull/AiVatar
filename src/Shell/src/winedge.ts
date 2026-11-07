@@ -18,7 +18,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { screen, type BaseWindow } from 'electron';
-import { ALL_ROUND, CORNER_RADIUS, cornerSteps } from './family.ts';
+import { ALL_ROUND, CORNER_RADIUS, artCornerSteps, bodyCornerArt, cornerSteps } from './family.ts';
 
 /** Dark wood, as Windows wants it: 0x00BBGGRR. #24160D. */
 const EDGE = 0x000d1624;
@@ -46,6 +46,9 @@ namespace Aang { public static class Win {
   public static void Corner(IntPtr h, int c, int edge) { if (!IsWindow(h)) return; DwmSetWindowAttribute(h, 33, ref c, 4); DwmSetWindowAttribute(h, 34, ref edge, 4); }
   public static void Region(IntPtr h, int mask, int[] s, int sx, int sy, int sw, int sh) {
     if (!IsWindow(h)) return;
+    // Measured 2026-11-07 (sheet 119): Windows 11 paints its system backdrop (#202020) across the whole window rectangle,
+    // under the region, so the cut corners showed a grey wedge instead of what is behind. Backdrop off (38 = 1, none).
+    int none = 1; DwmSetWindowAttribute(h, 38, ref none, 4);
     R w; GetWindowRect(h, out w);
     // The visible window, in screen pixels (Electron's own bounds): its invisible resize borders are cut away too.
     int ox = sx - w.l, oy = sy - w.t, W = sw, H = sh;
@@ -416,8 +419,8 @@ ${TASKBAR_HELPER_CS}
     $m = 0
     if (-not [Int32]::TryParse($p[2], [ref]$m) -or $m -lt 0 -or $m -gt 15) { continue }
     $s = @(); $ok = $true
-    foreach ($x in $p[3].Split(',')) { $v = 0; if ([Int32]::TryParse($x, [ref]$v) -and $v -ge 0 -and $v -le 64) { $s += $v } else { $ok = $false } }
-    if (-not $ok -or $s.Count -gt 48) { continue }
+    foreach ($x in $p[3].Split(',')) { $v = 0; if ([Int32]::TryParse($x, [ref]$v) -and $v -ge 0 -and $v -le 160) { $s += $v } else { $ok = $false } }
+    if (-not $ok -or $s.Count -gt 160) { continue }
     $r = @(); foreach ($x in $p[4].Split(',')) { $v = 0; if ([Int32]::TryParse($x, [ref]$v) -and [Math]::Abs($v) -le 100000) { $r += $v } else { $ok = $false } }
     if (-not $ok -or $r.Count -ne 4) { continue }
     [Aang.Win]::Corner($h, $c, ${EDGE})
@@ -531,7 +534,7 @@ export function softEdge(w: BaseWindow): void { setCorners(w, ALL_ROUND); }
  * family pads the page by the borders it gained (familywin.ts), and once a window has had a region it keeps one:
  * `region` = true with all four corners round, stepped, when it is free again.
  */
-export function setCorners(w: BaseWindow, mask: number, region = false): void {
+export function setCorners(w: BaseWindow, mask: number, region = false, art = 0): void {
   if (process.platform !== 'win32') return;
   const h = hwndOf(w);
   if (!h) return;
@@ -542,7 +545,12 @@ export function setCorners(w: BaseWindow, mask: number, region = false): void {
     scale = screen.getDisplayMatching(w.getBounds()).scaleFactor || 1;
     vis = screen.dipToScreenRect(w as Electron.BrowserWindow, w.getBounds());
   } catch { return; }
-  const steps = cornerSteps(CORNER_RADIUS * scale);
+  // `art`: a member whose page draws its own pixel corner (the mini player, sheet 119): cut along that staircase, one art
+  // pixel = 2 DIPs (pix.js P), clamped the way the page clamps it.
+  const b = w.getBounds();
+  const steps = art > 0
+    ? artCornerSteps(bodyCornerArt(art, Math.round(b.width / 2), Math.round(b.height / 2)), 2 * scale)
+    : cornerSteps(CORNER_RADIUS * scale);
   if (!steps.length) { send(`${h} ${CORNER.square}`); return; }
   send(`${h} ${CORNER.square} ${m} ${steps.join(',')} ${[vis.x, vis.y, vis.width, vis.height].map(Math.round).join(',')}`);
 }
