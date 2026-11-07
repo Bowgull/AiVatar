@@ -8,8 +8,11 @@
 // the window's height stepped from here at 60 Hz in whole pixels. Big hit targets: keys 38 px, seek bead 18 px, volume
 // 14 px with a round knob, pin / fold / close 28 px.
 //
-// A SOLID window, never see-through (his GPU answer): Windows' own round corners while free, the family's pixel-stepped
-// region while joined (osCorners). It is a member of the window family like the video, notes, timers and jobs: it snaps
+// A SOLID window, never see-through on Windows (his GPU answer). Its edge is the wood's own 26 px pixel staircase (sheet
+// 119 B, his pick 2026-11-07): the window is always cut by a region along it (family cornerArt), all four corners while
+// free and the outer ones while joined; Windows' small round and its shadow are off. On the Mac the corners are
+// see-through instead (no WoW there; the Mac shadow follows the wood). It is a member of the window family like the
+// video, notes, timers and jobs: it snaps
 // flush, drags as a group, opens the family menu on a right-click while joined, and shares see-through, pin and
 // click-through. It never takes the keyboard (focusable: false, shown inactive): clicking Pause over WoW must not pull
 // the game out of focus.
@@ -25,11 +28,14 @@ import { BrowserWindow, ipcMain, net, screen } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
-import { softEdge } from './winedge.ts';
+import { setCorners } from './winedge.ts';
+import { ALL_ROUND, PLAYER_CORNER_ART } from './family.ts';
 import { readJson, saveJson } from './store.ts';
 import type { FamilyHooks } from './familywin.ts';
 import { fetchLyrics, type Lyrics, type LyricsResult, type SongKey } from './lyrics.ts';
 import { checkPlayerCmd, readPrefs, springAt, readDevices, DEVICE_ID, PICTURES, type PlayerCmd, type PlayerPrefs, type PlayerDevice } from './playercmd.ts';
+
+const MAC = process.platform === 'darwin';
 
 /** CSS pixels: the art is 212 x 104 art pixels at exactly 2x; the shade is 26 art pixels tall, the same width. */
 export const FULL_W = 424, FULL_H = 208, SHADE_H = 52;
@@ -116,11 +122,11 @@ export class MiniPlayer {
     const at = this.spot(h);
     const w = new BrowserWindow({
       x: at.x, y: at.y, width: FULL_W, height: h, useContentSize: true,
-      // Solid, never see-through. Frameless with NO thick frame: measured 2026-10-22, a thick frame (the video pop-out's way)
+      // Solid on Windows, never see-through. Frameless with NO thick frame: measured 2026-10-22, a thick frame (the video pop-out's way)
       // lets the page grow by the invisible resize borders the moment the window is resized from here, which the fold does
-      // 60 times a second; without it the page is exactly the window. Windows 11 still rounds it (softEdge asks DWM for
-      // round corners); joined, the family cuts its pixel-stepped region. The wooden body is the title bar (the page drags it).
-      frame: false, thickFrame: false, transparent: false, backgroundColor: '#2c1c10', hasShadow: true,
+      // 60 times a second; without it the page is exactly the window. Its corners are cut along the wood's staircase
+      // (setCorners with the art radius, below). The wooden body is the title bar (the page drags it).
+      frame: false, thickFrame: false, transparent: MAC, backgroundColor: MAC ? '#00000000' : '#2c1c10', hasShadow: true,
       resizable: false, movable: true, minimizable: false, maximizable: false, fullscreenable: false,
       skipTaskbar: true, alwaysOnTop: false, focusable: false, show: false, title: 'Music',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: true },
@@ -131,7 +137,11 @@ export class MiniPlayer {
     }
     lockDown(w.webContents);
     denyPermissions(w.webContents.session);
-    softEdge(w);
+    // Cut before it first shows, so it never flashes square; the family recuts it on every size change (the fold) and
+    // when it joins. Without a family it recuts itself.
+    setCorners(w, ALL_ROUND, true, PLAYER_CORNER_ART);
+    if (!this.family) w.on('resize', () => { if (!this.family) setCorners(w, ALL_ROUND, true, PLAYER_CORNER_ART); });
+    if (MAC) w.webContents.on('dom-ready', () => { void w.webContents.insertCSS('html,body{background:transparent !important}').catch(() => {}); });
     // Mac (2026-10-28, found in the real-click pass): without this the player opened on the desktop's space, hidden
     // behind whatever full-screen app he is in (Samara), so his clicks landed on that app instead.
     if (process.platform === 'darwin') w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
@@ -335,7 +345,7 @@ export class MiniPlayer {
 
   private member() {
     return {
-      id: 'player', kind: 'player' as const, win: () => this.window, card: '.mp', osCorners: true,
+      id: 'player', kind: 'player' as const, win: () => this.window, card: '.mp', osCorners: true, cornerArt: PLAYER_CORNER_ART,
       // F4 (family part 2): above or below a wider window it is a strip as wide as it (the full player or the shade, its
       // own height); beside a taller one a column: the picture on top, then the screen, then the keys.
       layouts: PLAYER_LAYOUTS,

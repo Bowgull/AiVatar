@@ -25,11 +25,15 @@ export const tx = (n, x, y) => { const t = TEX[n]; x = ((Math.floor(x) % t.w) + 
 const lit3 = (l, a, b, c) => (l > 0.3 ? a : l < -0.3 ? c : b);
 
 // ---------------------------------------------------------------- shapes (masks at art resolution, no anti-aliasing)
-/** A rounded rectangle w x h art pixels, corner radius r (pixel centres, so the staircase is even on all four corners). */
-export function rrMask(w, h, r) {
+/**
+ * A rounded rectangle w x h art pixels, corner radius r (pixel centres, so the staircase is even on all four corners).
+ * `square`: corners left square ('tl' 'tr' 'br' 'bl'), the ones a family neighbour sits against.
+ */
+export function rrMask(w, h, r, square = []) {
   const m = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const px = x + 0.5, py = y + 0.5;
+    if (square.length && square.includes((py < h / 2 ? 't' : 'b') + (px < w / 2 ? 'l' : 'r'))) { m[y * w + x] = 1; continue; }
     const cx = Math.max(r, Math.min(w - r, px)), cy = Math.max(r, Math.min(h - r, py));
     m[y * w + x] = Math.hypot(px - cx, py - cy) <= r + 0.01 ? 1 : 0;
   }
@@ -136,7 +140,7 @@ export const fills = {
   wood: (k = 1) => (x, y, c) => { const t = trayAt(x, y, k); return c.d === 0 && c.lit > 0.3 ? mix(t, '#120a05', 0.45) : t; },
   flat: (col) => () => hex(col),
 };
-export function rr(w, h, r, opts) { return shape(rrMask(w, h, r), w, h, opts); }
+export function rr(w, h, r, opts, square = []) { return shape(rrMask(w, h, r, square), w, h, opts); }
 
 // ---------------------------------------------------------------- sprites (palette letter maps, like ClaudeMarks.cs)
 export function spr(map, pal, { s = P, drop = null } = {}) {
