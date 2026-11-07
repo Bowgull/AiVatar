@@ -7,7 +7,7 @@ const DAY = 86_400_000;
 const v = (url: string, daysAgo: number, title = '') => ({ url, title, at: NOW - daysAgo * DAY });
 
 test('a search page is his words, on every engine Samara uses', () => {
-  assert.equal(searchQueryOf('https://search.brave.com/search?q=pixel+art+tutorial&summary=0'), 'pixel art tutorial');
+  assert.equal(searchQueryOf('https://search.brave.com/search?q=pixel+art+tutorial&summary=1'), 'pixel art tutorial');
   assert.equal(searchQueryOf('https://noai.duckduckgo.com/?q=valheim%20map'), 'valheim map');
   assert.equal(searchQueryOf('https://www.google.com/search?q=weather&udm=14'), 'weather');
   assert.equal(searchQueryOf('https://yandex.com/search/?text=cats'), 'cats');

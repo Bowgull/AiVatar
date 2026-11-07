@@ -16,12 +16,13 @@ export function addressFor(input: string, pick?: Engine): string | null {
   if (/^localhost(:\d+)?(\/.*)?$/i.test(t)) return 'http://' + t;
   return searchFor(t, pick);
 }
-/** His search engine and whether its AI answer box shows (Settings > General). Brave with the box off is the
- *  default (his pick, 2026-10-12, research_notes/Search engine for Aang browser): its own index, the least
- *  filtering of the free engines, and !g still jumps to Google. */
+/** His search engine and whether its AI answer box shows (Settings > Search). Brave with the box ON is the
+ *  default (Brave: his pick, 2026-10-12, research_notes/Search engine for Aang browser, its own index, the least
+ *  filtering of the free engines, and !g still jumps to Google; the box on: his pick, 2026-11-07, an AI summary above
+ *  the results when he types a question, without doing anything else). The box can still go off in Settings. */
 export type Engine = 'brave' | 'ddg' | 'google' | 'yandex';
 let current: Engine = 'brave';
-let aiBox = false;
+let aiBox = true;
 export function setSearch(e: Engine, ai: boolean): void { current = e === 'ddg' || e === 'google' || e === 'yandex' ? e : 'brave'; aiBox = ai === true; }
 export const searchFor = (q: string, pick?: Engine): string => {
   const s = encodeURIComponent(q);
