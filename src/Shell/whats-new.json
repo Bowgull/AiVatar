@@ -1325,6 +1325,11 @@
       "at": "2026-11-07T07:10:00-05:00",
       "kind": "feature",
       "text": "Brave answers your question above the results."
+    },
+    {
+      "at": "2026-11-07T08:05:00-05:00",
+      "kind": "fix",
+      "text": "The music player has rounder corners, with nothing square or grey showing behind them."
     }
   ]
 }
