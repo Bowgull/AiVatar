@@ -165,10 +165,22 @@ const root = document.getElementById('mp');
 const F = {}, Sh = {};           // the full layout's and the shade's live parts
 const bodies = new Map();
 
+// Sheet 119 B (his pick, 2026-11-07): the wood's corner is a 13 art px staircase (26 px), never more than just under half
+// the body, so the folded strip is nearly a pill. The window is still solid: the main process cuts it to this same
+// staircase (family.ts bodyCornerArt + artCornerSteps); keep the two formulas the same.
+const BODY_R = 13;
+const bodyR = (wArt, hArt) => Math.max(0, Math.min(BODY_R, Math.floor(Math.min(wArt, hArt) / 2) - 1));
+// The corners a family neighbour sits against go square, in the wood as well as in the window's cut.
+const famSq = () => (document.documentElement.dataset.famSq || '').split(' ').filter(Boolean).sort();
+let SQ = famSq().join(' ');
 function bodyAt(hArt, shade) {
-  const key = (shade ? 's' : 'f') + W + 'x' + hArt;
+  const key = (shade ? 's' : 'f') + W + 'x' + hArt + ':' + SQ;
   let b = bodies.get(key);
-  if (!b) { b = rr(W, hArt, 5, { band: 's2', E: shade ? 3 : 4, fill: fills.wood(1.05), shadow: 0 }); b.classList.add('body'); bodies.set(key, b); }
+  if (!b) {
+    if (bodies.size > 64) bodies.clear();   // the fold passes through every height: keep the cache small
+    b = rr(W, hArt, bodyR(W, hArt), { band: 's2', E: shade ? 3 : 4, fill: fills.wood(1.05), shadow: 0 }, SQ ? SQ.split(' ') : []);
+    b.classList.add('body'); bodies.set(key, b);
+  }
   return b;
 }
 
@@ -685,9 +697,9 @@ function shapeNow() {
   return { W: 212, HT: H, TALL: false };
 }
 function reshape() {
-  const n = shapeNow();
-  if (n.W === W && n.HT === HT && n.TALL === TALL) return false;
-  W = n.W; HT = n.HT; TALL = n.TALL;
+  const n = shapeNow(), sq = famSq().join(' ');
+  if (n.W === W && n.HT === HT && n.TALL === TALL && sq === SQ) return false;
+  W = n.W; HT = n.HT; TALL = n.TALL; SQ = sq;
   F.L?.remove(); Sh.L?.remove(); shadeKey = ''; lastPx = -1;
   buildFull(); buildShade();
   layShade(); paintMode(); paintSong(); paintStatus();
@@ -712,6 +724,8 @@ function fit() {
 }
 window.addEventListener('resize', fit);
 window.addEventListener('famshape', fit);
+// joined or freed: the wood's square corners follow (the preload sets data-fam-sq)
+new MutationObserver(() => { if (famSq().join(' ') !== SQ) fit(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-fam-sq'] });
 
 // ---------------------------------------------------------------- dragging and the double-click fold
 let press = null;

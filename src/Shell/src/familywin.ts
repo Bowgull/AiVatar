@@ -70,6 +70,12 @@ export interface MemberWin {
    * gets a pixel-stepped region round only on its outer corners (winedge setCorners, 1b).
    */
   osCorners?: boolean;
+  /**
+   * With osCorners: the page draws its own pixel corner of this many art pixels (the mini player, sheet 119 B). The window
+   * is then ALWAYS cut by a region along that staircase (free: all four corners; joined: the outer ones), never Windows'
+   * small round, so the solid window's edge is the wood's edge.
+   */
+  cornerArt?: number;
   /** Apply the family's shared see-through / pin, the member's own way (no echo back to the family). */
   setOpacity: (n: number) => void;
   setPinned: (on: boolean) => void;
@@ -216,7 +222,7 @@ export class FamilyHost implements FamilyHooks {
     if (!w || w.isDestroyed()) return;
     const had = this.live.get(m.id);
     if (had && had.w === w) { had.m = m; return; }
-    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: false, pad: null, seed: ++this.seeds, last: null, aot: null, through: false, shape: 'free', applied: null, sized: null, view: 'free', pending: [], fresh: true, chrome: null };
+    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: !!(m.osCorners && m.cornerArt), pad: null, seed: ++this.seeds, last: null, aot: null, through: false, shape: 'free', applied: null, sized: null, view: 'free', pending: [], fresh: true, chrome: null };
     this.live.set(m.id, l);
     const box = this.boxOf(m.id)!;
     this.fam.set(m.id, { id: m.id, kind: m.kind, box, own: { width: box.width, height: box.height } });
@@ -237,6 +243,7 @@ export class FamilyHost implements FamilyHooks {
     });
     // A joined window with Windows' own corners has a region cut to its size: cut again when the size changes.
     if (m.osCorners) w.on('resize', () => { const x = this.live.get(m.id); if (x?.w === w && x.regioned) this.recut(m.id); });
+    if (l.regioned) this.recut(m.id);   // a member with its own pixel corner is cut from the start
     const hello = () => { void w.webContents.insertCSS(familyCss(m.card)).catch(() => {}); this.sendState(m.id, true); };
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', hello); else hello();
     w.webContents.on('did-finish-load', hello);
@@ -808,7 +815,7 @@ export class FamilyHost implements FamilyHooks {
     if (!l || !w || w.isDestroyed()) return;
     // Once cut, always cut (winedge.ts: Chromium never gives the resize borders back), round all four when free.
     if (l.mask !== F.ALL_ROUND) l.regioned = true;
-    setCorners(w, l.mask, l.regioned);
+    setCorners(w, l.mask, l.regioned, l.m.cornerArt ?? 0);
     if (l.regioned) for (const ms of [60, 250, 700, 1500]) setTimeout(() => this.checkPad(id), ms);
   }
   /**
