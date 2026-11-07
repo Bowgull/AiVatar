@@ -784,7 +784,7 @@ export class AangBrowser {
    */
   tabSize: 's' | 'm' | 'l' = 'l';
   private localFile = '';
-  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[], afSounds: true, lockAfter: '30m' };
+  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: true, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[], afSounds: true, lockAfter: '30m' };
   /** His home page, or his search engine's front page. Web pages only. */
   private get HOME(): string { return this.o.secret ? engineHome(this.engine) : isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
   /** Sheet 87 (his ask, 2026-10-25): the secret window searches with Yandex, and its new tabs start there; normal Samara keeps his pick. */
@@ -1037,7 +1037,7 @@ export class AangBrowser {
       if (p !== null) {
         this.sounds = p?.sounds === true;
         this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
-          search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs',
+          search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox !== false, startup: p?.startup === 'home' ? 'home' : 'tabs',
           dark: p?.dark !== false, darkOff: hostList(p?.darkOff), afSounds: p?.afSounds !== false, lockAfter: lockPick(p?.lockAfter) };
       }
     } catch { /* defaults */ }
@@ -4536,7 +4536,7 @@ export class AangBrowser {
       const adsWas = this.prefs.ads;
       this.sounds = p.sounds === true;
       this.prefs = { ads: p.ads !== false, popups: p.popups !== false, home: typeof p.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
-        search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox === true, startup: p.startup === 'home' ? 'home' : 'tabs',
+        search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox !== false, startup: p.startup === 'home' ? 'home' : 'tabs',
         dark: p.dark !== false, darkOff: hostList(p.darkOff), afSounds: p.afSounds !== false, lockAfter: lockPick(p.lockAfter) };
       this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]);
       if (p.autofill && typeof p.autofill === 'object') this.details.set(p.autofill);
