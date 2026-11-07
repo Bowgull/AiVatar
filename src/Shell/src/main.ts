@@ -112,9 +112,18 @@ const SHELL_HOME = process.env.AANG_SHELL_HOME && existsSync(process.env.AANG_SH
     console.warn = (...a: unknown[]) => write('', a);
   }
 }
-/** The pet is running right now (body.pid names a live process). Aang's own windows exist only while he is. */
+/**
+ * The pet is running right now (body.pid names a live process). Aang's own windows exist only while he is.
+ * Found 2026-11-07: Shadow restarts the PC often, and a body.pid left from before the restart named a live process again
+ * (the number had gone to the Claude app), so Samara thought Aang was up and never started him. A pid file older than
+ * this boot is stale, whatever process has that number now.
+ */
 function bodyAlive(): boolean {
-  try { const pid = Number(readFileSync(path.join(STATE_DIR, 'body.pid'), 'utf8').trim()); if (!pid) return false; process.kill(pid, 0); return true; } catch { return false; }
+  try {
+    const f = path.join(STATE_DIR, 'body.pid');
+    if (statSync(f).mtimeMs < Date.now() - os.uptime() * 1000 - 5_000) return false;
+    const pid = Number(readFileSync(f, 'utf8').trim()); if (!pid) return false; process.kill(pid, 0); return true;
+  } catch { return false; }
 }
 
 /**
