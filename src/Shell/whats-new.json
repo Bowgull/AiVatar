@@ -1320,6 +1320,11 @@
       "at": "2026-11-07T06:50:00-05:00",
       "kind": "fix",
       "text": "Prime, Netflix and the other paid shows play full screen again, instead of Shadow's protected video screen."
+    },
+    {
+      "at": "2026-11-07T07:10:00-05:00",
+      "kind": "feature",
+      "text": "Brave answers your question above the results."
     }
   ]
 }
