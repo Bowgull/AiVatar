@@ -47,7 +47,8 @@ test('sheet 66 A: a Pop-outs section above the Tasks; New note, Timer, Music onl
   for (const i of items) assert.ok(taskFromArgv(i.args!.split(' ')), i.args);
   assert.equal(on[1]!.type, 'tasks');
   const off = jumpList({ ...base, popouts: { aang: false, icons: {} } });
-  assert.deepEqual((off[0]!.items as Electron.JumpListItem[]).map((i) => i.title), ['Show all pop-outs', 'Hide all pop-outs', 'Gather them by Aang']);
+  // his rule (2026-11-07): New note, Timer and Music player stay in the list with Aang closed too
+  assert.deepEqual((off[0]!.items as Electron.JumpListItem[]).map((i) => i.title), ['Show all pop-outs', 'Hide all pop-outs', 'Gather them by Aang', 'New note', 'Timer', 'Music player']);
   const gone = jumpList({ ...base, popouts: { aang: true, icons: {}, removed: (a) => a.endsWith('=timer') } });
   assert.ok(!(gone[0]!.items as Electron.JumpListItem[]).some((i) => i.title === 'Timer'));
   for (const t of ['popouts-show', 'popouts-hide', 'popouts-gather', 'new-note', 'timer', 'player']) assert.equal(taskFromLockData({ samaraTask: t }), t);
