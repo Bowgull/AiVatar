@@ -12,7 +12,7 @@
 // no Shell running, the new one IS Samara, on its own, without Aang (like the Samara shortcut). Only the names below
 // (five of Samara's, six pop-out ones) are ever acted on; anything else on the command line is ignored.
 import path from 'node:path';
-import { NEEDS_AANG, POPOUT_TASKS, type PopoutTask } from './taskbarplan.ts';
+import { POPOUT_TASKS, type PopoutTask } from './taskbarplan.ts';
 
 // Sheet 66 A (2026-10-22): a "Pop-outs" section above the Tasks (Show all, Hide all, Gather them by Aang, New note,
 // Timer, Music player). Same door: main.ts hands these six to taskbar.ts instead of the browser.
@@ -68,7 +68,8 @@ export function jumpList(o: { exe: string; main: string; dir: string; icon: stri
   const p = o.popouts;
   if (p) {
     // An item he removed from the list can't be put back (Windows refuses the whole list), so it is left out.
-    const items = POPOUT_TASKS.filter((t) => p.aang || !NEEDS_AANG.has(t)).map((t) => item(t, p.icons[t] || o.icon)).filter((i) => !p.removed?.(i.args));
+    // Every item, Aang running or not (his rule 2026-11-07): Samara starts him when one needs him (main.ts runPopoutTask).
+    const items = POPOUT_TASKS.map((t) => item(t, p.icons[t] || o.icon)).filter((i) => !p.removed?.(i.args));
     if (items.length) out.push({ type: 'custom', name: 'Pop-outs', items });
   }
   out.push({ type: 'tasks', items: order.map((t) => item(t)) });
