@@ -40,7 +40,9 @@ if (MODE === 'full') {
   // Keep acceleration, but stop Chromium putting protected video in a display-only overlay, which is
   // the specific thing Shadow cannot capture. If this is not enough he sees a black box, and 'full' is
   // the fallback. Only his eyes can tell the difference, which is why both modes exist.
-  app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
+  // With underscores (2026-11-07): the GPU process reads a driver workaround only by its own name; the hyphenated
+  // spelling this had was silently ignored, so overlays stayed on (getGPUInfo: supportsOverlays true).
+  app.commandLine.appendSwitch('disable_direct_composition_video_overlays');
 }
 
 // Its own name and its own folder, BEFORE asking for the single-instance lock.
