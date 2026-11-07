@@ -72,13 +72,20 @@ import type { Box } from './geometry.ts';
 import { Satchel } from './satchel.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
+/** Chromium's GPU workaround that keeps video out of DirectComposition overlays. Underscores: see below. */
+const OVERLAYS_OFF = 'disable_direct_composition_video_overlays';
 // One engine (his yes, 2026-10-13): on castLabs' engine, paid video plays in the browser's tabs. Shadow cannot capture a
 // protected picture drawn as an overlay (6.1, black box), so that one overlay is turned off; acceleration stays on.
 // His report (2026-11-03): Frieren went to Shadow's "protected video" screen only in fullscreen. A bigger picture asks
 // the site for its HD stream, which Windows decrypts in hardware and always draws on a display-only surface, overlay
 // switch or not. Kept to software decryption, the picture stays one Shadow can stream (at the site's non-hardware best).
+// His report (2026-11-07): Prime full screen still S:102. The overlay switch was spelled with hyphens, which Chromium never
+// reads: the GPU process takes a driver workaround only by its own name, with underscores (measured with getGPUInfo:
+// supportsOverlays stays true with hyphens, false with underscores). So protected video still went to an overlay, and a
+// protected overlay is always DISPLAY_ONLY. Full screen is where Chromium lifts the video into its own overlay, so it was
+// full screen that Shadow refused. Off, the video is drawn with the page, which Shadow streams.
 if (onCastlabs()) {
-  app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
+  app.commandLine.appendSwitch(OVERLAYS_OFF);
   app.commandLine.appendSwitch('disable-features', 'HardwareSecureDecryption,HardwareSecureDecryptionExperiment,HardwareSecureDecryptionFallback');
 }
 const STATE_DIR = process.env.AANG_STATE_DIR
