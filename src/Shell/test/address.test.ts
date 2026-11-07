@@ -6,7 +6,7 @@ import { addressFor } from '../src/address.ts';
 test('a site goes to the site, words go to a search', () => {
   assert.equal(addressFor('wowhead.com/guide'), 'https://wowhead.com/guide');
   assert.equal(addressFor('https://www.wowhead.com/'), 'https://www.wowhead.com/');
-  assert.match(String(addressFor('frost mage opener')), /^https:\/\/search\.brave\.com\/search\?q=frost%20mage%20opener&summary=0$/);
+  assert.match(String(addressFor('frost mage opener')), /^https:\/\/search\.brave\.com\/search\?q=frost%20mage%20opener&summary=1$/);
   assert.equal(addressFor('localhost:3000'), 'http://localhost:3000');
 });
 

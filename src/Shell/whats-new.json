@@ -1300,6 +1300,11 @@
       "at": "2026-11-04T12:20:00-05:00",
       "kind": "fix",
       "text": "Zelda live tracking now starts every time you play."
+    },
+    {
+      "at": "2026-11-07T06:30:00-05:00",
+      "text": "Brave answers your question above the results.",
+      "kind": "feature"
     }
   ]
 }
