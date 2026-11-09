@@ -164,7 +164,7 @@ app.whenReady().then(async () => {
   // Sheet 107 v4: Back to Samara, first along the top: Mockups closes, he is back on the tab he was on. Esc does the same.
   const ex = () => b.tabs.find((t: any) => t.url === 'https://example.com/');
   b.activate(ex().id); await wait(200); b.openMockLog(); await wait(700);
-  look = await page(`const k = document.querySelector('#ptabs').firstElementChild; return { cls: k?.className, text: k?.textContent, lamp: k?.querySelector('img')?.getAttribute('src') };`);
+  look = await page(`const k = document.querySelector('#ptabbar').firstElementChild; return { cls: k?.className, text: k?.textContent, lamp: k?.querySelector('img')?.getAttribute('src') };`);
   check('Back to Samara is first along the top, with the lantern', look.cls === 'leave' && look.text === 'Back to Samara' && String(look.lamp).includes('samara-lantern'), JSON.stringify(look));
   if (shots) { mkdirSync(shots, { recursive: true }); writeFileSync(path.join(shots, 'mockups-leave.png'), (await lwc().capturePage({ x: 0, y: 0, width: 900, height: 120 })).toPNG()); }
   // Sheet 107 v5: Mockups is the plaque, never a row in the tab list; the plaque is lit while he is in it.
@@ -188,6 +188,34 @@ app.whenReady().then(async () => {
   esc(); await wait(700);
   check('Esc leaves Mockups for the tab he was on', b.cur()?.id === ex().id && b.cur()?.internal !== 'mocklog', String(b.cur()?.url));
   b.openMockLog(); await until(() => Boolean(lwc()) && !lwc().isLoading(), 8000); await wait(900);
+
+  // Sheet 119 (his yes, 2026-11-09): a new project wears the icon Claude named with its first topic, never a letter.
+  writeFileSync(path.join(other, 'mockups', '07-garden.html'), '<!doctype html><title>07 · Garden beds</title><body>beds</body>'); go('add', '-A'); go('commit', '-q', '-m', 'two');
+  await b.openMockupDrop({ path: 'mockups/07-garden.html', repo: other, url: null, title: '07 · Garden beds', branch: 'Beds', project: 'Garden', icon: 'star' }); await wait(900);
+  look = await page(`const g = [...document.querySelectorAll('.ptab')].find((x) => x.textContent.startsWith('Garden'));
+    return { svg: !!g?.querySelector('.em svg'), w: g?.querySelector('.em svg')?.getAttribute('width'), letters: document.querySelectorAll('.ptab .em b').length };`);
+  check('sheet 119: a new project wears the icon Claude named (the star at 3x), and no tab is a letter', look.svg && look.w === '30' && look.letters === 0, JSON.stringify(look));
+  // Sheet 119: the row scrolls. Squeezed so the tabs run past the edge: the wheel moves it, the edges show, the keys walk it.
+  await page(`document.querySelector('.pwrap').style.maxWidth = '240px'; return true;`); await wait(300);
+  look = await page(`const t = document.getElementById('ptabs'); t.scrollLeft = 0; return { over: t.scrollWidth > t.clientWidth, l: document.getElementById('pedgel').className, r: document.getElementById('pedger').className };`);
+  await wait(200);
+  look = await page(`return { l: document.getElementById('pedgel').className, r: document.getElementById('pedger').className, x: document.getElementById('ptabs').scrollLeft };`);
+  check('sheet 119: at the start only the right edge shows', look.x === 0 && !look.l.includes('on') && look.r.includes('on'), JSON.stringify(look));
+  const tr = await page(`const r = document.getElementById('ptabs').getBoundingClientRect(); return { x: Math.round(r.left + 60), y: Math.round(r.top + 20) };`);
+  lwc().sendInputEvent({ type: 'mouseWheel', x: tr.x, y: tr.y, deltaX: 0, deltaY: -120, canScroll: true } as any); await wait(900);
+  look = await page(`return { l: document.getElementById('pedgel').className, x: document.getElementById('ptabs').scrollLeft, y: document.getElementById('list').scrollTop };`);
+  check('sheet 119: a mouse wheel moves the tabs sideways, and the left edge shows', look.x > 0 && look.l.includes('on'), JSON.stringify(look));
+  if (shots) { mkdirSync(shots, { recursive: true }); writeFileSync(path.join(shots, 'mockups-tabs-scrolled.png'), (await lwc().capturePage({ x: 0, y: 0, width: 700, height: 110 })).toPNG()); }
+  await page(`const t = document.getElementById('ptabs'); t.scrollLeft = 0; t.querySelector('.ptab').focus(); return true;`); await wait(200);
+  for (const k of ['End']) { lwc().sendInputEvent({ type: 'keyDown', keyCode: k }); lwc().sendInputEvent({ type: 'keyUp', keyCode: k }); }
+  await wait(900);
+  look = await page(`const t = document.getElementById('ptabs'), all = [...t.querySelectorAll('.ptab')], a = document.activeElement, r = t.getBoundingClientRect(), q = a.getBoundingClientRect();
+    return { last: a === all.at(-1), inView: q.right <= r.right + 1 && q.left >= r.left - 1, r: document.getElementById('pedger').className };`);
+  check('sheet 119: End walks to the last tab and slides it into view', look.last && look.inView && !look.r.includes('on'), JSON.stringify(look));
+  lwc().sendInputEvent({ type: 'keyDown', keyCode: 'Left' }); lwc().sendInputEvent({ type: 'keyUp', keyCode: 'Left' }); await wait(400);
+  look = await page(`const all = [...document.querySelectorAll('#ptabs .ptab')]; return all.indexOf(document.activeElement) === all.length - 2;`);
+  check('sheet 119: Left walks back one tab', look === true);
+  await page(`document.querySelector('.pwrap').style.maxWidth = ''; return true;`);
 
   if (shots) {
     mkdirSync(shots, { recursive: true });

@@ -5796,7 +5796,9 @@ export class AangBrowser {
       if (loose.length) topics.push({ id: 'loose', name: NO_TOPIC, icon: null, sheets: loose });
       // What he worked on last first; Other last of all.
       topics.sort((a, b) => Number(a.name === NO_TOPIC) - Number(b.name === NO_TOPIC) || Math.max(...b.sheets.map((n) => n.at)) - Math.max(...a.sheets.map((n) => n.at)));
-      return { name, count: all.length, fresh: all.filter((n) => n.fresh).length, topics, done: all.filter(isDone).sort(byRank) };
+      // Sheet 119 (2026-11-09): a project wears the icon Claude named with its first topic, so a new one is never a letter.
+      const icon = st.branches.filter((b) => b.icon && (b.project ?? null) === name).sort((a, b) => a.id - b.id)[0]?.icon ?? null;
+      return { name, count: all.length, fresh: all.filter((n) => n.fresh).length, icon, topics, done: all.filter(isDone).sort(byRank) };
     });
     return { projects };
   }

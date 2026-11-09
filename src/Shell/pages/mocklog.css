@@ -16,7 +16,29 @@ body{margin:0;height:100vh;box-sizing:border-box;padding:14px;color:#e8dcc4;font
 button{font:inherit;color:inherit}
 
 /* PROJECT TABS along the top */
-.ptabs{flex:none;display:flex;gap:8px;padding:12px 14px 0;border-bottom:3px solid #120A05;background:rgba(0,0,0,.25);overflow-x:auto;scrollbar-width:none}
+.ptabbar{flex:none;display:flex;align-items:flex-start;padding:12px 0 0 14px;border-bottom:3px solid #120A05;background:rgba(0,0,0,.25)}
+.pwrap{position:relative;flex:1;min-width:0;display:flex}
+.ptabs{flex:1;min-width:0;display:flex;gap:8px;padding:0 14px 0 0;overflow-x:auto;scrollbar-width:none}
+.ptabs::-webkit-scrollbar{display:none}
+/* Sheet 119 (his yes, 2026-11-09): the edge where more tabs sit, shaded, with a gold arrow on a little wood key; the
+   blue gem beside it when one of those tabs has something NEW. Arrives soft, leaves quick. */
+.pedge{position:absolute;top:0;bottom:0;width:56px;border:none;padding:0;cursor:pointer;z-index:3;opacity:0;pointer-events:none;transition:opacity .14s cubic-bezier(.5,0,.75,0)}
+.pedge.on{opacity:1;pointer-events:auto;transition:opacity .22s cubic-bezier(.32,.72,0,1)}
+.pedge.l{left:0;background:linear-gradient(90deg,#1c1108 0 14px,rgba(28,17,8,.9) 32px,rgba(28,17,8,0))}
+.pedge.r{right:0;background:linear-gradient(270deg,#1c1108 0 14px,rgba(28,17,8,.9) 32px,rgba(28,17,8,0))}
+.pedge .arw{position:absolute;top:50%;width:22px;height:30px;margin-top:-17px;border:3px solid #120A05;border-radius:7px;box-sizing:border-box;
+  background:linear-gradient(180deg,#4a2f18,#2c1a0c);box-shadow:0 3px 0 rgba(0,0,0,.45);transition:transform .15s ease,filter .15s ease}
+.pedge.l .arw{left:5px}.pedge.r .arw{right:5px}
+.pedge .arw::after{content:"";position:absolute;inset:0;margin:auto;width:8px;height:14px;image-rendering:pixelated;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23FFE28C' d='M0 0h1v7H0zM1 1h1v5H1zM2 2h1v3H2zM3 3h1v1H3z'/%3E%3Cpath fill='%23FFF6C8' d='M0 0h1v3H0zM1 1h1v1H1z'/%3E%3C/svg%3E") 0 0/8px 14px}
+.pedge.l .arw::after{transform:scaleX(-1)}
+.pedge:hover .arw{filter:brightness(1.15)}
+.pedge.r:hover .arw{transform:translateX(2px)}.pedge.l:hover .arw{transform:translateX(-2px)}
+.pedge:active .arw{transform:translateY(2px)}
+.pedge .gemnew{position:absolute;top:calc(50% - 9px);opacity:0;transform:scale(.4);transition:opacity .14s ease,transform .14s ease}
+.pedge.l .gemnew{left:30px}.pedge.r .gemnew{right:30px}
+.pedge.fresh .gemnew{opacity:1;transform:scale(1);transition:opacity .2s ease,transform .3s cubic-bezier(.3,1.4,.6,1)}
+.ptab:focus-visible{outline:2px solid #FFE28C;outline-offset:-5px}
 .ptab{flex:none;display:flex;align-items:center;gap:9px;padding:8px 14px 9px 9px;border:3px solid #120A05;border-bottom:none;border-radius:10px 10px 0 0;cursor:pointer;
   background:linear-gradient(180deg,#4a2f18,#2c1a0c);color:#d8c8a6;font:700 13px var(--display);letter-spacing:1.4px;text-transform:uppercase;text-shadow:0 2px 0 #000;position:relative;top:3px;transition:background .15s ease}
 .ptab:hover{filter:brightness(1.08)}
@@ -29,7 +51,7 @@ button{font:inherit;color:inherit}
 .ptab .newc{font:800 10.5px var(--body);letter-spacing:.3px;color:#08203a;background:#4aa8ff;border-radius:4px;padding:2px 5px;text-transform:none;text-shadow:none}
 .ptab.on{background:linear-gradient(180deg,#6b4523,#3d2612);color:#FFE28C;z-index:2}
 /* Sheet 107 v4: Back to Samara, the way out, in the scroll plaque's colours (v5: plum and gold) */
-.leave{flex:none;align-self:flex-start;display:flex;align-items:center;gap:9px;height:44px;margin:0 6px 0 0;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:10px;cursor:pointer;
+.leave{flex:none;align-self:flex-start;display:flex;align-items:center;gap:9px;height:44px;margin:0 8px 0 0;padding:0 14px 0 10px;border:3px solid #120A05;border-radius:10px;cursor:pointer;
   background:linear-gradient(180deg,var(--plum-edge) 0 3px,var(--plum) 3px 55%,var(--plum-deep) calc(100% - 4px),#1a0e2c calc(100% - 4px));
   box-shadow:0 3px 0 #120A05,inset 0 0 0 2px var(--gold),inset 0 0 0 4px rgba(0,0,0,.3);transition:transform .15s ease,filter .15s ease}
 .leave:hover{transform:translateY(-1px);filter:brightness(1.08)}
@@ -80,7 +102,7 @@ button{font:inherit;color:inherit}
 .bigk i{width:16px;height:16px;image-rendering:pixelated;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23FFE28C' d='M0 0h3v1H1v2H0zM5 0h3v3H7V1H5zM0 5h1v2h2v1H0zM7 5h1v3H5V7h2z'/%3E%3C/svg%3E") 0 0/16px 16px}
 body.big .bigk i{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23FFE28C' d='M2 0h1v3H0V2h2zM5 0h1v2h2v1H5zM0 5h3v3H2V6H0zM5 5h3v1H6v2H5z'/%3E%3C/svg%3E")}
 body.big{padding:4px}
-body.big .ptabs,body.big .side{display:none}
+body.big .ptabbar,body.big .side{display:none}
 body.big .body{grid-template-columns:1fr}
 .tag1{display:inline-block;flex:none;font:800 10.5px var(--body);color:#08203a;background:#4aa8ff;border-radius:4px;padding:2px 6px;margin-left:8px;text-shadow:none}
 /* the sheet itself, at its true size: never shrunk, it scrolls when it is wider */
@@ -146,4 +168,4 @@ body.wait .log{opacity:0}
 .mmenu button:hover{background:rgba(255,224,150,.10)}
 .mmenu .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
 .mmenu input{box-sizing:border-box;width:100%;margin:2px 0;font:600 13px var(--body);color:#FFE096;background:#0B0718;border:2px solid #120A05;border-radius:4px;padding:5px 7px;outline:none}
-@media (prefers-reduced-motion:reduce){.chev,.ptab,.leave,.log,.frame iframe,.frame .ld{transition:none}.ld .prog i{animation:none}}
+@media (prefers-reduced-motion:reduce){.chev,.ptab,.leave,.log,.frame iframe,.frame .ld,.pedge,.pedge .arw,.pedge .gemnew{transition:none}.ld .prog i{animation:none}}

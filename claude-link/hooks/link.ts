@@ -317,9 +317,9 @@ export const MOCKUP_TOOL_DESC = "Show the user a mockup, design sheet or visual 
   'so never commit mockups into the project itself (public code repos stay free of them); after a change, call again for a new version. ' +
   'A live page from a server you run is not accepted: it breaks once the server stops, so save the page as a file first. title: a short name ("NN · Name"). ' +
   'Mockups is Project > Topic > Sheet: project is the real project it belongs to (Samara, Aang, Waymark, Couch Mode, Showcase, or a new one; Samara\'s and Aang\'s sheets both live in the AiVatar repo, so name which), branch is the topic inside it (Top bar, TV...). ' +
-  'icon: pick the one that fits the topic; it is used when the topic is new.'
+  'icon: pick the one that fits the topic; it is used when the topic is new, and a new project wears it too.'
 /** Sheet 100 (2026-10-28, his "can't Claude decide what fits"): the icons a topic can wear, Samara's own set (pages/mockicons.js). */
-export const MOCKUP_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'globe', 'cog', 'log', 'keyboard', 'tabs', 'fire', 'pad', 'scroll', 'star', 'post', 'video', 'camera', 'mic', 'cal', 'letter', 'moon', 'ads', 'popup']
+export const MOCKUP_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'globe', 'cog', 'log', 'keyboard', 'tabs', 'fire', 'pad', 'scroll', 'star', 'post', 'video', 'camera', 'mic', 'cal', 'letter', 'moon', 'ads', 'popup', 'telly', 'map', 'palette']
 export const MOCKUP_TOOL_SCHEMA = {
   type: 'object',
   properties: {
@@ -327,7 +327,7 @@ export const MOCKUP_TOOL_SCHEMA = {
     title: { type: 'string', description: 'A short name for it in the trail ("Waymark motion").' },
     branch: { type: 'string', description: 'Required: the topic inside the project to file it in ("Top bar", "TV"), 1-40 characters.' },
     project: { type: 'string', description: 'The real project it belongs to ("Samara", "Aang", "Waymark", "Couch Mode", "Showcase", or a new one), 1-40 characters, never a topic. Default: its repo\'s project (AiVatar is Samara: name Aang for Aang\'s sheets).' },
-    icon: { type: 'string', enum: MOCKUP_ICONS, description: 'The icon that fits the topic best (used when the topic is new): bar a window\'s top bar, shield safety, tv, claude, bell notices, key logins, globe web, cog settings, log a book, keyboard typing, tabs, fire, pad games, scroll writing, star, post a signpost, video, camera, mic, cal dates, letter mail, moon night, ads, popup.' },
+    icon: { type: 'string', enum: MOCKUP_ICONS, description: 'The icon that fits the topic best (used when the topic is new): bar a window\'s top bar, shield safety, tv, claude, bell notices, key logins, globe web, cog settings, log a book, keyboard typing, tabs, fire, pad games, scroll writing, star, post a signpost, video, camera, mic, cal dates, letter mail, moon night, ads, popup, telly a TV with a fire on it, map a map with a pin, palette design. A new project wears its first topic\'s icon.' },
   },
   required: ['branch'],
 }

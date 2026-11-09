@@ -84,6 +84,8 @@ const C4 = {
   o: '#5A3414', W: '#D9A55E', m: '#9C6A32', r: '#C8402E', R: '#F06A50', y: '#FFCB3A', h: '#FFF2A0',
   k: '#2E3248', G: '#A2AAC0', D: '#767F99', w: '#FFFFFF', g: '#DCE6F4', b: '#2B78D0', B: '#8ED2FF',
   a: '#B06A10', A: '#FFD24A', Z: '#FFF2A0', n: '#7A4A1C', X: '#F6EBD3', e: '#6A4A22',
+  // sheet 119: a night screen, map greens and parchment, palette wood
+  N: '#1B2340', l: '#6CC46A', L: '#B4E89A', Y: '#E0CCA4', P: '#E8B868', p: '#C98A3E',
 };
 const ICONS4 = {
   // a campfire: Couch Mode, and its campfire scenes
@@ -104,6 +106,16 @@ const ICONS4 = {
   pad: ['.kkkkkkkk.', 'kGGGGGGGGk', 'kGkGGGGrGk', 'kkkkGGrGrk', 'kGkGGGGrGk', 'kGGGGGGGGk', '.kkk..kkk.'],
   // an open book with a gold ribbon: the quest log, every mockup
   log: ['.nnnn.nnnn.', 'nXXXXnXXXXn', 'nXeeXnXeeXn', 'nXXXXnXXXXn', 'nXeeXnXeeXn', 'nXXXXnXXXXn', 'nXeeXnXeAXn', 'nnnnnnnnAnn', '........a..'],
+  // Sheet 119 (his picks, 2026-11-09: "omashu a botw guide a design a"), 12 wide, shown at 2x in a project tab.
+  // the TV with the campfire on it: Omashu, the games box on the TV
+  telly: ['..k......k..', '...k....k...', '....k..k....', 'kkkkkkkkkkkk', 'kNNNNNNNNNNk', 'kNNNNNrNNNNk', 'kNNNNrRrNNNk',
+    'kNNNrRyRrNNk', 'kNNNrRhyRrNk', 'kNNNoWWWoNNk', 'kDDDDDDDDDDk', 'kkkkkkkkkkkk', '.kk......kk.'],
+  // a folded map with a red pin: BotW Guide
+  map: ['.......rr...', '......rhRr..', '......rRRr..', 'nnnnnnnrrnnn', 'nXXXYXXeXYXn', 'nXllYlXeXYBn', 'nllllllXXYBn',
+    'nXllYllXBYBn', 'nXXlYXXBBYBn', 'nXXXYXBBBBBn', 'nXXXYXXXXYXn', 'nnnnnnnnnnnn'],
+  // a painter's palette with four dabs: Design
+  palette: ['..nnnnnnn...', '.nPPPPPPPnn.', 'nPrRPPyhPPPn', 'nPrrPPyyPbBn', 'nPPPPPPPPbbn', 'nPPn..nPlLPn', 'nPPPnnPPllPn',
+    '.nPPPPPPPPpn', '..nnpppppnn.', '....nnnnn...'],
 };
 
 /**
