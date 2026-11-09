@@ -281,7 +281,7 @@ export async function resolveVersion(repo: string, sheet: string, at = 'HEAD'): 
  *  (Samara, Couch Mode...). No project: its sheets' repo's project (MockStore.projectOf). */
 export interface MockBranch { id: number; name: string; folded: boolean; project?: string; icon?: string }
 /** Sheet 100: the icons a topic can wear (claude-link MOCKUP_ICONS, pages/mockicons.js). */
-export const MOCK_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'globe', 'cog', 'log', 'keyboard', 'tabs', 'fire', 'pad', 'scroll', 'star', 'post', 'video', 'camera', 'mic', 'cal', 'letter', 'moon', 'ads', 'popup'];
+export const MOCK_ICONS = ['bar', 'shield', 'tv', 'claude', 'bell', 'key', 'globe', 'cog', 'log', 'keyboard', 'tabs', 'fire', 'pad', 'scroll', 'star', 'post', 'video', 'camera', 'mic', 'cal', 'letter', 'moon', 'ads', 'popup', 'telly', 'map', 'palette'];
 export const cleanIcon = (x: unknown): string | null => (typeof x === 'string' && MOCK_ICONS.includes(x) ? x : null);
 export interface MockPlace { branch: number | null; parent: string | null }
 /** The longest a branch name may be. */

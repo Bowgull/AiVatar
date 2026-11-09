@@ -24,7 +24,7 @@ const LOGOS = {
   shrinedock: { src: 'art/mockups/shrinedock.png', px: false, sm: 32, lg: 64 },
 };
 const PIX = { 'couch mode': 'fire', showcase: 'video' };
-function emblem(name, big = false) {
+function emblem(name, big = false, icon = null) {
   const k = String(name).toLowerCase(), size = big ? 64 : 32;
   const own = LOGOS[k], other = tree.logos?.[name];
   if (own || (typeof other === 'string' && other.startsWith('http://127.0.0.1:'))) {
@@ -33,7 +33,7 @@ function emblem(name, big = false) {
     return i;
   }
   if (PIX[k]) return pixIcon(PIX[k], big ? 6 : 3);
-  return projectIcon(name, false, null);
+  return projectIcon(name, false, null, icon);
 }
 const projects = () => tree.projects ?? [];
 const sheetsOf = (p) => [...p.topics.flatMap((t) => t.sheets), ...p.done];
@@ -88,16 +88,24 @@ function draw() {
   // 2026-11-03: a redraw keeps where the list and the tabs were scrolled (emptying them threw both back to the top).
   const tabs = document.getElementById('ptabs'), list = document.getElementById('list');
   const tabsX = tabs.scrollLeft, listY = list.scrollTop;
-  tabs.replaceChildren(leaveKey());
+  const bar = document.getElementById('ptabbar');
+  if (bar.firstElementChild !== leaveKey()) bar.prepend(leaveKey());
+  tabs.replaceChildren();
+  let onTab = null;
   for (const q of ps) {
-    const b = el('button', 'ptab' + (q === p ? ' on' : '')); b.type = 'button';
-    const em = el('span', 'em'); em.append(emblem(q.name));
+    const b = el('button', 'ptab' + (q === p ? ' on' : '')); b.type = 'button'; b.setAttribute('role', 'tab');
+    if (q === p) onTab = b;
+    b.dataset.fresh = String(q.fresh || 0);
+    const em = el('span', 'em'); em.append(emblem(q.name, false, q.icon));
     b.append(em, el('span', '', q.name), el('span', 'c', String(q.count)));
     if (q.fresh) b.append(el('span', 'newc', `${q.fresh} NEW`));
     b.addEventListener('click', () => { if (pick.p !== q.name) { doneLooking(); pick.p = q.name; pick.s = pick.v = null; } draw(); });
     tabs.append(b);
   }
   tabs.scrollLeft = tabsX;
+  // Sheet 119: the project he is in always stands fully in view (a sheet from Claude can open a tab past the edge).
+  if (onTab && p.name !== shownP) { const first = shownP === null; shownP = p.name; showTab(onTab, !first); }
+  tabEdges();
   list.replaceChildren();
   if (!p) { list.append(el('div', 'empty', 'No mockups yet.')); drawView(null); return; }
   pick.p = p.name;
@@ -320,6 +328,52 @@ window.mocklog?.onEsc(() => { if (document.querySelector('.mmenu')) closeMenu();
 // Sheet 107 v4 (his ask: "a way to get out of mockups and back to my regular samara"): Back to Samara, first along the
 // top, in the scroll plaque's blue and gold with the lantern on it. Mockups closes; he is back on the tab he was on.
 let leave = null;
+// Sheet 119 (his yes, 2026-11-09: "a huge design flaw" that the tabs past the edge could not be reached): the row of
+// project tabs scrolls. An up-down mouse wheel moves it sideways (a trackpad's own sideways swipe is left alone), Left
+// and Right walk the tabs, Home and End jump to the ends, and a tab picked or walked to slides fully into view. Each edge
+// shades and shows a gold arrow while more tabs sit that way, with the blue gem when one of those has something NEW.
+let shownP = null;
+const tabsEl = () => document.getElementById('ptabs');
+function showTab(b, smooth = true) {
+  const t = tabsEl(), r = t.getBoundingClientRect(), q = b.getBoundingClientRect(), pad = 60;
+  if (q.left < r.left + pad) t.scrollBy({ left: q.left - r.left - pad, behavior: smooth ? 'smooth' : 'auto' });
+  else if (q.right > r.right - pad) t.scrollBy({ left: q.right - r.right + pad, behavior: smooth ? 'smooth' : 'auto' });
+}
+function tabEdges() {
+  const t = tabsEl(), x = t.scrollLeft, max = t.scrollWidth - t.clientWidth, r = t.getBoundingClientRect();
+  const L = document.getElementById('pedgel'), R = document.getElementById('pedger');
+  const hid = (left) => [...t.querySelectorAll('.ptab')].some((b) => {
+    if (!(Number(b.dataset.fresh) > 0)) return false;
+    const q = b.getBoundingClientRect();
+    return left ? q.left < r.left + 30 : q.right > r.right - 30;
+  });
+  L.classList.toggle('on', x > 1); R.classList.toggle('on', x < max - 1);
+  L.classList.toggle('fresh', x > 1 && hid(true)); R.classList.toggle('fresh', x < max - 1 && hid(false));
+}
+{
+  const t = tabsEl();
+  t.addEventListener('wheel', (ev) => {
+    if (Math.abs(ev.deltaX) >= Math.abs(ev.deltaY) || t.scrollWidth <= t.clientWidth) return;
+    ev.preventDefault();
+    const d = ev.deltaMode === 1 ? ev.deltaY * 32 : ev.deltaMode === 2 ? ev.deltaY * t.clientWidth : ev.deltaY;
+    // A mouse notch is a big step (it glides); a trackpad's small steps follow the finger.
+    if (Math.abs(d) >= 40) t.scrollBy({ left: d, behavior: 'smooth' }); else t.scrollLeft += d;
+  }, { passive: false });
+  t.addEventListener('keydown', (ev) => {
+    const all = [...t.querySelectorAll('.ptab')], i = all.indexOf(document.activeElement);
+    if (i < 0) return;
+    const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: all.length - 1 }[ev.key];
+    if (to === undefined) return;
+    ev.preventDefault();
+    const b = all[Math.max(0, Math.min(all.length - 1, to))];
+    b.focus({ preventScroll: true }); showTab(b);
+  });
+  t.addEventListener('focusin', (ev) => { if (ev.target.classList?.contains('ptab')) showTab(ev.target); });
+  t.addEventListener('scroll', tabEdges, { passive: true });
+  new ResizeObserver(tabEdges).observe(t);
+  for (const [id, dir] of [['pedgel', -1], ['pedger', 1]]) document.getElementById(id).addEventListener('click', () => t.scrollBy({ left: dir * t.clientWidth * 0.75, behavior: 'smooth' }));
+}
+
 function leaveKey() {
   if (leave) return leave;
   leave = el('button', 'leave'); leave.type = 'button';
