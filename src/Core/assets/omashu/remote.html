@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The phone fire remote for Omashu (built from approved mockups 02 and 06, mockups/omashu/remote/). Served by
+     src/Core/src/omashuremote.ts. The drawing part is sheet 02's own code, unchanged. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fire">
+<meta name="theme-color" content="#010204">
+<title>Fire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--wood-dark:#120803;--wood:#71401f;--wood-hi:#c27a3e;--parch:#f0e2bf;--parch-line:#d9c391;--brown:#3a2212;
+  --c-guild:#40ff40;--c-party:#aaaaff;--c-whisper:#ff80ff;--c-general:#ffc0c0;--c-say:#ffffff;--c-sys:#ffff00;--c-item:#1eff00;--c-quest:#ffff00}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#04060a;color:#efe6d2;font-family:"Pixelify Sans",system-ui,sans-serif;overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+#app{position:fixed;inset:0;overflow:hidden;background:#04060a;touch-action:none}
+#app canvas.scene{position:absolute;image-rendering:pixelated}
+/* the controls sheet: parchment on wood (sheet 02) */
+.dim{position:absolute;inset:0;z-index:6;background:#000a}
+.sheet{position:absolute;left:10px;right:10px;bottom:10px;top:118px;z-index:7;background:var(--parch);
+  border:6px solid var(--wood);box-shadow:0 0 0 3px var(--wood-hi) inset,0 0 0 3px var(--wood-dark),0 -10px 40px #000c;
+  border-radius:18px;padding:16px 14px 14px;color:var(--brown);display:flex;flex-direction:column;overflow-y:auto}
+.sheet h3{font-weight:600;font-size:22px;margin:0 2px 2px;color:var(--wood-dark)}
+.sheet .grip{width:48px;height:6px;border-radius:3px;background:var(--parch-line);margin:-6px auto 10px}
+.sheet table{width:100%;border-collapse:collapse;font-size:15px}
+.sheet td{padding:6px 4px;border-bottom:2px dotted var(--parch-line);vertical-align:middle}
+.sheet td.g{width:62px;text-align:center}
+.sheet td.s{width:52px;text-align:right;color:#8a6a44;font-size:13px;white-space:nowrap}
+.sheet .does{font-weight:600;color:var(--wood-dark)}
+.sheet .hint{color:#7a5a3a;font-size:13px}
+.sheet .new{color:#2f7d5b}
+.btn{display:inline-block;min-width:34px;padding:5px 6px 4px;border-radius:7px;font-size:13px;font-weight:600;color:var(--parch);
+  background:var(--wood);box-shadow:inset 0 -3px 0 var(--wood-dark);text-align:center}
+.btn.a{background:#3f8f47}.btn.b{background:#b5413a}.btn.x{background:#3a66b0}.btn.y{background:#c08a1e}
+.btn.w{min-width:52px;font-size:12px}
+svg.gl{width:40px;height:33px;display:block;margin:0 auto}
+svg.ic{width:34px;height:34px;display:block;margin:0 auto}
+.sheet .foot{margin-top:auto;padding-top:8px;display:flex;justify-content:space-between;font-size:13px;color:#7a5a3a}
+/* the chat coin's bubble and its count (sheet 06); the coin itself is drawn on the canvas like the "?" */
+.chatcoin{position:absolute;width:60px;height:60px;z-index:3;display:none;align-items:center;justify-content:center;pointer-events:none}
+.chatcoin.on{display:flex}
+.chatcoin svg{width:30px;height:26px}
+.badge{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#b5413a;border:2px solid #120803;
+  color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+/* the chat panel: parchment frame on wood, a dark log inside like WoW's (sheet 06) */
+.cdim{position:absolute;inset:0;z-index:4;background:#000a}
+.panel{position:absolute;left:8px;right:8px;top:56px;bottom:8px;z-index:5;background:var(--parch);
+  border:6px solid var(--wood);box-shadow:0 0 0 3px var(--wood-hi) inset,0 0 0 3px var(--wood-dark),0 -10px 40px #000c;
+  border-radius:18px;display:flex;flex-direction:column;padding:10px 10px 12px;touch-action:auto}
+.panel .grip{width:48px;height:6px;border-radius:3px;background:var(--parch-line);margin:-2px auto 8px;box-shadow:0 0 0 10px transparent}
+.tabs{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;margin:0 0 8px;scrollbar-width:none;touch-action:pan-x}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;padding:6px 9px 5px;border-radius:9px;background:#e4d1a3;color:var(--brown);font-size:14px;font-weight:600;box-shadow:inset 0 -2px 0 #c9b07a}
+.tab.on{background:var(--wood);color:var(--parch);box-shadow:inset 0 -3px 0 var(--wood-dark)}
+.tab .n{display:inline-block;margin-left:4px;background:#b5413a;color:#fff;border-radius:8px;padding:0 5px;font-size:11px}
+.log{flex:1;min-height:0;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;
+  padding:10px 10px;overflow-y:auto;font-size:15px;line-height:1.38;display:flex;flex-direction:column;gap:5px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  touch-action:pan-y;-webkit-user-select:text;user-select:text}
+.log>:first-child{margin-top:auto}
+.l{color:var(--c-say);overflow-wrap:anywhere}
+.t{color:#7d6f5a;font-size:11px;margin-right:4px;font-family:"Pixelify Sans"}
+.l .who,.l .ch,.l .lk{cursor:pointer}
+.g{color:var(--c-guild)} .p{color:var(--c-party)} .w{color:var(--c-whisper)} .gen{color:var(--c-general)} .sys{color:var(--c-sys)}
+.o{color:#40c040} .r{color:#ff7f00} .yl{color:#ff4040}
+.item{color:var(--c-item)} .quest{color:var(--c-quest)} .spell{color:#71d5ff}
+.q0{color:#9d9d9d}.q1{color:#fff}.q2{color:#1eff00}.q3{color:#0070dd}.q4{color:#a335ee}.q5{color:#ff8000}.q6{color:#e6cc80}.q7{color:#00ccff}
+.l.hl{background:#ffffff14;border-radius:6px;margin:0 -4px;padding:0 4px}
+.send{margin-top:8px;display:flex;gap:6px;align-items:stretch}
+.chan{flex:none;padding:9px 9px 8px;border-radius:10px;background:var(--wood);color:var(--parch);font-weight:600;font-size:14px;box-shadow:inset 0 -3px 0 var(--wood-dark);max-width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chan.g{color:#c9ffc9}
+.box{flex:1;min-width:0;background:#fffaf0;border:0;outline:0;border-radius:10px;box-shadow:inset 0 0 0 2px var(--parch-line);padding:9px 10px;color:#2a1a0e;font-size:16px;font-family:system-ui,-apple-system,sans-serif;-webkit-user-select:text;user-select:text}
+.box::placeholder{color:#9a8466}
+.go{flex:none;width:46px;border-radius:10px;background:#3f8f47;box-shadow:inset 0 -3px 0 #1f4f27;display:flex;align-items:center;justify-content:center}
+.go svg{width:20px;height:20px}
+/* name menu (and the channel picker, the same wood menu) */
+.mdim{position:absolute;inset:0;z-index:6;background:#000a}
+.menu{position:absolute;z-index:7;left:44px;right:44px;top:330px;background:var(--wood);border-radius:14px;
+  box-shadow:0 0 0 3px var(--wood-dark),inset 0 0 0 3px var(--wood-hi),0 14px 40px #000;padding:12px 10px 10px;max-height:calc(100% - 80px);overflow-y:auto}
+.menu h4{margin:0 6px 8px;font-size:18px;color:#ffd36b}
+.menu h4 span{display:block;color:#e4c9a0;font-size:12px;font-weight:400;margin-top:2px}
+.mi{background:#3a2212;color:var(--parch);border-radius:9px;padding:11px 12px 10px;margin:5px 0;font-size:16px;box-shadow:inset 0 -2px 0 #24140a;display:flex;justify-content:space-between}
+.mi small{color:#b39b73;font-size:12px}
+.emotes{display:flex;gap:6px;margin-top:6px}
+.emotes .mi{flex:1;justify-content:center;font-size:14px;padding:9px 0}
+/* WoW tooltip */
+.tip{position:absolute;z-index:7;left:34px;right:34px;top:250px;background:#06081acc;border:2px solid #9aa0b8;border-radius:6px;
+  box-shadow:0 0 0 1px #000,0 14px 40px #000;padding:12px 14px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.45;color:#fff}
+.tip .nm{color:var(--c-item);font-size:17px;font-weight:600}
+.tip .q,.tip .y{color:#ffd100}.tip .gr{color:#1eff00}.tip .gy{color:#a0a0a0}
+.tip .two{display:flex;justify-content:space-between;gap:10px}
+.tip .fine{margin-top:10px;font-family:"Pixelify Sans";font-size:12px;color:#8a8aa0}
+/* review before send */
+.review{margin-top:8px;background:#fffaf0;border-radius:12px;box-shadow:inset 0 0 0 2px var(--parch-line);padding:10px 12px 12px;color:#2a1a0e;font-size:16px;font-family:system-ui,-apple-system,sans-serif;overflow-wrap:anywhere}
+.review .to{font-family:"Pixelify Sans";font-size:13px;color:#7a5a3a;margin-bottom:4px}
+.review .to.bad{color:#b5413a}
+.rb{display:flex;gap:8px;margin-top:10px}
+.rb div{flex:1;text-align:center;padding:10px 0 9px;border-radius:10px;font-family:"Pixelify Sans";font-weight:600;font-size:16px}
+.rb .no{background:#e4d1a3;color:var(--brown);box-shadow:inset 0 -2px 0 #c9b07a}
+.rb .yes{background:#3f8f47;color:#fff;box-shadow:inset 0 -3px 0 #1f4f27}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<template id="sheet"><div class="sheet">
+  <div class="grip"></div>
+  <h3>Zelda controls</h3>
+  <table>
+    <tr><td class="g"><svg class="gl" viewBox="0 0 56 46"><path d="M10 44 V16 C10 6 18 2 28 2 C38 2 46 6 46 16 V44 Z" fill="#71401f" stroke="#120803" stroke-width="2.5"/><text x="28" y="30" text-anchor="middle" font-family="Pixelify Sans" font-size="15" font-weight="600" fill="#f0e2bf">RT</text></svg></td><td><span class="does new">Attack</span></td><td class="s">Y</td></tr>
+    <tr><td class="g"><svg class="gl" viewBox="0 0 56 46"><path d="M10 44 V16 C10 6 18 2 28 2 C38 2 46 6 46 16 V44 Z" fill="#71401f" stroke="#120803" stroke-width="2.5"/><text x="28" y="30" text-anchor="middle" font-family="Pixelify Sans" font-size="15" font-weight="600" fill="#f0e2bf">LT</text></svg></td><td><span class="does">Shield</span> <span class="hint">· lock on</span></td><td class="s">ZL</td></tr>
+    <tr><td class="g"><svg class="gl" viewBox="0 0 56 46"><path d="M3 30 C3 20 10 15 20 15 H36 C46 15 53 20 53 30 V33 H3 Z" fill="#71401f" stroke="#120803" stroke-width="2.5"/><text x="28" y="30" text-anchor="middle" font-family="Pixelify Sans" font-size="14" font-weight="600" fill="#f0e2bf">RB</text></svg></td><td><span class="does new">Sprint</span> <span class="hint">(hold) · back</span></td><td class="s">B</td></tr>
+    <tr><td class="g"><svg class="gl" viewBox="0 0 56 46"><path d="M3 30 C3 20 10 15 20 15 H36 C46 15 53 20 53 30 V33 H3 Z" fill="#71401f" stroke="#120803" stroke-width="2.5"/><text x="28" y="30" text-anchor="middle" font-family="Pixelify Sans" font-size="14" font-weight="600" fill="#f0e2bf">LB</text></svg></td><td><span class="does new">Bow</span> <span class="hint">(hold, aim)</span></td><td class="s">ZR</td></tr>
+    <tr><td class="g"><span class="btn a">A</span></td><td><span class="does">Talk</span> <span class="hint">· pick up</span></td><td class="s">A</td></tr>
+    <tr><td class="g"><span class="btn y">Y</span></td><td><span class="does">Jump</span> <span class="hint">· glide</span></td><td class="s">X</td></tr>
+    <tr><td class="g"><span class="btn x">X</span></td><td><span class="does new">Powers</span></td><td class="s">L</td></tr>
+    <tr><td class="g"><span class="btn b">B</span></td><td><span class="does new">Throw</span></td><td class="s">R</td></tr>
+    <tr><td class="g"><svg class="ic" viewBox="0 0 44 44"><circle cx="22" cy="24" r="18" fill="#3a2212"/><circle cx="22" cy="24" r="12.5" fill="#9a5a2c" stroke="#120803" stroke-width="2"/><text x="22" y="29" text-anchor="middle" font-family="Pixelify Sans" font-size="14" font-weight="600" fill="#f0e2bf">L</text><path d="M17 1 h10 v5 h4 l-9 7 l-9 -7 h4 z" fill="#120803"/></svg></td><td><span class="does">Crouch</span> <span class="hint">(press in)</span></td><td class="s">L stick</td></tr>
+    <tr><td class="g"><svg class="ic" viewBox="0 0 44 44"><circle cx="22" cy="24" r="18" fill="#3a2212"/><circle cx="22" cy="24" r="12.5" fill="#9a5a2c" stroke="#120803" stroke-width="2"/><text x="22" y="29" text-anchor="middle" font-family="Pixelify Sans" font-size="14" font-weight="600" fill="#f0e2bf">R</text><path d="M17 1 h10 v5 h4 l-9 7 l-9 -7 h4 z" fill="#120803"/></svg></td><td><span class="does">Scope</span> <span class="hint">(press in)</span></td><td class="s">R stick</td></tr>
+    <tr><td class="g"><svg class="ic" viewBox="0 0 44 44"><path d="M15 3 h14 v12 h12 v14 h-12 v12 h-14 v-12 h-12 v-14 h12 z" fill="#71401f" stroke="#120803" stroke-width="2"/><path d="M22 7 l4 5 h-8 z M22 37 l4 -5 h-8 z M7 22 l5 -4 v8 z M37 22 l-5 -4 v8 z" fill="#f0e2bf"/></svg></td><td><span class="does">Quick pick</span> <span class="hint">powers, shields, weapons, whistle</span></td><td class="s">D-pad</td></tr>
+    <tr><td class="g"><span class="btn w">Start</span></td><td><span class="does">Inventory</span></td><td class="s">+</td></tr>
+    <tr><td class="g"><span class="btn w">Back</span></td><td><span class="does">Map</span></td><td class="s">&minus;</td></tr>
+  </table>
+  <div class="foot"><span>Right column: what the game shows</span><span class="new">Green = moved</span></div>
+</div></template>
+<script src="/forest.js"></script>
+<script>
+// The phone grid, every pixel 3 CSS pixels (sheet 02 is 130 x 281 on a 390 x 844 iPhone). Wider or taller phones get
+// more grid, not a blurrier scale: the Couch Mode scene (320 x 180) is cropped to the middle and sits 43 above the bottom.
+const PW=Math.max(110,Math.min(320,Math.floor(innerWidth/3))), PH=Math.max(230,Math.floor(innerHeight/3));
+const CROP_X=Math.round((320-PW)/2), SCENE_Y=PH-180-43;
+const FX=Math.floor(PW/2), FY=SCENE_Y+152;                 // the bigger fire pit: centre of the stone ring
+const px=(c,x,y,col)=>{c.fillStyle=col;c.fillRect(x,y,1,1)};
+const hash=(x,y)=>{let h=Math.imul(x|0,374761393)+Math.imul(y|0,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967295};
+const noise=(x,y)=>{const xi=Math.floor(x),yi=Math.floor(y),u=(x-xi)**2*(3-2*(x-xi)),v=(y-yi)**2*(3-2*(y-yi));
+  const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),d=hash(xi+1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v};
+
+// ---------- the woods, drawn once ----------
+function background(){
+  const off=document.createElement('canvas');off.width=320;off.height=180;const oc=off.getContext('2d');
+  drawForest(oc,7,0,{noPit:true});                                          // the woods with no fire pit: real ground underneath
+  const bg=document.createElement('canvas');bg.width=PW;bg.height=PH;const c=bg.getContext('2d');c.imageSmoothingEnabled=false;
+  c.drawImage(off,CROP_X,0,1,1,0,0,PW,SCENE_Y+6);
+  const g=c.createLinearGradient(0,0,0,SCENE_Y+6);g.addColorStop(0,'#010204');g.addColorStop(.55,'rgba(1,2,4,.85)');g.addColorStop(1,'rgba(1,2,4,0)');c.fillStyle=g;c.fillRect(0,0,PW,SCENE_Y+6);
+  c.drawImage(off,CROP_X,0,PW,180,0,SCENE_Y,PW,180);
+  c.fillStyle='#04060a';c.fillRect(0,SCENE_Y+180,PW,PH-SCENE_Y-180);
+  const gb=c.createLinearGradient(0,SCENE_Y+170,0,SCENE_Y+186);gb.addColorStop(0,'rgba(4,6,10,0)');gb.addColorStop(1,'#04060a');c.fillStyle=gb;c.fillRect(0,SCENE_Y+170,PW,16);
+  return bg;
+}
+
+// ---------- the pit: stones and logs, lit by the fire's level ----------
+const STONES=[];{let s=5;const rnd=()=>(s=(s*9301+49297)%233280)/233280;const n=14;
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2+.1;STONES.push({a,x:FX+Math.cos(a)*30,y:FY+Math.sin(a)*11,w:9+Math.floor(rnd()*5),h:6+Math.floor(rnd()*3),m:rnd()})}}
+function stones(c,lv,back){
+  STONES.forEach(s=>{if((s.y<FY)!==back)return;
+    const x0=Math.round(s.x-s.w/2),y0=Math.round(s.y-s.h/2),toFire=Math.atan2(FY-6-s.y,FX-s.x);
+    for(let dy=0;dy<s.h;dy++)for(let dx=0;dx<s.w;dx++){
+      const nx=(dx+.5)/s.w*2-1,ny=(dy+.5)/s.h*2-1,r=nx*nx+ny*ny*1.1;if(r>1)continue;
+      const lit=Math.cos(Math.atan2(ny,nx)-toFire)*Math.sqrt(r)*lv,top=-ny,edge=r>.72;
+      let col=lit>.45?'#b48a62':lit>.15?'#7e6650':top>.3?'#4a4a4e':ny>.45?'#1e1e22':'#35363a';
+      if(edge&&lit<.3)col='#151518';
+      const inner=Math.cos(Math.atan2(ny,nx)-toFire)>.55&&r>.45; if(inner&&lv<.5)col=hash(dx+x0*3,dy)>.4?'#1a1a1c':'#25252a';   // soot facing the fire
+      if(!edge&&s.m>.5&&lit<-.1&&hash(dx+x0,dy)>.55)col='#2c4a2a';
+      px(c,x0+dx,y0+dy,col)}})}
+// the pit: an ash bed, then logs lying flat and crossed (a low pile, not a tent), charred black with a little
+// bark left, ends cut. The flames rise from the middle of the pile. [x1,y1,x2,y2,thickness,layer]
+function ashbed(c,lv){
+  for(let y=FY-7;y<=FY+9;y++)for(let x=FX-24;x<=FX+24;x++){
+    const nx=(x-FX)/24,ny=(y-FY-1)/8,r=nx*nx+ny*ny;if(r>1)continue;
+    const n=hash(x,y);
+    let col=r>.78?(n>.5?'#1b1715':'#232020'):n>.82?'#5a5450':n>.55?'#454140':n>.25?'#363232':'#2a2726';   // grey ash, darker rim
+    if(r<.5&&n>.965)col=lv>.5?'#ff9a3a':'#c8502a';                                                          // a few live embers in the ash
+    px(c,x,y,col)}}
+const LOGS=[
+  [FX-21,FY-2,FX+17,FY-9,5,'back'],          // one across the back
+  [FX+19,FY+1,FX-15,FY-8,5,'back'],
+  [FX-22,FY+6,FX+20,FY+1,6,'front'],         // two across the front, lower
+  [FX+23,FY+8,FX-18,FY+4,6,'front']];
+function logs(c,t,lv,which){
+  const ember=.3+.7*lv, pulse=.88+.12*Math.sin(t*.6);
+  LOGS.forEach(([x1,y1,x2,y2,th,layer],li)=>{if(layer!==which)return;
+    const len=Math.hypot(x2-x1,y2-y1);
+    for(let k=0;k<=len;k++){const tt=k/len,x=Math.round(x1+(x2-x1)*tt),y=Math.round(y1+(y2-y1)*tt);
+      const mid=1-Math.abs(tt-.5)*2;                                   // 1 in the middle of the log, 0 at the ends
+      for(let j=0;j<th;j++){const yy=y-j,n=hash(x,yy+li*50),bark=hash(x>>1,yy+li*31);
+        // charred in the middle, bark surviving towards the ends
+        const charred=mid>.35+bark*.3;
+        let col;
+        if(j===0)col='#0d0906';
+        else if(charred)col=j===th-1?(n>.6?'#3a3330':'#2a2423'):n>.75?'#1a1512':'#231c18';
+        else col=j===th-1?'#7a5230':j===th-2?'#5a3a1e':bark>.7?'#4a2c16':'#3a2210';
+        const burn=charred&&j>0&&j<th-1&&n>.45;
+        if(burn){const e=((n+t*.18+k*.07)%1)*ember*pulse;if(e>.78)col='#ffb24a';else if(e>.55)col='#e8602c';else if(e>.38)col='#8a2a14';else if(e>.22&&lv>.3)col='#4a1a0c'}
+        px(c,x,yy,col)}}
+    // cut ends with rings
+    [[x1,y1],[x2,y2]].forEach(([ex,ey])=>{c.fillStyle='#8a6a44';c.fillRect(ex-1,ey-th+1,2,th);c.fillStyle='#5a3e24';c.fillRect(ex-1,ey-Math.floor(th/2),2,1)});
+  })}
+
+// ---------- flames: a heat field through noise, cut into bands. Bigger than the TV's. ----------
+const BAND=[[122,36,16],[200,64,28],[240,122,44],[255,184,74],[255,233,160],[255,251,230]];
+const FW=56, FH=70, FB=document.createElement('canvas');FB.width=FW;FB.height=FH;const fbc=FB.getContext('2d');const FIM=fbc.createImageData(FW,FH);
+function flames(c,t,lv,touch){
+  if(lv<.03)return;
+  const base=FY+1, H=58*(.55+.45*lv), ox=FX-FW/2, oy=base-FH;
+  FIM.data.fill(0);
+  for(let yy=0;yy<FH;yy++){const y=oy+yy,h=(base-y)/H;if(h>1.15)continue;
+    for(let xx=0;xx<FW;xx++){const x=ox+xx;
+      const dx=(x-FX)/(19*Math.max(.1,1-h)**.65+1);
+      let heat=1.02*Math.min(1,lv*1.25)-Math.abs(dx)**1.8-h*.95;
+      if(h>.6)heat-=(h-.6)*2.4;
+      heat+=(noise(x*.17,y*.13+t*1.5)-.5)*(.5+h*.8)+(noise(x*.38+9,y*.29+t*2.4)-.5)*.3;   // slow, lazy licks
+      if(touch){const d=Math.hypot(x-touch.x,y-touch.y);heat+=touch.k*.8*Math.exp(-d*d/160)}
+      if(touch&&touch.spread<1){const d=Math.hypot(x-touch.x,y-touch.y);if(d>touch.spread*70)heat-=1.5}
+      if(y>base-5)heat-=(y-(base-5))*.1;
+      const bnd=heat>.95?5:heat>.78?4:heat>.58?3:heat>.4?2:heat>.26?1:heat>.17?0:-1;
+      if(bnd>=0&&!(bnd===0&&h>.45)){const i=(yy*FW+xx)*4,col=BAND[bnd];FIM.data[i]=col[0];FIM.data[i+1]=col[1];FIM.data[i+2]=col[2];FIM.data[i+3]=255}}}
+  fbc.putImageData(FIM,0,0);c.drawImage(FB,ox,oy)}
+
+// ---------- glow: soft pixel light, made once, brightened by the fire's strength ----------
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+const GLOW=(()=>{const g=document.createElement('canvas');g.width=PW;g.height=PH;const c=g.getContext('2d');const im=c.createImageData(PW,PH);
+  for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){
+    const d=Math.hypot((x-FX)/1.0,(y-(FY-10))*1.9);           // wide, flat pool of light on the ground
+    let v=Math.max(0,1-d/95);v=v*v;                            // soft falloff
+    v+= (BAYER[(y&3)*4+(x&3)]/16-.5)*.06;                      // ordered dither: pixel-art steps, no smooth smear
+    v=Math.round(Math.max(0,v)*6)/6;                           // a few light levels, like hand-shaded art
+    const i=(y*PW+x)*4;im.data[i]=255;im.data[i+1]=138;im.data[i+2]=58;im.data[i+3]=Math.round(v*120)}
+  c.putImageData(im,0,0);return g})();
+function glow(c,t,lv){if(lv<.03)return;
+  const f=lv*(.9+.1*(noise(t*.7,3)));                          // slow, gentle breathing, not a flicker
+  c.globalCompositeOperation='lighter';c.globalAlpha=f;c.drawImage(GLOW,0,0);c.globalAlpha=1;c.globalCompositeOperation='source-over'}
+
+// ---------- particles: sparks, smoke, fireflies ----------
+class Parts{constructor(n,spawn,step){this.p=[];this.n=n;this.spawn=spawn;this.step=step}
+  run(c,dt,rate){for(let i=this.p.length-1;i>=0;i--){const q=this.p[i];this.step(q,dt);if(q.life<=0)this.p.splice(i,1);else{c.globalAlpha=q.a;px(c,Math.round(q.x),Math.round(q.y),q.col)}}
+    c.globalAlpha=1;if(this.p.length<this.n&&Math.random()<rate)this.p.push(this.spawn())}}
+const sparks=new Parts(10,()=>({x:FX-6+Math.random()*12,y:FY-30-Math.random()*16,vx:(Math.random()-.5)*3,vy:-9-Math.random()*6,ph:Math.random()*6.28,life:1,a:1,col:'#ffe9a0'}),
+  (q,dt)=>{q.x+=q.vx*dt+Math.sin(q.ph+q.life*4)*3*dt;q.y+=q.vy*dt;q.vy*=.995;q.life-=dt*.22;q.a=Math.min(1,q.life*1.4);q.col=q.life>.6?'#ffe9a0':q.life>.3?'#ffb24a':'#e8602c'});
+const smoke=new Parts(18,()=>({x:FX-3+Math.random()*6,y:FY-34,vx:(Math.random()-.5)*2,vy:-5-Math.random()*3,life:1,a:0}),
+  (q,dt)=>{q.x+=q.vx*dt+Math.sin(q.y*.06+q.vx)*2*dt;q.y+=q.vy*dt;q.life-=dt*.12;q.a=Math.max(0,Math.min(.14,q.life*.3));q.col='rgb(120,130,140)'});
+const flies=[];{let s=99;const rnd=()=>(s=(s*9301+49297)%233280)/233280;for(let i=0;i<16;i++)flies.push({bx:14+rnd()*102,by:SCENE_Y+70+rnd()*60,ph:rnd()*6.28,sp:.5+rnd()*.6})}
+function fireflies(c,t){flies.forEach((f,i)=>{const x=Math.round(f.bx+9*Math.sin(t*.35*f.sp+f.ph)),y=Math.round(f.by+5*Math.sin(t*.5*f.sp+f.ph*2));
+  const bl=(Math.sin(t*.8+i*1.9)+1)/2;if(bl<.3)return;const a=(bl-.3)/.7;
+  c.fillStyle=`rgba(210,255,120,${(.12*a).toFixed(3)})`;c.fillRect(x-2,y-1,5,3);c.fillRect(x-1,y-2,3,5);c.fillStyle=`rgba(210,255,120,${(.9*a).toFixed(3)})`;c.fillRect(x,y,1,1)})}
+
+// ---------- the "?" token: a round wooden coin ----------
+function token(c,cx,cy,r){for(let y=-r;y<r;y++)for(let x=-r;x<r;x++){const d=Math.hypot(x+.5,y+.5);if(d>r)continue;
+  let col;if(d>r-1)col='#120803';else if(d>r-2)col=(y+.5<-r*.25?'#c27a3e':y+.5>r*.35?'#4a2711':'#8a5230');else if(d>r-3)col='#71401f';else col=((x*3+y*7)&7)===0?'#2c180c':'#3a2212';px(c,cx+x,cy+y,col)}}
+const Q=['.gggg.','gg..gg','....gg','...gg.','..gg..','..gg..','......','..gg..','..gg..'];
+function question(c,x,y){Q.forEach((r,ry)=>[...r].forEach((ch,rx)=>{if(ch==='g')px(c,x+rx,y+ry+1,'#140904')}));Q.forEach((r,ry)=>[...r].forEach((ch,rx)=>{if(ch==='g')px(c,x+rx,y+ry,'#ffd36b')}))}
+
+// ---------- the chat coin's place: right of the "?" (sheet 06) ----------
+const QX=Math.floor(PW/2), QY=PH-22, CX=QX+25;
+
+// ---------- the remote ----------
+const app=document.getElementById('app');
+const cv=document.createElement('canvas');cv.className='scene';cv.width=PW;cv.height=PH;app.prepend(cv);
+const c=cv.getContext('2d');c.imageSmoothingEnabled=false;
+const BG=background();
+const S={lv:0,target:0,touch:null,t:0,heldUntil:0};
+const $=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
+const BUBBLE='<svg viewBox="0 0 30 26"><path d="M4 2 h22 a3 3 0 0 1 3 3 v11 a3 3 0 0 1 -3 3 h-12 l-6 5 v-5 h-4 a3 3 0 0 1 -3 -3 v-11 a3 3 0 0 1 3 -3 z" fill="#ffd36b" stroke="#140904" stroke-width="2"/><rect x="8" y="8" width="14" height="2" fill="#7a4a1e"/><rect x="8" y="12" width="9" height="2" fill="#7a4a1e"/></svg>';
+const SEND='<svg viewBox="0 0 20 20"><path d="M2 10 L18 2 L12 18 L10 11 Z" fill="#fff"/></svg>';
+const coin=$('div','chatcoin');coin.innerHTML=BUBBLE;const badge=$('div','badge');badge.hidden=true;coin.appendChild(badge);app.appendChild(coin);
+function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left=(r.left+CX*k-30)+'px';coin.style.top=(r.top+QY*k-30)+'px'}
+function fit(){const k=3;cv.style.width=PW*k+'px';cv.style.height=PH*k+'px';cv.style.left=Math.round((innerWidth-PW*k)/2)+'px';cv.style.top=Math.round((innerHeight-PH*k)/2)+'px';place()}
+fit();addEventListener('resize',fit);
+
+const api=(p,body)=>fetch(p,body===undefined?{cache:'no-store'}:{method:'POST',headers:{'x-omashu':'1','Content-Type':'application/json'},body:JSON.stringify(body)})
+  .then(r=>r.json().then(j=>({ok:r.ok,j}),()=>({ok:r.ok,j:{}}))).catch(()=>({ok:false,j:{}}));
+
+// ---------- the controls sheet ----------
+const openSheet=()=>{if(app.querySelector('.sheet'))return;app.appendChild($('div','dim'));app.insertAdjacentHTML('beforeend',document.getElementById('sheet').innerHTML)};
+const closeSheet=()=>app.querySelectorAll('.dim,.sheet').forEach(n=>n.remove());
+
+// ---------- touching the fire ----------
+const pos=e=>{const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)/(b.width/PW),y:(e.clientY-b.top)/(b.height/PH)}};
+const onFire=p=>Math.abs(p.x-FX)<36&&p.y>FY-72&&p.y<FY+16;
+app.addEventListener('pointerdown',e=>{
+  if(app.querySelector('.sheet')){if(!e.target.closest('.sheet'))closeSheet();return}
+  if(e.target!==cv)return;
+  const p=pos(e);
+  if(Math.hypot(p.x-QX,p.y-QY)<12){openSheet();return}
+  if(chat.on&&Math.hypot(p.x-CX,p.y-QY)<12){openChat();return}
+  if(onFire(p)){S.touch={x:p.x,y:Math.max(FY-50,p.y),k:0,spread:1,down:true};cv.setPointerCapture(e.pointerId)}});
+app.addEventListener('pointermove',e=>{if(S.touch&&S.touch.down){const p=pos(e);S.touch.x=p.x;S.touch.y=Math.max(FY-50,p.y)}});
+const lift=()=>{if(!S.touch||!S.touch.down)return;S.touch.down=false;S.heldUntil=performance.now()+5000;
+  if(S.target<.5){S.target=1;S.touch.spread=0;api('/api/wake',{})}            // light it from here: the laptop wakes
+  else{S.target=0;S.touch=null;api('/api/sleep',{})}};                         // put it out: the game closes, the laptop sleeps
+app.addEventListener('pointerup',lift);app.addEventListener('pointercancel',lift);
+
+// ---------- the loop ----------
+let last=performance.now();
+const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;S.t+=dt;
+  const sp=S.target>S.lv?.33:.4;S.lv+=Math.sign(S.target-S.lv)*Math.min(Math.abs(S.target-S.lv),sp*dt);
+  if(S.touch){if(S.touch.down)S.touch.k=Math.min(1.1,S.touch.k+dt*2.2);else S.touch.k=Math.max(0,S.touch.k-dt*1.2);
+    if(S.touch.spread<1)S.touch.spread=Math.min(1,S.touch.spread+dt*.45);
+    if(!S.touch.down&&S.touch.k<=0&&S.touch.spread>=1)S.touch=null}
+  c.drawImage(BG,0,0);
+  if(S.lv<.5){c.fillStyle=`rgba(0,2,8,${(.45*(1-S.lv*2)).toFixed(2)})`;c.fillRect(0,0,PW,PH)}
+  glow(c,S.t,S.lv);
+  stones(c,S.lv,true);ashbed(c,S.lv);logs(c,S.t,S.lv,'back');flames(c,S.t,S.lv,S.touch);logs(c,S.t,S.lv,'front');stones(c,S.lv,false);
+  sparks.run(c,dt,S.lv>.3?S.lv*.08:0);smoke.run(c,dt,S.lv<.6?.12:.04);fireflies(c,S.t);
+  token(c,QX,QY,10);question(c,QX-3,QY-5);
+  if(chat.on)token(c,CX,QY,10);
+  requestAnimationFrame(loop)};
+requestAnimationFrame(loop);
+
+// ---------- WoW chat (sheet 06; Joshua's phone only, while WoW is up) ----------
+const TABS=[['All',()=>true],['Whispers',l=>l.kind==='whisper'||l.kind==='whisper-out'],['Guild',l=>l.kind==='guild'||l.kind==='officer'],
+  ['Party',l=>l.kind==='party'||l.kind==='raid'],['General',l=>l.chan&&/^general/i.test(l.chan.name)],['Trade',l=>l.chan&&/^trade/i.test(l.chan.name)],
+  ['LFG',l=>l.chan&&/lookingforgroup|^lfg/i.test(l.chan.name)]];
+const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
+const chat={on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},
+  linkColor:{}};
+const short=n=>String(n||'').split('-')[0];
+
+function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='party'?'Party':t.to==='whisper'?'To '+short(t.name):(chat.chans[t.num]||('Channel '+t.num))}
+function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
+function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
+
+let panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null;
+function openChat(){
+  if(chat.open)return;chat.open=true;
+  app.appendChild($('div','cdim'));
+  panel=$('div','panel');
+  const grip=$('div','grip');grip.addEventListener('click',closeChat);panel.appendChild(grip);
+  tabsEl=$('div','tabs');panel.appendChild(tabsEl);
+  logEl=$('div','log');panel.appendChild(logEl);
+  sendEl=$('div','send');
+  chanEl=$('div','chan');chanEl.addEventListener('click',pickChannel);
+  box=$('input','box');box.type='text';box.enterKeyHint='send';box.autocomplete='off';box.maxLength=240;
+  box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();review()}});
+  const go=$('div','go');go.innerHTML=SEND;go.addEventListener('click',review);
+  sendEl.append(chanEl,box,go);panel.appendChild(sendEl);
+  app.appendChild(panel);
+  app.querySelector('.cdim').addEventListener('click',closeChat);
+  pickTab(chat.tab);fitPanel();
+}
+function closeChat(){chat.open=false;tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
+function fitPanel(){if(!panel||!window.visualViewport)return;const v=visualViewport;panel.style.bottom=Math.max(8,innerHeight-v.height-v.offsetTop+8)+'px'}
+if(window.visualViewport)visualViewport.addEventListener('resize',fitPanel);
+
+function pickTab(name){
+  chat.tab=name;
+  if(name==='Whispers'){const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
+  else if(name==='Guild')chat.to={to:'guild'};else if(name==='Party')chat.to={to:'party'};
+  else{const f=TABS.find(t=>t[0]===name)[1],l=[...chat.lines].reverse().find(x=>x.chan&&f(x));if(l&&name!=='All')chat.to={to:'channel',num:l.chan.num}}
+  chat.seen[name]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
+  render(true);
+}
+function seenWhispers(){if(chat.whispers){chat.whispers=0;api('/api/seen',{});showBadge()}}
+function showBadge(){badge.hidden=!chat.whispers;badge.textContent=chat.whispers>99?'99+':chat.whispers}
+
+let tabEls={},shownTab=null,shownSeq=0;
+function render(full){
+  if(!panel)return;
+  if(!tabsEl.children.length)for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));tabsEl.appendChild(t);tabEls[n]=t}
+  for(const [n,f] of TABS){const t=tabEls[n];t.className='tab'+(n===chat.tab?' on':'');
+    const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
+    let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
+  const f=TABS.find(t=>t[0]===chat.tab)[1];
+  const stick=full||shownTab!==chat.tab||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
+  // only new lines are added, so a tap on a line never lands on one that was just replaced
+  if(full||shownTab!==chat.tab||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0;shownTab=chat.tab}
+  for(const l of chat.lines)if(l.seq>shownSeq&&f(l))logEl.appendChild(lineEl(l));
+  if(chat.lines.length)shownSeq=Math.max(shownSeq,chat.lines[chat.lines.length-1].seq);
+  while(logEl.children.length>300)logEl.firstChild.remove();
+  if(stick)logEl.scrollTop=logEl.scrollHeight;
+  chat.seen[chat.tab]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
+  chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
+}
+function lineEl(l){
+  const d=$('div','l '+(KIND[l.kind]||''));d.dataset.seq=l.seq;
+  if(l.t)d.appendChild($('span','t',l.t));
+  if(l.chan){const ch=$('span','ch','['+l.chan.num+'. '+l.chan.name+'] ');ch.addEventListener('click',()=>{chat.to={to:'channel',num:l.chan.num};render()});d.appendChild(ch)}
+  const tag={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid'}[l.kind];
+  if(tag){const ch=$('span','ch','['+tag+'] ');if(l.kind==='guild'||l.kind==='party')ch.addEventListener('click',()=>{chat.to={to:l.kind};render()});d.appendChild(ch)}
+  const who=()=>{const w=$('span','who','['+short(l.who)+']');w.addEventListener('click',()=>nameMenu(l,d));return w};
+  if(l.kind==='whisper-out'){d.append('To ',who(),': ')}
+  else if(l.who){d.appendChild(who());d.append(l.kind==='whisper'?' whispers: ':l.kind==='say'?' says: ':l.kind==='yell'?' yells: ':': ')}
+  for(const s of l.text){
+    if('s' in s){d.append(s.s);continue}
+    const cls=s.link==='quest'?'quest':s.link==='spell'?'spell':s.q!=null?'q'+s.q:(chat.linkColor[s.name]||'item');
+    const a=$('span','lk '+cls,'['+s.name+']');a.dataset.name=s.name;if(s.id||s.q!=null||s.link!=='unknown')a.dataset.coded='1';a.addEventListener('click',()=>tooltip(s));d.appendChild(a)}
+  return d;
+}
+
+// ---------- tap a name ----------
+function closeMenus(){app.querySelectorAll('.mdim,.menu,.tip').forEach(n=>n.remove());app.querySelectorAll('.l.hl').forEach(n=>n.classList.remove('hl'))}
+function menuShell(title,sub){closeMenus();const dm=$('div','mdim');dm.addEventListener('click',closeMenus);app.appendChild(dm);
+  const m=$('div','menu');const h=$('h4',null,title);if(sub)h.appendChild($('span',null,sub));m.appendChild(h);app.appendChild(m);return m}
+function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small)b.appendChild($('small',null,small));b.addEventListener('click',()=>{closeMenus();fn()});(into||m).appendChild(b);return b}
+function nameMenu(l,row){
+  row.classList.add('hl');
+  const n=l.who,where={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid',whisper:'Whisper','whisper-out':'Whisper',say:'Say',yell:'Yell'}[l.kind]||(l.chan?l.chan.name:'');
+  const m=menuShell(short(n),where);row.classList.add('hl');
+  mi(m,'Whisper','/w',()=>{chat.to={to:'whisper',name:n};render();box.focus()});
+  mi(m,'Invite to party','/invite',()=>act({act:'invite',name:n}));
+  mi(m,'Add friend','/friend',()=>act({act:'friend',name:n}));
+  mi(m,'Ignore','/ignore',()=>act({act:'ignore',name:n}));
+  mi(m,'Who is this?','/who',()=>act({act:'who',name:n}));
+  const em=$('div','emotes');m.appendChild(em);
+  mi(m,'/roll',null,()=>act({act:'roll'}),em);mi(m,'/wave',null,()=>act({act:'wave',name:n}),em);mi(m,'/cheer',null,()=>act({act:'cheer',name:n}),em);
+}
+const act=a=>api('/api/send',a);
+
+// ---------- the channel button ----------
+function pickChannel(){
+  const m=menuShell('Answer in');
+  const opts=[{to:'say'},{to:'guild'},{to:'party'},...Object.keys(chat.chans).map(k=>({to:'channel',num:Number(k)}))];
+  const names=[];for(const l of [...chat.lines].reverse())if((l.kind==='whisper'||l.kind==='whisper-out')&&!names.includes(l.who)){names.push(l.who);if(names.length>=4)break}
+  for(const o of opts)mi(m,chanLabel(o),o.to==='channel'?'/'+o.num:'/'+o.to[0],()=>{chat.to=o;render()});
+  for(const n of names)mi(m,'Whisper '+short(n),'/w',()=>{chat.to={to:'whisper',name:n};render()});
+}
+
+// ---------- tap a link: a WoW tooltip, looked up by Aang ----------
+function tooltip(s){
+  closeMenus();const dm=$('div','mdim');app.appendChild(dm);
+  const t=$('div','tip');const nm=$('div','nm',s.name);t.appendChild(nm);const body=$('div');t.appendChild(body);
+  t.appendChild($('div','fine','tap anywhere to close'));app.appendChild(t);
+  const close=()=>closeMenus();dm.addEventListener('click',close);t.addEventListener('click',close);
+  const q=s.id?`kind=${s.link}&id=${s.id}`:`name=${encodeURIComponent(s.name)}${s.link!=='unknown'?'&kind='+s.link:''}`;
+  api('/api/lookup?'+q).then(({ok,j})=>{
+    if(!t.isConnected)return;
+    if(!ok||!j.lines){body.appendChild($('div','gy','Not found on Wowhead'));return}
+    const qc=j.kind==='quest'?'quest':j.kind==='spell'?'spell':j.q!=null?'q'+j.q:'item';
+    nm.className='nm '+qc;nm.textContent=j.name;
+    if(!s.id&&!s.q){chat.linkColor[s.name]=qc;logEl&&logEl.querySelectorAll('.lk').forEach(a=>{if(a.dataset.name===s.name&&a.dataset.coded!=='1')a.className='lk '+qc})}
+    j.lines.forEach((x,i)=>{if(i===0&&x.l===j.name&&!x.r)return;
+      const row=$('div',(x.r?'two ':'')+(x.c||''));row.appendChild($('span',null,x.l));if(x.r)row.appendChild($('span',null,x.r));body.appendChild(row)})});
+}
+
+// ---------- say it, check it, send it ----------
+function review(){
+  const text=box.value.trim();if(!text)return;
+  box.blur();sendEl.hidden=true;
+  const rv=$('div','review');const to=$('div','to','Send to '+(chat.to.to==='whisper'?short(chat.to.name):chanLabel(chat.to)));
+  rv.append(to,text);const rb=$('div','rb');const no=$('div','no','Fix'),yes=$('div','yes','Send');rb.append(no,yes);rv.appendChild(rb);
+  panel.appendChild(rv);
+  const done=()=>{rv.remove();sendEl.hidden=false};
+  no.addEventListener('click',()=>{done();box.focus()});
+  let busy=false;
+  yes.addEventListener('click',()=>{if(busy)return;busy=true;
+    const ask=chat.to.to==='whisper'?{to:'whisper',name:chat.to.name,text}:chat.to.to==='channel'?{to:'channel',num:chat.to.num,text}:{to:chat.to.to,text};
+    api('/api/send',ask).then(({ok,j})=>{busy=false;
+      if(ok){box.value='';done();return}
+      to.className='to bad';to.textContent=j.why==='refused'?'Not sent: WoW won\'t take that line':j.why==='not-in-wow'?'Not sent: WoW is not up':'Not sent: try again'})});
+}
+
+// ---------- staying in step with Aang ----------
+let pollT=0,polling=false;
+async function poll(){
+  if(polling)return;polling=true;clearTimeout(pollT);
+  const after=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
+  const {ok,j}=await api(`/api/poll?after=${after}&session=${encodeURIComponent(chat.session||'')}`);
+  if(ok){
+    if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
+    const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);
+    if(!chat.on){if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
+    else{
+      if(j.session!==chat.session){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
+      if(j.lines&&j.lines.length){const fresh=!chat.lines.length;chat.lines.push(...j.lines);
+        if(fresh){const top=chat.lines[chat.lines.length-1].seq;for(const [n] of TABS)if(chat.seen[n]==null)chat.seen[n]=top}   // counts start from now, not from the backlog
+if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
+        for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
+      chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
+      if(chat.open&&(j.lines&&j.lines.length||!was))render()}
+    place();
+  }
+  polling=false;pollT=setTimeout(poll,document.hidden?5000:1500);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
+poll();
+</script>
+</body>
+</html>
