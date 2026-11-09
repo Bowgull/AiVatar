@@ -142,6 +142,7 @@ import { HOME_TZ, homeDate, longDate, shortTime, shortTimeUpper } from './clock.
 import { readJson, saveJson } from './store.ts';
 import { openLog } from './log.ts';
 import { CODE_ROOT } from './coderoot.ts';
+import { OmashuRemote, loadRemoteConfig } from './omashuremote.ts';
 
 export interface CoreConfig {
   port: number;
@@ -2897,15 +2898,33 @@ export class Core {
   }
   /** The Mac's presence helper (mac/presence.swift); null on the PC, where the pet does this. */
   private macPresence: MacPresence | null = null;
+  /** The phone fire remote for Omashu, his couch laptop (omashuremote.ts): the Mac only, and only once omashu-remote.json is there. */
+  private omashu: OmashuRemote | null = null;
   /** Its last reading (the brain's own updater asks: away, and not in a call). */
   macReading(): ReturnType<MacPresence['now']> { return this.macPresence?.now() ?? null; }
   private lastShadow: boolean | undefined;
+
+  /**
+   * The phone fire remote (omashu PLAN Phase 13): the fire wakes or sleeps the couch laptop; WoW chat for his phone.
+   * A whisper buzzes his phone through Discord, the one phone route Aang has (wow-chat-spec.md: "whatever
+   * notification route Aang has for the iPhone"). Nothing starts without the settings file.
+   */
+  private startOmashu(): void {
+    const cfg = loadRemoteConfig(path.join(this.cfg.stateDir, 'omashu-remote.json'));
+    if (!cfg || cfg.enabled === false) return;
+    this.omashu = new OmashuRemote({
+      cfg,
+      notify: text => this.sendTo('discord', { t: 'bubble', text: `WoW: ${text.slice(0, 300)}`, stream: false, proactive: true, buzz: true }),
+    });
+    this.omashu.start().then(p => console.log(`omashu remote: listening on port ${p} (home Wi-Fi only)`), e => console.error(`omashu remote: could not start: ${(e as Error).message}`));
+  }
 
   /** This run's password. Null only if it could not be written; the Origin rule still stands. */
   private token: string | null = null;
 
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
+    if (process.platform === 'darwin' || process.env.AANG_OMASHU === '1') this.startOmashu();
     if (process.platform === 'darwin' && process.env.AANG_PRESENCE !== '0') {
       this.macPresence = new MacPresence(process.env.AANG_PRESENCE_BIN ?? path.join(import.meta.dirname, '..', 'bin', 'aang-presence'), {
         presence: p => {
@@ -3202,6 +3221,7 @@ export class Core {
 
   async stop(): Promise<void> {
     this.botwLiveStore?.stop();
+    void this.omashu?.stop();
     this.macPresence?.stop();
     this.shadowLink?.stop();
     // A stale password must not outlive the Core that issued it.
