@@ -14,7 +14,7 @@ const ALLOW = [
   String.raw`^/w [^\s/|\\]{2,24} [^\s/|\\]{2,24} (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
-  String.raw`^/(wave|cheer)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
+  String.raw`^/(wave|hello|cheer|thank|bow|dance|laugh|hug|salute|welcome|applaud|clap|congratulate|bye|kneel|chicken|flex|train|silly|roar|violin|rofl|flirt|ready|followme|charge|wait|oom|healme|helpme|incoming|cry|sigh|shrug|yawn|sleep|cower|blush|sad|rude|spit|taunt|threaten|gloat|mock|moon|fart)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));
 
 export interface FakeOpts { key: string; mac: string; me?: string; wakeDelayMs?: number; host?: string }
@@ -87,8 +87,7 @@ export class FakeLaptop {
     else if (cmd === 'invite') this.log(`You have invited ${rest} to join your group.`);
     else if (cmd === 'friend') this.log(`${rest} added to friends.`);
     else if (cmd === 'ignore') this.log(`${rest} is now being ignored.`);
-    else if (cmd === 'wave') this.log(rest ? `You wave at ${rest}.` : 'You wave.');
-    else if (cmd === 'cheer') this.log(rest ? `You cheer at ${rest}.` : 'You cheer!');
+    else this.log(rest ? `You ${cmd} at ${rest}.` : `You ${cmd}.`);           // an emote, roughly as WoW words it
   }
 
   private handle(req: http.IncomingMessage, res: http.ServerResponse) {
