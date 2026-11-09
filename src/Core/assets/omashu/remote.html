@@ -20,6 +20,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#04060a;color:#efe6d2;font-family:"Pixelify Sans",system-ui,sans-serif;overflow:hidden;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+body{position:fixed;inset:0}                          /* the page itself never scrolls, even when the keyboard opens */
 #app{position:fixed;inset:0;overflow:hidden;background:#04060a;touch-action:none}
 #app canvas.scene{position:absolute;image-rendering:pixelated}
 /* the controls sheet: parchment on wood (sheet 02) */
@@ -376,7 +377,7 @@ function openChat(){
   box=$('input','box');box.type='text';box.enterKeyHint='send';box.autocomplete='off';box.maxLength=240;
   box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();review()}});
   box.addEventListener('focus',()=>{app.classList.add('typing');if(chat.emo){chat.emo=null;layoutEmo()}});
-  box.addEventListener('blur',()=>app.classList.remove('typing'));
+  box.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
   const go=$('div','go');go.innerHTML=SEND;go.addEventListener('click',review);
   sendEl.append(chanEl,emoEl,box,go);leftEl.appendChild(sendEl);
   app.appendChild(panel);
@@ -384,8 +385,15 @@ function openChat(){
   chat.emo=null;layoutEmo();pickTab(chat.tab);fitPanel();
 }
 function closeChat(){chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
-function fitPanel(){if(!panel||!window.visualViewport)return;const v=visualViewport;panel.style.bottom=Math.max(8,innerHeight-v.height-v.offsetTop+8)+'px'}
-if(window.visualViewport)visualViewport.addEventListener('resize',fitPanel);
+// the keyboard: the panel fits the part of the screen still showing (tabs on top, the box just above the keys); the log shrinks
+function fitPanel(){
+  if(scrollY||scrollX)scrollTo(0,0);
+  if(!panel||!window.visualViewport)return;const v=visualViewport;
+  panel.style.top=panel.style.bottom='';
+  if(v.offsetTop<1&&v.height>innerHeight-2)return;                            // no keyboard: the sheet's own place
+  panel.style.top=(parseFloat(getComputedStyle(panel).top)+v.offsetTop)+'px';
+  panel.style.bottom=Math.max(8,innerHeight-v.height-v.offsetTop+8)+'px'}
+if(window.visualViewport){visualViewport.addEventListener('resize',settle);visualViewport.addEventListener('scroll',fitPanel)}
 
 function pickTab(name){
   chat.tab=name;
@@ -464,7 +472,9 @@ const GROUPS=[['Friendly',['Hug','Salute','Welcome','Applaud','Clap','Congrats',
   ['Rude',['Rude','Spit','Taunt','Threaten','Gloat','Mock','Moon','Fart']]];
 // the command is the tile's name in lower case with no spaces; Congrats is WoW's /congratulate
 const cmdOf=n=>n==='Congrats'?'congratulate':n.toLowerCase().replace(/ /g,'');
-const side=()=>innerWidth>innerHeight&&innerHeight<560;
+// asked of the layout itself, not innerWidth/innerHeight: iOS reports those late after turning the phone or closing the keyboard
+const SIDE=matchMedia('(orientation: landscape) and (max-height: 559px)');
+const side=()=>SIDE.matches;
 let emoteUntil=0;
 function emoteTile(n,name){
   const t=$('div','tile');if(n==='Roll')t.innerHTML=DIE;t.append(n);
@@ -503,7 +513,10 @@ function layoutEmo(){
   else{leftEl.insertBefore(moreEl,logEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=chat.emo==='more'}
   if(stick){logEl.scrollTop=logEl.scrollHeight;logStuck=true}
 }
-addEventListener('resize',()=>{if(panel)layoutEmo();else app.classList.toggle('side',side())});
+function relayout(){if(panel)layoutEmo();else app.classList.toggle('side',side());fitPanel()}
+function settle(){relayout();requestAnimationFrame(relayout);setTimeout(relayout,300)}  // and again once iOS has finished turning
+addEventListener('resize',settle);addEventListener('orientationchange',settle);
+if(SIDE.addEventListener)SIDE.addEventListener('change',settle);else SIDE.addListener(settle);
 
 // ---------- the channel button ----------
 function pickChannel(){
