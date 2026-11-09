@@ -3,8 +3,9 @@
 //
 // Phones on the home Wi-Fi open a page here; only this process talks to the laptop. The laptop's side is the contract in
 // the omashu repo (reports/phone-remote-contract.md), faked in test/fakes/omashulaptop.ts:
-//   GET /state (no answer = asleep), POST /power, GET /chat?after=, POST /chat/send, all with X-Omashu-Key.
-// Wake is a Wake-on-LAN packet from here. Item, quest and spell tooltips are looked up on Wowhead from here.
+//   GET /state ("dark": the fire is out; no answer = asleep or off the network), POST /wake (screen on, campfire
+//   back), POST /power (the fire out: the laptop goes dark, it does not sleep), GET /chat?after=, POST /chat/send, all
+//   with X-Omashu-Key. When /wake gets no answer, a Wake-on-LAN packet goes from here instead. Item, quest and spell tooltips are looked up on Wowhead from here.
 //
 // Who may use it: a home (private LAN) address AND a paired phone (a key in omashu-remote.json, set as a cookie by
 // opening its /pair/<key> link once). The fire is for every paired phone; WoW chat only for phones with "chat": true
@@ -60,13 +61,18 @@ export class Laptop {
       });
     } catch { return null; }
   }
-  /** Null: no answer, so asleep (or off the network). */
-  async state(): Promise<{ game: 'zelda' | 'wow' | null } | null> {
+  /** Null: no answer, so asleep (or off the network). Dark: awake, but the fire is out (no picture, no game). */
+  async state(): Promise<{ game: 'zelda' | 'wow' | null; dark: boolean } | null> {
     const r = await this.call('/state');
     if (!r?.ok) return null;
-    const j = await r.json().catch(() => null) as { game?: unknown } | null;
+    const j = await r.json().catch(() => null) as { game?: unknown; dark?: unknown } | null;
     if (!j) return null;
-    return { game: j.game === 'zelda' || j.game === 'wow' ? j.game : null };
+    return { game: j.game === 'zelda' || j.game === 'wow' ? j.game : null, dark: j.dark === true };
+  }
+  /** Screen on, campfire back. 'down' when the laptop did not take it (no answer, or an older laptop). */
+  async wake(): Promise<'ok' | 'down'> {
+    const r = await this.call('/wake', { method: 'POST' }, 2500);
+    return r?.ok ? 'ok' : 'down';
   }
   async power(): Promise<'ok' | 'busy' | 'down'> {
     const r = await this.call('/power', { method: 'POST' }, 4000);
@@ -228,8 +234,8 @@ export class OmashuRemote {
   /** One look at the laptop: is it up, what game, and any new chat. */
   async tick(): Promise<void> {
     const st = await this.laptop.state();
-    const up = st !== null, now = this.now();
-    if (this.fire === 'waking') { if (up) this.fire = 'lit'; else if (now - this.since > WAKE_GIVE_UP_MS) { this.fire = 'out'; this.log('woke nothing: the laptop did not answer'); } }
+    const up = st !== null && !st.dark, now = this.now();       // lit: it answers and is not dark
+    if (this.fire === 'waking') { if (up) this.fire = 'lit'; else if (now - this.since > WAKE_GIVE_UP_MS) { this.fire = 'out'; this.log('woke nothing: the laptop stayed dark or did not answer'); } }
     else if (this.fire === 'sleeping') { if (!up) this.fire = 'out'; else if (now - this.since > SLEEP_GIVE_UP_MS) this.fire = 'lit'; }
     else this.fire = up ? 'lit' : 'out';
     this.game = st?.game ?? null;
@@ -267,6 +273,8 @@ export class OmashuRemote {
   // ---------- what the phone can do ----------
   async wake(): Promise<Fire> {
     if (this.fire === 'lit' || this.fire === 'waking') return this.fire;
+    // dark (awake): the laptop relights itself; asleep or off the network: the magic packet below
+    if (await this.laptop.wake() === 'ok') { this.fire = 'waking'; this.since = this.now(); this.schedule(this.pace()); return this.fire; }
     const l = this.o.cfg.laptop;
     if (!l.mac || !macBytes(l.mac)) { this.log('wake: no laptop MAC address in omashu-remote.json'); return this.fire; }
     const host = (() => { try { return new URL(l.url).hostname; } catch { return ''; } })();

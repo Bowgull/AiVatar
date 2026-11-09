@@ -39,13 +39,42 @@ async function rig(o: { wowhead?: Wowhead } = {}) {
   return { lap, remote, base, as, poll, notes, done: async () => { await remote.stop(); await lap.stop(); } };
 }
 
-test('asleep: the fire is out; touching it sends the wake packet and it catches when the laptop answers', async () => {
+test('dark: the fire is out while the laptop still answers; touching it posts /wake and it catches when dark ends', async () => {
+  const r = await rig();
+  try {
+    r.lap.awake = true; r.lap.dark = true;
+    await until(async () => (await r.poll()).fire === 'out');
+    const w = await (await r.as(JOSH).post('/api/wake')).json();
+    assert.equal(w.fire, 'waking');
+    assert.equal(r.lap.wakePosts, 1);
+    await until(async () => (await r.poll()).fire === 'lit');
+    assert.equal(r.lap.wakePackets, 0, 'no magic packet when /wake answered');
+    await r.as(JOSH).post('/api/wake');
+    assert.equal(r.lap.wakePosts, 1, 'a second touch while lit does nothing');
+  } finally { await r.done(); }
+});
+
+test('putting the fire out ends dark, not asleep: /state keeps answering, the fire shows out', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).fire === 'lit');
+    assert.equal((await (await r.as(JOSH).post('/api/sleep')).json()).fire, 'sleeping');
+    await until(async () => (await r.poll()).fire === 'out');
+    assert.equal(r.lap.awake, true); assert.equal(r.lap.dark, true); assert.equal((await r.poll()).game, null);
+    await r.as(JOSH).post('/api/sleep');
+    assert.equal(r.lap.powerPosts, 1, 'no post when already dark');
+  } finally { await r.done(); }
+});
+
+test('asleep (no answer to /wake): the magic packet goes instead, and it catches when the laptop answers', async () => {
   const r = await rig();
   try {
     await until(async () => (await r.poll()).fire === 'out');
     const w = await (await r.as(JOSH).post('/api/wake')).json();
     assert.equal(w.fire, 'waking');
     await until(() => r.lap.wakePackets === 1);
+    assert.equal(r.lap.wakePosts, 0);
     await until(async () => (await r.poll()).fire === 'lit');
     // a second touch while lit does not send another packet
     await r.as(JOSH).post('/api/wake');
@@ -53,10 +82,10 @@ test('asleep: the fire is out; touching it sends the wake packet and it catches 
   } finally { await r.done(); }
 });
 
-test('putting the fire out posts /power once, and the fire goes out when the laptop stops answering', async () => {
+test('an older laptop (no "dark", /power sleeps it): posts /power once, out when it stops answering', async () => {
   const r = await rig();
   try {
-    r.lap.awake = true;
+    r.lap.awake = true; r.lap.old = true;
     await until(async () => (await r.poll(LINDZ)).fire === 'lit');
     const s = await (await r.as(LINDZ).post('/api/sleep')).json();
     assert.equal(s.fire, 'sleeping');

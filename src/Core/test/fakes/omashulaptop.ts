@@ -21,6 +21,11 @@ export interface FakeOpts { key: string; mac: string; me?: string; wakeDelayMs?:
 
 export class FakeLaptop {
   awake = false;
+  /** Awake but the fire is out: no picture, no game, campfire closed. */
+  dark = false;
+  wakePosts = 0;
+  /** An older laptop: no /wake, and /power sleeps it. */
+  old = false;
   game: 'zelda' | 'wow' | null = null;
   session: string | null = null;
   lines: { seq: number; raw: string }[] = [];
@@ -96,11 +101,17 @@ export class FakeLaptop {
     if (req.headers['x-omashu-key'] !== this.o.key) { res.writeHead(403).end(); return; }
     const url = new URL(req.url ?? '/', 'http://x');
     const j = (code: number, v: unknown) => res.writeHead(code, { 'Content-Type': 'application/json' }).end(JSON.stringify(v));
-    if (req.method === 'GET' && url.pathname === '/state') { j(200, { up: this.game !== null, mode: this.game ? 'hide' : 'show', n: 1, game: this.game }); return; }
+    if (req.method === 'GET' && url.pathname === '/state') { j(200, { up: this.game !== null, mode: this.game ? 'hide' : 'show', n: 1, game: this.game, ...(this.old ? {} : { dark: this.dark }) }); return; }
     if (req.method === 'POST' && url.pathname === '/power') {
       this.powerPosts++;
       res.writeHead(200).end('ok');
-      setTimeout(() => { this.stopWow(); this.awake = false; }, 20);
+      setTimeout(() => { this.stopWow(); if (this.old) this.awake = false; else this.dark = true; }, 20);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/wake' && !this.old) {
+      this.wakePosts++;
+      res.writeHead(200).end('ok');
+      setTimeout(() => { this.dark = false; }, this.o.wakeDelayMs ?? 20);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/chat') {
