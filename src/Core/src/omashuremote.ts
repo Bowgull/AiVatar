@@ -307,6 +307,11 @@ export class OmashuRemote {
     if (!isHomeAddress(req.socket.remoteAddress ?? '')) { res.writeHead(403).end(); return; }
     const url = new URL(req.url ?? '/', 'http://x');
     const p = url.pathname;
+    // The home-screen icon: iOS fetches it without the cookie, so it needs no pairing (still home Wi-Fi only).
+    if (req.method === 'GET' && (p === '/fire-icon-180.png' || p === '/apple-touch-icon.png')) {
+      send(res, 200, readFileSync(path.join(ASSETS, 'fire-icon-180.png')), 'image/png', { 'Cache-Control': 'max-age=86400' });
+      return;
+    }
     const pair = /^\/pair\/([A-Za-z0-9_-]{20,64})$/.exec(p)?.[1];
     const phone = this.phoneOf(req, pair);
     if (!phone) { send(res, 401, 'This phone is not paired with the fire remote.', 'text/plain; charset=utf-8'); return; }

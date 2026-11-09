@@ -105,6 +105,15 @@ test('who gets in: paired phones on the home network; chat only for Joshua; post
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Zelda controls[\s\S]*Powers/);
     assert.match(page.headers.get('content-security-policy') ?? '', /default-src 'self'/);
+    // the home-screen icon: named in the page (the pairing link serves the same page), fetched without any cookie
+    const html = await (await r.as(JOSH).get('/')).text();
+    assert.match(html, /<link rel="apple-touch-icon" href="\/fire-icon-180\.png">/);
+    assert.match(html, /<meta name="apple-mobile-web-app-title" content="Fire">/);
+    assert.match(await (await fetch(`${r.base}/pair/${LINDZ}`)).text(), /apple-touch-icon/);
+    const icon = await r.as(null).get('/fire-icon-180.png');
+    assert.equal(icon.status, 200); assert.equal(icon.headers.get('content-type'), 'image/png');
+    const png = Buffer.from(await icon.arrayBuffer());
+    assert.equal(png.subarray(1, 4).toString(), 'PNG'); assert.equal(png.readUInt32BE(16), 180); assert.equal(png.readUInt32BE(20), 180);
     // pairing sets the cookie
     const pair = await fetch(`${r.base}/pair/${LINDZ}`);
     assert.equal(pair.status, 200);
