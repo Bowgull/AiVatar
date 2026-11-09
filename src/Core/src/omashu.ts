@@ -110,8 +110,23 @@ export type SendAsk =
   | { to: 'say' | 'guild' | 'party'; text: string }
   | { to: 'channel'; num: number; text: string }
   | { to: 'whisper'; name: string; text: string }
-  | { act: 'invite' | 'friend' | 'ignore' | 'who' | 'wave' | 'cheer'; name: string }
+  | { act: 'invite' | 'friend' | 'ignore' | 'who'; name: string }
+  | { act: Emote; name?: string }
   | { act: 'roll' };
+
+/**
+ * The emotes on the phone (sheet 07): the tray's seven (Roll is its own command), then More's five groups of eight.
+ * Each is the tile's name in lower case with no spaces. Couch Mode lists the same ones.
+ */
+export const EMOTES = [
+  'wave', 'hello', 'cheer', 'thank', 'bow', 'dance', 'laugh',
+  'hug', 'salute', 'welcome', 'applaud', 'clap', 'congratulate', 'bye', 'kneel',
+  'chicken', 'flex', 'train', 'silly', 'roar', 'violin', 'rofl', 'flirt',
+  'ready', 'followme', 'charge', 'wait', 'oom', 'healme', 'helpme', 'incoming',
+  'cry', 'sigh', 'shrug', 'yawn', 'sleep', 'cower', 'blush', 'sad',
+  'rude', 'spit', 'taunt', 'threaten', 'gloat', 'mock', 'moon', 'fart',
+] as const;
+export type Emote = typeof EMOTES[number];
 
 /** The allow-list, word for word the one in the contract (Couch Mode checks the same lines again before typing). */
 const TEXT = String.raw`(?!/)[^|\r\n\x00-\x1f]{1,255}`;
@@ -124,7 +139,7 @@ export const ALLOWED: RegExp[] = [
   new RegExp(String.raw`^/w ${NAME2} ${TEXT}$`),
   new RegExp(String.raw`^/(invite|friend|ignore|who) ${NAME12}$`),
   /^\/roll$/,
-  new RegExp(String.raw`^/(wave|cheer)( ${NAME12})?$`),
+  new RegExp(String.raw`^/(${EMOTES.join('|')})( ${NAME12})?$`),
 ];
 export const allowed = (line: string) => typeof line === 'string' && line.length <= 255 && ALLOWED.some(r => r.test(line));
 
@@ -136,11 +151,16 @@ export function buildLine(a: SendAsk): string | null {
   if (!a || typeof a !== 'object') return null;
   // a whisper name is exactly two words: WoW takes the first two words as the name, so "Bujuju" alone would whisper
   // "Bujuju <first word>" the rest; the other commands take one or two
-  if ('name' in a && !new RegExp(`^(${'to' in a ? NAME2 : NAME12})$`).test(String(a.name ?? ''))) return null;
+  const emote = 'act' in a && (EMOTES as readonly string[]).includes(a.act);
+  // a name is checked whenever one is needed or given (an emote may go without one)
+  const name = 'name' in a ? a.name : undefined;
+  const needs = 'to' in a ? a.to === 'whisper' : !emote && a.act !== 'roll';
+  if ((needs || name !== undefined) && !new RegExp(`^(${'to' in a ? NAME2 : NAME12})$`).test(String(name ?? ''))) return null;
   let line: string;
   if ('act' in a) {
-    if (a.act === 'roll') line = '/roll';
-    else if (['invite', 'friend', 'ignore', 'who', 'wave', 'cheer'].includes(a.act)) line = `/${a.act} ${a.name}`;
+    if (a.act === 'roll') { if (name !== undefined) return null; line = '/roll'; }
+    else if (emote) line = name !== undefined ? `/${a.act} ${name}` : `/${a.act}`;
+    else if (['invite', 'friend', 'ignore', 'who'].includes(a.act)) line = `/${a.act} ${name}`;
     else return null;
   } else {
     const text = tidy(a.text);

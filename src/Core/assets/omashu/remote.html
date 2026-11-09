@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- The phone fire remote for Omashu (built from approved mockups 02 and 06, mockups/omashu/remote/). Served by
+<!-- The phone fire remote for Omashu (built from approved mockups 02, 06 and 07, mockups/omashu/remote/). Served by
      src/Core/src/omashuremote.ts. The drawing part is sheet 02's own code, unchanged. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--wood-dark:#120803;--wood:#71401f;--wood-hi:#c27a3e;--parch:#f0e2bf;--parch-line:#d9c391;--brown:#3a2212;
-  --c-guild:#40ff40;--c-party:#aaaaff;--c-whisper:#ff80ff;--c-general:#ffc0c0;--c-say:#ffffff;--c-sys:#ffff00;--c-item:#1eff00;--c-quest:#ffff00}
+  --c-guild:#40ff40;--c-party:#aaaaff;--c-whisper:#ff80ff;--c-general:#ffc0c0;--c-say:#ffffff;--c-sys:#ffff00;--c-item:#1eff00;--c-quest:#ffff00;--c-emote:#ff8040}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#04060a;color:#efe6d2;font-family:"Pixelify Sans",system-ui,sans-serif;overflow:hidden;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
@@ -66,16 +66,20 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .l{color:var(--c-say);overflow-wrap:anywhere}
 .t{color:#7d6f5a;font-size:11px;margin-right:4px;font-family:"Pixelify Sans"}
 .l .who,.l .ch,.l .lk{cursor:pointer}
-.g{color:var(--c-guild)} .p{color:var(--c-party)} .w{color:var(--c-whisper)} .gen{color:var(--c-general)} .sys{color:var(--c-sys)}
+.g{color:var(--c-guild)} .p{color:var(--c-party)} .w{color:var(--c-whisper)} .gen{color:var(--c-general)} .sys{color:var(--c-sys)} .em{color:var(--c-emote)}
 .o{color:#40c040} .r{color:#ff7f00} .yl{color:#ff4040}
 .item{color:var(--c-item)} .quest{color:var(--c-quest)} .spell{color:#71d5ff}
 .q0{color:#9d9d9d}.q1{color:#fff}.q2{color:#1eff00}.q3{color:#0070dd}.q4{color:#a335ee}.q5{color:#ff8000}.q6{color:#e6cc80}.q7{color:#00ccff}
 .l.hl{background:#ffffff14;border-radius:6px;margin:0 -4px;padding:0 4px}
+.l.new{background:#ff804022;border-radius:6px;margin:0 -4px;padding:0 4px}
 .send{margin-top:8px;display:flex;gap:6px;align-items:stretch}
 .chan{flex:none;padding:9px 9px 8px;border-radius:10px;background:var(--wood);color:var(--parch);font-weight:600;font-size:14px;box-shadow:inset 0 -3px 0 var(--wood-dark);max-width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chan.g{color:#c9ffc9}
 .box{flex:1;min-width:0;background:#fffaf0;border:0;outline:0;border-radius:10px;box-shadow:inset 0 0 0 2px var(--parch-line);padding:9px 10px;color:#2a1a0e;font-size:16px;font-family:system-ui,-apple-system,sans-serif;-webkit-user-select:text;user-select:text}
 .box::placeholder{color:#9a8466}
+.emo{flex:none;width:44px;border-radius:10px;background:var(--wood);box-shadow:inset 0 -3px 0 var(--wood-dark);display:flex;align-items:center;justify-content:center}
+.emo.on{background:var(--wood-dark);box-shadow:inset 0 0 0 2px var(--wood-hi)}
+.emo svg{width:24px;height:24px}
 .go{flex:none;width:46px;border-radius:10px;background:#3f8f47;box-shadow:inset 0 -3px 0 #1f4f27;display:flex;align-items:center;justify-content:center}
 .go svg{width:20px;height:20px}
 /* name menu (and the channel picker, the same wood menu) */
@@ -86,8 +90,37 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .menu h4 span{display:block;color:#e4c9a0;font-size:12px;font-weight:400;margin-top:2px}
 .mi{background:#3a2212;color:var(--parch);border-radius:9px;padding:11px 12px 10px;margin:5px 0;font-size:16px;box-shadow:inset 0 -2px 0 #24140a;display:flex;justify-content:space-between}
 .mi small{color:#b39b73;font-size:12px}
-.emotes{display:flex;gap:6px;margin-top:6px}
-.emotes .mi{flex:1;justify-content:center;font-size:14px;padding:9px 0}
+/* the emote tray: wooden tiles, 3 by 3 (sheet 07) */
+.tray{margin-top:8px;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:8px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tile{background:#3a2212;color:var(--parch);border-radius:9px;padding:12px 4px 11px;text-align:center;font-size:16px;font-weight:600;box-shadow:inset 0 -3px 0 #24140a;
+  display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.tile.down{background:#24140a;box-shadow:inset 0 2px 0 #120803;color:#ffd36b}
+.tile.more{background:#e4d1a3;color:var(--brown);box-shadow:inset 0 -3px 0 #c9b07a}
+.tile svg{width:18px;height:18px;flex:none}
+/* More: every group on one page */
+.emsheet{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:10px 8px 8px;overflow-y:auto;touch-action:pan-y}
+.emsheet .head{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 8px;color:#ffd36b;font-size:18px;font-weight:600}
+.emsheet .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.emsheet .gh{color:#ffd36b;font-size:14px;font-weight:600;margin:10px 4px 5px}.emsheet .gh:first-child,.emsheet .head+.gh{margin-top:2px}
+.emsheet .tile{font-size:13px;padding:10px 2px 9px}
+/* emotes aimed at a name */
+.at{margin:10px 6px 4px;color:#e4c9a0;font-size:13px}
+.menu .tray{margin:0;padding:0;background:none;box-shadow:none;grid-template-columns:repeat(4,1fr);gap:5px}
+.menu .tile{font-size:14px;padding:10px 2px 9px}
+.menu.name{top:250px}
+/* sideways: the chat goes wide; the emotes slide in on the right when the smiley is tapped */
+.cols{flex:1;min-height:0;display:flex;gap:8px}
+.cols .left{flex:1;min-width:0;display:flex;flex-direction:column}
+.cols .right{flex:none;width:262px;display:flex;flex-direction:column;animation:slide .18s ease-out}
+@keyframes slide{from{transform:translateX(40px);opacity:0}}
+.side .panel{left:54px;right:54px;top:8px;bottom:18px;padding:8px 10px 10px}
+.side .panel .grip{display:none}
+.side .tray{margin:0;grid-template-rows:repeat(3,1fr);align-content:stretch;flex:1}
+.side .tray .tile{font-size:15px;padding:0 4px}
+.side.typing .tabs{display:none}
+.side .menu,.side .menu.name{top:8px;left:calc(50% - 190px);right:calc(50% - 190px);max-height:calc(100% - 16px)}
+.side .tip{top:20px}
 /* WoW tooltip */
 .tip{position:absolute;z-index:7;left:34px;right:34px;top:250px;background:#06081acc;border:2px solid #9aa0b8;border-radius:6px;
   box-shadow:0 0 0 1px #000,0 14px 40px #000;padding:12px 14px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.45;color:#fff}
@@ -324,25 +357,32 @@ function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='p
 function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
 function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
 
-let panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null;
+let logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
 function openChat(){
   if(chat.open)return;chat.open=true;
   app.appendChild($('div','cdim'));
   panel=$('div','panel');
   const grip=$('div','grip');grip.addEventListener('click',closeChat);panel.appendChild(grip);
   tabsEl=$('div','tabs');panel.appendChild(tabsEl);
-  logEl=$('div','log');panel.appendChild(logEl);
+  const cols=$('div','cols');leftEl=$('div','left');rightEl=$('div','right');cols.append(leftEl,rightEl);panel.appendChild(cols);
+  logEl=$('div','log');leftEl.appendChild(logEl);
+  logStuck=true;logEl.addEventListener('scroll',()=>{logStuck=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40});
+  if(window.ResizeObserver)new ResizeObserver(()=>{if(logStuck&&!logEl.hidden)logEl.scrollTop=logEl.scrollHeight}).observe(logEl);
+  trayEl=tray(null);moreEl=$('div','emsheet');
   sendEl=$('div','send');
   chanEl=$('div','chan');chanEl.addEventListener('click',pickChannel);
+  emoEl=$('div','emo');emoEl.addEventListener('click',smiley);
   box=$('input','box');box.type='text';box.enterKeyHint='send';box.autocomplete='off';box.maxLength=240;
   box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();review()}});
+  box.addEventListener('focus',()=>{app.classList.add('typing');if(chat.emo){chat.emo=null;layoutEmo()}});
+  box.addEventListener('blur',()=>app.classList.remove('typing'));
   const go=$('div','go');go.innerHTML=SEND;go.addEventListener('click',review);
-  sendEl.append(chanEl,box,go);panel.appendChild(sendEl);
+  sendEl.append(chanEl,emoEl,box,go);leftEl.appendChild(sendEl);
   app.appendChild(panel);
   app.querySelector('.cdim').addEventListener('click',closeChat);
-  pickTab(chat.tab);fitPanel();
+  chat.emo=null;layoutEmo();pickTab(chat.tab);fitPanel();
 }
-function closeChat(){chat.open=false;tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
+function closeChat(){chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
 function fitPanel(){if(!panel||!window.visualViewport)return;const v=visualViewport;panel.style.bottom=Math.max(8,innerHeight-v.height-v.offsetTop+8)+'px'}
 if(window.visualViewport)visualViewport.addEventListener('resize',fitPanel);
 
@@ -376,7 +416,8 @@ function render(full){
   chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
 }
 function lineEl(l){
-  const d=$('div','l '+(KIND[l.kind]||''));d.dataset.seq=l.seq;
+  const d=$('div','l '+(l.em?'em':KIND[l.kind]||''));d.dataset.seq=l.seq;
+  if(l.em&&l.em>performance.now()){d.classList.add('new');setTimeout(()=>d.classList.remove('new'),l.em-performance.now())}
   if(l.t)d.appendChild($('span','t',l.t));
   if(l.chan){const ch=$('span','ch','['+l.chan.num+'. '+l.chan.name+'] ');ch.addEventListener('click',()=>{chat.to={to:'channel',num:l.chan.num};render()});d.appendChild(ch)}
   const tag={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid'}[l.kind];
@@ -399,16 +440,69 @@ function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small)b.append
 function nameMenu(l,row){
   row.classList.add('hl');
   const n=l.who,where={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid',whisper:'Whisper','whisper-out':'Whisper',say:'Say',yell:'Yell'}[l.kind]||(l.chan?l.chan.name:'');
-  const m=menuShell(short(n),where);row.classList.add('hl');
+  const m=menuShell(short(n),where);m.classList.add('name');row.classList.add('hl');
   mi(m,'Whisper','/w',()=>{chat.to={to:'whisper',name:n};render();box.focus()});
   mi(m,'Invite to party','/invite',()=>act({act:'invite',name:n}));
   mi(m,'Add friend','/friend',()=>act({act:'friend',name:n}));
   mi(m,'Ignore','/ignore',()=>act({act:'ignore',name:n}));
   mi(m,'Who is this?','/who',()=>act({act:'who',name:n}));
-  const em=$('div','emotes');m.appendChild(em);
-  mi(m,'/roll',null,()=>act({act:'roll'}),em);mi(m,'/wave',null,()=>act({act:'wave',name:n}),em);mi(m,'/cheer',null,()=>act({act:'cheer',name:n}),em);
+  m.appendChild($('div','at','At '+short(n)));
+  m.appendChild(tray(n));
 }
 const act=a=>api('/api/send',a);
+
+// ---------- emotes (sheet 07) ----------
+const SMILE='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="#ffd36b" d="M4 1h4v1h2v2h1v4h-1v2h-2v1h-4v-1h-2v-2h-1v-4h1v-2h2z"/><path fill="#3a2212" d="M4 4h1v2h-1zM7 4h1v2h-1zM3 7h1v1h4v-1h1v1h-1v1h-4v-1h-1z"/></svg>';
+const SMILE_ON=SMILE.replace('#3a2212','#120803');
+const DIE='<svg viewBox="0 0 9 9" shape-rendering="crispEdges"><path fill="#f0e2bf" d="M1 0h7v1h1v7h-1v1h-7v-1h-1v-7h1z"/><path fill="#3a2212" d="M2 2h1v1h-1zM6 2h1v1h-1zM4 4h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1z"/></svg>';
+const FAV=['Wave','Hello','Cheer','Thank','Bow','Dance','Laugh','Roll'];
+const GROUPS=[['Friendly',['Hug','Salute','Welcome','Applaud','Clap','Congrats','Bye','Kneel']],
+  ['Funny',['Chicken','Flex','Train','Silly','Roar','Violin','Rofl','Flirt']],
+  ['Group calls',['Ready','Follow me','Charge','Wait','Oom','Heal me','Help me','Incoming']],
+  ['Feelings',['Cry','Sigh','Shrug','Yawn','Sleep','Cower','Blush','Sad']],
+  ['Rude',['Rude','Spit','Taunt','Threaten','Gloat','Mock','Moon','Fart']]];
+// the command is the tile's name in lower case with no spaces; Congrats is WoW's /congratulate
+const cmdOf=n=>n==='Congrats'?'congratulate':n.toLowerCase().replace(/ /g,'');
+const side=()=>innerWidth>innerHeight&&innerHeight<560;
+let emoteUntil=0;
+function emoteTile(n,name){
+  const t=$('div','tile');if(n==='Roll')t.innerHTML=DIE;t.append(n);
+  t.addEventListener('click',()=>{
+    const now=performance.now();if(now<emoteUntil)return;                     // the laptop sends one line a second
+    emoteUntil=now+1000;t.classList.add('down');setTimeout(()=>t.classList.remove('down'),1000);
+    if(n!=='Roll')chat.emoteAt=now+8000;                                      // WoW's own line ("You cheer.") is shown in emote colour
+    api('/api/send',n==='Roll'?{act:'roll'}:name?{act:cmdOf(n),name}:{act:cmdOf(n)});
+    if(name)setTimeout(closeMenus,250)});
+  return t;
+}
+function tray(name){
+  const g=$('div','tray');for(const n of FAV)if(!(name&&n==='Roll'))g.appendChild(emoteTile(n,name));
+  const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(!chat.open)openChat();showMore(name)});g.appendChild(more);
+  return g;
+}
+function showMore(name){
+  moreEl.textContent='';moreEl.scrollTop=0;
+  if(name)moreEl.appendChild($('div','head','At '+short(name)));
+  for(const [g,list] of GROUPS){moreEl.appendChild($('div','gh',g));const grid=$('div','grid');for(const n of list)grid.appendChild(emoteTile(n,name));moreEl.appendChild(grid)}
+  if(document.activeElement===box)box.blur();
+  chat.emo='more';layoutEmo();
+}
+function smiley(){
+  if(document.activeElement===box){box.blur();chat.emo='tray'}               // typing: the tray takes the keyboard's place
+  else chat.emo=chat.emo?null:'tray';
+  layoutEmo();
+}
+function layoutEmo(){
+  if(!panel)return;
+  const s=side();app.classList.toggle('side',s);
+  emoEl.classList.toggle('on',!!chat.emo);emoEl.innerHTML=chat.emo?SMILE_ON:SMILE;
+  trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
+  const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
+  if(s){rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo;logEl.hidden=false}
+  else{leftEl.insertBefore(moreEl,logEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=chat.emo==='more'}
+  if(stick){logEl.scrollTop=logEl.scrollHeight;logStuck=true}
+}
+addEventListener('resize',()=>{if(panel)layoutEmo();else app.classList.toggle('side',side())});
 
 // ---------- the channel button ----------
 function pickChannel(){
@@ -465,7 +559,9 @@ async function poll(){
     if(!chat.on){if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
       if(j.session!==chat.session){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
-      if(j.lines&&j.lines.length){const fresh=!chat.lines.length;chat.lines.push(...j.lines);
+      if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
+        for(const l of j.lines)if(chat.emoteAt>performance.now()&&l.kind==='system'&&l.text[0]&&/^You /.test(l.text[0].s||'')){l.em=performance.now()+4000;chat.emoteAt=0}
+        chat.lines.push(...j.lines);
         if(fresh){const top=chat.lines[chat.lines.length-1].seq;for(const [n] of TABS)if(chat.seen[n]==null)chat.seen[n]=top}   // counts start from now, not from the backlog
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}

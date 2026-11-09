@@ -2,7 +2,7 @@
 // sent to WoW, and Wowhead tooltips turned into plain lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allowed, buildLine, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
+import { EMOTES, allowed, buildLine, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
 
 test('a magic packet is six 0xFF and the MAC sixteen times', () => {
   const p = magicPacket('aa:bb:cc:dd:ee:ff');
@@ -75,14 +75,23 @@ test('sending: only the approved commands can be built', () => {
   assert.equal(buildLine({ act: 'cheer', name: 'Gideon Byrne' }), '/cheer Gideon Byrne');
   assert.equal(buildLine({ act: 'roll' }), '/roll');
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
+  // emotes (sheet 07): all 47, alone or at a one- or two-word name
+  assert.equal(EMOTES.length, 47);
+  for (const e of EMOTES) {
+    assert.equal(buildLine({ act: e }), `/${e}`);
+    assert.equal(buildLine({ act: e, name: 'Gideon Byrne' }), `/${e} Gideon Byrne`);
+  }
+  for (const e of ['followme', 'healme', 'helpme', 'congratulate']) assert.ok(EMOTES.includes(e as never), e);
+  assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
   // never anything else
   for (const bad of [
     { to: 'say', text: '/run DoEmote("x")' }, { to: 'guild', text: '' }, { to: 'say', text: 'a |cffff0000fake|r link' },
     { to: 'channel', num: 0, text: 'x' }, { to: 'channel', num: 10, text: 'x' }, { to: 'whisper', name: 'Bujuju', text: 'phone remote test' }, { to: 'whisper', name: 'a b', text: 'x' }, { to: 'whisper', name: 'A b c', text: 'x' }, { act: 'who', name: 'A b c' }, { act: 'who', name: 'Ab  Cd' }, { act: 'who', name: ' Hadrik' },
-    { to: 'whisper', name: '/run', text: 'x' }, { act: 'invite', name: 'x /script' }, { act: 'kick', name: 'Hadrik' },
+    { to: 'whisper', name: '/run', text: 'x' }, { act: 'invite', name: 'x /script' }, { act: 'kick', name: 'Hadrik' }, { act: 'invite' } as never, { act: 'who' } as never, { act: 'dance', name: 'A b c' }, { act: 'dance', name: '' },
+    { act: 'follow me' } as never, { act: 'congrats' } as never, { act: 'roll', name: 'Hadrik' } as never,
     { to: 'raid', text: 'x' }, { to: 'say', text: 'x'.repeat(260) }, null,
   ]) assert.equal(buildLine(bad as never), null, JSON.stringify(bad));
-  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/w Bujuju hi', '/w Ab Cd /run x', '/who Ab Cd Ef', '/roll 100', '/dance'])
+  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/w Bujuju hi', '/w Ab Cd /run x', '/who Ab Cd Ef', '/roll 100', '/dance Ab Cd Ef', '/dance /run', '/followme Ab /x', '/emote waves', '/e waves', '/kiss'])
     assert.ok(!allowed(bad), bad);
 });
 
