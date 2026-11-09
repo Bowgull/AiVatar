@@ -102,15 +102,15 @@ test('chat: read while WoW is up, cleared when it closes, whispers counted and b
     await until(async () => ((await r.poll()).lines ?? []).length === 2);
     assert.equal(r.notes.length, 0);
     r.lap.log('[2. Trade - City] Bellacoin: WTS |cff1eff00|Hitem:9811::::::::12:::::::|h[Grips of Control]|h|r 2g');
-    r.lap.log('Hadrik whispers: bring a mage too if you can');
+    r.lap.log('Hadrik Stone whispers: bring a mage too if you can');
     await until(() => r.notes.length === 1);
-    assert.equal(r.notes[0], 'Hadrik whispers: bring a mage too if you can');
+    assert.equal(r.notes[0], 'Hadrik Stone whispers: bring a mage too if you can');
     const p = await r.poll();
     assert.equal(p.game, 'wow'); assert.equal(p.whispers, 2);
     assert.deepEqual(p.lines!.map(l => l.kind), ['whisper', 'guild', 'channel', 'whisper']);
     // only what is new after a seq, in the same session
     const newer = await r.poll(JOSH, `?after=${p.lines![2].seq}&session=${p.session}`);
-    assert.deepEqual(newer.lines!.map(l => l.who), ['Hadrik']);
+    assert.deepEqual(newer.lines!.map(l => l.who), ['Hadrik Stone']);
     // seen
     await r.as(JOSH).post('/api/seen');
     assert.equal((await r.poll()).whispers, 0);
@@ -132,21 +132,25 @@ test('sending: the review card\'s text and the name menu reach WoW as the approv
       assert.equal(r.lap.typed.at(-1), line);
     };
     await ok({ to: 'guild', text: 'count me in for bandit keep after dinner' }, '/g count me in for bandit keep after dinner');
-    await ok({ to: 'whisper', name: 'Hadrik', text: 'omw' }, '/w Hadrik omw');
+    await ok({ to: 'whisper', name: 'Bujuju Banton', text: 'phone remote test' }, '/w Bujuju Banton phone remote test');
     await ok({ to: 'channel', num: 4, text: 'LF1M mage' }, '/4 LF1M mage');
-    await ok({ act: 'invite', name: 'Hadrik' }, '/invite Hadrik');
+    await ok({ act: 'invite', name: 'Hadrik Stone' }, '/invite Hadrik Stone');
     await ok({ act: 'friend', name: 'Hadrik' }, '/friend Hadrik');
     await ok({ act: 'ignore', name: 'Hadrik' }, '/ignore Hadrik');
-    await ok({ act: 'who', name: 'Hadrik' }, '/who Hadrik');
+    await ok({ act: 'who', name: 'Gideon Byrne' }, '/who Gideon Byrne');
     await ok({ act: 'roll' }, '/roll');
     await ok({ act: 'wave', name: 'Hadrik' }, '/wave Hadrik');
-    await ok({ act: 'cheer', name: 'Hadrik' }, '/cheer Hadrik');
+    await ok({ act: 'cheer', name: 'Hadrik Stone' }, '/cheer Hadrik Stone');
     const sent = r.lap.typed.length;
-    for (const bad of [{ to: 'say', text: '/run x' }, { act: 'script', name: 'x' }, { to: 'whisper', name: 'Had rik', text: 'x' }, { raw: '/run x' }]) {
+    for (const bad of [{ to: 'say', text: '/run x' }, { act: 'script', name: 'x' }, { to: 'whisper', name: 'Bujuju', text: 'phone remote test' }, { to: 'whisper', name: 'A b c', text: 'x' }, { raw: '/run x' }]) {
       const res = await r.as(JOSH).post('/api/send', bad);
       assert.equal(res.status, 400, JSON.stringify(bad));
     }
     assert.equal(r.lap.typed.length, sent, 'nothing refused reached the laptop');
+    // the real laptop answers a send about 1.5 s late: still a success
+    r.lap.sendDelayMs = 1600;
+    await ok({ to: 'party', text: 'slow one' }, '/p slow one');
+    r.lap.sendDelayMs = 0;
     // the echo comes back through the log
     await until(async () => ((await r.poll()).lines ?? []).some(l => l.kind === 'guild' && l.who === 'Josh'));
     // WoW closed: not sent

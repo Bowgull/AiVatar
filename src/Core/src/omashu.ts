@@ -80,7 +80,8 @@ const PREFIX: Record<string, ChatKind> = {
   guild: 'guild', officer: 'officer', party: 'party', 'party leader': 'party', instance: 'party', 'instance leader': 'party',
   raid: 'raid', 'raid leader': 'raid', 'raid warning': 'raid',
 };
-const NAME = String.raw`\[?([^\s:\[\]|]{2,48})\]?`;
+// WoW: Forever names are two words ("Gideon Byrne"); one-word names (and "-Realm") still read.
+const NAME = String.raw`\[?([^\s:\[\]|]{2,48}(?: [^\s:\[\]|]{2,48})?)\]?`;
 
 /** One line of WoWChatLog.txt -> a chat line, or null for a blank one. Anything not recognised is a system line. */
 export function parseChatLine(raw: string, seq: number): ChatLine | null {
@@ -114,14 +115,16 @@ export type SendAsk =
 
 /** The allow-list, word for word the one in the contract (Couch Mode checks the same lines again before typing). */
 const TEXT = String.raw`(?!/)[^|\r\n\x00-\x1f]{1,255}`;
-const WHO = String.raw`[^\s/|\\]{2,48}`;
+/** One word of a name. WoW: Forever names are two words, and WoW reads the first two words of "/w" as the name. */
+const WORD = String.raw`[^\s/|\\]{2,24}`;
+const NAME2 = `${WORD} ${WORD}`, NAME12 = `${WORD}( ${WORD})?`;
 export const ALLOWED: RegExp[] = [
   new RegExp(String.raw`^/(s|g|p) ${TEXT}$`),
   new RegExp(String.raw`^/[1-9] ${TEXT}$`),
-  new RegExp(String.raw`^/w ${WHO} ${TEXT}$`),
-  new RegExp(String.raw`^/(invite|friend|ignore|who) ${WHO}$`),
+  new RegExp(String.raw`^/w ${NAME2} ${TEXT}$`),
+  new RegExp(String.raw`^/(invite|friend|ignore|who) ${NAME12}$`),
   /^\/roll$/,
-  new RegExp(String.raw`^/(wave|cheer)( ${WHO})?$`),
+  new RegExp(String.raw`^/(wave|cheer)( ${NAME12})?$`),
 ];
 export const allowed = (line: string) => typeof line === 'string' && line.length <= 255 && ALLOWED.some(r => r.test(line));
 
@@ -131,8 +134,9 @@ export const tidy = (text: string) => String(text ?? '').replace(/[\r\n\t]+/g, '
 /** The chat command for an ask, or null when it is not one he approved (or the text could not be sent as is). */
 export function buildLine(a: SendAsk): string | null {
   if (!a || typeof a !== 'object') return null;
-  // a name is one word: "Had rik" would whisper "Had" with "rik ..." as the message
-  if ('name' in a && !new RegExp(`^${WHO}$`).test(String(a.name ?? ''))) return null;
+  // a whisper name is exactly two words: WoW takes the first two words as the name, so "Bujuju" alone would whisper
+  // "Bujuju <first word>" the rest; the other commands take one or two
+  if ('name' in a && !new RegExp(`^(${'to' in a ? NAME2 : NAME12})$`).test(String(a.name ?? ''))) return null;
   let line: string;
   if ('act' in a) {
     if (a.act === 'roll') line = '/roll';

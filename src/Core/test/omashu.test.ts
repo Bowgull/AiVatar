@@ -40,6 +40,19 @@ test('chat log lines: channels, guild, party, whispers both ways, say, system', 
   assert.equal(parseChatLine('   ', 10), null);
 });
 
+test('WoW: Forever lines as the laptop serves them: two-word names, "11/09" stamps, link codes kept', () => {
+  const g = parseChatLine('11/09 03:29:23.385  [1. General - Tirisfal Glades] Gideon Byrne: You know what I just realized?...', 1)!;
+  assert.deepEqual({ k: g.kind, chan: g.chan, who: g.who, t: g.t, text: g.text },
+    { k: 'channel', chan: { num: 1, name: 'General' }, who: 'Gideon Byrne', t: '3:29', text: [{ s: 'You know what I just realized?...' }] });
+  const i = parseChatLine('11/09 03:30:01.002  [2. Trade - City] Bujuju Banton: WTS |cff1eff00|Hitem:9811::::::::12:::::::|h[Grips of Control]|h|r 2g', 2)!;
+  assert.equal(i.kind, 'channel'); assert.equal(i.who, 'Bujuju Banton');
+  assert.deepEqual(i.text, [{ s: 'WTS ' }, { link: 'item', name: 'Grips of Control', id: 9811, q: 2 }, { s: ' 2g' }]);
+  assert.equal(parseChatLine('11/09 03:31:00.000  Bujuju Banton whispers: you there?', 3)!.who, 'Bujuju Banton');
+  assert.equal(parseChatLine('11/09 03:31:05.000  To Bujuju Banton: yep', 4)!.who, 'Bujuju Banton');
+  assert.equal(parseChatLine('11/09 03:31:09.000  [Guild] Gideon Byrne: hi', 5)!.who, 'Gideon Byrne');
+  assert.equal(parseChatLine('11/09 03:31:09.000  Gideon Byrne says: hi', 6)!.kind, 'say');
+});
+
 test('links: codes give an id and quality, bare [Names] are looked up by name, other codes are dropped', () => {
   const coded = segments('WTS |cff1eff00|Hitem:9811::::::::12:::::::|h[Grips of Control]|h|r 2g');
   assert.deepEqual(coded, [{ s: 'WTS ' }, { link: 'item', name: 'Grips of Control', id: 9811, q: 2 }, { s: ' 2g' }]);
@@ -56,18 +69,20 @@ test('sending: only the approved commands can be built', () => {
   assert.equal(buildLine({ to: 'say', text: '  hello\nthere ' }), '/s hello there');
   assert.equal(buildLine({ to: 'party', text: 'inv' }), '/p inv');
   assert.equal(buildLine({ to: 'channel', num: 2, text: 'WTB bags' }), '/2 WTB bags');
-  assert.equal(buildLine({ to: 'whisper', name: 'Hadrik-Faerlina', text: 'omw' }), '/w Hadrik-Faerlina omw');
+  assert.equal(buildLine({ to: 'whisper', name: 'Bujuju Banton', text: 'phone remote test' }), '/w Bujuju Banton phone remote test');
   assert.equal(buildLine({ act: 'invite', name: 'Hadrik' }), '/invite Hadrik');
+  assert.equal(buildLine({ act: 'invite', name: 'Gideon Byrne' }), '/invite Gideon Byrne');
+  assert.equal(buildLine({ act: 'cheer', name: 'Gideon Byrne' }), '/cheer Gideon Byrne');
   assert.equal(buildLine({ act: 'roll' }), '/roll');
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
   // never anything else
   for (const bad of [
     { to: 'say', text: '/run DoEmote("x")' }, { to: 'guild', text: '' }, { to: 'say', text: 'a |cffff0000fake|r link' },
-    { to: 'channel', num: 0, text: 'x' }, { to: 'channel', num: 10, text: 'x' }, { to: 'whisper', name: 'a b', text: 'x' }, { to: 'whisper', name: 'Had rik', text: 'x' }, { act: 'who', name: ' Hadrik' },
+    { to: 'channel', num: 0, text: 'x' }, { to: 'channel', num: 10, text: 'x' }, { to: 'whisper', name: 'Bujuju', text: 'phone remote test' }, { to: 'whisper', name: 'a b', text: 'x' }, { to: 'whisper', name: 'A b c', text: 'x' }, { act: 'who', name: 'A b c' }, { act: 'who', name: 'Ab  Cd' }, { act: 'who', name: ' Hadrik' },
     { to: 'whisper', name: '/run', text: 'x' }, { act: 'invite', name: 'x /script' }, { act: 'kick', name: 'Hadrik' },
     { to: 'raid', text: 'x' }, { to: 'say', text: 'x'.repeat(260) }, null,
   ]) assert.equal(buildLine(bad as never), null, JSON.stringify(bad));
-  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/roll 100', '/dance'])
+  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/w Bujuju hi', '/w Ab Cd /run x', '/who Ab Cd Ef', '/roll 100', '/dance'])
     assert.ok(!allowed(bad), bad);
 });
 
