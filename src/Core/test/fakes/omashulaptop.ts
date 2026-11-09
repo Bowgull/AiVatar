@@ -8,10 +8,13 @@ import dgram from 'node:dgram';
 import { randomBytes } from 'node:crypto';
 
 /** The contract's allow-list, copied as text (not imported) so a drift between the two sides fails a test. */
-const TEXT = String.raw`(?!/)[^|\r\n\x00-\x1f]{1,255}`, WHO = String.raw`[^\s/|\\]{2,48}`;
 const ALLOW = [
-  String.raw`^/(s|g|p) ${TEXT}$`, String.raw`^/[1-9] ${TEXT}$`, String.raw`^/w ${WHO} ${TEXT}$`,
-  String.raw`^/(invite|friend|ignore|who) ${WHO}$`, String.raw`^/roll$`, String.raw`^/(wave|cheer)( ${WHO})?$`,
+  String.raw`^/(s|g|p) (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
+  String.raw`^/[1-9] (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
+  String.raw`^/w [^\s/|\\]{2,24} [^\s/|\\]{2,24} (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
+  String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
+  String.raw`^/roll$`,
+  String.raw`^/(wave|cheer)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));
 
 export interface FakeOpts { key: string; mac: string; me?: string; wakeDelayMs?: number; host?: string }
@@ -25,6 +28,8 @@ export class FakeLaptop {
   /** What Couch Mode typed into WoW. */
   typed: string[] = [];
   powerPosts = 0;
+  /** The real /chat/send answers about 1.5 s late (it closes WoW's controller chat box first). */
+  sendDelayMs = 0;
   wakePackets = 0;
   port = 0;
   udpPort = 0;
@@ -61,11 +66,11 @@ export class FakeLaptop {
   // ---------- the game, for tests and the dev page ----------
   startWow() { this.awake = true; this.game = 'wow'; this.session = randomBytes(4).toString('hex'); this.lines = []; this.seq = 0; }
   stopWow() { this.game = null; this.session = null; this.lines = []; this.seq = 0; }
-  /** A line as WoW writes it to WoWChatLog.txt. */
+  /** A line as Couch Mode serves it (WoWChatLog.txt's format, link codes kept, "MM/DD" with leading zeros). */
   log(body: string, at = new Date()) {
     if (!this.session) return;
     const p = (n: number, w = 2) => String(n).padStart(w, '0');
-    this.lines.push({ seq: ++this.seq, raw: `${at.getMonth() + 1}/${at.getDate()} ${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}.${p(at.getMilliseconds(), 3)}  ${body}` });
+    this.lines.push({ seq: ++this.seq, raw: `${p(at.getMonth() + 1)}/${p(at.getDate())} ${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}.${p(at.getMilliseconds(), 3)}  ${body}` });
     if (this.lines.length > 1000) this.lines.shift();
   }
   /** What WoW would echo into the log after a line is typed. */
@@ -76,7 +81,7 @@ export class FakeLaptop {
     else if (cmd === 'g') this.log(`[Guild] ${me}: ${rest}`);
     else if (cmd === 'p') this.log(`[Party] ${me}: ${rest}`);
     else if (/^\d$/.test(cmd)) this.log(`[${cmd}. ${cmd === '1' ? 'General - Elwynn Forest' : cmd === '2' ? 'Trade - City' : 'LookingForGroup'}] ${me}: ${rest}`);
-    else if (cmd === 'w') { const sp = rest.indexOf(' '); this.log(`To ${rest.slice(0, sp)}: ${rest.slice(sp + 1)}`); }
+    else if (cmd === 'w') { const [a, b, ...t] = rest.split(' '); this.log(`To ${a} ${b}: ${t.join(' ')}`); }
     else if (cmd === 'who') this.log(`${rest}: Level 13 Human Mage - Elwynn Forest`);
     else if (cmd === 'roll') this.log(`${me} rolls ${1 + Math.floor(Math.random() * 100)} (1-100)`);
     else if (cmd === 'invite') this.log(`You have invited ${rest} to join your group.`);
@@ -115,7 +120,7 @@ export class FakeLaptop {
         if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
         this.typed.push(line);
         this.echo(line);
-        j(200, { ok: true });
+        setTimeout(() => j(200, { ok: true }), this.sendDelayMs);
       });
       return;
     }

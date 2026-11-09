@@ -15,16 +15,16 @@ const remote = new OmashuRemote({
 const port = await remote.start();
 console.log(`fire remote: http://127.0.0.1:${port}/pair/${PHONE}`);
 const say = [
-  '[1. General - Elwynn Forest] Thornwick: anyone know where the tomb weed is',
-  '[Guild] Morrowyn: grats on 11!',
+  '[1. General - Elwynn Forest] Thornwick Vale: anyone know where the tomb weed is',
+  '[Guild] Morrowyn Ash: grats on 11!',
   '[2. Trade - City] Bellacoin: WTS |cff1eff00|Hitem:2289::::::::12:::::::|h[Scroll of Strength II]|h|r 2g',
-  '[Guild] Hadrik: who wants to run |cffffff00|Hquest:2040:22|h[Underground Assault]|h|r later',
-  'Morrowyn whispers: you around for a dungeon?',
-  '[Party] Hadrik: inv me',
+  '[Guild] Hadrik Stone: who wants to run |cffffff00|Hquest:2040:22|h[Underground Assault]|h|r later',
+  'Morrowyn Ash whispers: you around for a dungeon?',
+  '[Party] Hadrik Stone: inv me',
   'Bujuju Banton has earned the achievement [Level 11]!',
   '[Guild] Bujuju Banton: thanks all',
-  'Hadrik whispers: bring a mage too if you can',
-  '[4. LookingForGroup] Ana: LF2M Deadmines, need heals',
+  'Hadrik Stone whispers: bring a mage too if you can',
+  '[4. LookingForGroup] Ana Reyes: LF2M Deadmines, need heals',
 ];
 let i = 0;
 for (; i < 9; i++) lap.log(say[i]);
