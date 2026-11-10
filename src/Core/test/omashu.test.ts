@@ -76,12 +76,12 @@ test('sending: only the approved commands can be built', () => {
   assert.equal(buildLine({ act: 'roll' }), '/roll');
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
   // emotes (sheet 07): all 47, alone or at a one- or two-word name
-  assert.equal(EMOTES.length, 47);
+  assert.equal(EMOTES.length, 55);
   for (const e of EMOTES) {
     assert.equal(buildLine({ act: e }), `/${e}`);
     assert.equal(buildLine({ act: e, name: 'Gideon Byrne' }), `/${e} Gideon Byrne`);
   }
-  for (const e of ['followme', 'healme', 'helpme', 'congratulate']) assert.ok(EMOTES.includes(e as never), e);
+  for (const e of ['followme', 'healme', 'helpme', 'congratulate', 'yes', 'sit', 'attacktarget']) assert.ok(EMOTES.includes(e as never), e);
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
   // never anything else
   for (const bad of [
