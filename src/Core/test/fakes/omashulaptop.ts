@@ -6,6 +6,11 @@
 import http from 'node:http';
 import dgram from 'node:dgram';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+const EMOTE_CMDS: string[] = JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'assets', 'omashu', 'emotes.json'), 'utf8'))
+  .pages.flatMap((p: { emotes: [string, string][] }) => p.emotes.map(e => e[1]));
 
 /** The contract's allow-list, copied as text (not imported) so a drift between the two sides fails a test. */
 const ALLOW = [
@@ -14,7 +19,8 @@ const ALLOW = [
   String.raw`^/w [^\s/|\\]{2,24} [^\s/|\\]{2,24} (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
-  String.raw`^/(wave|hello|cheer|thank|bow|dance|laugh|hug|salute|welcome|applaud|clap|congratulate|bye|kneel|chicken|flex|train|silly|roar|violin|rofl|flirt|ready|followme|charge|wait|oom|healme|helpme|incoming|cry|sigh|shrug|yawn|sleep|cower|blush|sad|rude|spit|taunt|threaten|gloat|mock|moon|fart|yes|no|sorry|nod|point|sit|attacktarget|flee)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
+  // the emotes: the same emotes.json Couch Mode reads (mockup 10)
+  String.raw`^/(` + EMOTE_CMDS.join('|') + String.raw`)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));
 
 export interface FakeOpts { key: string; mac: string; me?: string; wakeDelayMs?: number; host?: string }

@@ -94,18 +94,33 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .mi small{color:#b39b73;font-size:12px}
 /* the emote tray: wooden tiles, 3 by 3 (sheet 07) */
 .tray{margin-top:8px;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:8px;
-  display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tray .tile{padding:13px 2px 12px}
+.tray .tile.more,.tray .swaphint{grid-column:1/-1}
+.swaphint{text-align:center;color:#ffd36b;font-size:15px;font-weight:600;padding:10px 4px 9px}
+.tile.pick{animation:pick 1.1s ease-in-out infinite}
+@keyframes pick{50%{box-shadow:inset 0 -3px 0 #24140a,0 0 0 2px #ffd36bcc}}
+.tile.fav::after{content:"";position:absolute;right:4px;top:4px;width:7px;height:7px;background:#ffd36b;clip-path:polygon(50% 0,63% 35%,100% 38%,70% 61%,80% 100%,50% 78%,20% 100%,30% 61%,0 38%,37% 35%)}
+.tile{position:relative;-webkit-touch-callout:none}
+.tile.blank{background:none;box-shadow:none;pointer-events:none;min-height:45px}
 .tile{background:#3a2212;color:var(--parch);border-radius:9px;padding:12px 4px 11px;text-align:center;font-size:16px;font-weight:600;box-shadow:inset 0 -3px 0 #24140a;
   display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 .tile.down{background:#24140a;box-shadow:inset 0 2px 0 #120803;color:#ffd36b}
 .tile.more{background:#e4d1a3;color:var(--brown);box-shadow:inset 0 -3px 0 #c9b07a}
 .tile svg{width:18px;height:18px;flex:none}
 /* More: every group on one page */
-.emsheet{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:10px 8px 8px;overflow-y:auto;touch-action:pan-y}
+.emsheet{flex:none;margin-top:8px;display:flex;flex-direction:column;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:8px}
+.esearch{display:block;width:100%;margin:0 0 7px;background:#fffaf0;border:0;outline:0;border-radius:9px;box-shadow:inset 0 0 0 2px var(--parch-line);padding:8px 10px;font:16px system-ui,-apple-system,sans-serif;color:#2a1a0e;-webkit-user-select:text;user-select:text;-webkit-appearance:none}
+.esearch::placeholder{color:#9a8466}
+.chips{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:0 0 8px;touch-action:pan-x}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:6px 9px 5px;border-radius:9px;background:#e4d1a3;color:var(--brown);font-size:14px;font-weight:600;box-shadow:inset 0 -2px 0 #c9b07a}
+.chip.on{background:var(--wood-hi);color:#fff4dc;box-shadow:inset 0 -3px 0 #7a4a20}
+.enote{font-size:13px;color:#e4c9a0;margin:8px 4px 0}
 .emsheet .head{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 8px;color:#ffd36b;font-size:18px;font-weight:600}
 .emsheet .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
 .emsheet .gh{color:#ffd36b;font-size:14px;font-weight:600;margin:10px 4px 5px}.emsheet .gh:first-child,.emsheet .head+.gh{margin-top:2px}
-.emsheet .tile{font-size:13px;padding:10px 2px 9px}
+.emsheet .tile{font-size:15px;padding:14px 2px 13px}
 /* emotes aimed at a name */
 .at{margin:10px 6px 4px;color:#e4c9a0;font-size:13px}
 .menu .tray{margin:0;padding:0;background:none;box-shadow:none;grid-template-columns:repeat(4,1fr);gap:5px}
@@ -118,8 +133,10 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 @keyframes slide{from{transform:translateX(40px);opacity:0}}
 .side .panel{left:54px;right:54px;top:8px;bottom:18px;padding:8px 10px 10px}
 .side .panel .grip{display:none}
-.side .tray{margin:0;grid-template-rows:repeat(3,1fr);align-content:stretch;flex:1}
-.side .tray .tile{font-size:15px;padding:0 4px}
+.side .tray{margin:0;flex:1;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr);align-content:stretch}
+.side .tray .tile{padding:0 2px}
+.side .emsheet{margin:0;flex:1;min-height:0;overflow-y:auto}
+.side .tray .tile{font-size:14px}
 .side.typing .tabs{display:none}
 .side .menu,.side .menu.name{top:8px;left:calc(50% - 190px);right:calc(50% - 190px);max-height:calc(100% - 16px)}
 .side .tip{top:20px}
@@ -467,42 +484,81 @@ const act=a=>api('/api/send',a);
 const SMILE='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="#ffd36b" d="M4 1h4v1h2v2h1v4h-1v2h-2v1h-4v-1h-2v-2h-1v-4h1v-2h2z"/><path fill="#3a2212" d="M4 4h1v2h-1zM7 4h1v2h-1zM3 7h1v1h4v-1h1v1h-1v1h-4v-1h-1z"/></svg>';
 const SMILE_ON=SMILE.replace('#3a2212','#120803');
 const DIE='<svg viewBox="0 0 9 9" shape-rendering="crispEdges"><path fill="#f0e2bf" d="M1 0h7v1h1v7h-1v1h-7v-1h-1v-7h1z"/><path fill="#3a2212" d="M2 2h1v1h-1zM6 2h1v1h-1zM4 4h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1z"/></svg>';
-const FAV=['Wave','Hello','Cheer','Thank','Bow','Dance','Laugh','Roll'];
-const GROUPS=[['Answers',['Yes','No','Sorry','Nod','Point','Sit','Attack target','Flee']],
-  ['Friendly',['Hug','Salute','Welcome','Applaud','Clap','Congrats','Bye','Kneel']],
-  ['Funny',['Chicken','Flex','Train','Silly','Roar','Violin','Rofl','Flirt']],
-  ['Group calls',['Ready','Follow me','Charge','Wait','Oom','Heal me','Help me','Incoming']],
-  ['Feelings',['Cry','Sigh','Shrug','Yawn','Sleep','Cower','Blush','Sad']],
-  ['Rude',['Rude','Spit','Taunt','Threaten','Gloat','Mock','Moon','Fart']]];
-// the command is the tile's name in lower case with no spaces; Congrats is WoW's /congratulate
-const cmdOf=n=>n==='Congrats'?'congratulate':n.toLowerCase().replace(/ /g,'');
+// The one emote list (emotes.json, mockup 10, approved 2026-11-09) and this phone's favourites, both from Aang.
+let CAT={pages:[],favourites:[]},LABEL={roll:'Roll'},ALL=[],FAVS=[];
+async function loadEmotes(){
+  try{const r=await fetch('/emotes.json',{cache:'no-store'});if(r.ok)CAT=await r.json()}catch(e){}
+  ALL=[];for(const p of CAT.pages)for(const [l,c] of p.emotes){LABEL[c]=l;ALL.push(c)}
+  FAVS=CAT.favourites.slice();
+  try{const {ok,j}=await api('/api/favourites');if(ok&&Array.isArray(j.favourites))FAVS=j.favourites}catch(e){}
+  emPage=CAT.pages.length?CAT.pages[0].name:'';
+  if(trayEl){const n=tray(null);trayEl.replaceWith(n);trayEl=n;layoutEmo()}
+}
+function saveFavs(){api('/api/favourites',{favourites:FAVS})}
 // asked of the layout itself, not innerWidth/innerHeight: iOS reports those late after turning the phone or closing the keyboard
 const SIDE=matchMedia('(orientation: landscape) and (max-height: 559px)');
 const side=()=>SIDE.matches;
-let emoteUntil=0;
-function emoteTile(n,name){
-  const t=$('div','tile');if(n==='Roll')t.innerHTML=DIE;t.append(n);
-  t.addEventListener('click',()=>{
+let emoteUntil=0,swapIn=null,emPage='',emQuery='';
+function emoteTile(c,name){
+  const t=$('div','tile');if(c==='roll')t.innerHTML=DIE;t.append(LABEL[c]||c);
+  let timer=0,long=false;
+  t.addEventListener('pointerdown',()=>{long=false;clearTimeout(timer);timer=setTimeout(()=>{long=true;starMenu(c)},500)});
+  const cancel=()=>clearTimeout(timer);t.addEventListener('pointerleave',cancel);t.addEventListener('pointercancel',cancel);
+  t.addEventListener('contextmenu',e=>e.preventDefault());
+  t.addEventListener('click',()=>{cancel();if(long)return;
+    if(swapIn&&!name&&FAVS.includes(c)){finishSwap(c);return}
     const now=performance.now();if(now<emoteUntil)return;                     // the laptop sends one line a second
     emoteUntil=now+1000;t.classList.add('down');setTimeout(()=>t.classList.remove('down'),1000);
-    if(n!=='Roll')chat.emoteAt=now+8000;                                      // WoW's own line ("You cheer.") is shown in emote colour
-    api('/api/send',n==='Roll'?{act:'roll'}:name?{act:cmdOf(n),name}:{act:cmdOf(n)});
+    if(c!=='roll')chat.emoteAt=now+8000;                                      // WoW's own line ("You cheer.") is shown in emote colour
+    api('/api/send',c==='roll'?{act:'roll'}:name?{act:c,name}:{act:c});
     if(name)setTimeout(closeMenus,250)});
   return t;
 }
+// hold any emote: star it (or un-star it); when all 12 are taken, tap the favourite to swap out
+function starMenu(c){
+  const has=FAVS.includes(c);const m=menuShell(LABEL[c]||c);
+  mi(m,has?'Remove from favourites':'Add to favourites',null,()=>{
+    if(has){FAVS=FAVS.filter(x=>x!==c);saveFavs();refreshTray();return}
+    if(FAVS.length<12){FAVS.push(c);saveFavs();refreshTray();return}
+    swapIn=c;chat.emo='tray';refreshTray();layoutEmo()});
+  mi(m,'Cancel',null,()=>{});
+}
+function finishSwap(out){const i=FAVS.indexOf(out);if(i>=0)FAVS[i]=swapIn;swapIn=null;saveFavs();refreshTray()}
+function refreshTray(){if(!trayEl)return;const n=tray(null);trayEl.replaceWith(n);trayEl=n;layoutEmo();if(chat.emo==='more')showMore(moreFor)}
 function tray(name){
-  const g=$('div','tray');for(const n of FAV)if(!(name&&n==='Roll'))g.appendChild(emoteTile(n,name));
-  const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(!chat.open)openChat();showMore(name)});g.appendChild(more);
+  const g=$('div','tray'+(swapIn&&!name?' swapping':''));
+  // at a person: your favourites (no Roll) and Follow
+  const list=name?[...FAVS.filter(c=>c!=='roll'),...(FAVS.includes('follow')?[]:['follow'])].slice(0,12):FAVS;
+  for(const c of list){const t=emoteTile(c,name);if(swapIn&&!name)t.classList.add('pick');g.appendChild(t)}
+  if(swapIn&&!name){const h=$('div','swaphint','Tap the favourite to swap for '+(LABEL[swapIn]||swapIn));g.appendChild(h)}
+  else{const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(!chat.open)openChat();showMore(name)});g.appendChild(more)}
   return g;
 }
+let moreFor=null;
 function showMore(name){
-  moreEl.textContent='';moreEl.scrollTop=0;
+  moreFor=name;moreEl.textContent='';
   if(name)moreEl.appendChild($('div','head','At '+short(name)));
-  for(const [g,list] of GROUPS){moreEl.appendChild($('div','gh',g));const grid=$('div','grid');for(const n of list)grid.appendChild(emoteTile(n,name));moreEl.appendChild(grid)}
+  const sb=$('input','esearch');sb.type='search';sb.placeholder='Search emotes';sb.value=emQuery;sb.autocomplete='off';sb.enterKeyHint='done';
+  sb.addEventListener('input',()=>{emQuery=sb.value;draw()});sb.addEventListener('keydown',e=>{if(e.key==='Enter')sb.blur()});
+  const chips=$('div','chips');
+  for(const p of CAT.pages){const c=$('div','chip',p.name);c.addEventListener('click',()=>{emPage=p.name;emQuery='';sb.value='';draw();c.scrollIntoView({inline:'center',block:'nearest'})});chips.appendChild(c)}
+  const grid=$('div','grid'),note=$('div','enote');
+  moreEl.append(sb,chips,grid,note);
+  function draw(){
+    const q=emQuery.trim().toLowerCase();
+    const list=q?ALL.filter(c=>(LABEL[c]||c).toLowerCase().includes(q)).slice(0,12):((CAT.pages.find(p=>p.name===emPage)||{emotes:[]}).emotes.map(e=>e[1]));
+    grid.textContent='';for(const c of list){const t=emoteTile(c,name);if(!name&&FAVS.includes(c))t.classList.add('fav');grid.appendChild(t)}
+    for(let i=list.length;i<12;i++)grid.appendChild($('div','tile blank'));          // always three rows: nothing jumps
+    chips.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',!q&&c.textContent===emPage));
+    note.textContent=q&&!list.length?'Nothing called that.':'Hold any emote to add it to your favourites.';
+  }
+  draw();
   if(document.activeElement===box)box.blur();
   chat.emo='more';layoutEmo();
+  requestAnimationFrame(()=>{const on=chips.querySelector('.on');if(on)on.scrollIntoView({inline:'center',block:'nearest'})});
 }
 function smiley(){
+  swapIn=null;
   if(document.activeElement===box){box.blur();chat.emo='tray'}               // typing: the tray takes the keyboard's place
   else chat.emo=chat.emo?null:'tray';
   layoutEmo();
@@ -514,7 +570,7 @@ function layoutEmo(){
   trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
   const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
   if(s){rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo;logEl.hidden=false}
-  else{leftEl.insertBefore(moreEl,logEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=chat.emo==='more'}
+  else{leftEl.insertBefore(moreEl,sendEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=false}
   if(stick){logEl.scrollTop=logEl.scrollHeight;logStuck=true}
 }
 function relayout(){if(panel)layoutEmo();else app.classList.toggle('side',side());fitPanel()}
@@ -596,6 +652,7 @@ if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
 poll();
+loadEmotes();
 </script>
 </body>
 </html>

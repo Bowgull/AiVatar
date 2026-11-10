@@ -15,13 +15,13 @@ import dgram from 'node:dgram';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { buildLine, isHomeAddress, magicPacket, macBytes, parseChatLine, tooltipLines, type ChatLine, type SendAsk, type TipLine } from './omashu.ts';
+import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, tooltipLines, type ChatLine, type SendAsk, type TipLine } from './omashu.ts';
 import { writeFileAtomic } from './atomic.ts';
 
 export const REMOTE_PORT = 47880;
 const ASSETS = path.join(import.meta.dirname, '..', 'assets', 'omashu');
 
-export interface PhoneEntry { name: string; key: string; chat?: boolean }
+export interface PhoneEntry { name: string; key: string; chat?: boolean; /** Emote favourites (commands), set from the phone. */ favourites?: string[] }
 export interface RemoteConfig {
   enabled?: boolean;
   port?: number;
@@ -173,6 +173,8 @@ export interface RemoteOpts {
   /** Fast polling for tests. */
   tickMs?: { busy: number; idle: number };
   host?: string;
+  /** Saves the settings file after a phone changes its favourites (core.ts writes omashu-remote.json). */
+  saveCfg?: (cfg: RemoteConfig) => void;
 }
 
 export class OmashuRemote {
@@ -325,6 +327,8 @@ export class OmashuRemote {
       });
       return;
     }
+    if (req.method === 'GET' && p === '/emotes.json') { send(res, 200, readFileSync(CATALOG_FILE), 'application/json'); return; }
+    if (req.method === 'GET' && p === '/api/favourites') { json(res, 200, { favourites: phone.favourites ?? CATALOG.favourites }); return; }
     if (req.method === 'GET' && p === '/forest.js') { send(res, 200, readFileSync(path.join(ASSETS, 'forest.js')), 'text/javascript; charset=utf-8'); return; }
 
     if (req.method === 'GET' && p === '/api/poll') {
@@ -350,6 +354,14 @@ export class OmashuRemote {
     if (req.headers['x-omashu'] !== '1') { res.writeHead(403).end(); return; }
     if (p === '/api/wake') { json(res, 200, { fire: await this.wake() }); return; }
     if (p === '/api/sleep') { json(res, 200, { fire: await this.sleep() }); return; }
+    if (p === '/api/favourites') {
+      const favs = cleanFavourites((await body(req) as { favourites?: unknown } | null)?.favourites);
+      if (!favs) { json(res, 400, { ok: false }); return; }
+      phone.favourites = favs;
+      try { this.o.saveCfg?.(this.o.cfg); } catch (e) { this.log(`favourites not saved: ${(e as Error).message}`); }
+      json(res, 200, { ok: true, favourites: favs });
+      return;
+    }
     if (!phone.chat) { json(res, 403, { ok: false }); return; }
     if (p === '/api/seen') { this.whispers = 0; json(res, 200, { ok: true }); return; }
     if (p === '/api/send') {

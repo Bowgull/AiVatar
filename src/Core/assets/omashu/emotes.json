@@ -1,0 +1,12 @@
+{
+  "about": "The fire remote's emotes (mockup omashu/remote/10, approved 2026-11-09). The one list: the phone draws it, Aang only forwards what is in it, Couch Mode only types what is in it. Each emote: [label on the tile, WoW command without the slash]. Every page is exactly 12. 'roll' is separate (/roll). Tried in WoW Forever on 2026-11-09.",
+  "pages": [
+    { "name": "Answers", "emotes": [["Yes", "yes"], ["No", "no"], ["Sorry", "sorry"], ["Nod", "nod"], ["Point", "point"], ["Thank", "thank"], ["Shrug", "shrug"], ["Sit", "sit"], ["Hello", "hello"], ["Bye", "bye"], ["Wave", "wave"], ["Welcome", "welcome"]] },
+    { "name": "Friendly", "emotes": [["Hug", "hug"], ["Cheer", "cheer"], ["Bow", "bow"], ["Salute", "salute"], ["Applaud", "applaud"], ["Clap", "clap"], ["Congrats", "congratulate"], ["Kneel", "kneel"], ["Flirt", "flirt"], ["Kiss", "kiss"], ["Smile", "smile"], ["Wink", "wink"]] },
+    { "name": "Funny", "emotes": [["Dance", "dance"], ["Laugh", "laugh"], ["Rofl", "rofl"], ["Chicken", "chicken"], ["Flex", "flex"], ["Train", "train"], ["Silly", "silly"], ["Roar", "roar"], ["Violin", "violin"], ["Cackle", "cackle"], ["Moo", "moo"], ["Golf clap", "golfclap"]] },
+    { "name": "Rude", "emotes": [["Rude", "rude"], ["Spit", "spit"], ["Moon", "moon"], ["Fart", "fart"], ["Burp", "burp"], ["Lick", "lick"], ["Pick nose", "pick"], ["Slap", "slap"], ["Sexy", "sexy"], ["Taunt", "taunt"], ["Mock", "mock"], ["Gloat", "gloat"]] },
+    { "name": "Group", "emotes": [["Ready", "ready"], ["Follow me", "followme"], ["Charge", "charge"], ["Wait", "wait"], ["Follow", "follow"], ["Flee", "flee"], ["Oom", "oom"], ["Heal me", "healme"], ["Help me", "helpme"], ["Incoming", "incoming"], ["Open fire", "openfire"], ["Threaten", "threaten"]] },
+    { "name": "Feelings", "emotes": [["Cry", "cry"], ["Sigh", "sigh"], ["Yawn", "yawn"], ["Sleep", "sleep"], ["Cower", "cower"], ["Blush", "blush"], ["Sad", "sad"], ["Smirk", "smirk"], ["Drool", "drool"], ["Pity", "pity"], ["Bored", "bored"], ["Tickle", "tickle"]] }
+  ],
+  "favourites": ["wave", "hello", "cheer", "thank", "sit", "dance", "laugh", "roll", "bow", "kneel", "salute", "fart"]
+}
