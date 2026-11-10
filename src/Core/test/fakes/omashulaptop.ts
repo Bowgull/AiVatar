@@ -14,7 +14,7 @@ const ALLOW = [
   String.raw`^/w [^\s/|\\]{2,24} [^\s/|\\]{2,24} (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
-  String.raw`^/(wave|hello|cheer|thank|bow|dance|laugh|hug|salute|welcome|applaud|clap|congratulate|bye|kneel|chicken|flex|train|silly|roar|violin|rofl|flirt|ready|followme|charge|wait|oom|healme|helpme|incoming|cry|sigh|shrug|yawn|sleep|cower|blush|sad|rude|spit|taunt|threaten|gloat|mock|moon|fart)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
+  String.raw`^/(wave|hello|cheer|thank|bow|dance|laugh|hug|salute|welcome|applaud|clap|congratulate|bye|kneel|chicken|flex|train|silly|roar|violin|rofl|flirt|ready|followme|charge|wait|oom|healme|helpme|incoming|cry|sigh|shrug|yawn|sleep|cower|blush|sad|rude|spit|taunt|threaten|gloat|mock|moon|fart|yes|no|sorry|nod|point|sit|attacktarget|flee)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));
 
 export interface FakeOpts { key: string; mac: string; me?: string; wakeDelayMs?: number; host?: string }

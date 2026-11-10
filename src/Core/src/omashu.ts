@@ -115,7 +115,7 @@ export type SendAsk =
   | { act: 'roll' };
 
 /**
- * The emotes on the phone (sheet 07): the tray's seven (Roll is its own command), then More's five groups of eight.
+ * The emotes on the phone (sheet 07): the tray's seven (Roll is its own command), then More's six groups of eight (Answers added 2026-11-09).
  * Each is the tile's name in lower case with no spaces. Couch Mode lists the same ones.
  */
 export const EMOTES = [
@@ -125,6 +125,7 @@ export const EMOTES = [
   'ready', 'followme', 'charge', 'wait', 'oom', 'healme', 'helpme', 'incoming',
   'cry', 'sigh', 'shrug', 'yawn', 'sleep', 'cower', 'blush', 'sad',
   'rude', 'spit', 'taunt', 'threaten', 'gloat', 'mock', 'moon', 'fart',
+  'yes', 'no', 'sorry', 'nod', 'point', 'sit', 'attacktarget', 'flee',
 ] as const;
 export type Emote = typeof EMOTES[number];
 
