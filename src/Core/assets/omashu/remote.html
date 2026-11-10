@@ -58,15 +58,28 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .panel .grip{width:48px;height:6px;border-radius:3px;background:var(--parch-line);margin:-2px auto 8px;box-shadow:0 0 0 10px transparent}
 .tabs{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;margin:0 0 8px;scrollbar-width:none;touch-action:pan-x}
 .tabs::-webkit-scrollbar{display:none}
-.tab{flex:none;padding:6px 9px 5px;border-radius:9px;background:#e4d1a3;color:var(--brown);font-size:14px;font-weight:600;box-shadow:inset 0 -2px 0 #c9b07a}
-.tab.on{background:var(--wood);color:var(--parch);box-shadow:inset 0 -3px 0 var(--wood-dark)}
-.tab .n{display:inline-block;margin-left:4px;background:#b5413a;color:#fff;border-radius:8px;padding:0 5px;font-size:11px}
+.tab{flex:none;padding:6px 9px 5px;border-radius:9px;background:var(--tf,#e4d1a3);color:#2a1408;font-size:14px;font-weight:600;box-shadow:inset 0 -2px 0 #0003}
+.tab.on{background:#1a120b;color:var(--tc,var(--parch));box-shadow:inset 0 0 0 2px var(--tc,#3a2614),0 0 10px -2px var(--tc,transparent)}
+/* whispers (sheet 12): the last 4 people, then one person's last 6 lines */
+.people{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;padding:8px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.who-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px;border-radius:9px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
+.who-row .nm{font-size:16px;font-weight:600;color:var(--c-whisper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who-row .ago{font-size:12px;color:#8a7b63;text-align:right;font-variant-numeric:tabular-nums}
+.who-row .last{grid-column:1/3;color:#ff80ffcc;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who-row .last.me{color:#b39b73}
+.who-row .n{display:inline-block;margin-left:6px;background:#b5413a;color:#fff;border-radius:8px;padding:0 6px;font-size:11px;font-weight:700;vertical-align:2px}
+.who-row.new{box-shadow:inset 0 0 0 2px #ff80ff66}
+.people .quiet{margin-top:auto;text-align:center;color:#5c4f3c;font-family:"Pixelify Sans";font-size:12px;padding:6px}
+.convo-hd{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-weight:600}
+.convo-hd .back{background:#e4d1a3;color:var(--brown);border-radius:9px;padding:5px 9px 4px;box-shadow:inset 0 -2px 0 #c9b07a;font-size:14px;cursor:pointer}
+.convo-hd .nm{color:var(--c-whisper);background:#1a120b;border-radius:9px;padding:5px 10px 4px;box-shadow:inset 0 0 0 2px #2a1a0e;font-size:15px}
+.tab .n{display:inline-block;margin-left:4px;background:#b5413a;color:#fff;border-radius:8px;padding:0 5px;font-size:11px;font-family:system-ui,-apple-system,sans-serif;font-weight:700}
 .log{flex:1;min-height:0;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;
   padding:10px 10px;overflow-y:auto;font-size:15px;line-height:1.38;display:flex;flex-direction:column;gap:5px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
   touch-action:pan-y;-webkit-user-select:text;user-select:text}
 .log>:first-child{margin-top:auto}
 .l{color:var(--c-say);overflow-wrap:anywhere}
-.t{color:#7d6f5a;font-size:11px;margin-right:4px;font-family:"Pixelify Sans"}
+.t{color:#8a7b63;font-size:12px;margin-right:5px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}   /* Pixelify mangles small digits (Joshua 2026-11-10) */
 .l .who,.l .ch,.l .lk{cursor:pointer}
 .g{color:var(--c-guild)} .p{color:var(--c-party)} .w{color:var(--c-whisper)} .gen{color:var(--c-general)} .sys{color:var(--c-sys)} .em{color:var(--c-emote)}
 .o{color:#40c040} .r{color:#ff7f00} .yl{color:#ff4040}
@@ -370,8 +383,12 @@ requestAnimationFrame(loop);
 const TABS=[['All',()=>true],['Whispers',l=>l.kind==='whisper'||l.kind==='whisper-out'],['Guild',l=>l.kind==='guild'||l.kind==='officer'],
   ['Party',l=>l.kind==='party'||l.kind==='raid'],['General',l=>l.chan&&/^general/i.test(l.chan.name)],['Trade',l=>l.chan&&/^trade/i.test(l.chan.name)],
   ['LFG',l=>l.chan&&/lookingforgroup|^lfg/i.test(l.chan.name)]];
+// sheet 12 (look B, Joshua 2026-11-10 "B, whole tab"): each tab filled in a soft version of its chat colour; the open one lit in the full colour
+const TAB_FILL={Whispers:'#f0a8f0',Guild:'#8ee08e',Party:'#bcbcf4',General:'#f2b8b8',Trade:'#f2b8b8',LFG:'#f2b8b8'};
+const TAB_LIT={All:'#efe6d2',Whispers:'#ff80ff',Guild:'#40ff40',Party:'#aaaaff',General:'#ffc0c0',Trade:'#ffc0c0',LFG:'#ffc0c0'};
+const W_PEOPLE=4,W_LINES=6;   // sheet 12: the last 4 people, the last 6 lines with each
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
-const chat={on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},
+const chat={on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},wPerson:null,wSeen:{},wOpen:0,
   linkColor:{}};
 const short=n=>String(n||'').split('-')[0];
 
@@ -379,6 +396,7 @@ function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='p
 function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
 function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
 
+let peopleEl=null,convoEl=null;
 let logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
 function openChat(){
   if(chat.open)return;chat.open=true;
@@ -387,7 +405,8 @@ function openChat(){
   const grip=$('div','grip');grip.addEventListener('click',closeChat);panel.appendChild(grip);
   tabsEl=$('div','tabs');panel.appendChild(tabsEl);
   const cols=$('div','cols');leftEl=$('div','left');rightEl=$('div','right');cols.append(leftEl,rightEl);panel.appendChild(cols);
-  logEl=$('div','log');leftEl.appendChild(logEl);
+  convoEl=$('div','convo-hd');convoEl.hidden=true;peopleEl=$('div','people');peopleEl.hidden=true;
+  logEl=$('div','log');leftEl.append(convoEl,peopleEl,logEl);
   logStuck=true;logEl.addEventListener('scroll',()=>{logStuck=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40});
   if(window.ResizeObserver)new ResizeObserver(()=>{if(logStuck&&!logEl.hidden)logEl.scrollTop=logEl.scrollHeight}).observe(logEl);
   trayEl=tray(null);moreEl=$('div','emsheet');
@@ -417,7 +436,9 @@ if(window.visualViewport){visualViewport.addEventListener('resize',settle);visua
 
 function pickTab(name){
   chat.tab=name;
-  if(name==='Whispers'){const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
+  chat.wPerson=null;
+  if(name==='Whispers'){const inc=chat.lines.filter(l=>l.kind==='whisper');chat.wUnread=new Set(chat.whispers?inc.slice(-chat.whispers).map(l=>l.seq):[]);
+    chat.wOpen=Math.max(chat.seen.Whispers??0,...inc.filter(l=>!chat.wUnread.has(l.seq)).map(l=>l.seq),0);const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
   else if(name==='Guild')chat.to={to:'guild'};else if(name==='Party')chat.to={to:'party'};
   else{const f=TABS.find(t=>t[0]===name)[1],l=[...chat.lines].reverse().find(x=>x.chan&&f(x));if(l&&name!=='All')chat.to={to:'channel',num:l.chan.num}}
   chat.seen[name]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
@@ -429,20 +450,40 @@ function showBadge(){badge.hidden=!chat.whispers;badge.textContent=chat.whispers
 let tabEls={},shownTab=null,shownSeq=0;
 function render(full){
   if(!panel)return;
-  if(!tabsEl.children.length)for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));tabsEl.appendChild(t);tabEls[n]=t}
+  if(!tabsEl.children.length)for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
+    if(TAB_FILL[n])t.style.setProperty('--tf',TAB_FILL[n]);t.style.setProperty('--tc',TAB_LIT[n]);tabsEl.appendChild(t);tabEls[n]=t}
   for(const [n,f] of TABS){const t=tabEls[n];t.className='tab'+(n===chat.tab?' on':'');
     const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
     let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
-  const f=TABS.find(t=>t[0]===chat.tab)[1];
-  const stick=full||shownTab!==chat.tab||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
+  const isW=l=>l.kind==='whisper'||l.kind==='whisper-out';
+  const people=chat.tab==='Whispers'&&!chat.wPerson;
+  peopleEl.hidden=!people;logEl.hidden=people;convoEl.hidden=!(chat.tab==='Whispers'&&chat.wPerson);
+  if(people)drawPeople(isW);
+  if(chat.tab==='Whispers'&&chat.wPerson){convoEl.textContent='';const b=$('div','back','‹ Whispers');b.addEventListener('click',()=>{chat.wPerson=null;render(true)});
+    convoEl.append(b,$('div','nm',short(chat.wPerson)));chat.wSeen[chat.wPerson]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0}
+  const key=chat.tab+'|'+(chat.wPerson||'');
+  const f=chat.wPerson?(l=>isW(l)&&l.who===chat.wPerson):TABS.find(t=>t[0]===chat.tab)[1];
+  const stick=full||shownTab!==key||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
   // only new lines are added, so a tap on a line never lands on one that was just replaced
-  if(full||shownTab!==chat.tab||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0;shownTab=chat.tab}
+  if(full||shownTab!==key||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0;shownTab=key}
   for(const l of chat.lines)if(l.seq>shownSeq&&f(l))logEl.appendChild(lineEl(l));
   if(chat.lines.length)shownSeq=Math.max(shownSeq,chat.lines[chat.lines.length-1].seq);
-  while(logEl.children.length>300)logEl.firstChild.remove();
+  while(logEl.children.length>(chat.wPerson?W_LINES:300))logEl.firstChild.remove();
   if(stick)logEl.scrollTop=logEl.scrollHeight;
   chat.seen[chat.tab]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
   chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
+}
+// the Whispers tab: the last 4 people (newest first), their last line, unread count; tap one for just that conversation
+function drawPeople(isW){
+  peopleEl.textContent='';const seen=[];
+  for(let i=chat.lines.length-1;i>=0&&seen.length<W_PEOPLE;i--){const l=chat.lines[i];if(isW(l)&&l.who&&!seen.some(p=>p.l.who===l.who))seen.push({l})}
+  for(const {l} of seen){
+    const k=chat.lines.filter(x=>x.kind==='whisper'&&x.who===l.who&&x.seq>(chat.wSeen[l.who]??0)&&(chat.wUnread?.has(x.seq)||x.seq>chat.wOpen)).length;
+    const r=$('div','who-row'+(k?' new':''));const nm=$('div','nm',short(l.who));if(k)nm.appendChild($('span','n',String(k)));
+    const me=l.kind==='whisper-out';const last=$('div','last'+(me?' me':''),(me?'You: ':'')+l.text.map(s=>'s' in s?s.s:'['+s.name+']').join(''));
+    r.append(nm,$('div','ago',l.t||''),last);
+    r.addEventListener('click',()=>{chat.wPerson=l.who;chat.to={to:'whisper',name:l.who};render(true)});peopleEl.appendChild(r)}
+  peopleEl.appendChild($('div','quiet',seen.length?'the last 4 people · gone when WoW closes':'no whispers yet'));
 }
 function lineEl(l){
   const d=$('div','l '+(l.em?'em':KIND[l.kind]||''));d.dataset.seq=l.seq;
