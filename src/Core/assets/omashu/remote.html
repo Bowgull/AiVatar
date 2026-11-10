@@ -131,6 +131,9 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .tip .two{display:flex;justify-content:space-between;gap:10px}
 .tip .fine{margin-top:10px;font-family:"Pixelify Sans";font-size:12px;color:#8a8aa0}
 /* review before send */
+.l.pend{opacity:.45;font-style:italic}
+.send{position:relative}
+.send .hint{position:absolute;left:96px;bottom:-18px;font:13px "Pixelify Sans";color:#e0675d;text-shadow:0 1px 0 #000}
 .review{margin-top:8px;background:#fffaf0;border-radius:12px;box-shadow:inset 0 0 0 2px var(--parch-line);padding:10px 12px 12px;color:#2a1a0e;font-size:16px;font-family:system-ui,-apple-system,sans-serif;overflow-wrap:anywhere}
 .review .to{font-family:"Pixelify Sans";font-size:13px;color:#7a5a3a;margin-bottom:4px}
 .review .to.bad{color:#b5413a}
@@ -375,10 +378,10 @@ function openChat(){
   chanEl=$('div','chan');chanEl.addEventListener('click',pickChannel);
   emoEl=$('div','emo');emoEl.addEventListener('click',smiley);
   box=$('input','box');box.type='text';box.enterKeyHint='send';box.autocomplete='off';box.maxLength=240;
-  box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();review()}});
+  box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send()}});
   box.addEventListener('focus',()=>{app.classList.add('typing');if(chat.emo){chat.emo=null;layoutEmo()}});
   box.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
-  const go=$('div','go');go.innerHTML=SEND;go.addEventListener('click',review);
+  const go=$('div','go');go.innerHTML=SEND;go.addEventListener('pointerdown',e=>e.preventDefault());go.addEventListener('click',send);   // pointerdown kept off the box: tapping Send doesn't close the keyboard
   sendEl.append(chanEl,emoEl,box,go);leftEl.appendChild(sendEl);
   app.appendChild(panel);
   app.querySelector('.cdim').addEventListener('click',closeChat);
@@ -545,21 +548,26 @@ function tooltip(s){
       const row=$('div',(x.r?'two ':'')+(x.c||''));row.appendChild($('span',null,x.l));if(x.r)row.appendChild($('span',null,x.r));body.appendChild(row)})});
 }
 
-// ---------- say it, check it, send it ----------
-function review(){
-  const text=box.value.trim();if(!text)return;
-  box.blur();sendEl.hidden=true;
-  const rv=$('div','review');const to=$('div','to','Send to '+(chat.to.to==='whisper'?short(chat.to.name):chanLabel(chat.to)));
-  rv.append(to,text);const rb=$('div','rb');const no=$('div','no','Fix'),yes=$('div','yes','Send');rb.append(no,yes);rv.appendChild(rb);
-  panel.appendChild(rv);
-  const done=()=>{rv.remove();sendEl.hidden=false};
-  no.addEventListener('click',()=>{done();box.focus()});
-  let busy=false;
-  yes.addEventListener('click',()=>{if(busy)return;busy=true;
-    const ask=chat.to.to==='whisper'?{to:'whisper',name:chat.to.name,text}:chat.to.to==='channel'?{to:'channel',num:chat.to.num,text}:{to:chat.to.to,text};
-    api('/api/send',ask).then(({ok,j})=>{busy=false;
-      if(ok){box.value='';done();return}
-      to.className='to bad';to.textContent=j.why==='refused'?'Not sent: WoW won\'t take that line':j.why==='not-in-wow'?'Not sent: WoW is not up':'Not sent: try again'})});
+// ---------- say it, send it (Joshua 2026-11-09: no confirm card for typed lines) ----------
+// Enter or the Send button sends straight away and the keyboard stays up. The line shows in the log at once, faded,
+// until WoW's own copy arrives; if Couch Mode refuses it the text goes back in the box with a short note.
+// Couch Mode's allow-list on the laptop still decides what may be typed into WoW.
+let sending=false;
+function send(){
+  const text=box.value.trim();if(!text||sending)return;
+  sending=true;box.value='';hint(null);
+  const ask=chat.to.to==='whisper'?{to:'whisper',name:chat.to.name,text}:chat.to.to==='channel'?{to:'channel',num:chat.to.num,text}:{to:chat.to.to,text};
+  const pend=$('div','l pend');pend.textContent=text;logEl.appendChild(pend);logEl.scrollTop=logEl.scrollHeight;
+  api('/api/send',ask).then(({ok,j})=>{sending=false;
+    if(ok){setTimeout(()=>pend.remove(),2500);return}                 // WoW's copy comes in with the next poll
+    pend.remove();if(!box.value)box.value=text;
+    hint(j&&j.why==='refused'?'WoW won\'t take that line':j&&j.why==='not-in-wow'?'WoW is not up':'Not sent, try again')});
+}
+function hint(msg){
+  let h=sendEl&&sendEl.querySelector('.hint');
+  if(!msg){if(h)h.remove();return}
+  if(!h){h=$('div','hint');sendEl.appendChild(h)}
+  h.textContent=msg;clearTimeout(h._t);h._t=setTimeout(()=>h.remove(),4000);
 }
 
 // ---------- staying in step with Aang ----------
