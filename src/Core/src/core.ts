@@ -2912,8 +2912,10 @@ export class Core {
   private startOmashu(): void {
     const cfg = loadRemoteConfig(path.join(this.cfg.stateDir, 'omashu-remote.json'));
     if (!cfg || cfg.enabled === false) return;
+    const cfgFile = path.join(this.cfg.stateDir, 'omashu-remote.json');
     this.omashu = new OmashuRemote({
       cfg,
+      saveCfg: c => writeFileAtomic(cfgFile, JSON.stringify(c, null, 2) + '\n', { mode: 0o600 }),
       notify: text => this.sendTo('discord', { t: 'bubble', text: `WoW: ${text.slice(0, 300)}`, stream: false, proactive: true, buzz: true }),
     });
     this.omashu.start().then(p => console.log(`omashu remote: listening on port ${p} (home Wi-Fi only)`), e => console.error(`omashu remote: could not start: ${(e as Error).message}`));

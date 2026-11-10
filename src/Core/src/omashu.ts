@@ -2,6 +2,9 @@
 // The service around them is omashuremote.ts; the page is assets/omashu/remote.html. The laptop side (Couch Mode) is
 // described in the omashu repo, reports/phone-remote-contract.md, and faked in test/fakes/omashulaptop.ts.
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 // ------------------------------------------------------------------ waking the laptop
 
 /** "AA:BB:CC:DD:EE:FF", "aa-bb-..." or "aabbccddeeff" -> 6 bytes, or null when it is not a MAC address. */
@@ -115,19 +118,22 @@ export type SendAsk =
   | { act: 'roll' };
 
 /**
- * The emotes on the phone (sheet 07): the tray's seven (Roll is its own command), then More's six groups of eight (Answers added 2026-11-09).
- * Each is the tile's name in lower case with no spaces. Couch Mode lists the same ones.
+ * The emotes: assets/omashu/emotes.json, the one list (mockup omashu/remote/10, approved 2026-11-09). The phone draws
+ * it, this file allows only what is in it, and Couch Mode reads the same file before typing anything into WoW.
+ * Each command is a word in lower case (yes, golfclap, pick); /roll is its own command.
  */
-export const EMOTES = [
-  'wave', 'hello', 'cheer', 'thank', 'bow', 'dance', 'laugh',
-  'hug', 'salute', 'welcome', 'applaud', 'clap', 'congratulate', 'bye', 'kneel',
-  'chicken', 'flex', 'train', 'silly', 'roar', 'violin', 'rofl', 'flirt',
-  'ready', 'followme', 'charge', 'wait', 'oom', 'healme', 'helpme', 'incoming',
-  'cry', 'sigh', 'shrug', 'yawn', 'sleep', 'cower', 'blush', 'sad',
-  'rude', 'spit', 'taunt', 'threaten', 'gloat', 'mock', 'moon', 'fart',
-  'yes', 'no', 'sorry', 'nod', 'point', 'sit', 'attacktarget', 'flee',
-] as const;
-export type Emote = typeof EMOTES[number];
+export interface EmoteCatalog { pages: { name: string; emotes: [label: string, cmd: string][] }[]; favourites: string[] }
+export const CATALOG_FILE = path.join(import.meta.dirname, '..', 'assets', 'omashu', 'emotes.json');
+export const CATALOG: EmoteCatalog = JSON.parse(readFileSync(CATALOG_FILE, 'utf8'));
+export const EMOTES: readonly string[] = CATALOG.pages.flatMap(p => p.emotes.map(e => e[1])).filter(c => /^[a-z]{2,15}$/.test(c));
+export type Emote = string;
+/** A phone's favourites: up to 12 known commands (or roll), no repeats. Null when the list is not acceptable. */
+export function cleanFavourites(v: unknown): string[] | null {
+  if (!Array.isArray(v) || v.length > 12) return null;
+  const out: string[] = [];
+  for (const c of v) { if (typeof c !== 'string' || !(c === 'roll' || EMOTES.includes(c)) || out.includes(c)) return null; out.push(c); }
+  return out;
+}
 
 /** The allow-list, word for word the one in the contract (Couch Mode checks the same lines again before typing). */
 const TEXT = String.raw`(?!/)[^|\r\n\x00-\x1f]{1,255}`;
@@ -152,7 +158,7 @@ export function buildLine(a: SendAsk): string | null {
   if (!a || typeof a !== 'object') return null;
   // a whisper name is exactly two words: WoW takes the first two words as the name, so "Bujuju" alone would whisper
   // "Bujuju <first word>" the rest; the other commands take one or two
-  const emote = 'act' in a && (EMOTES as readonly string[]).includes(a.act);
+  const emote = 'act' in a && EMOTES.includes(a.act);
   // a name is checked whenever one is needed or given (an emote may go without one)
   const name = 'name' in a ? a.name : undefined;
   const needs = 'to' in a ? a.to === 'whisper' : !emote && a.act !== 'roll';

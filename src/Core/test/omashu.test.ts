@@ -2,7 +2,7 @@
 // sent to WoW, and Wowhead tooltips turned into plain lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMOTES, allowed, buildLine, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
+import { CATALOG, EMOTES, allowed, cleanFavourites, buildLine, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
 
 test('a magic packet is six 0xFF and the MAC sixteen times', () => {
   const p = magicPacket('aa:bb:cc:dd:ee:ff');
@@ -75,13 +75,13 @@ test('sending: only the approved commands can be built', () => {
   assert.equal(buildLine({ act: 'cheer', name: 'Gideon Byrne' }), '/cheer Gideon Byrne');
   assert.equal(buildLine({ act: 'roll' }), '/roll');
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
-  // emotes (sheet 07): all 47, alone or at a one- or two-word name
-  assert.equal(EMOTES.length, 55);
+  // emotes (mockup 10): all 72, alone or at a one- or two-word name
+  assert.equal(EMOTES.length, 72);
   for (const e of EMOTES) {
     assert.equal(buildLine({ act: e }), `/${e}`);
     assert.equal(buildLine({ act: e, name: 'Gideon Byrne' }), `/${e} Gideon Byrne`);
   }
-  for (const e of ['followme', 'healme', 'helpme', 'congratulate', 'yes', 'sit', 'attacktarget']) assert.ok(EMOTES.includes(e as never), e);
+  for (const e of ['followme', 'healme', 'helpme', 'congratulate', 'yes', 'sit', 'follow', 'pick', 'golfclap', 'cackle']) assert.ok(EMOTES.includes(e as never), e);
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
   // never anything else
   for (const bad of [
@@ -91,7 +91,7 @@ test('sending: only the approved commands can be built', () => {
     { act: 'follow me' } as never, { act: 'congrats' } as never, { act: 'roll', name: 'Hadrik' } as never,
     { to: 'raid', text: 'x' }, { to: 'say', text: 'x'.repeat(260) }, null,
   ]) assert.equal(buildLine(bad as never), null, JSON.stringify(bad));
-  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/w Bujuju hi', '/w Ab Cd /run x', '/who Ab Cd Ef', '/roll 100', '/dance Ab Cd Ef', '/dance /run', '/followme Ab /x', '/emote waves', '/e waves', '/kiss'])
+  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/w Bujuju hi', '/w Ab Cd /run x', '/who Ab Cd Ef', '/roll 100', '/dance Ab Cd Ef', '/dance /run', '/followme Ab /x', '/emote waves', '/e waves', '/spank', '/attacktarget'])
     assert.ok(!allowed(bad), bad);
 });
 
@@ -106,4 +106,14 @@ test('Wowhead tooltip HTML becomes plain coloured lines, two columns kept', () =
   assert.ok(l.some(x => x.l === 'Hands' && x.r === 'Cloth'));
   assert.ok(l.some(x => x.l === 'Equip: Increases damage & healing.' && x.c === 'q2'));
   assert.ok(l.every(x => !/[<>]/.test(x.l + (x.r ?? ''))));
+});
+
+test('emotes.json: six pages of 12, no repeats, favourites only known commands (mockup 10)', () => {
+  assert.equal(CATALOG.pages.length, 6);
+  for (const p of CATALOG.pages) assert.equal(p.emotes.length, 12, p.name);
+  assert.equal(new Set(EMOTES).size, EMOTES.length);
+  assert.deepEqual(cleanFavourites(CATALOG.favourites), CATALOG.favourites);
+  assert.ok(CATALOG.favourites.includes('sit'));
+  assert.deepEqual(cleanFavourites(['roll', 'fart']), ['roll', 'fart']);
+  for (const bad of [['run'], ['wave', 'wave'], Array(13).fill('wave'), 'wave', [1], ['/wave'], ['attacktarget']]) assert.equal(cleanFavourites(bad), null, JSON.stringify(bad));
 });
