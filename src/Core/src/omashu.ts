@@ -135,6 +135,21 @@ export function cleanFavourites(v: unknown): string[] | null {
   return out;
 }
 
+/** One member of the online guild list (phone sheet 11). */
+export interface GuildMember { name: string; level: number; cls: string; zone: string }
+/**
+ * A guild-list line from the WoW add-on (OmashuChatLog): "{omashu-guild} <list> <i>/<n> Name|level|CLASS|zone",
+ * or "<list> 0/0" for nobody. null for any other line.
+ */
+export function parseGuildLine(raw: string): { list: number; i: number; n: number; m?: GuildMember } | null {
+  const x = String(raw ?? '').match(/\{omashu-guild\} (\d{1,5}) (\d{1,4})\/(\d{1,4})(?: ([^|]{1,48})\|(\d{1,3})\|([A-Z]{0,20})\|([^|\r\n]{0,80}))?\s*$/);
+  if (!x) return null;
+  const list = Number(x[1]), i = Number(x[2]), n = Number(x[3]);
+  if (n === 0) return i === 0 ? { list, i, n } : null;
+  if (!x[4] || i < 1 || i > n) return null;
+  return { list, i, n, m: { name: x[4], level: Number(x[5]), cls: x[6], zone: x[7].trim() } };
+}
+
 /** The allow-list, word for word the one in the contract (Couch Mode checks the same lines again before typing). */
 const TEXT = String.raw`(?!/)[^|\r\n\x00-\x1f]{1,255}`;
 /** One word of a name. WoW: Forever names are two words, and WoW reads the first two words of "/w" as the name. */

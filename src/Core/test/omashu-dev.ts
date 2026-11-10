@@ -28,4 +28,7 @@ const say = [
 ];
 let i = 0;
 for (; i < 9; i++) lap.log(say[i]);
+// the guild list, as OmashuChatLog sends it (sheet 11)
+const GUILD = ['Morrowyn Ash|14|MAGE|Silverpine Forest', 'Hadrik Stone|12|WARRIOR|Undercity', 'Thornwick Vale|9|ROGUE|Tirisfal Glades', 'Ana Reyes|8|SHAMAN|Durotar', 'Bujuju Banton|7|WARLOCK|Tirisfal Glades'];
+GUILD.forEach((g, k) => lap.log(`{omashu-guild} 1 ${k + 1}/${GUILD.length} ${g}`));
 setInterval(() => { if (lap.game === 'wow') lap.log(say[i++ % say.length]); }, 8000);

@@ -60,6 +60,18 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex:none;padding:6px 9px 5px;border-radius:9px;background:var(--tf,#e4d1a3);color:#2a1408;font-size:14px;font-weight:600;box-shadow:inset 0 -2px 0 #0003}
 .tab.on{background:#1a120b;color:var(--tc,var(--parch));box-shadow:inset 0 0 0 2px var(--tc,#3a2614),0 0 10px -2px var(--tc,transparent)}
+/* guild, who's on (sheet 11): folded above the guild chat */
+.roster{flex:none;max-height:45%;overflow-y:auto;background:#1a120b;border-radius:10px;box-shadow:inset 0 0 0 2px #3a2614;margin:0 0 8px;padding:8px 8px 6px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:pan-y}
+.roster .hd{display:flex;justify-content:space-between;align-items:center;font-size:15px;padding:0 4px 6px;cursor:pointer}
+.roster .hd b{color:var(--c-guild);font-weight:600}
+.roster .hd span{color:#b39b73;font-size:13px}
+.roster.folded{padding:9px 12px}
+.roster.folded .hd{padding:0}
+.mem{display:grid;grid-template-columns:minmax(0,1fr) 34px minmax(0,1.1fr);gap:8px;align-items:center;padding:7px 6px;border-top:1px solid #2a1a0e;font-size:15px;cursor:pointer}
+.mem .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mem .lv{text-align:right;color:#ffd36b;font-variant-numeric:tabular-nums}
+.mem .zn{color:#b39b73;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mem.hl{background:#ffffff14;border-radius:7px}
 /* whispers (sheet 12): the last 4 people, then one person's last 6 lines */
 .people{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;padding:8px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 .who-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px;border-radius:9px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
@@ -102,7 +114,7 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .menu{position:absolute;z-index:7;left:44px;right:44px;top:330px;background:var(--wood);border-radius:14px;
   box-shadow:0 0 0 3px var(--wood-dark),inset 0 0 0 3px var(--wood-hi),0 14px 40px #000;padding:12px 10px 10px;max-height:calc(100% - 80px);overflow-y:auto}
 .menu h4{margin:0 6px 8px;font-size:18px;color:#ffd36b}
-.menu h4 span{display:block;color:#e4c9a0;font-size:12px;font-weight:400;margin-top:2px}
+.menu h4 span{display:block;color:#e4c9a0;font-size:13px;font-weight:400;margin-top:3px;font-family:system-ui,-apple-system,sans-serif}
 .mi{background:#3a2212;color:var(--parch);border-radius:9px;padding:11px 12px 10px;margin:5px 0;font-size:16px;box-shadow:inset 0 -2px 0 #24140a;display:flex;justify-content:space-between}
 .mi small{color:#b39b73;font-size:12px}
 /* the emote tray: wooden tiles, 3 by 3 (sheet 07) */
@@ -386,9 +398,12 @@ const TABS=[['All',()=>true],['Whispers',l=>l.kind==='whisper'||l.kind==='whispe
 // sheet 12 (look B, Joshua 2026-11-10 "B, whole tab"): each tab filled in a soft version of its chat colour; the open one lit in the full colour
 const TAB_FILL={Whispers:'#f0a8f0',Guild:'#8ee08e',Party:'#bcbcf4',General:'#f2b8b8',Trade:'#f2b8b8',LFG:'#f2b8b8'};
 const TAB_LIT={All:'#efe6d2',Whispers:'#ff80ff',Guild:'#40ff40',Party:'#aaaaff',General:'#ffc0c0',Trade:'#ffc0c0',LFG:'#ffc0c0'};
-const W_PEOPLE=4,W_LINES=6;   // sheet 12: the last 4 people, the last 6 lines with each
+const W_PEOPLE=4,W_LINES=6;
+// WoW's own class colours (RAID_CLASS_COLORS), for the guild list
+const CLASS_COLOR={WARRIOR:'#C69B6D',MAGE:'#3FC7EB',ROGUE:'#FFF468',DRUID:'#FF7C0A',HUNTER:'#AAD372',SHAMAN:'#0070DD',PRIEST:'#FFFFFF',WARLOCK:'#8788EE',PALADIN:'#F48CBA',DEATHKNIGHT:'#C41E3A',MONK:'#00FF98',DEMONHUNTER:'#A330C9',EVOKER:'#33937F'};
+const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';   // sheet 12: the last 4 people, the last 6 lines with each
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
-const chat={on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},wPerson:null,wSeen:{},wOpen:0,
+const chat={on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
   linkColor:{}};
 const short=n=>String(n||'').split('-')[0];
 
@@ -396,7 +411,7 @@ function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='p
 function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
 function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
 
-let peopleEl=null,convoEl=null;
+let peopleEl=null,convoEl=null,rosterEl=null;
 let logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
 function openChat(){
   if(chat.open)return;chat.open=true;
@@ -405,8 +420,8 @@ function openChat(){
   const grip=$('div','grip');grip.addEventListener('click',closeChat);panel.appendChild(grip);
   tabsEl=$('div','tabs');panel.appendChild(tabsEl);
   const cols=$('div','cols');leftEl=$('div','left');rightEl=$('div','right');cols.append(leftEl,rightEl);panel.appendChild(cols);
-  convoEl=$('div','convo-hd');convoEl.hidden=true;peopleEl=$('div','people');peopleEl.hidden=true;
-  logEl=$('div','log');leftEl.append(convoEl,peopleEl,logEl);
+  convoEl=$('div','convo-hd');convoEl.hidden=true;peopleEl=$('div','people');peopleEl.hidden=true;rosterEl=$('div','roster');rosterEl.hidden=true;rosterSig='';
+  logEl=$('div','log');leftEl.append(convoEl,rosterEl,peopleEl,logEl);
   logStuck=true;logEl.addEventListener('scroll',()=>{logStuck=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40});
   if(window.ResizeObserver)new ResizeObserver(()=>{if(logStuck&&!logEl.hidden)logEl.scrollTop=logEl.scrollHeight}).observe(logEl);
   trayEl=tray(null);moreEl=$('div','emsheet');
@@ -459,6 +474,7 @@ function render(full){
   const people=chat.tab==='Whispers'&&!chat.wPerson;
   peopleEl.hidden=!people;logEl.hidden=people;convoEl.hidden=!(chat.tab==='Whispers'&&chat.wPerson);
   if(people)drawPeople(isW);
+  drawRoster();
   if(chat.tab==='Whispers'&&chat.wPerson){convoEl.textContent='';const b=$('div','back','‹ Whispers');b.addEventListener('click',()=>{chat.wPerson=null;render(true)});
     convoEl.append(b,$('div','nm',short(chat.wPerson)));chat.wSeen[chat.wPerson]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0}
   const key=chat.tab+'|'+(chat.wPerson||'');
@@ -472,6 +488,26 @@ function render(full){
   if(stick)logEl.scrollTop=logEl.scrollHeight;
   chat.seen[chat.tab]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
   chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
+}
+// the Guild tab: who's on (sheet 11), names in their class colour, highest level first, you last (the add-on sorts)
+let rosterSig='';
+function drawRoster(){
+  const show=chat.tab==='Guild'&&Array.isArray(chat.guild)&&chat.guild.length>0;rosterEl.hidden=!show;if(!show){rosterSig='';return}
+  const sig=chat.guildFolded+'|'+JSON.stringify(chat.guild);if(sig===rosterSig)return;rosterSig=sig;
+  rosterEl.textContent='';rosterEl.classList.toggle('folded',chat.guildFolded);
+  const hd=$('div','hd');hd.append($('b',null,'On now · '+chat.guild.length),$('span',null,chat.guildFolded?'open ▾':'fold ▴'));
+  hd.addEventListener('click',()=>{chat.guildFolded=!chat.guildFolded;drawRoster()});rosterEl.appendChild(hd);
+  if(chat.guildFolded)return;
+  for(const m of chat.guild){
+    const r=$('div','mem');const nm=$('div','nm',m.name);nm.style.color=CLASS_COLOR[m.cls]||'var(--c-guild)';
+    r.append(nm,$('div','lv',String(m.level)),$('div','zn',m.zone));
+    r.addEventListener('click',()=>{r.classList.add('hl');guildMenu(m,r)});rosterEl.appendChild(r)}
+}
+function guildMenu(m,row){
+  const n=m.name;const m2=menuShell(short(n),'Level '+m.level+' '+CLASS_NAME(m.cls)+(m.zone?' · '+m.zone:''));m2.classList.add('name');row.classList.add('hl');
+  mi(m2,'Whisper','/w',()=>{chat.to={to:'whisper',name:n};render();box.focus()});
+  mi(m2,'Invite to party','/invite',()=>act({act:'invite',name:n}));
+  mi(m2,'Who is this?','/who',()=>act({act:'who',name:n}));
 }
 // the Whispers tab: the last 4 people (newest first), their last line, unread count; tap one for just that conversation
 function drawPeople(isW){
@@ -503,7 +539,7 @@ function lineEl(l){
 }
 
 // ---------- tap a name ----------
-function closeMenus(){app.querySelectorAll('.mdim,.menu,.tip').forEach(n=>n.remove());app.querySelectorAll('.l.hl').forEach(n=>n.classList.remove('hl'))}
+function closeMenus(){app.querySelectorAll('.mdim,.menu,.tip').forEach(n=>n.remove());app.querySelectorAll('.l.hl,.mem.hl').forEach(n=>n.classList.remove('hl'))}
 function menuShell(title,sub){closeMenus();const dm=$('div','mdim');dm.addEventListener('click',closeMenus);app.appendChild(dm);
   const m=$('div','menu');const h=$('h4',null,title);if(sub)h.appendChild($('span',null,sub));m.appendChild(h);app.appendChild(m);return m}
 function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small)b.appendChild($('small',null,small));b.addEventListener('click',()=>{closeMenus();fn()});(into||m).appendChild(b);return b}
@@ -686,6 +722,7 @@ async function poll(){
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
       chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
+      const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(chat.open&&gChanged&&rosterEl)drawRoster();
       if(chat.open&&(j.lines&&j.lines.length||!was))render()}
     place();
   }

@@ -35,7 +35,7 @@ async function rig(o: { wowhead?: Wowhead } = {}) {
     post: (p: string, body: unknown = {}, extra: Record<string, string> = { 'x-omashu': '1' }) =>
       fetch(base + p, { method: 'POST', headers: { ...(key ? { cookie: `omashu=${key}` } : {}), 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body) }),
   });
-  const poll = async (key = JOSH, q = '') => (await as(key).get('/api/poll' + q)).json() as Promise<{ fire: string; game: string | null; chat: boolean; whispers?: number; session?: string; lines?: { seq: number; kind: string; who?: string; text: unknown[] }[] }>;
+  const poll = async (key = JOSH, q = '') => (await as(key).get('/api/poll' + q)).json() as Promise<{ fire: string; game: string | null; chat: boolean; whispers?: number; session?: string; lines?: { seq: number; kind: string; who?: string; text: unknown[] }[]; guild?: { name: string; level: number; cls: string; zone: string }[] | null }>;
   return { lap, remote, base, as, poll, notes, done: async () => { await remote.stop(); await lap.stop(); } };
 }
 
@@ -128,6 +128,29 @@ test('who gets in: paired phones on the home network; chat only for Joshua; post
     assert.equal(lz.chat, false); assert.equal(lz.lines, undefined);
     assert.equal((await r.as(LINDZ).post('/api/send', { to: 'say', text: 'hi' })).status, 403);
     assert.equal((await r.as(LINDZ).get('/api/lookup?name=x')).status, 403);
+  } finally { await r.done(); }
+});
+
+test('guild list (sheet 11): built from the add-on lines, swapped in only when complete, never shown as chat', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    r.lap.log('[Guild] Morrowyn Ash: grats on 11!');
+    r.lap.log('{omashu-guild} 7 1/3 Morrowyn Ash|14|MAGE|Silverpine Forest');
+    r.lap.log('{omashu-guild} 7 2/3 Hadrik Stone|12|WARRIOR|Undercity');
+    await until(async () => ((await r.poll()).lines ?? []).length === 1);
+    assert.equal((await r.poll()).guild, null);                       // 2 of 3: not yet
+    r.lap.log('{omashu-guild} 7 3/3 Bujuju Banton|7|WARLOCK|Tirisfal Glades');
+    await until(async () => Array.isArray((await r.poll()).guild));
+    const p = await r.poll();
+    assert.deepEqual(p.guild!.map(m => `${m.name} ${m.level} ${m.cls} ${m.zone}`),
+      ['Morrowyn Ash 14 MAGE Silverpine Forest', 'Hadrik Stone 12 WARRIOR Undercity', 'Bujuju Banton 7 WARLOCK Tirisfal Glades']);
+    assert.deepEqual(p.lines!.map(l => l.kind), ['guild']);           // the list lines never show as chat
+    r.lap.log('{omashu-guild} 8 0/0');                                // nobody on
+    await until(async () => ((await r.poll()).guild ?? [1]).length === 0);
+    r.lap.stopWow();
+    await until(async () => (await r.poll()).chat === false);
+    assert.equal(r.remote.guild, null);
   } finally { await r.done(); }
 });
 
