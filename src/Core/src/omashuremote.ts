@@ -15,7 +15,7 @@ import dgram from 'node:dgram';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, tooltipLines, type ChatLine, type SendAsk, type TipLine } from './omashu.ts';
+import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, parseGuildLine, tooltipLines, type ChatLine, type GuildMember, type SendAsk, type TipLine } from './omashu.ts';
 import { writeFileAtomic } from './atomic.ts';
 
 export const REMOTE_PORT = 47880;
@@ -194,6 +194,9 @@ export class OmashuRemote {
   private primed = false;     // the first batch of a session is backlog: shown, never buzzed
   lines: ChatLine[] = [];
   whispers = 0;
+  /** Who in the guild is online (sheet 11): the last complete list from the add-on; null until one arrives. */
+  guild: GuildMember[] | null = null;
+  private guildParts: { list: number; n: number; got: (GuildMember | undefined)[] } | null = null;
   private tickRunning: Promise<void> | null = null;
 
   private o: RemoteOpts;
@@ -245,7 +248,7 @@ export class OmashuRemote {
     else this.forget();
   }
 
-  private forget() { this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; }
+  private forget() { this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
 
   private async follow(): Promise<void> {
     let b = await this.laptop.chat(this.after);
@@ -259,6 +262,8 @@ export class OmashuRemote {
     for (const l of b.lines) {
       if (l.seq <= this.after) continue;
       this.after = l.seq;
+      const gl = parseGuildLine(l.raw);
+      if (gl) { this.takeGuild(gl); continue; }      // the guild list: never shown as chat
       const c = parseChatLine(l.raw, l.seq);
       if (!c) continue;
       this.lines.push(c);
@@ -270,6 +275,14 @@ export class OmashuRemote {
     this.after = Math.max(this.after, b.seq);
     if (this.lines.length > KEEP_LINES) this.lines.splice(0, this.lines.length - KEEP_LINES);
     this.primed = true;
+  }
+
+  private takeGuild(g: { list: number; i: number; n: number; m?: GuildMember }) {
+    if (g.n === 0) { this.guild = []; this.guildParts = null; return; }
+    if (!this.guildParts || this.guildParts.list !== g.list || this.guildParts.n !== g.n) this.guildParts = { list: g.list, n: g.n, got: new Array(g.n) };
+    this.guildParts.got[g.i - 1] = g.m;
+    let have = 0; for (let k = 0; k < g.n; k++) if (this.guildParts.got[k]) have++;     // (every() skips the holes of a new Array)
+    if (have === g.n) { this.guild = this.guildParts.got as GuildMember[]; this.guildParts = null; }
   }
 
   // ---------- what the phone can do ----------
@@ -336,7 +349,7 @@ export class OmashuRemote {
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
-      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines } : {}) });
+      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild } : {}) });
       return;
     }
     if (req.method === 'GET' && p === '/api/lookup') {
