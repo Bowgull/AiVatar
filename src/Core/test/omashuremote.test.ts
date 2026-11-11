@@ -67,6 +67,46 @@ test('putting the fire out ends dark, not asleep: /state keeps answering, the fi
   } finally { await r.done(); }
 });
 
+test('off stays off: a touch while WoW is still closing never lights it again (2026-11-11)', async () => {
+  const r = await rig();
+  try {
+    r.lap.awake = true; r.lap.startWow(); r.lap.closeMs = 800;
+    await until(async () => (await r.poll()).fire === 'lit');
+    assert.equal((await (await r.as(JOSH).post('/api/sleep')).json()).fire, 'sleeping');
+    assert.equal(r.lap.closing, true);
+    // the TV still shows WoW, so he touches the fire again (and again)
+    for (let i = 0; i < 3; i++) {
+      const w = await (await r.as(JOSH).post('/api/wake')).json();
+      assert.equal(w.fire, 'sleeping', 'the phone is told it is still going out');
+      assert.equal((await r.poll()).fire, 'sleeping');
+      await new Promise(res => setTimeout(res, 100));
+    }
+    assert.equal(r.lap.wakePackets, 0, 'no magic packet: the laptop answered, it is not asleep');
+    assert.equal(r.lap.wakePosts, 0);
+    await until(async () => (await r.poll()).fire === 'out');
+    assert.equal(r.lap.dark, true, 'the close finished dark');
+    await new Promise(res => setTimeout(res, 200));
+    assert.equal(r.lap.dark, true, 'and stays dark');
+    assert.equal(r.lap.wakePosts, 0);
+    // a real touch afterwards still lights it
+    assert.equal((await (await r.as(JOSH).post('/api/wake')).json()).fire, 'waking');
+    await until(async () => (await r.poll()).fire === 'lit');
+  } finally { await r.done(); }
+});
+
+test('busy is not asleep: /wake refused mid-something sends no magic packet and claims nothing', async () => {
+  const r = await rig();
+  try {
+    r.lap.awake = true; r.lap.dark = true;
+    await until(async () => (await r.poll()).fire === 'out');
+    r.lap.closing = true;
+    assert.equal((await (await r.as(JOSH).post('/api/wake')).json()).fire, 'out');
+    await new Promise(res => setTimeout(res, 150));
+    assert.equal(r.lap.wakePackets, 0);
+    assert.equal((await r.poll()).fire, 'out');
+  } finally { await r.done(); }
+});
+
 test('asleep (no answer to /wake): the magic packet goes instead, and it catches when the laptop answers', async () => {
   const r = await rig();
   try {

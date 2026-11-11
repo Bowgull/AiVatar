@@ -45,6 +45,10 @@ export class FakeLaptop {
   /** aux's item list as Couch Mode serves it. */
   ahItems: [string, number][] = [['Tin Ore', 1], ['Tin Bar', 1], ['Copper Ore', 1], ['Thunderfury', 5]];
   powerPosts = 0;
+  /** How long a game takes to close after /power (the real WoW took ~40 s on 2026-11-11). While it closes, Couch Mode
+   *  answers /wake and /power with 409 busy (couch.ps1: one thing at a time) and /state still says lit. */
+  closeMs = 20;
+  closing = false;
   /** The real /chat/send answers about 1.5 s late (it closes WoW's controller chat box first). */
   sendDelayMs = 0;
   wakePackets = 0;
@@ -114,10 +118,12 @@ export class FakeLaptop {
     const url = new URL(req.url ?? '/', 'http://x');
     const j = (code: number, v: unknown) => res.writeHead(code, { 'Content-Type': 'application/json' }).end(JSON.stringify(v));
     if (req.method === 'GET' && url.pathname === '/state') { j(200, { up: this.game !== null, mode: this.game ? 'hide' : 'show', n: 1, game: this.game, ...(this.old ? {} : { dark: this.dark }) }); return; }
+    if (req.method === 'POST' && (url.pathname === '/power' || url.pathname === '/wake') && this.closing) { res.writeHead(409).end('busy'); return; }
     if (req.method === 'POST' && url.pathname === '/power') {
       this.powerPosts++;
       res.writeHead(200).end('ok');
-      setTimeout(() => { this.stopWow(); if (this.old) this.awake = false; else this.dark = true; }, 20);
+      this.closing = true;
+      setTimeout(() => { this.closing = false; this.stopWow(); if (this.old) this.awake = false; else this.dark = true; }, this.closeMs);
       return;
     }
     if (req.method === 'POST' && url.pathname === '/wake' && !this.old) {
