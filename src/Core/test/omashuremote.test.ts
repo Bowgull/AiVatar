@@ -35,7 +35,7 @@ async function rig(o: { wowhead?: Wowhead } = {}) {
     post: (p: string, body: unknown = {}, extra: Record<string, string> = { 'x-omashu': '1' }) =>
       fetch(base + p, { method: 'POST', headers: { ...(key ? { cookie: `omashu=${key}` } : {}), 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body) }),
   });
-  const poll = async (key = JOSH, q = '') => (await as(key).get('/api/poll' + q)).json() as Promise<{ fire: string; game: string | null; chat: boolean; whispers?: number; session?: string; lines?: { seq: number; kind: string; who?: string; text: unknown[] }[]; guild?: { name: string; level: number; cls: string; zone: string }[] | null }>;
+  const poll = async (key = JOSH, q = '') => (await as(key).get('/api/poll' + q)).json() as Promise<{ fire: string; game: string | null; chat: boolean; whispers?: number; session?: string; lines?: { seq: number; kind: string; who?: string; text: unknown[] }[]; guild?: { name: string; level: number; cls: string; zone: string }[] | null; ah?: boolean }>;
   return { lap, remote, base, as, poll, notes, done: async () => { await remote.stop(); await lap.stop(); } };
 }
 
@@ -221,6 +221,33 @@ test('sending: the review card\'s text and the name menu reach WoW as the approv
     r.lap.stopWow();
     await until(async () => (await r.poll()).chat === false);
     assert.equal((await r.as(JOSH).post('/api/send', { to: 'say', text: 'hi' })).status, 409);
+  } finally { await r.done(); }
+});
+
+test('auction search (sheet 14): the tab follows the auction house, the search reaches aux only while it is open', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    assert.equal((await r.poll()).ah, false, 'no auction house: no Auction tab');
+    assert.equal((await r.as(JOSH).post('/api/ah', { text: 'Linen Cloth' })).status, 409, 'not at the auction house: nothing typed');
+    assert.equal(r.lap.searched.length, 0);
+    r.lap.ah = true;
+    await until(async () => (await r.poll()).ah === true);
+    const ok = await r.as(JOSH).post('/api/ah', { text: '  Linen Cloth ' });
+    assert.equal(ok.status, 200);
+    assert.deepEqual(r.lap.searched, ['Linen Cloth']);
+    for (const bad of [{ text: '' }, { text: 'x'.repeat(61) }, { text: 'a|cff' }, { text: 'a\nb' }, { text: 5 }, {}]) {
+      assert.equal((await r.as(JOSH).post('/api/ah', bad)).status, 400, JSON.stringify(bad));
+    }
+    assert.equal(r.lap.searched.length, 1, 'nothing refused reached the laptop');
+    assert.equal((await r.as(LINDZ).post('/api/ah', { text: 'Linen Cloth' })).status, 403, 'a phone without chat cannot search');
+    assert.equal((await r.as(JOSH).post('/api/ah', { text: 'Linen Cloth' }, {})).status, 403, 'a page elsewhere cannot post');
+    r.lap.ah = false;
+    await until(async () => (await r.poll()).ah === false);
+    r.lap.stopWow();
+    await until(async () => (await r.poll()).chat === false);
+    assert.equal((await r.poll()).ah, undefined, 'WoW closed: nothing about the auction house');
   } finally { await r.done(); }
 });
 
