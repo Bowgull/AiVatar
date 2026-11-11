@@ -19,6 +19,7 @@ const ALLOW = [
   String.raw`^/w [^\s/|\\]{2,24} [^\s/|\\]{2,24} (?!/)[^|\r\n\x00-\x1f]{1,255}$`,
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
+  String.raw`^/reload$`,
   // the emotes: the same emotes.json Couch Mode reads (mockup 10)
   String.raw`^/(` + EMOTE_CMDS.join('|') + String.raw`)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));

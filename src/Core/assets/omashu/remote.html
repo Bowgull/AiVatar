@@ -160,6 +160,7 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .emsheet .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
 .emsheet .gh{color:#ffd36b;font-size:14px;font-weight:600;margin:10px 4px 5px}.emsheet .gh:first-child,.emsheet .head+.gh{margin-top:2px}
 .emsheet .tile{font-size:15px;padding:14px 2px 13px}
+.emsheet .tile.reload{margin-top:8px}
 /* emotes aimed at a name */
 .at{margin:10px 6px 4px;color:#e4c9a0;font-size:13px}
 .menu .tray{margin:0;padding:0;background:none;box-shadow:none;grid-template-columns:repeat(4,1fr);gap:5px}
@@ -710,7 +711,10 @@ function showMore(name){
   const chips=$('div','chips');
   for(const p of CAT.pages){const c=$('div','chip',p.name);c.addEventListener('click',()=>{emPage=p.name;emQuery='';sb.value='';draw();c.scrollIntoView({inline:'center',block:'nearest'})});chips.appendChild(c)}
   const grid=$('div','grid'),note=$('div','enote');
-  moreEl.append(sb,chips,grid,note);
+  // Reload WoW's interface (Joshua 2026-11-11), not an emote: asked once more first, so a stray tap can't do it
+  const rl=$('div','tile more reload','Reload WoW');rl.addEventListener('click',()=>{const m=menuShell("Reload WoW's interface?",'Takes a few seconds');
+    mi(m,'Reload','/reload',()=>{knock();api('/api/send',{act:'reload'})});mi(m,'Cancel',null,()=>{})});
+  moreEl.append(sb,chips,grid,note,...(name?[]:[rl]));
   function draw(){
     const q=emQuery.trim().toLowerCase();
     const list=q?ALL.filter(c=>(LABEL[c]||c).toLowerCase().includes(q)).slice(0,12):((CAT.pages.find(p=>p.name===emPage)||{emotes:[]}).emotes.map(e=>e[1]));
@@ -737,8 +741,10 @@ function layoutEmo(){
   trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
   const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
   const ahTab=chat.tab==='Auction';   // the Auction tab has its own list in place of the log
-  if(s){rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo||ahTab;logEl.hidden=ahTab}
-  else{leftEl.insertBefore(moreEl,sendEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=ahTab}
+  // move the tray and More sheet only when they're not already in place: moving a node takes the cursor out of the
+  // emote search box, so the keyboard opened and at once closed again (Joshua 2026-11-11: "cant click into the search bar")
+  if(s){if(trayEl.parentNode!==rightEl||trayEl.nextSibling!==moreEl||moreEl.nextSibling)rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo||ahTab;logEl.hidden=ahTab}
+  else{if(moreEl.parentNode!==leftEl||moreEl.nextSibling!==trayEl||trayEl.nextSibling!==sendEl){leftEl.insertBefore(moreEl,sendEl);leftEl.insertBefore(trayEl,sendEl)}rightEl.hidden=true;logEl.hidden=ahTab}
   if(stick){logEl.scrollTop=logEl.scrollHeight;logStuck=true}
 }
 function relayout(){if(panel)layoutEmo();else app.classList.toggle('side',side());fitPanel()}

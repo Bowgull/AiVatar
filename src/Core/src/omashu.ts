@@ -115,7 +115,8 @@ export type SendAsk =
   | { to: 'whisper'; name: string; text: string }
   | { act: 'invite' | 'friend' | 'ignore' | 'who'; name: string }
   | { act: Emote; name?: string }
-  | { act: 'roll' };
+  | { act: 'roll' }
+  | { act: 'reload' };   // the phone's Reload tile: WoW's interface reloads (Joshua 2026-11-11)
 
 /**
  * The emotes: assets/omashu/emotes.json, the one list (mockup omashu/remote/10, approved 2026-11-09). The phone draws
@@ -161,6 +162,7 @@ export const ALLOWED: RegExp[] = [
   new RegExp(String.raw`^/w ${NAME2} ${TEXT}$`),
   new RegExp(String.raw`^/(invite|friend|ignore|who) ${NAME12}$`),
   /^\/roll$/,
+  /^\/reload$/,
   new RegExp(String.raw`^/(${EMOTES.join('|')})( ${NAME12})?$`),
 ];
 export const allowed = (line: string) => typeof line === 'string' && line.length <= 255 && ALLOWED.some(r => r.test(line));
@@ -176,11 +178,12 @@ export function buildLine(a: SendAsk): string | null {
   const emote = 'act' in a && EMOTES.includes(a.act);
   // a name is checked whenever one is needed or given (an emote may go without one)
   const name = 'name' in a ? a.name : undefined;
-  const needs = 'to' in a ? a.to === 'whisper' : !emote && a.act !== 'roll';
+  const needs = 'to' in a ? a.to === 'whisper' : !emote && a.act !== 'roll' && a.act !== 'reload';
   if ((needs || name !== undefined) && !new RegExp(`^(${'to' in a ? NAME2 : NAME12})$`).test(String(name ?? ''))) return null;
   let line: string;
   if ('act' in a) {
     if (a.act === 'roll') { if (name !== undefined) return null; line = '/roll'; }
+    else if (a.act === 'reload') { if (name !== undefined) return null; line = '/reload'; }
     else if (emote) line = name !== undefined ? `/${a.act} ${name}` : `/${a.act}`;
     else if (['invite', 'friend', 'ignore', 'who'].includes(a.act)) line = `/${a.act} ${name}`;
     else return null;
