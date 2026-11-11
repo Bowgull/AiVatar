@@ -41,6 +41,8 @@ export class FakeLaptop {
   /** aux's search box on screen (the auction house open), and what Couch Mode typed into it. */
   ah = false;
   searched: string[] = [];
+  /** aux's item list as Couch Mode serves it. */
+  ahItems: [string, number][] = [['Tin Ore', 1], ['Tin Bar', 1], ['Copper Ore', 1], ['Thunderfury', 5]];
   powerPosts = 0;
   /** The real /chat/send answers about 1.5 s late (it closes WoW's controller chat box first). */
   sendDelayMs = 0;
@@ -143,6 +145,7 @@ export class FakeLaptop {
       });
       return;
     }
+    if (req.method === 'GET' && url.pathname === '/ah/items') { j(200, { at: '2026-11-11T00:00:00.000Z', items: this.ahItems }); return; }
     if (req.method === 'POST' && url.pathname === '/ah/search') {
       let b = '';
       req.on('data', d => { b += d; });

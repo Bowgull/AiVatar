@@ -92,6 +92,17 @@ export class Laptop {
     const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
     return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
   }
+  /** Auctionable item names for the phone's suggestions (sheet omashu/remote/15): [name, quality, weight] from aux's own list
+   *  (weight: +2 seen for sale, +1 trade good/consumable/reagent). */
+  async ahItems(): Promise<{ at: string | null; items: [string, number, number][] } | null> {
+    const r = await this.call('/ah/items', {}, 8000);
+    if (!r?.ok) return null;
+    const j = await r.json().catch(() => null) as { at?: unknown; items?: unknown } | null;
+    if (!j || !Array.isArray(j.items)) return null;
+    const items = (j.items as unknown[]).filter((x): x is [string, number, number?] => Array.isArray(x) && typeof x[0] === 'string' && x[0].length <= 100 && Number.isInteger(x[1]))
+      .slice(0, 30000).map(x => [x[0], Math.max(0, Math.min(7, x[1])), Math.max(0, Math.min(3, Number(x[2]) || 0))] as [string, number, number]);
+    return { at: typeof j.at === 'string' ? j.at : null, items };
+  }
   async send(line: string): Promise<{ ok: boolean; why?: string }> {
     const r = await this.call('/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line }) }, 5000);
     if (!r) return { ok: false, why: 'asleep' };
@@ -203,6 +214,9 @@ export class OmashuRemote {
   whispers = 0;
   /** aux's search box is on screen in WoW (the auction house is open): the phone shows its Auction tab. */
   ah = false;
+  /** aux's auctionable items, fetched from the laptop while at the auction house (at most every 5 minutes). */
+  items: { at: string | null; items: [string, number, number][] } | null = null;
+  private itemsAskedAt = 0;
   /** Who in the guild is online (sheet 11): the last complete list from the add-on; null until one arrives. */
   guild: GuildMember[] | null = null;
   private guildParts: { list: number; n: number; got: (GuildMember | undefined)[] } | null = null;
@@ -263,6 +277,7 @@ export class OmashuRemote {
     let b = await this.laptop.chat(this.after);
     if (!b) return;
     this.ah = !!b.ah;
+    if (this.ah && this.now() - this.itemsAskedAt > 300_000) { this.itemsAskedAt = this.now(); const it = await this.laptop.ahItems(); if (it && it.items.length) this.items = it; }
     if (b.session !== this.session) {
       this.forget();
       this.session = b.session;
@@ -360,6 +375,11 @@ export class OmashuRemote {
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
       json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah } : {}) });
+      return;
+    }
+    if (req.method === 'GET' && p === '/api/items') {
+      if (!phone.chat) { json(res, 403, { ok: false }); return; }
+      json(res, 200, this.items ?? { at: null, items: [] });
       return;
     }
     if (req.method === 'GET' && p === '/api/lookup') {
