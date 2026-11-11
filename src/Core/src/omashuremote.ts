@@ -48,7 +48,7 @@ export function loadRemoteConfig(file: string): RemoteConfig | null {
 // ------------------------------------------------------------------ the laptop
 
 type Fetch = typeof fetch;
-export interface ChatBatch { session: string | null; seq: number; lines: { seq: number; raw: string }[] }
+export interface ChatBatch { session: string | null; seq: number; ah?: boolean; lines: { seq: number; raw: string }[] }
 
 export class Laptop {
   private cfg: RemoteConfig['laptop'];
@@ -83,7 +83,14 @@ export class Laptop {
     if (!r?.ok) return null;
     const j = await r.json().catch(() => null) as ChatBatch | null;
     if (!j || !Array.isArray(j.lines)) return null;
-    return { session: typeof j.session === 'string' ? j.session : null, seq: Number(j.seq) || 0, lines: j.lines.filter(l => l && typeof l.raw === 'string' && Number.isFinite(l.seq)) };
+    return { session: typeof j.session === 'string' ? j.session : null, seq: Number(j.seq) || 0, ah: j.ah === true, lines: j.lines.filter(l => l && typeof l.raw === 'string' && Number.isFinite(l.seq)) };
+  }
+  /** Auction search (sheet omashu/remote/14): the laptop types it into aux's search box, only if that box is on screen. */
+  async ahSearch(text: string): Promise<{ ok: boolean; why?: string }> {
+    const r = await this.call('/ah/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }, 5000);
+    if (!r) return { ok: false, why: 'asleep' };
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
+    return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
   }
   async send(line: string): Promise<{ ok: boolean; why?: string }> {
     const r = await this.call('/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line }) }, 5000);
@@ -194,6 +201,8 @@ export class OmashuRemote {
   private primed = false;     // the first batch of a session is backlog: shown, never buzzed
   lines: ChatLine[] = [];
   whispers = 0;
+  /** aux's search box is on screen in WoW (the auction house is open): the phone shows its Auction tab. */
+  ah = false;
   /** Who in the guild is online (sheet 11): the last complete list from the add-on; null until one arrives. */
   guild: GuildMember[] | null = null;
   private guildParts: { list: number; n: number; got: (GuildMember | undefined)[] } | null = null;
@@ -248,11 +257,12 @@ export class OmashuRemote {
     else this.forget();
   }
 
-  private forget() { this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
+  private forget() { this.ah = false; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
 
   private async follow(): Promise<void> {
     let b = await this.laptop.chat(this.after);
     if (!b) return;
+    this.ah = !!b.ah;
     if (b.session !== this.session) {
       this.forget();
       this.session = b.session;
@@ -349,7 +359,7 @@ export class OmashuRemote {
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
-      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild } : {}) });
+      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah } : {}) });
       return;
     }
     if (req.method === 'GET' && p === '/api/lookup') {
@@ -377,6 +387,15 @@ export class OmashuRemote {
     }
     if (!phone.chat) { json(res, 403, { ok: false }); return; }
     if (p === '/api/seen') { this.whispers = 0; json(res, 200, { ok: true }); return; }
+    if (p === '/api/ah') {
+      const t = (await body(req) as { text?: unknown } | null)?.text;
+      const text = typeof t === 'string' ? t.trim() : '';
+      if (!text || text.length > 60 || /[\x00-\x1f|\\]/.test(text)) { json(res, 400, { ok: false, why: 'refused' }); return; }
+      if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
+      const r = await this.laptop.ahSearch(text);
+      json(res, r.ok ? 200 : 409, r);
+      return;
+    }
     if (p === '/api/send') {
       const ask = await body(req) as SendAsk | null;
       const line = ask ? buildLine(ask) : null;

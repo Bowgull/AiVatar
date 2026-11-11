@@ -38,6 +38,9 @@ export class FakeLaptop {
   seq = 0;
   /** What Couch Mode typed into WoW. */
   typed: string[] = [];
+  /** aux's search box on screen (the auction house open), and what Couch Mode typed into it. */
+  ah = false;
+  searched: string[] = [];
   powerPosts = 0;
   /** The real /chat/send answers about 1.5 s late (it closes WoW's controller chat box first). */
   sendDelayMs = 0;
@@ -123,7 +126,7 @@ export class FakeLaptop {
     if (req.method === 'GET' && url.pathname === '/chat') {
       if (!this.session) { j(200, { session: null, seq: 0, lines: [] }); return; }
       const after = Number(url.searchParams.get('after')) || 0;
-      j(200, { session: this.session, seq: this.seq, lines: this.lines.filter(l => l.seq > after).slice(0, 500) });
+      j(200, { session: this.session, seq: this.seq, ah: this.ah, lines: this.lines.filter(l => l.seq > after).slice(0, 500) });
       return;
     }
     if (req.method === 'POST' && url.pathname === '/chat/send') {
@@ -137,6 +140,20 @@ export class FakeLaptop {
         this.typed.push(line);
         this.echo(line);
         setTimeout(() => j(200, { ok: true }), this.sendDelayMs);
+      });
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/ah/search') {
+      let b = '';
+      req.on('data', d => { b += d; });
+      req.on('end', () => {
+        let text = '';
+        try { text = String(JSON.parse(b).text ?? ''); } catch { /* refused below */ }
+        if (!text || text.length > 60 || /[\x00-\x1f|\\]/.test(text)) { j(400, { ok: false, why: 'refused' }); return; }
+        if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
+        if (!this.ah) { j(409, { ok: false, why: 'no-ah' }); return; }
+        this.searched.push(text);
+        j(200, { ok: true });
       });
       return;
     }

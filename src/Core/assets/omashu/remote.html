@@ -109,6 +109,16 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .emo svg{width:24px;height:24px}
 .go{flex:none;width:46px;border-radius:10px;background:#3f8f47;box-shadow:inset 0 -3px 0 #1f4f27;display:flex;align-items:center;justify-content:center}
 .go svg{width:20px;height:20px}
+/* auction search (sheet omashu/remote/14): an Auction tab while the auction house is open in WoW */
+.ah{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;padding:8px;overflow-y:auto;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:pan-y}
+.ah .hd{color:#8a7b63;font-size:12px;padding:2px 4px 0;font-family:"Pixelify Sans"}
+.srow{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:9px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;font-size:16px;color:#fff;cursor:pointer;flex:none}
+.srow svg{width:16px;height:16px;flex:none;opacity:.55}
+.srow.lit{box-shadow:inset 0 0 0 2px #ffd36b99;background:#2a1c0e}
+.srow.lit svg{opacity:1}
+.findgo{flex:none;width:46px;border-radius:10px;background:#c08a1e;box-shadow:inset 0 -3px 0 #6e4a0c;display:flex;align-items:center;justify-content:center}
+.findgo svg{width:20px;height:20px}
+.findgo.no{background:#b5413a;box-shadow:inset 0 -3px 0 #5e1f1b}
 /* name menu (and the channel picker, the same wood menu) */
 .mdim{position:absolute;inset:0;z-index:6;background:#000a}
 .menu{position:absolute;z-index:7;left:44px;right:44px;top:330px;background:var(--wood);border-radius:14px;
@@ -403,7 +413,10 @@ const W_PEOPLE=4,W_LINES=6;
 const CLASS_COLOR={WARRIOR:'#C69B6D',MAGE:'#3FC7EB',ROGUE:'#FFF468',DRUID:'#FF7C0A',HUNTER:'#AAD372',SHAMAN:'#0070DD',PRIEST:'#FFFFFF',WARLOCK:'#8788EE',PALADIN:'#F48CBA',DEATHKNIGHT:'#C41E3A',MONK:'#00FF98',DEMONHUNTER:'#A330C9',EVOKER:'#33937F'};
 const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';   // sheet 12: the last 4 people, the last 6 lines with each
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
-const chat={on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
+const AH_FILL='#f2d58a',AH_LIT='#ffd36b',AH_KEEP=6;
+const MAG='<svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M12.5 12.5 L18 18" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>';
+const AGAIN='<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6" fill="none" stroke="#ffd36b" stroke-width="2"/><path d="M12.6 1.6 L12.8 5 L9.4 5.2" fill="none" stroke="#ffd36b" stroke-width="2"/></svg>';
+const chat={ah:false,ahLit:null,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
   linkColor:{}};
 const short=n=>String(n||'').split('-')[0];
 
@@ -411,7 +424,7 @@ function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='p
 function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
 function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
 
-let peopleEl=null,convoEl=null,rosterEl=null;
+let peopleEl=null,convoEl=null,rosterEl=null,ahEl=null,ahSendEl=null,ahBox=null,ahGo=null;
 let logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
 function openChat(){
   if(chat.open)return;chat.open=true;
@@ -434,9 +447,16 @@ function openChat(){
   box.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
   const go=$('div','go');go.innerHTML=SEND;go.addEventListener('pointerdown',e=>e.preventDefault());go.addEventListener('click',send);   // pointerdown kept off the box: tapping Send doesn't close the keyboard
   sendEl.append(chanEl,emoEl,box,go);leftEl.appendChild(sendEl);
+  ahEl=$('div','ah');ahEl.hidden=true;leftEl.insertBefore(ahEl,sendEl);
+  ahSendEl=$('div','send');ahSendEl.hidden=true;
+  ahBox=$('input','box');ahBox.type='text';ahBox.enterKeyHint='search';ahBox.autocomplete='off';ahBox.maxLength=60;ahBox.placeholder='Search the auction house';
+  ahBox.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ahSearch(ahBox.value)}});
+  ahBox.addEventListener('focus',()=>app.classList.add('typing'));ahBox.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
+  ahGo=$('div','findgo');ahGo.innerHTML=MAG;ahGo.addEventListener('pointerdown',e=>e.preventDefault());ahGo.addEventListener('click',()=>ahSearch(ahBox.value));
+  ahSendEl.append(ahBox,ahGo);leftEl.appendChild(ahSendEl);
   app.appendChild(panel);
   app.querySelector('.cdim').addEventListener('click',closeChat);
-  chat.emo=null;layoutEmo();pickTab(chat.tab);fitPanel();
+  chat.emo=null;layoutEmo();pickTab(chat.ah?'Auction':chat.tab==='Auction'?'All':chat.tab);fitPanel();
 }
 function closeChat(){chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
 // the keyboard: the panel fits the part of the screen still showing (tabs on top, the box just above the keys); the log shrinks
@@ -450,7 +470,9 @@ function fitPanel(){
 if(window.visualViewport){visualViewport.addEventListener('resize',settle);visualViewport.addEventListener('scroll',fitPanel)}
 
 function pickTab(name){
+  if(name==='Auction'&&!chat.ah)name='All';
   chat.tab=name;
+  if(name==='Auction'){render(true);return}
   chat.wPerson=null;
   if(name==='Whispers'){const inc=chat.lines.filter(l=>l.kind==='whisper');chat.wUnread=new Set(chat.whispers?inc.slice(-chat.whispers).map(l=>l.seq):[]);
     chat.wOpen=Math.max(chat.seen.Whispers??0,...inc.filter(l=>!chat.wUnread.has(l.seq)).map(l=>l.seq),0);const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
@@ -465,11 +487,18 @@ function showBadge(){badge.hidden=!chat.whispers;badge.textContent=chat.whispers
 let tabEls={},shownTab=null,shownSeq=0;
 function render(full){
   if(!panel)return;
-  if(!tabsEl.children.length)for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
+  if(!tabsEl.children.length){const t=$('div','tab','Auction');t.addEventListener('click',()=>pickTab('Auction'));
+    t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabsEl.appendChild(t);tabEls.Auction=t}
+  tabEls.Auction.hidden=!chat.ah;tabEls.Auction.className='tab'+(chat.tab==='Auction'?' on':'');
+  if(tabsEl.children.length===1)for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
     if(TAB_FILL[n])t.style.setProperty('--tf',TAB_FILL[n]);t.style.setProperty('--tc',TAB_LIT[n]);tabsEl.appendChild(t);tabEls[n]=t}
   for(const [n,f] of TABS){const t=tabEls[n];t.className='tab'+(n===chat.tab?' on':'');
     const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
     let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
+  const isAh=chat.tab==='Auction';
+  ahEl.hidden=!isAh;ahSendEl.hidden=!isAh;sendEl.hidden=isAh;
+  if(isAh){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;drawAh();return}
+  logEl.hidden=false;
   const isW=l=>l.kind==='whisper'||l.kind==='whisper-out';
   const people=chat.tab==='Whispers'&&!chat.wPerson;
   peopleEl.hidden=!people;logEl.hidden=people;convoEl.hidden=!(chat.tab==='Whispers'&&chat.wPerson);
@@ -488,6 +517,22 @@ function render(full){
   if(stick)logEl.scrollTop=logEl.scrollHeight;
   chat.seen[chat.tab]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
   chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
+}
+// the Auction tab (sheet 14): your last 6 searches (this phone only), tap one to run it again
+function ahRecent(){try{const a=JSON.parse(localStorage.getItem('omashu.ahRecent')||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string').slice(0,AH_KEEP):[]}catch(e){return []}}
+function drawAh(){
+  ahEl.textContent='';const list=ahRecent();
+  if(list.length)ahEl.appendChild($('div','hd','Recent'));
+  for(const n of list){const r=$('div','srow'+(n===chat.ahLit?' lit':''));r.innerHTML=AGAIN;r.append(n);r.addEventListener('click',()=>ahSearch(n));ahEl.appendChild(r)}
+}
+let ahBusy=false;
+async function ahSearch(text){
+  text=String(text||'').trim();if(!text||ahBusy)return;ahBusy=true;
+  const {ok}=await api('/api/ah',{text});ahBusy=false;
+  if(!ok){ahGo.classList.add('no');setTimeout(()=>ahGo&&ahGo.classList.remove('no'),1200);return}
+  const list=[text,...ahRecent().filter(x=>x.toLowerCase()!==text.toLowerCase())].slice(0,AH_KEEP);
+  try{localStorage.setItem('omashu.ahRecent',JSON.stringify(list))}catch(e){}
+  chat.ahLit=text;ahBox.value='';ahBox.blur();if(chat.tab==='Auction')drawAh();
 }
 // the Guild tab: who's on (sheet 11), names in their class colour, highest level first, you last (the add-on sorts)
 let rosterSig='';
@@ -646,8 +691,9 @@ function layoutEmo(){
   emoEl.classList.toggle('on',!!chat.emo);emoEl.innerHTML=chat.emo?SMILE_ON:SMILE;
   trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
   const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
-  if(s){rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo;logEl.hidden=false}
-  else{leftEl.insertBefore(moreEl,sendEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=false}
+  const ahTab=chat.tab==='Auction';   // the Auction tab has its own list in place of the log
+  if(s){rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo||ahTab;logEl.hidden=ahTab}
+  else{leftEl.insertBefore(moreEl,sendEl);leftEl.insertBefore(trayEl,sendEl);rightEl.hidden=true;logEl.hidden=ahTab}
   if(stick){logEl.scrollTop=logEl.scrollHeight;logStuck=true}
 }
 function relayout(){if(panel)layoutEmo();else app.classList.toggle('side',side());fitPanel()}
@@ -712,7 +758,7 @@ async function poll(){
   if(ok){
     if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
     const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);
-    if(!chat.on){if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
+    if(!chat.on){chat.ah=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
       if(j.session!==chat.session){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
       if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
@@ -722,6 +768,7 @@ async function poll(){
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
       chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
+      const ah=!!j.ah;if(ah!==chat.ah){chat.ah=ah;chat.ahLit=null;if(chat.open)pickTab(ah?'Auction':chat.tab==='Auction'?'All':chat.tab)}
       const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(chat.open&&gChanged&&rosterEl)drawRoster();
       if(chat.open&&(j.lines&&j.lines.length||!was))render()}
     place();
