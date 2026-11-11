@@ -385,8 +385,11 @@ app.addEventListener('pointerdown',e=>{
   if(onFire(p)){S.touch={x:p.x,y:Math.max(FY-50,p.y),k:0,spread:1,down:true};cv.setPointerCapture(e.pointerId)}});
 app.addEventListener('pointermove',e=>{if(S.touch&&S.touch.down){const p=pos(e);S.touch.x=p.x;S.touch.y=Math.max(FY-50,p.y)}});
 const lift=()=>{if(!S.touch||!S.touch.down)return;S.touch.down=false;S.heldUntil=performance.now()+5000;
-  if(S.target<.5){S.target=1;S.touch.spread=0;api('/api/wake',{})}            // light it from here: the laptop wakes
-  else{S.target=0;S.touch=null;api('/api/sleep',{})}};                         // put it out: the game closes, the laptop sleeps
+  if(S.target<.5){S.target=1;S.touch.spread=0;api('/api/wake',{}).then(fireAnswer)}            // light it from here: the laptop wakes
+  else{S.target=0;S.touch=null;api('/api/sleep',{}).then(fireAnswer)}};                         // put it out: the game closes, the laptop goes dark
+// Aang's answer is the truth: a touch while the game is still closing does not light it, so the fire goes straight back
+// out instead of burning for 5 s and fooling the next touch (2026-11-11).
+const fireAnswer=({ok,j})=>{if(!ok||!j.fire)return;const want=j.fire==='lit'||j.fire==='waking'?1:0;if(want!==S.target){S.target=want;S.heldUntil=0;if(!want)S.touch=null}};
 app.addEventListener('pointerup',lift);app.addEventListener('pointercancel',lift);
 // a tap anywhere that isn't a text box closes the keyboard (iPhone doesn't on its own; Joshua 2026-11-11: "shouldn't i be
 // able to click out of it?"). Buttons that keep it open on purpose (send, search, item tiles) cancel their pointerdown.

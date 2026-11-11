@@ -69,10 +69,10 @@ export class Laptop {
     if (!j) return null;
     return { game: j.game === 'zelda' || j.game === 'wow' ? j.game : null, dark: j.dark === true };
   }
-  /** Screen on, campfire back. 'down' when the laptop did not take it (no answer, or an older laptop). */
-  async wake(): Promise<'ok' | 'down'> {
+  /** Screen on, campfire back. 'busy' when it is mid-close (409); 'down' when it did not answer (or an older laptop). */
+  async wake(): Promise<'ok' | 'busy' | 'down'> {
     const r = await this.call('/wake', { method: 'POST' }, 2500);
-    return r?.ok ? 'ok' : 'down';
+    return !r ? 'down' : r.ok ? 'ok' : r.status === 409 ? 'busy' : 'down';
   }
   async power(): Promise<'ok' | 'busy' | 'down'> {
     const r = await this.call('/power', { method: 'POST' }, 4000);
@@ -176,7 +176,7 @@ export class Wowhead {
 
 export type Fire = 'out' | 'waking' | 'lit' | 'sleeping';
 const WAKE_GIVE_UP_MS = 120_000;
-const SLEEP_GIVE_UP_MS = 90_000;
+const SLEEP_GIVE_UP_MS = 150_000;   // Couch Mode waits up to 90 s for Zelda to close, then forces it
 const KEEP_LINES = 2000;
 
 export interface RemoteOpts {
@@ -313,8 +313,13 @@ export class OmashuRemote {
   // ---------- what the phone can do ----------
   async wake(): Promise<Fire> {
     if (this.fire === 'lit' || this.fire === 'waking') return this.fire;
+    // Going out (a game still closing, ~40 s for WoW): a touch now never lights it again. 2026-11-11: a touch during
+    // WoW's close got 409 busy, was taken for "asleep", showed the fire lit, and the next touch after the close lit it.
+    if (this.fire === 'sleeping') return this.fire;
     // dark (awake): the laptop relights itself; asleep or off the network: the magic packet below
-    if (await this.laptop.wake() === 'ok') { this.fire = 'waking'; this.since = this.now(); this.schedule(this.pace()); return this.fire; }
+    const r = await this.laptop.wake();
+    if (r === 'ok') { this.fire = 'waking'; this.since = this.now(); this.schedule(this.pace()); return this.fire; }
+    if (r === 'busy') return this.fire;          // awake and in the middle of something: it is not asleep
     const l = this.o.cfg.laptop;
     if (!l.mac || !macBytes(l.mac)) { this.log('wake: no laptop MAC address in omashu-remote.json'); return this.fire; }
     const host = (() => { try { return new URL(l.url).hostname; } catch { return ''; } })();
@@ -395,8 +400,12 @@ export class OmashuRemote {
     // A page elsewhere cannot post here: SameSite=Strict keeps the cookie off cross-site requests, and this header
     // cannot be set by a plain form.
     if (req.headers['x-omashu'] !== '1') { res.writeHead(403).end(); return; }
-    if (p === '/api/wake') { json(res, 200, { fire: await this.wake() }); return; }
-    if (p === '/api/sleep') { json(res, 200, { fire: await this.sleep() }); return; }
+    if (p === '/api/wake' || p === '/api/sleep') {
+      const was = this.fire, fire = p === '/api/wake' ? await this.wake() : await this.sleep();
+      this.log(`${phone.name} ${p === '/api/wake' ? 'lights' : 'puts out'} the fire: ${was} -> ${fire}`);
+      json(res, 200, { fire });
+      return;
+    }
     if (p === '/api/favourites') {
       const favs = cleanFavourites((await body(req) as { favourites?: unknown } | null)?.favourites);
       if (!favs) { json(res, 400, { ok: false }); return; }

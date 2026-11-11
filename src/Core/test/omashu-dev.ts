@@ -8,6 +8,7 @@ const MAC = '02:00:5e:10:20:30', KEY = 'dev-laptop-key-0123456789abcdef', PHONE 
 const lap = new FakeLaptop({ key: KEY, mac: MAC });
 await lap.start();
 if (process.argv.includes('--asleep')) lap.awake = false; else lap.startWow();
+lap.closeMs = Number(process.env.CLOSE_MS ?? 20);   // e.g. CLOSE_MS=6000: a slow close like the real WoW's
 const remote = new OmashuRemote({
   cfg: { port: Number(process.env.PORT ?? 47880), laptop: { url: lap.url, key: KEY, mac: MAC, broadcast: ['127.0.0.1'], wakePort: lap.udpPort }, phones: [{ name: 'Josh', key: PHONE, chat: true }] },
   host: '127.0.0.1', notify: t => console.log(`[buzz] ${t}`),
