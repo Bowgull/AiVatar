@@ -388,6 +388,10 @@ const lift=()=>{if(!S.touch||!S.touch.down)return;S.touch.down=false;S.heldUntil
   if(S.target<.5){S.target=1;S.touch.spread=0;api('/api/wake',{})}            // light it from here: the laptop wakes
   else{S.target=0;S.touch=null;api('/api/sleep',{})}};                         // put it out: the game closes, the laptop sleeps
 app.addEventListener('pointerup',lift);app.addEventListener('pointercancel',lift);
+// a tap anywhere that isn't a text box closes the keyboard (iPhone doesn't on its own; Joshua 2026-11-11: "shouldn't i be
+// able to click out of it?"). Buttons that keep it open on purpose (send, search, item tiles) cancel their pointerdown.
+app.addEventListener('pointerdown',e=>{const a=document.activeElement;
+  if(!e.defaultPrevented&&a&&a.tagName==='INPUT'&&!(e.target.closest&&e.target.closest('input')))a.blur()});
 
 // ---------- the loop ----------
 let last=performance.now();
