@@ -200,13 +200,14 @@ test('sending: the review card\'s text and the name menu reach WoW as the approv
     await ok({ act: 'ignore', name: 'Hadrik' }, '/ignore Hadrik');
     await ok({ act: 'who', name: 'Gideon Byrne' }, '/who Gideon Byrne');
     await ok({ act: 'roll' }, '/roll');
+    await ok({ act: 'reload' }, '/reload');
     await ok({ act: 'wave', name: 'Hadrik' }, '/wave Hadrik');
     await ok({ act: 'cheer', name: 'Hadrik Stone' }, '/cheer Hadrik Stone');
     await ok({ act: 'followme' }, '/followme');
     await ok({ act: 'healme', name: 'Gideon Byrne' }, '/healme Gideon Byrne');
     await ok({ act: 'congratulate', name: 'Hadrik' }, '/congratulate Hadrik');
     const sent = r.lap.typed.length;
-    for (const bad of [{ to: 'say', text: '/run x' }, { act: 'script', name: 'x' }, { to: 'whisper', name: 'Bujuju', text: 'phone remote test' }, { to: 'whisper', name: 'A b c', text: 'x' }, { raw: '/run x' }]) {
+    for (const bad of [{ to: 'say', text: '/run x' }, { act: 'script', name: 'x' }, { act: 'reload', name: 'Hadrik' }, { to: 'whisper', name: 'Bujuju', text: 'phone remote test' }, { to: 'whisper', name: 'A b c', text: 'x' }, { raw: '/run x' }]) {
       const res = await r.as(JOSH).post('/api/send', bad);
       assert.equal(res.status, 400, JSON.stringify(bad));
     }
