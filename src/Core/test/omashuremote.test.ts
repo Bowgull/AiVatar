@@ -234,6 +234,9 @@ test('auction search (sheet 14): the tab follows the auction house, the search r
     assert.equal(r.lap.searched.length, 0);
     r.lap.ah = true;
     await until(async () => (await r.poll()).ah === true);
+    await until(async () => ((await (await r.as(JOSH).get('/api/items')).json()).items ?? []).length === 4);
+    assert.deepEqual((await (await r.as(JOSH).get('/api/items')).json()).items[0], ['Tin Ore', 1, 0], 'item names reach the phone for suggestions');
+    assert.equal((await r.as(LINDZ).get('/api/items')).status, 403, 'a phone without chat gets no item list');
     const ok = await r.as(JOSH).post('/api/ah', { text: '  Linen Cloth ' });
     assert.equal(ok.status, 200);
     assert.deepEqual(r.lap.searched, ['Linen Cloth']);
