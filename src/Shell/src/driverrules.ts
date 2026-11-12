@@ -82,11 +82,38 @@ const PACED: { host: RegExp; least: number; jitter: number }[] = [
 export const cleanHost = (h: string): string => String(h ?? '').toLowerCase().replace(/\.+$/, '');
 /** This machine, the home network and Tailscale: never opened by a driving session (a page could probe them). */
 export function privateHost(host: string): boolean {
-  const h = cleanHost(host).replace(/^\[|\]$/g, '');
+  let h = cleanHost(host).replace(/^\[|\]$/g, '');
+  if (!h) return false;
+  // Phase 1 (parity sweep 2026-11-12): 127.0.0.1 written as IPv6 ("::ffff:7f00:1", what the URL parser makes of
+  // "[::ffff:127.0.0.1]") reached this computer. An IPv4 address inside IPv6 is judged as the IPv4 address.
+  const mapped = /^(?:0{0,4}:){0,5}:?ffff:(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/.exec(h);
+  if (mapped) h = mapped[1] ?? [parseInt(mapped[2]!, 16) >> 8, parseInt(mapped[2]!, 16) & 255, parseInt(mapped[3]!, 16) >> 8, parseInt(mapped[3]!, 16) & 255].join('.');
   if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.ts.net') || h === '0.0.0.0' || h === '::1' || h === '::') return true;
+  // Home-network names: routers and printers ("router", "fritz.box", "printer.lan", "nas.home.arpa").
+  if (/\.(lan|home|home\.arpa|box|corp|intranet|router)$/.test(h)) return true;
   const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(h);
   if (m) { const [a, b] = [Number(m[1]), Number(m[2])]; return a === 127 || a === 10 || a === 0 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); }
-  return /^(fc|fd|fe8|fe9|fea|feb)[0-9a-f]*:/.test(h);
+  if (h.includes(':')) return /^(fc|fd|fe8|fe9|fea|feb)[0-9a-f]*:/.test(h);
+  // A one-word name never reaches the internet; it is a machine on the home network ("router", "nas").
+  return !h.includes('.');
+}
+/** Is this host written as an address (IPv4 or IPv6) rather than a name? Names need a look-up to judge. */
+export const isAddress = (host: string): boolean => {
+  const h = cleanHost(host).replace(/^\[|\]$/g, '');
+  return /^\d+\.\d+\.\d+\.\d+$/.test(h) || h.includes(':');
+};
+/**
+ * The name a request's real address must be looked up for, or null (DNS rebinding, Phase 1 2026-11-12): a public page's
+ * part going to a public-looking name that may point at this computer or the home network. Chromium judges the address
+ * it connects to; Samara looks the name up itself and judges what comes back.
+ */
+export function needsLookup(url: string, from: string, mainFrame: boolean): string | null {
+  if (mainFrame) return null;
+  let to = '';
+  try { const u = new URL(url); if (!/^(https?|wss?):$/.test(u.protocol)) return null; to = u.hostname; } catch { return null; }
+  if (isAddress(to) || privateHost(to)) return null;
+  try { if (privateHost(new URL(from).hostname)) return null; } catch { return null; }
+  return cleanHost(to);
 }
 /**
  * Private Network Access, done here (2026-10-14; Electron switches Chrome's own off): a page from the internet never
@@ -102,6 +129,19 @@ export function reachesIn(url: string, from: string, mainFrame: boolean): boolea
   try { by = new URL(from).hostname; } catch { return true; }   // no known page behind it: never let it in
   return !privateHost(by);
 }
+/** A public page opening this computer or the home network (Phase 1: window.open never went through will-navigate). */
+export const goesInward = (u: string, from: string): boolean => {
+  try { const f = new URL(from); return /^https?:$/.test(f.protocol) && privateHost(new URL(u).hostname) && !privateHost(f.hostname); } catch { return false; }
+};
+/** A popup the page makes for itself: blank, or a blob: page from its own origin (never another site's). */
+export const ownPopup = (u: string, from: string): boolean => {
+  if (u === '' || u === 'about:blank') return true;
+  if (!/^blob:/i.test(u)) return false;
+  try { const o = new URL(u.slice(5)).origin; return o !== 'null' && o === new URL(from).origin; } catch { return false; }
+};
+/** Camera and microphone grants: the asking site inside the page it is on (Chrome's requesting + embedding pair). */
+export const grantKey = (asking: string, top: string): string => `${asking} in ${top || asking}`;
+export const grantTop = (k: string): string => k.slice(k.lastIndexOf(' in ') + 4);
 /** A site's own name ("linkedin.com", "bbc.co.uk", "someone.github.io"): two labels, three under shared endings. */
 export function siteOf(host: string): string {
   const parts = cleanHost(host).replace(/^www\./, '').split('.').filter(Boolean);

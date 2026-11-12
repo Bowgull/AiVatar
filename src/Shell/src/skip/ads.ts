@@ -55,7 +55,7 @@ export interface AdBlock {
  * registers app-wide handlers), so his browser gets it and the pop-out, which only plays video, does not.
  */
 /** A request the guard stops before anything else sees it (true = cancel). */
-export type RequestGuard = (d: Electron.OnBeforeRequestListenerDetails) => boolean;
+export type RequestGuard = (d: Electron.OnBeforeRequestListenerDetails) => boolean | Promise<boolean>;
 type Blocking = {
   onBeforeRequest: (d: Electron.OnBeforeRequestListenerDetails, cb: (r: Electron.CallbackResponse) => void) => void;
   onHeadersReceived?: (d: Electron.OnHeadersReceivedListenerDetails, cb: (r: Electron.HeadersReceivedResponse) => void) => void;
@@ -71,9 +71,18 @@ export function privacyHooks(session: Session, p: PrivacyHooks): void { privacyO
  */
 export function guardRequests(session: Session, guard: RequestGuard, blocker: Blocking | null): void {
   session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => {
-    let stop = false;
+    let stop: boolean | Promise<boolean> = false;
     try { stop = guard(d); } catch { stop = false; }
+    // A guard that must look a name up answers later (netlookup.ts); the request waits for it, never longer than 3 s.
+    if (stop instanceof Promise) {
+      void Promise.race([stop.catch(() => false), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))])
+        .then((s) => { if (s) cb({ cancel: true }); else after(d, cb); });
+      return;
+    }
     if (stop) { cb({ cancel: true }); return; }
+    after(d, cb);
+  });
+  const after = (d: Electron.OnBeforeRequestListenerDetails, cb: (r: Electron.CallbackResponse) => void): void => {
     const p = privacyOf.get(session);
     if (p?.clean && d.method === 'GET' && (d.resourceType === 'mainFrame' || d.resourceType === 'subFrame')) {
       let to: string | null = null;
@@ -81,7 +90,7 @@ export function guardRequests(session: Session, guard: RequestGuard, blocker: Bl
       if (to) { cb({ redirectURL: to }); return; }
     }
     if (blocker) blocker.onBeforeRequest(d, cb); else cb({});
-  });
+  };
   session.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (d, cb) => {
     let mine: Record<string, string[]> | null = null;
     try { mine = privacyOf.get(session)?.headers?.(d) ?? null; } catch { mine = null; }

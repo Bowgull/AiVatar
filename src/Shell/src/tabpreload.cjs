@@ -115,8 +115,12 @@ try {
 // Shell says this page may play. Anything else is kept and refused (the site shows its paused player); what was kept
 // starts the moment it may.
 let mainPlay = () => {};
+// Phase 1 (parity sweep 2026-11-12): the switch sat on the page's own window, so any page could call
+// __samaraMayPlay(true) and play by itself. It now answers only to a secret made here, in the preload's own world,
+// which the page's scripts never see.
+const playKey = Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, '0')).join('');
 try {
-  contextBridge.executeInMainWorld({ func: () => {
+  contextBridge.executeInMainWorld({ args: [playKey], func: (key) => {
     const P = HTMLMediaElement.prototype, real = P.play, wanted = new Set();
     let ok = false;
     P.play = function () {
@@ -125,14 +129,15 @@ try {
       wanted.add(this);
       return Promise.reject(new DOMException('Samara waits for your click.', 'NotAllowedError'));
     };
-    Object.defineProperty(window, '__samaraMayPlay', { configurable: false, value: (allow) => {
+    Object.defineProperty(window, '__samaraMayPlay', { configurable: false, enumerable: false, value: (k, allow) => {
+      if (k !== key) return;
       ok = allow === true;
       if (!ok) { wanted.clear(); return; }
       for (const m of wanted) { try { real.call(m).catch(() => {}); } catch { /* gone */ } }
       wanted.clear();
     } });
   } });
-  mainPlay = (allow) => { try { contextBridge.executeInMainWorld({ func: (v) => window.__samaraMayPlay?.(v), args: [allow] }); } catch { /* the page went away */ } };
+  mainPlay = (allow) => { try { contextBridge.executeInMainWorld({ func: (k, v) => window.__samaraMayPlay?.(k, v), args: [playKey, allow] }); } catch { /* the page went away */ } };
 } catch { /* an engine without it: the pause below still holds */ }
 try {
   // Asked without waiting (2026-10-20): a page must never stall on the answer (a waiting question held pages up for
