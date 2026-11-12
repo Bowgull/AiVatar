@@ -171,6 +171,23 @@ test('who gets in: paired phones on the home network; chat only for Joshua; post
   } finally { await r.done(); }
 });
 
+test('class colours (chat strip v2, 2026-11-11): a speaker\'s class reaches the phone, only on lines with a speaker', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    r.lap.log('[1. General - Tirisfal Glades] Class Consciousnes: hi all', new Date(), 'MAGE');
+    r.lap.log('Lindz says: hey', new Date());
+    r.lap.log('You feel rested.', new Date(), 'WARLOCK');
+    r.lap.log('Odd One says: x', new Date(), 'mage; color:red');
+    await until(async () => ((await r.poll()).lines ?? []).length >= 4);
+    const ls = (await r.poll()).lines as { who?: string; cls?: string; kind: string }[];
+    assert.equal(ls[0].cls, 'MAGE');
+    assert.equal(ls[1].cls, undefined);            // no class sent
+    assert.equal(ls[2].cls, undefined);            // system line: no speaker, no colour
+    assert.equal(ls[3].cls, undefined);            // only plain class tokens get through
+  } finally { await r.done(); }
+});
+
 test('guild list (sheet 11): built from the add-on lines, swapped in only when complete, never shown as chat', async () => {
   const r = await rig();
   try {

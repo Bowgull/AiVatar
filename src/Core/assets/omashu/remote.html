@@ -626,7 +626,7 @@ function lineEl(l){
   if(l.chan){const ch=$('span','ch','['+l.chan.num+'. '+l.chan.name+'] ');ch.addEventListener('click',()=>{chat.to={to:'channel',num:l.chan.num};render()});d.appendChild(ch)}
   const tag={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid'}[l.kind];
   if(tag){const ch=$('span','ch','['+tag+'] ');if(l.kind==='guild'||l.kind==='party')ch.addEventListener('click',()=>{chat.to={to:l.kind};render()});d.appendChild(ch)}
-  const who=()=>{const w=$('span','who','['+short(l.who)+']');w.addEventListener('click',()=>nameMenu(l,d));return w};
+  const who=()=>{const w=$('span','who','['+short(l.who)+']');if(l.cls&&CLASS_COLOR[l.cls])w.style.color=CLASS_COLOR[l.cls];w.addEventListener('click',()=>nameMenu(l,d));return w};   // class colour, as in WoW and the guild list
   if(l.kind==='whisper-out'){d.append('To ',who(),': ')}
   else if(l.who){d.appendChild(who());d.append(l.kind==='whisper'?' whispers: ':l.kind==='say'?' says: ':l.kind==='yell'?' yells: ':': ')}
   for(const s of l.text){
