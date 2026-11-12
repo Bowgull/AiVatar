@@ -42,6 +42,8 @@ import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, copyProtected, p
 import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
+import { SessionStore, type SessionData } from './sessionstore.ts';
+import { SavePaths, programAsk, quarantineMark, safeName, sameSite, siteOfUrl, zoneMark } from './downloads.ts';
 import { readJson } from './store.ts';
 import { carriesData, goesInward, grantKey, grantTop, keyWeigh, needsLookup, ownPopup, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { resolvesInward } from './netlookup.ts';
@@ -719,7 +721,8 @@ export class AangBrowser {
   private get jobNames(): string[] { const w = this.o.secret ? 'secret' : 'browser'; return [`${w}.snapshot`, `${w}.sleep-idle`, `${w}.lock`, `${w}.claude-forms`]; }
   private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
-  private readonly file: string;
+  /** The one owner of browser-tabs.json (sessionstore.ts). */
+  private readonly session: SessionStore;
   /** Sheet 87: the secret window's own PIN (normal Samara has none). */
   private secretPin: PinSeal | null = null;
   /** Sheet 87: its tabs, bookmarks, history and logins are put away until its PIN. */
@@ -811,8 +814,8 @@ export class AangBrowser {
   private readonly popupOkFile: string;
   /** When he last clicked or pressed a key in each tab: Chrome's user-activation rule for popups. */
   private lastGesture = new Map<number, number>();
-  /** Download paths picked and not yet finished (lower case): never handed to a second download. */
-  private savingTo = new Set<string>();
+  /** Download names taken by downloads still running (downloads.ts): never handed to a second download. */
+  private readonly savePaths = new SavePaths();
   /** Scrambled list of the sites he has Bitwarden logins for (no names, no passwords), for the gold key. */
   private readonly sitesFile: string;
   private sites: Set<string> | null = null;
@@ -971,7 +974,7 @@ export class AangBrowser {
         setTimeout(() => { void this.mockTidy(false); }, 30_000).unref?.();
       }
     }
-    this.file = path.join(o.stateDir, 'browser-tabs.json');
+    this.session = new SessionStore(path.join(o.stateDir, 'browser-tabs.json'));
     this.pausedFile = path.join(sd, 'adblock-paused.json');
     this.devices = new DeviceOk(path.join(sd, 'device-ok.json'));
     this.prefsFile = path.join(sd, 'browser-prefs.json');
@@ -1430,18 +1433,13 @@ export class AangBrowser {
       if (wc && this.driver?.owns(wc)) { item.cancel(); return; }
       if (wc) this.inWc(wc);
       const dir = app.getPath('downloads');
-      const base = item.getFilename().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'download';
-      // Phase 1 (parity sweep): two downloads with the same name started together both saw no file yet and the second
-      // wrote over the first. A name is held from the moment it is picked until its download ends (as Chromium does).
-      let to = path.join(dir, base), n = 1;
-      while (existsSync(to) || this.savingTo.has(to.toLowerCase())) { const p = path.parse(base); to = path.join(dir, `${p.name} (${n++})${p.ext}`); }
-      const held = to.toLowerCase();
-      this.savingTo.add(held);
-      item.once('done', () => this.savingTo.delete(held));
+      const base = safeName(item.getFilename());
+      // The name is held until this download ends, so a second one with the same name never writes over it (downloads.ts).
+      const to = this.savePaths.pick(dir, base);
+      item.once('done', () => this.savePaths.release(to));
       item.setSavePath(to);
       const from = item.getURL();
-      let fromSite = '';
-      try { fromSite = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+      const fromSite = siteOfUrl(wc?.getURL() || from);
       const d = this.dls.start(to, fromSite, item.getTotalBytes());
       this.live.set(d.id, item);
       let lastGot = 0, lastAt = Date.now();
@@ -1457,20 +1455,12 @@ export class AangBrowser {
       // Decision 18: a program or a script from a site he has not trusted waits for one yes in a chip. The site
       // is the page he was on (a download often comes from some other server behind it). Unanswered = no.
       if (isRisky(base)) {
-        let site = '';
-        try { site = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-        // Where the file itself came from too (security check 2026-10-24, finding 8): an ad or a redirect on a site he
-        // trusts could hand him a program from anywhere. A file from another site than the page asks, unless he trusts it.
-        let fileSite = '';
-        try { fileSite = new URL(item.getURLChain?.().slice(-1)[0] || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-        const sameSite = (a: string, b: string) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
-        const fileOk = !fileSite || sameSite(fileSite, site) || this.trusted.has(fileSite);
-        if (!site || !this.trusted.has(site) || !fileOk) {
+        // The page's site, and where the file itself came from (an ad on a trusted site could hand him a program from
+        // anywhere): downloads.ts decides whether he is asked, and what he is told.
+        const ask = programAsk({ page: fromSite, file: siteOfUrl(item.getURLChain?.().slice(-1)[0] || from), trusted: this.trusted, otherTrusts: this.peerTrusted });
+        if (ask) {
+          const { site, fileSite, text } = ask;
           item.pause();
-          const other = this.peerTrusted.has(site);
-          const text = this.trusted.has(site) && !fileOk ? `It is a program, and it comes from ${fileSite}, not ${site}. Only say yes if you meant to get it.`
-            : other ? `It is a program. Your other computer trusts ${site}, but this one hasn't yet. Only say yes if you meant to get it.`
-            : `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`;
           this.ask({ host: site, what: `Download ${base}?`, text, yes: 'Download, trust this site', no: 'No', from: 'dl', kick: 'A program', icon: 'wont' }, (allow) => {
             if (item.getState() !== 'progressing') return;
             if (!allow) { item.cancel(); return; }
@@ -1488,8 +1478,8 @@ export class AangBrowser {
         if (state === 'completed') {
           // Marked "from the internet", so the system checks it before it runs: Windows' zone mark, or on the Mac
           // Apple's quarantine flag (Gatekeeper asks before opening it), the way Safari marks downloads (2026-10-14).
-          if (process.platform === 'darwin') execFile('/usr/bin/xattr', ['-w', 'com.apple.quarantine', `0081;${Math.floor(Date.now() / 1000).toString(16)};Samara;`, to], (e) => { if (e) console.error('shell: could not mark the download for Gatekeeper: ' + e.message); });
-          else try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
+          if (process.platform === 'darwin') execFile('/usr/bin/xattr', ['-w', 'com.apple.quarantine', quarantineMark(), to], (e) => { if (e) console.error('shell: could not mark the download for Gatekeeper: ' + e.message); });
+          else try { writeFileSync(to + ':Zone.Identifier', zoneMark(from)); }
           catch (e) { console.error('shell: could not mark the download for Defender: ' + (e as Error).message); }
         }
         this.live.delete(d.id); this.got.delete(d.id);
@@ -3613,8 +3603,8 @@ export class AangBrowser {
       else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
         // Nothing left in the whole browser: remember an empty window (so the closed tabs do not come back next time).
         if (!this.tabs.length && this.restored && !this.o.secret) {
-          this.keepTabsCopy('empty');
-          try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
+          this.session.keepCopy('empty');
+          this.session.write({ v: 1, active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) }, { now: true, force: true });
           this.sync?.changed('tabs');
         }
         this.win.close();
@@ -4660,7 +4650,7 @@ export class AangBrowser {
         return { tabs: this.tabs.filter((t) => !t.internal && !t.mock && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.filter((x) => !x.mock).map((x) => ({ id: x.id, name: x.name })) };
       }
       try {
-        const s = readJson<any>(this.file, null);
+        const s = this.session.peek() as any;
         return { tabs: (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: any) => typeof t?.url === 'string' && isWeb(t.url) && !t.mock).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url), trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true })),
           trails: (Array.isArray(s?.trails) ? s.trails : []).filter((x: any) => Number.isInteger(x?.id) && x.id !== MOCK_TRAIL).map((x: any) => ({ id: x.id, name: String(x.name ?? '') })) };
       } catch { return { tabs: [], trails: [] }; }
@@ -4697,10 +4687,10 @@ export class AangBrowser {
       let closed: string[] = [];
       // The mockup tabs written here stay (sheet 47): they are this PC's own.
       let mocks: unknown[] = [];
-      try { const s = readJson<any>(this.file, null); if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
-      this.keepTabsCopy('other-machine');
+      try { const s = this.session.peek() as any; if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
+      this.session.keepCopy('other-machine');
       const keepTrails = mocks.length ? [...trails.filter((x) => x.id !== MOCK_TRAIL), { id: MOCK_TRAIL, name: 'MOCKUPS', named: true, mock: true }] : trails;
-      try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...mocks], trails: keepTrails, closed })); } catch { /* best effort */ }
+      this.session.write({ v: 1, active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...(mocks as SessionData['tabs'])], trails: keepTrails, closed }, { now: true, force: true, why: 'other-machine' });
       return;
     }
     // The mockups (sheet 47) are this PC's alone: the other machine's tabs never close or move them.
@@ -6259,8 +6249,6 @@ export class AangBrowser {
   /** Write every tab to disk. Scroll is asked of each live page with a deadline; a page that does not answer keeps its last. */
   /** Tabs he was on since the last save: only their scroll can have moved (measured 2026-10-20). */
   private scrollDue = new Set<number>();
-  /** The last tabs file written, without its time: nothing changed means nothing written and nothing sent. */
-  private lastSnap = '';
   /**
    * His saved tabs have been read back this run (or he starts on the home page). Until then nothing writes the tabs file
    * (2026-10-23: a mockup that arrived while Samara was still starting opened its tab first, that one tab was saved over
@@ -6268,26 +6256,6 @@ export class AangBrowser {
    * waits for the window's first load.
    */
   private restored = false;
-  /** How many of his own tabs (not mockups) the tabs file held when last read or written. */
-  private savedCount = 0;
-  /**
-   * A copy of the tabs file as it is now, kept aside (2026-10-23: one restart came back with every tab gone, and only a
-   * stray copy from that morning brought them back). Taken at every start, and before any write that would drop most
-   * of his tabs at once. The newest 10 are kept, in browser-tabs-kept beside it.
-   */
-  private keepTabsCopy(why: string): void {
-    try {
-      if (!existsSync(this.file)) return;
-      const s = JSON.parse(readFileSync(this.file, 'utf8'));
-      const n = (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: { mock?: unknown }) => !t?.mock).length;
-      if (n < 2) return;
-      const dir = path.join(path.dirname(this.file), 'browser-tabs-kept');
-      mkdirSync(dir, { recursive: true });
-      copyFileSync(this.file, path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${why}.json`));
-      const all = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
-      for (const f of all.slice(0, Math.max(0, all.length - 10))) { try { unlinkSync(path.join(dir, f)); } catch { /* next time */ } }
-    } catch (e) { console.error('shell: browser: the tabs copy was not kept: ' + (e as Error).message); }
-  }
   private async snapshot(all = false): Promise<void> {
     if (!this.restored) return;
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
@@ -6318,12 +6286,10 @@ export class AangBrowser {
     });
     // Closing or quitting: written once at once with what is known (2026-10-28: quitting could end Samara before the
     // pages answered below, and then nothing of the last few seconds was kept), then again with their scroll spots.
-    const kept = (d: ReturnType<typeof make>) => {
-      const mine = d.tabs.filter((t) => !t.mock).length;
-      if (this.savedCount >= 4 && mine < this.savedCount / 2) this.keepTabsCopy('drop');
-      this.savedCount = mine;
-    };
-    if (all) { const d = make(); kept(d); try { writeFileAtomic(this.file, JSON.stringify({ ...d, at: new Date().toISOString() })); } catch { /* written again below */ } }
+    if (all) this.session.write(make() as SessionData, { now: true, force: true });
+    // Taken before waiting on the pages: if a tab closes or the other machine's tabs land meanwhile, this save is stale
+    // and dropped (sessionstore.ts), instead of writing the older list back over the newer one.
+    const ticket = this.session.ticket();
     // Only the tabs in front, and the ones he was on since the last save (measured 2026-10-20: asking every tab every
     // 8 s woke them all, and on a slow machine ran past its deadline so nothing was saved). Closing asks them all.
     const due = this.scrollDue; this.scrollDue = new Set();
@@ -6335,26 +6301,18 @@ export class AangBrowser {
       if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
       try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
     }));
-    const data = make();
-    const body = JSON.stringify(data);
-    if (!all && body === this.lastSnap) return;
-    this.lastSnap = body;
-    kept(data);
     // In the background while he browses; on closing, written before anything else happens.
-    const text = JSON.stringify({ ...data, at: new Date().toISOString() });
-    const fail = (e: unknown) => console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message);
-    if (all) { try { writeFileAtomic(this.file, text); } catch (e) { fail(e); } } else writeFileAtomicSoon(this.file, text).catch(fail);
+    if (!this.session.write(make() as SessionData, { now: all, force: all, ticket })) return;
     this.sync?.changed('tabs');
   }
 
   /** Bring every tab back from the last snapshot. Only the one he was on loads; the rest come back asleep. */
   private restore(): boolean {
-    this.keepTabsCopy('start');
+    this.session.keepCopy('start');
     this.restored = true;
     try {
-      if (!existsSync(this.file)) return false;
-      const s = JSON.parse(readFileSync(this.file, 'utf8'));
-      this.savedCount = (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: { mock?: unknown }) => !t?.mock).length;
+      const s = this.session.read() as any;
+      if (!s) return false;
       // Sheet 107 (his pick, 2026-10-30): mockups open inside Mockups now, so the mockup tabs of before close (every sheet
       // stays in Mockups).
       const list = Array.isArray(s?.tabs) ? s.tabs.filter((t: { url?: unknown; mock?: unknown }) => typeof t?.url === 'string' && isWeb(t.url as string) && !t.mock).slice(0, 80) : [];

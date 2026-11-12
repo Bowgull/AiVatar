@@ -57,6 +57,8 @@ export async function writeFileAtomicSoon(file: string, data: string | Uint8Arra
   try { await fd.writeFile(data); await fd.sync(); } finally { await fd.close(); }
   if (latest.get(file) !== me) { await rm(tmp, { force: true }); return; }   // a newer save came meanwhile: it wins
   if (mode !== null) await chmod(tmp, mode).catch(() => { /* keeps the default */ });
+  // Asked again after the wait above (Phase 2, 2026-11-12): a write that landed during the chmod is newer than this one.
+  if (latest.get(file) !== me) { await rm(tmp, { force: true }); return; }
   await rename(tmp, file);
 }
 
