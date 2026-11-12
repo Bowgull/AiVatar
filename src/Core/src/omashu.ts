@@ -48,6 +48,8 @@ export interface ChatLine {
   chan?: { num: number; name: string };
   /** The full name as WoW wrote it (may carry "-Realm"), for whispers and the name menu. */
   who?: string;
+  /** The speaker's class token (WARLOCK, MAGE...), when the laptop knew it: the phone colours the name by it. */
+  cls?: string;
   text: Seg[];
 }
 

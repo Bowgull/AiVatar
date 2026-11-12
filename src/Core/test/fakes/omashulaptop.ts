@@ -35,7 +35,7 @@ export class FakeLaptop {
   old = false;
   game: 'zelda' | 'wow' | null = null;
   session: string | null = null;
-  lines: { seq: number; raw: string }[] = [];
+  lines: { seq: number; raw: string; cls?: string }[] = [];
   seq = 0;
   /** What Couch Mode typed into WoW. */
   typed: string[] = [];
@@ -88,10 +88,10 @@ export class FakeLaptop {
   startWow() { this.awake = true; this.game = 'wow'; this.session = randomBytes(4).toString('hex'); this.lines = []; this.seq = 0; }
   stopWow() { this.game = null; this.session = null; this.lines = []; this.seq = 0; }
   /** A line as Couch Mode serves it (WoWChatLog.txt's format, link codes kept, "MM/DD" with leading zeros). */
-  log(body: string, at = new Date()) {
+  log(body: string, at = new Date(), cls?: string) {
     if (!this.session) return;
     const p = (n: number, w = 2) => String(n).padStart(w, '0');
-    this.lines.push({ seq: ++this.seq, raw: `${p(at.getMonth() + 1)}/${p(at.getDate())} ${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}.${p(at.getMilliseconds(), 3)}  ${body}` });
+    this.lines.push({ seq: ++this.seq, raw: `${p(at.getMonth() + 1)}/${p(at.getDate())} ${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}.${p(at.getMilliseconds(), 3)}  ${body}` , ...(cls ? { cls } : {}) });
     if (this.lines.length > 1000) this.lines.shift();
   }
   /** What WoW would echo into the log after a line is typed. */

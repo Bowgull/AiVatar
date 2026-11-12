@@ -48,7 +48,7 @@ export function loadRemoteConfig(file: string): RemoteConfig | null {
 // ------------------------------------------------------------------ the laptop
 
 type Fetch = typeof fetch;
-export interface ChatBatch { session: string | null; seq: number; ah?: boolean; lines: { seq: number; raw: string }[] }
+export interface ChatBatch { session: string | null; seq: number; ah?: boolean; lines: { seq: number; raw: string; cls?: string }[] }
 
 export class Laptop {
   private cfg: RemoteConfig['laptop'];
@@ -291,6 +291,8 @@ export class OmashuRemote {
       if (gl) { this.takeGuild(gl); continue; }      // the guild list: never shown as chat
       const c = parseChatLine(l.raw, l.seq);
       if (!c) continue;
+      // the speaker's class, sent by the laptop since chat strip v2 (2026-11-11): the phone colours the name by it
+      if (c.who && typeof l.cls === 'string' && /^[A-Z]{4,12}$/.test(l.cls)) c.cls = l.cls;
       this.lines.push(c);
       if (c.kind === 'whisper') {
         this.whispers++;
