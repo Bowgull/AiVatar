@@ -37,6 +37,10 @@ static class Program
         {
             // Aang is already running: let the browser come to the front for the link he just clicked.
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+            // Phase 2: with Samara apart, Aang's windows do not hold the browser, so Samara is started if it is not running
+            // (it reads the link or the flag left above when it starts).
+            if (CoreSupervisor.SamaraApart && (samara || link != null || args.Contains("--open-browser")))
+                using (var running = CoreSupervisor.RunningBrowser()) if (running == null) CoreSupervisor.StartShellAlone(Config.Load().ShellDir);
             return 0;
         }
         // Samara on its own (his ask, 2026-10-20: "Samara only"). The Samara shortcut, the Start menu's browser entry
@@ -49,7 +53,7 @@ static class Program
             if (after >= 0 && after + 1 < args.Length && int.TryParse(args[after + 1], out var old))
                 try { using var o = System.Diagnostics.Process.GetProcessById(old); o.WaitForExit(15_000); } catch { /* already gone */ }
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
-            using (var there = CoreSupervisor.RunningShell()) if (there != null) return 0;
+            using (var there = CoreSupervisor.RunningBrowser()) if (there != null) return 0;
             CoreSupervisor.StartShellAlone(Config.Load().ShellDir);
             return 0;
         }
