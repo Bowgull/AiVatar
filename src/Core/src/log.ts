@@ -65,3 +65,25 @@ function keepSmall(file: string, o: LogOpts): void {
 export function logs(): { label: string; file: string; failures: number }[] {
   return [...all.values()].map((l) => ({ label: l.label, file: l.file, failures: writeFailureCount(l.file) }));
 }
+
+/**
+ * Phase 1 (security audit 2026-11-12): one way for both machines to catch what nothing else caught. Before, the PC kept
+ * only the message (no stack, so no way to find the line) and the two machines logged differently. A storm (the same
+ * fault many times a minute) is said once, loudly, instead of filling the log.
+ */
+export function catchStrays(label: string, log: (s: string) => void = (s) => console.error(s), now: () => number = Date.now): { seen: () => number } {
+  let n = 0, windowStart = now(), inWindow = 0, quietUntil = 0;
+  const report = (kind: string, e: unknown) => {
+    n++;
+    const t = now();
+    if (t - windowStart > 60_000) { windowStart = t; inWindow = 0; }
+    inWindow++;
+    if (t < quietUntil) return;
+    if (inWindow > 20) { quietUntil = windowStart + 60_000; log(`${label}: ${kind}: ${inWindow} in under a minute; quiet until the minute is up`); return; }
+    const text = e instanceof Error ? e.stack ?? e.message : String(e);
+    log(`${label}: ${kind}: ${text.split('\n').slice(0, 8).join(' | ')}`);
+  };
+  process.on('uncaughtException', (e) => report('uncaught', e));
+  process.on('unhandledRejection', (e) => report('unhandled', e));
+  return { seen: () => n };
+}
