@@ -131,6 +131,10 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .menu h4 span{display:block;color:#e4c9a0;font-size:13px;font-weight:400;margin-top:3px;font-family:system-ui,-apple-system,sans-serif}
 .mi{background:#3a2212;color:var(--parch);border-radius:9px;padding:11px 12px 10px;margin:5px 0;font-size:16px;box-shadow:inset 0 -2px 0 #24140a;display:flex;justify-content:space-between}
 .mi small{color:#b39b73;font-size:12px}
+.menu .yes{display:block;text-align:center;margin:10px 0 2px;padding:16px 12px 14px;border-radius:11px;font-size:22px;font-weight:600;color:#2a1604;
+  background:linear-gradient(#f3d784,#c9973a);box-shadow:inset 0 -3px 0 #8a5a17,inset 0 2px 0 #fff3c4,0 2px 0 #24140a}
+.menu .yes:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 #8a5a17,inset 0 2px 0 #fff3c4}
+.menu .no{display:block;text-align:center;margin:8px auto 2px;padding:8px 18px;font-size:14px;color:#e4c9a0;opacity:.85}
 /* the emote tray: wooden tiles, 3 by 3 (sheet 07) */
 .tray{margin-top:8px;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:8px;
   display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
@@ -720,7 +724,9 @@ function showMore(name){
   const grid=$('div','grid'),note=$('div','enote');
   // Reload WoW's interface (Joshua 2026-11-11), not an emote: asked once more first, so a stray tap can't do it
   const rl=$('div','tile more reload','Reload WoW');rl.addEventListener('click',()=>{const m=menuShell("Reload WoW's interface?",'Takes a few seconds');
-    mi(m,'Reload','/reload',()=>{knock();api('/api/send',{act:'reload'})});mi(m,'Cancel',null,()=>{})});
+    // sheet omashu/remote/16 (Joshua 2026-11-11: "Yes that looks perfect"): one big gold Reload, a small quiet Cancel
+    const yes=$('div','yes','Reload');yes.addEventListener('click',()=>{closeMenus();knock();api('/api/send',{act:'reload'})});m.appendChild(yes);
+    const no=$('div','no','Cancel');no.addEventListener('click',closeMenus);m.appendChild(no)});
   moreEl.append(sb,chips,grid,note,...(name?[]:[rl]));
   function draw(){
     const q=emQuery.trim().toLowerCase();
