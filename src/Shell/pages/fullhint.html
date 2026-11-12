@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Phase 1: shown over a page that went full screen, as Chrome does, so a page can never pass a fake address bar off
+     as Samara's. It is Samara's own window above the page; the page cannot hide it. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Full screen</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="signin.css">
+</head>
+<body><div class="hint"><span>Press <b>Esc</b> to leave full screen</span></div></body>
+</html>

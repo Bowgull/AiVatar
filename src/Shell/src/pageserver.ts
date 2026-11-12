@@ -133,7 +133,10 @@ export function servePages(dir: string, home = '/popout.html', o: PageServerOpts
       return;
     }
 
-    const name = decodeURIComponent((req.url ?? '/').split('?')[0]!);
+    // Phase 1 (security audit): a bad escape ("/%") threw out of this handler, so the request was never answered and its
+    // connection stayed open. A name that cannot be read is simply not here.
+    let name = '';
+    try { name = decodeURIComponent((req.url ?? '/').split('?')[0]!); } catch { res.writeHead(400).end(); return; }
     if (name === '/live/events') { if (req.method === 'HEAD') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }).end(); return; } liveEvents(res); return; }
     const file = path.resolve(root, '.' + (name === '/' ? home : name));
     // The one rule that matters: whatever the address says, the file has to be inside the folder.

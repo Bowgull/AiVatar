@@ -37,7 +37,7 @@ import { pcEngine, pcSamara } from './pcsource.ts';
 import type { UpdateEngine } from './updateengine.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { readJson, saveJson } from './store.ts';
-import { openLog } from './log.ts';
+import { catchStrays, openLog } from './log.ts';
 import { localStamp } from './clock.ts';
 import { sched } from './sched.ts';
 import { CardRenderer } from './cardrender.ts';
@@ -1975,5 +1975,4 @@ app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('before-quit', () => { family?.saveNow(); taskbarPops?.dispose(); samaraShortcutsLit(false, { quitting: true }); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); jobPops?.dispose(); bubble?.close(); });
 
 // Nothing a page does may take the Shell down silently.
-process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
-process.on('unhandledRejection', e => console.error('shell: unhandled: ' + String(e)));
+catchStrays('shell');

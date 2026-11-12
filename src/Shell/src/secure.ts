@@ -45,6 +45,9 @@ const RISKY = new Set([
   'app', 'pkg', 'mpkg', 'dmg', 'command', 'tool', 'workflow', 'scpt', 'scptd', 'applescript', 'terminal', 'webloc', 'inetloc', 'sh', 'zsh', 'py', 'pl', 'rb',
   // Security check 2026-10-24 (finding 8): a zip can carry an app or a program inside it, and opening it unpacks it.
   'zip',
+  // Phase 1 (security audit 2026-11-12): other archives that carry programs the same way, Remote Desktop files (used in
+  // 2024 phishing), OneNote and macro-carrying Office files, and Java Web Start.
+  '7z', 'rar', 'tar', 'gz', 'tgz', 'xz', 'arj', 'ace', 'rdp', 'one', 'onepkg', 'docm', 'xlsm', 'xlam', 'pptm', 'dotm', 'jnlp',
 ]);
 export function isRisky(filename: string): boolean {
   const m = String(filename ?? '').toLowerCase().match(/\.([a-z0-9-]+)$/);
