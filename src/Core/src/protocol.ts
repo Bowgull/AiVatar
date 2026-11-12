@@ -456,7 +456,11 @@ export type FromBody =
        *  on over his game when nothing was there to show it. */
       shell?: boolean;
       /** The Shell is drawing the replies (the new bubble), so desktop replies can keep their formatting. */
-      bubble?: boolean }
+      bubble?: boolean;
+      /** Samara on its own (Phase 2, 2026-11-12): a Shell for the browser's news, never the one that shows Aang's lines. */
+      role?: 'samara' }
+  /** Phase 2: a message for the other Shell (Samara to Aang's windows, or back), passed on by the brain and never read. */
+  | { t: 'relay'; m: Record<string, unknown> }
   /** The Body: whether Joshua has touched the keyboard or mouse lately, sent when that changes. */
   | { t: 'desk'; active: boolean }
   | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number;

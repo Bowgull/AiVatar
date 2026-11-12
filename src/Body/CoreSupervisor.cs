@@ -323,12 +323,24 @@ sealed class CoreSupervisor : IDisposable
         catch { return true; }                      // already gone, or never really started
     }
 
+    /// <summary>
+    /// Phase 2 (2026-11-12, his words: "i want samara as its own standalone browser that i use forever"): with
+    /// AANG_SAMARA_APART=1 Samara runs as its own program (src/samara.ts, samara.pid) and the Shell (main.ts) is Aang's
+    /// windows only. Off until he turns it on.
+    /// </summary>
+    public static bool SamaraApart => Environment.GetEnvironmentVariable("AANG_SAMARA_APART") == "1";
+
+    /// <summary>The browser that is running right now: Samara's own program when apart, else the Shell that holds it.</summary>
+    public static Process? RunningBrowser() => SamaraApart ? RunningFrom("samara.pid") : RunningShell();
+
     /// <summary>A Shell that is running right now, from the pid it keeps in shell.pid (only if it really is Electron).</summary>
-    public static Process? RunningShell()
+    public static Process? RunningShell() => RunningFrom("shell.pid");
+
+    static Process? RunningFrom(string pidFile)
     {
         try
         {
-            if (!int.TryParse(File.ReadAllText(Paths.File("shell.pid")).Trim(), out var pid)) return null;
+            if (!int.TryParse(File.ReadAllText(Paths.File(pidFile)).Trim(), out var pid)) return null;
             var p = Process.GetProcessById(pid);
             if (!p.HasExited && p.ProcessName.Contains("electron", StringComparison.OrdinalIgnoreCase)) return p;
             p.Dispose();
@@ -346,7 +358,7 @@ sealed class CoreSupervisor : IDisposable
         try
         {
             var exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
-            var psi = new ProcessStartInfo(exe, s.Args) { WorkingDirectory = s.PickDir?.Invoke() ?? s.Dir, UseShellExecute = false, CreateNoWindow = true };
+            var psi = new ProcessStartInfo(exe, SamaraApart ? "src/samara.ts" : s.Args) { WorkingDirectory = s.PickDir?.Invoke() ?? s.Dir, UseShellExecute = false, CreateNoWindow = true };
             if (s.PickDir != null) psi.Environment["AANG_SHELL_HOME"] = s.Dir;
             using var p = Process.Start(psi);
             Log.Write($"samara: opened on its own (pid {p?.Id})");

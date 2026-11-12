@@ -3450,6 +3450,8 @@ export class Core {
   awaySeconds(): number { return this.atDesk || !this.awaySince ? 0 : (Date.now() - this.awaySince) / 1000; }
   /** The Electron Shell's connections: the only desktop client that can actually show the pop-out. */
   private readonly shells = new WeakSet<WebSocket>();
+  /** Phase 2: the Shells that are Samara on its own (hello role 'samara'): browser news yes, Aang's held lines no. */
+  private readonly samaras = new WeakSet<WebSocket>();
   private shellUp(): boolean { return !!this.wss && [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)); }
   /** M6: browser changes between the PC's browser and the Mac's. Passed on, never kept. */
   private readonly bsync = new BrowserSyncHub({
@@ -3845,10 +3847,20 @@ export class Core {
     // M6: the PC's browser talking to the Mac's. Only a Shell may, and nothing here reads it.
     if (typeof m.t === 'string' && (m.t as string).startsWith('bsync.')) { if (this.shells.has(ws)) this.bsync.fromShell(m as never); return; }
     switch (m.t) {
+      case 'relay': {
+        // Phase 2: Samara and Aang's windows, each its own program on the PC, talk through here. Only between Shells,
+        // only an object with a short type, never kept, never read; the sender does not get its own back.
+        const inner = (m as { m?: unknown }).m;
+        if (!this.shells.has(ws) || !inner || typeof inner !== 'object' || typeof (inner as { t?: unknown }).t !== 'string') break;
+        if (String((inner as { t: string }).t).length > 40 || JSON.stringify(inner).length > 64_000) break;
+        if (this.wss) for (const c of this.wss.clients) if (c !== ws && c.readyState === c.OPEN && this.shells.has(c)) this.send(c, { t: 'relay', m: inner } as never);
+        break;
+      }
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
         if (m.shell === true) {
           this.shells.add(ws);
+          if (m.role === 'samara') this.samaras.add(ws);
           this.bsync.shellChanged(true);
           ws.once('close', () => this.bsync.shellChanged(this.shellUp()));
           ws.once('close', () => { if (!this.shellUp()) this.connect.setVisible(false); });   // no player window without a Shell
@@ -3864,7 +3876,7 @@ export class Core {
         if (this.kindOfSocket(ws) === 'desktop') { const st = this.claudeState(); this.send(ws, { t: 'claude.working', ...st.working }); this.send(ws, this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking)); }
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
         // Lines held because nobody was there to see them (R15) come out now that someone is.
-        if (m.shell === true && this.held.size) setTimeout(() => this.releaseHeld(), 2000).unref?.();
+        if (m.shell === true && m.role !== 'samara' && this.held.size) setTimeout(() => this.releaseHeld(), 2000).unref?.();
         if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
         if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting(), ...(this.inClaude() ? { quiet: true } : {}) }); }
         break;
