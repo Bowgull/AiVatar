@@ -21,7 +21,7 @@ export const MAC_LISTENER_PORT = 47840;
 export const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'SessionEnd'];
 
 /** The listener, in Perl. It answers only POST /front (bring Claude forward), POST /run (type
- *  the body into a new Claude chat) and POST /open, each with the key in an X-Aang-Key header, from the PC's Tailscale
+ *  the body into a new Claude chat), POST /open and POST /sound (the mixer's sound picker), each with the key in an X-Aang-Key header, from the PC's Tailscale
  *  address - /front at most once every 2s, /run once every 10s - and nothing else. */
 const LISTENER = String.raw`#!/usr/bin/perl
 # Aang's helper on this Mac. It does exactly two things when Aang on the Shadow PC asks over Tailscale with the key:
@@ -42,7 +42,16 @@ sub same { my ($x, $y) = @_; return 0 unless defined $x && defined $y && length(
 my ($ip) = (qx{/sbin/ifconfig} =~ /inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)/);
 unless ($ip) { sleep 30; exit 1 }                      # Tailscale is not up yet; launchd starts this again
 my $srv = IO::Socket::INET->new(LocalAddr => $ip, LocalPort => $port, Listen => 5, ReuseAddr => 1) or do { sleep 30; exit 1 };
-my ($lastFront, $lastRun, $lastOpen) = (0, 0, 0);
+my ($lastFront, $lastRun, $lastOpen, $lastSound) = (0, 0, 0, 0);
+# The sound picker's three questions, spelled out: anything else is refused even with the right key. An output is named
+# by its CoreAudio UID (printable, no spaces, never starting with a dash), headphones by their Bluetooth address.
+sub sound_args {
+  my ($b) = @_; $b //= ''; $b =~ s/^\s+|\s+$//g;
+  return ('list') if $b eq 'list';
+  return ('out', $1) if $b =~ /^out ([\x21-\x7e]{1,200})$/ && substr($1, 0, 1) ne '-';
+  return ('bt', lc($1), $2) if $b =~ /^bt ([0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){5}) (on|off)$/;
+  return ();
+}
 # Step 6.9. This door takes an ADDRESS off the network and opens it on his Mac, so the key alone is not
 # enough: only these sites, and only https. Least privilege, his standing rule. Anything else is refused
 # even with the right key, so a key that ever leaked still could not point his Mac at an arbitrary page.
@@ -61,14 +70,33 @@ while (my $c = $srv->accept) {
     local $SIG{ALRM} = sub { die "slow\n" }; alarm 3;
     my $l = <$c> // '';
     # S3 (2026-10-14): the key comes in a header, never in the address, where logs and proxies could keep it.
-    if ($l =~ m{^POST (/front|/run|/open) HTTP/}) { $path = $1; }
+    if ($l =~ m{^POST (/front|/run|/open|/sound) HTTP/}) { $path = $1; }
     while (my $h = <$c>) { last if $h =~ /^\r?\n\z/; $clen = $1 if $h =~ /^Content-Length:\s*(\d+)/i; $qkey = $1 if $h =~ /^X-Aang-Key:\s*(\S+)/i; }
     alarm 0;
   };
   # Only the Shadow PC itself, by its exact Tailscale address; any other machine on the tailnet is refused.
   my $ok = $peer eq $shadow && $path ne '' && same($qkey, $key);
   my $body = '';
-  if ($ok && ($path eq '/run' || $path eq '/open') && $clen > 0) { my $n = $clen > 4000 ? 4000 : $clen; read $c, $body, $n; }
+  if ($ok && ($path eq '/run' || $path eq '/open' || $path eq '/sound') && $clen > 0) { my $n = $clen > 4000 ? 4000 : $clen; read $c, $body, $n; }
+  # The Shrine mixer's sound picker (2026-11-13, his "Yes, that scope"): where the Shadow's sound comes out on this Mac.
+  # Three fixed questions, nothing else: list the outputs, play on one, connect or disconnect paired headphones. The
+  # answer comes back as JSON, so this is the one door that replies with a body.
+  my $reply = '';
+  if ($ok && $path eq '/sound' && time - $lastSound < 1) { $ok = 0 }
+  if ($ok && $path eq '/sound') {
+    $lastSound = time;
+    my @args = sound_args($body);
+    my $app = "$dir/AangSound.app";
+    if (@args && -x "$app/Contents/MacOS/AangSound") {
+      my $tmp = "$dir/sound-$$-" . time() . '.json'; unlink $tmp;
+      # Through open, not run directly: then the helper is its own app to macOS, so the Bluetooth permission is asked
+      # for (once) in its own name. A list, never a shell string. The helper stops itself after 15 s at most.
+      system('/usr/bin/open', '-W', '-g', '-j', '-n', '--stdout', $tmp, '-a', $app, '--args', @args);
+      if (open(my $fh, '<:raw', $tmp)) { local $/; $reply = <$fh> // ''; close $fh; }
+      unlink $tmp;
+      $ok = 0 unless $reply =~ /^\{/ && length($reply) < 64000;
+    } else { $ok = 0 }
+  }
   if ($ok && $path eq '/front' && time - $lastFront >= 2) { $lastFront = time; system('/usr/bin/open', '-a', 'Claude'); }
   if ($ok && $path eq '/run' && $body ne '' && time - $lastRun >= 10) {
     $lastRun = time;
@@ -88,10 +116,128 @@ while (my $c = $srv->accept) {
       } else { $ok = 0 }
     } else { $ok = 0 }
   }
-  print $c ($ok ? "HTTP/1.1 204 No Content\r\n" : "HTTP/1.1 403 Forbidden\r\n"), "Content-Length: 0\r\nConnection: close\r\n\r\n";
+  if ($ok && $reply ne '') { print $c "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " . length($reply) . "\r\nConnection: close\r\n\r\n" . $reply; }
+  else { print $c ($ok ? "HTTP/1.1 204 No Content\r\n" : "HTTP/1.1 403 Forbidden\r\n"), "Content-Length: 0\r\nConnection: close\r\n\r\n"; }
   close $c;
 }
 exit 1
+`;
+
+/**
+ * The sound picker's helper (2026-11-13): a tiny background app, built on the Mac from this source by Apple's own Swift
+ * compiler, so nothing is downloaded. It answers exactly three things, as one line of JSON:
+ *   list                  the Mac's outputs (which one is playing) and its paired Bluetooth AUDIO devices
+ *   out <uid>             play on that output
+ *   bt <address> on|off   connect (then play on it) or disconnect a paired audio device
+ * Keyboards, mice and trackpads are never listed or touched (Bluetooth major class 0x04, audio, only), so nothing here
+ * can cut off his own input. It stops itself after 15 s whatever happens.
+ */
+const SOUND_SWIFT = String.raw`import Foundation
+import CoreAudio
+import IOBluetooth
+
+DispatchQueue.global().asyncAfter(deadline: .now() + 15) { print("{\"ok\":false,\"why\":\"slow\"}"); exit(3) }
+
+let sys = AudioObjectID(kAudioObjectSystemObject)
+func address(_ sel: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) -> AudioObjectPropertyAddress {
+  AudioObjectPropertyAddress(mSelector: sel, mScope: scope, mElement: 0)
+}
+func u32(_ id: AudioObjectID, _ sel: AudioObjectPropertySelector) -> UInt32 {
+  var a = address(sel); var v: UInt32 = 0; var size = UInt32(MemoryLayout<UInt32>.size)
+  return AudioObjectGetPropertyData(id, &a, 0, nil, &size, &v) == noErr ? v : 0
+}
+func text(_ id: AudioObjectID, _ sel: AudioObjectPropertySelector) -> String? {
+  var a = address(sel); var v: Unmanaged<CFString>? = nil; var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+  let st = withUnsafeMutablePointer(to: &v) { AudioObjectGetPropertyData(id, &a, 0, nil, &size, $0) }
+  guard st == noErr, let s = v else { return nil }
+  return s.takeRetainedValue() as String
+}
+func devices() -> [AudioObjectID] {
+  var a = address(kAudioHardwarePropertyDevices); var size: UInt32 = 0
+  guard AudioObjectGetPropertyDataSize(sys, &a, 0, nil, &size) == noErr, size > 0 else { return [] }
+  var ids = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+  guard AudioObjectGetPropertyData(sys, &a, 0, nil, &size, &ids) == noErr else { return [] }
+  return ids
+}
+func playsOut(_ id: AudioObjectID) -> Bool {
+  var a = address(kAudioDevicePropertyStreams, kAudioDevicePropertyScopeOutput); var size: UInt32 = 0
+  return AudioObjectGetPropertyDataSize(id, &a, 0, nil, &size) == noErr && size > 0
+}
+func kind(_ id: AudioObjectID) -> String {
+  switch u32(id, kAudioDevicePropertyTransportType) {
+  case kAudioDeviceTransportTypeBuiltIn: return "builtin"
+  case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE: return "bluetooth"
+  case kAudioDeviceTransportTypeHDMI, kAudioDeviceTransportTypeDisplayPort: return "display"
+  case kAudioDeviceTransportTypeAirPlay: return "airplay"
+  case kAudioDeviceTransportTypeUSB: return "usb"
+  case kAudioDeviceTransportTypeVirtual, kAudioDeviceTransportTypeAggregate: return "virtual"
+  default: return "other"
+  }
+}
+func current() -> AudioObjectID {
+  var a = address(kAudioHardwarePropertyDefaultOutputDevice); var v = AudioObjectID(0); var size = UInt32(MemoryLayout<AudioObjectID>.size)
+  return AudioObjectGetPropertyData(sys, &a, 0, nil, &size, &v) == noErr ? v : 0
+}
+func outputs() -> [(id: AudioObjectID, uid: String, name: String, kind: String)] {
+  devices().compactMap { id -> (id: AudioObjectID, uid: String, name: String, kind: String)? in
+    guard playsOut(id), u32(id, kAudioDevicePropertyIsHidden) == 0, let uid = text(id, kAudioDevicePropertyDeviceUID) else { return nil }
+    return (id, uid, text(id, kAudioObjectPropertyName) ?? uid, kind(id))
+  }
+}
+func playOn(_ id: AudioObjectID) -> Bool {
+  var a = address(kAudioHardwarePropertyDefaultOutputDevice); var v = id
+  return AudioObjectSetPropertyData(sys, &a, 0, nil, UInt32(MemoryLayout<AudioObjectID>.size), &v) == noErr
+}
+func pairedAudio() -> [IOBluetoothDevice] {
+  ((IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []).filter { $0.deviceClassMajor == 0x04 }
+}
+func say(_ o: [String: Any]) -> Never {
+  if let d = try? JSONSerialization.data(withJSONObject: o), let s = String(data: d, encoding: .utf8) { print(s) }
+  exit(0)
+}
+func list() -> [String: Any] {
+  let now = current()
+  let outs = outputs().map { ["uid": $0.uid, "name": $0.name, "kind": $0.kind, "current": $0.id == now] as [String: Any] }
+  let bt = pairedAudio().map { ["addr": ($0.addressString ?? "").lowercased(), "name": $0.name ?? ($0.addressString ?? ""), "connected": $0.isConnected()] as [String: Any] }
+  return ["ok": true, "outputs": outs, "bluetooth": bt]
+}
+
+let args = Array(CommandLine.arguments.dropFirst())
+switch args.first {
+case "list":
+  say(list())
+case "out" where args.count == 2:
+  guard let o = outputs().first(where: { $0.uid == args[1] }) else { say(["ok": false, "why": "gone"]) }
+  let ok = playOn(o.id); Thread.sleep(forTimeInterval: 0.2)
+  var r = list(); r["ok"] = ok; say(r)
+case "bt" where args.count == 3:
+  guard let d = pairedAudio().first(where: { ($0.addressString ?? "").lowercased() == args[1] }) else { say(["ok": false, "why": "not paired"]) }
+  if args[2] == "off" { let ok = d.isConnected() ? d.closeConnection() == kIOReturnSuccess : true; Thread.sleep(forTimeInterval: 0.6); var r = list(); r["ok"] = ok; say(r) }
+  if !d.isConnected() && d.openConnection() != kIOReturnSuccess { var r = list(); r["ok"] = false; r["why"] = "would not connect"; say(r) }
+  // Connected: wait for its output to appear (a few seconds at most), then play on it.
+  let name = d.name ?? ""
+  for _ in 0..<40 {
+    if let o = outputs().first(where: { $0.kind == "bluetooth" && $0.name == name }) { _ = playOn(o.id); break }
+    Thread.sleep(forTimeInterval: 0.25)
+  }
+  say(list())
+default:
+  say(["ok": false, "why": "unknown"])
+}
+`;
+
+/** The helper's Info.plist: a background app with no Dock icon, and the words macOS shows when it asks once for Bluetooth. */
+const SOUND_PLIST = String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.aang.sound</string>
+  <key>CFBundleName</key><string>Aang Sound</string>
+  <key>CFBundleExecutable</key><string>AangSound</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSBackgroundOnly</key><true/>
+  <key>NSBluetoothAlwaysUsageDescription</key><string>So the Shrine mixer on your Shadow PC can connect your headphones when you pick them.</string>
+</dict></plist>
 `;
 
 /** Types one message into a new Claude chat and presses return - nothing else. Reads the text from a file rather
@@ -398,6 +544,24 @@ rm -f "$HOME/Library/LaunchAgents/com.aang.listener.plist" "$HOME/Library/Launch
 echo "Aang's listener is gone. (Its Claude Code hooks are in ~/.claude/settings.json; the file from before is kept next to it.)"
 UNINSTALL
 chmod 700 "$DIR" "$DIR/uninstall.sh" "$DIR/heartbeat.sh"; chmod 600 "$DIR/key" "$DIR/shadow" "$DIR/alive.curl"
+# The sound picker's helper (2026-11-13): built here by Apple's own Swift compiler, only when its source changed. Never
+# xcrun without the tools there: on a Mac without them that pops Apple's "install the tools" window.
+SND="$DIR/AangSound.app/Contents"; mkdir -p "$SND/MacOS"
+cat > "$SND/Info.plist" <<'SOUNDPLIST'
+${SOUND_PLIST}SOUNDPLIST
+cat > "$DIR/AangSound.swift" <<'SOUNDSWIFT'
+${SOUND_SWIFT}SOUNDSWIFT
+SOUND_SUM=$(/sbin/md5 -q "$DIR/AangSound.swift" 2>/dev/null || echo none)
+if [ ! -x "$SND/MacOS/AangSound" ] || [ "$(cat "$DIR/AangSound.sum" 2>/dev/null)" != "$SOUND_SUM" ]; then
+  DEVDIR=$(/usr/bin/xcode-select -p 2>/dev/null || true)
+  if [ -n "$DEVDIR" ] && { [ -x "$DEVDIR/usr/bin/swiftc" ] || [ -x "$DEVDIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc" ]; }; then
+    if /usr/bin/xcrun swiftc -O -o "$SND/MacOS/AangSound" "$DIR/AangSound.swift" -framework CoreAudio -framework IOBluetooth >"$DIR/AangSound.log" 2>&1; then
+      /usr/bin/codesign --force -s - "$DIR/AangSound.app" >/dev/null 2>&1 || true
+      printf '%s' "$SOUND_SUM" > "$DIR/AangSound.sum"
+      echo "     The mixer's sound picker is ready"
+    else echo "     The mixer's sound picker did not build (AangSound.log says why); everything else is fine"; fi
+  else echo "     The mixer's sound picker needs Apple's command line tools: run  xcode-select --install  and then update Aang again"; fi
+fi
 cat > "$PLIST" <<PLISTXML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

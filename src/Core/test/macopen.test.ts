@@ -102,9 +102,10 @@ test('the door is rate-limited and capped, like the other two', () => {
   const script = listener();
   assert.match(script, /time - \$lastOpen >= \d+/, 'one open at a time, not a flood');
   assert.match(script, /length\(\$u\) <= 2000/, 'and a bounded address');
-  // Still only three doors. This one is deliberately narrow: not a Mac port, per the plan.
+  // Still only a few doors, each deliberately narrow: not a Mac port, per the plan. The fourth, /sound (2026-11-13), is
+  // the mixer's sound picker; its own rules are in macsound.test.ts.
   const doors = /\^POST \(([^)]*)\)/.exec(script);
-  assert.equal(doors?.[1], '/front|/run|/open', 'exactly three things the Mac will do');
+  assert.equal(doors?.[1], '/front|/run|/open|/sound', 'exactly four things the Mac will do');
 });
 
 // ---- M1 (2026-10-13): the four open findings from PORT-TO-MAC.md, closed before the Mac gains any new door.
