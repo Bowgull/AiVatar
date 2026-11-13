@@ -202,6 +202,85 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .rb div{flex:1;text-align:center;padding:10px 0 9px;border-radius:10px;font-family:"Pixelify Sans";font-weight:600;font-size:16px}
 .rb .no{background:#e4d1a3;color:var(--brown);box-shadow:inset 0 -2px 0 #c9b07a}
 .rb .yes{background:#3f8f47;color:#fff;box-shadow:inset 0 -3px 0 #1f4f27}
+/* ---------- iPhone size pass (Joshua 2026-11-13: "an entire pass ... for visibility and clickability") ----------
+   One set of sizes for everything, from Apple's rules: body text 17 (rem follows the iPhone's own Text Size setting),
+   nothing under 13, everything you tap at least 44 x 44, rows 52, every text colour 4.5:1 on its background. */
+:root{--tap:44px;--row:52px;--fs-body:1rem;--fs-sub:.882rem;--fs-label:.941rem;--fs-fine:.765rem;--fs-title:1.06rem;
+  --dim-text:#b8a682;--quiet-text:#9a8a6c}
+html{font-size:17px}
+@supports (font:-apple-system-body){html{font:-apple-system-body}}
+html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
+/* the panel stays clear of the Dynamic Island and the home bar */
+.panel{top:max(56px,calc(env(safe-area-inset-top,0px) + 8px));bottom:max(8px,env(safe-area-inset-bottom,0px));padding:8px 10px 10px}
+.side .panel{left:max(54px,env(safe-area-inset-left,0px));right:max(54px,env(safe-area-inset-right,0px));bottom:max(18px,env(safe-area-inset-bottom,0px))}
+.panel .grip{position:relative;margin:0 auto 10px}
+.panel .grip::after{content:"";position:absolute;left:-40px;right:-40px;top:-19px;bottom:-19px}
+/* tabs: 44 tall, scroll sideways, a fade at the edge says there are more */
+.tabs{gap:6px;margin:0 0 8px}
+.tabs.more{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+.tab{min-height:var(--tap);min-width:var(--tap);padding:0 13px;font-size:var(--fs-label);display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
+.tab .n,.who-row .n{font-size:var(--fs-fine);min-width:20px;height:20px;line-height:20px;padding:0 6px;border-radius:10px;text-align:center;margin-left:6px}
+/* chat */
+.log{font-size:var(--fs-body);line-height:1.36;gap:6px;padding:10px 12px}
+.t{font-size:var(--fs-fine);color:var(--dim-text)}
+.l.hl,.l.new{margin:0 -6px;padding:2px 6px}
+/* send row: picker, smiley, box, send, all 44+ ; the box stays 16+ so the iPhone doesn't zoom when you type */
+.send{gap:6px;margin-top:8px}
+.chan{min-height:var(--tap);max-width:36%;padding:0 11px;font-size:var(--fs-label);display:flex;align-items:center}
+.emo,.go,.findgo{min-height:var(--tap);width:var(--tap)}
+.emo svg{width:26px;height:26px}.go svg,.findgo svg{width:22px;height:22px}
+.box{min-height:var(--tap);min-width:38%;font-size:max(16px,var(--fs-body));padding:0 10px}
+.send .hint{font-size:var(--fs-fine);bottom:-20px;left:12px}
+/* guild roster */
+.roster .hd{min-height:var(--tap);font-size:var(--fs-label);padding:0 6px}
+.roster .hd span{font-size:var(--fs-sub)}
+.roster.folded{padding:0 8px}
+.mem{min-height:var(--row);font-size:var(--fs-body);padding:8px 6px}
+.mem .zn{font-size:var(--fs-sub);color:#c9b48a}
+/* whispers */
+.who-row{min-height:64px;padding:11px 12px}
+.who-row .nm{font-size:var(--fs-body)}
+.who-row .ago{font-size:var(--fs-fine);color:var(--dim-text)}
+.who-row .last{font-size:var(--fs-sub)}
+.people .quiet{font-size:var(--fs-fine);color:var(--quiet-text)}
+.convo-hd{gap:10px}
+.convo-hd .back{min-height:var(--tap);padding:0 14px;font-size:var(--fs-label);display:inline-flex;align-items:center;border-radius:10px}
+.convo-hd .nm{font-size:var(--fs-body);padding:8px 12px}
+/* auction tab */
+.ah .hd{font-size:var(--fs-sub);color:var(--dim-text);padding:4px 6px 0}
+.srow{min-height:var(--row);font-size:var(--fs-body)}
+.ahtray .tile{min-height:var(--tap);font-size:var(--fs-sub)}
+/* menus */
+.menu,.menu.name{left:20px;right:20px;top:auto;bottom:max(16px,calc(env(safe-area-inset-bottom,0px) + 10px));padding:14px 12px 12px;max-height:calc(100% - 70px)}
+.side .menu,.side .menu.name{bottom:auto}   /* menus rise from the bottom, where the thumb is; sideways keeps its own place */
+.menu h4{font-size:1.18rem}
+.menu h4 span{font-size:var(--fs-sub)}
+.mi{min-height:48px;align-items:center;font-size:var(--fs-body);padding:0 14px}
+.mi small{font-size:var(--fs-fine);color:#c9ad80}
+.menu .no{min-height:var(--tap);display:flex;align-items:center;justify-content:center;font-size:var(--fs-label)}
+.at{font-size:var(--fs-sub)}
+/* emotes */
+.tile{min-height:48px;font-size:var(--fs-label)}
+.tray .tile{padding:0 2px}
+.menu .tile{min-height:var(--tap);font-size:var(--fs-sub);padding:0 2px}
+.emsheet .tile{min-height:48px;font-size:var(--fs-sub);padding:0 2px}
+.tile.blank{min-height:48px}
+.swaphint{font-size:var(--fs-label)}
+.esearch{min-height:var(--tap);font-size:max(16px,var(--fs-body))}
+.chip{min-height:var(--tap);padding:0 13px;font-size:var(--fs-sub);display:inline-flex;align-items:center}
+.enote{font-size:var(--fs-sub)}
+.emsheet .head{font-size:1.06rem}.emsheet .gh{font-size:var(--fs-sub)}
+/* tooltip, review */
+.tip{font-size:var(--fs-label)}.tip .nm{font-size:1.06rem}.tip .fine{font-size:var(--fs-fine);color:#a8a8c0}
+.review{font-size:var(--fs-body)}.review .to{font-size:var(--fs-sub)}
+.rb div{min-height:48px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-body)}
+/* the coin's count */
+.badge{min-width:24px;height:24px;border-radius:12px;font-size:var(--fs-fine)}
+/* the controls sheet (look, don't tap) */
+.sheet table{font-size:var(--fs-body)}.sheet td.s,.sheet .hint,.sheet .foot{font-size:var(--fs-sub)}.btn{font-size:var(--fs-sub)}.btn.w{font-size:var(--fs-fine)}
+/* every tap shows it landed: a little darker and smaller while your thumb is down (an iPhone page can't buzz) */
+.tab,.chan,.emo,.go,.findgo,.back,.mi,.tile,.chip,.srow,.mem,.who-row,.roster .hd,.rb div,.menu .no{transition:transform .08s,filter .08s}
+.tab:active,.chan:active,.emo:active,.go:active,.findgo:active,.back:active,.mi:active,.tile:active,.chip:active,.srow:active,.mem:active,.who-row:active,.roster .hd:active,.rb div:active,.menu .no:active{filter:brightness(.82);transform:scale(.97)}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -400,6 +479,9 @@ app.addEventListener('pointerup',lift);app.addEventListener('pointercancel',lift
 app.addEventListener('pointerdown',e=>{const a=document.activeElement;
   if(!e.defaultPrevented&&a&&a.tagName==='INPUT'&&!(e.target.closest&&e.target.closest('input')))a.blur()});
 
+document.addEventListener('touchstart',()=>{},{passive:true});   // lets :active show on iPhone (press feedback)
+function tabFade(){if(tabsEl)tabsEl.classList.toggle('more',tabsEl.scrollWidth-tabsEl.scrollLeft-tabsEl.clientWidth>4)}
+
 // ---------- the loop ----------
 let last=performance.now();
 const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;S.t+=dt;
@@ -427,6 +509,8 @@ const TAB_LIT={All:'#efe6d2',Whispers:'#ff80ff',Guild:'#40ff40',Party:'#aaaaff',
 const W_PEOPLE=4,W_LINES=6;
 // WoW's own class colours (RAID_CLASS_COLORS), for the guild list
 const CLASS_COLOR={WARRIOR:'#C69B6D',MAGE:'#3FC7EB',ROGUE:'#FFF468',DRUID:'#FF7C0A',HUNTER:'#AAD372',SHAMAN:'#0070DD',PRIEST:'#FFFFFF',WARLOCK:'#8788EE',PALADIN:'#F48CBA',DEATHKNIGHT:'#C41E3A',MONK:'#00FF98',DEMONHUNTER:'#A330C9',EVOKER:'#33937F'};
+// names only: the three class colours under 4.5:1 on the log get a lighter shade of the same hue (size pass 2026-11-13)
+const NAME_COLOR={...CLASS_COLOR,SHAMAN:'#3d9bff',DEATHKNIGHT:'#ec4c66',EVOKER:'#3fb39b'};
 const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';   // sheet 12: the last 4 people, the last 6 lines with each
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
 const AH_FILL='#f2d58a',AH_LIT='#ffd36b',AH_KEEP=6;
@@ -447,7 +531,7 @@ function openChat(){
   app.appendChild($('div','cdim'));
   panel=$('div','panel');
   const grip=$('div','grip');grip.addEventListener('click',closeChat);panel.appendChild(grip);
-  tabsEl=$('div','tabs');panel.appendChild(tabsEl);
+  tabsEl=$('div','tabs');tabsEl.addEventListener('scroll',tabFade,{passive:true});panel.appendChild(tabsEl);
   const cols=$('div','cols');leftEl=$('div','left');rightEl=$('div','right');cols.append(leftEl,rightEl);panel.appendChild(cols);
   convoEl=$('div','convo-hd');convoEl.hidden=true;peopleEl=$('div','people');peopleEl.hidden=true;rosterEl=$('div','roster');rosterEl.hidden=true;rosterSig='';
   logEl=$('div','log');leftEl.append(convoEl,rosterEl,peopleEl,logEl);
@@ -512,6 +596,7 @@ function render(full){
   for(const [n,f] of TABS){const t=tabEls[n];t.className='tab'+(n===chat.tab?' on':'');
     const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
     let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
+  tabFade();
   const isAh=chat.tab==='Auction';
   ahEl.hidden=!isAh;ahSendEl.hidden=!isAh;sendEl.hidden=isAh;if(trayEl2)trayEl2.hidden=!isAh;
   if(isAh){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;drawAh();return}
@@ -601,7 +686,7 @@ function drawRoster(){
   hd.addEventListener('click',()=>{chat.guildFolded=!chat.guildFolded;drawRoster()});rosterEl.appendChild(hd);
   if(chat.guildFolded)return;
   for(const m of chat.guild){
-    const r=$('div','mem');const nm=$('div','nm',m.name);nm.style.color=CLASS_COLOR[m.cls]||'var(--c-guild)';
+    const r=$('div','mem');const nm=$('div','nm',m.name);nm.style.color=NAME_COLOR[m.cls]||'var(--c-guild)';
     r.append(nm,$('div','lv',String(m.level)),$('div','zn',m.zone));
     r.addEventListener('click',()=>{r.classList.add('hl');guildMenu(m,r)});rosterEl.appendChild(r)}
 }
@@ -630,7 +715,7 @@ function lineEl(l){
   if(l.chan){const ch=$('span','ch','['+l.chan.num+'. '+l.chan.name+'] ');ch.addEventListener('click',()=>{chat.to={to:'channel',num:l.chan.num};render()});d.appendChild(ch)}
   const tag={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid'}[l.kind];
   if(tag){const ch=$('span','ch','['+tag+'] ');if(l.kind==='guild'||l.kind==='party')ch.addEventListener('click',()=>{chat.to={to:l.kind};render()});d.appendChild(ch)}
-  const who=()=>{const w=$('span','who','['+short(l.who)+']');if(l.cls&&CLASS_COLOR[l.cls])w.style.color=CLASS_COLOR[l.cls];w.addEventListener('click',()=>nameMenu(l,d));return w};   // class colour, as in WoW and the guild list
+  const who=()=>{const w=$('span','who','['+short(l.who)+']');if(l.cls&&NAME_COLOR[l.cls])w.style.color=NAME_COLOR[l.cls];w.addEventListener('click',()=>nameMenu(l,d));return w};   // class colour, as in WoW and the guild list
   if(l.kind==='whisper-out'){d.append('To ',who(),': ')}
   else if(l.who){d.appendChild(who());d.append(l.kind==='whisper'?' whispers: ':l.kind==='say'?' says: ':l.kind==='yell'?' yells: ':': ')}
   for(const s of l.text){
