@@ -1086,9 +1086,10 @@ export class AangBrowser {
     // A web page never reaches this computer or the home network (2026-10-14): on before the ad lists load.
     guardRequests(ses, netGuard, null);
     // His paused sites and the call sites go in with the lists, built into the kept engine (speed check 2026-10-24).
-    // Ghostery can hide the empty ad boxes for only ONE session in the app (ads.ts): normal Samara's. The secret window's
-    // two block every ad request all the same (sheet 87, found by secret-check: they had no ad blocking at all).
-    void blockAds(ses, this.o.sharedDir ?? this.o.stateDir, { cosmetic: !this.o.secret, guard: netGuard, paused: [...this.paused, ...CALL_SITES] }).then((b) => {
+    // The secret window hides empty ad boxes and runs the page tricks too (2026-11-13): ads.ts now routes those by
+    // session, so Ghostery's one-session limit is gone. Its engine is kept in its own file (slot), since its paused
+    // sites can differ (sheet 87, found by secret-check: it once had no ad blocking at all).
+    void blockAds(ses, this.o.sharedDir ?? this.o.stateDir, { cosmetic: true, slot: this.o.secret ? 'secret' : undefined, guard: netGuard, paused: [...this.paused, ...CALL_SITES] }).then((b) => {
       if (this.keptSes && ses !== this.keptSes) return;     // the secret window's throwaway session keeps its own, always on
       this.ads = b; if (b && !this.prefs.ads) b.stop();
     });

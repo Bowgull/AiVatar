@@ -99,3 +99,44 @@ test('the honest limit: an ad served by YouTube itself cannot be request-blocked
   assert.equal(fromYouTube('https://www.youtube.com/api/stats/ads?a=1'), false);
   assert.equal(fromYouTube('https://www.youtube.com/s/player/base.js'), false, 'and the player must keep working');
 });
+
+// 2026-11-13: uBlock's main list is an index of `!#include` files that Ghostery never followed.
+test('uBlock list includes are followed, one level, same folder, names only', async () => {
+  const { withIncludes } = await import('../src/skip/ads.ts');
+  const asked: string[] = [];
+  const text = await withIncludes('https://ublockorigin.github.io/uAssets/filters/filters.txt',
+    '! Title\n!#include filters-2025.txt\n||ads.example^\n!#include ../../evil.txt\n!#include https://evil.example/x.txt\n',
+    async (u) => { asked.push(u); return '||more.example^'; });
+  assert.deepEqual(asked, ['https://ublockorigin.github.io/uAssets/filters/filters-2025.txt']);
+  assert.match(text, /\|\|ads\.example\^/);
+  assert.match(text, /\|\|more\.example\^/);
+});
+
+// 2026-11-13: a tracker hiding behind the site's own name is judged by the server it really points at.
+test('a cloaked tracker is caught, the site itself and CDNs are not', async () => {
+  const { cloaked } = await import('../src/skip/ads.ts');
+  const { FiltersEngine, makeRequest } = await import('@ghostery/adblocker');
+  const engine = FiltersEngine.parse('||tracker.example^\n');
+  const names: Record<string, string> = { 'metrics.shop.com': 'shop.tracker.example', 'img.shop.com': 'shop.cdn.example', 'static.shop.com': 'cdn.shop.com' };
+  const lookup = (h: string) => names[h] ?? null;
+  const ask = (url: string, referrer = 'https://www.shop.com/') => cloaked(engine as never, makeRequest as never, { url, referrer, resourceType: 'script' }, lookup);
+  assert.equal(ask('https://metrics.shop.com/t.js'), true, 'first-party name pointing at a listed tracker');
+  assert.equal(ask('https://img.shop.com/a.png'), false, 'first-party name pointing at an unlisted server');
+  assert.equal(ask('https://static.shop.com/a.js'), false, 'alias inside the same site');
+  assert.equal(ask('https://www.shop.com/a.js'), false, 'the site itself is never looked up');
+  assert.equal(ask('https://metrics.shop.com/t.js', 'https://other.com/'), false, 'only the page\'s own sub-names');
+  assert.equal(cloaked(engine as never, makeRequest as never, { url: 'https://metrics.shop.com/', referrer: 'https://www.shop.com/', resourceType: 'mainFrame' }, lookup), false, 'never a page itself');
+});
+
+// 2026-11-13: without resources.json every `+js(...)` rule did nothing.
+test('page tricks reach the page once the resources are loaded', async () => {
+  const { FiltersEngine } = await import('@ghostery/adblocker');
+  const lists = 'example.com##+js(set-constant, adsBlocked, false)\n';
+  const res = JSON.stringify({ scriptlets: [{ name: 'set-constant.js', aliases: ['set-constant'], body: 'function setConstant(){}', dependencies: [] }], resources: [] });
+  const ask = (e: InstanceType<typeof FiltersEngine>) => e.getCosmeticsFilters({ url: 'https://example.com/', hostname: 'example.com', domain: 'example.com', getBaseRules: false, getInjectionRules: true, getExtendedRules: false, getRulesFromHostname: true, getRulesFromDOM: false }).scripts.length;
+  const bare = FiltersEngine.parse(lists, { loadCosmeticFilters: true });
+  assert.equal(ask(bare), 0, 'no resources, no tricks: the old behaviour');
+  const full = FiltersEngine.parse(lists, { loadCosmeticFilters: true });
+  full.updateResources(res, 'x');
+  assert.equal(ask(full), 1);
+});
