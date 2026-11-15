@@ -151,6 +151,7 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
       log, shortlistFile: path.join(jobDir, 'shortlist.json'), draftsFile: path.join(jobDir, 'drafts.json'),
       answersFile: path.join(jobDir, 'answers-approved.json'), appliedFile: path.join(jobDir, 'applied.json'), criteriaFile: path.join(jobDir, 'memory', 'project_job_search_criteria.md'),
       inboxDir: path.join(os.homedir(), 'Documents', 'AangInbox'),
+      wow: {},
     });
     await adapter.start();
     log('discord: connected');

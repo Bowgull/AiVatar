@@ -986,3 +986,133 @@ test('9.D D8: a new upload lands in gaming silently with its picture; Watch on P
   core.emit({ t: 'gaming.post', kind: 'news', title: 'Season 27 patch notes', link: 'https://evil.test/x', summary: 'x' }); await tick();
   assert.doesNotMatch(gw.to('gaming').at(-1)!.content ?? '', /evil/, 'news only ever links to Steam');
 });
+
+// ---------------------------------------------------------------- omashu M4: the WoW patch alert
+
+import { parseWow, alertKey, wantsAlert, REQUEST_CMD, READ_CMD, PATCH_BRIEF } from '../src/wowpatch.ts';
+
+/** wow.json as Omashu's watcher writes it (PowerShell: a BOM, 2-space-ish JSON). */
+const wowFile = (o: Record<string, unknown> = {}) => '﻿' + JSON.stringify({ version: '1.60.1.70938', interface: 16001, sig: '1.60.1.70938|OmaPad|', updatedFrom: '1.60.0.70000', updatedAt: '2026-11-15T13:07:07', addonsOutOfDate: ['OmaPad'], addons: [], luaErrors: ['OmaPad/Pad.lua:12: attempt to index nil'], told: false, claude: false, patch: 'none', checked: '2026-11-15T13:07:07', ...o }, null, 2);
+
+/** A fake Omashu: reads give the file; REQUEST_CMD sets patch = requested the way the real one does. */
+function fakeOmashu(start: string) {
+  const o = { file: start, reads: 0, requests: 0, down: false,
+    remote: async (cmd: string) => {
+      if (o.down) throw new Error('ssh: connect to host omashu port 22: Operation timed out');
+      if (cmd === READ_CMD) { o.reads++; return o.file; }
+      if (cmd === REQUEST_CMD) {
+        o.requests++;
+        const j = JSON.parse(o.file.replace(/^﻿/, ''));
+        if (j.patch && j.patch !== 'none') return 'busy:' + j.patch + '\r\n';
+        j.patch = 'requested'; o.file = JSON.stringify(j); return 'ok\r\n';
+      }
+      throw new Error('unexpected command: ' + cmd);
+    },
+    set(p: Record<string, unknown>) { const j = JSON.parse(o.file.replace(/^﻿/, '')); o.file = JSON.stringify({ ...j, ...p }); },
+  };
+  return o;
+}
+
+async function makeWow(file: string, opts: { folder?: string } = {}) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-wow-'));
+  writeFileSync(path.join(dir, 'discord.json'), JSON.stringify({ ownerId: OWNER, channels: {}, lastSeen: {} }));
+  const gw = new FakeGateway(), core = new FakeCore(), om = fakeOmashu(file);
+  const jobs: string[] = [];
+  let finish: (r: { ok: boolean; why?: string }) => void = () => {};
+  const a = new DiscordAdapter(gw, core, dir, { now: () => new Date(2026, 10, 15, 14, 0), typingMs: 1_000_000,
+    wow: { folder: opts.folder ?? dir, remote: om.remote, ms: 0, start: (brief) => { jobs.push(brief); return new Promise(r => { finish = r; }); } } });
+  await a.start(); await tick();
+  return { a, gw, om, jobs, dir, end: (r: { ok: boolean; why?: string }) => finish(r) };
+}
+const wowPosts = (gw: FakeGateway) => gw.to('gaming').filter(m => (m.buttons ?? []).some(b => b.id.startsWith('wow:')));
+const wowId = (gw: FakeGateway, kind: 'patch' | 'later') => wowPosts(gw)[0]!.buttons!.find(b => b.id.startsWith('wow:' + kind))!.id;
+
+test('M4: wow.json is read as the watcher writes it (BOM and all), and only real news asks for an alert', () => {
+  const w = parseWow(wowFile())!;
+  assert.equal(w.version, '1.60.1.70938'); assert.deepEqual(w.addonsOutOfDate, ['OmaPad']); assert.equal(w.luaErrors.length, 1);
+  assert.equal(wantsAlert(w), true);
+  assert.equal(wantsAlert(parseWow(wowFile({ claude: true }))!), false);
+  assert.equal(wantsAlert(parseWow(wowFile({ patch: 'requested' }))!), false);
+  assert.equal(parseWow('not json'), null); assert.equal(parseWow('{"version":"; rm -rf /"}'), null);
+  assert.notEqual(alertKey(w), alertKey(parseWow(wowFile({ updatedAt: '2026-11-16T09:00:00' }))!));
+  // The brief is code's own words: nothing from wow.json goes into it.
+  assert.ok(!PATCH_BRIEF.includes('Pad.lua'));
+});
+
+test('M4: one post in gaming for one update (version, add-ons behind, Lua errors, Patch it and Later), never twice', async () => {
+  const { a, gw, om } = await makeWow(wowFile());
+  const posts = wowPosts(gw);
+  assert.equal(posts.length, 1);
+  assert.match(posts[0]!.content!, /1\.60\.0\.70000 to 1\.60\.1\.70938/);
+  assert.match(posts[0]!.content!, /1 add-on behind, 1 Oma Lua error/);
+  assert.deepEqual(posts[0]!.buttons!.map(b => b.label), ['Patch it', 'Later']);
+  assert.equal(posts[0]!.silent, true);
+  await a.wow!.tick(); await a.wow!.tick();
+  assert.equal(wowPosts(gw).length, 1, 'the same news is not posted again');
+  // The next real update is new news.
+  om.set({ version: '1.60.2.71000', updatedAt: '2026-11-20T10:00:00', sig: '1.60.2.71000|OmaPad|' });
+  await a.wow!.tick();
+  assert.equal(wowPosts(gw).length, 2);
+});
+
+test('M4: no post when Claude already looked or a patch is under way, or when Omashu does not answer', async () => {
+  for (const f of [wowFile({ claude: true }), wowFile({ patch: 'building' })]) {
+    const { gw } = await makeWow(f);
+    assert.equal(wowPosts(gw).length, 0);
+  }
+  const { a, gw, om } = await makeWow(wowFile({ claude: true }));
+  om.down = true; await a.wow!.tick();
+  assert.equal(wowPosts(gw).length, 0);
+});
+
+test('M4: Later does nothing; only Joshua may press; Patch it runs once, even pressed twice', async () => {
+  const { gw, om, jobs, a, end } = await makeWow(wowFile());
+  assert.deepEqual(gw.press(wowId(gw, 'patch'), STRANGER, 'ch-gaming'), ['That is not yours to answer.']); await tick();
+  assert.equal(om.requests, 0); assert.equal(jobs.length, 0);
+  assert.deepEqual(gw.press(wowId(gw, 'later'), OWNER, 'ch-gaming'), ['(kept)']); await tick();
+  assert.equal(om.requests, 0); assert.equal(jobs.length, 0); assert.equal(gw.edits.length, 0);
+  const first = gw.press(wowId(gw, 'patch'), OWNER, 'ch-gaming');
+  const second = gw.press(wowId(gw, 'patch'), OWNER, 'ch-gaming'); await tick();
+  assert.match(first[0]!, /Patching it/); assert.deepEqual(second, ['(kept)']);
+  assert.equal(om.requests, 1); assert.equal(jobs.length, 1); assert.equal(jobs[0], PATCH_BRIEF);
+  assert.equal(JSON.parse(om.file).patch, 'requested');
+  assert.equal(a.state.wow!.phase, 'requested');
+  // While it works, a look at Omashu changes nothing.
+  om.set({ patch: 'building' }); await a.wow!.tick();
+  assert.equal(gw.edits.length, 0);
+  // Done: the job sets ready; the same post is edited to say so, with no buttons.
+  om.set({ patch: 'ready', claude: true }); end({ ok: true }); await tick();
+  assert.equal(gw.edits.length, 1);
+  assert.match(gw.edits[0]!.msg.content!, /^\*\*Ready\.\*\*/);
+  assert.deepEqual(gw.edits[0]!.msg.buttons, []);
+  assert.equal(gw.edits[0]!.messageId, a.state.wow!.msg);
+  // A press after it is done (or after a restart) starts nothing.
+  gw.press(wowId(gw, 'patch'), OWNER, 'ch-gaming'); await tick();
+  assert.equal(jobs.length, 1); assert.equal(om.requests, 1);
+});
+
+test('M4: a failed patch says why; a job that stops without a word says it stopped', async () => {
+  const { gw, om, end } = await makeWow(wowFile());
+  gw.press(wowId(gw, 'patch'), OWNER, 'ch-gaming'); await tick();
+  om.set({ patch: 'failed', patchNote: 'Someone was playing; nothing installed.' }); end({ ok: true }); await tick();
+  assert.match(gw.edits.at(-1)!.msg.content!, /The patch failed:\*\* Someone was playing/);
+  const b = await makeWow(wowFile());
+  b.gw.press(wowId(b.gw, 'patch'), OWNER, 'ch-gaming'); await tick();
+  b.end({ ok: false, why: 'max turns' }); await tick();
+  assert.match(b.gw.edits.at(-1)!.msg.content!, /stopped before it finished/);
+});
+
+test('M4: Omashu out of reach on Patch it starts nothing and says so', async () => {
+  const { gw, om, jobs } = await makeWow(wowFile());
+  om.down = true;
+  gw.press(wowId(gw, 'patch'), OWNER, 'ch-gaming'); await tick();
+  assert.equal(jobs.length, 0);
+  assert.match(gw.edits.at(-1)!.msg.content!, /Not started:\*\* I could not reach Omashu/);
+});
+
+test('M4: off when the omashu repo is not on this machine, and off unless startDiscord asks for it', async () => {
+  const { a, gw } = await makeWow(wowFile(), { folder: path.join(os.tmpdir(), 'no-such-omashu-' + Date.now()) });
+  assert.equal(a.wow, null); assert.equal(wowPosts(gw).length, 0);
+  const { a: plain } = await make({ paired: true });
+  assert.equal(plain.wow, null);
+});

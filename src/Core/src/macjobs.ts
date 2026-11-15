@@ -100,6 +100,16 @@ export class MacJobs {
     return 'Started it on the Mac. Its post in claude-jobs shows how it goes; reply there to steer it.';
   }
 
+  /**
+   * omashu M4 (2026-11-15): a FIXED job in a given folder, from a button he pressed (WoW's Patch it). The brief is code's,
+   * never typed words; `tools` are the only commands it may run without asking, and edits are allowed in `cwd` only.
+   * Resolves when the job has ended.
+   */
+  async startFixed(brief: string, cwd: string, title: string, tools: string[]): Promise<{ ok: boolean; why?: string }> {
+    if (this.running >= 2) return { ok: false, why: 'two Claude jobs were already running on the Mac' };
+    return this.run(brief, cwd, null, title, { permissionMode: 'acceptEdits', allowedTools: tools });
+  }
+
   /** His reply in a job's post: the same session, continued. */
   async continue(thread: string, text: string): Promise<boolean> {
     const job = this.byThread(thread);
@@ -110,7 +120,7 @@ export class MacJobs {
     return true;
   }
 
-  private async run(prompt: string, cwd: string, resume: string | null, title: string): Promise<void> {
+  private async run(prompt: string, cwd: string, resume: string | null, title: string, fixed?: { permissionMode: 'acceptEdits'; allowedTools: string[] }): Promise<{ ok: boolean; why?: string }> {
     this.running++;
     let job: Job | undefined = resume ? this.bySession(resume) : undefined;
     let out = '', why = '';
@@ -122,7 +132,8 @@ export class MacJobs {
           ...(resume ? { resume } : {}),
           // His own Claude Code settings: what he lets it do without asking.
           settingSources: ['user', 'project'],
-          permissionMode: 'default',
+          permissionMode: fixed?.permissionMode ?? 'default',
+          ...(fixed ? { allowedTools: fixed.allowedTools } : {}),
           canUseTool: async (tool: string) => {
             if (job) void this.say(job, `Claude wanted to use ${tool}, which needs your OK. That waits for you at a computer.`, 'Needs you', true);
             return { behavior: 'deny' as const, message: 'He is away from his computers; this needs his OK at one. Say what you would do and stop there.' };
@@ -140,8 +151,9 @@ export class MacJobs {
       }
     } catch (e) { why = (e as Error).message; }
     finally { this.running--; }
-    if (!job) { this.o.log('mac jobs: a job ended before it had a post: ' + (why || 'no answer')); return; }
+    if (!job) { this.o.log('mac jobs: a job ended before it had a post: ' + (why || 'no answer')); return { ok: false, why: why || 'no answer' }; }
     if (out) { await this.show(job, 'done', out); await this.say(job, out); }
     else { await this.show(job, 'waiting', `It stopped: ${why || 'no answer came back'}.`); await this.say(job, `It stopped: ${why || 'no answer came back'}.`, undefined, true); }
+    return out ? { ok: true } : { ok: false, why: why || 'no answer came back' };
   }
 }

@@ -23,6 +23,9 @@ import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
 import { dayKey } from './clock.ts';
 import { readJson } from './store.ts';
+import os from 'node:os';
+import { MacJobs } from './macjobs.ts';
+import { PATCH_TOOLS, WowWatch, sshRemote, type Remote, type WowAlert } from './wowpatch.ts';
 
 export interface Attachment { name: string; url: string; size: number }
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string; /** for a message in a forum post: the forum */ parentId?: string }
@@ -148,7 +151,9 @@ export interface State { ownerId: string | null; channels: Record<string, string
   /** 9.D D6: "Put a show on" was pressed: his next words in aang are the show */
   putOnNext?: boolean;
   /** 2026-10-13: the one-time fix for the empty channel copies has run */
-  fixedCopies?: boolean; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
+  fixedCopies?: boolean; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }>;
+  /** omashu M4: the one WoW alert posted in gaming and how far it got (wowpatch.ts) */
+  wow?: WowAlert }
 
 /** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
 export const DECK: Button[] = [
@@ -182,6 +187,12 @@ export interface AdapterOpts {
    * again) is not done at all.
    */
   catchUp?: boolean;
+  /**
+   * omashu M4: the WoW patch alert (startDiscord turns it on). It runs only when the omashu repo is on this machine
+   * (the folder its Claude job runs in).
+   * `remote` and `start` stand in for ssh and the Claude job in tests; ms 0 turns the 15-minute timer off.
+   */
+  wow?: { folder?: string; remote?: Remote; ms?: number; start?: (brief: string) => Promise<{ ok: boolean; why?: string }> };
 }
 
 export class DiscordAdapter {
@@ -249,6 +260,7 @@ export class DiscordAdapter {
       this.started = true;
       this.homeTimer = setInterval(() => { void this.refreshHome().catch(() => {}); void this.sendMacBrief(); }, 10 * 60_000);
       this.homeTimer.unref?.();
+      this.startWow();
       // 9.D: the old channels' contents move once; deleting them waits for his two yeses.
       const moved = await this.moveOld().catch(e => { this.log('discord: moving the old channels failed: ' + (e as Error).message); return null; });
       const home = this.state.channels['home'];
@@ -383,6 +395,38 @@ export class DiscordAdapter {
     if (ev.kind === 'news' && /^https:\/\/store\.steampowered\.com\//.test(String(ev.link))) {
       await this.gw.send(where, { content: `Apex patch notes: ${String(ev.title).slice(0, 200)}\n${ev.link}`, silent: true,
         embed: { title: String(ev.title).slice(0, 200), description: String(ev.summary ?? '').slice(0, 400), color: 0xDA373C, footer: 'Apex Legends news, from Steam' } });
+    }
+  }
+
+  /** omashu M4: Omashu's wow.json, read every 15 minutes over ssh (no model); null when the omashu repo is not here. */
+  wow: WowWatch | null = null;
+  private wowTimer: NodeJS.Timeout | null = null;
+  private startWow(): void {
+    const o = this.opts.wow; if (!o) return;
+    const folder = o.folder ?? path.join(os.homedir(), 'projects', 'omashu');
+    if (this.wow || !existsSync(folder)) return;
+    let jobs: MacJobs | null = null;
+    const start = o.start ?? ((brief: string) => {
+      const dir = path.join(this.dir, 'wow-job');
+      mkdirSync(dir, { recursive: true });
+      jobs ??= new MacJobs({ gw: this.gw, dir, forum: () => this.state.channels['claude-jobs'], log: s => this.log(s),
+        draw: (k, d) => this.link.drawCard?.(k as 'job', d) ?? Promise.resolve(null) });
+      return jobs.startFixed(brief, folder, 'Patch the Oma add-ons for the WoW update', PATCH_TOOLS);
+    });
+    this.wow = new WowWatch({
+      remote: o.remote ?? sshRemote('omashu'),
+      post: async msg => { const c = this.state.channels['gaming']; return c ? { channel: c, msg: await this.gw.send(c, msg) } : null; },
+      edit: (c, m, out) => this.gw.edit(c, m, out),
+      startJob: start,
+      load: () => this.state.wow,
+      store: a => { if (a) this.state.wow = a; else delete this.state.wow; this.save(); },
+      log: s => this.log(s),
+      now: () => this.now().getTime(),
+    });
+    void this.wow.tick().catch(e => this.log('wow: ' + (e as Error).message));
+    if (o.ms !== 0) {
+      this.wowTimer = setInterval(() => { void this.wow?.tick().catch(e => this.log('wow: ' + (e as Error).message)); }, o.ms ?? 15 * 60_000);
+      this.wowTimer.unref?.();
     }
   }
 
@@ -1179,6 +1223,12 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    const wb = /^wow:(patch|later):([0-9a-f]{12})$/.exec(b.customId);
+    if (wb) {
+      if (!this.wow) { await b.ack('WoW alerts are not on here. Nothing was started.'); return; }
+      await this.wow.press(wb[1] as 'patch' | 'later', wb[2]!, n => b.ack(n), () => b.keep());
+      return;
+    }
     const gm = /^gm:(watch|later):([\w-]{6,20})$/.exec(b.customId);
     if (gm) {
       const url = `https://www.youtube.com/watch?v=${gm[2]}`;
