@@ -7,7 +7,9 @@
 //     press them (discord.ts checks the owner before anything here runs).
 //   - Patch it: `patch` = requested on Omashu, then ONE Claude job in the omashu repo with the fixed brief below.
 //     Never free text from a button. A second press, or a press after a restart, starts nothing.
-//   - Done: when the job (or anything) sets `patch` = ready or failed, the same post is edited to say so.
+//   - Done: when the job (or anything) sets `patch` = ready or failed, the same post is edited to say so. On ready the
+//     job also sets `told` = false, so Couch Mode's avatar says it on the next WoW launch (sheet 22); Aang itself
+//     never writes `told`.
 //   - Later: does nothing. The post and its buttons stay as they are.
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -98,7 +100,7 @@ export const PATCH_BRIEF = `Fixed job from Aang (Joshua pressed "Patch it" on th
 2. Fix the Oma add-ons in this repo (their sources are under wow-addon/ and scripts/wow/). For each name in "addonsOutOfDate": add the new "interface" number to its .toc "## Interface:" line. For each line in "luaErrors": find the real cause in the Lua and fix it (no pcall wrapping to hide it).
 3. Test: run the add-on's offline tests if it has them; re-read every changed .toc.
 4. Install on Omashu only when nobody is playing: over ssh, Get-Process Wow*, Cemu must both find nothing. If either runs, install nothing, set "patch" to "failed" and "patchNote" to "Someone was playing; nothing installed." and go to step 6. To install, copy only the changed add-on files into C:\\Program Files (x86)\\World of Warcraft\\_forever_\\Interface\\AddOns\\<AddOn>\\ (scp), first copying each file it replaces to <file>.before-patch-<yyyyMMdd-HHmm>. Check the hashes match after.
-5. Set "patch" to "ready" and "claude" to true. If anything above failed, set "patch" to "failed" and "patchNote" to one short plain sentence saying why.
+5. Set "patch" to "ready", "claude" to true and "told" to false (so Couch Mode's avatar says it is patched on the next WoW launch; Couch Mode sets "told" back to true). If anything above failed, set "patch" to "failed" and "patchNote" to one short plain sentence saying why.
 6. Add a dated line to CHANGES.md (what changed, what was tested, what was installed, how to undo) and commit it in this repo. Do not push.
 
 Nothing else: no other files on Omashu, no settings, no new tools, no pushing. Your final answer is two plain sentences: what you did and whether it is installed.`;
