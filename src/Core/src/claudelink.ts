@@ -1124,6 +1124,8 @@ export class LinkDoor {
   onMockup: ((ask: { cwd: string; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }) => Promise<{ ok: boolean; message: string }>) | null = null;
   /** Sheet 79: mockup_mark's brain half (mockupdrop.ts markMockup). */
   onMockupMark: ((ask: Record<string, unknown>) => Promise<{ ok: boolean; message: string; stages?: unknown[] }>) | null = null;
+  /** needs_you (2026-11-15): a session's short note for his #needs-you (needsdoor.ts). */
+  onNeedsYou: ((ask: { session: string; cwd: string; text: unknown }) => Promise<{ ok: boolean; message: string }>) | null = null;
   /** C6 (2026-10-22): the jobs he said Go to (jobstart.ts). Null: no starts are handed out. */
   starts: StartBook | null = null;
   /** C6: what the mods say about starts (started, caps, door2.result, and turn.start for the probe). */
@@ -1201,6 +1203,17 @@ export class LinkDoor {
         if (req.method === 'POST' && q.pathname === '/link/update-now') {
           if (!this.onUpdateNow) { json(200, { ok: false, message: "Aang doesn't update himself on this machine (only the Mac's brain does)." }); return; }
           void this.onUpdateNow().then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 600) }), (e) => json(200, { ok: false, message: 'The update could not start: ' + String((e as Error)?.message ?? e).slice(0, 200) }));
+          return;
+        }
+        // needs_you (2026-11-15): signed like everything here; the brain posts it with its own bot, or says why not.
+        if (req.method === 'POST' && q.pathname === '/link/needsyou') {
+          const ev = JSON.parse(body) as Record<string, unknown>;
+          if (notHisCwd(ev?.cwd, this.ignoreCwd())) { json(403, { ok: false, message: 'not for this session' }); return; }
+          if (!this.onNeedsYou) { json(200, { ok: false, message: 'The needs-you door is not on here.' }); return; }
+          const sid = String(ev?.session ?? '').slice(0, 100);
+          const cwd = this.tracker.cwdOf(sid) || String(ev?.cwd ?? '');
+          void this.onNeedsYou({ session: sid, cwd, text: ev?.text })
+            .then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 300) }), () => json(200, { ok: false, message: 'The brain could not hand it over.' }));
           return;
         }
         if (req.method === 'POST' && q.pathname === '/link/mockupmark') {

@@ -1116,3 +1116,12 @@ test('M4: off when the omashu repo is not on this machine, and off unless startD
   const { a: plain } = await make({ paired: true });
   assert.equal(plain.wow, null);
 });
+
+test('needs-you: a note from the brain goes to #needs-you as Claude, words only', async () => {
+  const { gw, core } = await make({ paired: true });
+  core.emit({ t: 'needs.note', content: 'The title screen is done.' }); await tick();
+  const m = gw.to('needs-you').at(-1)!;
+  assert.equal(m.content, 'The title screen is done.');
+  assert.equal(m.as, 'claude');
+  assert.equal(m.buttons, undefined); assert.equal(m.files, undefined);
+});

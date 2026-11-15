@@ -1079,6 +1079,8 @@ export class DiscordAdapter {
     }
     if (ev?.t === 'claude.seen' && Array.isArray(ev.sessions)) { await this.seen(ev.sessions.filter((x: unknown): x is string => typeof x === 'string')); return; }
     if (ev?.t === 'gaming.post') { await this.gamingPost(ev); return; }
+    // needs_you (2026-11-15): a Claude session's note, already checked and limited by the brain (needsdoor.ts). Words only.
+    if (ev?.t === 'needs.note') { if (typeof ev.content === 'string' && ev.content) await this.post('needs-you', { content: ev.content.slice(0, 600), as: 'claude' }); return; }
     if (ev?.t === 'action' && typeof ev.text === 'string') { await this.say('home', ev.text, true); return; }
     if (ev?.t === 'actions.reply' && typeof ev.text === 'string') {
       const channelId = this.replyTo.actions.shift() ?? this.state.channels['aang'];

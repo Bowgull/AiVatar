@@ -6,6 +6,7 @@ import { sha256Hex } from '../hooks/link.ts'
 import { callFor } from '../hooks/link.ts'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_FULL, mockupArgs, OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, agentListOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
+import { needsArgs } from '../hooks/link.ts'
 
 const KEY = 'test-key-for-aang-link-0123456789abcdefghij'
 const SESSION = 'S1'
@@ -898,3 +899,9 @@ test('the pure match: a request finds the tool call it is for', () => {
   expect(callFor(running, 'AskUserQuestion', '{"questions":[]}')).toBeNull()
 })
 
+
+test('needs_you: plain text up to 400 characters, on one line', () => {
+  expect(needsArgs({}).ok).toBe(false)
+  expect(needsArgs({ text: 'x'.repeat(401) }).ok).toBe(false)
+  expect(needsArgs({ text: ' Done.\nAll good. ' })).toEqual({ ok: true, text: 'Done. All good.' })
+})

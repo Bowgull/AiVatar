@@ -143,6 +143,7 @@ import { readJson, saveJson } from './store.ts';
 import { openLog } from './log.ts';
 import { CODE_ROOT } from './coderoot.ts';
 import { OmashuRemote, loadRemoteConfig } from './omashuremote.ts';
+import { NeedsLimit, needsNote } from './needsdoor.ts';
 
 export interface CoreConfig {
   port: number;
@@ -3071,6 +3072,17 @@ export class Core {
       // sandboxed session's own %APPDATA% writes never reach the Shell (mockupdrop.ts says what is checked).
       door.onMockup = (ask) => dropMockup(this.cfg.stateDir, ask);
       door.onMockupMark = (ask) => markMockup(this.cfg.stateDir, ask);
+      // needs_you (2026-11-15): a session's short note, posted in #needs-you by Aang's own bot (needsdoor.ts).
+      door.onNeedsYou = async (ask) => {
+        const n = needsNote(ask.text, ask.cwd);
+        if (!n.ok) return { ok: false, message: n.why };
+        if (!this.clientsOf('discord').length) return { ok: false, message: 'Aang is not connected to Discord right now, so the note was not sent. Tell him in your reply instead.' };
+        const no = this.needsLimit.take(ask.session || ask.cwd || '?');
+        if (no) return { ok: false, message: no };
+        this.sendTo('discord', { t: 'needs.note', content: n.content });
+        console.log(`needs-you: a note from ${ask.cwd.split(/[\\/]/).pop() || 'a session'}`);
+        return { ok: true, message: 'Sent to #needs-you.' };
+      };
       // C6 (2026-10-22): jobs he said Go to (jobstart.ts), what the mods say about them, and the probe (npm run c6-probe).
       door.starts = this.startBook;
       door.onStart = (session, ev) => this.starter.onEvent(session, ev);
@@ -5337,6 +5349,8 @@ export class Core {
     try { writeFileAtomic(path.join(this.cfg.stateDir, 'launched.json'), JSON.stringify(list, null, 2)); } catch { /* best effort */ }
   }
 
+  /** needs_you (2026-11-15): how many notes have gone to his phone this hour. */
+  private readonly needsLimit = new NeedsLimit();
   /** C6: the jobs he said Go to, and the flow that makes the card and sends it (jobstarter.ts). */
   private readonly startBook = new StartBook();
   private starterInst: JobStarter | null = null;

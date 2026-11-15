@@ -396,6 +396,30 @@ export function mockupArgs(input: Record<string, unknown>): { ok: true; body: Re
   return { ok: true, body: { path: p, ...(title ? { title } : {}), ...(branch ? { branch } : {}), ...(project ? { project } : {}), ...(icon ? { icon } : {}) } }
 }
 
+/**
+ * needs_you (2026-11-15, his ask "add a needs-you door to Aang"): a short plain note from any Claude session to his
+ * #needs-you channel, posted by Aang's own bot (the token never leaves Aang). Over the signed link (/link/needsyou);
+ * the brain limits how often, and the note can only be words: no buttons, no files, no mentions.
+ */
+export const NEEDS_TOOL = 'needs_you'
+export const NEEDS_TOOL_FULL = 'mcp__aang-link__needs_you'
+export const NEEDS_MAX = 400
+export const NEEDS_TOOL_DESC = 'Post a short plain note to the user in #needs-you on Discord (it buzzes his phone), through Aang. ' +
+  'Only when he must act or know now: a long job finished, or you are blocked on him. One or two plain sentences, up to 400 characters. ' +
+  'Words only: no links to click, no buttons. A few per hour at most; more are refused.'
+export const NEEDS_TOOL_SCHEMA = {
+  type: 'object',
+  properties: { text: { type: 'string', description: 'The note, plain words, up to 400 characters.' } },
+  required: ['text'],
+}
+/** A needs_you call's text, on one line, secrets masked; or why not. */
+export function needsArgs(input: Record<string, unknown>): { ok: true; text: string } | { ok: false; error: string } {
+  const raw = typeof input.text === 'string' ? input.text.trim() : ''
+  if (!raw) return { ok: false, error: 'Pass text: the note, in plain words.' }
+  if (raw.length > NEEDS_MAX) return { ok: false, error: `Keep it to ${NEEDS_MAX} characters; it is a note for his phone.` }
+  return { ok: true, text: safeLine(raw, NEEDS_MAX) }
+}
+
 /** A phase plan from the progress tool's input, cut to sane sizes and masked; null when there is none. */
 export function planOf(input: Record<string, unknown>): { label: string; hours: number; status: 'todo' | 'running' | 'done' }[] | null {
   const p = input.plan as { phases?: unknown } | undefined

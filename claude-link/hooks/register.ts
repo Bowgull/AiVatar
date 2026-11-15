@@ -28,6 +28,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { MOCKUP_FALLBACK, MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import { CCD_SERVER, EFFORT_OK, FRESH_MS, mcpText, normFolder, startOf } from './link.ts'
 import { MARK_TOOL, MARK_TOOL_DESC, MARK_TOOL_FULL, MARK_TOOL_SCHEMA, markArgs } from './link.ts'
+import { NEEDS_TOOL, NEEDS_TOOL_DESC, NEEDS_TOOL_FULL, NEEDS_TOOL_SCHEMA, needsArgs } from './link.ts'
 import { callFor, linkOff, notHisCwd } from './link.ts'
 import type { RunningCall, Task } from './link.ts'
 
@@ -459,6 +460,10 @@ async function ensureTool($: $T, L: Link): Promise<void> {
   if (!tools.some(t => t.name === MARK_TOOL_FULL)) {
     try { await $.tool.register({ name: MARK_TOOL, description: MARK_TOOL_DESC, inputSchema: MARK_TOOL_SCHEMA, isDeferred: false }) } catch { L.ownTool = false }
   }
+  // needs_you (2026-11-15): a short note to his #needs-you, through Aang's own bot.
+  if (!tools.some(t => t.name === NEEDS_TOOL_FULL)) {
+    try { await $.tool.register({ name: NEEDS_TOOL, description: NEEDS_TOOL_DESC, inputSchema: NEEDS_TOOL_SCHEMA, isDeferred: false }) } catch { L.ownTool = false }
+  }
   if (tools.some(t => t.name === OWN_TOOL_FULL)) return
   // v3: a session with its own to-do tool still gets the progress tool, for the phase plan only (OVERALL).
   const hasTodo = tools.some(t => TODO_TOOLS.includes(t.name))
@@ -494,6 +499,22 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   if (j.ok !== true) return { result: msg, isError: true }
   // Handed over, but Samara has not said yes: never claim it is in front of him.
   return { result: `Aang left it for Samara, but Samara did not answer at its own door, so it is NOT confirmed in the Mockups trail (Samara may be closed; it files it when it starts and may still refuse it then). ${MOCKUP_FALLBACK}`, isError: true }
+}
+
+/**
+ * needs_you (2026-11-15): the note goes to the brain over the signed link (the brain that holds Discord, on the Mac or
+ * the PC); the brain's answer is the result. Nothing is posted by the mod itself, and it never sees the bot's token.
+ */
+async function needsYou($: $T, L: Link, input: Record<string, unknown>): Promise<{ result: string; isError?: true }> {
+  const a = needsArgs(input)
+  if (!a.ok) return { result: a.error, isError: true }
+  if (!L.sessionId) L.sessionId = (await within($, $.session.id(), 1000)) ?? ''
+  if (!L.sessionId || !(await proven($, L))) return { result: 'Aang is not running on this machine, so the note was not sent. Tell the user in your reply instead.', isError: true }
+  const r = await call($, L, 'POST', '/link/needsyou', JSON.stringify({ session: L.sessionId, cwd: L.cwd, text: a.text }), 8000)
+  let j: { ok?: unknown; message?: unknown } = {}
+  try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
+  const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 300) : 'Aang did not answer, so the note was not sent.'
+  return j.ok === true ? { result: msg } : { result: msg, isError: true }
 }
 
 /**
@@ -841,6 +862,10 @@ export const register: Register = on => {
     // mockup_mark (sheet 79): answered here, by Samara's answer; nothing else runs.
     if (tool === MARK_TOOL_FULL) {
       try { return await markMockup($, L, input) } catch { return { result: 'The marks could not be reached.', isError: true as const } }
+    }
+    // needs_you (2026-11-15): answered here, by the brain's answer; nothing else runs.
+    if (tool === NEEDS_TOOL_FULL) {
+      try { return await needsYou($, L, input) } catch { return { result: 'The note could not be sent to Aang.', isError: true as const } }
     }
     // v3: a helper agent's own tool call is its heartbeat, and one more in "14 tool calls".
     if (agentId !== undefined && L.agents.has(agentId)) post($, L, 'agent.tool', { id: agentId })

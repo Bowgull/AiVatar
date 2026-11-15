@@ -375,6 +375,8 @@ export type ToBody =
   /** Things held while he is busy that he asked about: a marker on Aang (count 0: none). Clicking it sends held.open. */
   | { t: 'held'; count: number; tier: 1 | 2 | 3; blocking: boolean; done: boolean }
   | { t: 'gaming.post'; kind: 'upload' | 'news'; videoId?: string; title: string; channel?: string; thumb?: string; link?: string; summary?: string }
+  /** needs_you (2026-11-15): a Claude session's short note for #needs-you, already checked (needsdoor.ts). */
+  | { t: 'needs.note'; content: string }
   | { t: 'video.card'; id: string; ok: boolean; by?: string; title?: string; author?: string; seconds?: number | null; from?: string; d?: unknown; why?: string }
   | { t: 'action.list'; actions: { name: string; label: string; description: string; params: unknown }[] }
   | { t: 'action.result'; id: string; ok: boolean; text: string; image?: { data: string; mimeType: string } }
