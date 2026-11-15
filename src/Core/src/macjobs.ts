@@ -7,7 +7,7 @@
 //     Claude window) and Claude's answer is posted back. It is all there when he opens the session later.
 //   - Claude Code's own settings apply (his allow-list). Anything it would have to ASK about is not asked from the
 //     phone yet (that is the PIN step, 9.A1): it is refused, and the post says it waits for him at a computer.
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -21,6 +21,7 @@ interface Job { session: string; cwd: string; thread: string; title: string; at:
 type Gw = Pick<Gateway, 'send' | 'edit' | 'createPost' | 'setPostTags'>;
 type Draw = (kind: string, data: unknown) => Promise<Buffer | null>;
 
+const BUSY = 'Two Claude jobs are already running on the Mac; this one can start when one finishes.';
 export const slugOf = (task: string) => task.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'job';
 
 export class MacJobs {
@@ -93,11 +94,22 @@ export class MacJobs {
 
   /** A new job, in the background, in its own folder. */
   async start(task: string): Promise<string> {
-    if (this.running >= 2) return 'Two Claude jobs are already running on the Mac; this one can start when one finishes.';
+    if (this.running >= 2) return BUSY;
     const cwd = path.join(os.homedir(), 'Aang Jobs', `${new Date().toISOString().slice(0, 10)}-${slugOf(task)}`);
     mkdirSync(cwd, { recursive: true });
     void this.run(task, cwd, null, task.slice(0, 80));
     return 'Started it on the Mac. Its post in claude-jobs shows how it goes; reply there to steer it.';
+  }
+
+  /**
+   * A job with a FIXED brief that Aang starts itself (the WoW patch, wowpatch.ts): in its own folder (a repo), with only
+   * the tools named, and `done` called once when it ends. Null when it started, else why not.
+   */
+  startFixed(brief: string, o: { cwd: string; title: string; allowedTools: string[]; done: (said: string, why: string) => void }): string | null {
+    if (this.running >= 2) return BUSY;
+    if (!existsSync(o.cwd)) return `the folder ${o.cwd} is not on this Mac`;
+    void this.run(brief, o.cwd, null, o.title, { allowedTools: o.allowedTools, done: o.done });
+    return null;
   }
 
   /** His reply in a job's post: the same session, continued. */
@@ -110,7 +122,7 @@ export class MacJobs {
     return true;
   }
 
-  private async run(prompt: string, cwd: string, resume: string | null, title: string): Promise<void> {
+  private async run(prompt: string, cwd: string, resume: string | null, title: string, fixed?: { allowedTools: string[]; done: (said: string, why: string) => void }): Promise<void> {
     this.running++;
     let job: Job | undefined = resume ? this.bySession(resume) : undefined;
     let out = '', why = '';
@@ -120,9 +132,9 @@ export class MacJobs {
         options: {
           cwd, model: MODELS.smart.model, maxTurns: 60,
           ...(resume ? { resume } : {}),
-          // His own Claude Code settings: what he lets it do without asking.
-          settingSources: ['user', 'project'],
-          permissionMode: 'default',
+          // His own Claude Code settings: what he lets it do without asking. A fixed job has its own short list instead,
+          // and only the repo's settings (no user hooks: its one post here is the only news of it).
+          ...(fixed ? { settingSources: ['project' as const], allowedTools: fixed.allowedTools, permissionMode: 'acceptEdits' as const } : { settingSources: ['user' as const, 'project' as const], permissionMode: 'default' as const }),
           canUseTool: async (tool: string) => {
             if (job) void this.say(job, `Claude wanted to use ${tool}, which needs your OK. That waits for you at a computer.`, 'Needs you', true);
             return { behavior: 'deny' as const, message: 'He is away from his computers; this needs his OK at one. Say what you would do and stop there.' };
@@ -140,6 +152,7 @@ export class MacJobs {
       }
     } catch (e) { why = (e as Error).message; }
     finally { this.running--; }
+    try { fixed?.done(out, out ? '' : why || 'no answer came back'); } catch { /* its own business */ }
     if (!job) { this.o.log('mac jobs: a job ended before it had a post: ' + (why || 'no answer')); return; }
     if (out) { await this.show(job, 'done', out); await this.say(job, out); }
     else { await this.show(job, 'waiting', `It stopped: ${why || 'no answer came back'}.`); await this.say(job, `It stopped: ${why || 'no answer came back'}.`, undefined, true); }

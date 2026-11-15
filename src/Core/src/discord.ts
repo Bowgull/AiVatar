@@ -23,6 +23,8 @@ import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
 import { dayKey } from './clock.ts';
 import { readJson } from './store.ts';
+import { MacJobs } from './macjobs.ts';
+import { OMASHU_REPO, POLL_MS, WowPatch, type WowDeps } from './wowpatch.ts';
 
 export interface Attachment { name: string; url: string; size: number }
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string; /** for a message in a forum post: the forum */ parentId?: string }
@@ -182,7 +184,15 @@ export interface AdapterOpts {
    * again) is not done at all.
    */
   catchUp?: boolean;
+  /**
+   * M4 (omashu MAC.md, 2026-11-15): the WoW patch alert for Omashu. On by default on the Mac, where the bot lives; off on
+   * the PC. Tests pass their own pieces; false turns it off.
+   */
+  wow?: false | Partial<WowDeps>;
 }
+
+/** What the WoW patch job may do without asking: the repo, and Omashu over SSH. */
+export const WOW_JOB_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash(ssh omashu:*)', 'Bash(scp:*)', 'Bash(git:*)', 'Bash(sleep:*)', 'Bash(ls:*)', 'Bash(diff:*)'];
 
 export class DiscordAdapter {
   state: State = { ownerId: null, channels: {}, lastSeen: {} };
@@ -247,6 +257,7 @@ export class DiscordAdapter {
       // M4: the Mac is kept ready to answer, on the same ten minutes.
       void this.sendMacBrief();
       this.started = true;
+      this.startWow();
       this.homeTimer = setInterval(() => { void this.refreshHome().catch(() => {}); void this.sendMacBrief(); }, 10 * 60_000);
       this.homeTimer.unref?.();
       // 9.D: the old channels' contents move once; deleting them waits for his two yeses.
@@ -388,6 +399,23 @@ export class DiscordAdapter {
 
   private homeTimer: NodeJS.Timeout | null = null;
   private started = false;
+  /** M4: the WoW patch alert (wowpatch.ts), when it runs here. */
+  wow: WowPatch | null = null;
+  private wowTimer: NodeJS.Timeout | null = null;
+  private startWow(): void {
+    const o = this.opts.wow;
+    if (o === false || this.wow || (o === undefined && (process.platform !== 'darwin' || process.env.NODE_TEST_CONTEXT))) return;
+    const jobs = new MacJobs({ gw: this.gw, dir: path.join(this.dir, 'wow-jobs'), forum: () => this.state.channels['claude-jobs'], log: s => this.log(s) });
+    this.wow = new WowPatch({
+      gw: this.gw, channel: () => this.state.channels['gaming'], dir: this.dir, log: s => this.log(s),
+      startJob: async (brief, done) => jobs.startFixed(brief, { cwd: OMASHU_REPO, title: 'Patch the WoW add-ons on Omashu', allowedTools: WOW_JOB_TOOLS, done }),
+      ...(o ?? {}),
+    });
+    // Reading the file is all a look costs: no Claude. The first one a minute after start.
+    setTimeout(() => void this.wow?.poll().catch(e => this.log('wow: ' + (e as Error).message)), 60_000).unref?.();
+    this.wowTimer = setInterval(() => void this.wow?.poll().catch(e => this.log('wow: ' + (e as Error).message)), POLL_MS);
+    this.wowTimer.unref?.();
+  }
   /**
    * 9.D D6 (sheet 15 board 4): one card pinned at the top of home, drawn on the pixel wood, edited in place, never
    * posted again: Claude this week, what is running, what waits on him, his PC. Buttons: What's waiting, Stepping away,
@@ -1179,6 +1207,7 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    if (b.customId.startsWith('wow:')) { if (!this.wow || !await this.wow.press(b)) await b.ack('The WoW watch is not running here.'); return; }
     const gm = /^gm:(watch|later):([\w-]{6,20})$/.exec(b.customId);
     if (gm) {
       const url = `https://www.youtube.com/watch?v=${gm[2]}`;
