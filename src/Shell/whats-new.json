@@ -1360,6 +1360,11 @@
       "at": "2026-11-17T23:24:00-05:00",
       "kind": "feature",
       "text": "If Samara closes unexpectedly, Aang tells you, with a Reopen button. Nothing restarts by itself."
+    },
+    {
+      "at": "2026-11-17T23:54:00-05:00",
+      "kind": "feature",
+      "text": "Disney+ on the PC goes through your MacBook at home, like Prime, so it no longer says it isn't available in your region. Update both machines."
     }
   ]
 }
