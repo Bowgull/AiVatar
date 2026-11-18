@@ -22,6 +22,8 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Body.Tests" />
+    <!-- Phase 5: Samara.exe (src/Samara) uses the pet's launcher pieces rather than copies of them. -->
+    <InternalsVisibleTo Include="Samara" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\assets\**\*" Link="assets\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

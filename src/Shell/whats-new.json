@@ -1375,6 +1375,11 @@
       "at": "2026-11-18T00:14:00-05:00",
       "kind": "feature",
       "text": "When a site wants a passkey, or Google refuses to sign you in, Samara offers to open that page in Chrome (passkeys cannot work in Samara on Shadow or the Mac yet). Never from your secret window."
+    },
+    {
+      "at": "2026-11-18T00:35:00-05:00",
+      "kind": "feature",
+      "text": "Quit Samara is in its right-click taskbar list and its ... menu on the PC, and Samara now has its own launcher, Samara.exe, so starting it, its updates and Claude no longer need Aang.exe."
     }
   ]
 }

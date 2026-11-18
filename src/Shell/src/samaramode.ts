@@ -8,7 +8,7 @@
 //
 // The mark: Samara writes samara-exit.json ({pid, how}) when it quits on purpose (a normal quit, or an update restart).
 // A Samara that is gone without one for its pid crashed (his call: it stays closed, and Aang tells him).
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
@@ -46,6 +46,17 @@ export function samaraPid(stateDir: string): number | null {
     const pid = Number(readFileSync(f, 'utf8').trim());
     return Number.isInteger(pid) && pid > 0 ? pid : null;
   } catch { return null; }
+}
+/**
+ * Phase 5 (2026-11-18): the program that starts Samara on the PC. Samara's own Samara.exe (samara-exe.txt, written each
+ * time it runs), else the pet's Aang.exe (body-exe.txt). Both take the same switches (--samara, --quiet, --url --,
+ * --after), so callers do not care which. claude-door-mcp.mjs has the same rule (it cannot import this).
+ */
+export function samaraLauncher(stateDir: string, exists: (f: string) => boolean = existsSync): string | null {
+  for (const name of ['samara-exe.txt', 'body-exe.txt']) {
+    try { const exe = readFileSync(path.join(stateDir, name), 'utf8').trim(); if (/\.exe$/i.test(exe) && exists(exe)) return exe; } catch { /* the next */ }
+  }
+  return null;
 }
 export function pidAlive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === 'EPERM'; }
