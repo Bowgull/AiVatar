@@ -283,9 +283,18 @@ try {
   }
 } catch { /* nothing is named for Claude on this page */ }
 
+// Phase 3 (2026-11-18): a page that asks for a passkey anyway gets "not available", and Samara offers to open it in
+// Chrome (browser.ts passkeyWanted). The page can only ring this bell; it carries nothing, and Samara reads the address
+// itself. The go/no-go's test-only switch (SAMARA_PASSKEY_TRY=1, never set in a release) leaves webauthn.io alone, the
+// same rule as passkeyTry() in passkeys.ts.
+const wantPasskey = () => { try { ipcRenderer.send('tab:passkey'); } catch { /* gone */ } };
+let passkeyTry = false;
+try { passkeyTry = process.env.SAMARA_PASSKEY_TRY === '1' && /^(www\.)?webauthn\.io$/i.test(location.hostname); } catch { /* no env here */ }
+
 try {
   contextBridge.executeInMainWorld({
-    func: () => {
+    args: [wantPasskey, passkeyTry],
+    func: (wantPasskey, passkeyTry) => {
       // Google's sign-in pages are left exactly as the browser is: hiding things there looks like a disguise, and
       // Google refuses disguised browsers (research, 2026-10-12). Its page handles passkeys itself.
       if (/^accounts\.(google|youtube)\.com$/i.test(location.hostname)) return;
@@ -301,6 +310,7 @@ try {
         const none = Object.freeze({ init() {}, shouldShow: () => false, config: Object.freeze({}) });
         Object.defineProperty(window, 'popMagic', { configurable: false, enumerable: false, get: () => none, set: () => {} });
       } catch { /* already defined */ }
+      if (passkeyTry) return;
       try { Object.defineProperty(window, 'PublicKeyCredential', { value: undefined, configurable: false, writable: false }); } catch { /* already gone */ }
       // FedCM (Chrome's built-in "Sign in with Google" prompt) has no screen in Electron and hangs like passkeys did.
       // Without it, Google's button falls back to its normal popup, which works (2026-10-12).
@@ -308,7 +318,11 @@ try {
       const creds = navigator.credentials;
       if (creds) {
         const refuse = (orig) => function (opts) {
-          if (opts && (opts.publicKey || opts.identity)) return Promise.reject(new DOMException('Passkeys are not available in this browser.', 'NotSupportedError'));
+          if (opts && (opts.publicKey || opts.identity)) {
+            // A real ask (not the quiet autofill kind a page starts on load): Samara offers Chrome.
+            if (opts.publicKey && opts.mediation !== 'conditional') { try { wantPasskey(); } catch { /* gone */ } }
+            return Promise.reject(new DOMException('Passkeys are not available in this browser.', 'NotSupportedError'));
+          }
           return orig.apply(this, arguments);
         };
         try { creds.create = refuse(creds.create.bind(creds)); creds.get = refuse(creds.get.bind(creds)); } catch { /* read-only here */ }
