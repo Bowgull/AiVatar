@@ -1345,6 +1345,21 @@
       "at": "2026-11-13T19:05:00-05:00",
       "kind": "feature",
       "text": "Stronger ad blocker: beats YouTube ads and blocker warnings."
+    },
+    {
+      "at": "2026-11-17T23:20:00-05:00",
+      "kind": "fix",
+      "text": "Safer and more like Chrome: same-name downloads no longer overwrite each other, sign-in boxes for sites that ask, and tighter home-network and camera checks."
+    },
+    {
+      "at": "2026-11-17T23:22:00-05:00",
+      "kind": "feature",
+      "text": "On the PC, Samara runs on its own: it stays open when Aang is closed, and Claude can start it quietly when it needs it."
+    },
+    {
+      "at": "2026-11-17T23:24:00-05:00",
+      "kind": "feature",
+      "text": "If Samara closes unexpectedly, Aang tells you, with a Reopen button. Nothing restarts by itself."
     }
   ]
 }
