@@ -18,7 +18,8 @@ import { run, within } from './page.ts';
 import { SIZES, capture } from './capture.ts';
 import { Recorder } from './record.ts';
 import { READERS, READER_JS, type Reader } from './readers.ts';
-import { reachesIn, talksToAI } from './driverrules.ts';
+import { needsLookup, reachesIn, talksToAI } from './driverrules.ts';
+import { resolvesInward } from './netlookup.ts';
 import { blockAds, guardRequests } from './skip/ads.ts';
 import { existsSync, statSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
@@ -619,7 +620,13 @@ export class Driver {
     g.setDevicePermissionHandler(() => false);
     g.on('will-download', (e) => e.preventDefault());
     // Never this computer or the home network, from a web page (2026-10-14; the tabs' own session does the same).
-    const guard = (d: Electron.OnBeforeRequestListenerDetails) => { let from = ''; try { from = d.frame?.url || ''; } catch { /* gone */ } return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame'); };
+    const guard = (d: Electron.OnBeforeRequestListenerDetails) => {
+      let from = ''; try { from = d.frame?.url || ''; } catch { /* gone */ }
+      if (reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame')) return true;
+      // DNS rebinding (Phase 1): the real address of a public-looking name decides, as in his own tabs.
+      const host = needsLookup(d.url, from || d.referrer || '', d.resourceType === 'mainFrame');
+      return host ? resolvesInward(host) : false;
+    };
     guardRequests(g, guard, null);
     // Ads and trackers blocked here too (measured 2026-10-20: Claude's logged-out pages loaded every ad on a WoW guide,
     // which made the MacBook heavy and every step slow). Network blocking only; the guard still goes first.

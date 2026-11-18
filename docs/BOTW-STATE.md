@@ -21,9 +21,11 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
 
 ## When they change
 
-- Aang never opens a Cemu file. Once a minute it only looks at the six slots' times
-  (`C:\Games\Cemu\portable\mlc01\usr\save\00050000\101c9400\user\80000001\{0-5}\game_data.sav`). A newer one opens a
-  session.
+- Aang never opens a Cemu file. Since 2026-11-04 (BG10) it watches the six slot folders
+  (`C:\Games\Cemu\portable\mlc01\usr\save\00050000\101c9400\user\80000001\{0-5}`, one `fs.watch` each plus one on
+  their parent, asleep until the OS wakes them) and reads a save 2 s after its folder has gone quiet, so a half-written
+  autosave is never read. The slots' times are only stat-ed every 5 minutes, as a fallback for a dead watcher (which the
+  same look puts back), and once a minute while a session is open, to see Cemu close. A newer save opens a session.
 - Every new save (autosave or his own) is read straight away, also while he plays (his call 2026-11-04, so the
   Journal's bag keeps up): the newest slot is copied to a temp file, the copy is read and deleted, and `state.json` and
   `cook.json` are rewritten. Nothing is said, and the session still measures from `base.json`.
@@ -35,6 +37,27 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
   session that ended over 3 hours ago (Aang was off) is recorded but not announced.
 - "Where was I?" (BG6, on ask only) reads a newer save on the spot if there is one, without closing the session.
 - `v` goes up on any change a reader must know about. Fields are only added, never renamed, within one `v`.
+
+### How a page hears about it (BG10, 2026-11-04)
+
+Samara's page server (the one serving the Hyrule folder) has one push channel, `GET /live/events`: Server-Sent Events
+(`text/event-stream`). It watches this folder (through the `live/` junction) only while a page is listening, and when
+`state.json`, `cook.json`, `pos.json`, `sessions.json`, `notes.json` or `live.json` is rewritten it sends, 150 ms later
+(so a `state` + `cook` pair arrives together), one event per file:
+
+```
+event: change
+data: {"file":"state"}
+```
+
+A comment line every 25 s keeps the socket alive; at most 6 pages at once (a seventh gets 503); the stream tells the
+browser to reconnect after 3 s if it drops. A temp file beside the live ones (`state.json.<pid>.tmp`) is never announced.
+The map (`app/save.js`) and the Journal (`sheet-16/journal.js`) open it with `EventSource('live/events')` while visible,
+fetch the named file on an event, close the stream while hidden (nothing runs then) and reopen it when shown; a slow
+5-minute look remains as a fallback for a dead stream. The map still never reloads mid-play (a newer save seen while
+`pos.json` says live is looked at again once a minute until he stops); the Journal takes a newer save on the same tab
+once he has not touched it for 30 s. `app/live.js` (Link's position, 1 Hz by design) polls as before. So a save shows in
+every open page within about 2–3 s of the game writing it: 2 s settle, one read, one event, one fetch.
 
 ## state.json (`v: 1`)
 
@@ -84,6 +107,12 @@ reader never sees half a file. `AANG_BOTW_DIR` moves them (tests).
                                            // game writes a counter at its first kill)
   "photos": ["Enemy_Bokoblin_Junior"],     // botw.db compendium.actor of every entry photographed (IsRegisteredPictureBook_)
   "greatFairies": [1],                     // E2: botw.db great_fairies.n of the fountains he has opened (RevivalGreatFairyN)
+  "horses": [                              // BG9 (2026-11-04): his stable, one per filled slot 0-4 (slot 5 = the game's
+    { "slot": 0, "name": "Luther",         // temporary one, left out). Horse_UserName, Horse_ActorName (the horse type,
+      "actor": "GameRomHorse23",           // whose actor params hold its stats), Horse_Familiarity (bond 0..1),
+      "bond": 1, "saddle": "GameRomHorseSaddle_00", "reins": "GameRomHorseReins_00",   // Horse_SaddleName / ReinsName
+      "mane": "Horse_Link_Mane", "rideSec": 693 }                                     // Horse_ManeName, Horse_RideTimeSec
+  ],                                       // missing on a state.json written before 2026-11-04: unknown, not none
   "dlc": {                                 // E2: the add-ons' completion marks (botw.db dlc_things has the rest)
     "masterMode": false,                   // AoC_HardMode_Enabled: written only into a Master Mode save
     "trialOfTheSword": { "beginning": false, "middle": false, "final": false },  // 100enemy_Clear_Junior/Middle/Senior
@@ -235,6 +264,53 @@ Aang's tool: `botw_plan`. Rewards are not planned yet (they live in event flows,
   again 3 minutes later (he may still have been in Cemu's game list). Until 2026-11-04 both failures waited for a Cemu
   restart, so a reader that looked 3 s too early left tracking off for a whole session. **To check (QA, his first play session):** `pos.json` appears, and x/z sit on his spot (stand at
   a shrine whose `x`/`z` are in botw.db). Inside shrines the numbers become small local ones (|x|,|z| < ~300).
+
+## live.json, pouch.json, want.json (`v: 1`, BG10 the live reader)
+
+Built 2026-11-04/05 from his interview (docs/BOTW-GUIDE.md BG10). The reader is now started as
+`AangReader --botw-live` (`src/Reader/BotwLive.cs`); `pos.json` is written exactly as above. The rest is read **only
+while a guide page is open**, twice a second, read-only like the position.
+
+- **`want.json`** `{ v: 1, at, pages }`: the lease. The Shell's page server writes it when a page starts listening on
+  `live/events`, rewrites it every 10 s while one listens, and removes it when the last one leaves. The reader treats
+  one older than 25 s as "no page open" and then reads the position only. Pages do nothing for this: listening is it.
+- **`live.json`**
+
+```jsonc
+{
+  "v": 1, "at": "2026-11-05T01:10:00.000Z", "seq": 42,
+  "live": true,                       // false once the page closed or Cemu did (the last numbers are kept)
+  "state": "play",                    // play | loading (a load or warp: numbers not believable) | menu (no player yet) | closed
+  "hearts":  { "life": 14, "cap": 12, "yellow": 2 },             // quarter hearts: now (red + yellow), red cap, yellow he has now
+  "stamina": { "green": 812, "cap": 1000, "yellow": 0 },         // 1000 = one wheel
+  "rupees": 396,                      // the game flag CurrentRupee
+  "arrows": 12,                       // the count of the arrows on the bow
+  "equip": { "sword": "Weapon_Sword_062", "bow": "Weapon_Bow_001", "arrow": "NormalArrow", "shield": null,
+             "head": "Armor_001_Head", "upper": "Armor_001_Upper", "lower": "Armor_001_Lower" }   // botw.db items.id
+}
+```
+
+  Written whole (temp + rename) when anything in it changes, and every 5 s as a heartbeat. `rupees`, `arrows` and
+  `equip` are missing when that part could not be read. Readers treat `at` older than 10 s as not live.
+- **`pouch.json`** `{ v: 1, at, seq, live, items: [{ t, id, n, on? , hp?, time?, effect?, level? }] }`: his whole pouch
+  as the game holds it now, in its order. `t` = kind (0 sword, 1 bow, 2 arrow, 3 shield, 4/5/6 head/body/legs,
+  7 material, 8 food, 9 key item), `n` = count (durability x100 for gear), `on` = worn or in hand (gear only); food
+  also carries its own hearts (quarters), seconds, effect id and level. Written once a second when it changed. It is
+  NOT pushed to pages (not in the page server's list): the brain reads it.
+- **`cook.json` while the live bag is known**: the brain (botwlive.ts, a 2 s look at `pouch.json`'s time) works the
+  menu out again from the live pouch once the cookable part has held still for 4 s, and adds `bagAt` (the pouch's
+  `at`) and `bag` (`[id, name, count]` of everything that is not gear). `savedAt` stays the save's. The Journal uses
+  `bag` for the bag's counts and takes a new `bagAt` like a newer save (on the same tab, never under his hands, never
+  twice within 5 s). When the reader stops, or a save lands, `cook.json` is the save's again (and is put back to the
+  live bag at the next look if the reader is still running).
+- **Not verified on his running game yet.** Every address is from the research note
+  (`Aang/research_notes/BotW guide/live_memory.md`). The reader proves the build first (two names at their v208
+  addresses), follows only real guest pointers, and writes only believable numbers. Its first good read prints one
+  **`botw live probe:`** line in the brain's log with the raw values (life, cap, the stale max at +0x1320, yellow
+  hearts and stamina, rupees, the pouch count, the position from PlayerInfo beside the position from the heap).
+  **To check (QA, his next session with the Hyrule tab open):** that line appears and its numbers match the game's
+  screen; eat one hearty and one enduring dish and the yellow values follow. Still not found: the active buff and its
+  timer.
 
 ## Using it from code
 

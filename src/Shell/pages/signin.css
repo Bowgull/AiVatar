@@ -1,0 +1,17 @@
+/* Phase 1: the old-style sign-in box and the full-screen hint, in the band's colours. */
+html,body{margin:0;height:100%;background:var(--ink);color:var(--text);font:14px var(--body);user-select:none;-webkit-user-select:none}
+.card{display:flex;flex-direction:column;gap:10px;padding:18px 20px;box-sizing:border-box;height:100%;border:3px solid var(--outline);border-radius:10px;background:var(--panel2)}
+.kick{font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.host{font:700 17px var(--body);word-break:break-all}
+.why{color:var(--secondary);font-size:12.5px;line-height:1.4}
+.why.bad{color:var(--red)}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--secondary)}
+input{font:14px var(--body);color:var(--text);background:var(--ink);border:2px solid var(--plum-edge);border-radius:6px;padding:7px 9px;outline:none;user-select:text;-webkit-user-select:text}
+input:focus{border-color:var(--gold)}
+.keys{display:flex;justify-content:flex-end;gap:8px;margin-top:auto}
+button{font:700 13px var(--body);border-radius:6px;padding:7px 16px;cursor:pointer;border:2px solid var(--gold-deep);background:var(--gold);color:var(--ink)}
+button.plain{background:transparent;color:var(--text);border-color:var(--plum-edge)}
+button:focus-visible{outline:2px solid var(--gold-lit);outline-offset:2px}
+.hint{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:transparent}
+.hint span{background:rgba(16,10,34,.88);color:var(--text);border:2px solid var(--plum-edge);border-radius:8px;padding:10px 18px;font:600 15px var(--body)}
+.hint b{color:var(--gold)}

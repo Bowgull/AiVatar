@@ -5,12 +5,14 @@
 //     copy is read and deleted. Nothing in Cemu is ever opened for writing, moved or locked.
 //   - Quiet while he plays: nothing is said. Each new autosave is read (a copy, about a second, his call 2026-11-04)
 //     so state.json and cook.json keep up for the Journal; the session and its line work as before.
+//   - Light beside the game (BG10, 2026-11-04): the slot folders are watched (fs.watch sleeps until the OS wakes it),
+//     a save is read 2 s after its folder goes quiet, and the slots' times are only stat-ed every 5 minutes as a fallback.
 //   - A session ends when Cemu closes or the save sits still for 30 minutes. Then the state is read and Aang says ONE
 //     line ("Today: 3 shrines, 12 Koroks."). Never anything about what is left.
 //   - "Where was I?" only when he asks.
 // What it writes (state.json, sessions.json) is the contract in docs/BOTW-STATE.md; botwsave.ts does the reading.
 import { execFile } from 'node:child_process';
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, watch, type FSWatcher } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -24,6 +26,12 @@ export const STILL_MS = 30 * 60_000;
 /** A session that ended this long ago (Aang was off) is recorded but not announced: an old "today" is not today. */
 export const STALE_MS = 3 * 3_600_000;
 export const KEEP_SESSIONS = 30;
+/** BG10 (2026-11-04): a save is read this long after the folder last stirred, so a half-written autosave is never read. */
+export const SETTLE_MS = 2000;
+/** BG10: the slow look at the slots' times, in case a folder watcher dies. The watchers do the real work. */
+export const FALLBACK_MS = 5 * 60_000;
+/** While a session is open, Cemu is looked for this often (one tasklist call), so its closing is seen within a minute. */
+export const CLOSE_CHECK_MS = 60_000;
 /** How near a Zelda note must be to where he saved to be mentioned (world units = metres; a village is ~150). */
 export const NOTE_NEAR = 300;
 
@@ -111,7 +119,51 @@ export class BotwWatch {
   private d: WatchDeps;
   private cat: Catalog | null = null;
   private busy = false;
+  /** A folder stirred while a step ran: run once more after it, so that save is never missed. */
+  private again = false;
+  // BG10: one watcher per slot folder (and one on their parent, for a slot folder made later). They sleep until the OS
+  // wakes them: no cost beside the game. A watcher that dies is put back by the next tick.
+  private watchers = new Map<string, FSWatcher>();
+  private started = false;
+  private settle: ReturnType<typeof setTimeout> | null = null;
+  private closeCheck: ReturnType<typeof setTimeout> | null = null;
   constructor(p: BotwPaths, d: WatchDeps) { this.p = p; this.d = d; }
+
+  /** Start watching the slot folders. Every tick afterwards re-arms any watcher that died. */
+  start(): void { this.started = true; this.watchSlots(); }
+  stop(): void {
+    this.started = false;
+    for (const w of this.watchers.values()) w.close();
+    this.watchers.clear();
+    if (this.settle) { clearTimeout(this.settle); this.settle = null; }
+    if (this.closeCheck) { clearTimeout(this.closeCheck); this.closeCheck = null; }
+  }
+  /** How many folders are being watched (tests). */
+  get watching(): number { return this.watchers.size; }
+
+  private watchSlots(): void {
+    if (!this.started || !existsSync(this.p.saves)) return;
+    const dirs = [this.p.saves];
+    try { for (const d of readdirSync(this.p.saves)) if (/^\d$/.test(d)) dirs.push(path.join(this.p.saves, d)); } catch { /* gone: the fallback tick looks again */ }
+    for (const dir of dirs) {
+      if (this.watchers.has(dir)) continue;
+      try {
+        const w = watch(dir, { persistent: false }, (_ev, name) => {
+          // the parent stirring = a slot folder came or went: watch it; a slot stirring = a save landing: settle, then read
+          if (dir === this.p.saves) { if (name && /^\d$/.test(String(name))) this.watchSlots(); return; }
+          this.stirred();
+        });
+        w.on('error', () => { w.close(); if (this.watchers.get(dir) === w) this.watchers.delete(dir); });
+        this.watchers.set(dir, w);
+      } catch { /* a folder that cannot be watched: the fallback tick covers it */ }
+    }
+  }
+  /** A slot folder changed. Cemu writes a save in pieces; wait until it has been quiet SETTLE_MS, then read once. */
+  private stirred(): void {
+    if (this.settle) clearTimeout(this.settle);
+    this.settle = setTimeout(() => { this.settle = null; void this.tick(); }, SETTLE_MS);
+    this.settle.unref?.();
+  }
 
   private now(): number { return this.d.now?.() ?? Date.now(); }
   private catalog(): Catalog { return this.cat ??= this.d.catalog?.() ?? loadCatalog(this.p.db); }
@@ -129,15 +181,26 @@ export class BotwWatch {
   /** The state a session is measured from: state.json as it was when the session began, Hero's Path left out. */
   private writeBase(st: BotwState): void { this.write('base.json', { ...st, heroPath: null }); }
 
-  /** Once a minute. Cheap while he plays: the slots' times, and a process check while a session is open. */
+  /**
+   * One look: the slots' times, and a process check while a session is open. Run SETTLE_MS after a slot folder stirs
+   * (BG10), every FALLBACK_MS from the scheduler, and once a minute while a session is open (to see Cemu close).
+   */
   async tick(): Promise<void> {
-    if (this.busy) return;
+    if (this.busy) { this.again = true; return; }
     this.busy = true;
-    try { await this.step(); } finally { this.busy = false; }
+    try { do { this.again = false; await this.step(); } while (this.again); } finally { this.busy = false; }
   }
 
   private async step(): Promise<void> {
+    this.watchSlots();
     if (!existsSync(this.p.saves) || !existsSync(this.p.db)) return;
+    try { await this.look(); } finally {
+      if (this.closeCheck) { clearTimeout(this.closeCheck); this.closeCheck = null; }
+      if (this.started && this.sessions().open) { this.closeCheck = setTimeout(() => { this.closeCheck = null; void this.tick(); }, CLOSE_CHECK_MS); this.closeCheck.unref?.(); }
+    }
+  }
+
+  private async look(): Promise<void> {
     const top = slots(this.p.saves)[0];
     if (!top) return;
     const now = this.now();

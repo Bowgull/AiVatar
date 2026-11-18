@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Phase 1 (parity sweep 2026-11-12): a site or proxy that asks for a name and password the old way (HTTP Basic or
+     Digest: routers, printers, intranets, staging sites). Samara's own small window, never part of the page. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Sign in</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="signin.css">
+</head>
+<body>
+<form class="card" id="f" autocomplete="off">
+  <div class="kick" id="kick">Sign in</div>
+  <div class="host" id="host"></div>
+  <div class="why" id="why"></div>
+  <label>Name<input id="user" autocomplete="off" spellcheck="false" required></label>
+  <label>Password<input id="pass" type="password" autocomplete="off"></label>
+  <div class="keys"><button type="button" class="plain" id="no">Cancel</button><button type="submit" id="yes">Sign in</button></div>
+</form>
+<script src="signin.js"></script>
+</body>
+</html>

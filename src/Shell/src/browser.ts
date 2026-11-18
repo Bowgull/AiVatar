@@ -21,7 +21,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, Menu, WebContentsView, app, net, powerMonitor, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, app, ipcMain, net, powerMonitor, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, systemPreferences, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile, spawn } from 'node:child_process';
 import { connect as netConnect } from 'node:net';
@@ -42,8 +42,11 @@ import { PAGE_VIDEO_JS, PAUSE_PAGE_JS, YOUTUBE_APP, YOUTUBE_NS, copyProtected, p
 import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
+import { SessionStore, type SessionData } from './sessionstore.ts';
+import { SavePaths, programAsk, quarantineMark, safeName, sameSite, siteOfUrl, zoneMark } from './downloads.ts';
 import { readJson } from './store.ts';
-import { carriesData, keyWeigh, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
+import { carriesData, goesInward, grantKey, grantTop, keyWeigh, needsLookup, ownPopup, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
+import { resolvesInward } from './netlookup.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
 import { svgToPng } from './svgicon.ts';
@@ -355,7 +358,9 @@ function fadeIn(w: BrowserWindow): void {
   step();
 }
 /** Never handed to another app, whatever claims them: they reach files, run code, or are the browser's own. */
-const NEVER_HANDED = new Set(['file', 'javascript', 'vbscript', 'data', 'blob', 'about', 'chrome', 'devtools', 'view-source', 'filesystem', 'jar', 'smb', 'afp', 'nfs', 'ftp', 'ms-msdt', 'search-ms', 'ms-officecmd', 'ms-settings']);
+const NEVER_HANDED = new Set(['file', 'javascript', 'vbscript', 'data', 'blob', 'about', 'chrome', 'devtools', 'view-source', 'filesystem', 'jar', 'smb', 'afp', 'nfs', 'ftp', 'ms-msdt', 'search-ms', 'ms-officecmd', 'ms-settings',
+  // Phase 1 (security audit): the rest of the ones Chrome never hands out (they run help files or local code).
+  'shell', 'hcp', 'mk', 'ms-its', 'its', 'res', 'ms-help', 'help', 'vnd.ms.radio', 'ms-cxh', 'ms-cxh-full', 'ie.http', 'ie.https']);
 /**
  * The app a link is for, by name; null when none. The known ones by their friendly name; any other (2026-10-25: Shadow
  * signing in hands him back to its app with tech.shadow://, which Samara called a fake site) by the app on this
@@ -383,11 +388,14 @@ const STREMIO_WEB = /^https:\/\/web\.stremio\.com(\/|$)/i;
 const STREMIO_ENGINE = /^(https?|wss?):\/\/(127\.0\.0\.1|localhost):11470(\/|$)/i;
 const STREMIO_APP = '/Applications/Stremio.app/Contents/MacOS';
 /** Private Network Access for every tab (driverrules.ts reachesIn). */
-export const netGuard = (d: Electron.OnBeforeRequestListenerDetails): boolean => {
+export const netGuard = (d: Electron.OnBeforeRequestListenerDetails): boolean | Promise<boolean> => {
   let from = '';
   try { from = d.frame?.url || ''; } catch { /* frame gone */ }
   if (STREMIO_ENGINE.test(d.url) && STREMIO_WEB.test(from || d.referrer || '')) return false;
-  return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame');
+  if (reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame')) return true;
+  // A public-looking name may still point home (DNS rebinding): its real address decides (netlookup.ts).
+  const host = needsLookup(d.url, from || d.referrer || '', d.resourceType === 'mainFrame');
+  return host ? resolvesInward(host) : false;
 };
 /** Sheet 89: is Stremio's engine answering on this Mac? */
 const stremioUp = (): Promise<boolean> => new Promise((res) => {
@@ -713,7 +721,8 @@ export class AangBrowser {
   private get jobNames(): string[] { const w = this.o.secret ? 'secret' : 'browser'; return [`${w}.snapshot`, `${w}.sleep-idle`, `${w}.lock`, `${w}.claude-forms`]; }
   private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
-  private readonly file: string;
+  /** The one owner of browser-tabs.json (sessionstore.ts). */
+  private readonly session: SessionStore;
   /** Sheet 87: the secret window's own PIN (normal Samara has none). */
   private secretPin: PinSeal | null = null;
   /** Sheet 87: its tabs, bookmarks, history and logins are put away until its PIN. */
@@ -805,6 +814,8 @@ export class AangBrowser {
   private readonly popupOkFile: string;
   /** When he last clicked or pressed a key in each tab: Chrome's user-activation rule for popups. */
   private lastGesture = new Map<number, number>();
+  /** Download names taken by downloads still running (downloads.ts): never handed to a second download. */
+  private readonly savePaths = new SavePaths();
   /** Scrambled list of the sites he has Bitwarden logins for (no names, no passwords), for the gold key. */
   private readonly sitesFile: string;
   private sites: Set<string> | null = null;
@@ -963,7 +974,7 @@ export class AangBrowser {
         setTimeout(() => { void this.mockTidy(false); }, 30_000).unref?.();
       }
     }
-    this.file = path.join(o.stateDir, 'browser-tabs.json');
+    this.session = new SessionStore(path.join(o.stateDir, 'browser-tabs.json'));
     this.pausedFile = path.join(sd, 'adblock-paused.json');
     this.devices = new DeviceOk(path.join(sd, 'device-ok.json'));
     this.prefsFile = path.join(sd, 'browser-prefs.json');
@@ -1067,6 +1078,7 @@ export class AangBrowser {
     privacyHooks(ses, { clean: cleanLink, headers: cookieHeaders(this.wall) });
     denyPermissions(ses);
     this.permissions();
+    this.signIns();
     this.screenShare();
     this.hid();
     this.spelling();
@@ -1106,27 +1118,32 @@ export class AangBrowser {
       this.inWc(wc);
       // Sharing the screen: the picker below is the real ask, every time, so Chromium's own gate just lets it reach it.
       if (permission === 'display-capture') { done(!this.driver?.owns(wc)); return; }
-      if (permission === 'speaker-selection') { done(!this.driver?.owns(wc) && Boolean(this.mediaOk.get(hostOf(wc.getURL()))?.has('audio'))); return; }
+      if (permission === 'speaker-selection') { const top = hostOf(wc.getURL()); done(!this.driver?.owns(wc) && Boolean(this.mediaOk.get(grantKey(hostOf((details as { requestingUrl?: string }).requestingUrl || wc.getURL()), top))?.has('audio'))); return; }
       if (permission !== 'media' || !this.win || this.win.isDestroyed() || this.driver?.owns(wc)) { done(false); return; }
       const asked = (details as { mediaTypes?: string[] }).mediaTypes ?? [];
       // A screen share arrives here first as "media" with no camera or microphone named (measured 2026-10-13,
       // Electron 44). Nothing is granted by letting it through: the picker below is where he says yes or no.
+      // (Phase 1 audit note: this ask comes before the picker, so there is nothing yet to tell a share from a camera ask
+      // with no types. Kept as measured; the parity sweep watches it on each engine update.)
       if (!asked.length) { done(true); return; }
       const types = asked.filter((x) => x === 'audio' || x === 'video');
       const host = hostOf((details as { requestingUrl?: string }).requestingUrl || wc.getURL());
       if (!host || !types.length) { done(false); return; }
+      // Phase 1 (security audit): a grant belongs to this site inside this page, as in Chrome, not to the bare name, so
+      // a zoom.us frame on another site never inherits a call he allowed on zoom.us.
+      const key = grantKey(host, hostOf(wc.getURL()));
       // His rule for this site (sheet 37): Block never asks, Allow never asks; Ask is the old way, once per call.
       const said = types.map((x) => this.rules.media(host, x === 'video' ? 'camera' : 'mic'));
       if (said.includes('block')) { done(false); return; }
-      if (said.every((x) => x === 'allow')) { const s = this.mediaOk.get(host) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(host, s); done(true); this.sendTabs(); return; }
+      if (said.every((x) => x === 'allow')) { const s = this.mediaOk.get(key) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(key, s); done(true); this.sendTabs(); return; }
       // Already allowed on this site during this call: no second ask.
-      const ok = this.mediaOk.get(host);
+      const ok = this.mediaOk.get(key);
       if (ok && types.every((x) => ok.has(x))) { done(true); return; }
       const what = types.includes('video') && types.includes('audio') ? 'Camera and microphone?' : types.includes('video') ? 'Your camera?' : 'Your microphone?';
       const top = hostOf(wc.getURL());
       const text = `${host}${top && top !== host ? ` (inside ${top})` : ''} wants it for what you are doing now. It stops when you leave the site.`;
       this.ask({ host, what, text, icon: types.includes('video') ? 'camera' : 'mic' }, (allow) => {
-        if (allow) { const s = this.mediaOk.get(host) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(host, s); }
+        if (allow) { const s = this.mediaOk.get(key) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(key, s); }
         done(allow);
         if (allow) this.sendTabs();             // the tab becomes a call tab at once
       });
@@ -1139,7 +1156,9 @@ export class AangBrowser {
       if ((permission !== 'media' && permission !== 'speaker-selection') || (wc && this.driver?.owns(wc))) return false;
       const t0 = (details as { mediaType?: string }).mediaType;
       if (permission === 'media' && (t0 === 'audio' || t0 === 'video')) { const r = this.rules.media(hostOf(origin), t0 === 'video' ? 'camera' : 'mic'); if (r === 'block') return false; if (r === 'allow') return true; }
-      const ok = this.mediaOk.get(hostOf(origin));
+      // The page it is inside: the embedding origin, else the tab's own page.
+      const top = hostOf((details as { embeddingOrigin?: string }).embeddingOrigin || (wc ? wc.getURL() : '') || origin);
+      const ok = this.mediaOk.get(grantKey(hostOf(origin), top));
       if (!ok) return false;
       // Picking which speakers the call plays through comes with the microphone, as in Chrome.
       if (permission === 'speaker-selection') return ok.has('audio');
@@ -1313,6 +1332,84 @@ export class AangBrowser {
     }), (act) => { if (timer) clearTimeout(timer); done(act === 'yes'); });
     timer = setTimeout(() => { this.notices.drop(id); done(false); }, 120_000);
   }
+  /** Is this page one of this browser's own (its tabs and their popups), never another window's or Claude's? */
+  private mine(wc: Electron.WebContents | null | undefined): wc is Electron.WebContents {
+    return Boolean(wc && !wc.isDestroyed() && wc.session === this.ses && !this.driver?.owns(wc));
+  }
+  /**
+   * Phase 1 (parity sweep 2026-11-12): the sign-ins Electron cancels by itself.
+   * - HTTP Basic/Digest and proxy sign-in (routers, printers, intranets): a small sign-in box of Samara's own. Two wrong
+   *   tries in a row on the same site end it, as Chrome does, rather than looping.
+   * - Client certificates: he picks which one (Electron otherwise hands the site the first one silently), or none.
+   */
+  private signIns(): void {
+    const tries = new Map<string, number>();
+    app.on('login', (e, wc, details, auth, cb) => {
+      if (!this.mine(wc)) return;                               // another window's, or Claude's: cancelled as before
+      e.preventDefault();
+      const host = auth.isProxy ? `${auth.host}:${auth.port}` : hostOf(details.url) || auth.host;
+      const n = (tries.get(host) ?? 0) + 1; tries.set(host, n);
+      if (n > 3) { tries.delete(host); cb(); return; }
+      this.signinBox({ host, realm: auth.realm, proxy: auth.isProxy, secure: /^https:/i.test(details.url) || auth.isProxy, again: n > 1 }, (user, pass) => {
+        if (user === null) { tries.delete(host); cb(); return; }
+        cb(user, pass ?? '');
+      });
+    });
+    app.on('select-client-certificate', (e, wc, url, list, cb) => {
+      if (!this.mine(wc)) return;
+      e.preventDefault();
+      if (!list.length) { cb(); return; }
+      const host = hostOf(url);
+      const day = (s: number) => new Date(s * 1000).toISOString().slice(0, 10);
+      const id = this.notices.push(cleanNotice({ kind: 'need', from: 'shield', icon: 'key', kick: `${host || 'This site'} asks`, title: 'Which certificate?',
+        rows: [{ g: '', v: 'It wants to know who you are from a certificate on this computer. Pick one, or none.' }],
+        picks: list.slice(0, 8).map((c) => ({ id: c.fingerprint, name: (c.subject?.commonName || c.subjectName || 'Certificate').slice(0, 100), how: `${c.issuer?.commonName || c.issuerName || ''} · until ${day(c.validExpiry)}`.slice(0, 100) })),
+        picked: list.length === 1 ? list[0]!.fingerprint : null,
+        keys: [{ label: 'Use it', act: 'allow' }, { label: 'None', act: 'no', plain: true }] }), (act, value) => {
+        clearTimeout(timer);
+        const c = act === 'allow' && value ? list.find((x) => x.fingerprint === value) : undefined;
+        if (c) cb(c); else cb();
+      });
+      const timer = setTimeout(() => { this.notices.drop(id); cb(); }, 120_000);
+    });
+  }
+  /** The sign-in box: one small window over his browser per ask; his answer once, or null when he cancels or closes it. */
+  private signinBox(m: { host: string; realm: string; proxy: boolean; secure: boolean; again: boolean }, done: (user: string | null, pass: string | null) => void): void {
+    const parent = this.win && !this.win.isDestroyed() ? this.win : undefined;
+    if (!parent) { done(null, null); return; }
+    const w = new BrowserWindow({ parent, modal: true, width: 400, height: 330, resizable: false, minimizable: false, maximizable: false, frame: false,
+      show: false, backgroundColor: '#100A22', title: 'Sign in',
+      webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.preloadPath), 'signinpreload.cjs') } });
+    lockDown(w.webContents);
+    let answered = false;
+    const finish = (user: string | null, pass: string | null) => {
+      if (answered) return; answered = true;
+      ipcMain.removeListener('signin:answer', onAnswer);
+      if (!w.isDestroyed()) w.close();
+      done(user, pass);
+    };
+    const onAnswer = (e: Electron.IpcMainEvent, user: unknown, pass: unknown) => {
+      if (w.isDestroyed() || e.sender !== w.webContents) return;   // only this box's own page answers this ask
+      finish(typeof user === 'string' && user ? user : null, typeof pass === 'string' ? pass : null);
+    };
+    ipcMain.on('signin:answer', onAnswer);
+    w.on('closed', () => finish(null, null));
+    w.webContents.once('did-finish-load', () => { if (!w.isDestroyed()) { w.webContents.send('signin:show', m); w.show(); } });
+    void w.loadURL(`${this.o.origin}/signin.html`).catch(() => finish(null, null));
+  }
+  /** Phase 1: "Press Esc to leave full screen", over the page for a few seconds each time a page goes full screen. */
+  private fullHint(w: BrowserWindow): void {
+    try {
+      const b = w.getBounds(), width = 420, height = 64;
+      const h = new BrowserWindow({ parent: w, x: Math.round(b.x + (b.width - width) / 2), y: b.y + 24, width, height, frame: false, transparent: true,
+        resizable: false, focusable: false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { ...SAFE_WEB_PREFERENCES } });
+      h.setIgnoreMouseEvents(true);
+      lockDown(h.webContents);
+      h.webContents.once('did-finish-load', () => { if (!h.isDestroyed()) h.showInactive(); });
+      void h.loadURL(`${this.o.origin}/fullhint.html`).catch(() => { /* no hint this time */ });
+      setTimeout(() => { if (!h.isDestroyed()) h.close(); }, 3500);
+    } catch { /* full screen still works without the hint */ }
+  }
   /** A link to an app (APP_LINKS): asked in the band, then handed to the system, which opens that app. */
   private offerApp(tab: Tab, u: string): void {
     const app = appOf(u);
@@ -1337,13 +1434,13 @@ export class AangBrowser {
       if (wc && this.driver?.owns(wc)) { item.cancel(); return; }
       if (wc) this.inWc(wc);
       const dir = app.getPath('downloads');
-      const base = item.getFilename().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'download';
-      let to = path.join(dir, base), n = 1;
-      while (existsSync(to)) { const p = path.parse(base); to = path.join(dir, `${p.name} (${n++})${p.ext}`); }
+      const base = safeName(item.getFilename());
+      // The name is held until this download ends, so a second one with the same name never writes over it (downloads.ts).
+      const to = this.savePaths.pick(dir, base);
+      item.once('done', () => this.savePaths.release(to));
       item.setSavePath(to);
       const from = item.getURL();
-      let fromSite = '';
-      try { fromSite = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+      const fromSite = siteOfUrl(wc?.getURL() || from);
       const d = this.dls.start(to, fromSite, item.getTotalBytes());
       this.live.set(d.id, item);
       let lastGot = 0, lastAt = Date.now();
@@ -1359,20 +1456,12 @@ export class AangBrowser {
       // Decision 18: a program or a script from a site he has not trusted waits for one yes in a chip. The site
       // is the page he was on (a download often comes from some other server behind it). Unanswered = no.
       if (isRisky(base)) {
-        let site = '';
-        try { site = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-        // Where the file itself came from too (security check 2026-10-24, finding 8): an ad or a redirect on a site he
-        // trusts could hand him a program from anywhere. A file from another site than the page asks, unless he trusts it.
-        let fileSite = '';
-        try { fileSite = new URL(item.getURLChain?.().slice(-1)[0] || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-        const sameSite = (a: string, b: string) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
-        const fileOk = !fileSite || sameSite(fileSite, site) || this.trusted.has(fileSite);
-        if (!site || !this.trusted.has(site) || !fileOk) {
+        // The page's site, and where the file itself came from (an ad on a trusted site could hand him a program from
+        // anywhere): downloads.ts decides whether he is asked, and what he is told.
+        const ask = programAsk({ page: fromSite, file: siteOfUrl(item.getURLChain?.().slice(-1)[0] || from), trusted: this.trusted, otherTrusts: this.peerTrusted });
+        if (ask) {
+          const { site, fileSite, text } = ask;
           item.pause();
-          const other = this.peerTrusted.has(site);
-          const text = this.trusted.has(site) && !fileOk ? `It is a program, and it comes from ${fileSite}, not ${site}. Only say yes if you meant to get it.`
-            : other ? `It is a program. Your other computer trusts ${site}, but this one hasn't yet. Only say yes if you meant to get it.`
-            : `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`;
           this.ask({ host: site, what: `Download ${base}?`, text, yes: 'Download, trust this site', no: 'No', from: 'dl', kick: 'A program', icon: 'wont' }, (allow) => {
             if (item.getState() !== 'progressing') return;
             if (!allow) { item.cancel(); return; }
@@ -1390,8 +1479,8 @@ export class AangBrowser {
         if (state === 'completed') {
           // Marked "from the internet", so the system checks it before it runs: Windows' zone mark, or on the Mac
           // Apple's quarantine flag (Gatekeeper asks before opening it), the way Safari marks downloads (2026-10-14).
-          if (process.platform === 'darwin') execFile('/usr/bin/xattr', ['-w', 'com.apple.quarantine', `0081;${Math.floor(Date.now() / 1000).toString(16)};Samara;`, to], (e) => { if (e) console.error('shell: could not mark the download for Gatekeeper: ' + e.message); });
-          else try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
+          if (process.platform === 'darwin') execFile('/usr/bin/xattr', ['-w', 'com.apple.quarantine', quarantineMark(), to], (e) => { if (e) console.error('shell: could not mark the download for Gatekeeper: ' + e.message); });
+          else try { writeFileSync(to + ':Zone.Identifier', zoneMark(from)); }
           catch (e) { console.error('shell: could not mark the download for Defender: ' + (e as Error).message); }
         }
         this.live.delete(d.id); this.got.delete(d.id);
@@ -2710,7 +2799,13 @@ export class AangBrowser {
     });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
       this.inTab(tab);
-      if (!isWeb(u)) { this.offerApp(tab, u); return { action: 'deny' }; }
+      // Phase 1 (parity sweep): a blank page or a blob: page the site builds itself (print previews, generated PDFs,
+      // some sign-ins write into window.open('')) opens as a small window that keeps its link to the page.
+      const own = ownPopup(u, wc.getURL());
+      if (!isWeb(u) && !own) { this.offerApp(tab, u); return { action: 'deny' }; }
+      // A page on the internet never opens this computer or the home network in a new tab or window either.
+      if (goesInward(u, wc.getURL())) { console.log('shell: browser: a page tried to open a home-network address'); return { action: 'deny' }; }
+      if (own) disposition = 'new-window';
       // Sheet 111: in a tab Claude is driving, a new tab opens in that same tab (as Claude's pages always did); a small
       // window (a sign in popup) still opens as for his own tabs. Once he has the tab, it is his browsing.
       const cp = this.driver.pageOfTab(tab.id);
@@ -2720,7 +2815,7 @@ export class AangBrowser {
         try { site = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
         const his = Date.now() - (this.lastGesture.get(tab.id) ?? 0) < GESTURE_MS;
         if (this.listed(u).length) return { action: 'deny' };
-        if (!this.prefs.popups || (his && this.fairOpen(tab, wc.getURL(), u)) || this.popOk(site)) {
+        if (!this.prefs.popups || (his && (own || this.fairOpen(tab, wc.getURL(), u))) || this.popOk(site)) {
           return { action: 'allow', overrideBrowserWindowOptions: { width: 520, height: 680, autoHideMenuBar: true, backgroundColor: PAGE_COLOUR,
             title: 'Samara', webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath } } };
         }
@@ -2861,6 +2956,7 @@ export class AangBrowser {
       try { view.setBorderRadius(0); } catch { /* square anyway */ }
       w.setFullScreen(true);
       this.place();
+      setTimeout(() => { if (this.fullTab === tab.id && !w.isDestroyed()) this.fullHint(w); }, 350);   // once the window has grown
     });
     on('leave-html-full-screen', () => {
       if (this.fullTab !== tab.id) return;
@@ -2958,7 +3054,8 @@ export class AangBrowser {
   private wakeHyrule(tab: Tab): void {
     const dir = this.o.hyruleDir;
     if (!dir) return;
-    this.hyrulePages ??= servePages(dir, '/index.html');
+    // BG10: the pages hear a rewritten live file (state.json, pos.json...) on GET /live/events, watched through live/.
+    this.hyrulePages ??= servePages(dir, '/index.html', { live: path.join(dir, 'live') });
     // BG5: its own small preload (hyrulepreload.cjs), only the notes' doors.
     const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(path.dirname(this.o.thingsPreloadPath), 'hyrulepreload.cjs') } });
     const wc = view.webContents;
@@ -2979,6 +3076,7 @@ export class AangBrowser {
       try { view.setBorderRadius(0); } catch { /* square anyway */ }
       w.setFullScreen(true);
       this.place();
+      setTimeout(() => { if (this.fullTab === tab.id && !w.isDestroyed()) this.fullHint(w); }, 350);   // once the window has grown
     });
     wc.on('leave-html-full-screen', () => {
       if (this.fullTab !== tab.id) return;
@@ -3506,8 +3604,8 @@ export class AangBrowser {
       else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
         // Nothing left in the whole browser: remember an empty window (so the closed tabs do not come back next time).
         if (!this.tabs.length && this.restored && !this.o.secret) {
-          this.keepTabsCopy('empty');
-          try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
+          this.session.keepCopy('empty');
+          this.session.write({ v: 1, active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) }, { now: true, force: true });
           this.sync?.changed('tabs');
         }
         this.win.close();
@@ -3570,6 +3668,7 @@ export class AangBrowser {
     pwc.on('did-navigate', name);
     const stop = (e: Electron.Event, u: string) => {
       if (!isWeb(u)) { e.preventDefault(); return; }
+      if (goesInward(u, pwc.getURL())) { e.preventDefault(); return; }
       if (this.listed(u).length) { e.preventDefault(); pw.close(); this.note('', { from: 'shield', small: true, icon: 'popup', kick: 'Closed a popup', title: 'A fake site' }); }
     };
     pwc.on('will-navigate', stop);
@@ -3577,7 +3676,7 @@ export class AangBrowser {
     // What a popup opens becomes a tab only on his click in the popup (finding 7).
     let pClick = 0;
     pwc.on('input-event', (_e, i) => { if (i.type === 'mouseDown' || i.type === 'keyDown') pClick = Date.now(); });
-    pwc.setWindowOpenHandler(({ url: u }) => { if (isWeb(u) && !this.listed(u).length && (!this.prefs.popups || Date.now() - pClick < GESTURE_MS)) this.newTab(u, this.active, true); return { action: 'deny' }; });
+    pwc.setWindowOpenHandler(({ url: u }) => { if (isWeb(u) && !goesInward(u, pwc.getURL()) && !this.listed(u).length &&(!this.prefs.popups || Date.now() - pClick < GESTURE_MS)) this.newTab(u, this.active, true); return { action: 'deny' }; });
     pwc.on('will-attach-webview', (e) => e.preventDefault());
   }
 
@@ -4552,7 +4651,7 @@ export class AangBrowser {
         return { tabs: this.tabs.filter((t) => !t.internal && !t.mock && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.filter((x) => !x.mock).map((x) => ({ id: x.id, name: x.name })) };
       }
       try {
-        const s = readJson<any>(this.file, null);
+        const s = this.session.peek() as any;
         return { tabs: (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: any) => typeof t?.url === 'string' && isWeb(t.url) && !t.mock).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url), trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true })),
           trails: (Array.isArray(s?.trails) ? s.trails : []).filter((x: any) => Number.isInteger(x?.id) && x.id !== MOCK_TRAIL).map((x: any) => ({ id: x.id, name: String(x.name ?? '') })) };
       } catch { return { tabs: [], trails: [] }; }
@@ -4589,10 +4688,10 @@ export class AangBrowser {
       let closed: string[] = [];
       // The mockup tabs written here stay (sheet 47): they are this PC's own.
       let mocks: unknown[] = [];
-      try { const s = readJson<any>(this.file, null); if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
-      this.keepTabsCopy('other-machine');
+      try { const s = this.session.peek() as any; if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
+      this.session.keepCopy('other-machine');
       const keepTrails = mocks.length ? [...trails.filter((x) => x.id !== MOCK_TRAIL), { id: MOCK_TRAIL, name: 'MOCKUPS', named: true, mock: true }] : trails;
-      try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...mocks], trails: keepTrails, closed })); } catch { /* best effort */ }
+      this.session.write({ v: 1, active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...(mocks as SessionData['tabs'])], trails: keepTrails, closed }, { now: true, force: true, why: 'other-machine' });
       return;
     }
     // The mockups (sheet 47) are this PC's alone: the other machine's tabs never close or move them.
@@ -6153,8 +6252,6 @@ export class AangBrowser {
   /** Write every tab to disk. Scroll is asked of each live page with a deadline; a page that does not answer keeps its last. */
   /** Tabs he was on since the last save: only their scroll can have moved (measured 2026-10-20). */
   private scrollDue = new Set<number>();
-  /** The last tabs file written, without its time: nothing changed means nothing written and nothing sent. */
-  private lastSnap = '';
   /**
    * His saved tabs have been read back this run (or he starts on the home page). Until then nothing writes the tabs file
    * (2026-10-23: a mockup that arrived while Samara was still starting opened its tab first, that one tab was saved over
@@ -6162,26 +6259,6 @@ export class AangBrowser {
    * waits for the window's first load.
    */
   private restored = false;
-  /** How many of his own tabs (not mockups) the tabs file held when last read or written. */
-  private savedCount = 0;
-  /**
-   * A copy of the tabs file as it is now, kept aside (2026-10-23: one restart came back with every tab gone, and only a
-   * stray copy from that morning brought them back). Taken at every start, and before any write that would drop most
-   * of his tabs at once. The newest 10 are kept, in browser-tabs-kept beside it.
-   */
-  private keepTabsCopy(why: string): void {
-    try {
-      if (!existsSync(this.file)) return;
-      const s = JSON.parse(readFileSync(this.file, 'utf8'));
-      const n = (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: { mock?: unknown }) => !t?.mock).length;
-      if (n < 2) return;
-      const dir = path.join(path.dirname(this.file), 'browser-tabs-kept');
-      mkdirSync(dir, { recursive: true });
-      copyFileSync(this.file, path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${why}.json`));
-      const all = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
-      for (const f of all.slice(0, Math.max(0, all.length - 10))) { try { unlinkSync(path.join(dir, f)); } catch { /* next time */ } }
-    } catch (e) { console.error('shell: browser: the tabs copy was not kept: ' + (e as Error).message); }
-  }
   private async snapshot(all = false): Promise<void> {
     if (!this.restored) return;
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
@@ -6212,12 +6289,10 @@ export class AangBrowser {
     });
     // Closing or quitting: written once at once with what is known (2026-10-28: quitting could end Samara before the
     // pages answered below, and then nothing of the last few seconds was kept), then again with their scroll spots.
-    const kept = (d: ReturnType<typeof make>) => {
-      const mine = d.tabs.filter((t) => !t.mock).length;
-      if (this.savedCount >= 4 && mine < this.savedCount / 2) this.keepTabsCopy('drop');
-      this.savedCount = mine;
-    };
-    if (all) { const d = make(); kept(d); try { writeFileAtomic(this.file, JSON.stringify({ ...d, at: new Date().toISOString() })); } catch { /* written again below */ } }
+    if (all) this.session.write(make() as SessionData, { now: true, force: true });
+    // Taken before waiting on the pages: if a tab closes or the other machine's tabs land meanwhile, this save is stale
+    // and dropped (sessionstore.ts), instead of writing the older list back over the newer one.
+    const ticket = this.session.ticket();
     // Only the tabs in front, and the ones he was on since the last save (measured 2026-10-20: asking every tab every
     // 8 s woke them all, and on a slow machine ran past its deadline so nothing was saved). Closing asks them all.
     const due = this.scrollDue; this.scrollDue = new Set();
@@ -6229,26 +6304,18 @@ export class AangBrowser {
       if (Array.isArray(got) && Number.isFinite(got[0])) { t.scrollY = got[0]; t.pageBg = hexOf(got[1]) ?? t.pageBg; }
       try { const h = wc.navigationHistory; const s = h.getEntryAtIndex(h.getActiveIndex())?.pageState; t.pageState = s && s.length <= PAGE_STATE_MAX ? s : undefined; } catch { /* kept as it was */ }
     }));
-    const data = make();
-    const body = JSON.stringify(data);
-    if (!all && body === this.lastSnap) return;
-    this.lastSnap = body;
-    kept(data);
     // In the background while he browses; on closing, written before anything else happens.
-    const text = JSON.stringify({ ...data, at: new Date().toISOString() });
-    const fail = (e: unknown) => console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message);
-    if (all) { try { writeFileAtomic(this.file, text); } catch (e) { fail(e); } } else writeFileAtomicSoon(this.file, text).catch(fail);
+    if (!this.session.write(make() as SessionData, { now: all, force: all, ticket })) return;
     this.sync?.changed('tabs');
   }
 
   /** Bring every tab back from the last snapshot. Only the one he was on loads; the rest come back asleep. */
   private restore(): boolean {
-    this.keepTabsCopy('start');
+    this.session.keepCopy('start');
     this.restored = true;
     try {
-      if (!existsSync(this.file)) return false;
-      const s = JSON.parse(readFileSync(this.file, 'utf8'));
-      this.savedCount = (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: { mock?: unknown }) => !t?.mock).length;
+      const s = this.session.read() as any;
+      if (!s) return false;
       // Sheet 107 (his pick, 2026-10-30): mockups open inside Mockups now, so the mockup tabs of before close (every sheet
       // stays in Mockups).
       const list = Array.isArray(s?.tabs) ? s.tabs.filter((t: { url?: unknown; mock?: unknown }) => typeof t?.url === 'string' && isWeb(t.url as string) && !t.mock).slice(0, 80) : [];
@@ -6302,14 +6369,14 @@ export class AangBrowser {
     // A site's camera and microphone end when no tab is on it any more.
     if (this.mediaOk.size || this.shareHosts.size) {
       const on = new Set(this.tabs.map((t) => hostOf(t.url)));
-      for (const h of [...this.mediaOk.keys()]) if (!on.has(h)) this.mediaOk.delete(h);
+      for (const k of [...this.mediaOk.keys()]) if (!on.has(grantTop(k))) this.mediaOk.delete(k);
       for (const h of [...this.shareHosts]) if (!on.has(h)) this.shareHosts.delete(h);
     }
     // A tab with a live call runs at full speed even behind other tabs, and never sleeps (see sleepIdle).
     let calls = false;
     for (const t of this.tabs) {
       const h = hostOf(t.url);
-      const c = Boolean(t.view) && (this.mediaOk.has(h) || this.shareHosts.has(h));
+      const c = Boolean(t.view) && ([...this.mediaOk.keys()].some((k) => grantTop(k) === h) || this.shareHosts.has(h));
       if (t.view && Boolean(t.call) !== c) { try { t.view.webContents.setBackgroundThrottling(!c); } catch { /* gone */ } }
       t.call = c;
       calls ||= c;

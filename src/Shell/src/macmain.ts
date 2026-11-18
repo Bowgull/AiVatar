@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { readJson, saveJson, saveText } from './store.ts';
-import { openLog } from './log.ts';
+import { catchStrays, openLog } from './log.ts';
 import { utcStamp } from './clock.ts';
 import { sched } from './sched.ts';
 import { samaraBase, samaraBrowser, type Platform, type SamaraBooted } from './boot.ts';
@@ -43,8 +43,7 @@ app.setName('Aang');
   console.log = (...a: unknown[]) => write(a.map(String).join(' '));
   console.error = (...a: unknown[]) => write(a.map(String).join(' '));
 }
-process.on('uncaughtException', (e) => console.error('aang: ' + e.stack));
-process.on('unhandledRejection', (e) => console.error('aang: ' + String((e as Error)?.stack ?? e)));
+catchStrays('aang');
 
 /** Samara, once the boot engine has started it (boot.ts). */
 let boot: SamaraBooted | null = null;

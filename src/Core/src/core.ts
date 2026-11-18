@@ -18,7 +18,7 @@ import { routeLine } from './botwroute.ts';
 type RouteSaid = { state: 'planned' | 'queued' | 'off'; title?: string | undefined; stops?: number | undefined };
 import { afterPlayNote, botwNoteSettings, briefZeldaNotes, rememberPin, rememberThis, writeBotwNotes } from './botwnotes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
-import { BotwWatch, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
+import { BotwWatch, FALLBACK_MS as BOTW_FALLBACK_MS, botwPaths, cemuRunning, isWhereWasI, meansBotw, readBotwState } from './botwwatch.ts';
 import { botwLane } from './botw.ts';
 import { BotwLive, LIVE_EVERY_MS } from './botwlive.ts';
 import { WebSocketServer } from 'ws';
@@ -3180,9 +3180,10 @@ export class Core {
     // 2026-10-22: Qwen looks over his notes on a slow timer (notenotice.ts); first look ten minutes after start. Quiet:
     // Qwen fills the graphics card, so never during a game.
     this.sched.every('notes.notice', NOTICE_EVERY_MS, () => this.noteNotice.check(), { first: 10 * 60_000, quiet: true });
-    // BG2: his Breath of the Wild save (botwwatch.ts). Not quiet: it must see Cemu close. While he plays it only looks
-    // at the slots' times; it reads when the session ends. PC only (the saves are on the Shadow).
-    if (process.platform === 'win32') this.sched.every('botw.watch', 60_000, () => this.botw.tick(), { first: 30_000 });
+    // BG2: his Breath of the Wild save (botwwatch.ts). Not quiet: it must see Cemu close. PC only (the saves are on the
+    // Shadow). BG10 (2026-11-04): the slot folders are watched, so a save is read 2 s after it lands; this slow tick is
+    // the fallback for a dead watcher (the watcher itself looks for Cemu once a minute while a session is open).
+    if (process.platform === 'win32') { this.botw.start(); this.sched.every('botw.watch', BOTW_FALLBACK_MS, () => this.botw.tick(), { first: 30_000 }); }
     // BG8: Link's live position while Cemu runs (botwlive.ts starts AangReader --botw-pos; nothing while Cemu is closed).
     if (process.platform === 'win32') this.sched.every('botw.live', LIVE_EVERY_MS, () => this.botwLive.tick(), { first: 15_000 });
     // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look). Waits out a game or call.
@@ -3224,6 +3225,7 @@ export class Core {
   async stop(): Promise<void> {
     this.botwLiveStore?.stop();
     void this.omashu?.stop();
+    this.botwStore?.stop();
     this.macPresence?.stop();
     this.shadowLink?.stop();
     // A stale password must not outlive the Core that issued it.
@@ -3470,6 +3472,8 @@ export class Core {
   awaySeconds(): number { return this.atDesk || !this.awaySince ? 0 : (Date.now() - this.awaySince) / 1000; }
   /** The Electron Shell's connections: the only desktop client that can actually show the pop-out. */
   private readonly shells = new WeakSet<WebSocket>();
+  /** Phase 2: the Shells that are Samara on its own (hello role 'samara'): browser news yes, Aang's held lines no. */
+  private readonly samaras = new WeakSet<WebSocket>();
   private shellUp(): boolean { return !!this.wss && [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)); }
   /** M6: browser changes between the PC's browser and the Mac's. Passed on, never kept. */
   private readonly bsync = new BrowserSyncHub({
@@ -3865,10 +3869,20 @@ export class Core {
     // M6: the PC's browser talking to the Mac's. Only a Shell may, and nothing here reads it.
     if (typeof m.t === 'string' && (m.t as string).startsWith('bsync.')) { if (this.shells.has(ws)) this.bsync.fromShell(m as never); return; }
     switch (m.t) {
+      case 'relay': {
+        // Phase 2: Samara and Aang's windows, each its own program on the PC, talk through here. Only between Shells,
+        // only an object with a short type, never kept, never read; the sender does not get its own back.
+        const inner = (m as { m?: unknown }).m;
+        if (!this.shells.has(ws) || !inner || typeof inner !== 'object' || typeof (inner as { t?: unknown }).t !== 'string') break;
+        if (String((inner as { t: string }).t).length > 40 || JSON.stringify(inner).length > 64_000) break;
+        if (this.wss) for (const c of this.wss.clients) if (c !== ws && c.readyState === c.OPEN && this.shells.has(c)) this.send(c, { t: 'relay', m: inner } as never);
+        break;
+      }
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
         if (m.shell === true) {
           this.shells.add(ws);
+          if (m.role === 'samara') this.samaras.add(ws);
           this.bsync.shellChanged(true);
           ws.once('close', () => this.bsync.shellChanged(this.shellUp()));
           ws.once('close', () => { if (!this.shellUp()) this.connect.setVisible(false); });   // no player window without a Shell
@@ -3884,7 +3898,7 @@ export class Core {
         if (this.kindOfSocket(ws) === 'desktop') { const st = this.claudeState(); this.send(ws, { t: 'claude.working', ...st.working }); this.send(ws, this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking)); }
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
         // Lines held because nobody was there to see them (R15) come out now that someone is.
-        if (m.shell === true && this.held.size) setTimeout(() => this.releaseHeld(), 2000).unref?.();
+        if (m.shell === true && m.role !== 'samara' && this.held.size) setTimeout(() => this.releaseHeld(), 2000).unref?.();
         if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
         if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting(), ...(this.inClaude() ? { quiet: true } : {}) }); }
         break;
