@@ -32,7 +32,8 @@ brain.on('connection', (ws) => { sock = ws; ws.on('message', (d) => { try { got.
 
 const electron = path.join(SHELL, 'node_modules', 'electron', 'dist', 'electron.exe');
 const child = spawn(electron, ['src/samara.ts', '--quiet'], { cwd: SHELL, stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, AANG_TEST: '1', AANG_PORT: String(port), AANG_STATE_DIR: path.join(tmp, 'state'), AANG_USER_DATA: path.join(tmp, 'user'), AANG_DATA_DIR: path.join(tmp, 'data') } });
+  env: { ...process.env, AANG_TEST: '1', AANG_PORT: String(port), AANG_STATE_DIR: path.join(tmp, 'state'), AANG_USER_DATA: path.join(tmp, 'user'), AANG_DATA_DIR: path.join(tmp, 'data'),
+    AANG_TEST_CLAUDE_DOOR_PORT: '47951', AANG_TEST_MOCKUP_DOOR_PORT: '47944' } });
 let out = '';
 child.stdout.on('data', (d) => { out += d; }); child.stderr.on('data', (d) => { out += d; });
 const until = async (f: () => boolean, ms: number) => { const end = Date.now() + ms; while (Date.now() < end) { if (f()) return true; await wait(100); } return f(); };

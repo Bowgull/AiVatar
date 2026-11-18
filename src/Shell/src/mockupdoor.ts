@@ -128,7 +128,7 @@ export function checkAsk(ask: DoorAsk): { ok: true; drop: MockupDrop; name: stri
  */
 /** Sheet 79: the marks in the trail, for Claude: every marked version, and one mark set on a sheet in his repo. */
 export interface DoorMarks { list(): unknown[]; set(a: { repo: string; sheet: string; v: number | null; stage: string; said: string; note: string }): string }
-export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promise<MockVersion | string | null>, why: () => string | null, port = MOCKUP_DOOR_PORT, marks?: DoorMarks): () => void {
+export function startMockupDoor(stateDir: string, open: (d: MockupDrop) => Promise<MockVersion | string | null>, why: () => string | null, port = (process.env.AANG_TEST && Number(process.env.AANG_TEST_MOCKUP_DOOR_PORT)) || MOCKUP_DOOR_PORT, marks?: DoorMarks): () => void {
   const key = randomBytes(32).toString('hex');
   const keyFile = mockupDoorKeyFile(stateDir);
   try { writeFileSync(keyFile, key, { mode: 0o600 }); chmodSync(keyFile, 0o600); } catch (e) { console.error('aang: the mockup door has no key: ' + (e as Error).message); return () => {}; }

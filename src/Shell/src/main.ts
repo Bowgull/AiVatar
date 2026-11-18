@@ -71,6 +71,7 @@ import { readSettings, writeSettings, type PopoutSettings } from './settings.ts'
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import type { Box } from './geometry.ts';
 import { Satchel } from './satchel.ts';
+import { SamaraWatch, launcherEnv, pidAlive, readExitMark, samaraApart, samaraPid } from './samaramode.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 /** Chromium's GPU workaround that keeps video out of DirectComposition overlays. Underscores: see below. */
@@ -99,9 +100,10 @@ const SHELL_HOME = process.env.AANG_SHELL_HOME && existsSync(process.env.AANG_SH
 /**
  * Phase 2 (2026-11-12, his words: "i want samara as its own standalone browser that i use forever"): with this switch on,
  * Samara runs as its own program (samara.ts) and this process is Aang's windows only. The two see each other through the
- * brain (`relay`) and the plan door. Off until he turns it on; until then this process runs the browser as before.
+ * brain (`relay`) and the plan door. P1 (2026-11-17): a saved setting (samara-mode.json), on by default, which the pet
+ * reads and decides on for the code it starts; this follows the pet's answer (samaramode.ts).
  */
-const SAMARA_APART = process.env.AANG_SAMARA_APART === '1';
+const SAMARA_APART = samaraApart();
 // Samara keeps the default profile (his cookies and logins); two programs cannot share one, so Aang's windows get theirs.
 if (SAMARA_APART) app.setPath('userData', process.env.AANG_USER_DATA ?? path.join(app.getPath('appData'), 'Aang Pet'));
 
@@ -791,7 +793,8 @@ app.whenReady().then(async () => {
     if (SAMARA_APART) {
       // Aang's windows serve their own pages; the browser, the pop-out and paid video are Samara's (samara.ts).
       pages = await servePages(path.join(HERE, '..', 'pages'));
-      startSamara(['--quiet']);
+      startSamara({ quiet: true });
+      watchSamara();
     } else {
       base = await samaraBase(pcPlatform(), bootDeps((s) => console.log('shell: ' + s)));
       ({ pages, popout, drm } = base);
@@ -1151,6 +1154,8 @@ app.whenReady().then(async () => {
    */
   function answerAsk(a: Record<string, unknown>): void {
     const choice = String(a.choice ?? '');
+    // P1: "Samara closed unexpectedly". Reopen starts it (with a window); Not now leaves it closed.
+    if (a.t === 'samara.down') { if (choice === 'reopen') openSamara(); return; }
     // Sheet 37: his answer to a Claude session's plan goes to Samara, never to the brain.
     if (a.t === 'plan' && String(a.id ?? '').startsWith('samara:')) {
       const done = planWait.get(String(a.id)); planWait.delete(String(a.id));
@@ -1688,23 +1693,47 @@ function samaraOwns(m: Record<string, unknown>): boolean {
 function toSamara(m: Record<string, unknown>): boolean { return link.send({ t: 'relay', m } as never); }
 /** Samara's own program is running (samara.pid names a live process from this boot). */
 function samaraRunning(): boolean {
-  try {
-    const f = path.join(STATE_DIR, 'samara.pid');
-    if (statSync(f).mtimeMs < Date.now() - os.uptime() * 1000 - 5_000) return false;
-    const pid = Number(readFileSync(f, 'utf8').trim()); if (!pid) return false; process.kill(pid, 0); return true;
-  } catch { return false; }
+  const pid = samaraPid(STATE_DIR);
+  return pid !== null && pidAlive(pid);
 }
-/** Start Samara's own program on this engine; a running one gets the arguments instead (its single-instance lock). */
-function startSamara(args: string[]): void {
+/**
+ * Start Samara's own program. P1: through the pet's launcher (Aang.exe --samara, or --url for a page), which picks the
+ * installed release and engine and rolls back a trial release that dies early (Program.cs); straight onto this engine
+ * only when the launcher is not known. quiet: only its doors, no window (Aang starting up).
+ */
+function startSamara(o: { quiet?: boolean; url?: string } = {}): void {
   if (process.env.AANG_TEST) return;
   try {
+    const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
+    if (exe && existsSync(exe)) {
+      const args = o.url ? ['--url', '--', o.url] : ['--samara', ...(o.quiet ? ['--quiet'] : [])];
+      spawn(exe, args, { detached: true, stdio: 'ignore', cwd: path.dirname(exe), env: launcherEnv() }).unref();
+      return;
+    }
+  } catch { /* the engine, below */ }
+  try {
+    const args = o.url ? [o.url] : o.quiet ? ['--quiet'] : [];
     spawn(process.execPath, [path.join(HERE, 'samara.ts'), ...args], { cwd: path.join(HERE, '..'), detached: true, stdio: 'ignore', env: process.env }).unref();
   } catch (e) { console.error('shell: could not start Samara: ' + (e as Error).message); }
 }
 /** Open Samara (a page, or just its window). */
 function openSamara(url?: string): void {
   if (samaraRunning() && toSamara({ t: 'samara.open', ...(url ? { url } : {}) })) return;
-  startSamara(url ? [url] : []);
+  startSamara(url ? { url } : {});
+}
+/**
+ * P1, his call (2026-11-17): if Samara crashes it stays closed, and Aang tells him, with a Reopen key. A quit or an update
+ * leaves a mark (samara.ts), so only a Samara gone without one is told. Never restarts it by itself.
+ */
+function watchSamara(): void {
+  const w = new SamaraWatch({
+    pid: () => samaraPid(STATE_DIR), alive: pidAlive, mark: () => readExitMark(STATE_DIR),
+    crashed: (pid) => {
+      console.log(`shell: Samara (pid ${pid}) closed without quitting: telling him`);
+      bubble?.send('brain:message', { t: 'samara.down', id: 'samara-down-' + pid });
+    },
+  });
+  setInterval(() => w.tick(), 2000).unref();
 }
 /** What Samara hands Aang's windows (samara.ts). */
 function fromSamara(raw: unknown): void {

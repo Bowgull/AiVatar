@@ -158,7 +158,7 @@ export async function updateNow(b: AangBrowser, u: DoorUpdates): Promise<Record<
 /** Sheet 41: a plan that started, for the scroll-back. `remembered`: he allowed it, so the same plan will not ask again. */
 export interface PlanStarted { job: number; task: string; sites: string[]; steps: string[]; remembered: boolean }
 
-export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = CLAUDE_DOOR_PORT,
+export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = (process.env.AANG_TEST && Number(process.env.AANG_TEST_CLAUDE_DOOR_PORT)) || CLAUDE_DOOR_PORT,
   hooks: { plans?: PlanMemory; onPlan?: (p: PlanStarted) => void; updates?: DoorUpdates } = {}): http.Server {
   const key = randomBytes(32).toString('base64url');
   const file = path.join(stateDir, 'claude-door.json');

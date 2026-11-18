@@ -69,18 +69,35 @@ const heard = [];
 // group can be carried on by a new chat; a live one never). Never starts Samara.
 setInterval(() => { const d = job !== null ? door() : null; if (d) post(d, 'alive', { job }, 5000).catch(() => {}); }, 60_000).unref();
 /**
- * His ask (2026-10-14): if Samara is not running, start it rather than give up. On the Mac it is its own app,
- * opened in the background (-g: it never jumps in front of him) and waited for. On the PC it is part of Aang himself,
- * which is always running when he is at the PC, so there it only says so.
+ * The PC's launcher: the pet's Aang.exe, named in body-exe.txt beside the door file (written whenever Aang starts). Read
+ * through the admin share first, like the door file, so the Claude app's private %APPDATA% copy cannot hide it.
+ */
+function launcher() {
+  const f = path.join(path.dirname(doorFile), 'body-exe.txt');
+  const real = realDoorFile ? path.join(path.dirname(realDoorFile), 'body-exe.txt') : null;
+  for (const c of real ? [real, f] : [f]) {
+    try { const exe = readFileSync(c, 'utf8').trim(); if (/\.exe$/i.test(exe)) return exe; } catch { /* the next */ }
+  }
+  return null;
+}
+/**
+ * His ask (2026-10-14): if Samara is not running, start it rather than give up, in the background with only its doors (no
+ * window jumps in front of him), and wait for it. On the Mac it is its own app (-g). On the PC (P1, 2026-11-17: Samara
+ * runs without Aang) through Aang.exe --samara --quiet, which starts Samara alone and never the pet.
  */
 let launched = 0;
 async function step(op, a = {}) {
   const d = door();
   if (d) { try { return await knock(d, op, a); } catch { /* not running: below */ } }
-  if (process.platform !== 'darwin') return { ok: false, error: "Samara is not running on this PC. Ask Joshua to start Aang." };
+  const mac = process.platform === 'darwin';
+  const exe = mac ? null : launcher();
+  if (!mac && !exe) return { ok: false, error: "Samara is not running on this PC, and its launcher was not found. Ask Joshua to open Samara." };
   if (Date.now() - launched > 60_000) {
     launched = Date.now();
-    try { spawn('/usr/bin/open', ['-g', '-b', 'com.aang.browser', '--args', '--quiet'], { stdio: 'ignore', detached: true }).unref(); } catch { /* below */ }
+    try {
+      if (mac) spawn('/usr/bin/open', ['-g', '-b', 'com.aang.browser', '--args', '--quiet'], { stdio: 'ignore', detached: true }).unref();
+      else spawn(exe, ['--samara', '--quiet'], { stdio: 'ignore', detached: true, windowsHide: true, cwd: path.dirname(exe) }).unref();
+    } catch { /* below */ }
   }
   for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 750));
@@ -88,7 +105,7 @@ async function step(op, a = {}) {
     if (!e) continue;
     try { return await knock(e, op, a); } catch { /* still starting */ }
   }
-  return { ok: false, error: "Samara did not start on this Mac. Ask Joshua to open Samara from the Dock." };
+  return { ok: false, error: mac ? "Samara did not start on this Mac. Ask Joshua to open Samara from the Dock." : "Samara did not start on this PC. Ask Joshua to open Samara." };
 }
 
 // The group in his tab list is named for what Claude is doing ("JOB SCAN"), with Claude's icon; plain "CLAUDE" otherwise.

@@ -8,7 +8,8 @@
 // either side can hand the other a message (`relay`). Claude's plan cards go to Aang's bubble through the plan door
 // (plandoor.ts), as on the Mac.
 //
-// OFF until he turns it on: AANG_SAMARA_APART=1. Until then main.ts runs the browser as before. Run: electron src/samara.ts
+// P1 (2026-11-17): the default on the PC (samara-mode.json, samaramode.ts); it runs with Aang off and stays open when
+// he quits Aang. Run: electron src/samara.ts
 import { app, Menu, net, session, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -35,6 +36,7 @@ import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { jumpIcons } from './taskbar.ts';
 import { isPopoutTask } from './taskbarplan.ts';
+import { launcherEnv, writeExitMark } from './samaramode.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
@@ -78,7 +80,7 @@ function wakeAang(): void {
   wokeAt = Date.now();
   try {
     const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
-    if (exe && existsSync(exe)) { spawn(exe, [], { detached: true, stdio: 'ignore', cwd: path.dirname(exe) }).unref(); console.log('samara: starting Aang'); }
+    if (exe && existsSync(exe)) { spawn(exe, [], { detached: true, stdio: 'ignore', cwd: path.dirname(exe), env: launcherEnv() }).unref(); console.log('samara: starting Aang'); }
   } catch (e) { console.error('samara: could not start Aang: ' + (e as Error).message); }
 }
 
@@ -89,7 +91,8 @@ if (!solo) { console.log('samara: another one is already running'); app.exit(0);
 else {
   // So the pet and a link from Windows join this one instead of starting a second (CoreSupervisor.RunningSamara).
   try { mkdirSync(STATE_DIR, { recursive: true }); writeFileSync(path.join(STATE_DIR, 'samara.pid'), String(process.pid)); } catch (e) { console.error('samara: could not write samara.pid: ' + (e as Error).message); }
-  app.on('will-quit', () => { try { if (readFileSync(path.join(STATE_DIR, 'samara.pid'), 'utf8').trim() === String(process.pid)) unlinkSync(path.join(STATE_DIR, 'samara.pid')); } catch { /* gone */ } });
+  // A quit on purpose leaves its mark first, so Aang knows it was not a crash (samaramode.ts).
+  app.on('will-quit', () => { writeExitMark(STATE_DIR, process.pid, 'quit'); try { if (readFileSync(path.join(STATE_DIR, 'samara.pid'), 'utf8').trim() === String(process.pid)) unlinkSync(path.join(STATE_DIR, 'samara.pid')); } catch { /* gone */ } });
 }
 
 let boot: SamaraBooted | null = null;
@@ -185,8 +188,9 @@ function openInClaude(t: ClaudeOpen): void {
 function exitForUpdate(): void {
   try {
     const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
-    if (exe && existsSync(exe)) spawn(exe, ['--samara', '--after', String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
+    if (exe && existsSync(exe)) spawn(exe, ['--samara', '--after', String(process.pid)], { detached: true, stdio: 'ignore', env: launcherEnv() }).unref();
   } catch (e) { console.error('samara: could not arrange to reopen after the update: ' + (e as Error).message); }
+  writeExitMark(STATE_DIR, process.pid, 'update');
   app.exit(UPDATE_RESTART);
 }
 
@@ -288,13 +292,13 @@ app.whenReady().then(async () => {
     for (const u of waitingUrls.splice(0)) b.open(u);
   }
   if (pending) { const t = pending; pending = null; runTask(t); }
-  // Aang's helpers while he runs (main.ts rebinds the same every 3 s): Ask Claude's chats come through his door.
-  setInterval(() => { if (!aangUp() && !b.hasWindow() && process.uptime() > 20) { log('no window and Aang is off: closing'); app.quit(); } }, 3000).unref();
+  // P1 (2026-11-17): Samara no longer closes when Aang is off and no window is open. It stays, like the Mac's, so
+  // Claude's door, the sync and his next click are ready.
   // The lantern on his shortcuts: lit while a window is open.
   if (!process.env.AANG_TEST) setInterval(() => samaraShortcutsLit(b.hasWindow()), 1000).unref();
 });
 
-// Closing the last window does not end Samara while Aang runs: Claude's door and the sync stay up (checked above).
-app.on('window-all-closed', () => { /* the 3 s check decides */ });
+// Closing the last window does not end Samara: Claude's door and the sync stay up.
+app.on('window-all-closed', () => { /* stay */ });
 app.on('before-quit', () => { if (!process.env.AANG_TEST) samaraShortcutsLit(false, { quitting: true }); link.stop(); });
 void claudeOpenTarget;
