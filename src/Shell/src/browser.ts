@@ -99,6 +99,7 @@ const lockKey = (key: string): string => { try { return process.platform === 'wi
 const unlockKey = (locked: string): string => { try { return safeStorage.decryptString(Buffer.from(locked, 'base64')); } catch { return ''; } };
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
+import { SB_NAME, SafeBrowsing } from './safebrowsing.ts';
 import { sched } from './sched.ts';
 import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
@@ -751,6 +752,8 @@ export class AangBrowser {
   private readonly keptSes: Electron.Session | null = null;
   // 6.22, protection.
   private readonly phish: PhishCheck;
+  /** Google Safe Browsing in private mode (safebrowsing.ts). Normal Samara only: the secret window never has one. */
+  private sb: SafeBrowsing | null = null;
   private ads: AdBlock | null = null;
   private readonly pausedFile: string;
   private paused = new Set<string>();
@@ -1057,6 +1060,8 @@ export class AangBrowser {
     this.colorScheme();
     this.phish = o.phish ?? new PhishCheck(sd);
     if (!o.phish) void this.phish.start();
+    // His rule (2026-11-17): nothing from the secret window is public, so it never asks Google anything.
+    if (!o.secret) { this.sb = new SafeBrowsing(sd); this.sb.start(); }
     try { this.paused = new Set(readJson<Iterable<string>>(this.pausedFile, [])); } catch { /* none paused */ }
     this.wall = new CookieWall(sd);
     this.arm();
@@ -1506,6 +1511,8 @@ export class AangBrowser {
     try { if (this.letThrough.has(new URL(u).hostname)) return []; } catch { return []; }
     const lists = this.phish.check(u);
     if (lists.length) return lists;
+    // Google already confirmed it (a page still waiting on Google is held in did-start-navigation instead).
+    if (this.sb?.known(u)) return [SB_NAME];
     // On no list yet, but dressed up as a site he really uses (6.22's last piece).
     const real = lookalike(u);
     return real ? [LOOKS_LIKE + real.toUpperCase()] : [];
@@ -2895,7 +2902,24 @@ export class AangBrowser {
       if (wasUp && code !== -106 && code !== -105) this.fail(tab, { kind: 'insecure', url: tab.upgraded!, title: "This site isn't secure", text: '', retry: false });
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
-    on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.stopFor(x.url); if (l.length) this.block(tab, x.url, l); });
+    on('did-start-navigation', (d) => {
+      const x = d as unknown as { url: string; isMainFrame: boolean };
+      if (!x.isMainFrame || !isWeb(x.url)) return;
+      const l = this.stopFor(x.url);
+      if (l.length) { this.block(tab, x.url, l); return; }
+      // Safe Browsing (private mode): its fingerprint is on Google's kept list and not answered yet. Hold the page,
+      // ask Google about the 4-byte prefix only, then block it or load it again (the answer is kept, so no loop).
+      const sb = this.sb;
+      if (sb?.suspect(x.url)) {
+        // Stopped just after this event, never inside it: stopping from inside did-start-navigation crashed Electron.
+        setImmediate(() => { try { if (!wc.isDestroyed()) wc.stop(); } catch { /* gone */ } });
+        void sb.verdict(x.url).then((threats) => {
+          if (wc.isDestroyed()) return;
+          if (threats.length) this.block(tab, x.url, [SB_NAME]);
+          else void wc.loadURL(x.url).catch(() => { /* the page's own error shows */ });
+        });
+      }
+    });
     // A mockup keeps the name Claude gave it ("46 · One cockpit"), and never goes into his History.
     on('page-title-updated', (_e, title) => { if (tab.mock) return; tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
     on('page-favicon-updated', (_e, icons) => {
@@ -3155,6 +3179,8 @@ export class AangBrowser {
       popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(), sites: this.yourSites(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
+      // -1: no key yet (off); otherwise how many of Google's fingerprints are kept on this PC.
+      safeBrowsing: this.sb ? (this.sb.key() ? this.sb.count() : -1) : -2,
       afSounds: this.prefs.afSounds, lockAfter: this.prefs.lockAfter,
       autofill: { details: this.details.get(), pin: this.pinSeal.has(), pinLen: this.pinSeal.has() ? this.pinSeal.length() : 0, sounds: this.prefs.afSounds },
       versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin' || Boolean(this.o.tvAt),
