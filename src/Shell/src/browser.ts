@@ -1564,6 +1564,8 @@ export class AangBrowser {
     this.chromeOffer(wc, u, refusalTarget(u, from), 'google');
   }
   private chromeOffer(wc: Electron.WebContents, at: string, target: string, why: 'passkey' | 'google'): void {
+    // His rule (2026-11-17): nothing from the secret window leaves it, and Chrome would keep the page in its history.
+    if (this.o.secret) return;
     const tab = this.tabs.find((t) => t.view?.webContents === wc);
     const key = tab?.id ?? -wc.id;
     if (this.passkeyAsked.get(key) === at) return;
