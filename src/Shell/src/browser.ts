@@ -747,6 +747,8 @@ export class AangBrowser {
   onSecret: (() => void) | null = null;
   /** Sheet 87: Settings from the secret window opens normal Samara's (the settings are shared). */
   onSettings: (() => void) | null = null;
+  /** Phase 5: Samara on its own (samara.ts) can be quit from its ... menu; Aang's windows never set this. */
+  onQuit: (() => void) | null = null;
   /** The session the tabs open in. The secret window's is its throwaway one while locked, its kept one once open. */
   private ses: Electron.Session;
   /** Sheet 87: the secret window's kept session (its logins), reached only after its PIN. */
@@ -6204,6 +6206,7 @@ export class AangBrowser {
       case 'frozen-ready': this.frozenReady(); break;
       case 'importmarks': void this.importMarks(); break;
       case 'settings': if (this.o.secret) this.onSettings?.(); else this.openSettings(); break;
+      case 'quit': this.onQuit?.(); break;
       case 'bookmarks': this.openSettings('bookmarks'); break;
       case 'history': this.openThings('history'); break;
       case 'downloads': this.openThings('downloads'); break;
@@ -6475,7 +6478,7 @@ export class AangBrowser {
     const send = (data: Record<string, unknown>) => { w.webContents.send('browser:tabs', data); if (this.trayOn) tray?.send('browser:tabs', data); };
     send({
       active: this.active,
-      update: this.update, updated: this.updated, inCall: this.inCall,
+      update: this.update, updated: this.updated, inCall: this.inCall, canQuit: this.onQuit !== null,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
       tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined, hyrule: x.internal === 'hyrule' ? true : undefined,

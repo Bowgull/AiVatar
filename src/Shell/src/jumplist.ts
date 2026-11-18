@@ -17,7 +17,7 @@ import { POPOUT_TASKS, type PopoutTask } from './taskbarplan.ts';
 // Sheet 66 A (2026-10-22): a "Pop-outs" section above the Tasks (Show all, Hide all, Gather them by Aang, New note,
 // Timer, Music player). Same door: main.ts hands these six to taskbar.ts instead of the browser.
 // 'hyrule' (2026-11-03) is asked for by the Shrine dock's right-click; it is not in the taskbar list itself.
-export const SAMARA_TASKS = ['new-tab', 'new-window', 'mockups', 'hyrule', 'settings', 'reopen', ...POPOUT_TASKS] as const;
+export const SAMARA_TASKS = ['new-tab', 'new-window', 'mockups', 'hyrule', 'settings', 'reopen', 'quit', ...POPOUT_TASKS] as const;
 export type SamaraTask = typeof SAMARA_TASKS[number];
 const FLAG = '--samara-task=';
 
@@ -45,6 +45,8 @@ const WORDS: Record<SamaraTask, [string, string]> = {
   'mockups': ['Mockups', "Open the MOCKUPS trail, Claude's mockups"],
   'hyrule': ['Hyrule', 'Open the Hyrule map'],
   'settings': ['Settings', "Samara's settings"],
+  // Phase 5 (2026-11-18): since P1 Samara stays open with no window; this is the way to close it completely.
+  'quit': ['Quit Samara', 'Close Samara completely (Aang stays)'],
   'popouts-show': ['Show all pop-outs', 'Bring every pop-out back on screen'],
   'popouts-hide': ['Hide all pop-outs', 'Put every pop-out away (Show all brings them back)'],
   'popouts-gather': ['Gather them by Aang', 'Snap every pop-out together next to Aang'],
@@ -57,13 +59,14 @@ const WORDS: Record<SamaraTask, [string, string]> = {
 export interface PopoutsSection { aang: boolean; icons: Partial<Record<PopoutTask, string>>; removed?: (args: string) => boolean }
 
 /** The list itself: Pop-outs (when given), then Tasks, in the order he reads them. Exported for its test. */
-export function jumpList(o: { exe: string; main: string; dir: string; icon: string; popouts?: PopoutsSection }): Electron.JumpListCategory[] {
+export function jumpList(o: { exe: string; main: string; dir: string; icon: string; popouts?: PopoutsSection; quit?: boolean }): Electron.JumpListCategory[] {
   const item = (t: SamaraTask, icon = o.icon) => ({
     type: 'task' as const, title: WORDS[t][0], description: WORDS[t][1],
     program: o.exe, args: `"${o.main}" ${FLAG}${t}`, workingDirectory: o.dir,
     iconPath: icon, iconIndex: 0,
   });
-  const order: SamaraTask[] = ['new-tab', 'new-window', 'reopen', 'mockups', 'settings'];
+  // Quit only where Samara is its own program (samara.ts): in Aang's windows it would have nothing of its own to close.
+  const order: SamaraTask[] = ['new-tab', 'new-window', 'reopen', 'mockups', 'settings', ...(o.quit ? ['quit' as const] : [])];
   const out: Electron.JumpListCategory[] = [];
   const p = o.popouts;
   if (p) {
@@ -77,13 +80,13 @@ export function jumpList(o: { exe: string; main: string; dir: string; icon: stri
 }
 
 /** Write it under Samara's id. Never throws: a missing list must not stop Samara. Returns Electron's word for how it went. */
-export function writeSamaraJumpList(app: Electron.App, o: { main: string; dir: string; icon: string; ownId: string; popouts?: Omit<PopoutsSection, 'removed'> }): string {
+export function writeSamaraJumpList(app: Electron.App, o: { main: string; dir: string; icon: string; ownId: string; popouts?: Omit<PopoutsSection, 'removed'>; quit?: boolean }): string {
   if (process.platform !== 'win32') return 'not windows';
   try {
     app.setAppUserModelId('Aang.Samara');
     let removed: PopoutsSection['removed'];
     try { const r = app.getJumpListSettings().removedItems ?? []; removed = (args) => r.some((x) => x.args === args); } catch { /* none known */ }
-    return String(app.setJumpList(jumpList({ exe: process.execPath, main: o.main, dir: o.dir, icon: o.icon, popouts: o.popouts ? { ...o.popouts, removed } : undefined })));
+    return String(app.setJumpList(jumpList({ exe: process.execPath, main: o.main, dir: o.dir, icon: o.icon, popouts: o.popouts ? { ...o.popouts, removed } : undefined, quit: o.quit === true })));
   } catch (e) { return 'error: ' + (e as Error).message; }
   finally { try { app.setAppUserModelId(o.ownId); } catch { /* keeps Samara's: harmless */ } }
 }

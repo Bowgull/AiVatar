@@ -161,6 +161,8 @@ app.on('second-instance', (_e, argv, _cwd, data) => {
   console.log('shell: taskbar task ' + t);
   // Sheet 66 A: the Pop-outs section's six go to the pop-outs (taskbar.ts), the rest to the browser.
   if (isPopoutTask(t)) { runPopoutTask(t); return; }
+  // Quit Samara belongs to Samara on its own (samara.ts); Aang's windows never close for it.
+  if (t === 'quit') return;
   if (aangBrowser) aangBrowser.jumpTask(t); else pendingTask = t;
 });
 /** Sheet 66 A (2026-10-22): every pop-out under Samara's lantern (taskbar.ts), and the brain's messages it reads. */
@@ -1015,7 +1017,7 @@ app.whenReady().then(async () => {
       if (!onCastlabs()) aangBrowser.onPaid = (url) => openPopout(url);
       // Samara's taskbar right-click list (2026-10-21): a task this Shell was started with, then the list itself, written
       // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
-      if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) runPopoutTask(t); else aangBrowser.jumpTask(t); }
+      if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) runPopoutTask(t); else if (t !== 'quit') aangBrowser.jumpTask(t); }
       writeJumpList(bodyAlive());
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
       // The engine keeps its own timers (ten minutes after start, then daily, its trial check); the engine's rules tick.

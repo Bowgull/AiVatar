@@ -88,6 +88,8 @@ function wakeAang(): void {
 const startTask = taskFromArgv(process.argv);
 const solo = app.requestSingleInstanceLock(startTask ? { samaraTask: startTask } : undefined);
 if (!solo) { console.log('samara: another one is already running'); app.exit(0); }
+// Quit Samara from the taskbar list when no Samara runs: nothing to close, so nothing starts (no samara.pid written).
+else if (startTask === 'quit') { console.log('samara: quit asked, and none was running'); app.exit(0); }
 else {
   // So the pet and a link from Windows join this one instead of starting a second (CoreSupervisor.RunningSamara).
   try { mkdirSync(STATE_DIR, { recursive: true }); writeFileSync(path.join(STATE_DIR, 'samara.pid'), String(process.pid)); } catch (e) { console.error('samara: could not write samara.pid: ' + (e as Error).message); }
@@ -104,6 +106,8 @@ waitingUrls.push(...urlsIn(process.argv));
 
 /** A taskbar task: the browser's own here; New note, Timer and the Music player are Aang's, handed to him. */
 function runTask(t: SamaraTask): void {
+  // Phase 5: Quit Samara (taskbar list or its ... menu). A real quit: it leaves its mark, so Aang shows no crash card.
+  if (t === 'quit') { console.log('samara: quit, on his ask'); app.quit(); return; }
   if (!boot) { pending = t; return; }
   if (!isPopoutTask(t)) { boot.browserNow.jumpTask(t); return; }
   if (link.connected) { link.send({ t: 'relay', m: { t: 'samara.task', task: t } } as never); return; }
@@ -283,7 +287,7 @@ app.whenReady().then(async () => {
   // Samara's taskbar list: written under its own app id; its pop-out items are Aang's (runTask hands them over).
   if (!process.env.AANG_TEST) {
     const popouts = { aang: aangUp(), icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON) };
-    log('taskbar list: ' + writeSamaraJumpList(app, { main: path.join(HERE, 'samara.ts'), dir: path.join(HERE, '..'), icon: SAMARA_JUMP_ICON, ownId: 'Aang', popouts }));
+    log('taskbar list: ' + writeSamaraJumpList(app, { main: path.join(HERE, 'samara.ts'), dir: path.join(HERE, '..'), icon: SAMARA_JUMP_ICON, ownId: 'Aang', popouts, quit: true }));
   }
   link.start();
   // Started by a link, a task or his click: the window comes up. Started quietly (--quiet, a Claude session): only the doors.
@@ -291,6 +295,8 @@ app.whenReady().then(async () => {
     b.open(waitingUrls.shift());
     for (const u of waitingUrls.splice(0)) b.open(u);
   }
+  // Phase 5: "Quit Samara" in the ... menu, only here, where Samara is its own program (never Aang's windows).
+  b.onQuit = () => runTask('quit');
   if (pending) { const t = pending; pending = null; runTask(t); }
   // P1 (2026-11-17): Samara no longer closes when Aang is off and no window is open. It stays, like the Mac's, so
   // Claude's door, the sync and his next click are ready.
