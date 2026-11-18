@@ -1380,6 +1380,11 @@
       "at": "2026-11-18T00:35:00-05:00",
       "kind": "feature",
       "text": "Quit Samara is in its right-click taskbar list and its ... menu on the PC, and Samara now has its own launcher, Samara.exe, so starting it, its updates and Claude no longer need Aang.exe."
+    },
+    {
+      "at": "2026-11-18T00:50:00-05:00",
+      "kind": "feature",
+      "text": "Security updates for the browser engine: a new engine that closes Chrome security holes shows a red key, and on the PC it installs by itself overnight (2-5 am, only when you are away and not in a call or game) after passing Aang's checks, with the usual rollback. Also fixes a crash when a link led to a known scam site."
     }
   ]
 }
