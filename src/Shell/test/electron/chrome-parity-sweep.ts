@@ -97,8 +97,12 @@ app.whenReady().then(async () => {
   row(/NotAllowed/.test(String(clip)) ? 'FAIL' : 'INFO', 'clipboard read: a paste button can ask', clip);
 
   // ---- Sign-in kinds ----
-  row(typeof (await js(t, 'typeof PublicKeyCredential')) === 'string' && (await js(t, 'typeof PublicKeyCredential')) === 'function' ? 'PASS' : 'FAIL',
-    'passkeys / security keys (WebAuthn) are there for sites', await js(t, 'typeof PublicKeyCredential'));
+  // Phase 3 go/no-go (2026-11-18, docs/PASSKEYS-GO-NO-GO-2026-11-18.md): neither machine can do passkeys in Samara, so
+  // the parity is "never hangs, and Chrome is offered" (test/electron/passkey-check.ts checks the offer itself).
+  const pkType = await js(t, 'typeof PublicKeyCredential'), pk0 = Date.now();
+  const pkAsk = await js(t, `navigator.credentials.create({ publicKey: { challenge: new Uint8Array(32), rp: { name: 'x' }, user: { id: new Uint8Array(8), name: 'a', displayName: 'a' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }] } }).then(() => 'resolved', (e) => e.name)`);
+  row(pkType === 'undefined' && pkAsk === 'NotSupportedError' && Date.now() - pk0 < 3000 ? 'PASS' : 'FAIL',
+    'passkeys: hidden, a site that asks anyway is refused at once (never hangs) and offered Chrome', { type: pkType, ask: pkAsk, ms: Date.now() - pk0 });
   row(app.listenerCount('login') > 0 ? 'PASS' : 'FAIL', 'password-protected sites (HTTP Basic: routers, intranets) get a sign-in box', `app 'login' listeners: ${app.listenerCount('login')}`);
   const a = await openAt(PUB + '/auth');
   row('INFO', 'what a Basic-auth page shows', String(await js(a, 'document.body.innerText')).slice(0, 60));

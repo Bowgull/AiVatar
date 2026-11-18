@@ -3089,6 +3089,9 @@ As of 2026-10-13 the browser is on Electron 44.5.1 and 44.6.0 and 44.7.0 are out
 
 Electron and castLabs upgrades flagged automatically; filter lists refreshed daily; a monthly check on
 whether the Windows passkey bridge (`@clerk/electron-passkeys`, 0.0.3) is ready.
+**2026-11-18, phase 3 go/no-go: NO-GO on both machines** ([PASSKEYS-GO-NO-GO-2026-11-18.md](PASSKEYS-GO-NO-GO-2026-11-18.md)):
+Shadow has no Windows Hello set up, and the Mac's self-signed Samara cannot get the Touch ID entitlements. Passkeys
+stay hidden; a site that asks, or Google's "may not be secure" page, now offers "Open this page in Chrome?".
 
 ---
 
