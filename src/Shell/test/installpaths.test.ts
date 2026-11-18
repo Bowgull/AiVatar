@@ -287,7 +287,8 @@ test('castLabs\' tool is installed once, then signs; on the PC Terminal falls ba
   const runs: string[] = []; let installed = false;
   const run: Run = async (cmd, args) => { runs.push([path.basename(cmd), ...args.slice(0, 4)].join(' ')); if (args.includes('import castlabs_evs')) return { code: installed ? 0 : 1, text: '' }; if (args.includes('pip')) installed = true; return { code: 0, text: args.includes('verify-pkg') ? ' - Signature is valid: streaming, 1356 days left' : '' }; };
   const opens: string[] = [];
-  const evs = new Evs({ dir, platform: 'win32', run, open: async (cmd) => { opens.push(cmd); return cmd !== 'wt.exe'; }, log: () => {} });
+  const wtArgs: string[][] = [];
+  const evs = new Evs({ dir, platform: 'win32', run, open: async (cmd, args) => { opens.push(cmd); if (cmd === 'wt.exe') wtArgs.push(args); return cmd !== 'wt.exe'; }, log: () => {} });
   mkdirSync(path.join(dir, 'Scripts'), { recursive: true }); writeFileSync(path.join(dir, 'Scripts', 'python.exe'), '');
   assert.equal(await evs.sign('C:\\engines\\castlabs-44.9.3'), 'ok');
   assert.ok(runs.some((r) => r.startsWith('python -m venv')) && runs.some((r) => r.includes('pip install')));
@@ -296,6 +297,10 @@ test('castLabs\' tool is installed once, then signs; on the PC Terminal falls ba
   assert.ok(runs.at(-1)!.includes('-m castlabs_evs.vmp -n verify-pkg') && runs.length - 1 > signAt, 'castLabs\' own check after signing');
   assert.ok(await evs.openSignin());
   assert.deepEqual(opens, ['wt.exe', 'powershell.exe']);
+  // 2026-11-18: Windows Terminal splits its command line at every bare ";" (new tab); each one is passed as "\;".
+  const cmd = wtArgs[0]!.at(-1)!;
+  assert.ok(cmd.includes(';'), 'the sign-in has more than one step');
+  assert.ok(!/(^|[^\\]);/.test(cmd), cmd);
 });
 
 test('castLabs sign-in is noticed by its own file changing, never by reading it', async () => {

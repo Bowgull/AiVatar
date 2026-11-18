@@ -59,6 +59,8 @@ echo "Done. You can close this window."
 `;
 }
 /** PowerShell's words for the same thing on the PC (Windows Terminal, or PowerShell's own window). */
+/** A command for Windows Terminal's command line, where a bare ";" starts a new tab: each one passed through as "\;". */
+export const wtEscape = (s: string): string => s.replace(/;/g, '\\;');
 export function pcSigninCommand(py: string): string {
   const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
   return `Write-Host 'Sign in to castLabs (your castLabs account), then come back to Samara.'; & ${q(py)} -m castlabs_evs.account reauth; Write-Host 'Done. You can close this window.'`;
@@ -147,7 +149,9 @@ export class Evs {
     if (this.platform === 'win32') {
       // Windows Terminal when he has it, else PowerShell's own window: a window of its own, never hidden.
       const ps = pcSigninCommand(this.python);
-      return (await this.open('wt.exe', ['powershell', '-NoExit', '-Command', ps])) || this.open('powershell.exe', ['-NoExit', '-Command', ps]);
+      // Windows Terminal reads every ";" on its command line as "open another tab" (2026-11-18: the sign-in was cut in
+      // three and Terminal said "cannot find the file specified"). "\;" is its way to pass one through to PowerShell.
+      return (await this.open('wt.exe', ['powershell', '-NoExit', '-Command', wtEscape(ps)])) || this.open('powershell.exe', ['-NoExit', '-Command', ps]);
     }
     return false;
   }
