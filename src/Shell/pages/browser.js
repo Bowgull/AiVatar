@@ -2201,10 +2201,14 @@ function paintWho() {
     // His escalation (2026-10-14): gold today; the arrow and word glow turquoise after a day; red after three;
     // after four it swells out of the band and shakes now and then (never in a call).
     const days = Math.floor((Date.now() - (Number(u.since) || Date.now())) / DAY);
-    key.classList.remove('age0', 'age1', 'age2', 'swell');
-    key.classList.add(days >= 3 ? 'age2' : days >= 1 ? 'age1' : 'age0');
+    // Phase 2 (his call, 2026-11-17): an engine that closes a gap in Chrome's security fixes is red from the start and
+    // goes in by itself tonight (2-5 am, idle, no call or game) unless he restarts first.
+    const sec = u.security === true;
+    key.classList.remove('age0', 'age1', 'age2', 'swell', 'sec');
+    key.classList.add(sec || days >= 3 ? 'age2' : days >= 1 ? 'age1' : 'age0');
+    if (sec) key.classList.add('sec');
     if (days >= 4 && s.inCall !== true) key.classList.add('swell');
-    key.title = days >= 1 ? `Update ready, waiting ${days} day${days === 1 ? '' : 's'}` : 'Update ready';
+    key.title = sec ? 'Security fixes ready' : days >= 1 ? `Update ready, waiting ${days} day${days === 1 ? '' : 's'}` : 'Update ready';
     el('upname').textContent = u.title || 'Engine update';
     el('upsince').textContent = days >= 1 ? `${days} DAY${days === 1 ? '' : 'S'}` : 'TODAY';
     for (const g of groupsOf(u)) for (const it of g.items ?? []) if (it.key && !(it.key in choices)) choices[it.key] = it.on !== false;
@@ -2215,12 +2219,15 @@ function paintWho() {
     // Sheet 108 (his yes, 2026-10-30): castLabs wants him to sign in before the new engine is signed for video (one key,
     // Terminal opens with the sign-in typed), or Terminal is open; otherwise how far behind Chrome the engine is.
     const si = u.signin === 'ask' || u.signin === 'waiting' ? u.signin : '';
-    el('upkicker').textContent = si === 'ask' ? 'ONE STEP FROM YOU' : si === 'waiting' ? 'WAITING FOR CASTLABS' : 'UPDATE READY';
+    el('upkicker').textContent = si === 'ask' ? 'ONE STEP FROM YOU' : si === 'waiting' ? 'WAITING FOR CASTLABS' : sec ? 'SECURITY FIXES READY' : 'UPDATE READY';
     const note = el('upnote');
     note.replaceChildren();
     if (si === 'ask') note.append('castLabs wants you to sign in before it signs this engine for video. Terminal opens with the sign-in typed. ', T2('b', '', 'Your password goes to castLabs only'), ', never to Samara or Aang.');
     else if (si === 'waiting') note.append("Finish in Terminal. Samara signs the engine by itself the moment you're in.");
-    else if (typeof u.behind === 'string' && u.behind) for (const part of u.behind.slice(0, 200).split(/(\d+ weeks?|\d+ days?|less than a day)/)) if (part) note.append(/^(\d+ (weeks?|days?)|less than a day)$/.test(part) ? T2('b', '', part) : part);
+    else {
+      if (typeof u.behind === 'string' && u.behind) for (const part of u.behind.slice(0, 200).split(/(\d+ weeks?|\d+ days?|less than a day)/)) if (part) note.append(/^(\d+ (weeks?|days?)|less than a day)$/.test(part) ? T2('b', '', part) : part);
+      if (sec && u.tonight === true) note.append(note.childNodes.length ? ' ' : '', 'It goes in by itself ', T2('b', '', 'tonight'), ' while you sleep, unless you restart first.');
+    }
     note.hidden = !note.childNodes.length;
     // Sheet 114 (his pick A, 2026-10-31): a newer one getting ready behind this one, in the Keychain note's place.
     const co = u.coming && typeof u.coming.next === 'string' && typeof u.coming.now === 'string' ? u.coming : null;

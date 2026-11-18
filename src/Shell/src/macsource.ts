@@ -15,7 +15,7 @@ import { chmodSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, r
 import os from 'node:os';
 import path from 'node:path';
 import { download as ghDownload, latest as ghLatest, titleOf, withSection, type Manifest } from './ghrelease.ts';
-import { behindMs, behindWords, chromeStable, downloadEngine, enginePlatform, latestEngine, type EngineManifest, type EnginePlatform } from './enginerelease.ts';
+import { behindMs, behindWords, chromeStable, closesGap, downloadEngine, enginePlatform, latestEngine, type EngineManifest, type EnginePlatform } from './enginerelease.ts';
 import { Evs } from './evs.ts';
 import { engineGroups } from './pcsource.ts';
 import { macUpdateScript } from './macupdate.ts';
@@ -278,6 +278,8 @@ export class MacEngine implements Source {
   private signinState: 'ask' | 'waiting' | null = null;
   private pending: { m: EngineManifest; dir: string } | null = null;
   private behindLine = '';
+  /** Chrome's stable releases as last read, for the security tier. */
+  private stable: { version: string; time: number }[] = [];
   readonly lists: VersionLists;
   private readonly p: MacPaths;
   private readonly stage: MacStage;
@@ -300,7 +302,10 @@ export class MacEngine implements Source {
     if (!m) return null;
     const { version, since, title, groups } = this.words(m);
     const coming = this.stage.coming();
-    return { version, since, title, groups, canBack: existsSync(path.join(this.p.br, 'rollback', 'Samara.app')), ...(this.behindLine ? { behind: this.behindLine } : {}), ...(coming ? { coming } : {}) };
+    // Phase 2: red and "security fixes" on the Mac too. Not put in by itself here (no `tonight`): the Mac does not run
+    // Aang's engine checks on a new engine yet, and the rule is a PASSING engine (his call, 2026-11-17).
+    const sec = closesGap(this.o.chrome(), m.chrome, this.stable) ? { security: true } : {};
+    return { version, since, title, groups, canBack: existsSync(path.join(this.p.br, 'rollback', 'Samara.app')), ...(this.behindLine ? { behind: this.behindLine } : {}), ...(coming ? { coming } : {}), ...sec };
   }
   /** Each engine release seen this run, by version. */
   private readonly seen = new Map<string, EngineManifest>();
@@ -322,6 +327,7 @@ export class MacEngine implements Source {
       const { m, asset } = found;
       // How far behind Chrome: today's engine, and the new one (Chrome's own list; the line is left out without it).
       const stable = await chromeStable(this.o.fetch);
+      this.stable = stable;
       this.behindLine = stable.length ? `Your engine today is ${behindWords(behindMs(this.o.chrome(), stable))} behind Chrome's security fixes. This one is ${behindWords(behindMs(m.chrome, stable))} behind.` : '';
       if (this.pending?.m.version === m.version && (this.stage.engine?.version === m.version || this.signinState)) return;
       const dir = path.join(this.engines, `castlabs-${m.version}`);

@@ -1,7 +1,10 @@
 # Engines as sealed GitHub releases (his plan, 2026-10-30). Every day: is there a new castLabs engine? If so, it is
 # downloaded, checked against castLabs' own fingerprints, sealed with his release key and published as engine-vX.Y.Z.
 # Never "latest" (that stays Samara's own release). Both machines find it, sign it for video themselves (castLabs'
-# tool, his account) and show it on his UPDATE key. Nothing installs without his click.
+# tool, his account) and show it on his UPDATE key. Phase 2 (his call, 2026-11-17): an engine that passes Aang's checks
+# and closes a gap in Chrome's security fixes goes in by itself overnight on the PC (2-5 am, idle, no call or game, rolled
+# back if it dies); everything else waits for his click. When Chrome ships an urgent fix, run this by hand
+# (Actions > Engine release > Run workflow, or: gh workflow run engine-release.yml) instead of waiting for the daily run.
 name: Engine release
 on:
   schedule:
