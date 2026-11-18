@@ -17,5 +17,6 @@
   <ItemGroup>
     <!-- BG8: the Reader is a WPF exe, so its one plain file is compiled in here rather than referenced. -->
     <Compile Include="..\..\src\Reader\BotwPos.cs" Link="Reader\BotwPos.cs" />
+    <Compile Include="..\..\src\Reader\BotwLive.cs" Link="Reader\BotwLive.cs" />
   </ItemGroup>
 </Project>

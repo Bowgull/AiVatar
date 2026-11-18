@@ -25,6 +25,12 @@ export interface LinkOptions {
    * what only the pet sends and takes (media.now, media.cmd), since the brain takes those from a pet and never a Shell.
    */
   asPet?: boolean;
+  /**
+   * Says hello as Samara on its own (Phase 2, 2026-11-12: the PC's Samara as its own program, beside Aang's windows). The
+   * brain still treats it as a Shell for the browser's own news (sync, driving, notes, Claude's jobs), but never as the
+   * one that shows Aang's lines, and passes `relay` messages between it and Aang's windows.
+   */
+  role?: 'samara';
 }
 
 export class CoreLink {
@@ -63,6 +69,7 @@ export class CoreLink {
       this.o.onConnected?.(true);
       // `bubble`: this Shell is drawing the replies (AANG_NEW_BUBBLE), so they may keep their formatting (6.11).
       this.send(this.o.asPet ? { t: 'hello', v: 1, client: 'desktop', pid: process.pid } as never
+        : this.o.role === 'samara' ? { t: 'hello', v: 1, client: 'desktop', shell: true, role: 'samara', pid: process.pid, bubble: false } as never
         : { t: 'hello', v: 1, client: 'desktop', shell: true, pid: process.pid, bubble: process.env.AANG_NEW_BUBBLE === '1' });
     });
     ws.on('message', d => {

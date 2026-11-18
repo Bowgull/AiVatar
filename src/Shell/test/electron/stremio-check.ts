@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
   const s: any = new AangBrowser({ ...base, stateDir: sdir, sharedDir: dir, secret: true, phish: b.phishCheck });
   wireBrowser(() => b, () => s);
   // 2, the rule itself
-  const req = (url: string, from: string) => netGuard({ url, resourceType: 'media', frame: { url: from } } as any);
+  const req = (url: string, from: string) => netGuard({ url, resourceType: 'media', frame: { url: from } } as any) as boolean;   // addresses: answered at once
   check('2 only Stremio\'s page reaches its engine; other sites and other ports stay stopped',
     !req('http://127.0.0.1:11470/stats.json', 'https://web.stremio.com/') && req('http://127.0.0.1:11470/stats.json', 'https://evil.example/') && req('http://127.0.0.1:47844/x', 'https://web.stremio.com/') && req('http://192.168.1.1/', 'https://web.stremio.com/'));
   // 3
