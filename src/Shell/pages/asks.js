@@ -213,6 +213,17 @@ export function askFrom(m) {
       ] };
   }
 
+  // P1 (2026-11-17, his call): Samara crashed. It stays closed until he says; Aang only tells him. Answered by Aang's
+  // windows (main.ts), never the brain.
+  if (m.t === 'samara.down') {
+    return { plaque: 'SAMARA', question: 'Samara closed unexpectedly.',
+      means: 'It stays closed until you open it again.',
+      keys: [
+        { label: 'Reopen', key: 'A', choice: 'reopen', tone: 'primary' },
+        { label: 'Not now', key: 'Z', choice: 'no' },
+      ] };
+  }
+
   // A reminder coming due (6.12, sheet 13): a short ask rather than a reply that times out unread.
   if (m.t === 'bubble' && typeof m.reminder === 'string' && m.reminder) {
     return {

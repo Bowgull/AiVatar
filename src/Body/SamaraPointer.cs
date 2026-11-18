@@ -16,7 +16,10 @@ internal static class SamaraPointer
     internal sealed record Version(string version, string dir);
     internal sealed record Pointer(string version, string dir, string status, Version? previous, string? at);
 
-    public static string DefaultRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Aang", "Samara");
+    /// <summary>Where his installed releases live. AANG_SAMARA_ROOT is for the tests: a real launcher run by a test must
+    /// never start his installed releases.</summary>
+    public static string DefaultRoot => Environment.GetEnvironmentVariable("AANG_SAMARA_ROOT") is { Length: > 0 } r ? r
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Aang", "Samara");
     static string PointerPath(string root) => Path.Combine(root, "current.json");
 
     internal static Pointer? Read(string root)

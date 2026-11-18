@@ -30,7 +30,18 @@ static class Program
             return 0;
         }
         var samara = args.Contains("--samara");
-        if (args.Contains("--open-browser") || samara) { try { DefaultBrowser.OpenFlag(); } catch { /* best effort */ } }
+        // P1: `--samara --quiet` starts Samara with only its doors (Aang starting up, Claude's connector): no window.
+        var quiet = samara && args.Contains("--quiet") && link == null;
+        if ((args.Contains("--open-browser") || samara) && !quiet) { try { DefaultBrowser.OpenFlag(); } catch { /* best effort */ } }
+        var wantsBrowser = samara || link != null || args.Contains("--open-browser");
+        // `--after <pid>`: a Samara restarting for an update waits for the old one to finish first, whether or not Aang is
+        // running (P1: with Aang running the old one was still there, so the new one was never started).
+        if (wantsBrowser)
+        {
+            var after = Array.IndexOf(args, "--after");
+            if (after >= 0 && after + 1 < args.Length && int.TryParse(args[after + 1], out var old))
+                try { using var o = System.Diagnostics.Process.GetProcessById(old); o.WaitForExit(15_000); } catch { /* already gone */ }
+        }
 
         using var single = new Mutex(true, @"Local\Aang.Body.Single", out var first);
         if (!first)
@@ -39,22 +50,24 @@ static class Program
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
             // Phase 2: with Samara apart, Aang's windows do not hold the browser, so Samara is started if it is not running
             // (it reads the link or the flag left above when it starts).
-            if (CoreSupervisor.SamaraApart && (samara || link != null || args.Contains("--open-browser")))
-                using (var running = CoreSupervisor.RunningBrowser()) if (running == null) CoreSupervisor.StartShellAlone(Config.Load().ShellDir);
+            if (CoreSupervisor.SamaraApart && wantsBrowser)
+            {
+                single.Dispose();                     // not ours; this launcher may wait a while (a trial, below)
+                using (var running = CoreSupervisor.RunningBrowser()) if (running == null) CoreSupervisor.StartShellAlone(Config.Load().ShellDir, quiet);
+            }
             return 0;
         }
         // Samara on its own (his ask, 2026-10-20: "Samara only"). The Samara shortcut, the Start menu's browser entry
         // and a link from Windows open the browser, never the pet: Aang stays off until he starts him. A Samara that is
-        // already open picks the link or the flag up itself. `--after <pid>`: a Samara restarting for an update waits
-        // for the old one to finish first.
-        if (samara || link != null || args.Contains("--open-browser"))
+        // already open picks the link or the flag up itself.
+        if (wantsBrowser)
         {
-            var after = Array.IndexOf(args, "--after");
-            if (after >= 0 && after + 1 < args.Length && int.TryParse(args[after + 1], out var old))
-                try { using var o = System.Diagnostics.Process.GetProcessById(old); o.WaitForExit(15_000); } catch { /* already gone */ }
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
             using (var there = CoreSupervisor.RunningBrowser()) if (there != null) return 0;
-            CoreSupervisor.StartShellAlone(Config.Load().ShellDir);
+            // Let go of Aang's single-instance lock first: while a trial is watched (StartShellAlone), Aang must still
+            // be able to start.
+            single.ReleaseMutex(); single.Dispose();
+            CoreSupervisor.StartShellAlone(Config.Load().ShellDir, quiet);
             return 0;
         }
         // Samara watches for the pet (shell.pid's partner): while this file names a live Aang, Aang's windows are on;

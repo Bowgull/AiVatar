@@ -205,6 +205,8 @@ sealed class CoreSupervisor : IDisposable
                 };
                 // Samara run from a release still finds the code folder's engines and paid-video runtime.
                 if (spec.PickDir != null && spec.Dir != null) psi.Environment["AANG_SHELL_HOME"] = spec.Dir;
+                // P1: the pet's answer, for the code that is about to run (see SamaraApart).
+                if (spec.Independent) psi.Environment["AANG_SAMARA_APART"] = ApartFor(psi.WorkingDirectory) ? "1" : "0";
                 child = Process.Start(psi);
                 if (child == null) { Set($"{spec.Name} would not start"); await Task.Delay(pause, cts.Token); continue; }
                 if (spec.Independent)
@@ -324,11 +326,41 @@ sealed class CoreSupervisor : IDisposable
     }
 
     /// <summary>
-    /// Phase 2 (2026-11-12, his words: "i want samara as its own standalone browser that i use forever"): with
-    /// AANG_SAMARA_APART=1 Samara runs as its own program (src/samara.ts, samara.pid) and the Shell (main.ts) is Aang's
-    /// windows only. Off until he turns it on.
+    /// Phase 2 (2026-11-12, his words: "i want samara as its own standalone browser that i use forever"): Samara runs as
+    /// its own program (src/samara.ts, samara.pid) and the Shell (main.ts) is Aang's windows only. P1 (2026-11-17): one
+    /// saved setting, samara-mode.json beside body.json ({"apart": true}), on unless it says {"apart": false} (the way back
+    /// to the old setup). Only when the Samara code that would run has samara.ts: the releases before P1 do not, and
+    /// starting a file that is not there would leave him with no browser. The pet decides and hands its answer to every
+    /// Shell and Samara it starts (AANG_SAMARA_APART=1/0, which main.ts follows), so a newer Samara release never goes
+    /// apart under an older pet, or the other way round. AANG_SAMARA_APART set on the pet itself wins (the tests).
     /// </summary>
-    public static bool SamaraApart => Environment.GetEnvironmentVariable("AANG_SAMARA_APART") == "1";
+    public static bool SamaraApart => ApartFor(PickSamaraDir(Config.Load().ShellDir));
+
+    /// <summary>Apart, for Samara's code in this folder.</summary>
+    internal static bool ApartFor(string? samaraDir) =>
+        ApartFrom(Environment.GetEnvironmentVariable("AANG_SAMARA_APART"), Paths.File("samara-mode.json"), samaraDir);
+
+    /// <summary>The folder Samara's code runs from: the installed release the pointer names, else the code folder.</summary>
+    internal static string? PickSamaraDir(string? shellDirOverride) =>
+        SamaraPointer.Pick(SamaraPointer.DefaultRoot) ?? (shellDirOverride is { Length: > 0 } ? shellDirOverride : FindShellDir());
+
+    internal static bool ApartFrom(string? env, string modeFile, string? samaraDir)
+    {
+        if (env == "1") return true;
+        if (env == "0") return false;
+        if (samaraDir == null || !File.Exists(Path.Combine(samaraDir, "src", "samara.ts"))) return false;
+        try
+        {
+            if (File.Exists(modeFile))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(modeFile));
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object && doc.RootElement.TryGetProperty("apart", out var a)
+                    && a.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False) return a.GetBoolean();
+            }
+        }
+        catch { /* unreadable: the default */ }
+        return true;
+    }
 
     /// <summary>The browser that is running right now: Samara's own program when apart, else the Shell that holds it.</summary>
     public static Process? RunningBrowser() => SamaraApart ? RunningFrom("samara.pid") : RunningShell();
@@ -350,22 +382,58 @@ sealed class CoreSupervisor : IDisposable
     }
 
     /// <summary>Samara alone (his ask, 2026-10-20): start the Shell with no pet and no brain, on the engine it would use.</summary>
-    public static bool StartShellAlone(string? shellDirOverride)
+    /// <remarks>
+    /// P1 (2026-11-17): when a trial engine or a trial Samara release is being run, this waits (up to the trial's grace,
+    /// three minutes) so one that dies early is still rolled back, as the supervisor does for the Shell it starts. With
+    /// nothing on trial it returns at once. quiet: Samara starts with only its doors, no window (Aang starting up, or
+    /// Claude's connector).
+    /// </remarks>
+    public static bool StartShellAlone(string? shellDirOverride, bool quiet = false)
     {
         using var sup = ForShell(shellDirOverride);
         var s = sup.spec;
         if (s.Dir == null || s.Exe == null || !File.Exists(s.Exe)) { Log.Write("samara: the Shell was not found, so it was not opened"); return false; }
+        Process? p;
+        string exe;
+        var started = DateTime.UtcNow;
         try
         {
-            var exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
-            var psi = new ProcessStartInfo(exe, SamaraApart ? "src/samara.ts" : s.Args) { WorkingDirectory = s.PickDir?.Invoke() ?? s.Dir, UseShellExecute = false, CreateNoWindow = true };
+            exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
+            var dir = s.PickDir?.Invoke() ?? s.Dir;
+            var apart = ApartFor(dir);
+            var args = apart ? "src/samara.ts" + (quiet ? " --quiet" : "") : s.Args;
+            var psi = new ProcessStartInfo(exe, args) { WorkingDirectory = dir, UseShellExecute = false, CreateNoWindow = true };
             if (s.PickDir != null) psi.Environment["AANG_SHELL_HOME"] = s.Dir;
-            using var p = Process.Start(psi);
+            psi.Environment["AANG_SAMARA_APART"] = apart ? "1" : "0";
+            p = Process.Start(psi);
             Log.Write($"samara: opened on its own (pid {p?.Id})");
-            return p != null;
+            if (p == null) return false;
         }
         catch (Exception e) { Log.Write("samara: could not open: " + e.Message); return false; }
+        using (p) WatchTrial(p, OnTrial(s.Dir), exe, started, s.AfterExit);
+        return true;
     }
+
+    /// <summary>
+    /// A release on trial (the engine's or Samara's own) that dies within its grace is rolled back by AfterExit. Waits only
+    /// while something is on trial and only for the grace, so this launcher never lingers (it would lock Aang.exe).
+    /// </summary>
+    internal static bool WatchTrial(Process p, bool onTrial, string exe, DateTime started, Action<string, TimeSpan>? afterExit, TimeSpan? graceOverride = null)
+    {
+        if (afterExit == null || !onTrial) return false;
+        var grace = graceOverride ?? (EnginePointer.TrialGrace > SamaraPointer.TrialGrace ? EnginePointer.TrialGrace : SamaraPointer.TrialGrace);
+        try
+        {
+            if (!p.WaitForExit(grace)) return false;    // past its grace: it is good (it marks itself so)
+            Log.Write($"samara: exited with code {p.ExitCode} after {(int)(DateTime.UtcNow - started).TotalSeconds} s, on trial");
+            afterExit(exe, DateTime.UtcNow - started);
+            return true;
+        }
+        catch (Exception e) { Log.Write("samara: trial watch failed: " + e.Message); return false; }
+    }
+
+    static bool OnTrial(string shellDir) =>
+        EnginePointer.Read(shellDir)?.status == "trial" || SamaraPointer.Read(SamaraPointer.DefaultRoot)?.status == "trial";
 
     public void Dispose()
     {
