@@ -1365,6 +1365,11 @@
       "at": "2026-11-17T23:54:00-05:00",
       "kind": "feature",
       "text": "Disney+ on the PC goes through your MacBook at home, like Prime, so it no longer says it isn't available in your region. Update both machines."
+    },
+    {
+      "at": "2026-11-18T00:25:00-05:00",
+      "kind": "feature",
+      "text": "Google Safe Browsing in private mode: new scam and malware sites are caught within the hour, checked on your own machine; Google never sees the addresses you visit, and your secret window never uses it. It turns on once you add a free Google key."
     }
   ]
 }

@@ -312,7 +312,10 @@ function paint(d) {
   $('#signout').hidden = d.vault === 'missing' || d.vault === 'signed-out';
   if (current === 'details' && !document.activeElement?.closest?.('section[data-sec="details"]')) fillDetails();
   // privacy
-  const ph = `${Number(d.phish || 0).toLocaleString()} known fake sites and addresses, refreshed every day.`;
+  const sb = Number(d.safeBrowsing ?? -2);
+  const ph = `${Number(d.phish || 0).toLocaleString()} known fake sites and addresses, refreshed every day.`
+    + (sb >= 0 ? ` Google Safe Browsing is on, in private mode: ${sb.toLocaleString()} fingerprints are kept and checked on this PC, and Google never sees the addresses you visit. The secret window never uses it.`
+      : sb === -1 ? ' Google Safe Browsing is off (no key yet).' : '');
   $('#phishsafe').dataset.help = ph;
   $('#sitesv').textContent = n((d.sites ?? []).length, 'site', 'sites');
   $('#excv').textContent = n((d.trusted ?? []).length + (d.httpOk ?? []).length, 'site', 'sites');
