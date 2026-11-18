@@ -4,12 +4,12 @@
 // No packages: plain Node, so it runs the same on the PC and the Mac.
 //
 // Add it to Claude Code (once per machine):  claude mcp add --scope user aang-browser -- node <this file>
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 
 const doorFile = process.env.AANG_DOOR_FILE || (process.platform === 'win32'
   ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang', 'claude-door.json')
@@ -81,6 +81,24 @@ function launcher() {
   return null;
 }
 /**
+ * P1 live run (2026-11-17): a connector started by the Claude desktop app runs inside its sandbox, and anything it
+ * starts directly runs there too, on the sandbox's private, stale copy of %APPDATA% (an old Samara profile, an old
+ * sync file). So for real use Samara is started the way a double-click starts it: a shortcut opened by Explorer, which
+ * hands it to his own Windows shell, outside the sandbox. A test names its own door file (AANG_DOOR_FILE) and its own
+ * state in the environment, which Explorer would not pass on: that one is started directly, as before.
+ */
+function startOnPc(exe) {
+  const args = ['--samara', '--quiet'];
+  if (!realDoorFile) { spawn(exe, args, { stdio: 'ignore', detached: true, windowsHide: true, cwd: path.dirname(exe) }).unref(); return; }
+  const lnk = path.join(os.tmpdir(), `samara-start-${randomBytes(6).toString('hex')}.lnk`);
+  execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+    '$l = (New-Object -ComObject WScript.Shell).CreateShortcut($env:SAMARA_LNK); $l.TargetPath = $env:SAMARA_EXE; ' +
+    '$l.Arguments = $env:SAMARA_ARGS; $l.WorkingDirectory = (Split-Path $env:SAMARA_EXE); $l.WindowStyle = 7; $l.Save()'],
+  { env: { ...process.env, SAMARA_LNK: lnk, SAMARA_EXE: exe, SAMARA_ARGS: args.join(' ') }, stdio: 'ignore', windowsHide: true, timeout: 20_000 });
+  spawn(path.join(process.env.SystemRoot || 'C:\\Windows', 'explorer.exe'), [lnk], { stdio: 'ignore', detached: true }).unref();
+  setTimeout(() => { try { rmSync(lnk, { force: true }); } catch { /* the temp folder's */ } }, 30_000).unref();
+}
+/**
  * His ask (2026-10-14): if Samara is not running, start it rather than give up, in the background with only its doors (no
  * window jumps in front of him), and wait for it. On the Mac it is its own app (-g). On the PC (P1, 2026-11-17: Samara
  * runs without Aang) through Aang.exe --samara --quiet, which starts Samara alone and never the pet.
@@ -96,7 +114,7 @@ async function step(op, a = {}) {
     launched = Date.now();
     try {
       if (mac) spawn('/usr/bin/open', ['-g', '-b', 'com.aang.browser', '--args', '--quiet'], { stdio: 'ignore', detached: true }).unref();
-      else spawn(exe, ['--samara', '--quiet'], { stdio: 'ignore', detached: true, windowsHide: true, cwd: path.dirname(exe) }).unref();
+      else startOnPc(exe);
     } catch { /* below */ }
   }
   for (let i = 0; i < 40; i++) {
