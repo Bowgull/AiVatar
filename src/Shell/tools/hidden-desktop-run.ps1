@@ -54,7 +54,7 @@ if ([HiddenDesktop]::WaitForSingleObject($pi.hProcess, [uint32]($TimeoutSec * 10
   # Timed out: end the whole tree (cmd, npx, electron and its helpers), which lives only on the hidden desktop.
   & taskkill.exe /PID $pi.dwProcessId /T /F | Out-Null
   $code = 124
-} else { $c = [uint32]0; [HiddenDesktop]::GetExitCodeProcess($pi.hProcess, [ref]$c) | Out-Null; $code = [int]$c }
+} else { $c = [uint32]0; [HiddenDesktop]::GetExitCodeProcess($pi.hProcess, [ref]$c) | Out-Null; $code = [BitConverter]::ToInt32([BitConverter]::GetBytes($c), 0) }   # a crash code (0xC...) is negative, not an overflow
 [HiddenDesktop]::CloseHandle($pi.hProcess) | Out-Null; [HiddenDesktop]::CloseHandle($pi.hThread) | Out-Null
 [HiddenDesktop]::CloseDesktop($desk) | Out-Null
 if (Test-Path $out) { Get-Content -Raw -Encoding UTF8 $out; Remove-Item $out -Force -ErrorAction SilentlyContinue }

@@ -87,6 +87,8 @@ export interface UpdateCard {
   behind?: string;
   /** Sheet 114: a newer one getting ready behind this one; Restart now still puts this one in. */
   coming?: { next: string; now: string };
+  /** Phase 2: the engine closes a gap in Chrome's security fixes (red key), and goes in by itself tonight (`tonight`). */
+  security?: boolean; tonight?: boolean;
 }
 // His pick (2026-10-14): the lantern alone, lit and glowing, nothing behind it.
 const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-open.ico');
@@ -1534,7 +1536,11 @@ export class AangBrowser {
     tab.blocked = { url, lists, ...(like ? { real: like.slice(LOOKS_LIKE.length).toLowerCase() } : {}), ...(lists[0] === BANK ? { bank: true } : {}) };
     tab.url = url;
     tab.loading = false;
-    if (tab.view) { try { tab.view.webContents.stop(); } catch { /* gone */ } }
+    // Stopped just after, never inside the navigation event that called this: on engine 44.7.0, stop() inside
+    // will-navigate took the whole browser down (found by engine-safety-check.ts, 2026-11-18). The event's own
+    // preventDefault() already cancels the navigation; this stops what is left of the load.
+    const view = tab.view;
+    if (view) setImmediate(() => { try { if (!view.webContents.isDestroyed()) view.webContents.stop(); } catch { /* gone */ } });
     this.place();
     this.changed();
   }

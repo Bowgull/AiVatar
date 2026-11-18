@@ -7,6 +7,11 @@
 // spellcheck give suggestions. Part 2 drives the REAL browser frame (browser.html + preload) in an off-screen
 // window: the share panel shows the screens and windows, Share is off until he picks, and his pick goes back.
 //
+// Two kinds of check (phase 2 of the browser plan, 2026-11-17): BLOCKING checks ask the engine itself how it behaves
+// (part 1), and stop a new engine being offered when they fail. LOOK checks drive Samara's own page (parts 2-4); a
+// failure there is about Samara's page, not the engine, so it is reported on the key but no longer stops the offer.
+// Exit 0: all passed. Exit 1: a blocking check failed. Exit 5 (LOOK_ONLY): only look checks failed.
+//
 // Run: npx electron test/electron/calls-check.ts <folder for pictures>
 import { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, session } from 'electron';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -25,8 +30,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SHELL = path.resolve(HERE, '..', '..');
 const OUT = path.resolve(process.argv[process.argv.length - 1] ?? os.tmpdir());
 mkdirSync(OUT, { recursive: true });
-const results: { step: string; ok: boolean }[] = [];
-const check = (step: string, ok: boolean, detail = '') => { results.push({ step, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${step}${detail ? '  -- ' + detail : ''}`); };
+/** Only look checks failed: the engine works, Samara's page drifted. engineupdate.ts reads this. */
+const LOOK_ONLY = 5;
+let tier: 'blocking' | 'look' = 'blocking';
+const results: { step: string; ok: boolean; tier: 'blocking' | 'look' }[] = [];
+const check = (step: string, ok: boolean, detail = '') => { results.push({ step, ok, tier }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${tier === 'look' ? '[look] ' : ''}${step}${detail ? '  -- ' + detail : ''}`); };
 const info = (step: string, detail: string) => console.log(`INFO  ${step}  -- ${detail}`);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const pageErrors: string[] = [];
@@ -104,6 +112,7 @@ app.whenReady().then(async () => {
   w.hide(); // (destroying a window here made the next page fail to load; it closes with the run)
 
   // ================================================================== part 2: the real share panel
+  tier = 'look';   // from here on: Samara's own page, not the engine
   const said: { ch: string; a: any }[] = [];
   ipcMain.on('browser:sharereply', (_e, a) => said.push({ ch: 'sharereply', a }));
   const b = new BrowserWindow({ width: 1100, height: 700, show: false, frame: false,
@@ -156,20 +165,28 @@ app.whenReady().then(async () => {
   tabsMsg(null);
   await wait(300);
   check('no update: no key', await bjs<boolean>(`document.getElementById('upkey').classList.contains('away')`));
-  tabsMsg({ version: '44.8.1', since: Date.now() - 5 * 86_400_000 });
+  // What pcsource.ts really sends: the engine's title. Five days waiting (browser.js: amber from 1 day, red from 3).
+  tabsMsg({ version: '44.8.1', since: Date.now() - 5 * 86_400_000, title: "Samara's engine 44.8.1" });
   await wait(500);
   const k = await bjs<any>(`(() => { const k = document.getElementById('upkey'), m = document.getElementById('menukey'); const a = k.getBoundingClientRect(), c = m.getBoundingClientRect();
-    return { away: k.classList.contains('away'), title: k.title, age: k.className, mid: Math.round(a.top + a.height / 2), menuMid: Math.round(c.top + c.height / 2), h: Math.round(a.height), before: a.right <= c.left }; })()`);
+    return { away: k.classList.contains('away'), title: k.title, age: k.className, mid: Math.round(a.top + a.height / 2), menuMid: Math.round(c.top + c.height / 2), h: Math.round(a.height), menuH: Math.round(c.height), before: a.right <= c.left }; })()`);
   check('an update: the key pops in, beside the settings key', !k.away && k.before, k.age);
-  check('the key sits level with the other keys', k.mid === k.menuMid && k.h === 33, `centre ${k.mid} vs ${k.menuMid}, ${k.h} tall`);
-  check('hovering it says what it is, briefly', k.title === 'Browser update ready, waiting 5 days', k.title);
-  check('after 4 days it is amber', /\bage1\b/.test(k.age));
+  check('the key sits level with the other keys, as tall as they are', k.mid === k.menuMid && k.h === k.menuH, `centre ${k.mid} vs ${k.menuMid}, ${k.h} tall vs ${k.menuH}`);
+  check('hovering it says what it is, briefly', k.title === 'Update ready, waiting 5 days', k.title);
+  check('after 3 days it is red', k.age.split(' ').includes('age2'), k.age);
   await bjs(`document.getElementById('upkey').click(); true`);
   await wait(300);
   const t = await bjs<any>(`(() => { const t = document.getElementById('uptray'), k = document.getElementById('upkey'); return { open: !t.hidden, name: document.getElementById('upname').textContent, edge: Math.round(t.getBoundingClientRect().right - k.getBoundingClientRect().right), go: !document.getElementById('upgo').disabled }; })()`);
-  check('clicking it drops the panel under it', t.open && Math.abs(t.edge) <= 1 && t.name === 'Browser engine 44.8.1', JSON.stringify(t));
+  check('clicking it drops the panel under it, named for the engine', t.open && Math.abs(t.edge) <= 1 && t.name === "Samara's engine 44.8.1", JSON.stringify(t));
   writeFileSync(path.join(OUT, 'update-panel.png'), (await b.webContents.capturePage()).toPNG());
-  tabsMsg({ version: '44.8.1', since: Date.now() }, true);
+  // Phase 2: an engine that closes a gap in Chrome's security fixes is red at once and says so.
+  tabsMsg({ version: '44.8.2', since: Date.now(), title: "Samara's engine 44.8.2", security: true, tonight: true });
+  await wait(300);
+  const sec = await bjs<any>(`({ cls: document.getElementById('upkey').className, title: document.getElementById('upkey').title, kick: document.getElementById('upkicker').textContent, note: document.getElementById('upnote').textContent })`);
+  check('a security update is red on its first day', sec.cls.split(' ').includes('age2') && sec.cls.split(' ').includes('sec'), sec.cls);
+  check('it says security fixes, and that it goes in tonight by itself', /security fixes/i.test(sec.title) && /SECURITY FIXES/.test(sec.kick) && /tonight/.test(sec.note), JSON.stringify(sec));
+  writeFileSync(path.join(OUT, 'update-security.png'), (await b.webContents.capturePage()).toPNG());
+  tabsMsg({ version: '44.8.1', since: Date.now(), title: "Samara's engine 44.8.1" }, true);
   await wait(200);
   const c = await bjs<any>(`({ off: document.getElementById('upgo').disabled, why: document.getElementById('upwhy').textContent })`);
   check('in a call, Restart now is off and says why', c.off === true && /call/.test(c.why), c.why);

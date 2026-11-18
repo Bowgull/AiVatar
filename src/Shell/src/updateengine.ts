@@ -95,6 +95,11 @@ export interface Offer {
   coming?: { next: string; now: string };
   /** Sheet 115: the update waits for Claude (its line; anyway: two hours passed, so it asks). */
   wait?: { b: string; t: string; anyway: boolean };
+  /** Phase 2 (his call, 2026-11-17): this engine closes a gap in Chrome's security fixes (red key, "security fixes"). */
+  security?: boolean;
+  /** And it passed Aang's checks on this machine, so it goes in by itself tonight even with his overnight toggle off
+   *  (2-5 am, idle, no call or game), with the usual trial and roll back. */
+  tonight?: boolean;
 }
 /**
  * A thing that updates. `ready` is set once the update is downloaded, checked against its seal and made ready beside
@@ -160,6 +165,8 @@ export class UpdateEngine {
       ...(ready.find((r) => r.signin)?.signin ? { signin: ready.find((r) => r.signin)!.signin! } : {}),
       ...(ready.find((r) => r.behind)?.behind ? { behind: ready.find((r) => r.behind)!.behind! } : {}),
       ...(ready.find((r) => r.coming)?.coming ? { coming: ready.find((r) => r.coming)!.coming! } : {}),
+      ...(ready.some((r) => r.security) ? { security: true } : {}),
+      ...(ready.some((r) => r.security && r.tonight) ? { tonight: true } : {}),
       ...this.waiting(),
     };
   }
@@ -174,19 +181,24 @@ export class UpdateEngine {
   }
   show(): void { this.o.changed(this.card()); }
 
-  /** His Restart now, or overnight: every source on the key that is ready goes in, Samara first. */
-  async go(overnight = false): Promise<{ ok: boolean; why?: string }> {
+  /** His Restart now, or overnight: every source on the key that is ready goes in, Samara first. `securityOnly`: the
+   *  overnight security install with his toggle off, so only the sources carrying security fixes go in. */
+  async go(overnight = false, securityOnly = false): Promise<{ ok: boolean; why?: string }> {
     const why = notNow(this.o.moment());
     if (why) return { ok: false, why };
     if (this.going) return { ok: false, why: 'Already updating.' };
     const card = this.card();
     if (card?.signin) return { ok: false, why: 'Sign in to castLabs first, so the new engine plays video.' };
-    const ready = this.keyed.filter((s) => s.ready());
+    const ready = this.keyed.filter((s) => { const r = s.ready(); return r && (!securityOnly || (r.security && r.tonight)); });
     if (!card || !ready.length) return { ok: false, why: 'The update is not ready yet. It will show up again when it is.' };
     this.going = true;
     try {
       try { await this.o.saveWork?.(); } catch (e) { this.o.log?.(`update: Claude's work was not saved first: ${(e as Error).message}`); }
-      this.o.beforeGo?.({ overnight, title: card.title ?? 'Samara update', lines: card.lines ?? [] });
+      // What goes in, for the "updated while you slept" card: only the security sources when it is just them.
+      const offers = ready.map((s) => s.ready()!);
+      const title = securityOnly ? offers[0]?.title ?? 'Samara update' : card.title ?? 'Samara update';
+      const lines = securityOnly ? offers.flatMap((r) => r.lines ?? r.groups.flatMap((g) => g.items.map((i) => i.text))) : card.lines ?? [];
+      this.o.beforeGo?.({ overnight, title, lines });
       const done: string[] = [];
       for (const s of ready) {
         const r = await s.go();
@@ -194,7 +206,7 @@ export class UpdateEngine {
         done.push(s.id);
       }
       this.o.log?.(`update: putting in ${done.join(' and ')}${overnight ? ' overnight' : ''}`);
-      this.o.restart({ sources: done, overnight, title: card.title ?? 'Samara update', lines: card.lines ?? [] });
+      this.o.restart({ sources: done, overnight, title, lines });
       return { ok: true };
     } finally { this.going = false; }
   }
@@ -225,6 +237,9 @@ export class UpdateEngine {
     const card = this.card();
     if (card) this.o.changed(card);
     if (card && !m.work && overnightNow(m, this.o.overnight())) { await this.go(true); return; }
+    // Phase 2 (his call, 2026-11-17): security fixes do not wait for his toggle. Same night window, same idle, same
+    // call and game rule; only what carries them goes in.
+    if (card?.tonight && !m.work && overnightNow(m, true)) { this.o.log?.('update: security fixes go in tonight by themselves'); await this.go(true, true); return; }
     for (const s of this.o.sources) if (!s.onKey && s.ready() && quietNow(m)) { const r = await s.go(); if (r.ok) this.o.log?.(`update: ${s.id} put in quietly`); }
   }
 
