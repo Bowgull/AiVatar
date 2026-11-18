@@ -16,13 +16,17 @@ import { pipeline } from 'node:stream/promises';
 import { writeFileAtomic } from './atomic.ts';
 import { readJson, saveText } from './store.ts';
 import { FUSE, readFuses, setFuses, wireMap } from './fusewire.ts';
-import { behindMs, behindWords, chromeStable, downloadEngine, latestEngine } from './enginerelease.ts';
+import { behindMs, behindWords, chromeStable, closesGap, downloadEngine, latestEngine } from './enginerelease.ts';
 import { Evs, type Signed } from './evs.ts';
 
 /** His tick boxes on an engine update (2026-10-14): the login lock, and closing the back doors. On by default. */
 export interface Choices { lock: boolean; closeBackdoors: boolean }
 /** `fixed`: castLabs would only sign this engine as it came, so his tick boxes are not offered (2026-10-23). */
-export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean; fixed?: boolean }
+export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean; fixed?: boolean;
+  /** Phase 2: it closes a gap in Chrome's security fixes (and passed Aang's checks), so it goes in by itself tonight. */
+  security?: boolean;
+  /** Look checks (Samara's own page) that failed on it: reported on the key, they do not stop the offer. */
+  look?: string[] }
 import { newer, plain } from './updateengine.ts';
 import { sched } from './sched.ts';
 export { newer, plain };
@@ -63,6 +67,29 @@ export function shaFor(list: string, file: string): string | null {
 
 const DAY = 24 * 60 * 60_000;
 
+/** What Aang's checks said about an engine (test/electron/calls-check.ts and engine-safety-check.ts). */
+export interface TestResult { ok: boolean; look: string[]; chrome: string }
+/** calls-check.ts exits with this when only look checks (Samara's own page) failed: the engine itself is fine. */
+export const LOOK_ONLY = 5;
+/**
+ * One check script's run, read from its exit code and output: blocking failures stop the engine; look failures are kept
+ * for the key. The engine's Chromium comes from engine-safety-check.ts's "ENGINE chrome=" line.
+ */
+export function readRun(code: number | null, out: string): TestResult {
+  const look = out.split(/\r?\n/).filter((l) => /^FAIL\s+\[look\]/.test(l)).map((l) => l.replace(/^FAIL\s+\[look\]\s*/, '').replace(/\s+--.*$/, '').trim()).filter(Boolean);
+  const chrome = /^ENGINE chrome=(\d+\.\d+\.\d+\.\d+)/m.exec(out)?.[1] ?? '';
+  return { ok: code === 0 || code === LOOK_ONLY, look, chrome };
+}
+/**
+ * A version that failed its checks today, so the four-minute test is not run again on every check (2026-11-17: 44.11.4
+ * was tested every few minutes all evening). One line per version, "44.11.4 2026-11-17", like failed.txt.
+ */
+export function failedToday(text: string, v: string, today: string): boolean {
+  return text.split(/\r?\n/).some((l) => { const [x, d] = l.trim().split(/\s+/); return x === plain(v) && d === today; });
+}
+/** This machine's date, "2026-11-17" (a failed test waits until tomorrow, his tomorrow). */
+export const dayOf = (d = new Date()): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 /** The newest stable castLabs release newer than `current`, not one that failed before. */
 export function newestCastlabs(releases: { tag: string; prerelease: boolean }[], current: string, failed: Set<string>): string | null {
   let best: string | null = null;
@@ -92,7 +119,9 @@ export class EngineUpdates {
     this.doneFile = path.join(o.stateDir, 'engine-just-updated.json');
     try {
       const s = readJson<any>(this.stateFile, null);
-      if (typeof s?.version === 'string' && newer(s.version, process.versions.electron) && existsSync(this.exeOf(s.version))) this.ready = { version: s.version, since: Number(s.since) || Date.now() };
+      if (typeof s?.version === 'string' && newer(s.version, process.versions.electron) && existsSync(this.exeOf(s.version))) {
+        this.ready = { version: s.version, since: Number(s.since) || Date.now(), ...(s.castlabs === true ? { castlabs: true, fixed: true } : {}), ...(s.security === true ? { security: true } : {}), ...(Array.isArray(s.look) && s.look.length ? { look: s.look.map(String).slice(0, 10) } : {}) };
+      }
     } catch { /* nothing waiting */ }
   }
 
@@ -103,6 +132,14 @@ export class EngineUpdates {
     try { return new Set(readFileSync(path.join(this.engines, 'failed.txt'), 'utf8').split(/\r?\n/).map((x) => x.trim()).filter(Boolean)); } catch { return new Set(); }
   }
   private pointer(): Pointer | null { return readJson<Pointer | null>(path.join(this.engines, 'current.json'), null); }
+  private todayFile(): string { return path.join(this.engines, 'failed-today.txt'); }
+  /** Failed Aang's checks today: not tested again until tomorrow (or his own "Check for updates"). */
+  private failedToday(v: string): boolean { try { return failedToday(readFileSync(this.todayFile(), 'utf8'), v, dayOf()); } catch { return false; } }
+  private markFailedToday(v: string): void {
+    let keep: string[] = [];
+    try { keep = readFileSync(this.todayFile(), 'utf8').split(/\r?\n/).filter((l) => l.trim().split(/\s+/)[1] === dayOf()); } catch { /* first */ }
+    saveText(this.todayFile(), [...keep, `${plain(v)} ${dayOf()}`].join('\n') + '\n');
+  }
 
   // ---- his ... menu on the update (sheet 35): put a version away, skip it for good, go back, check now
   private filedFile(): string { return path.join(this.o.stateDir, 'engine-filed.json'); }
@@ -130,7 +167,7 @@ export class EngineUpdates {
     return true;
   }
   /** Check for updates now (Samara's ... menu): what was put away comes back, and a look right now. */
-  async checkNow(): Promise<void> { try { unlinkSync(this.filedFile()); } catch { /* none */ } this.denied.clear(); await this.check(); }
+  async checkNow(): Promise<void> { for (const f of [this.filedFile(), this.todayFile()]) { try { unlinkSync(f); } catch { /* none */ } } this.denied.clear(); await this.check(); }
   /** castLabs said no to signing these engines: not asked again until the time here. */
   private denied = new Map<string, number>();
 
@@ -142,7 +179,7 @@ export class EngineUpdates {
   stop(): void { this.timers.forEach(clearTimeout); this.timers = []; sched.cancel('engine.check'); }
 
   /** Running on a trial engine for five minutes means it works: mark it good and tidy old engines away. */
-  private trialCheck(): void {
+  trialCheck(after = 5 * 60_000): void {
     const p = this.pointer();
     if (!p || p.status !== 'trial') return;
     if (path.resolve(path.dirname(process.execPath)) !== path.resolve(this.engines, p.dir)) return;
@@ -152,7 +189,7 @@ export class EngineUpdates {
       try { writeFileAtomic(path.join(this.engines, 'current.json'), JSON.stringify({ ...q, status: 'good', at: new Date().toISOString() })); } catch { return; }
       console.log(`shell: engine ${p.version} passed its trial`);
       this.tidy(q);
-    }, 5 * 60_000));
+    }, after));
   }
   /** Keep only the engine in use and the one before it. */
   private tidy(p: Pointer): void {
@@ -178,12 +215,16 @@ export class EngineUpdates {
       if (!r.ok) throw new Error(`the npm registry said ${r.status}`);
       const v = pick(Object.keys(((await r.json()) as { versions?: Record<string, unknown> }).versions ?? {}), cur, this.failed());
       if (!v) { this.set(null); return; }
-      if (this.ready?.version === v) return;
+      if (this.ready?.version === v || this.failedToday(v)) return;
       console.log(`shell: engine ${v} is out (running ${cur}); getting it ready`);
       if (!existsSync(this.exeOf(v))) await this.fetchEngine(v);
-      if (!(await this.test(v))) return;
-      this.set({ version: v, since: Date.now() });
-      console.log(`shell: engine ${v} is ready; the update key is showing`);
+      const t = await this.test(v);
+      if (!t.ok) return;
+      const stable = await chromeStable(fetch as never);
+      const security = closesGap(process.versions.chrome, t.chrome, stable);
+      this.behind = stable.length && t.chrome ? `Your engine today is ${behindWords(behindMs(process.versions.chrome, stable))} behind Chrome's security fixes. This one is ${behindWords(behindMs(t.chrome, stable))} behind.` : '';
+      this.set({ version: v, since: Date.now(), ...(security ? { security } : {}), ...(t.look.length ? { look: t.look } : {}) });
+      console.log(`shell: engine ${v} (Chromium ${t.chrome || '?'}) is ready${security ? " and closes a gap in Chrome's security fixes: it goes in tonight" : ''}; the update key is showing`);
     } catch (e) {
       console.log('shell: engine update check: ' + (e as Error).message);
     } finally { this.busy = false; }
@@ -206,6 +247,7 @@ export class EngineUpdates {
       if (!found || this.failed().has(found.m.version) || this.filed().has(found.m.version)) { if (this.ready) this.set(null); return; }
       const { m, asset } = found, v = m.version;
       if (this.ready?.version === v && !this.signin) return;
+      if (this.failedToday(v)) return;
       // 2026-11-02 (his report: the PC lagged right after Samara opened): castLabs refusing to sign this engine was
       // tried again on every check and nudge, each time rewriting the engine's switches and hashing it whole. A refusal
       // waits a day now; his own "Check for updates" tries straight away.
@@ -231,9 +273,12 @@ export class EngineUpdates {
       const signed = await this.switchesAndSign(v);
       if (signed === 'denied') this.denied.set(v, Date.now() + DAY);
       if (signed !== 'ok') return;
-      if (!(await this.test(v))) return;
-      this.set({ version: v, since: Date.parse(m.published) || Date.now(), castlabs: true, major: this.pendingMajor, fixed: true });
-      console.log(`shell: castLabs engine ${v} is ready; the update key is showing`);
+      const t = await this.test(v);
+      if (!t.ok) return;
+      // A new major is never put in by itself: it waits for his click, security fixes or not.
+      const security = !this.pendingMajor && closesGap(process.versions.chrome, m.chrome, stable);
+      this.set({ version: v, since: Date.parse(m.published) || Date.now(), castlabs: true, major: this.pendingMajor, fixed: true, ...(security ? { security } : {}), ...(t.look.length ? { look: t.look } : {}) });
+      console.log(`shell: castLabs engine ${v} (Chromium ${m.chrome}) is ready${security ? " and closes a gap in Chrome's security fixes: it goes in tonight" : ''}; the update key is showing`);
     } catch (e) {
       console.log('shell: engine update check: ' + (e as Error).message);
     } finally {
@@ -331,25 +376,43 @@ export class EngineUpdates {
   }
 
   /**
-   * The new engine runs Aang's own checks (test/electron/calls-check.ts: screen sharing, camera permission,
-   * spellcheck, the share panel) in hidden windows, only when he is not in a game or a call.
+   * The new engine runs Aang's own checks in hidden windows, only when he is not in a game or a call:
+   * test/electron/engine-safety-check.ts (a public page loads; on castLabs, Widevine loads and a protected test stream
+   * plays; the phishing block fires; a download is marked from the internet) and test/electron/calls-check.ts (screen
+   * sharing, camera permission, spellcheck, and Samara's own page). Only blocking checks stop an engine; look checks
+   * are reported on the key. A failure is remembered for the day, so the test is not run again until tomorrow.
    */
-  private async test(v: string): Promise<boolean> {
-    if (this.o.quietNow()) return false;
+  private async test(v: string): Promise<TestResult> {
+    if (this.o.quietNow()) return { ok: false, look: [], chrome: '' };
+    const runs: TestResult[] = [];
+    for (const script of ['test/electron/engine-safety-check.ts', 'test/electron/calls-check.ts']) {
+      const r = await this.runCheck(v, script);
+      runs.push(r);
+      if (!r.ok) break;
+    }
+    const ok = runs.length === 2 && runs.every((r) => r.ok);
+    const look = runs.flatMap((r) => r.look), chrome = runs.find((r) => r.chrome)?.chrome ?? '';
+    if (ok) { if (look.length) console.log(`shell: engine ${v} passed Aang's checks; ${look.length} look check${look.length === 1 ? '' : 's'} on Samara's page failed (shown on the key, not blocking)`); return { ok, look, chrome }; }
+    // Held by a call or a game mid-test is not a failure; anything else waits until tomorrow.
+    if (!this.o.quietNow()) this.markFailedToday(v);
+    console.log(`shell: engine ${v} did not pass Aang's checks; not offered, tried again tomorrow`);
+    return { ok: false, look, chrome };
+  }
+  /** One check script on the new engine, at most four minutes. */
+  private async runCheck(v: string, script: string): Promise<TestResult> {
     const pics = await mkdtemp(path.join(os.tmpdir(), 'aang-engine-test-'));
+    let out = '';
     const code = await new Promise<number | null>((res) => {
-      const t = spawn(this.exeOf(v), ['test/electron/calls-check.ts', pics], { cwd: this.o.shellDir, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-      let tail = '';
-      t.stdout?.on('data', (d) => { tail = (tail + String(d)).slice(-2000); });
+      const t = spawn(this.exeOf(v), [script, pics], { cwd: this.o.shellDir, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      t.stdout?.on('data', (d) => { out = (out + String(d)).slice(-20_000); });
       t.stderr?.on('data', () => { /* Chromium's own noise */ });
       const kill = setTimeout(() => { try { t.kill(); } catch { /* gone */ } }, 4 * 60_000);
       t.on('error', () => { clearTimeout(kill); res(null); });
-      t.on('exit', (c) => { clearTimeout(kill); if (c !== 0) console.log(`shell: engine ${v} test said: ${tail.split('\n').filter((l) => /FAIL|HARNESS|passed/.test(l)).join(' | ').slice(0, 600)}`); res(c); });
+      t.on('exit', (c) => { clearTimeout(kill); res(c); });
     });
     try { rmSync(pics, { recursive: true, force: true }); } catch { /* temp */ }
-    if (code === 0) return true;
-    console.log(`shell: engine ${v} did not pass Aang's checks (exit ${code}); not offered, tried again tomorrow`);
-    return false;
+    if (code !== 0) console.log(`shell: engine ${v} ${path.basename(script)} said (exit ${code}): ${out.split('\n').filter((l) => /FAIL|HARNESS|passed/.test(l)).join(' | ').slice(0, 600)}`);
+    return readRun(code, out);
   }
 
   /**
@@ -368,7 +431,7 @@ export class EngineUpdates {
     writeFileAtomic(path.join(this.engines, 'current.json'), JSON.stringify(p));
     writeFileAtomic(this.doneFile, JSON.stringify({ from: process.versions.electron, to: r.version, browser: browserOpen, ...(overnight ? { overnight: true, title: overnight.title, lines: overnight.lines } : {}) }));
     try { unlinkSync(this.stateFile); } catch { /* fine */ }
-    console.log(`shell: restarting onto engine ${r.version} (his click)`);
+    console.log(`shell: restarting onto engine ${r.version} (${overnight ? 'overnight' : 'his click'})`);
     return { ok: true };
   }
 

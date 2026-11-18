@@ -112,3 +112,40 @@ test('the ... menu: put away and skip act on what the key shows; check reaches e
   e.act('check'); assert.ok(s.log.includes('checkNow') && g.log.includes('checkNow'));
   assert.ok(e.act('back')); assert.ok(g.log.includes('back'));
 });
+
+// Phase 2 (his call, 2026-11-17): a passing engine that carries Chrome security fixes goes in by itself overnight.
+test('security fixes go in overnight with his toggle off: only the engine, only in the night window, never in a call or a game', async () => {
+  const secEngine = (): Offer => ({ ...engine(), title: "Samara's engine 44.9.4", security: true, tonight: true });
+  let m = at(3, 60); const restarts: any[] = [];
+  const s = fake('samara', samara()), g = fake('engine', secEngine());
+  const e = new UpdateEngine({ sources: [s, g], moment: () => m, overnight: () => false, changed: () => {}, restart: (w) => restarts.push(w) });
+  const c = e.card()!;
+  assert.ok(c.security && c.tonight, 'the key says security fixes, going in tonight');
+  m = at(14, 60); await e.tick(); assert.equal(restarts.length, 0, 'not in the afternoon');
+  m = at(3, 10); await e.tick(); assert.equal(restarts.length, 0, 'not while he is at the keyboard');
+  m = at(3, 60, { inGame: true }); await e.tick(); assert.equal(restarts.length, 0, 'never in a game');
+  m = at(3, 60, { inCall: true }); await e.tick(); assert.equal(restarts.length, 0, 'never in a call');
+  m = at(3, 60, { work: { doing: 'filling an application', where: 'Contoso' } }); await e.tick(); assert.equal(restarts.length, 0, 'not while Claude works');
+  m = at(3, 60); await e.tick();
+  assert.equal(restarts.length, 1);
+  assert.deepEqual(restarts[0].sources, ['engine'], 'Samara waits for his toggle or his click');
+  assert.equal(restarts[0].overnight, true);
+  assert.equal(restarts[0].title, "Samara's engine 44.9.4");
+  assert.deepEqual(s.log, []);
+});
+
+test('an engine with security fixes that did not pass checks here (the Mac today) is red but never goes in by itself', async () => {
+  const restarts: any[] = [];
+  const e = new UpdateEngine({ sources: [fake('engine', { ...engine(), security: true })], moment: () => at(3, 60), overnight: () => false, changed: () => {}, restart: (w) => restarts.push(w) });
+  assert.ok(e.card()!.security && !e.card()!.tonight);
+  await e.tick();
+  assert.equal(restarts.length, 0);
+});
+
+test('an ordinary engine still waits for his toggle or his click', async () => {
+  const restarts: any[] = [];
+  const e = new UpdateEngine({ sources: [fake('engine', engine())], moment: () => at(3, 60), overnight: () => false, changed: () => {}, restart: (w) => restarts.push(w) });
+  assert.ok(!e.card()!.security);
+  await e.tick();
+  assert.equal(restarts.length, 0);
+});

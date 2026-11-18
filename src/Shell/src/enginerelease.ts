@@ -9,10 +9,13 @@ import { RELEASE_KEY, RELEASE_REPO } from './ghrelease.ts';
 import { isVersion, newer } from './updateengine.ts';
 
 export const ENGINE_RELEASES = `https://github.com/${RELEASE_REPO}/releases/download/`;
-/** The repo's releases, newest first (engine releases are never "latest": that stays Samara's). */
-export const RELEASES_API = `https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=30`;
-/** Chrome's own list of stable releases (Google's Chromium Dash), for "weeks behind". */
-export const CHROME_STABLE = 'https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=60';
+/** The repo's releases, newest first (engine releases are never "latest": that stays Samara's). A hundred, GitHub's
+ *  most per page: at thirty, Samara's own releases had pushed the last engine release off the page (2026-11-18), so
+ *  no machine saw it. */
+export const RELEASES_API = `https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=100`;
+/** Chrome's own list of stable releases (Google's Chromium Dash), for "weeks behind" and the security tier. Three hundred
+ *  reach back about a year; sixty reached back only two months, so an engine further behind looked closer than it was. */
+export const CHROME_STABLE = 'https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=300';
 /** The biggest engine a machine will download (castLabs' are about 135 MB). */
 export const ENGINE_MAX = 600 * 1024 * 1024;
 
@@ -102,6 +105,16 @@ export function behindMs(chrome: string, stable: { version: string; time: number
   const later = stable.filter((r) => /^\d+\.\d+\.\d+\.\d+$/.test(r.version) && Number.isFinite(r.time) && chromeNewer(r.version, chrome));
   if (!later.length) return 0;
   return Math.max(0, now - Math.min(...later.map((r) => r.time)));
+}
+/**
+ * Phase 2 (his call, 2026-11-17): does a new engine close a gap in Chrome's security fixes? True when Chrome has shipped
+ * a stable release (every one carries security fixes) newer than the Chromium running now, and the new engine's
+ * Chromium is at least that new. Not when Chrome's list could not be read.
+ */
+export function closesGap(running: string, candidate: string, stable: { version: string; time: number }[]): boolean {
+  const ok = (v: string) => /^\d+\.\d+\.\d+\.\d+$/.test(v);
+  if (!ok(running) || !ok(candidate)) return false;
+  return stable.some((r) => ok(r.version) && chromeNewer(r.version, running) && !chromeNewer(r.version, candidate));
 }
 /** "6 weeks", "2 days", "less than a day": the key's words. */
 export function behindWords(ms: number): string {
