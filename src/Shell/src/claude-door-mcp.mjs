@@ -4,7 +4,7 @@
 // No packages: plain Node, so it runs the same on the PC and the Mac.
 //
 // Add it to Claude Code (once per machine):  claude mcp add --scope user aang-browser -- node <this file>
-import { readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -73,10 +73,14 @@ setInterval(() => { const d = job !== null ? door() : null; if (d) post(d, 'aliv
  * through the admin share first, like the door file, so the Claude app's private %APPDATA% copy cannot hide it.
  */
 function launcher() {
-  const f = path.join(path.dirname(doorFile), 'body-exe.txt');
-  const real = realDoorFile ? path.join(path.dirname(realDoorFile), 'body-exe.txt') : null;
-  for (const c of real ? [real, f] : [f]) {
-    try { const exe = readFileSync(c, 'utf8').trim(); if (/\.exe$/i.test(exe)) return exe; } catch { /* the next */ }
+  // Phase 5: Samara's own Samara.exe first (samara-exe.txt, written each time it runs), then the pet's Aang.exe. Both
+  // take the same switches. samaramode.ts samaraLauncher() is the same rule for Samara and Aang's windows.
+  for (const name of ['samara-exe.txt', 'body-exe.txt']) {
+    const f = path.join(path.dirname(doorFile), name);
+    const real = realDoorFile ? path.join(path.dirname(realDoorFile), name) : null;
+    for (const c of real ? [real, f] : [f]) {
+      try { const exe = readFileSync(c, 'utf8').trim(); if (/\.exe$/i.test(exe) && existsSync(exe)) return exe; } catch { /* the next */ }
+    }
   }
   return null;
 }

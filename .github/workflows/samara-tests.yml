@@ -38,3 +38,6 @@ jobs:
         with: { dotnet-version: '10.0.x' }
       - name: The pet's tests
         run: dotnet test tests/Body.Tests/Body.Tests.csproj --nologo
+      # Phase 5: Samara.exe (Samara's own launcher) builds on the pet's pieces; a change there must not break it.
+      - name: Samara.exe builds
+        run: dotnet build src/Samara/Samara.csproj -c Release --nologo

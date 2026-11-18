@@ -71,7 +71,7 @@ import { readSettings, writeSettings, type PopoutSettings } from './settings.ts'
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import type { Box } from './geometry.ts';
 import { Satchel } from './satchel.ts';
-import { SamaraWatch, launcherEnv, pidAlive, readExitMark, samaraApart, samaraPid } from './samaramode.ts';
+import { SamaraWatch, launcherEnv, pidAlive, readExitMark, samaraApart, samaraLauncher, samaraPid } from './samaramode.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 /** Chromium's GPU workaround that keeps video out of DirectComposition overlays. Underscores: see below. */
@@ -1706,8 +1706,9 @@ function samaraRunning(): boolean {
 function startSamara(o: { quiet?: boolean; url?: string } = {}): void {
   if (process.env.AANG_TEST) return;
   try {
-    const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
-    if (exe && existsSync(exe)) {
+    // Phase 5: Samara.exe when it is known, else the pet's own Aang.exe (the same switches).
+    const exe = samaraLauncher(STATE_DIR);
+    if (exe) {
       const args = o.url ? ['--url', '--', o.url] : ['--samara', ...(o.quiet ? ['--quiet'] : [])];
       spawn(exe, args, { detached: true, stdio: 'ignore', cwd: path.dirname(exe), env: launcherEnv() }).unref();
       return;

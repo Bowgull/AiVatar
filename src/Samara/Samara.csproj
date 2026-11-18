@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Phase 5 (2026-11-18): Samara's own launcher, Samara.exe. Samara's shortcut, a link from Windows, Claude's connector
+       and Samara's own update restart start Samara through this instead of the pet's Aang.exe. It holds no logic of its
+       own: it uses the pet's tested pieces (CoreSupervisor.StartShellAlone, the release pointers and their trial
+       rollback, DefaultBrowser's link checks) from the Body project, so the two can never disagree. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Samara</AssemblyName>
+    <RootNamespace>Samara.Launcher</RootNamespace>
+    <ApplicationIcon>..\Shell\pages\art\samara\samara.ico</ApplicationIcon>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Body\Body.csproj" />
+  </ItemGroup>
+</Project>

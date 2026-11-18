@@ -36,7 +36,7 @@ import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { jumpIcons } from './taskbar.ts';
 import { isPopoutTask } from './taskbarplan.ts';
-import { launcherEnv, writeExitMark } from './samaramode.ts';
+import { launcherEnv, samaraLauncher, writeExitMark } from './samaramode.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
@@ -188,11 +188,12 @@ function openInClaude(t: ClaudeOpen): void {
   setTimeout(front, 700);
 }
 
-/** Restart for an update: through Aang.exe --samara, which waits for this one to finish (Program.cs). */
+/** Restart for an update: through Samara.exe (else Aang.exe) --samara, which waits for this one to finish first. */
 function exitForUpdate(): void {
   try {
-    const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
-    if (exe && existsSync(exe)) spawn(exe, ['--samara', '--after', String(process.pid)], { detached: true, stdio: 'ignore', env: launcherEnv() }).unref();
+    const exe = samaraLauncher(STATE_DIR);
+    if (exe) spawn(exe, ['--samara', '--after', String(process.pid)], { detached: true, stdio: 'ignore', env: launcherEnv() }).unref();
+    else console.error('samara: no launcher known (samara-exe.txt or body-exe.txt), so the update will not reopen me');
   } catch (e) { console.error('samara: could not arrange to reopen after the update: ' + (e as Error).message); }
   writeExitMark(STATE_DIR, process.pid, 'update');
   app.exit(UPDATE_RESTART);

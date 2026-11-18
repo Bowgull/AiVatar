@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { SamaraWatch, launcherEnv, readExitMark, samaraApart, writeExitMark } from '../src/samaramode.ts';
+import { SamaraWatch, launcherEnv, readExitMark, samaraApart, samaraLauncher, writeExitMark } from '../src/samaramode.ts';
 import { askFrom } from '../pages/asks.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +25,21 @@ test('the launcher decides afresh: our copy of the answer is not passed on', () 
   const e = launcherEnv({ AANG_SAMARA_APART: '1', PATH: 'x' });
   assert.equal(e.AANG_SAMARA_APART, undefined);
   assert.equal(e.PATH, 'x');
+});
+
+test('phase 5: Samara.exe starts Samara when it is known, else the pet\'s Aang.exe, never a missing or odd file', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'launcher-'));
+  const there = new Set(['C:\\s\\Samara.exe', 'C:\\a\\Aang.exe']);
+  const exists = (f: string) => there.has(f);
+  assert.equal(samaraLauncher(dir, exists), null);
+  writeFileSync(path.join(dir, 'body-exe.txt'), 'C:\\a\\Aang.exe');
+  assert.equal(samaraLauncher(dir, exists), 'C:\\a\\Aang.exe');
+  writeFileSync(path.join(dir, 'samara-exe.txt'), 'C:\\s\\Samara.exe\r\n');
+  assert.equal(samaraLauncher(dir, exists), 'C:\\s\\Samara.exe');
+  writeFileSync(path.join(dir, 'samara-exe.txt'), 'C:\\gone\\Samara.exe');
+  assert.equal(samaraLauncher(dir, exists), 'C:\\a\\Aang.exe', 'a Samara.exe that moved: the pet\'s launcher');
+  writeFileSync(path.join(dir, 'samara-exe.txt'), 'C:\\s\\Samara.cmd');
+  assert.equal(samaraLauncher(dir, (f) => f.endsWith('.cmd') || exists(f)), 'C:\\a\\Aang.exe', 'only an .exe');
 });
 
 test('the clean-exit mark round-trips, and a bad one is nothing', () => {
