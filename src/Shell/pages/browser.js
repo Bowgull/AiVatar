@@ -186,6 +186,8 @@ function paintMenu() {
   // Sheet 89: Send to the other computer names it, and never shows in the secret window.
   el('m-other').firstElementChild.textContent = OTHER.label;
   el('m-other').hidden = state.secret === true;
+  // Phase 5: only where Samara is its own program (samara.ts sets it), never in the secret window.
+  el('m-quit').hidden = state.canQuit !== true || state.secret === true;
   el('m-tvbox').hidden = true; el('m-tv').classList.remove('open');
 }
 menukey.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
@@ -207,6 +209,7 @@ el('m-other').addEventListener('click', () => { closeMenu(); if (state.active !=
 el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('tidy'); });
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
+el('m-quit').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('quit'); });
 el('m-history').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('history'); });
 // Sheet 107 (his pick, 2026-10-30: "I only need the one"): the one way to Mockups, its plaque at the top of the tray.
 el('mqkey').addEventListener('click', () => window.aang?.browserMockup?.({ act: 'log' }));

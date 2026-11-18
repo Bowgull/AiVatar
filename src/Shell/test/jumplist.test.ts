@@ -35,6 +35,15 @@ test('the list: one Tasks group, each item this Shell with one task', () => {
   }
 });
 
+test('phase 5: Quit Samara is last, and only where Samara is its own program', () => {
+  const base = { exe: 'C:\\e\\electron.exe', main: 'C:\\s\\src\\samara.ts', dir: 'C:\\s', icon: 'C:\\s\\samara-open.ico' };
+  const own = (jumpList({ ...base, quit: true })[0]!.items as Electron.JumpListItem[]);
+  assert.equal(own.at(-1)!.title, 'Quit Samara');
+  assert.equal(taskFromArgv(own.at(-1)!.args!.split(' ')), 'quit');
+  const aangs = (jumpList(base)[0]!.items as Electron.JumpListItem[]);
+  assert.ok(!aangs.some((i) => i.title === 'Quit Samara'));
+});
+
 test('sheet 66 A: a Pop-outs section above the Tasks; New note, Timer, Music only while Aang runs; removed items left out', () => {
   const base = { exe: 'C:\\e\\electron.exe', main: 'C:\\s\\src\\main.ts', dir: 'C:\\s', icon: 'C:\\s\\samara-open.ico' };
   const on = jumpList({ ...base, popouts: { aang: true, icons: { 'popouts-gather': 'C:\\a\\aang.ico' } } });
