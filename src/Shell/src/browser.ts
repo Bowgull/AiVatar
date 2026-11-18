@@ -107,6 +107,7 @@ import { CookieWall, cleanLink, cookieHeaders, guardPrivacy } from './privacy.ts
 import { createRequire } from 'node:module';
 import { pageMenuItems, sendKindFor } from './sendtoaang.ts';
 import { WATCH_CSS, WATCH_HOSTS } from './watchmode.ts';
+import { GOOGLE_WORDS_JS, googleRefused, refusalTarget } from './passkeys.ts';
 
 /**
  * Dark mode for web pages (X, his "Dark Reader is a must", 2026-10-14): Dark Reader's own engine (darkreader 4.9.133,
@@ -1528,6 +1529,47 @@ export class AangBrowser {
     if (!exe) { fail(new Error('none')); return; }
     execFile(exe, [url], fail);
   }
+  /**
+   * Phase 3 (2026-11-18, go/no-go in passkeys.ts): a page asked for a passkey, which Samara cannot do on either machine.
+   * The page only rings (tabpreload.cjs); the address offered is the one Samara reads itself from the page's own top
+   * frame, never anything the page says. Once per address, so a page that keeps asking cannot keep the notice up.
+   */
+  private passkeyAsked = new Map<number, string>();
+  passkeyWanted(wc: Electron.WebContents): void {
+    if (!this.mine(wc)) return;
+    const u = wc.getURL();
+    if (!isWeb(u)) return;
+    this.chromeOffer(wc, u, u, 'passkey');
+  }
+  /** Google's "This browser or app may not be secure" (his plan, phase 3): the same offer, for the page he was signing in to. */
+  private async googleCheck(wc: Electron.WebContents, cameFrom: () => string): Promise<void> {
+    if (wc.isDestroyed() || !this.mine(wc)) return;
+    const u = wc.getURL();
+    if (!/^https:\/\/accounts\.(google|youtube)\.com\//i.test(u)) return;
+    let words = '';
+    if (!googleRefused(u)) {
+      try { words = String(await wc.executeJavaScriptInIsolatedWorld(1003, [{ code: GOOGLE_WORDS_JS }]) ?? ''); } catch { return; }
+      if (wc.isDestroyed() || wc.getURL() !== u) return;
+    }
+    if (!googleRefused(u, words)) return;
+    let from = '';
+    try { from = cameFrom(); } catch { /* none */ }
+    this.chromeOffer(wc, u, refusalTarget(u, from), 'google');
+  }
+  private chromeOffer(wc: Electron.WebContents, at: string, target: string, why: 'passkey' | 'google'): void {
+    const tab = this.tabs.find((t) => t.view?.webContents === wc);
+    const key = tab?.id ?? -wc.id;
+    if (this.passkeyAsked.get(key) === at) return;
+    this.passkeyAsked.set(key, at);
+    if (tab) this.inTab(tab);
+    let host = '';
+    try { host = new URL(at).hostname.replace(/^www\./, ''); } catch { /* none */ }
+    const text = why === 'passkey'
+      ? `${host || 'This site'} wants a passkey. Samara can't use passkeys; Chrome can.`
+      : "Google says this browser may not be secure and won't sign you in here. Chrome can.";
+    this.ask({ host, what: 'Open this page in Chrome?', text, yes: 'Open in Chrome', no: 'Not now', icon: 'key', kick: why === 'passkey' ? `${host || 'This site'} wants a passkey` : 'Google sign-in' },
+      (ok) => { if (ok) this.toChrome(target); });
+  }
   /** Stop a tab at a listed address: nothing loads, the frame shows the red plate instead. */
   private block(tab: Tab, url: string, lists: string[]): void {
     const like = lists.find((l) => l.startsWith(LOOKS_LIKE));
@@ -2911,6 +2953,7 @@ export class AangBrowser {
       // it has held still (painted()).
       if (this.veil?.tab === tab.id && !tab.waking) this.veilDown(VEIL_FADE_MS);
       this.sendTabs();
+      void this.googleCheck(wc, () => { const h = wc.navigationHistory, i = h.getActiveIndex(); return i > 0 ? h.getEntryAtIndex(i - 1)?.url ?? '' : ''; });
     });
     // The loading steps (2026-10-12): the click, the site answering, the page read, the page drawn (painted()).
     on('did-start-navigation', (d) => {
@@ -2944,6 +2987,7 @@ export class AangBrowser {
       // frame inside it).
       if (!main) return;
       tab.url = u; if (!tab.mock && !this.covered && tab.id !== this.coverId) this.visits.add(u, wc.getTitle()); this.changed();
+      void this.googleCheck(wc, () => '');
     });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
@@ -3666,6 +3710,10 @@ export class AangBrowser {
     const name = () => { try { const u = new URL(pwc.getURL()); pw.setTitle(`${u.protocol === 'https:' ? '' : 'NOT SECURE  '}${u.hostname}  -  ${pwc.getTitle()}`.slice(0, 200)); } catch { /* not yet */ } };
     pwc.on('page-title-updated', name);
     pwc.on('did-navigate', name);
+    // Phase 3: Google refusing the sign-in inside a popup: Chrome is offered the page he was signing in to.
+    const opener = () => this.tabs.find((t) => t.id === this.active)?.url ?? '';
+    pwc.on('did-stop-loading', () => { void this.googleCheck(pwc, opener); });
+    pwc.on('did-navigate-in-page', (_e, _u, main) => { if (main) void this.googleCheck(pwc, opener); });
     const stop = (e: Electron.Event, u: string) => {
       if (!isWeb(u)) { e.preventDefault(); return; }
       if (goesInward(u, pwc.getURL())) { e.preventDefault(); return; }

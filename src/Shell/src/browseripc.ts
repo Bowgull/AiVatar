@@ -21,6 +21,8 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('browser:insets', (e, r) => { if (b(e)?.isMainFrame(e.sender) && r) b(e).setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => b(e)?.painted(e.sender));
+  // Phase 3: a tab's top page asked for a passkey (tabpreload.cjs). It carries nothing; the browser reads the address.
+  ipcMain.on('tab:passkey', (e) => { if (top(e)) b(e)?.passkeyWanted(e.sender); });
   // Sheet 87: the link he clicked in a tab's top page (the click trick), an address only.
   ipcMain.on('tab:link', (e, href) => { if (top(e) && typeof href === 'string') b(e)?.linkClicked(e.sender, href.slice(0, 4000)); });
   // Autofill (sheet 77): the box he is in, and a login he sent, from a tab's top page only; the light's two doors; the
