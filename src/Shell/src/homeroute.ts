@@ -14,10 +14,15 @@ import { readJson } from './store.ts';
 
 export const HOME_ROUTE_PORT = 47871;
 
-/** Prime Video, its player, its pictures and Amazon's sign-in: the whole site has to come from the same place. */
+/** Prime Video, its player, its pictures and Amazon's sign-in: the whole site has to come from the same place.
+ *  Disney+ too (2026-11-17, his "dig in"): it said "not available in your region" from Shadow's network, the same
+ *  block as Prime. Its site, Disney Streaming's servers (sign-in, licences, the "where are you" check), its pictures
+ *  and its video, read from disneyplus.com's own page. Never the secret window (routeHome is normal Samara only). */
 export const HOME_HOSTS = [
   'primevideo.com', 'amazonvideo.com', 'aiv-cdn.net', 'aiv-delivery.net', 'pv-cdn.net',
   'amazon.com', 'amazon.ca', 'media-amazon.com', 'ssl-images-amazon.com', 'images-amazon.com',
+  'disneyplus.com', 'disney-plus.net', 'bamgrid.com', 'bamgrid.net', 'dssott.com', 'twdcgrid.net',
+  'disneyaccount.com', 'registerdisney.go.com', 'disneystreaming.com',
 ];
 
 export function homeHost(host: string): boolean {
