@@ -24,11 +24,13 @@ export function pcSamara(su: SamaraUpdates): Source {
 }
 
 /** Sheet 108's lines for a new engine: video wins, so there are no tick boxes. */
-export function engineGroups(version: string, since: number, where: string, now = Date.now()): CardGroup[] {
+export function engineGroups(version: string, since: number, where: string, now = Date.now(), look: string[] = []): CardGroup[] {
   const days = Math.floor((now - since) / 86_400_000);
   return [{ name: "SAMARA'S ENGINE", items: [
     { text: "Chrome's newest security fixes.", note: `castLabs ${version}, out ${days < 1 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`}.` },
     { text: 'Netflix and Prime keep playing in your tabs.', note: `Signed for video on this ${where}.` },
+    // Phase 2: a look check on Samara's own page failed on this engine. Said, but it does not hold the engine back.
+    ...(look.length ? [{ text: `${look.length} small look check${look.length === 1 ? '' : 's'} on Samara's page failed.`, note: look[0]!.slice(0, 120) + (look.length > 1 ? ', and more.' : '.') }] : []),
   ] }];
 }
 
@@ -42,7 +44,9 @@ export function pcEngine(eu: EngineUpdates, o: { browserOpen: () => boolean }): 
       const r = eu.ready;
       if (!r) return null;
       const coming = eu.getting && eu.getting !== r.version ? { coming: { next: `engine ${eu.getting}`, now: `engine ${r.version}` } } : {};
-      return { version: r.version, since: r.since, title: `Samara's engine ${r.version}`, groups: engineGroups(r.version, r.since, 'PC'), canBack: eu.canBack(), ...(eu.behind ? { behind: eu.behind } : {}), ...coming };
+      // Phase 2: it passed Aang's checks here, so an engine with security fixes goes in tonight by itself.
+      const sec = r.security ? { security: true, tonight: true } : {};
+      return { version: r.version, since: r.since, title: `Samara's engine ${r.version}`, groups: engineGroups(r.version, r.since, 'PC', Date.now(), r.look ?? []), canBack: eu.canBack(), ...(eu.behind ? { behind: eu.behind } : {}), ...coming, ...sec };
     },
     check: () => eu.check(),
     go: () => eu.restartNow(o.browserOpen(), undefined, src.overnight ?? undefined),
