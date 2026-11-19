@@ -298,7 +298,7 @@ All from the Edge blog [docs]:
 
 ## 4. What this means for Samara
 
-What Samara already has (from `src/Shell/src/claude-door-mcp.mjs` and the samara-security notes):
+What Samara already has (from `src/Shell/src/claude-door-mcp.mjs` and his private security notes):
 - A Claude-door MCP with these tools: open, read, find, click, type, select, key, scroll, upload, picture, history, note, back/forward/close, check_form, collect_jobs, jobs, check_companies, sweep, sweep_status.
 - Aang's `browse` tool, with a HOLD/trust list and a taint flag.
 - Visits history that excludes banking sites.

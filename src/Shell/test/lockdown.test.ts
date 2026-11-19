@@ -1,4 +1,4 @@
-// AI lockdown (2026-10-14, research_notes/samara-security/ai-driving-threats.md): the rules a driving session cannot
+// AI lockdown (2026-10-14, from the AI-driving threat notes, kept private since 2026-11-19): the rules a driving session cannot
 // talk its way around.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
