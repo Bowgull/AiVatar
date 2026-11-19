@@ -1,4 +1,5 @@
-// The Shrine Reddit feed, Samara's half (sheet R18, approved 2026-11-03; build plan phase 1). Every 30 minutes Samara reads
+// The Shrine Reddit feed (sheet R18, approved 2026-11-03; build plan phase 1). Since 2026-11-19 it runs in Aang's process,
+// not Samara's (main.ts startRedditFeed; Samara only hands over his sign-in, redditcookies.ts). Every 30 minutes it reads
 // his Reddit with his own signed-in session: his front page first, then a trending mix so the feed never runs dry. Each
 // post keeps its picture or short video (saved locally, 150 MB at most, oldest out first), its sub's emblem and its top
 // two comments, so the widget opens a post instantly and never touches Reddit itself. NSFW is left out, spoilers are
