@@ -59,3 +59,7 @@ test('M2: the whole Mac setup, heartbeat included, is valid bash', t => {
   const hb = /cat > "\$DIR\/heartbeat\.sh" <<'HEARTBEAT'\n([\s\S]*?)HEARTBEAT\n/.exec(setup)?.[1] ?? '';
   execFileSync('bash', ['-n'], { input: hb, stdio: ['pipe', 'pipe', 'pipe'] });
 });
+
+test('the Mac setup never ships or copies his target-company list (it lives only in his job-hunt folder)', () => {
+  assert.doesNotMatch(setup, /target-companies/);
+});

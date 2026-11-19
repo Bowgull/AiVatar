@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { digest, line, topPay } from '../src/driverrules.ts';
@@ -66,4 +66,13 @@ test('the door checks only companies he approved, and only when asked', async ()
   const r = await checkCompanies(state, [], get);
   assert.equal(r.ok, true);
   assert.deepEqual(asked, ['https://api.lever.co/v0/postings/yes?mode=json']);
+});
+
+test('his company list is read from his job-hunt folder only, never shipped with Samara', async () => {
+  assert.equal(existsSync(path.join(import.meta.dirname, '..', 'src', 'target-companies.json')), false, 'the list must not be in the repo');
+  const data = mkdtempSync(path.join(os.tmpdir(), 'tc-')), state = mkdtempSync(path.join(os.tmpdir(), 'tcs-'));
+  process.env.JOB_HUNT_DATA = data;
+  const r = await checkCompanies(state, [], (async () => { throw new Error('no fetch without a list'); }) as unknown as typeof fetch);
+  assert.equal(r.ok, false);
+  assert.ok(String(r.error).includes(path.join(data, 'target-companies.json')), String(r.error));
 });
