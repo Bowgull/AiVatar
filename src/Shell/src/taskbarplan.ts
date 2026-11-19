@@ -8,6 +8,24 @@
 
 export interface Box { x: number; y: number; width: number; height: number }
 
+/**
+ * Whose taskbar button a pop-out goes under. His rule (2026-11-18): "my music player isnt stand alone anymore ... the
+ * mini player the notes ... the timer ... are supposed to be seperate ... their own things that control their own
+ * pieces". So the music player, notes and timers each have their own button (their own app id, name and icon), not
+ * Samara's lantern; the video, Claude's jobs and pinned snips stay under Samara's (sheet 66 A).
+ */
+export interface TaskbarApp { appId: string; name: string; key: 'S' | 'M' | 'N' | 'T' }
+export const SAMARA_APP: TaskbarApp = { appId: 'Aang.Samara', name: 'Samara', key: 'S' };
+export const OWN_APPS: Record<string, TaskbarApp> = {
+  player: { appId: 'Aang.Music', name: 'Music player', key: 'M' },
+  note: { appId: 'Aang.Notes', name: 'Notes', key: 'N' },
+  timer: { appId: 'Aang.Timer', name: 'Timer', key: 'T' },
+};
+/** A pop-out's button: its own for the player, notes and timers, else Samara's. */
+export function appFor(kind: string): TaskbarApp { return OWN_APPS[kind] ?? SAMARA_APP; }
+/** The jump-list task whose icon a kind with its own button wears. */
+export const OWN_ICON_TASK: Record<string, PopoutTask> = { player: 'player', note: 'new-note', timer: 'timer' };
+
 /** The order kinds are named in a group's label (his example: "Video + Job + Player") and the order a lead is picked in. */
 export const KIND_ORDER = ['video', 'job', 'player', 'timer', 'note', 'snip'] as const;
 const LEAD_ORDER = ['video', 'player', 'job', 'timer', 'note', 'snip'];

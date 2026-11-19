@@ -1,7 +1,7 @@
 // Pop-outs on Samara's taskbar (sheet 66 A, 2026-10-22). Real windows, off his screen (x around -5000), never focused or
 // raised, no real mouse or keys. NOTE: the windows do get real taskbar buttons (under Samara's lantern) for the ~30 s
 // this runs; everything is closed at the end.
-// Checks: every member wears 'Aang.Samara' (read back from Windows through the helper), the windows that never take the
+// Checks: the video and jobs wear 'Aang.Samara', the player and timers their own ids (2026-11-18) (read back from Windows through the helper), the windows that never take the
 // keyboard got WS_EX_APPWINDOW, loose ones are on the taskbar with their names and buttons; a snapped group (video + job
 // + player) takes its members off the taskbar and gets ONE stand-in named "Video + Job + Player" whose picture DWM
 // accepts (the helper's HRESULTs), carrying the player's buttons; clicking it raises the group; leaving the group gives
@@ -125,7 +125,9 @@ app.whenReady().then(async () => {
   for (const id of all) {
     const q = await askHelper('Q', wins[id]!);
     const [style, appId] = q.split(' ');
-    check(`${id}: Windows says app id Aang.Samara and WS_EX_APPWINDOW`, appId === 'Aang.Samara' && (Number(style) & 0x40000) !== 0, q);
+    // His rule (2026-11-18): the player and timers on their own buttons; the video and jobs under Samara's lantern.
+    const want = P.appFor(tb.members.get(id)!.kind).appId;
+    check(`${id}: Windows says app id ${want} and WS_EX_APPWINDOW`, appId === want && (Number(style) & 0x40000) !== 0, q);
   }
   check('the ones that never take the keyboard still never do (WS_EX_NOACTIVATE kept: timer, job, player)', await (async () => {
     for (const id of [TID, JID, 'player']) { const s = Number((await askHelper('Q', wins[id]!)).split(' ')[0]); if (!(s & 0x08000000)) return false; } return true;
