@@ -234,7 +234,8 @@ app.whenReady().then(async () => {
   let engineSrc: ReturnType<typeof pcEngine> | null = null;
   boot = samaraBrowser(base, platform, {
     options: { repoDir: path.join(SHELL_HOME, '..', '..') },
-    secret: true,
+    // His rule (2026-11-19): the secret window lives on his Mac only. The PC has none; ⇧Ctrl+N says so.
+    secret: false,
     plans,
     claude: plans,
     mockupDoor: { offWhy: () => "Samara's Mockups trail is switched off. Tell the user where the file is." },

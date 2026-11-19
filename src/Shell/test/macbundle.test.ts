@@ -83,8 +83,8 @@ test('no unguarded Windows-only call in anything the Mac runs', () => {
     });
   }
   assert.deepEqual(bad, [], 'unguarded Windows-only calls in the Mac bundle');
-  const mm = readFileSync(path.join(SRC, 'macmain.ts'), 'utf8');
-  assert.match(mm, /import \{ onCastlabs \} from '\.\/engineupdate\.ts'/, 'macmain takes only onCastlabs from the engine updater');
+  const mm = readFileSync(path.join(SRC, 'macsamara.ts'), 'utf8');
+  assert.match(mm, /import \{ onCastlabs \} from '\.\/engineupdate\.ts'/, 'normal Samara on the Mac (macsamara.ts, behind macmain.ts since 2026-11-19) takes only onCastlabs from the engine updater');
   const onC = /export (const|function) onCastlabs[\s\S]*?\n\}?\n/.exec(readFileSync(path.join(SRC, 'engineupdate.ts'), 'utf8'))?.[0] ?? '';
   assert.doesNotMatch(onC, /\.exe|System32|powershell/i, 'onCastlabs itself is plain');
 });

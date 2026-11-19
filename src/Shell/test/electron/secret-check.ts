@@ -12,6 +12,8 @@
 //  8c 2026-10-28: ⇧⌘N brings a locked secret window forward; closing its last tab keeps every tab for next time
 //  9 five wrong PINs: a new one needs his Mac password
 // 10 the secret window searches with Yandex
+// 11 (2026-11-19) its folder is sealed on disk: no file in it names a page; typing before the PIN asks no one
+// The Mac's only (his rule, 2026-11-19): on the PC there is no secret window, so this check says so and stops.
 // Run: TEST_CERT_DIR=<dir with test-key.pem, test-cert.pem> npx electron test/electron/secret-check.ts
 import { app, BrowserWindow } from 'electron';
 import https from 'node:https';
@@ -38,6 +40,7 @@ const PAGE = (p: string) => `<!doctype html><title>Shop page</title><body style=
 <a id="l" href="${p.replace('shop', 'ads')}/link" target="_blank" style="position:absolute;left:20px;top:120px;width:200px;height:60px;display:block;background:#ccc">link</a>
 <script>document.addEventListener('click', (e) => { if (e.target.id === 'l') window.open('${p.replace('shop', 'ads')}/sneaky'); });</script></body>`;
 app.whenReady().then(async () => {
+  if (process.platform !== 'darwin') { console.log('SKIP the secret window is only on the Mac (secretguard.ts); the PC side is test/electron/sealdir-check.ts'); app.exit(0); return; }
   const CERT = process.env.TEST_CERT_DIR!;
   let port = 0;
   const srv = https.createServer({ key: readFileSync(path.join(CERT, 'test-key.pem')), cert: readFileSync(path.join(CERT, 'test-cert.pem')) },
@@ -99,7 +102,8 @@ app.whenReady().then(async () => {
   const saved = existsSync(path.join(sdir, 'browser-tabs.json')) ? readFileSync(path.join(sdir, 'browser-tabs.json'), 'utf8') : '';
   const guestLogin = (await guest.cookies.get({ name: 'login' })).length;
   check('4 locking puts it all away behind Brave Search: nothing suggested, saved in its own folder',
-    s.locked && s.tabs.length === 1 && String(s.cur()?.url).startsWith('https://search.brave.com') && s.suggest('shop').every((x: any) => x.kind === 'search' || x.kind === 'go') && saved.includes('/before') && saved.includes('/kept') && guestLogin === 0,
+    s.locked && s.tabs.length === 1 && String(s.cur()?.url).startsWith('https://search.brave.com') && s.suggest('shop').every((x: any) => x.kind === 'search' || x.kind === 'go') && saved.startsWith('SAMARA-SEALED-1') && !saved.includes('shop.example')
+      && s.away?.tabs.some((t: any) => String(t.url).includes('/before')) && s.away?.tabs.some((t: any) => String(t.url).includes('/kept')) && guestLogin === 0,
     `${s.tabs.map((t: any) => t.url).join(' ')} | suggest ${s.suggest('shop').map((x: any) => x.kind).join(',')} | guest login ${guestLogin}`);
 
   // 5
@@ -197,7 +201,7 @@ app.whenReady().then(async () => {
   s.close(s.tabs[0].id);
   await wait(2000);
   const after = existsSync(tabsFile) ? readFileSync(tabsFile, 'utf8') : '';
-  check('8c closing the last secret tab keeps it for next time (never an empty list)', s.locked === true && after.includes(lastUrl) && !/"tabs":\[\]/.test(after), `last ${lastUrl}`);
+  check('8c closing the last secret tab keeps it for next time, sealed', s.locked === true && after.startsWith('SAMARA-SEALED-1') && !after.includes('shop.example'), `last ${lastUrl}`);
   s.open();
   for (let i = 0; i < 100 && !s.cur()?.view; i++) await wait(150);
   await wait(1200);
@@ -229,6 +233,12 @@ app.whenReady().then(async () => {
   await wait(400);
   const sUrl = s.tabs.map((x: any) => String(x.pending || x.url)).join(' '), bUrl = String(b.cur()?.pending || b.cur()?.url);
   check('10 the secret window searches with Yandex, normal Samara with its own', sUrl.includes('yandex.com/search/?text=pixel') && bUrl.includes('search.brave.com/search'), `${sUrl} | ${bUrl}`);
+  // 11: nothing in its folder can be read without its key; typing before the PIN goes nowhere
+  const { readdirSync, statSync } = await import('node:fs');
+  const walk = (d: string): string[] => readdirSync(d).flatMap((n) => { const f = path.join(d, n); return statSync(f).isDirectory() ? walk(f) : [f]; });
+  const plain = walk(sdir).filter((f) => readFileSync(f, 'latin1').includes('shop.example'));
+  check('11 its folder on disk names no page (sealed)', plain.length === 0, plain.map((f) => path.basename(f)).join(', '));
+  check('11 locked, typing asks no search engine anything', s.locked === true && (await s.guesses('shop')).length === 0);
   console.log(bad ? `${bad} FAILED` : 'ALL PASS');
   srv.close(); app.exit(bad ? 1 : 0);
 });

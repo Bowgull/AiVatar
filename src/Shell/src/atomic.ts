@@ -24,6 +24,14 @@ export interface AtomicOpts {
   mode?: number;
 }
 
+/**
+ * A last say over what reaches the disk (2026-11-19: Samara's secret window keeps its folder sealed, sealdir.ts). Given
+ * the file and what is to be written, it returns what to write instead, or null to write nothing. None in the brain.
+ */
+export type WriteGate = (file: string, data: string | Uint8Array) => string | Uint8Array | null;
+let gate: WriteGate | null = null;
+export function setWriteGate(g: WriteGate | null): void { gate = g; }
+
 const posix = process.platform !== 'win32';
 const modeFor = (file: string, o?: AtomicOpts): number | null => {
   if (!posix) return null;
@@ -32,6 +40,7 @@ const modeFor = (file: string, o?: AtomicOpts): number | null => {
 };
 
 export function writeFileAtomic(file: string, data: string | Uint8Array, o?: AtomicOpts): void {
+  if (gate) { const d = gate(file, data); if (d === null) return; data = d; }
   latest.set(file, ++seq);
   mkdirSync(path.dirname(file), { recursive: true });
   const mode = modeFor(file, o);
@@ -48,6 +57,7 @@ export function writeFileAtomic(file: string, data: string | Uint8Array, o?: Ato
  * tab list is saved every few seconds while he browses. For files saved often; a save on quit stays writeFileAtomic.
  */
 export async function writeFileAtomicSoon(file: string, data: string | Uint8Array, o?: AtomicOpts): Promise<void> {
+  if (gate) { const d = gate(file, data); if (d === null) return; data = d; }      // sealed now, whatever happens later
   const me = ++seq;
   latest.set(file, me);
   const tmp = `${file}.${process.pid}.${me}.tmp`;

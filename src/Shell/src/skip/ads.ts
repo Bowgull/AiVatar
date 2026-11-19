@@ -306,7 +306,9 @@ export function cloaked(engine: Matcher, makeRequest: (o: Record<string, unknown
   return r.match && !r.redirect;
 }
 
-export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean; guard?: RequestGuard; paused?: string[]; slot?: string } = {}): Promise<AdBlock | null> {
+/** privatePauses (2026-11-19, the secret window): sites paused later (pause, pauseMany) never go into the engine kept on
+ *  disk, which is in normal Samara's folder; only `paused` as given here does. */
+export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean; guard?: RequestGuard; paused?: string[]; slot?: string; privatePauses?: boolean } = {}): Promise<AdBlock | null> {
   const cacheDir = path.join(stateDir, 'adblock');
   try { mkdirSync(cacheDir, { recursive: true }); } catch { /* checked on write */ }
   const cache = path.join(cacheDir, 'lists.txt'), whenFile = path.join(cacheDir, 'when.json'), resFile = path.join(cacheDir, 'resources.json');
@@ -395,7 +397,7 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
       if (!f.got || f.got < got || !f.text.trim()) return;      // never swap in fewer lists than are blocking now
       keep(f.text, f.got);
       const res = (await freshResources(resFile)) || resources;
-      const now = [...paused];
+      const now = opts.privatePauses ? [...(opts.paused ?? [])] : [...paused];
       const k = keyOf(withPauses(f.text, now), res);
       if (k === key) return;
       const bytes = await buildAway(withPauses(f.text, now), cosmetic, res);
