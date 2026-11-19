@@ -1390,6 +1390,21 @@
       "at": "2026-11-18T01:54:00-05:00",
       "kind": "fix",
       "text": "The castLabs sign-in for a new browser engine opens properly in Windows Terminal again (it said it could not find the file)."
+    },
+    {
+      "at": "2026-11-19T08:15:27-05:00",
+      "kind": "fix",
+      "text": "A video in full screen can always be left again: on the Mac the Press Esc hint held the window in a black full screen that could not be closed."
+    },
+    {
+      "at": "2026-11-19T08:16:27-05:00",
+      "kind": "fix",
+      "text": "The music player, mini player, notes and timers are their own things again: opening one shows just it, never Samara, and each has its own taskbar button."
+    },
+    {
+      "at": "2026-11-19T08:17:27-05:00",
+      "kind": "fix",
+      "text": "Paid shows (Netflix, Crunchyroll, Prime, Disney+) play again on both machines; a file they need had been removed by mistake on Nov 12."
     }
   ]
 }
