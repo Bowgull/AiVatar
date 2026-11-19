@@ -179,7 +179,7 @@ Also: a GitHub About line with a homepage link, 5 to 10 topics, and a custom soc
 - social preview = `hero.png`.
 
 **Privacy risk (public now):** tracked files contain his personal email. At least these do:
-- `docs/DRIVE-CLAUDE-MD.md`, `docs/FINAL-AANG-BUILD.md`, `docs/PORT-TO-MAC.md`;
+- `docs/FINAL-AANG-BUILD.md`, `docs/PORT-TO-MAC.md`;
 - tests (`booking`, `emailfacts`, `g15`, `mail-e6`, `lockdown`);
 - `tabclose-shots.ts`.
 

@@ -21,7 +21,7 @@ test('nothing else goes home: look-alikes and the rest of go.com stay on the PC'
 test('the proxy script names every home address and goes straight out otherwise', () => {
   const pac = homePac('100.64.0.10');
   for (const h of HOME_HOSTS) assert.ok(pac.includes(JSON.stringify(h)), h);
-  assert.match(pac, /PROXY 100\.83\.81\.65:47871; DIRECT/);
+  assert.match(pac, /PROXY 100.64.0.10:47871; DIRECT/);
   assert.match(pac, /return 'DIRECT';\s*}$/);
 });
 

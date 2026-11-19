@@ -7,7 +7,7 @@
 //  - Some files are never his to write, whatever was agreed: his own trust list (writing it would let him
 //    grant himself permissions), his memory database and state, and Windows itself.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
@@ -149,20 +149,48 @@ export const VAULT_WRITABLE = path.join(VAULT_WORKING, '10_Projects', 'Aang');
  *     is refused too, and a handle she uses in file names;
  *   - a second person's resume, named in his profile as "other people's files - ignore".
  *
- * Only FINGERPRINTS of the names live here (sha256 of 'aang-offlimits:' + the normalised name). The
- * repo is public and the people this protects should not be named in it. The real names and paths
- * are checked by test/offlimits-real.test.ts against a local, untracked list.
+ * None of the names live in this repo, not even as fingerprints (2026-11-19 scrub: a fixed salt let anyone test
+ * guesses against them). Each machine keeps its own list in Aang's settings folder, offlimits.json:
+ * { salt, folders, people, handles }, where every entry is sha256(salt + ':' + the normalised name). The salt is
+ * random per machine, so the fingerprints mean nothing anywhere else. tools/offlimits-setup.ts writes it from a
+ * names file he keeps outside the repo; test/offlimits-real.test.ts checks the real paths against it.
  *
  * Full names only, never a first name: a first-name rule blocked Joshua's own project notes that
  * merely mention her, which is how a rule stops being trusted.
  */
-const fingerprint = (plain: string) => createHash('sha256').update('aang-offlimits:' + plain).digest('hex').slice(0, 32);
+export const OFFLIMITS_FILE = path.join(AANG_STATE, 'offlimits.json');
+export interface OffLimitsList { salt: string; folders: string[]; people: string[]; handles: string[] }
+/** sha256 of salt + ':' + the normalised name, cut to 32 hex characters. */
+export const offLimitsPrint = (salt: string, plain: string) => createHash('sha256').update(salt + ':' + plain).digest('hex').slice(0, 32);
+function readOffList(file: string): OffLimitsList | null {
+  try {
+    const j = JSON.parse(readFileSync(file, 'utf8'));
+    if (typeof j?.salt !== 'string' || j.salt.length < 16) return null;
+    const arr = (x: unknown) => (Array.isArray(x) ? x.filter((v): v is string => typeof v === 'string') : []);
+    return { salt: j.salt, folders: arr(j.folders), people: arr(j.people), handles: arr(j.handles) };
+  } catch { return null; }   // missing or broken: no list on this machine yet
+}
+const OFF = readOffList(OFFLIMITS_FILE);
+/** This machine's salt; without a list yet, a throwaway one so names added at run time still work. */
+const SALT = OFF?.salt ?? randomBytes(16).toString('hex');
+const fingerprint = (plain: string) => offLimitsPrint(SALT, plain);
 /** Whole folder names (after plainName), e.g. "<first name>'s job hunt". */
-const SOMEONE_ELSES = new Set(['00000000000000000000000000000000']);
+const SOMEONE_ELSES = new Set(OFF?.folders ?? []);
 /** Full names, two words, e.g. "first last". Underscores and hyphens fold to spaces. */
-const OTHER_PEOPLE = new Set(['00000000000000000000000000000001', '00000000000000000000000000000002']);
+const OTHER_PEOPLE = new Set(OFF?.people ?? []);
 /** Single-word handles that appear inside file names. */
-const THEIR_HANDLES = new Set(['00000000000000000000000000000003']);
+const THEIR_HANDLES = new Set(OFF?.handles ?? []);
+/** Whether this machine has its list (the real-paths test and setup tool use it). */
+export const offLimitsListLoaded = () => OFF !== null;
+
+/** Fingerprint real names with a salt, for offlimits.json. The same normalising as the checks below. */
+export function offLimitsEntries(salt: string, names: { folders?: string[]; people?: string[]; handles?: string[] }): Omit<OffLimitsList, 'salt'> {
+  return {
+    folders: (names.folders ?? []).map((f) => offLimitsPrint(salt, plainName(f))),
+    people: (names.people ?? []).map((n) => offLimitsPrint(salt, plainName(n).split(/[^a-z]+/).filter(Boolean).join(' '))),
+    handles: (names.handles ?? []).map((h) => offLimitsPrint(salt, plainName(h))),
+  };
+}
 
 /** Add more off-limits names at run time (tests use made-up ones). Names are stored as fingerprints. */
 export function alsoOffLimits(names: { folders?: string[]; people?: string[]; handles?: string[] }): void {

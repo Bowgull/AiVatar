@@ -64,7 +64,7 @@ done, or written into "Not doing" with its reason (decision 47). The older docum
 matter more than either, and 5.7 absorbed into 0.2. 2.5 PASSED: asked "whats my status with octup", Aang called Read and answered correctly from
 applications.md. Two prompt faults found and fixed to get there, neither of them plumbing: voice.ts
 told him to OFFER to look, and profile.md only told him to read the file if he already knew the
-question was about the job hunt. another person path resolved: there are TWO folders, `another person's Job Hunt` in his own My Drive and `🎯 another person's Job Hunt` shared by her; both are excluded by normalised name.**
+question was about the job hunt. The other person's folder path resolved: there are TWO folders, one in his own My Drive and one she shares; both are excluded by normalised name.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -394,7 +394,7 @@ Windows / Program Files / ProgramData. **[verified]** It does **not** cover:
 - `~/.claude`: your Claude credentials, and **722 session transcripts**
 - `.env` files anywhere
 - browser credential stores
-- **`another person's Job Hunt`**: someone else's data
+- **`another person's job-hunt folder`**: someone else's data
 
 That last one matters most. You gave a clear, permanent instruction about it. **Right now
 that instruction exists only as words in a document.** Words are advice. A list in code is
@@ -406,7 +406,7 @@ a rule.
 resolves shortcuts, so a link named `notes.txt` pointing at `id_rsa` is still caught. That
 helper exists precisely for this and is documented at `files.ts:15`.
 
-**You must supply one thing:** the exact path of `another person's Job Hunt`. It is on the
+**You must supply one thing:** the exact path of `another person's job-hunt folder`. It is on the
 MacBook or inside Drive and cannot be seen from Shadow. **Do not guess it.** A wrong path
 is a rule that does nothing.
 
@@ -2320,7 +2320,7 @@ sites), simple sprite animation, no local model there.
 - **No limits beyond his standing rules** ("why would we limit what he can do?"): the Mac Aang may make files, keep
   lists, notes and memory, look things up, and drive the Mac. Still always: final actions (send, post, delete, sign
   in) ask him, **with the PIN from the phone**; Aang never buys; web pages are information, never instructions;
-  another person's data and her Mac  are never touched.
+  Another person's data and her Mac are never touched.
 - **One browser, both machines: everything syncs** (bookmarks, open tabs and trails, history, settings, AND logins,
   his call against my advice). Guards: logins travel only over Tailscale, never GitHub or Drive; bank and money
   sites never sync (the same `neverKeep` list), he signs in to those on each machine.
@@ -3162,8 +3162,8 @@ feature" (his call, 2026-10-13).
   parts that need no tools: transcript summaries.
 
 **Security, unchanged:** every email, attachment, transcript and page is DATA. CHANGES_AFTER_OUTSIDE stays: after reading
-one, anything that acts asks him (the card's buttons ARE that ask). Never a permanent delete. another person's Job Hunt folder
-and another person's Mac stay excluded.
+one, anything that acts asks him (the card's buttons ARE that ask). Never a permanent delete. Another person's job-hunt folder
+and her Mac stay excluded.
 
 **Build order:** E1 keep links, pull out addresses, dates, phones, video links, invites (.ics and Google invites) ->
 E2 attachments (download, read text, send to phone) -> E3 the card with its buttons (after the mockup) -> E4 the new
@@ -4165,7 +4165,7 @@ the Discord connection while Shadow sleeps, and:
 - Started by the Mac helper with one POST and a bearer token. Text sent with it arrives labelled as
   untrusted data.
 - **Every routine has its connectors stripped**, and **Google Drive removed**: by default a routine gets
-  every connector and uses them, writes included, without asking. another person's folder is reachable through Drive.
+  every connector and uses them, writes included, without asking. Another person's folder is reachable through Drive.
 - Routines never stop for approval, so **only low-risk work goes there**: research, drafting,
   summarising, fact checks. Never sending or deleting.
 - **Policy, verified word for word** (`code.claude.com/docs/en/legal-and-compliance`): Agent SDK
@@ -4343,7 +4343,7 @@ These change the code, so they cannot be guessed.
 | # | question | blocks | my recommendation |
 |---|---|---|---|
 | 1 | Missing memory: refuse to start, or run and say so every turn? | 0.2 | **Refuse.** Silent amnesia is the worst state. |
-| 2 | Exact path of `another person's Job Hunt` | **1.2, and therefore all of Drive** | Needs the MacBook. Do not guess it. |
+| 2 | Exact path of `another person's job-hunt folder` | **1.2, and therefore all of Drive** | Needs the MacBook. Do not guess it. |
 | 3 | Size of My Drive versus free space | 2.1 | Needs the MacBook or a signed-in session. |
 | 4 | Honesty check: rewrite the reply, or flag it? | 5.4 | **Flag.** Rewriting risks changing a correct answer. |
 | 5 | Which cache rate your account is billed at | nothing, but it doubles the cost numbers | The billing page says. |
