@@ -69,7 +69,7 @@ import type { DrmRuntime } from './drmrunner.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
-import type { Box } from './geometry.ts';
+import { fitIn, type Box } from './geometry.ts';
 import { Satchel } from './satchel.ts';
 import { SamaraWatch, launcherEnv, pidAlive, readExitMark, samaraApart, samaraLauncher, samaraPid } from './samaramode.ts';
 
@@ -1112,7 +1112,9 @@ app.whenReady().then(async () => {
     if (!width || !height) return;
     const wasUp = w.isVisible();
     const [haveW, haveH] = w.getSize();
-    if (haveW !== width || haveH !== height) {
+    // Placed every time it comes up, not only when its size changes (2026-11-13: one that came up at its first size was
+    // never placed, so Windows centred it on whichever screen it liked).
+    if (haveW !== width || haveH !== height || !wasUp) {
       // setBounds, NEVER setSize: on a window made with `resizable: false`, setSize is silently ignored
       // on this machine, while setBounds works (test/electron/setsize.cjs, 2026-10-04). The first real
       // run left the bubble at its starting 560 px, so a two-word reply sat 450 px away from Aang.
@@ -1124,11 +1126,18 @@ app.whenReady().then(async () => {
       // size instead and the panel jumps 84 px left and 40 px up the moment a tail is added.
       const pr = Math.max(0, Math.min(400, Math.round(Number(size.pad?.right) || 0)));
       const pb = Math.max(0, Math.min(400, Math.round(Number(size.pad?.bottom) || 0)));
-      const box = petAt
-        ? bubbleBox(petAt, { width: width - pr, height: height - pb })
-        : { x, y, width, height };
-      w.setBounds({ x: box.x, y: box.y, width, height });
-      aimTail(w, box);
+      // Where Aang is; before the pet has said where (Aang just started), the bottom right of the screen he is using
+      // instead of wherever Windows puts it. Either way wholly on that screen (his report, 2026-11-13: "anything for samara
+      // keeps popping up in the center of my sansui screen ... and it always gets cut off").
+      const corner = (): Box => {
+        const a = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+        return { x: a.x + a.width - width - 24, y: a.y + a.height - height - 24, width, height };
+      };
+      const box = petAt ? bubbleBox(petAt, { width: width - pr, height: height - pb }) : wasUp ? { x, y, width, height } : corner();
+      const near = petAt ? { x: petAt.sprite.x, y: petAt.sprite.y } : { x: box.x + width / 2, y: box.y + height / 2 };
+      const fit = fitIn(screen.getDisplayNearestPoint(near).workArea, { x: box.x, y: box.y, width, height });
+      w.setBounds(fit);
+      aimTail(w, { ...box, x: fit.x, y: fit.y });
     }
     bubble?.show();
     // His rule (2026-11-02, a Claude plan's checklist floated alone over Claude's window): the bubble never shows without

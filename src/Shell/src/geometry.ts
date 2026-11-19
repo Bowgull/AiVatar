@@ -102,6 +102,18 @@ export function ontoScreen(box: Box, screen: Screen): Box {
   return out;
 }
 
+/**
+ * Wholly inside the screen (2026-11-13, his report: Samara's pop-ups came up in the middle of his other screen, cut off).
+ * Stricter than ontoScreen, which lets a window he placed hang partly off: something that pops up by itself must be
+ * entirely readable. Shrunk to the screen if it is bigger, then moved in; whole pixels.
+ */
+export function fitIn(screen: Screen, box: Box): Box {
+  const width = Math.round(Math.min(box.width, screen.width)), height = Math.round(Math.min(box.height, screen.height));
+  const x = Math.round(Math.min(Math.max(box.x, screen.x), screen.x + screen.width - width));
+  const y = Math.round(Math.min(Math.max(box.y, screen.y), screen.y + screen.height - height));
+  return { x, y, width, height };
+}
+
 /** The preset shortcuts from sheet 4. Each is a 16 by 9 box placed on the right-hand side. */
 export function preset(name: 'corner' | 'medium' | 'big', screen: Screen, chrome: number = CHROME): Box {
   const share = name === 'corner' ? 0.22 : name === 'medium' ? 0.36 : 0.55;

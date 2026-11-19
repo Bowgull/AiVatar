@@ -43,6 +43,7 @@ import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch,
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { SessionStore, type SessionData } from './sessionstore.ts';
+import { fitIn } from './geometry.ts';
 import { SavePaths, programAsk, quarantineMark, safeName, sameSite, siteOfUrl, zoneMark } from './downloads.ts';
 import { readJson } from './store.ts';
 import { carriesData, goesInward, grantKey, grantTop, keyWeigh, needsLookup, ownPopup, personal, privateHost, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
@@ -918,8 +919,8 @@ export class AangBrowser {
   /** Set by main: he pressed STOP on a job, so the brain stops that turn. */
   onDriverStop: ((j: Job) => void) | null = null;
   /**
-   * Sheet 37, the plan card: where a Claude session's plan is shown when Claude's own window is not in front. The PC sets
-   * this to Aang's bubble; without it (the Mac until its own Aang exists) the plan drops from Samara's band.
+   * Sheet 37, the plan card. No longer asked through (2026-11-13, his rule: Samara's own asks come from Samara): askPlan
+   * always uses Samara's band. Kept so both machines' wiring still compiles; nothing calls it.
    */
   onPlanAsk: ((card: PlanCard) => Promise<PlanAnswer | null>) | null = null;
   /** The live checklist: a planned session moved on to another step, or finished. */
@@ -1370,6 +1371,16 @@ export class AangBrowser {
       keys: [{ label: a.yes || 'Allow', act: 'yes' }, { label: a.no || 'No', act: 'no', plain: true }],
     }), (act) => { if (timer) clearTimeout(timer); done(act === 'yes'); });
     timer = setTimeout(() => { this.notices.drop(id); done(false); }, 120_000);
+  }
+  /**
+   * A small window's place: centred over Samara's window (the one in front), kept fully inside that screen's work area.
+   * With no Samara window, the screen the mouse is on.
+   */
+  private overWindow(width: number, height: number): { x: number; y: number; width: number; height: number } {
+    const w = this.win && !this.win.isDestroyed() ? this.win : null;
+    const b = w ? w.getBounds() : null;
+    const area = b ? screen.getDisplayMatching(b).workArea : screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    return fitIn(area, { width, height, x: b ? b.x + (b.width - width) / 2 : area.x + (area.width - width) / 2, y: b ? b.y + (b.height - height) / 2 : area.y + (area.height - height) / 2 });
   }
   /** Is this page one of this browser's own (its tabs and their popups), never another window's or Claude's? */
   private mine(wc: Electron.WebContents | null | undefined): wc is Electron.WebContents {
@@ -2941,7 +2952,9 @@ export class AangBrowser {
         const his = Date.now() - (this.lastGesture.get(tab.id) ?? 0) < GESTURE_MS;
         if (this.listed(u).length) return { action: 'deny' };
         if (!this.prefs.popups || (his && (own || this.fairOpen(tab, wc.getURL(), u))) || this.popOk(site)) {
-          return { action: 'allow', overrideBrowserWindowOptions: { width: 520, height: 680, autoHideMenuBar: true, backgroundColor: PAGE_COLOUR,
+          // Over Samara's own window, fully on that screen (2026-11-13, his report: Samara's pop-ups came up in the middle
+          // of his other screen, cut off, wherever Windows put a window with no place of its own).
+          return { action: 'allow', overrideBrowserWindowOptions: { ...this.overWindow(520, 680), autoHideMenuBar: true, backgroundColor: PAGE_COLOUR,
             title: 'Samara', webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath } } };
         }
         // His call (2026-10-12): no chip. The shield glows one solid blue; he clicks it to see what was blocked and
@@ -6856,11 +6869,15 @@ export class AangBrowser {
    */
   async askPlan(card: Omit<PlanCard, 'id'>): Promise<PlanAnswer | null> {
     const c: PlanCard = { ...card, id: 'samara:' + ++this.planSeq };
-    if (this.onPlanAsk) { const a = await this.onPlanAsk(c); if (a) return this.planClean(c, a); }
+    // His rule (2026-11-13: "if samara needs permissions it should come from samara so i havent been able to approve the
+    // smaara plan for gemini"): a plan is always asked here, in Samara's own band, never only in Aang's bubble. Before, it
+    // went to the bubble first and waited there up to five minutes; a bubble he could not see (Aang just started, no
+    // place yet, centred on his other screen and cut off) meant he never got to say yes.
     if (!this.lastPane()) { this.open(); await new Promise((r) => setTimeout(r, 1500)); }
     const p = this.lastPane();
     if (!p || !this.win || this.win.isDestroyed()) return null;
     this.pane = p;
+    if (this.win.isMinimized()) this.win.restore();
     const answer = new Promise<PlanAnswer | null>((done) => {
       this.planWait.set(c.id, done);
       setTimeout(() => { if (this.planWait.delete(c.id)) { done(null); this.win?.webContents.send('browser:plan', null); } }, 5 * 60_000);
