@@ -345,6 +345,35 @@ export function bringFront(w: BrowserWindow): void {
   if (process.platform === 'win32') setTimeout(() => { if (!w.isDestroyed() && !w.isFocused()) void askHelper('F', w, undefined, 4000); }, 60);
 }
 /**
+ * 2026-11-18 (his report: a black full screen he could not close): leaving full screen always happens. Asked once; if the
+ * window is still full screen a moment later (the Mac can drop the ask in the middle of its animation), asked again, and
+ * on the Mac a last time through its other full screen. A new full screen in between (his F11, a page's button) wins.
+ */
+const fullLeaving = new WeakMap<BrowserWindow, number>();
+let fullLeaveSeq = 0;
+function leaveFull(w: BrowserWindow, why: string): void {
+  if (w.isDestroyed() || !w.isFullScreen()) return;
+  const n = ++fullLeaveSeq;
+  fullLeaving.set(w, n);
+  w.setFullScreen(false);
+  const again = (left: number) => setTimeout(() => {
+    if (w.isDestroyed() || fullLeaving.get(w) !== n) return;
+    if (!w.isFullScreen()) { fullLeaving.delete(w); return; }
+    console.log(`shell: browser: the window stayed full screen after ${why}; asking again`);
+    if (left > 0) { w.setFullScreen(false); again(left - 1); return; }
+    fullLeaving.delete(w);
+    try { if (process.platform === 'darwin') w.setSimpleFullScreen(false); } catch { /* not the Mac */ }
+    w.setFullScreen(false);
+  }, 1500);
+  again(2);
+}
+/** F11 (the PC; the Mac's is ⌃⌘F in its View menu): into the window's full screen, or out of it and any page's in it. */
+function toggleFull(w: BrowserWindow): void {
+  if (w.isDestroyed()) return;
+  if (w.isFullScreen()) leaveFull(w, 'F11');
+  else { fullLeaving.delete(w); w.setFullScreen(true); }
+}
+/**
  * Sheet 87 (his "no smooth motion is applied to this whatsoever"): the secret window fades in over a fifth of a second,
  * easing out, instead of popping up.
  */
@@ -1407,17 +1436,54 @@ export class AangBrowser {
     w.webContents.once('did-finish-load', () => { if (!w.isDestroyed()) { w.webContents.send('signin:show', m); w.show(); } });
     void w.loadURL(`${this.o.origin}/signin.html`).catch(() => finish(null, null));
   }
-  /** Phase 1: "Press Esc to leave full screen", over the page for a few seconds each time a page goes full screen. */
+  /**
+   * 6.22b bug 1: a page's own full screen (a video's button) fills the whole screen, band and drawer gone; it comes back
+   * exactly as it was when the page leaves full screen (its button, Esc, F11, or the page dying).
+   */
+  private pageFullOn(tab: Tab, view: WebContentsView): void {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    this.fullTab = tab.id;
+    fullLeaving.delete(w);
+    try { view.setBorderRadius(0); } catch { /* square anyway */ }
+    // The hint once the window really is full screen (the Mac animates into its own Space for most of a second).
+    const hint = () => setTimeout(() => { if (!w.isDestroyed() && w.isFullScreen() && this.panes.some((p) => p.win === w && p.fullTab === tab.id)) this.fullHint(w); }, 0);
+    if (w.isFullScreen()) hint(); else w.once('enter-full-screen', hint);
+    w.setFullScreen(true);
+    this.place();
+  }
+  private pageFullOff(tab: Tab, view: WebContentsView): void {
+    if (this.fullTab !== tab.id) return;
+    this.fullTab = null;
+    try { if (!view.webContents.isDestroyed()) view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime, or gone */ }
+    if (this.win && !this.win.isDestroyed()) leaveFull(this.win, 'a page left full screen');
+    this.place();
+  }
+  /**
+   * Phase 1: "Press Esc to leave full screen", over the page for a few seconds each time a page goes full screen.
+   * 2026-11-18 (his report: "the private window ... goes full black screen that i cannot close when i full screen it"):
+   * it was a window of its own, a child of Samara's, made while the Mac was still animating into full screen; from then
+   * on the Mac never let Samara's window out of full screen again (Esc, the menu, the page crashing: a black Space he
+   * could not leave; measured with test/electron/secret-fullscreen-check.ts). It is now a view inside Samara's own
+   * window, on both machines: no second window, nothing the Mac's full screen has to carry.
+   */
   private fullHint(w: BrowserWindow): void {
     try {
-      const b = w.getBounds(), width = 420, height = 64;
-      const h = new BrowserWindow({ parent: w, x: Math.round(b.x + (b.width - width) / 2), y: b.y + 24, width, height, frame: false, transparent: true,
-        resizable: false, focusable: false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { ...SAFE_WEB_PREFERENCES } });
-      h.setIgnoreMouseEvents(true);
-      lockDown(h.webContents);
-      h.webContents.once('did-finish-load', () => { if (!h.isDestroyed()) h.showInactive(); });
-      void h.loadURL(`${this.o.origin}/fullhint.html`).catch(() => { /* no hint this time */ });
-      setTimeout(() => { if (!h.isDestroyed()) h.close(); }, 3500);
+      const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES } });
+      v.setBackgroundColor('#00000000');
+      lockDown(v.webContents);
+      const [cw] = w.getContentSize(), width = 420, height = 64;
+      v.setBounds({ x: Math.max(0, Math.round((cw - width) / 2)), y: 24, width, height });
+      v.setVisible(false);
+      w.contentView.addChildView(v);
+      let done = false;
+      const gone = () => { if (done) return; done = true; try { if (!w.isDestroyed()) w.contentView.removeChildView(v); } catch { /* gone */ } try { if (!v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } };
+      // Its few seconds count from when it shows; a hint that never loads is gone after 8 s anyway.
+      v.webContents.once('did-finish-load', () => { if (done || w.isDestroyed() || v.webContents.isDestroyed()) return; v.setVisible(true); setTimeout(gone, 3500); });
+      void v.webContents.loadURL(`${this.o.origin}/fullhint.html`).catch(() => { /* no hint this time */ });
+      setTimeout(gone, 8000);
+      w.once('leave-full-screen', gone);
+      w.once('closed', gone);
     } catch { /* full screen still works without the hint */ }
   }
   /** A link to an app (APP_LINKS): asked in the band, then handed to the system, which opens that app. */
@@ -3027,22 +3093,8 @@ export class AangBrowser {
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
     // 6.22b bug 1: a page's own fullscreen (a video's button) fills the whole screen, band and drawer gone; it
     // comes back exactly as it was when the page leaves fullscreen (its button, or Esc).
-    on('enter-html-full-screen', () => {
-      const w = this.win;
-      if (!w || w.isDestroyed() || tab.lent) return;
-      this.fullTab = tab.id;
-      try { view.setBorderRadius(0); } catch { /* square anyway */ }
-      w.setFullScreen(true);
-      this.place();
-      setTimeout(() => { if (this.fullTab === tab.id && !w.isDestroyed()) this.fullHint(w); }, 350);   // once the window has grown
-    });
-    on('leave-html-full-screen', () => {
-      if (this.fullTab !== tab.id) return;
-      this.fullTab = null;
-      try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime */ }
-      if (this.win && !this.win.isDestroyed() && this.win.isFullScreen()) this.win.setFullScreen(false);
-      this.place();
-    });
+    on('enter-html-full-screen', () => { if (!tab.lent) this.pageFullOn(tab, view); });
+    on('leave-html-full-screen', () => this.pageFullOff(tab, view));
     // 6.22b bug 2: right-click on the page opens Aang's own wood menu.
     on('context-menu', (_e, p) => this.pageMenu(tab, p));
     // Link preview (6.22b item 8): the real address of the link he points at, shown in the wood under the page.
@@ -3059,7 +3111,8 @@ export class AangBrowser {
     });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
     // Nothing it was doing carries on (2026-10-30): a tab that crashed while playing no longer counts as playing.
-    on('render-process-gone', () => { tab.crashed = true; tab.loading = false; tab.audible = false; tab.frozen = false; tab.freezing = false; tab.waking = false; this.place(); this.sendTabs(); });
+    // 2026-11-18 (his report: a black full screen he could not close): a page that dies in full screen gives the screen back.
+    on('render-process-gone', () => { tab.crashed = true; tab.loading = false; tab.audible = false; tab.frozen = false; tab.freezing = false; tab.waking = false; if (this.fullTab === tab.id) this.pageFullOff(tab, view); this.place(); this.sendTabs(); });
     // The keys work wherever the keyboard is, page or frame.
     // Not while it is lent to the popout: Ctrl+W there must not close a tab in here.
     on('before-input-event', (e, input) => { if (this.afKey(tab, input)) { e.preventDefault(); return; } if (!tab.lent && this.key(input)) e.preventDefault(); });
@@ -3145,24 +3198,10 @@ export class AangBrowser {
     this.raiseTray();
     tab.view = view; tab.crashed = false; tab.loading = true; tab.title = 'Hyrule';
     wc.on('before-input-event', (e, input) => { this.inTab(tab); if (this.key(input)) e.preventDefault(); });
-    wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
+    wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; if (this.fullTab === tab.id) this.pageFullOff(tab, view); this.place(); this.sendTabs(); });
     wc.on('did-finish-load', () => { tab.loading = false; this.sendTabs(); this.routeDeliver(); });
-    wc.on('enter-html-full-screen', () => {
-      const w = this.win;
-      if (!w || w.isDestroyed()) return;
-      this.fullTab = tab.id;
-      try { view.setBorderRadius(0); } catch { /* square anyway */ }
-      w.setFullScreen(true);
-      this.place();
-      setTimeout(() => { if (this.fullTab === tab.id && !w.isDestroyed()) this.fullHint(w); }, 350);   // once the window has grown
-    });
-    wc.on('leave-html-full-screen', () => {
-      if (this.fullTab !== tab.id) return;
-      this.fullTab = null;
-      try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime */ }
-      if (this.win && !this.win.isDestroyed() && this.win.isFullScreen()) this.win.setFullScreen(false);
-      this.place();
-    });
+    wc.on('enter-html-full-screen', () => { this.inTab(tab); this.pageFullOn(tab, view); });
+    wc.on('leave-html-full-screen', () => { this.inTab(tab); this.pageFullOff(tab, view); });
     this.hyrulePages.then((pages) => {
       if (wc.isDestroyed()) return;
       lockDown(wc, { sameOrigin: pages.origin });
@@ -3791,7 +3830,7 @@ export class AangBrowser {
       { label: 'Right half', click: () => put({ x: a.x + half, y: a.y, width: a.width - half, height: a.height }) },
       ...(others.length ? [{ type: 'separator' as const }, ...others.map((d, i) => ({ label: `Move to ${d.label || (others.length > 1 ? `screen ${i + 2}` : 'the other screen')}`, click: () => moveTo(d) }))] : []),
       { type: 'separator' },
-      { label: w.isFullScreen() ? 'Leave full screen' : 'Full screen', click: () => w.setFullScreen(!w.isFullScreen()) },
+      { label: w.isFullScreen() ? 'Leave full screen' : 'Full screen', click: () => toggleFull(w) },
     ]).popup({ window: w });
   }
   /** Option + drag anywhere on the frame (2026-10-23, his "the wood is thin, it has to be airtight"): the window follows. */
@@ -6314,6 +6353,15 @@ export class AangBrowser {
       return true;
     }
     // Sheet 60: Esc closes the notes rail even while the page has the keyboard.
+    // 2026-11-18 (his report: a black full screen he could not close): F11 always toggles the window's full screen on the
+    // PC (Samara has no menu there to give it one; the Mac's is ⌃⌘F), and leaving it takes a page's full screen with it.
+    if (k === 'f11' && process.platform !== 'darwin' && this.win) { toggleFull(this.win); return true; }
+    // Esc in a page's full screen: the page leaves it itself; if it has not a moment later (a hung page), Samara does.
+    if (k === 'escape' && this.fullTab != null) {
+      const t = this.tabs.find((x) => x.id === this.fullTab);
+      if (t) setTimeout(() => { const p = this.paneOfTab(t); if (p && p.fullTab === t.id && t.view) { this.pane = p; this.pageFullOff(t, t.view); } }, 800);
+      return false;
+    }
     if (k === 'escape' && this.pane.railOpen) { this.pane.railOpen = false; this.win?.webContents.send('browser:railclose'); return true; }
     if (k === 'escape' && this.cur()?.loading) { this.act('stop'); return false; }
     if (c && k === 'tab') {
