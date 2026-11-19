@@ -20,6 +20,8 @@ export function wireTaskbarPops(o: {
   notes: () => { id: string; title: string }[];
   aang: () => P.Box | null;
   open: { note: () => void; timer: () => void; player: () => void };
+  /** The music player's, notes' and timers' own icons (jumpIcons), for their own taskbar buttons. */
+  icons?: Partial<Record<P.PopoutTask, string>>;
   /** To the brain (media keys, timer keys, Claude pause and play: each checked here first). */
   send: (m: Record<string, unknown>) => void;
   log?: (s: string) => void;
@@ -71,6 +73,6 @@ export function wireTaskbarPops(o: {
     }
   };
 
-  const taskbar = wireTaskbar(o.family, { samara: o.samara, info, act, jobs: o.jobList, aang: o.aang, open: o.open, log: o.log });
+  const taskbar = wireTaskbar(o.family, { samara: o.samara, info, act, jobs: o.jobList, aang: o.aang, open: o.open, icons: o.icons, log: o.log });
   return { taskbar, hear };
 }

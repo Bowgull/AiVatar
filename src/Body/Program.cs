@@ -46,6 +46,8 @@ static class Program
         using var single = new Mutex(true, @"Local\Aang.Body.Single", out var first);
         if (!first)
         {
+            // His tools (2026-11-18): `--open player|new-note|timer` with Aang running goes straight to his windows.
+            if (CoreSupervisor.ToolFrom(args) is { } tool) { single.Dispose(); CoreSupervisor.OpenTool(Config.Load().ShellDir, tool); return 0; }
             // Aang is already running: let the browser come to the front for the link he just clicked.
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
             // Phase 2: with Samara apart, Aang's windows do not hold the browser, so Samara is started if it is not running

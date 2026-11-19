@@ -332,16 +332,21 @@ public static class Tb {
     }
     int id = (int)hv;
     if (id < 1 || id > 999) return "refused";
-    if (op == "G" && p.Length == 4) {
+    if (op == "G" && (p.Length == 4 || p.Length == 6)) {
       bool on = p[3] == "1";
+      // Whose button the group goes under (taskbarplan.ts appFor): M N T the music player's, notes', timer's; else Samara's.
+      string app = p.Length == 6 ? (p[4] == "M" ? "Aang.Music" : p[4] == "N" ? "Aang.Notes" : p[4] == "T" ? "Aang.Timer" : "Aang.Samara") : "Aang.Samara";
+      string ico = "";
+      if (p.Length == 6) { try { ico = Encoding.UTF8.GetString(Convert.FromBase64String(p[5])); } catch { ico = ""; } }
       return Ui(delegate () {
         Px x;
         pxs.TryGetValue(id, out x);
         if (!on) { if (x != null) { pxs.Remove(id); x.Dispose(); } return "0"; }
         if (x != null) return "0";
         x = new Px(id);
+        if (ico.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(ico)) { try { x.Icon = new Icon(ico); } catch { } }
         IntPtr h = x.Handle;
-        AppId(h, "Aang.Samara");
+        AppId(h, app);
         int one = 1, a = DwmSetWindowAttribute(h, 7, ref one, 4), b = DwmSetWindowAttribute(h, 10, ref one, 4);
         ShowWindow(h, 7);
         pxs[id] = x;

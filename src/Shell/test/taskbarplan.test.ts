@@ -143,3 +143,14 @@ test('pixel icons: every glyph 16 x 16, parchment with a dark-wood rim, doubled 
   assert.equal(ico.readUInt32LE(6 + 12), 38); assert.equal(ico.readUInt32LE(22 + 12), 40);
   assert.equal(ico.subarray(38).toString(), 'aabbb');
 });
+
+test('his rule (2026-11-18): the music player, notes and timers have their own buttons; the rest stay under Samara', () => {
+  assert.equal(P.appFor('player').appId, 'Aang.Music');
+  assert.equal(P.appFor('note').appId, 'Aang.Notes');
+  assert.equal(P.appFor('timer').appId, 'Aang.Timer');
+  for (const k of ['video', 'job', 'snip', 'whatever']) assert.equal(P.appFor(k).appId, 'Aang.Samara');
+  // Each has its own icon from the right-click list; a group goes under its lead's button (the video leads the player).
+  assert.deepEqual(P.OWN_ICON_TASK, { player: 'player', note: 'new-note', timer: 'timer' });
+  assert.equal(P.leadOf([{ id: 'player', kind: 'player' }, { id: 'video', kind: 'video' }]), 'video');
+  assert.equal(P.leadOf([{ id: 'timer:1', kind: 'timer' }, { id: 'player', kind: 'player' }]), 'player');
+});
