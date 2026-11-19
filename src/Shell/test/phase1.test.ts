@@ -80,3 +80,12 @@ test('stray errors keep their stack, and a storm is said once a minute', () => {
   process.removeListener('unhandledRejection', process.listeners('unhandledRejection').at(-1) as any);
   assert.equal(process.listeners('uncaughtException').length, before);
 });
+
+test('a pop-up is kept wholly on its screen, shrunk if it is bigger (2026-11-13)', async () => {
+  const { fitIn } = await import('../src/geometry.ts');
+  const sansui = { x: -1920, y: 0, width: 1920, height: 1080 };
+  assert.deepEqual(fitIn(sansui, { x: -1200, y: 700, width: 560, height: 600 }), { x: -1200, y: 480, width: 560, height: 600 });
+  assert.deepEqual(fitIn(sansui, { x: -100, y: -50, width: 560, height: 220 }), { x: -560, y: 0, width: 560, height: 220 });
+  assert.deepEqual(fitIn(sansui, { x: -1920, y: 0, width: 2500, height: 1300 }), { x: -1920, y: 0, width: 1920, height: 1080 });
+  assert.deepEqual(fitIn(sansui, { x: -1000, y: 300, width: 400, height: 200 }), { x: -1000, y: 300, width: 400, height: 200 });
+});
