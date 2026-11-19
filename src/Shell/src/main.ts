@@ -923,8 +923,13 @@ app.whenReady().then(async () => {
         jobList: () => lastJobs, notes: () => notesLatest, aang: () => petAt?.sprite ?? null,
         open: { note: () => { if (!noteWins?.quick()) bubble?.send('brain:message', { t: 'notes.board', fresh: true }); }, timer: () => bubble?.send('brain:message', { t: 'timer.setup' }), player: () => { miniPlayer?.open(); } },
         send: (m) => link?.send(m as never),
+        // His rule (2026-11-18): the music player, notes and timers on their own buttons, in their own icons.
+        icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON),
         log: process.env.AANG_TASKBAR_LOG ? (s) => console.log('shell: taskbar: ' + s) : undefined,
       }));
+      // With Samara apart there is no browser here to pick the start task up (below): a tool he asked for as Aang
+      // started (Aang.exe --open player, 2026-11-18) opens now, in his windows.
+      if (SAMARA_APART && pendingTask && isPopoutTask(pendingTask)) { const t = pendingTask; pendingTask = null; runPopoutTask(t); }
       input.window();
       const body = readJson<unknown>(path.join(STATE_DIR, 'body.json'), null) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;

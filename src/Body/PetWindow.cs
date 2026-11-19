@@ -43,6 +43,8 @@ sealed class PetWindow : Form
     CoreSupervisor? supervisor;
     /// <summary>Aang's windows (the Electron Shell). Separate on purpose: a crash in it must never take the pet down.</summary>
     CoreSupervisor? shell;
+    /// <summary>`Aang.exe --open player|new-note|timer` that started him: handed to his windows' first start.</summary>
+    string? openTool;
     bool noCore;
     ToolStripMenuItem coreItem = null!, shellItem = null!, autostartItem = null!;
     ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!, seeWindowItem = null!;
@@ -262,6 +264,7 @@ sealed class PetWindow : Form
         }
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
+        openTool = CoreSupervisor.ToolFrom(args);
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
         foreach (var a in args)
         {
@@ -478,6 +481,8 @@ sealed class PetWindow : Form
             if (!cfg.NoShell)
             {
                 shell = CoreSupervisor.ForShell(cfg.ShellDir);
+                // His tools (2026-11-18): a tool he asked for as Aang starts opens in his windows, never through Samara.
+                if (openTool != null) shell.NextExtra = "--samara-task=" + openTool;
                 shell.StatusChanged += st => { if (IsHandleCreated) BeginInvoke(() => shellItem.Text = "Windows: " + st); };
                 shell.GaveUp += msg =>
                 {
