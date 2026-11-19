@@ -1,6 +1,6 @@
 # Samara's update engine (his picks, 2026-10-29). Claude ships a version by tagging a commit on main "samara-vX.Y.Z";
 # the tag's message is the "what's new" on his UPDATE key. The tests run on a Mac and on Windows first; then the
-# release is packed, sealed with his release key and published, and both Samaras are nudged to check at once.
+# release is packed, sealed with his release key and published; both Samaras find it on their next daily check or start.
 name: Samara release
 on:
   push:
@@ -43,10 +43,6 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          [ -n "$GH_TOKEN" ] || { echo "::notice::No RELEASES_TOKEN secret: the machine that shipped copies $TAG over and nudges (tools/release/ship.mjs)."; echo "copied=no" >> "$GITHUB_OUTPUT"; exit 0; }
+          [ -n "$GH_TOKEN" ] || { echo "::notice::No RELEASES_TOKEN secret: the machine that shipped copies $TAG over (tools/release/ship.mjs)."; echo "copied=no" >> "$GITHUB_OUTPUT"; exit 0; }
           NAME=$(node -e "console.log(require('./out/manifest.json').name)")
           gh release create "$TAG" -R Bowgull/samara-releases out/manifest.json out/manifest.sig out/samara-bundle.tgz out/aang-brain.tgz out/aang-app.tgz --title "Samara ${TAG#samara-v}: $NAME" --notes-file notes.md --latest
-      # The nudge carries one word and nothing else: a Samara that hears it only checks, and still checks the seal.
-      - name: Nudge both Samaras
-        if: steps.publish.outputs.copied != 'no'
-        run: for i in 1 2 3 4 5; do curl -fsS -m 20 -d check https://ntfy.sh/samara-bowgull-7c1e9a52 >/dev/null && exit 0; echo "Nudge try $i did not go; trying again in 30 s."; sleep 30; done; echo "The nudge did not go after 5 tries; Samaras will find it within the hour."

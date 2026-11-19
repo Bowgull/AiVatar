@@ -141,6 +141,8 @@ export interface EngineOptions {
 
 /** Ten minutes: how often the overnight and quiet rules are looked at. */
 export const TICK_MS = 10 * 60_000;
+/** How often a running Samara looks for a new version: once a day (on start too, and on his check). */
+export const CHECK_MS = 24 * 60 * 60_000;
 
 export class UpdateEngine {
   private going = false;
@@ -244,13 +246,14 @@ export class UpdateEngine {
   }
 
   /**
-   * Checks on start (half a minute in), every 15 minutes (it was an hour: a lost nudge left the UPDATE key away that
-   * long, 2026-10-30), and when asked (the release nudge, his check). On the scheduler
+   * Checks on start (half a minute in), then once a day, and when he presses check (2026-11-19, his "Trim it": it was
+   * every 15 minutes plus an always-open ntfy nudge; a new version now shows within a day, or at once on his check or
+   * the next start). On the scheduler
    * (2026-10-30): the checks wait out a call or a game (a check can download and build); the tick does its own deciding.
    */
   start(): void {
     let first = true;
-    sched.every('update.check', 15 * 60_000, () => this.checkAll(first ? (first = false, 'start') : 'regular'), { first: 30_000, quiet: true });
+    sched.every('update.check', CHECK_MS, () => this.checkAll(first ? (first = false, 'start') : 'regular'), { first: 30_000, quiet: true });
     sched.every('update.tick', TICK_MS, () => this.tick());
   }
   stop(): void { sched.cancel('update.check'); sched.cancel('update.tick'); }

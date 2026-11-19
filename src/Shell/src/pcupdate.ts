@@ -56,7 +56,7 @@ export class SamaraUpdates {
   /** The version running now: its folder's, or none (the code folder, before the first release). */
   running(): string { return path.resolve(this.o.codeDir).toLowerCase().startsWith(path.resolve(this.o.root, 'versions').toLowerCase()) ? path.basename(path.resolve(this.o.codeDir)) : ''; }
 
-  /** On start, hourly, on the nudge, and when he checks. */
+  /** On start, once a day, and when he checks. */
   async check(why: string): Promise<void> {
     if (this.busy || Date.now() - this.at < 60_000) return;
     this.busy = true; this.at = Date.now();

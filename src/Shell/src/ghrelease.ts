@@ -1,8 +1,8 @@
 // Samara's update engine (his picks, 2026-10-29): both machines take Samara from one release on GitHub. Claude ships a
 // version (a samara-vX.Y.Z tag on main) when a piece of work is done; GitHub tests it on a Mac and on Windows, packs it,
-// seals it with his release key and publishes it. Each Samara checks on start, every hour, and the moment the release
-// nudge arrives, and takes a release ONLY when its seal checks out against the public half below. Its own file so it
-// is tested without Electron.
+// seals it with his release key and publishes it. Each Samara checks on start, then once a day, and when he presses
+// check (2026-11-19, his "Trim it": the always-open ntfy nudge is gone), and takes a release ONLY when its seal checks
+// out against the public half below. Its own file so it is tested without Electron.
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { createWriteStream, renameSync, rmSync } from 'node:fs';
 
@@ -16,8 +16,6 @@ export const RELEASE_REPO = 'Bowgull/samara-releases';
 export const RELEASES = `https://github.com/${RELEASE_REPO}/releases/download/`;
 /** Which release is current: GitHub's own answer (never a release marked not used), its tag only. */
 export const LATEST_API = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
-/** The release nudge (ntfy): a one-word "check now". It carries nothing, so anyone sending it can only make a Samara check. */
-export const NUDGE = 'https://ntfy.sh/samara-bowgull-7c1e9a52/json';
 /** The biggest bundle a Samara will download (today's is about 6 MB). */
 export const BUNDLE_MAX = 200 * 1024 * 1024;
 
@@ -88,52 +86,6 @@ export async function download(fetchFn: Fetch, m: Manifest, dest: string, base =
     renameSync(part, dest);
     return true;
   } catch { try { rmSync(part, { force: true }); } catch { /* gone */ } return false; }
-}
-
-/**
- * The nudge: listens for "check now" while the computer is online, and reconnects after a drop. Calls back at most once
- * every two minutes (a flood of fake nudges is one check). Returns a stop function.
- */
-/**
- * Hears the release nudge. Three holes closed (2026-10-30, his "no update button, again"): a stream that went quiet
- * (the Mac slept, the Wi-Fi changed) used to hang for good, so it is dropped when nothing, not even ntfy's keepalive,
- * has come for `quietMs`; a nudge sent while it was reconnecting was lost, so it reconnects asking for what came since
- * the last thing it heard (ntfy keeps them 12 h); and it tries again after 10 s, not 30.
- */
-export function listen(fetchFn: Fetch, onNudge: () => void, url = NUDGE, o: { quietMs?: number; retryMs?: number } = {}): () => void {
-  const quietMs = o.quietMs ?? 100_000, retryMs = o.retryMs ?? 10_000;
-  let stopped = false, last = 0, heard = 0, since = 0, ctl: AbortController | null = null;
-  const dog = setInterval(() => { if (ctl && heard && Date.now() - heard > quietMs) ctl.abort(); }, Math.min(15_000, quietMs / 2));
-  dog.unref?.();
-  const run = async () => {
-    while (!stopped) {
-      ctl = new AbortController();
-      heard = Date.now();
-      try {
-        const r = await fetchFn(since ? `${url}?since=${since}` : url, { signal: ctl.signal });
-        if (r.ok && r.body) {
-          const reader = r.body.getReader(), dec = new TextDecoder();
-          let buf = '';
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            heard = Date.now();
-            buf += dec.decode(value, { stream: true });
-            let i;
-            while ((i = buf.indexOf('\n')) >= 0) {
-              const line = buf.slice(0, i); buf = buf.slice(i + 1);
-              const t = /"time"\s*:\s*(\d+)/.exec(line);
-              if (t) since = Math.max(since, Number(t[1]));
-              if (/"event"\s*:\s*"message"/.test(line) && Date.now() - last > 120_000) { last = Date.now(); onNudge(); }
-            }
-          }
-        }
-      } catch { /* offline, dropped as quiet, or stopped */ }
-      if (!stopped) await new Promise((res) => setTimeout(res, retryMs));
-    }
-  };
-  void run();
-  return () => { stopped = true; clearInterval(dog); ctl?.abort(); };
 }
 
 /** "Version 1.22.0: Gojo" (his rule's name), as the key's title says it. */

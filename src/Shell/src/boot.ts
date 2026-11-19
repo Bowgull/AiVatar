@@ -62,7 +62,6 @@ export interface BootDeps {
   takeMockupFile(file: string): Parameters<AangBrowser['openMockupDrop']>[0] | null;
   takeMarkFile(file: string): Parameters<AangBrowser['mockMark']>[0] | null;
   newUpdates(o: EngineOptions): UpdateEngine;
-  ghListen(nudge: () => void): void;
   idleSeconds(): number;
   readText(file: string): string;
   writeAtomic(file: string, text: string): void;
@@ -331,7 +330,6 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   d.onFrame('browser:updatego', frame, (sender) => { void ue.go().then((r) => { if (!r.ok) sender.send('browser:updatewhy', r.why ?? 'Not right now.'); }); });
   ue.show();
   ue.start();
-  d.ghListen(() => void ue.checkAll('nudge'));
 
   d.onQuit(() => { browser.closeAll(); pages.close(); sched.stop(); });
   return { ...base, browserNow: browser, plans, updates: ue, openSecret, secret: () => secret, takeDrops };
