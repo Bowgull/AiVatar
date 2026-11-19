@@ -54,7 +54,7 @@ app.whenReady().then(async () => {
   const log = (s: string) => console.log(`${stamp()} ${s}`);
   for (const ev of ['enter-full-screen', 'leave-full-screen', 'resize', 'move', 'blur', 'focus', 'maximize', 'unmaximize'] as const) w.on(ev as any, () => log(`window ${ev} full=${w.isFullScreen()} bounds=${JSON.stringify(w.getBounds())}`));
   for (const ev of ['enter-html-full-screen', 'leave-html-full-screen', 'did-navigate', 'did-navigate-in-page', 'did-start-navigation', 'render-process-gone', 'media-started-playing', 'media-paused'] as const) wc.on(ev as any, (_e: unknown, a?: unknown) => log(`page ${ev} ${typeof a === 'string' ? a.slice(0, 100) : ''}`));
-  wc.on('console-message', (_e, _l, m) => { if (/error|drm|widevine|fullscreen|playback/i.test(m)) log('console: ' + m.slice(0, 200)); });
+  wc.on('console-message', (e: { message: string }) => { const m = e.message; if (/error|drm|widevine|fullscreen|playback/i.test(m)) log('console: ' + m.slice(0, 200)); });
   const js = (s: string) => wc.executeJavaScript(s, true).catch((e: Error) => 'ERR ' + e.message);
   const VIDEO_JS = "(() => { const v = document.querySelector('video'); return v ? [v.readyState, v.paused ? 'paused' : 'playing', Math.round(v.currentTime * 10) / 10, v.videoWidth + 'x' + v.videoHeight, v.error && v.error.code].join(' ') : 'none'; })()";
   const state = async () => 'winFull=' + w.isFullScreen() + ' pageFull=' + await js('!!document.fullscreenElement') + ' view=' + JSON.stringify(view()?.getBounds()) + ' fullTab=' + b.fullTab + ' video=' + await js(VIDEO_JS);
