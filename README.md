@@ -34,3 +34,8 @@ i planned it, designed how he looks & talks, set the rules for when he speaks up
 ## under the hood
 
 The new standalone Aang desktop companion. Start with docs/PLAN.md; every decision and its evidence is in docs/DECISIONS.md.
+
+## licence
+
+Copyright (c) 2026 Joshua Bocas. All rights reserved. The code is public to read, not to reuse: there is no
+open-source licence. Work by others that AiVatar uses keeps its own licence; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

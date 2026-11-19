@@ -1,7 +1,8 @@
-# Licence options for AiVatar (not chosen yet)
+# Licence options for AiVatar
 
-Drafted 2026-11-19 for the repo scrub. **Joshua picks; nothing is applied until he does.** Today the repo has no
-LICENSE file, which means "all rights reserved": anyone may read it on GitHub, nobody may legally reuse it.
+**Decided 2026-11-19 (Joshua): option A, no licence. All rights reserved: people can look, not reuse.** There is no
+LICENSE file on purpose; the README says so, and THIRD-PARTY-NOTICES.md lists the licences of the work AiVatar uses.
+The options below are kept as the record of what was weighed.
 
 ## What constrains the choice
 
@@ -26,8 +27,8 @@ LICENSE file, which means "all rights reserved": anyone may read it on GitHub, n
 | **D. MPL-2.0** | Use freely, but changed AiVatar files stay open | Matches Ghostery and Autoconsent; file-level copyleft | Slightly more to explain |
 | **E. PolyForm Noncommercial 1.0** | Use and change, never commercially | Keeps a portfolio piece from being resold | Not OSI "open source" |
 
-## Decision needed (for the master session to ask)
+## Decision
 
-1. Which option, A to E?
-2. Copyright line: "Copyright (c) 2026 Joshua Bocas" or the GitHub handle "Bowgull"?
-3. Should Samara (the browser) be licensed differently from Aang (the companion), given the castLabs question?
+- Option A, no licence, for the whole repo (Aang and Samara alike).
+- README line: "Copyright (c) 2026 Joshua Bocas. All rights reserved."
+- The castLabs terms still need reading before Samara is handed to anyone but Joshua.
