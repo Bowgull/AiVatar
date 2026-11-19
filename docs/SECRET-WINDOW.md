@@ -12,6 +12,27 @@ to be scrubbed immediately, highest order huge issue." He chose: **Mac only, and
 - Tests: `test/boot.test.ts` ("pc: no secret window, even when the hooks ask for one") and
   `test/electron/sealdir-check.ts` part 2 (a real Electron on the PC: the browser refuses, no profile, no folder).
 
+## Its own program on the Mac (his pick, 2026-11-19)
+
+The secret window runs as a separate program, not inside normal Samara:
+
+- **Starting it:** ⇧⌘N (or the hidden View menu item) in normal Samara starts the same Aang.app again with
+  `--samara-secret` (`secretlaunch.ts`). The app's front door (`macmain.ts`) then runs `secretmain.ts` instead of normal
+  Samara (`macsamara.ts`). Normal Samara sends it nothing and hears nothing back.
+- **Its own process and data folder:** Chromium data in `secret-app` inside Aang's folder, so its own single-instance
+  lock. ⇧⌘N while it runs only brings its window forward. Its logged-in profile (`Partitions/aang-secret`) is moved there
+  once from Aang's own folder, before Chromium starts.
+- **Now Playing and media keys:** off for the secret program from its start (`HardwareMediaKeyHandling` disabled).
+  Normal Samara keeps Now Playing and the play/pause keys.
+- **Talks to nothing in normal Samara:** no sync, Claude door, plans, Send to Aang, Ask Claude, pop-out or paid-video
+  window. It only reads normal Samara's settings, autofill details and site lists from Aang's folder. Settings in the
+  secret window does nothing.
+- **No log:** what it says goes nowhere.
+- **Locking and quitting:** it locks on its mask, the Mac sleeping or locking, and 15 minutes away. Closing its window
+  locks it, writes its last save, shuts its sealed folder and ends the program; ⌘Q does the same. It shows as a second
+  Aang icon in the Dock while it runs.
+- **Same app name ("Aang"),** so the Keychain item that seals its key is the same one as before: no new Keychain prompt.
+
 ## Encrypted at rest (its own folder)
 
 Everything the secret window keeps in its folder, `secret` inside Samara's data folder on the Mac (`app.getPath('userData')`, in `~/Library/Application Support`), is sealed (`sealdir.ts`):
@@ -64,15 +85,11 @@ disk can read the secret window's cookies and site storage.
 | its paused ad sites baked into the ad engine kept in normal Samara's folder | told to its engine in memory only | `secret-leaks.test.ts` |
 | a crashed or hung secret tab's site in `samara.log` | logged as "a secret tab" | `secret-leaks.test.ts` |
 | typing before the PIN sent to Yandex through normal Samara's session | nothing sent before the PIN; after it, only its own session | `secret-leaks.test.ts`, `secret-check.ts` 11 |
-| Now Playing (Control Center, lock screen) showing a secret tab's title | the Mac's system media controls are off for Samara | `secret-leaks.test.ts` |
+| Now Playing (Control Center, lock screen) showing a secret tab's title | its own program, started with the media controls off; normal Samara keeps them | `secret-leaks.test.ts`, `secretsplit.test.ts` |
 | Windows media controls / the pet's NowPlaying.cs | no secret window on Windows | `boot.test.ts` |
-| sync, the Claude door and history tools, Send to Aang, Ask Claude, plans | never handed to it | `boot.test.ts` ("mac: the secret window has no door out") |
+| sync, the Claude door and history tools, Send to Aang, Ask Claude, plans | a separate program that has none of them | `secretsplit.test.ts`, `boot.test.ts` |
 | crash pictures | never taken of it | `secret-leaks.test.ts` |
 | saving or filling a login through Bitwarden (its vault syncs to Bitwarden's servers) | its own sealed login store; Bitwarden's tool is never run from it, and it never uses or wipes normal Samara's autofill PIN | `secretlogins.test.ts` |
-
-Trade-off of the Now Playing fix: Chromium has no per-page switch, so on the Mac **normal Samara** also no longer shows in
-Control Center's Now Playing and the keyboard's play/pause keys no longer reach Samara's videos. Aang's pet on the Mac
-reads Spotify, not Samara, so Aang loses nothing.
 
 ## His last steps (only he can do these)
 

@@ -99,6 +99,8 @@ export interface BrowserPlatform {
   options?: Partial<Pick<BrowserOptions, 'repoDir' | 'mockupsAnywhere'>>;
   /** Sheet 87: ⇧⌘N's secret window. The Mac's only (2026-11-19): ignored on the PC. */
   secret?: boolean;
+  /** 2026-11-19: start the secret program (secretlaunch.ts). Given, the secret window is never built in this process. */
+  secretLaunch?: () => void;
   /**
    * Sheet 37 / 41, Claude's plans, on BOTH machines: the card shown in Aang's bubble (null: nobody could, so Samara's
    * band shows it), the live step, and the scroll-back row when a plan starts and when it is done.
@@ -227,28 +229,12 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   const browser = d.newBrowser({ origin: pages.origin, stateDir: p.stateDir, ...preloads, mockHome: mockHomeDir(), ...(hyrule ? { hyruleDir: hyrule } : {}), ...bp.options });
   b0.setBrowser(browser);
 
-  // Sheet 87 (his "go", 2026-10-25): ⇧⌘N opens the secret window. Its own folder (tabs, bookmarks, history), its own
-  // kept logins, normal Samara's settings and autofill. No door, no sync, no mockups, nothing of it in normal Samara.
-  let secret: AangBrowser | null = null;
-  // His rule (2026-11-19): the Mac's only. On the PC nothing is made, whatever the hooks say (secretguard.ts).
-  const secretHere = bp.secret === true && p.name === 'mac';
-  const openSecret = (): void => {
-    if (!secretHere) return;
-    if (!secret) {
-      const dir = path.join(p.stateDir, 'secret');
-      if (!d.mkdir(dir)) { p.log('the secret window has no folder'); return; }
-      const s = d.newBrowser({ origin: pages.origin, stateDir: dir, sharedDir: p.stateDir, secret: true, phish: browser.phishCheck, ...preloads });
-      s.onSecret = openSecret;
-      // Its settings are normal Samara's: Settings opens there.
-      s.onSettings = () => { const had = browser.hasWindow(); browser.open(); setTimeout(() => browser.openSettings(), had ? 0 : 1500); };
-      s.onPaid = (u) => browser.onPaid?.(u) ?? false;
-      s.onPaidFallback = (u) => browser.onPaidFallback?.(u) ?? false;
-      secret = s;
-      b0.setSecret(s);
-      d.onQuit(() => secret?.closeAll());
-    }
-    secret.open();
-  };
+  // Sheet 87: ⇧⌘N opens the secret window. His rule (2026-11-19): the Mac's only; on the PC nothing is made, whatever the
+  // hooks say (secretguard.ts). His pick the same day: it is its own program (secretmain.ts, its own process, Now Playing
+  // off). Samara only starts it (bp.secretLaunch) and never builds it here, so none of its memory or profile is ever here.
+  const secret: AangBrowser | null = null;
+  const secretHere = bp.secret === true && p.name === 'mac' && typeof bp.secretLaunch === 'function';
+  const openSecret = (): void => { if (secretHere) bp.secretLaunch!(); };
   if (secretHere) browser.onSecret = openSecret;
 
   browser.onReclaim = () => popout.returnTab();

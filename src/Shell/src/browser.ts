@@ -6685,6 +6685,8 @@ export class AangBrowser {
   get fullScreen(): boolean { return this.panes.some((p) => this.alive(p) && p.win?.isFullScreen() === true); }
   /** The Samara window he used last (the Claude job's bar under the lantern goes on it, taskbar.ts), or null. */
   frontWindow(): BrowserWindow | null { const p = this.lastPane(); return p?.win && !p.win.isDestroyed() ? p.win : null; }
+  /** The secret program (secretmain.ts): its last tab save written and its folder shut, so it may quit now. */
+  whenSaved(): Promise<void> { return this.snapping.catch(() => {}).then(() => { if (this.locked && this.room?.isOpen) { this.visits.flush(); this.room.close(); } }); }
   closeAll(): void {
     void this.ses.cookies.flushStore().catch(() => {});
     // Sheet 115: Claude's jobs as they are now, then nothing written while its tabs close (they come back next start).

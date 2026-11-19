@@ -6,9 +6,15 @@
 //  - Its sessions are marked, so code that only has a page's webContents (the flight log, flight.ts) can leave its
 //    address out.
 //  - No Now Playing for it: the Mac's media controls (Control Center, the lock screen) would show a secret tab's title.
-//    Chromium has no per-page switch for that, so on the Mac Samara starts without the system media controls at all
-//    (MAC_MEDIA_OFF, macmain.ts). Normal Samara on the Mac loses them too; Aang's pet there reads Spotify, not Samara.
+//    Chromium reads that switch only at start, so (his pick, 2026-11-19) the secret window is its own program
+//    (secretmain.ts), started with the system media controls off (MAC_MEDIA_OFF). Normal Samara keeps them.
 
+/** The secret program's own Chromium data folder, inside Aang's (its profile, its single-instance lock). */
+export const SECRET_APP_DIR = 'secret-app';
+/** The flag that starts the Mac app as the secret program (macmain.ts, secretlaunch.ts). */
+export const SECRET_FLAG = '--samara-secret';
+/** This run is the secret program: the flag, and only on the Mac. */
+export const isSecretRun = (argv: string[], platform: NodeJS.Platform = process.platform): boolean => secretAllowed(platform) && argv.includes(SECRET_FLAG);
 /** Where the secret window may exist. */
 export const secretAllowed = (platform: NodeJS.Platform = process.platform): boolean => platform === 'darwin';
 /** What ⇧Ctrl+N says on a machine without it. */

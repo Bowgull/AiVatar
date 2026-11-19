@@ -72,7 +72,7 @@ function mac(r: Rec, said: unknown[]): { p: Platform; bp: BrowserPlatform } {
     other: { open: (u) => r.calls.push(['toPc.open', u]), send: (u) => r.calls.push(['toPc.send', u]) },
   };
   const bp: BrowserPlatform = {
-    options: { mockupsAnywhere: true }, secret: true,
+    options: { mockupsAnywhere: true }, secret: true, secretLaunch: () => r.calls.push(['secret.launch']),
     plans: { ask: async (c) => (r.calls.push(['bubble.ask', c.id]), { go: true, change: false, keep: [], note: '' }), step: (id, at) => r.calls.push(['bubble.step', id, at]), started: (x) => r.calls.push(['row', x.job]), done: (j) => r.calls.push(['row.done', j]) },
     mockupDoor: { offWhy: () => 'needs git' },
     syncSend: (m) => r.calls.push(['sync', m]),
@@ -175,9 +175,11 @@ for (const [machine, hooks] of [['mac', mac], ['pc', pc]] as const) {
     assert.deepEqual(got(r, 'sync')[0], ['sync', { t: 'bsync.x' }]);
     // The mockup door and the secret window are the Mac's.
     assert.equal(names(r).includes('mockupDoor'), machine === 'mac');
+    // 2026-11-19: on the Mac ⇧⌘N starts the secret program; it is never built in this process (on the PC: nothing).
     s.openSecret();
-    assert.equal(r.browsers.length, machine === 'mac' ? 2 : 1);
-    if (machine === 'mac') { assert.equal(r.browsers[1].o.secret, true); assert.equal(r.browsers[1].o.sharedDir, p.stateDir); assert.equal(s.secret(), r.browsers[1]); }
+    assert.equal(r.browsers.length, 1);
+    assert.equal(got(r, 'secret.launch').length, machine === 'mac' ? 1 : 0);
+    assert.equal(s.secret(), null);
     // The update engine: started, nudged by GitHub, his moment and his overnight switch.
     for (const n of ['newUpdates', 'updates.show', 'updates.start', 'gh', 'updates.check']) assert.ok(names(r).includes(n), `updates: ${n}`);
     const eo = (got(r, 'newUpdates')[0]![1]) as any;
@@ -235,21 +237,24 @@ test('pc: no secret window, even when the hooks ask for one', async () => {
   assert.equal(r.browsers[0].onSecret ?? null, null, 'Ctrl+Shift+N falls to the browser, which says it lives on the Mac');
 });
 
-// Sheet 87 / 2026-11-19: on the Mac, the secret window gets none of the doors out: no Send to Aang, Ask Claude, sync,
-// the other machine, plans or the Claude door; the door and sync reach normal Samara only.
-test('mac: the secret window has no door out', async () => {
+// His pick (2026-11-19): on the Mac the secret window is its own program. Normal Samara only starts it: no secret
+// browser, folder or profile is ever made in its process, and ⇧⌘N goes to the launcher and nothing else.
+test('mac: the secret window is never built in the normal Samara process; ⇧⌘N only starts its program', async () => {
   const r = rec();
   const { p, bp } = mac(r, []);
-  const d = deps(r);
+  const made: string[] = [];
+  const d = { ...deps(r), mkdir: (f: string) => { made.push(f); return true; } };
   const s = samaraBrowser(await samaraBase(p, d), p, bp, d);
-  s.openSecret();
-  const sec = r.browsers[1];
-  assert.equal(sec.o.secret, true);
-  for (const k of ['onSendToAang', 'onAskClaude', 'onOpenOther', 'onSendOther', 'onPlanAsk', 'onPlanStep', 'onPlanDone', 'onClaudeWork', 'onPlayInPopout', 'onReclaim'])
-    assert.equal(sec[k] ?? null, null, `secret window has no ${k}`);
-  assert.equal(sec.sync, null, 'never synced');
-  const door = got(r, 'claudeDoor')[0];
-  assert.ok(door);
-  const get = (got(r, 'wireBrowser')[0]![1]) as () => unknown;
-  assert.equal(get(), r.browsers[0], 'the door and the history tools reach normal Samara');
+  r.browsers[0].onSecret(); s.openSecret();
+  assert.equal(got(r, 'secret.launch').length, 2);
+  assert.equal(r.browsers.length, 1);
+  assert.ok(!r.browsers.some((b) => b.o.secret));
+  assert.ok(!made.some((f) => /secret/i.test(f)));
+  assert.equal(s.secret(), null);
+  // without a launcher there is no secret window at all, never one built here instead
+  const r2 = rec(); const m2 = mac(r2, []);
+  const s2 = samaraBrowser(await samaraBase(m2.p, deps(r2)), m2.p, { ...m2.bp, secretLaunch: undefined }, deps(r2));
+  s2.openSecret();
+  assert.equal(r2.browsers.length, 1);
+  assert.equal(r2.browsers[0].onSecret ?? null, null);
 });

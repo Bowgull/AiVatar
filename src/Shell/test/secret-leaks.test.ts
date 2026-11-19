@@ -91,11 +91,13 @@ test('its paused ad sites never go into the ad engine kept in normal Samara\'s f
   assert.match(src('skip/ads.ts'), /const now = opts\.privatePauses \? \[\.\.\.\(opts\.paused \?\? \[\]\)\] : \[\.\.\.paused\];/);
 });
 
-test('no Now Playing on the Mac: the system media controls are off before Samara is ready', () => {
+test('no Now Playing for the secret window: its own program starts with the media controls off; normal Samara keeps them', () => {
   assert.equal(MAC_MEDIA_OFF, 'HardwareMediaKeyHandling');
-  const mac = src('macmain.ts');
-  const at = mac.indexOf("app.commandLine.appendSwitch('disable-features', MAC_MEDIA_OFF)");
-  assert.ok(at > 0 && at < mac.indexOf('app.whenReady()'), 'appended before the app is ready');
+  const sec = src('secretmain.ts');
+  const at = sec.indexOf("app.commandLine.appendSwitch('disable-features', MAC_MEDIA_OFF)");
+  assert.ok(at > 0 && at < sec.indexOf('app.whenReady()'), 'appended before its app is ready');
+  const normal = src('macsamara.ts');
+  assert.ok(!normal.includes('MAC_MEDIA_OFF') && !/disable-features/.test(normal), 'normal Samara on the Mac keeps Now Playing and the media keys');
 });
 
 test('crash shots never picture the secret window', () => {
