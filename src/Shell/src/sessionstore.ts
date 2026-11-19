@@ -6,9 +6,11 @@
 //
 // Now every write goes through here. A save that started before another write landed is stale and dropped. The copy
 // kept aside before a write that drops most of his tabs (the 2026-10-23 loss) lives here too.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
+// Through the store's read (2026-11-19): the secret window's tabs are sealed on disk (sealdir.ts) and opened there.
+import { readText } from './store.ts';
 
 /** One tab as written. Extra fields (mock, pageBg, pageState, favicon, win) pass through untouched. */
 export interface SavedTab { url: string; title?: string; mock?: unknown; [k: string]: unknown }
@@ -39,7 +41,7 @@ export class SessionStore {
   read(): Partial<SessionData> | null {
     try {
       if (!existsSync(this.file)) return null;
-      const s = JSON.parse(readFileSync(this.file, 'utf8')) as Partial<SessionData>;
+      const s = JSON.parse(readText(this.file) ?? 'null') as Partial<SessionData>;
       this.count = mine(s?.tabs);
       return s && typeof s === 'object' ? s : null;
     } catch { return null; }
@@ -47,7 +49,7 @@ export class SessionStore {
 
   /** The file as it is, for a look only (sync's own list, the closed tabs): the drop guard's count is left alone. */
   peek(): Partial<SessionData> | null {
-    try { return existsSync(this.file) ? JSON.parse(readFileSync(this.file, 'utf8')) as Partial<SessionData> : null; } catch { return null; }
+    try { return existsSync(this.file) ? JSON.parse(readText(this.file) ?? 'null') as Partial<SessionData> : null; } catch { return null; }
   }
 
   /** Start a save that will wait on something (the pages' scroll spots). */
@@ -82,7 +84,7 @@ export class SessionStore {
   keepCopy(why: string): void {
     try {
       if (!existsSync(this.file)) return;
-      const s = JSON.parse(readFileSync(this.file, 'utf8'));
+      const s = JSON.parse(readText(this.file) ?? 'null');
       if (mine(s?.tabs) < 2) return;
       const dir = path.join(path.dirname(this.file), 'browser-tabs-kept');
       mkdirSync(dir, { recursive: true });

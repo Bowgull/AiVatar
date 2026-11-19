@@ -107,6 +107,8 @@ import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, guardRequests, privacyHooks, type AdBlock } from './skip/ads.ts';
 import { CookieWall, cleanLink, cookieHeaders, guardPrivacy } from './privacy.ts';
+import { SealedDir, electronKeychain } from './sealdir.ts';
+import { SECRET_ELSEWHERE, markSecret, secretAllowed } from './secretguard.ts';
 import { createRequire } from 'node:module';
 import { pageMenuItems, sendKindFor } from './sendtoaang.ts';
 import { WATCH_CSS, WATCH_HOSTS } from './watchmode.ts';
@@ -758,6 +760,10 @@ export class AangBrowser {
   private readonly session: SessionStore;
   /** Sheet 87: the secret window's own PIN (normal Samara has none). */
   private secretPin: PinSeal | null = null;
+  /** His rule (2026-11-19): the secret window's folder, sealed on disk; opened only after its PIN (sealdir.ts). */
+  private room: SealedDir | null = null;
+  /** The last tab save started, so the folder is shut only once it is written. */
+  private snapping: Promise<void> = Promise.resolve();
   /** Sheet 87: its tabs, bookmarks, history and logins are put away until its PIN. */
   private locked = false;
   /** Sheet 87: the PIN box is over the page. */
@@ -948,9 +954,9 @@ export class AangBrowser {
   private planOfJob = new Map<number, string>();
   /** The driver page he is watching in the page area (a live picture), or none. */
   /** History (2026-10-12): every page he opened, 90 days, only on this PC. */
-  private readonly visits: Visits;
+  private visits: Visits;
   /** Downloads (2026-10-12): the list behind the tray and the Downloads page; the live ones and how far along they are. */
-  private readonly dls: Downloads;
+  private dls: Downloads;
   private readonly live = new Map<number, Electron.DownloadItem>();
   private readonly got = new Map<number, { got: number; total: number; rate: number }>();
   /** The tray holds only downloads since this: the browser opening, or his Clear list. */
@@ -973,9 +979,14 @@ export class AangBrowser {
     this.o = o;
     trouble.on('gone', (wc: Electron.WebContents) => this.troubleShot('gone', wc));
     trouble.on('hang', (wc: Electron.WebContents) => this.troubleShot('hang', wc));
+    // His rule (2026-11-19): the secret window lives on his Mac only. Anywhere else it is never made, so no secret folder,
+    // profile or file can ever be created there (secretguard.ts).
+    if (o.secret && !secretAllowed()) throw new Error('the secret window lives on the Mac only');
     this.ses = electronSession.fromPartition(o.secret ? 'aang-secret-guest' : 'persist:aang-browser');
     if (o.secret) {
       this.keptSes = electronSession.fromPartition('persist:aang-secret');
+      markSecret(this.ses); markSecret(this.keptSes);
+      this.room = new SealedDir(o.stateDir, electronKeychain(safeStorage));
       this.secretPin = new PinSeal(path.join(o.stateDir, 'secret-pin.json'));
       // His picks: it locks when the Mac sleeps or locks, as well as when its window closes or he is away 15 minutes.
       powerMonitor.on('suspend', () => { void this.lock(); });
@@ -989,8 +1000,11 @@ export class AangBrowser {
       if (gap > 0) for (const t of this.tabs) t.lastSeen += gap;
       this.idleQuietUntil = Date.now() + 90_000;
     });
-    // Sheet 87: what the secret window shares with normal Samara (settings, autofill, site rules); the rest is its own.
+    // Sheet 87: what the secret window shares with normal Samara (settings, autofill); the rest is its own.
     const sd = o.sharedDir ?? o.stateDir;
+    // 2026-11-19 (QA P-3): what it sets for a site (paused ads, trusted downloads, sites opened without https, devices,
+    // site rules, cookie let-throughs) is kept in its own sealed folder, never in normal Samara's shared files.
+    const own = o.secret ? o.stateDir : sd;
     // Prime from home (his yes, 2026-11-03): on the Shadow PC, Prime's addresses go out through the MacBook (homeroute.ts).
     if (!o.secret && process.platform === 'win32') void routeHome(this.ses, o.stateDir, (s) => console.log('shell: ' + s)).catch((e: Error) => console.error('shell: prime from home: ' + e.message));
     if (!o.secret) {
@@ -1012,8 +1026,8 @@ export class AangBrowser {
       }
     }
     this.session = new SessionStore(path.join(o.stateDir, 'browser-tabs.json'));
-    this.pausedFile = path.join(sd, 'adblock-paused.json');
-    this.devices = new DeviceOk(path.join(sd, 'device-ok.json'));
+    this.pausedFile = path.join(own, 'adblock-paused.json');
+    this.devices = new DeviceOk(path.join(own, 'device-ok.json'));
     this.prefsFile = path.join(sd, 'browser-prefs.json');
     this.localFile = path.join(o.stateDir, 'browser-local.json');
     const l = readJson<{ tabSize?: unknown } | null>(this.localFile, null); if (l?.tabSize === 's' || l?.tabSize === 'm') this.tabSize = l.tabSize;   // none: Large
@@ -1066,10 +1080,10 @@ export class AangBrowser {
       // its own icon, the large one from its site, not the tiny favicon
       if (!this.icons.has('web.stremio.com')) setTimeout(() => { void this.keepIcon('web.stremio.com', ['https://web.stremio.com/images/icon_196x196.png']); }, 4000);
     }
-    this.httpOkFile = path.join(sd, 'browser-http-ok.json');
-    this.trustedFile = path.join(sd, 'download-trusted.json');
+    this.httpOkFile = path.join(own, 'browser-http-ok.json');
+    this.trustedFile = path.join(own, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
-    this.rules = new SiteRules(path.join(sd, 'site-rules.json'), () => { this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings(); });
+    this.rules = new SiteRules(path.join(own, 'site-rules.json'), () => { this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings(); });
     this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => { this.sendTabs(); this.saveClaudeSoon(); }, stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true, stateDir: o.stateDir,
       rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) },
       tabFor: (t) => this.claudeTab(t.url, t.guest), closeTab: (id) => { if (this.tabs.some((x) => x.id === id)) { this.jobClosing.add(id); this.close(id, false); } },
@@ -1097,7 +1111,7 @@ export class AangBrowser {
     // His rule (2026-11-17): nothing from the secret window is public, so it never asks Google anything.
     if (!o.secret) { this.sb = new SafeBrowsing(sd); this.sb.start(); }
     try { this.paused = new Set(readJson<Iterable<string>>(this.pausedFile, [])); } catch { /* none paused */ }
-    this.wall = new CookieWall(sd);
+    this.wall = new CookieWall(own, { quiet: o.secret === true });
     this.arm();
     // Sheet 87: the secret window's kept session gets everything the throwaway one has.
     if (this.keptSes) { const guest = this.ses; this.ses = this.keptSes; this.arm(); this.ses = guest; }
@@ -1140,9 +1154,13 @@ export class AangBrowser {
     // The secret window hides empty ad boxes and runs the page tricks too (2026-11-13): ads.ts now routes those by
     // session, so Ghostery's one-session limit is gone. Its engine is kept in its own file (slot), since its paused
     // sites can differ (sheet 87, found by secret-check: it once had no ad blocking at all).
-    void blockAds(ses, this.o.sharedDir ?? this.o.stateDir, { cosmetic: true, slot: this.o.secret ? 'secret' : undefined, guard: netGuard, paused: [...this.paused, ...CALL_SITES] }).then((b) => {
+    // 2026-11-19: the secret window's paused sites never go into that kept file (it is in normal Samara's folder); they
+    // are told to its engine after its PIN, in memory only (privatePauses).
+    void blockAds(ses, this.o.sharedDir ?? this.o.stateDir, { cosmetic: true, slot: this.o.secret ? 'secret' : undefined, guard: netGuard,
+      paused: this.o.secret ? [...CALL_SITES] : [...this.paused, ...CALL_SITES], privatePauses: this.o.secret === true }).then((b) => {
       if (this.keptSes && ses !== this.keptSes) return;     // the secret window's throwaway session keeps its own, always on
       this.ads = b; if (b && !this.prefs.ads) b.stop();
+      if (b && this.o.secret && this.paused.size) b.pauseMany([...this.paused], true);
     });
   }
 
@@ -2327,6 +2345,49 @@ export class AangBrowser {
   private shut(): void {
     this.locked = true; this.restored = false; this.pinOpen = false;
     if (this.keptSes && this.ses === this.keptSes) this.ses = electronSession.fromPartition('aang-secret-guest');
+    this.shutRoom();
+  }
+  /** 2026-11-19: locked, its folder is shut too (the key forgotten), once the last save of its tabs and history is written. */
+  private shutRoom(): void {
+    const room = this.room;
+    if (!room?.isOpen) return;
+    void this.snapping.catch(() => {}).then(() => { if (!this.locked) return; this.visits.flush(); room.close(); });
+  }
+  /**
+   * 2026-11-19: his PIN was right: the sealed folder opens and everything kept in it is read now (while locked it read as
+   * nothing, and nothing was written). Plain files from before are sealed on the way (sealdir.ts). False: the Keychain
+   * would not open its key; it stays locked.
+   */
+  private openRoom(): boolean {
+    if (!this.room) return true;
+    if (this.room.open() !== 'open') return false;
+    const o = this.o;
+    this.marks = []; this.icons.clear(); this.stash = []; this.popupOk = new Set();
+    try {
+      const a = readJson<unknown>(this.marksFile, null);
+      if (Array.isArray(a)) this.marks = a.filter((m: Partial<Mark>) => typeof m?.url === 'string' && isWeb(m.url) && typeof m.title === 'string')
+        .map((m: Mark) => ({ title: m.title.slice(0, 200), url: m.url, folder: String(m.folder ?? '').slice(0, 80) })).slice(0, 5000);
+    } catch { /* none yet */ }
+    for (const [h, d] of Object.entries(readJson<Record<string, unknown>>(this.iconsFile, {}))) if (typeof d === 'string' && d.startsWith('data:image/')) this.icons.set(h, d);
+    try {
+      const a = readJson<unknown>(this.stashFile, null);
+      if (Array.isArray(a)) this.stash = a.filter((s: Partial<Stashed>) => Number.isInteger(s?.id) && typeof s?.name === 'string' && Array.isArray(s?.tabs)).slice(0, 50)
+        .map((s: Stashed) => ({ id: s.id, name: s.name.slice(0, 24), at: Number(s.at) || 0, tabs: s.tabs.filter((t) => typeof t?.url === 'string' && isWeb(t.url)).slice(0, 80).map((t) => ({ url: t.url, title: String(t.title ?? t.url).slice(0, 200) })) }));
+    } catch { /* none yet */ }
+    this.stashSeq = this.stash.reduce((m, s) => Math.max(m, s.id), 0);
+    const ok = readJson<unknown[] | null>(this.popupOkFile, null, (a) => Array.isArray(a) ? a : null);
+    if (ok) this.popupOk = new Set(ok.filter((x): x is string => typeof x === 'string'));
+    this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
+    this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
+    const loadSet = (f: string) => { const a = readJson<unknown>(f, null); return Array.isArray(a) ? new Set<string>(a.filter((x: unknown) => typeof x === 'string')) : new Set<string>(); };
+    this.httpOk = loadSet(this.httpOkFile); this.trusted = loadSet(this.trustedFile);
+    this.devices = new DeviceOk(path.join(o.stateDir, 'device-ok.json'));
+    this.rules = new SiteRules(path.join(o.stateDir, 'site-rules.json'), () => { this.sendTabs(); this.pushSettings(); });
+    this.wall.reload();
+    const was = this.paused;
+    try { this.paused = new Set(readJson<Iterable<string>>(this.pausedFile, [])); } catch { this.paused = new Set(); }
+    if (this.ads) { this.ads.pauseMany([...was].filter((h) => !this.paused.has(h)), false); this.ads.pauseMany([...this.paused], true); }
+    return true;
   }
   /** The blank night page: nothing of his shows, and an address typed on it opens in its place. */
   private night(): void {
@@ -2382,6 +2443,8 @@ export class AangBrowser {
   /** The right PIN: his tabs come back where he left them, logged in; pages he opened before it join them. */
   private async unlock(): Promise<void> {
     if (!this.keptSes || !this.locked) return;
+    // His rule (2026-11-19): nothing of it can be read until here. The Keychain refusing its key keeps it locked.
+    if (!this.openRoom()) { this.pinAsk('keychain'); return; }
     this.locked = false; this.lastInput = Date.now();
     this.pinClose();
     const before = this.tabs.slice();
@@ -5293,10 +5356,14 @@ export class AangBrowser {
    * before its PIN too). Only the words go, from Samara's own session with no cookies; a slow or odd answer is no guesses.
    */
   async guesses(text: string): Promise<string[]> {
+    // QA P-2 (2026-11-19): nothing he types in the secret window goes anywhere before its PIN; after it, only through the
+    // secret window's own session, never normal Samara's.
+    if (this.o.secret && this.locked) return [];
     const url = guessesUrl(text, this.engine);
     if (!url) return [];
     try {
-      const r = await within(net.fetch(url, { signal: AbortSignal.timeout(1500), credentials: 'omit' }), 1600, null);
+      const fetcher = this.o.secret ? this.ses.fetch.bind(this.ses) : net.fetch;
+      const r = await within(fetcher(url, { signal: AbortSignal.timeout(1500), credentials: 'omit' }), 1600, null);
       if (!r || !r.ok) return [];
       return parseGuesses(await within(r.json() as Promise<unknown>, 800, null), text);
     } catch { return []; }
@@ -6331,7 +6398,8 @@ export class AangBrowser {
     this.lastInput = Date.now();
     const k = i.key.toLowerCase(), c = i.control || i.meta;
     // ⇧⌘N on the Mac is a hidden menu shortcut (macmain.ts): it works whatever has the keyboard, the band included.
-    if (c && i.shift && k === 'n' && process.platform !== 'darwin') { this.onSecret?.(); return true; }
+    // 2026-11-19 (his rule): the secret window lives on the Mac only; on the PC the keys just say so.
+    if (c && i.shift && k === 'n' && process.platform !== 'darwin') { if (this.onSecret) this.onSecret(); else this.note('', { from: 'menu', small: true, kick: 'Secret window', title: SECRET_ELSEWHERE }); return true; }
     if (c && i.shift && k === 't') { this.act('reopen'); return true; }
     if (c && k === 't') { this.act('newtab'); return true; }
     if (c && k === 'w') { this.act('close'); return true; }
@@ -6392,7 +6460,12 @@ export class AangBrowser {
    * waits for the window's first load.
    */
   private restored = false;
-  private async snapshot(all = false): Promise<void> {
+  private snapshot(all = false): Promise<void> {
+    const run = this.snapshotNow(all);
+    if (this.room) this.snapping = run.catch(() => {});
+    return run;
+  }
+  private async snapshotNow(all = false): Promise<void> {
     if (!this.restored) return;
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
     // Everything is taken NOW, before waiting on the pages (2026-10-14, his "it should remember what tabs were open"):

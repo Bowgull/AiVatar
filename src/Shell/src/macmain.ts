@@ -22,6 +22,7 @@ import { onCastlabs } from './engineupdate.ts';
 import { readSettings } from './settings.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import { holdHotkey } from './hotkey.ts';
+import { MAC_MEDIA_OFF } from './secretguard.ts';
 import { serviceFor } from './services.ts';
 import { CardRenderer } from './cardrender.ts';
 import { homeGate, myTailnetAddr } from './homeroute.ts';
@@ -54,6 +55,10 @@ const openUrl = (u: string) => {
 };
 // A link he clicked while Aang is his default browser. It can arrive before the app is ready.
 app.on('open-url', (e, u) => { e.preventDefault(); openUrl(u); });
+
+// His rule (2026-11-19): a secret tab's title never reaches the Mac's Now Playing (Control Center, the lock screen).
+// Chromium has no per-page switch, so the system media controls are off for all of Samara here (secretguard.ts).
+app.commandLine.appendSwitch('disable-features', MAC_MEDIA_OFF);
 
 // A second copy only hands over and leaves: nothing below may start in it (its servers and window raced the first one's).
 const solo = app.requestSingleInstanceLock();

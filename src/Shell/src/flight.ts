@@ -11,6 +11,7 @@ import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { readJson, saveJson } from './store.ts';
 import { sched } from './sched.ts';
+import { isSecretPage } from './secretguard.ts';
 
 /** "www.youtube.com/watch?v=..." -> "www.youtube.com"; anything that is not a web page -> its kind only. */
 export function siteOf(url: string): string {
@@ -55,16 +56,18 @@ export function startFlight(app: Electron.App, dir: string, log: (s: string) => 
   const was = lastRun(dir);
   if (was) log('flight: ' + was);
   app.on('will-quit', () => closedCleanly(dir));
+  // 2026-11-19 (QA P-3): a secret tab's site is never written here; it is "a secret tab".
+  const where = (wc: Electron.WebContents): string => { if (isSecretPage(wc)) return 'a secret tab'; try { return siteOf(wc.getURL()); } catch { return '?'; } };
   app.on('render-process-gone', (_e, wc, d) => {
-    let site = '?'; try { site = siteOf(wc.getURL()); } catch { /* gone */ }
+    const site = where(wc);
     log(`flight: page gone (${d.reason}, code ${d.exitCode}) on ${site}`);
     if (d.reason !== 'clean-exit') trouble.emit('gone', wc);
   });
   app.on('child-process-gone', (_e, d) => log(`flight: ${d.name || d.serviceName || d.type} process gone (${d.reason}, code ${d.exitCode})`));
   app.on('web-contents-created', (_e, wc) => {
     let since = 0;
-    wc.on('unresponsive', () => { since = Date.now(); log(`flight: page not answering on ${siteOf(wc.getURL())}`); trouble.emit('hang', wc); });
-    wc.on('responsive', () => { if (since) log(`flight: page answering again on ${siteOf(wc.getURL())} after ${((Date.now() - since) / 1000).toFixed(1)} s`); since = 0; });
+    wc.on('unresponsive', () => { since = Date.now(); log(`flight: page not answering on ${where(wc)}`); trouble.emit('hang', wc); });
+    wc.on('responsive', () => { if (since) log(`flight: page answering again on ${where(wc)} after ${((Date.now() - since) / 1000).toFixed(1)} s`); since = 0; });
   });
   const mem = () => { try { log('flight: ' + memoryLine(app.getAppMetrics() as Metric[])); } catch { /* not now */ } };
   sched.every('flight.memory', 10 * 60_000, mem, { first: 60_000 });

@@ -20,8 +20,19 @@ export type Check<T> = (raw: unknown) => T | null | undefined;
 
 /** The file's text, without a Windows byte-order mark (Notepad and PowerShell add one). null when it cannot be read. */
 export function readText(file: string): string | null {
-  try { return readFileSync(file, 'utf8').replace(/^﻿/, ''); } catch { return null; }
+  try {
+    if (!readGate) return readFileSync(file, 'utf8').replace(/^﻿/, '');
+    return readGate(file, readFileSync(file))?.replace(/^﻿/, '') ?? null;
+  } catch { return null; }
 }
+
+/**
+ * The other half of atomic.ts's write gate (2026-11-19, Samara's sealed secret folder, sealdir.ts): given a file's bytes,
+ * its text, or null when it may not be read now. None in the brain.
+ */
+export type ReadGate = (file: string, raw: Buffer) => string | null;
+let readGate: ReadGate | null = null;
+export function setReadGate(g: ReadGate | null): void { readGate = g; }
 
 export interface ReadOpts {
   /** The file is there but is not JSON (torn, hand-edited): told why, before the fallback is used. Missing is not broken. */

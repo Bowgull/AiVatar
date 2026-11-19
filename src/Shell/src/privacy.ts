@@ -91,7 +91,8 @@ export interface PrivacyNote { at: string; kind: string; site: string; inside?: 
  */
 export class CookieWall {
   private readonly file: string;
-  private readonly log: Log;
+  /** null: the secret window's wall, which writes no privacy log at all (2026-11-19: Claude reads that log). */
+  private readonly log: Log | null;
   /** Hidden site → the pages it may keep cookies inside ('*' for every page). */
   private readonly pairs = new Map<string, Set<string>>();
   /** Off for one session (the PC's sync tests, Claude's own tabs never): everything passes as before. */
@@ -103,12 +104,17 @@ export class CookieWall {
   private readonly kept = new Map<string, Set<string>>();
   private readonly keptFile: string;
   private keptSave: NodeJS.Timeout | null = null;
-  constructor(dir: string) {
+  constructor(dir: string, o: { quiet?: boolean } = {}) {
     this.file = path.join(dir, 'cookie-pass.json');
     this.keptFile = path.join(dir, 'cookie-kept-names.json');
-    for (const [k, v] of Object.entries(readJson<Record<string, unknown>>(this.keptFile, {}))) if (Array.isArray(v)) this.kept.set(k, new Set(v.filter((x) => typeof x === 'string').slice(0, 50)));
     const log = path.join(dir, 'privacy-log.jsonl');
-    this.log = openLog('privacy', log, { maxBytes: 1_000_000, old: log.replace(/\.jsonl$/, '.old.jsonl') });
+    this.log = o.quiet ? null : openLog('privacy', log, { maxBytes: 1_000_000, old: log.replace(/\.jsonl$/, '.old.jsonl') });
+    this.reload();
+  }
+  /** Read its two files again (the secret window, once its sealed folder opens: before that they read as nothing). */
+  reload(): void {
+    this.kept.clear(); this.pairs.clear();
+    for (const [k, v] of Object.entries(readJson<Record<string, unknown>>(this.keptFile, {}))) if (Array.isArray(v)) this.kept.set(k, new Set(v.filter((x) => typeof x === 'string').slice(0, 50)));
     for (const [k, v] of Object.entries(readJson<Record<string, unknown>>(this.file, {}))) if (Array.isArray(v)) this.pairs.set(k, new Set(v.filter((x) => typeof x === 'string')));
   }
   /** May this hidden site keep its cookies inside this page? */
@@ -152,7 +158,7 @@ export class CookieWall {
   }
   /** One line in the privacy log, kept to about 1 MB (the older half goes to privacy-log.old.jsonl). */
   note(n: Omit<PrivacyNote, 'at'>): void {
-    this.log.json({ at: new Date().toISOString(), ...n });   // the log is a help, never in the way: it never throws
+    this.log?.json({ at: new Date().toISOString(), ...n });   // the log is a help, never in the way: it never throws
   }
 }
 

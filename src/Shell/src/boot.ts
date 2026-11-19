@@ -97,7 +97,7 @@ export interface Platform {
 export interface BrowserPlatform {
   /** BrowserOptions only one machine sets (the PC's repo folder, the Mac's mockups-anywhere). */
   options?: Partial<Pick<BrowserOptions, 'repoDir' | 'mockupsAnywhere'>>;
-  /** Sheet 87: ⇧⌘N's secret window (the Mac's). */
+  /** Sheet 87: ⇧⌘N's secret window. The Mac's only (2026-11-19): ignored on the PC. */
   secret?: boolean;
   /**
    * Sheet 37 / 41, Claude's plans, on BOTH machines: the card shown in Aang's bubble (null: nobody could, so Samara's
@@ -230,8 +230,10 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   // Sheet 87 (his "go", 2026-10-25): ⇧⌘N opens the secret window. Its own folder (tabs, bookmarks, history), its own
   // kept logins, normal Samara's settings and autofill. No door, no sync, no mockups, nothing of it in normal Samara.
   let secret: AangBrowser | null = null;
+  // His rule (2026-11-19): the Mac's only. On the PC nothing is made, whatever the hooks say (secretguard.ts).
+  const secretHere = bp.secret === true && p.name === 'mac';
   const openSecret = (): void => {
-    if (!bp.secret) return;
+    if (!secretHere) return;
     if (!secret) {
       const dir = path.join(p.stateDir, 'secret');
       if (!d.mkdir(dir)) { p.log('the secret window has no folder'); return; }
@@ -247,7 +249,7 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
     }
     secret.open();
   };
-  if (bp.secret) browser.onSecret = openSecret;
+  if (secretHere) browser.onSecret = openSecret;
 
   browser.onReclaim = () => popout.returnTab();
   browser.onPopoutAct = (what) => { const m = POP_ACTS[what as keyof typeof POP_ACTS]; if (m) popout[m](); };

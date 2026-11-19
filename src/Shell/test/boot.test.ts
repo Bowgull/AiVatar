@@ -218,3 +218,38 @@ for (const [machine, hooks] of [['mac', mac], ['pc', pc]] as const) {
     assert.deepEqual(sent.at(-1), ['browser:updatewhy', 'in a call']);
   });
 }
+
+// His rule (2026-11-19): the secret window lives on his Mac only. Even asked for on the PC, nothing is made: no browser,
+// no folder (so no secret partition or file either), and ⇧Ctrl+N is left to say where it lives.
+test('pc: no secret window, even when the hooks ask for one', async () => {
+  const r = rec();
+  const { p, bp } = pc(r, []);
+  const made: string[] = [];
+  const d = { ...deps(r), mkdir: (f: string) => { made.push(f); return true; } };
+  const s = samaraBrowser(await samaraBase(p, d), p, { ...bp, secret: true }, d);
+  s.openSecret(); s.openSecret();
+  assert.equal(r.browsers.length, 1);
+  assert.ok(!r.browsers.some((b) => b.o.secret));
+  assert.ok(!made.some((f) => /secret/i.test(f)), made.join(','));
+  assert.equal(s.secret(), null);
+  assert.equal(r.browsers[0].onSecret ?? null, null, 'Ctrl+Shift+N falls to the browser, which says it lives on the Mac');
+});
+
+// Sheet 87 / 2026-11-19: on the Mac, the secret window gets none of the doors out: no Send to Aang, Ask Claude, sync,
+// the other machine, plans or the Claude door; the door and sync reach normal Samara only.
+test('mac: the secret window has no door out', async () => {
+  const r = rec();
+  const { p, bp } = mac(r, []);
+  const d = deps(r);
+  const s = samaraBrowser(await samaraBase(p, d), p, bp, d);
+  s.openSecret();
+  const sec = r.browsers[1];
+  assert.equal(sec.o.secret, true);
+  for (const k of ['onSendToAang', 'onAskClaude', 'onOpenOther', 'onSendOther', 'onPlanAsk', 'onPlanStep', 'onPlanDone', 'onClaudeWork', 'onPlayInPopout', 'onReclaim'])
+    assert.equal(sec[k] ?? null, null, `secret window has no ${k}`);
+  assert.equal(sec.sync, null, 'never synced');
+  const door = got(r, 'claudeDoor')[0];
+  assert.ok(door);
+  const get = (got(r, 'wireBrowser')[0]![1]) as () => unknown;
+  assert.equal(get(), r.browsers[0], 'the door and the history tools reach normal Samara');
+});
