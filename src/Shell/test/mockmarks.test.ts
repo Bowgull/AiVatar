@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { MockStore } from '../src/mockups.ts';
@@ -44,8 +45,15 @@ test("Claude's door: the list and a mark, signed only", async () => {
   const mac = (...p: string[]) => createHmac('sha256', key).update(p.join('\n')).digest('hex');
   const ask = async (method: string, p: string, body = '', sign = true) => {
     const ts = String(Date.now());
-    const r = await fetch(`http://127.0.0.1:${port}${p}`, { method, headers: { ...(sign ? { 'x-aang-link-ts': ts, 'x-aang-link-sig': mac('req', ts, method, p, body) } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, ...(body ? { body } : {}) });
-    return [r.status, r.status === 200 ? await r.json() : null] as const;
+    // node:http, not fetch: fetch's pool was still winding down when --test-force-exit ended the process, and Node on
+    // Windows aborted on libuv's UV_HANDLE_CLOSING assertion, failing the file though every test passed (QA 2026-11-19).
+    const r = await new Promise<{ status: number; text: string }>((ok, bad) => {
+      const q = http.request({ host: '127.0.0.1', port, path: p, method, agent: false,
+        headers: { ...(sign ? { 'x-aang-link-ts': ts, 'x-aang-link-sig': mac('req', ts, method, p, body) } : {}), ...(body ? { 'content-type': 'application/json' } : {}) } },
+      (res) => { let t = ''; res.on('data', (d) => { t += d; }); res.on('end', () => ok({ status: res.statusCode ?? 0, text: t })); });
+      q.on('error', bad); q.end(body || undefined);
+    });
+    return [r.status, r.status === 200 ? JSON.parse(r.text) : null] as const;
   };
   assert.equal((await ask('GET', '/stages', '', false))[0], 403, 'unsigned: refused');
   const [, list] = await ask('GET', '/stages');
