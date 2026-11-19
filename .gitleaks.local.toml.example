@@ -1,0 +1,11 @@
+# Copy to .gitleaks.local.toml (gitignored) and fill in. Never commit the filled-in copy: it names real people.
+title = "AiVatar, local"
+
+[extend]
+path = ".gitleaks.toml"
+
+[[rules]]
+id = "aivatar-private-names"
+description = "Names and handles of people who are not in this project"
+regex = '''(?i)\b(first last|other name|theirhandle)\b'''
+keywords = ["first", "other", "theirhandle"]
