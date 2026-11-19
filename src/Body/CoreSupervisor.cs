@@ -198,7 +198,9 @@ sealed class CoreSupervisor : IDisposable
                 }
                 var started = DateTime.UtcNow;
                 var exe = spec.PickExe?.Invoke(spec.Exe) ?? spec.Exe;
-                var psi = new ProcessStartInfo(exe, spec.Args)
+                var args = spec.Args;
+                if (spec.Independent && NextExtra is { Length: > 0 } extra) { args += " " + extra; NextExtra = null; }
+                var psi = new ProcessStartInfo(exe, args)
                 {
                     WorkingDirectory = spec.PickDir?.Invoke() ?? spec.Dir, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = !spec.Independent, RedirectStandardError = !spec.Independent,
@@ -379,6 +381,46 @@ sealed class CoreSupervisor : IDisposable
         }
         catch { /* none */ }
         return null;
+    }
+
+    /// <summary>
+    /// Aang's own tools (his rule, 2026-11-18: "the mini player the notes ... the timer ... are supposed to be seperate ...
+    /// their own things that control their own pieces"): the music player, a new note, a timer. `Aang.exe --open &lt;tool&gt;`
+    /// reaches them straight in Aang's windows, never through Samara (a dock or a list that went through Samara opened
+    /// Samara instead, and nothing else, on 2026-11-18).
+    /// </summary>
+    public static readonly string[] Tools = { "player", "new-note", "timer" };
+    /// <summary>The tool `--open &lt;tool&gt;` names, or null (anything not on the list is ignored).</summary>
+    public static string? ToolFrom(string[] args)
+    {
+        var i = Array.IndexOf(args, "--open");
+        return i >= 0 && i + 1 < args.Length && Array.IndexOf(Tools, args[i + 1]) >= 0 ? args[i + 1] : null;
+    }
+    /// <summary>Extra switches for the next start of an independent Shell only (a tool asked for as Aang starts).</summary>
+    public string? NextExtra { get; set; }
+
+    /// <summary>
+    /// A tool for Aang's windows that are already running: a second copy of the Shell, told the same Samara-apart answer
+    /// the pet gives its own (so it lands in Aang's profile, not Samara's), hands the tool over and steps aside.
+    /// </summary>
+    public static bool OpenTool(string? shellDirOverride, string tool)
+    {
+        if (Array.IndexOf(Tools, tool) < 0) return false;
+        using var sup = ForShell(shellDirOverride);
+        var s = sup.spec;
+        if (s.Dir == null || s.Exe == null || !File.Exists(s.Exe)) { Log.Write("tool: the Shell was not found, so " + tool + " did not open"); return false; }
+        try
+        {
+            var exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
+            var dir = s.PickDir?.Invoke() ?? s.Dir;
+            var psi = new ProcessStartInfo(exe, s.Args + " --samara-task=" + tool) { WorkingDirectory = dir, UseShellExecute = false, CreateNoWindow = true };
+            if (s.PickDir != null) psi.Environment["AANG_SHELL_HOME"] = s.Dir;
+            psi.Environment["AANG_SAMARA_APART"] = ApartFor(dir) ? "1" : "0";
+            using var p = Process.Start(psi);
+            Log.Write($"tool: {tool} handed to Aang's windows (pid {p?.Id})");
+            return p != null;
+        }
+        catch (Exception e) { Log.Write("tool: could not open " + tool + ": " + e.Message); return false; }
     }
 
     /// <summary>Samara alone (his ask, 2026-10-20): start the Shell with no pet and no brain, on the engine it would use.</summary>

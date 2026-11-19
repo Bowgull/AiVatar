@@ -35,7 +35,7 @@ import { RedditFeed } from './reddit.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { jumpIcons } from './taskbar.ts';
-import { isPopoutTask } from './taskbarplan.ts';
+import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './taskbarplan.ts';
 import { launcherEnv, samaraLauncher, writeExitMark } from './samaramode.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
@@ -75,12 +75,14 @@ function aangUp(): boolean {
 }
 /** Start Aang (the pet, then the brain), once however many asks. */
 let wokeAt = 0;
-function wakeAang(): void {
-  if (Date.now() - wokeAt < 30_000 || process.env.AANG_TEST) return;
+function wakeAang(tool?: PopoutTask): void {
+  if (process.env.AANG_TEST) return;
+  if (!tool && Date.now() - wokeAt < 30_000) return;
   wokeAt = Date.now();
   try {
     const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
-    if (exe && existsSync(exe)) { spawn(exe, [], { detached: true, stdio: 'ignore', cwd: path.dirname(exe), env: launcherEnv() }).unref(); console.log('samara: starting Aang'); }
+    // A tool (2026-11-18): `Aang.exe --open <tool>` opens it straight in Aang's windows, starting him if he is off.
+    if (exe && existsSync(exe)) { spawn(exe, tool ? ['--open', tool] : [], { detached: true, stdio: 'ignore', cwd: path.dirname(exe), env: launcherEnv() }).unref(); console.log('samara: starting Aang' + (tool ? ' for ' + tool : '')); }
   } catch (e) { console.error('samara: could not start Aang: ' + (e as Error).message); }
 }
 
@@ -90,6 +92,9 @@ const solo = app.requestSingleInstanceLock(startTask ? { samaraTask: startTask }
 if (!solo) { console.log('samara: another one is already running'); app.exit(0); }
 // Quit Samara from the taskbar list when no Samara runs: nothing to close, so nothing starts (no samara.pid written).
 else if (startTask === 'quit') { console.log('samara: quit asked, and none was running'); app.exit(0); }
+// One of Aang's tools picked from Samara's list while Samara is closed (2026-11-18): it is not Samara's, so Samara does
+// not open for it. Aang's door opens it in his windows, and this copy leaves.
+else if (startTask && isPopoutTask(startTask) && NEEDS_AANG.has(startTask)) { console.log(`samara: ${startTask} is Aang's; handed to him`); wakeAang(startTask); app.exit(0); }
 else {
   // So the pet and a link from Windows join this one instead of starting a second (CoreSupervisor.RunningSamara).
   try { mkdirSync(STATE_DIR, { recursive: true }); writeFileSync(path.join(STATE_DIR, 'samara.pid'), String(process.pid)); } catch (e) { console.error('samara: could not write samara.pid: ' + (e as Error).message); }
@@ -108,17 +113,16 @@ waitingUrls.push(...urlsIn(process.argv));
 function runTask(t: SamaraTask): void {
   // Phase 5: Quit Samara (taskbar list or its ... menu). A real quit: it leaves its mark, so Aang shows no crash card.
   if (t === 'quit') { console.log('samara: quit, on his ask'); app.quit(); return; }
+  // Aang's own tools never wait for Samara's window (they are not Samara's): straight to him.
+  if (isPopoutTask(t) && NEEDS_AANG.has(t)) {
+    if (link.connected) link.send({ t: 'relay', m: { t: 'samara.task', task: t } } as never); else wakeAang(t);
+    return;
+  }
   if (!boot) { pending = t; return; }
   if (!isPopoutTask(t)) { boot.browserNow.jumpTask(t); return; }
   if (link.connected) { link.send({ t: 'relay', m: { t: 'samara.task', task: t } } as never); return; }
-  // Aang is off: start him; the task goes over once his brain answers (45 s at most).
+  // Show, hide and gather with Aang off: there is nothing of his to show; starting him is enough.
   wakeAang();
-  const until = Date.now() + 45_000;
-  const tick = setInterval(() => {
-    if (!link.connected && Date.now() < until) return;
-    clearInterval(tick);
-    if (link.connected) link.send({ t: 'relay', m: { t: 'samara.task', task: t } } as never);
-  }, 500);
 }
 app.on('second-instance', (_e, argv, _cwd, data) => {
   const t = taskFromLockData(data) ?? taskFromArgv(argv);

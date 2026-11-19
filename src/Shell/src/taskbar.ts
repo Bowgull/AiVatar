@@ -1,5 +1,7 @@
 // Pop-outs on Samara's taskbar (sheet 66, option A, his picks 2026-10-22; docs/TASKBAR-POPOUTS-RESEARCH.md "DECIDED").
 //
+// 2026-11-18 (his rule): the music player, notes and timers are their own things, each with its own button, app id and
+// icon (taskbarplan.ts appFor); everything below about the lantern is the video's, the jobs' and the snips'.
 // Every window-family member (the video, Claude jobs, the mini player, notes, timers, pinned snips) wears Samara's app id
 // ('Aang.Samara'), so Windows puts it under Samara's lantern button: hover the lantern and each LOOSE pop-out is its own
 // picture, named ("Waymark · 50%", "Flask · 6:52", the song), with its own thumbnail buttons. A SNAPPED GROUP is ONE
@@ -51,6 +53,8 @@ export interface TaskbarDeps {
   aang: () => P.Box | null;
   /** New note, Timer, Music player from the right-click list. */
   open: { note: () => void; timer: () => void; player: () => void };
+  /** The right-click list's icons (jumpIcons): the music player, notes and timers wear theirs on their own buttons. */
+  icons?: Partial<Record<P.PopoutTask, string>>;
   log?: (s: string) => void;
 }
 
@@ -106,9 +110,11 @@ export class TaskbarPops {
     if (had && had.w === w) return;
     const t: Tracked = { id: m.id, kind: String(m.kind), w, styled: 'asking', on: null, title: '', btns: '', clip: '' };
     this.members.set(m.id, t);
-    // Samara's app id: under the lantern. The video keeps its own turquoise lantern as its window icon (popout.ts).
-    try { if (t.kind !== 'video') w.setIcon(LANTERN); } catch { /* the default icon */ }
-    try { w.setAppDetails({ appId: 'Aang.Samara', appIconPath: LANTERN, appIconIndex: 0, relaunchDisplayName: 'Samara' }); } catch { /* not Windows */ }
+    // Its button (his rule, 2026-11-18, taskbarplan.ts appFor): the music player, notes and timers their own, with their
+    // own icon; the rest Samara's app id, under the lantern. The video keeps its turquoise lantern as its window icon.
+    const app = P.appFor(t.kind), icon = this.iconOf(t.kind);
+    try { if (t.kind !== 'video') w.setIcon(icon); } catch { /* the default icon */ }
+    try { w.setAppDetails({ appId: app.appId, appIconPath: icon, appIconIndex: 0, relaunchDisplayName: app.name }); } catch { /* not Windows */ }
     // Its name in the hover row is ours ("Flask · 6:52"), not whatever its page calls itself.
     w.on('page-title-updated', (e) => e.preventDefault());
     w.once('closed', () => { if (this.members.get(m.id)?.w === w) this.untrack(m.id); });
@@ -136,6 +142,12 @@ export class TaskbarPops {
   }
 
   private kindOf = (id: string) => this.members.get(id)?.kind ?? '';
+  /** The icon a kind's button wears: its own for the player, notes and timers (when made), else Samara's lantern. */
+  private iconOf(kind: string): string {
+    const task = P.OWN_ICON_TASK[kind];
+    const f = task ? this.d.icons?.[task] : undefined;
+    return f && existsSync(f) ? f : LANTERN;
+  }
   private live(t: Tracked | undefined): t is Tracked { return !!t && !t.w.isDestroyed(); }
 
   // ---------------------------------------------------------------- what goes where
@@ -215,7 +227,9 @@ export class TaskbarPops {
       this.icons();
       const pid = this.nextPid;
       this.nextPid = this.nextPid >= 999 ? 1 : this.nextPid + 1;
-      const made = askProxy('G', pid, [1]).then((r) => { this.note(`group ${g.lead} proxy ${pid} made ${r}`); return r; });
+      // The group goes under its lead's button: with the video Samara's, the player and a timer the music player's.
+      const lead = this.kindOf(g.lead);
+      const made = askProxy('G', pid, [1, P.appFor(lead).key, b64(this.iconOf(lead))]).then((r) => { this.note(`group ${g.lead} proxy ${pid} made ${r}`); return r; });
       p = { pid, lead: g.lead, ids: [], owner: '', label: '', btns: '', place: '', sig: '', asked: 0, inval: 0, made };
       this.proxies.set(g.lead, p);
     }

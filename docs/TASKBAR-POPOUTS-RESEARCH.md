@@ -144,3 +144,19 @@ Option A. A snapped group shows as ONE thumbnail of the whole group (named like 
 - Checks: test/taskbarplan.test.ts, test/jumplist.test.ts, test/electron/taskbar-check.ts (offscreen, ALL PASS).
 - To check on his real taskbar: hover thumbnails appear and click brings things forward for the no-keyboard pop-outs
   (job, timer, player, snip); the group's live preview (peek) sits where the group is; WoW keeps the keyboard.
+
+## CHANGED (2026-11-18, his rule): the music player, notes and timers are their own things
+His words: "my music player isnt stand alone anymore ... the mini player the notes ... the timer ... are supposed to be
+seperate ... their own things that control their own pieces". What had happened:
+- 2026-10-22 (bf279655, option A above): every pop-out, the player, notes and timers included, wore `Aang.Samara` and the
+  lantern, so Windows showed them as Samara's windows (and "Close all windows" on Samara closed them).
+- 2026-11-17 (P1, Samara its own program): those three stayed in Aang's windows (main.ts), but every route to them from a
+  Samara menu still went through Samara. On 2026-11-18 08:48 the ShrineDock's "Music player" ran a stale pet build
+  (AangApp\src\Body, 2026-11-14, before apart was the default) and `main.ts --samara-task=player` without the apart
+  switch: Aang's windows started in Samara's profile, hit Samara's single-instance lock, handed Samara an empty "open"
+  (Samara came forward), and died, five times. No player. That stale pet also rewrote body-exe.txt.
+Now: the player wears `Aang.Music`, notes `Aang.Notes`, timers `Aang.Timer`, each with its own icon (taskbarplan.ts
+appFor); a snapped group goes under its lead's button. `Aang.exe --open player|new-note|timer` opens a tool straight in
+Aang's windows (starting him if he is off); Samara's list uses it and never opens Samara for a tool.
+Checked: test/electron/tools-standalone-check.ts (hidden desktop, real programs): ALL PASS, including the player still
+playing after Samara is killed.
