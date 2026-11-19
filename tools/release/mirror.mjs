@@ -3,7 +3,7 @@
 // themselves once the RELEASES_TOKEN secret exists; until then, or when that step failed, run it here with your gh.
 // The files are copied as they are: the seal inside them is what a Samara checks, not where they came from.
 // ship.mjs runs it with --wait after pushing (2026-11-01: no token in GitHub, so the shipping machine copies): it waits
-// for GitHub's release run to finish, copies, then nudges both Samaras (the run leaves the nudge to it).
+// for GitHub's release run to finish, then copies. No nudge (2026-11-19): Samaras find it on their daily check or start.
 // Run: node tools/release/mirror.mjs samara-v1.28.1 [--wait]   (or engine-v44.9.3)
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -29,16 +29,8 @@ if (process.argv.includes('--wait')) {
     await sleep(30_000);
   }
 }
-async function nudge() {
-  for (let i = 0; i < 5; i++) {
-    try { const r = await fetch('https://ntfy.sh/samara-bowgull-7c1e9a52', { method: 'POST', body: 'check', signal: AbortSignal.timeout(20_000) }); if (r.ok) { console.log('Nudged both Samaras.'); return; } } catch { /* try again */ }
-    await sleep(30_000);
-  }
-  console.log('The nudge did not go; Samaras find it within the hour.');
-}
 try { gh('release', 'view', tag, '-R', TO); console.log(`${tag} is already in ${TO}`); process.exit(0); } catch { /* not there yet */ }
 await copy();
-await nudge();
 async function copy() {
   const r = JSON.parse(gh('release', 'view', tag, '-R', FROM, '--json', 'name,body'));
   const dir = mkdtempSync(path.join(os.tmpdir(), 'mirror-'));

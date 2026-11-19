@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { UpdateEngine, VersionLists, newer, notNow, overnightNow, quietNow, type Moment, type Offer, type Source } from '../src/updateengine.ts';
+import { CHECK_MS, UpdateEngine, VersionLists, newer, notNow, overnightNow, quietNow, type Moment, type Offer, type Source } from '../src/updateengine.ts';
 import { newer as ghNewer } from '../src/ghrelease.ts';
 import { newer as engNewer } from '../src/engineupdate.ts';
+import { sched } from '../src/sched.ts';
 
 const at = (h: number, idleMin = 45, o: Partial<Moment> = {}): Moment => ({ now: new Date(2026, 9, 30, h, 15), idleSeconds: idleMin * 60, inCall: false, inGame: false, ...o });
 
@@ -148,4 +149,15 @@ test('an ordinary engine still waits for his toggle or his click', async () => {
   assert.ok(!e.card()!.security);
   await e.tick();
   assert.equal(restarts.length, 0);
+});
+
+test('a running Samara looks for a new version once a day, not every 15 minutes (2026-11-19, his "Trim it")', () => {
+  const e = new UpdateEngine({ sources: [], moment: () => at(14), overnight: () => false, changed: () => {}, restart: () => {} });
+  e.start();
+  try {
+    const job = sched.list().find((j) => j.name === 'update.check');
+    assert.equal(CHECK_MS, 24 * 60 * 60_000);
+    assert.equal(job?.every, CHECK_MS);
+    assert.ok(job!.next - Date.now() <= 30_000, 'the first one still goes half a minute after start');
+  } finally { e.stop(); }
 });

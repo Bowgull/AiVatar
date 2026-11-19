@@ -18,7 +18,6 @@ import { startClaudeDoor } from './claudedoor.ts';
 import { startMockupDoor } from './mockupdoor.ts';
 import { takeMarkFile, takeMockupFile } from './mockups.ts';
 import { UpdateEngine } from './updateengine.ts';
-import { listen as ghListen } from './ghrelease.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { readJson, saveJson } from './store.ts';
 import { onCastlabs } from './engineupdate.ts';
@@ -59,7 +58,6 @@ export function bootDeps(log: (s: string) => void): BootDeps {
     takeMockupFile,
     takeMarkFile,
     newUpdates: (o) => new UpdateEngine(o),
-    ghListen: (nudge) => ghListen(net.fetch as never, nudge),
     idleSeconds: () => powerMonitor.getSystemIdleTime(),
     readText: (f) => { try { return existsSync(f) ? readFileSync(f, 'utf8') : ''; } catch { return ''; } },
     writeAtomic: (f, t) => writeFileAtomic(f, t),

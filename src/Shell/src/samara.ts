@@ -10,7 +10,7 @@
 //
 // P1 (2026-11-17): the default on the PC (samara-mode.json, samaramode.ts); it runs with Aang off and stays open when
 // he quits Aang. Run: electron src/samara.ts
-import { app, Menu, net, session, shell } from 'electron';
+import { app, Menu, net, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -20,7 +20,6 @@ import { bootDeps } from './bootdeps.ts';
 import { CoreLink } from './link.ts';
 import { catchStrays, openLog } from './log.ts';
 import { localStamp } from './clock.ts';
-import { sched } from './sched.ts';
 import { planDoorClient } from './plandoor.ts';
 import { claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
 import { EngineUpdates, onCastlabs } from './engineupdate.ts';
@@ -31,7 +30,6 @@ import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.
 import { readJson } from './store.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
 import { CardRenderer } from './cardrender.ts';
-import { RedditFeed } from './reddit.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { jumpIcons } from './taskbar.ts';
@@ -282,13 +280,8 @@ app.whenReady().then(async () => {
     const done = eu?.justUpdated();
     if (done) { if (done.overnight && done.title) b.setUpdated({ title: done.title, lines: done.lines ?? [] }); if (done.browser) b.open(); }
   }
-  // The Shrine Reddit feed (sheet R18) reads with his own browser session, so it lives with the browser.
-  if (!process.env.AANG_TEST) {
-    const ses = session.fromPartition('persist:aang-browser');
-    const reddit = new RedditFeed({ reddit: ((u: string, i?: RequestInit) => ses.fetch(u, i)) as never, plain: ((u: string, i?: RequestInit) => net.fetch(u, i)) as never, dir: STATE_DIR, log });
-    sched.every('reddit.feed', 30 * 60_000, () => reddit.run(), { quiet: true, catchUp: true, first: 90_000 });
-    reddit.listen();
-  }
+  // The Shrine Reddit feed (sheet R18) is gone (2026-11-19, his "Drop the Reddit feed": he did not use the widget
+  // enough). Nothing in Samara or Aang talks to Reddit by itself any more.
   // Samara's taskbar list: written under its own app id; its pop-out items are Aang's (runTask hands them over).
   if (!process.env.AANG_TEST) {
     const popouts = { aang: aangUp(), icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON) };

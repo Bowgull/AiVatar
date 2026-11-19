@@ -2,7 +2,7 @@
 // The number and name come from his rule (version.mjs), never by hand: the new lines in whats-new.json decide. This
 // writes the version into releases.json, commits it, and tags it samara-vX.Y.Z with what it brings; pushing main and
 // the tag starts GitHub's release (tests on a Mac and on Windows first). Then it pushes, waits for that release and copies
-// it to samara-releases with a nudge (mirror.mjs --wait): about 15 minutes, so run it in the background.
+// it to samara-releases (mirror.mjs --wait): about 15 minutes, so run it in the background.
 // Run: node tools/release/ship.mjs [--dry] [--no-push]
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';

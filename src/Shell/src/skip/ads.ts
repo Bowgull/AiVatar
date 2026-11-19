@@ -329,9 +329,11 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
   } catch { text = ''; got = 0; }
   let resources = '';
   try { resources = readFileSync(resFile, 'utf8'); } catch { resources = ''; }
-  // The very first start has nothing kept: that one has to wait for the lists.
-  if (!text) { ({ text, got } = await fetchLists()); stale = false; if (got) keep(text, got); }
-  if (!resources) resources = await fetchResources(resFile);
+  // The very first start has nothing kept: that one has to wait for the lists. Through the shared download (B-12,
+  // 2026-11-19): the default session and the browser each start a blocker at once, and each used to fetch every list
+  // on its own here, so a start with nothing kept downloaded about 6 MB twice.
+  if (!text) { ({ text, got } = await freshLists()); stale = false; if (got) keep(text, got); }
+  if (!resources) resources = await freshResources(resFile);
   if (!got || !text.trim()) {
     console.error('shell: no block lists could be loaded, so ads are not being blocked');
     return null;

@@ -4,7 +4,7 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RELEASE_KEY, checkManifest, download, latest, listen, newer, titleOf, withSection } from '../src/ghrelease.ts';
+import { RELEASE_KEY, checkManifest, download, latest, newer, titleOf, withSection } from '../src/ghrelease.ts';
 
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
 const PUB = publicKey.export({ type: 'spki', format: 'pem' }).toString();
@@ -69,16 +69,6 @@ test('the bundle is kept only when it matches the sealed size and fingerprint', 
   assert.ok(!existsSync(path.join(dir, 'bad.tgz')) && !existsSync(path.join(dir, 'bad.tgz.part')));
 });
 
-test('a nudge makes one check, and a flood of them is still one', async () => {
-  let n = 0;
-  const body = '{"event":"open"}\n{"event":"message","message":"check"}\n{"event":"message","message":"check"}\n{"event":"keepalive"}\n';
-  let calls = 0;
-  const stop = listen(async () => { calls++; if (calls > 1) await new Promise(() => {}); return res(body); }, () => n++, 'https://x/json');
-  await new Promise((r) => setTimeout(r, 50));
-  stop();
-  assert.equal(n, 1);
-});
-
 test('the key and "Every version" say his version and its name, in the shape the PC always wrote', () => {
   const m = checkManifest(make().text, make().sig, PUB)!;
   assert.equal(titleOf(m), 'Version 1.2.3: Gojo');
@@ -88,21 +78,3 @@ test('the key and "Every version" say his version and its name, in the shape the
   assert.equal(withSection(now, m), now, 'never twice');
 });
 
-test('a stream that goes quiet is dropped, and the next asks for what came since (2026-10-30)', async () => {
-  const urls: string[] = [];
-  let n = 0;
-  const stop = listen(async (u: string, init?: { signal?: AbortSignal }) => {
-    urls.push(u);
-    if (urls.length === 1) {
-      // The first stream says hello, then goes silent the way a stream does after the Mac sleeps.
-      return { ok: true, body: { getReader: () => { let sent = false; return { read: () => sent ? new Promise((_r, rej) => init?.signal?.addEventListener('abort', () => rej(new Error('aborted')))) : (sent = true, Promise.resolve({ done: false, value: new TextEncoder().encode('{"id":"a","time":1793400000,"event":"open"}\n') })) }; } } } as never;
-    }
-    // The nudge sent while it was away comes back on the new stream.
-    return res('{"id":"b","time":1793400050,"event":"message","message":"check"}\n');
-  }, () => n++, 'https://x/json', { quietMs: 60, retryMs: 10 });
-  await new Promise((r) => setTimeout(r, 400));
-  stop();
-  assert.ok(urls.length >= 2, `reconnected: ${urls.length}`);
-  assert.equal(urls[1], 'https://x/json?since=1793400000', 'asks for what came since the last thing it heard');
-  assert.equal(n, 1, 'the missed nudge still makes one check');
-});

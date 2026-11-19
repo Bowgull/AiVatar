@@ -49,7 +49,6 @@ function deps(r: Rec): BootDeps {
     takeMockupFile: (f) => ({ file: f }) as never,
     takeMarkFile: (f) => ({ mark: f }) as never,
     newUpdates: (o) => { call('newUpdates', o); engine.o = o; return engine; },
-    ghListen: (nudge) => { call('gh'); nudge(); },
     idleSeconds: () => 42,
     readText: (f) => r.files.get(f) ?? '',
     writeAtomic: (f, t) => { r.files.set(f, t); },
@@ -178,8 +177,10 @@ for (const [machine, hooks] of [['mac', mac], ['pc', pc]] as const) {
     s.openSecret();
     assert.equal(r.browsers.length, machine === 'mac' ? 2 : 1);
     if (machine === 'mac') { assert.equal(r.browsers[1].o.secret, true); assert.equal(r.browsers[1].o.sharedDir, p.stateDir); assert.equal(s.secret(), r.browsers[1]); }
-    // The update engine: started, nudged by GitHub, his moment and his overnight switch.
-    for (const n of ['newUpdates', 'updates.show', 'updates.start', 'gh', 'updates.check']) assert.ok(names(r).includes(n), `updates: ${n}`);
+    // The update engine: started (its own daily check), his moment and his overnight switch. No nudge listener any more
+    // (2026-11-19, ntfy gone), so nothing at boot asks for an extra check.
+    for (const n of ['newUpdates', 'updates.show', 'updates.start']) assert.ok(names(r).includes(n), `updates: ${n}`);
+    assert.ok(!names(r).includes('updates.check'), 'no extra check at boot');
     const eo = (got(r, 'newUpdates')[0]![1]) as any;
     assert.deepEqual({ ...eo.moment(), now: 0 }, { now: 0, idleSeconds: 42, inCall: false, inGame: machine === 'pc', work: null });
     // Sheet 115: Claude's work is written down before an update goes in, and the key hears when Claude's work changes.
