@@ -53,8 +53,6 @@ import { wireTaskbarPops } from './taskbarwire.ts';
 import { jumpIcons, type TaskbarPops } from './taskbar.ts';
 import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './taskbarplan.ts';
 import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
-import { RedditFeed } from './reddit.ts';
-import { signedIn, takeRedditCookies } from './redditcookies.ts';
 import type { FamilyHost } from './familywin.ts';
 import type { TimerData } from './timerwin.ts';
 import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
@@ -186,8 +184,6 @@ function runPopoutTask(t: PopoutTask): void {
 }
 /** Start Aang.exe (the pet, then the brain); it finds this Shell running and joins it. */
 let wokeAangAt = 0;
-/** Aang's own Reddit partition, when Samara runs apart (startRedditFeed): his cookies arrive from Samara. */
-let redditStore: Electron.Cookies | null = null;
 function wakeAang(): void {
   if (Date.now() - wokeAangAt < 30_000) return;   // one start, however many clicks
   wokeAangAt = Date.now();
@@ -685,8 +681,6 @@ const link = new CoreLink({
     if (!cockpitOn) input?.send('brain:message', m);
   },
   onConnected: up => {
-    // His Reddit sign-in, from Samara (redditcookies.ts), each time the brain is there.
-    if (up && redditStore) toSamara({ t: 'reddit.cookies.ask' });
     // Spotify Connect (2026-10-22): a brain that (re)started does not know the player is showing; told after the hello.
     if (up) setTimeout(() => miniPlayer?.rewatch(), 0);
     // C7 (2026-10-21): no brain, no jobs to show, so the rune leaves Samara's band.
@@ -802,7 +796,6 @@ app.whenReady().then(async () => {
       pages = await servePages(path.join(HERE, '..', 'pages'));
       startSamara({ quiet: true });
       watchSamara();
-      startRedditFeed();
     } else {
       base = await samaraBase(pcPlatform(), bootDeps((s) => console.log('shell: ' + s)));
       ({ pages, popout, drm } = base);
@@ -1001,14 +994,7 @@ app.whenReady().then(async () => {
       }, bootDeps((s) => console.log('shell: ' + s)));
       aangBrowser = boot.browserNow;
       updates = boot.updates;
-      // The Shrine Reddit feed (sheet R18, phase 1): every 30 minutes, quietly, read with his own session, written for
-      // ShrineDock's widget (reddit.ts). The PC's only: ShrineDock is the PC's desktop.
-      if (process.platform === 'win32' && !process.env.AANG_TEST) {
-        const ses = session.fromPartition('persist:aang-browser');
-        const reddit = new RedditFeed({ reddit: ((u: string, i?: RequestInit) => ses.fetch(u, i)) as never, plain: ((u: string, i?: RequestInit) => net.fetch(u, i)) as never, dir: STATE_DIR, log: (s) => console.log('shell: ' + s) });
-        sched.every('reddit.feed', 30 * 60_000, () => reddit.run(), { quiet: true, catchUp: true, first: 90_000 });
-        reddit.listen();   // his opens, reads, more / less, hide and votes from the widget (reddit-ask.json)
-      }
+      // The Shrine Reddit feed (sheet R18) is gone (2026-11-19, his "Drop the Reddit feed").
       // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
       aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
       aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
@@ -1761,25 +1747,6 @@ function fromSamara(raw: unknown): void {
     return;
   }
   if (r.t === 'watch.state') { taskbarHear?.(r); return; }
-  if (r.t === 'reddit.cookies' && redditStore) {
-    void takeRedditCookies(redditStore as never, r.cookies).then((n) => console.log(`shell: Reddit sign-in from Samara (${n} cookies)`));
-    return;
-  }
-}
-/**
- * The Shrine Reddit feed (sheet R18) when Samara runs apart (2026-11-19, his "Trim it": Samara itself never talks to
- * Reddit any more). Every 30 minutes, quietly, read with his Reddit sign-in, which Samara hands over through the brain
- * (redditcookies.ts) into this process's own partition; written for ShrineDock's widget (reddit.ts). It waits, without
- * asking Reddit anything, until a sign-in has arrived. The PC's only: ShrineDock is the PC's desktop.
- */
-function startRedditFeed(): void {
-  if (process.platform !== 'win32' || process.env.AANG_TEST) return;
-  const ses = session.fromPartition('persist:aang-reddit');
-  redditStore = ses.cookies;
-  const reddit = new RedditFeed({ reddit: ((u: string, i?: RequestInit) => ses.fetch(u, i)) as never, plain: ((u: string, i?: RequestInit) => net.fetch(u, i)) as never, dir: STATE_DIR, log: (s) => console.log('shell: ' + s) });
-  sched.every('reddit.feed', 30 * 60_000, async () => { if (await signedIn(ses.cookies as never)) await reddit.run(); }, { quiet: true, catchUp: true, first: 90_000 });
-  reddit.listen();   // his opens, reads, more / less, hide and votes from the widget (reddit-ask.json)
-  if (link.connected) toSamara({ t: 'reddit.cookies.ask' });
 }
 /** Claude's plan cards from Samara, shown in this bubble with their keys (plandoor.ts), as the Mac's Aang does. */
 function openPetPlanDoor(): void {

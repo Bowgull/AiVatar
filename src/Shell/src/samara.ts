@@ -10,7 +10,7 @@
 //
 // P1 (2026-11-17): the default on the PC (samara-mode.json, samaramode.ts); it runs with Aang off and stays open when
 // he quits Aang. Run: electron src/samara.ts
-import { app, Menu, net, session, shell } from 'electron';
+import { app, Menu, net, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -30,7 +30,6 @@ import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.
 import { readJson } from './store.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
 import { CardRenderer } from './cardrender.ts';
-import { shareRedditCookies } from './redditcookies.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { jumpIcons } from './taskbar.ts';
@@ -133,8 +132,6 @@ app.on('second-instance', (_e, argv, _cwd, data) => {
 
 /** Aang's brain: the browser's news in, and the way to Aang's windows. */
 let cards: CardRenderer | null = null;
-/** His Reddit cookies, handed to Aang's feed (redditcookies.ts); set once the browser is up. */
-let redditShare: { now(): Promise<boolean> } | null = null;
 const link = new CoreLink({
   port: PORT, stateDir: STATE_DIR, role: 'samara',
   onMessage: (m) => {
@@ -172,11 +169,9 @@ const link = new CoreLink({
       // His browser sounds switch on Aang's desk, and Aang's line about an update (the card comes up open).
       if (r.t === 'samara.sounds') { b?.setSounds(r.on === true); return; }
       if (r.t === 'samara.update') { b?.open(); b?.openUpdate(); return; }
-      // Aang's Reddit feed asks for his sign-in (redditcookies.ts).
-      if (r.t === 'reddit.cookies.ask') { void redditShare?.now(); return; }
     }
   },
-  onConnected: (up) => { if (!up) boot?.browserNow.claudeNews(null); else void redditShare?.now(); },
+  onConnected: (up) => { if (!up) boot?.browserNow.claudeNews(null); },
 });
 
 app.setAppUserModelId('Aang');
@@ -285,14 +280,8 @@ app.whenReady().then(async () => {
     const done = eu?.justUpdated();
     if (done) { if (done.overnight && done.title) b.setUpdated({ title: done.title, lines: done.lines ?? [] }); if (done.browser) b.open(); }
   }
-  // The Shrine Reddit feed (sheet R18) is Aang's now (2026-11-19, his "Trim it"): Samara never talks to Reddit on its
-  // own. It only hands Aang's process his reddit.com cookies through the brain's relay (redditcookies.ts), now, when
-  // they change, and when Aang asks. The PC's only: ShrineDock is the PC's desktop.
-  if (!process.env.AANG_TEST && process.platform === 'win32') {
-    redditShare = shareRedditCookies(session.fromPartition('persist:aang-browser').cookies as never,
-      (cookies) => link.send({ t: 'relay', m: { t: 'reddit.cookies', cookies } } as never));
-    void redditShare.now();
-  }
+  // The Shrine Reddit feed (sheet R18) is gone (2026-11-19, his "Drop the Reddit feed": he did not use the widget
+  // enough). Nothing in Samara or Aang talks to Reddit by itself any more.
   // Samara's taskbar list: written under its own app id; its pop-out items are Aang's (runTask hands them over).
   if (!process.env.AANG_TEST) {
     const popouts = { aang: aangUp(), icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON) };
