@@ -40,7 +40,7 @@ const PAGE = (p: string) => `<!doctype html><title>Shop page</title><body style=
 <a id="l" href="${p.replace('shop', 'ads')}/link" target="_blank" style="position:absolute;left:20px;top:120px;width:200px;height:60px;display:block;background:#ccc">link</a>
 <script>document.addEventListener('click', (e) => { if (e.target.id === 'l') window.open('${p.replace('shop', 'ads')}/sneaky'); });</script></body>`;
 app.whenReady().then(async () => {
-  if (process.platform !== 'darwin') { console.log('SKIP the secret window is the Mac's only (secretguard.ts); the PC side is test/electron/sealdir-check.ts'); app.exit(0); return; }
+  if (process.platform !== 'darwin') { console.log('SKIP the secret window is only on the Mac (secretguard.ts); the PC side is test/electron/sealdir-check.ts'); app.exit(0); return; }
   const CERT = process.env.TEST_CERT_DIR!;
   let port = 0;
   const srv = https.createServer({ key: readFileSync(path.join(CERT, 'test-key.pem')), cert: readFileSync(path.join(CERT, 'test-cert.pem')) },

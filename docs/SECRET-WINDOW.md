@@ -21,6 +21,7 @@ Everything the secret window keeps in its folder, `secret` inside Samara's data 
 | `browser-tabs.json` and `browser-tabs-kept/*` | its tabs, and the safety copies |
 | `browser-history.json` | its history |
 | `browser-bookmarks.json`, `browser-favicons.json`, `browser-stash.json` | bookmarks, site icons, put-away tab groups |
+| `secret-logins.json` | its own saved logins (usernames and passwords), never Bitwarden |
 | `browser-downloads.json` | its downloads list (the downloaded files themselves go where he saves them) |
 | `adblock-paused.json`, `site-rules.json`, `device-ok.json`, `browser-http-ok.json`, `download-trusted.json`, `browser-popups-ok.json`, `cookie-pass.json`, `cookie-kept-names.json` | its own site settings (no longer written to normal Samara's shared files) |
 
@@ -67,6 +68,7 @@ disk can read the secret window's cookies and site storage.
 | Windows media controls / the pet's NowPlaying.cs | no secret window on Windows | `boot.test.ts` |
 | sync, the Claude door and history tools, Send to Aang, Ask Claude, plans | never handed to it | `boot.test.ts` ("mac: the secret window has no door out") |
 | crash pictures | never taken of it | `secret-leaks.test.ts` |
+| saving or filling a login through Bitwarden (its vault syncs to Bitwarden's servers) | its own sealed login store; Bitwarden's tool is never run from it, and it never uses or wipes normal Samara's autofill PIN | `secretlogins.test.ts` |
 
 Trade-off of the Now Playing fix: Chromium has no per-page switch, so on the Mac **normal Samara** also no longer shows in
 Control Center's Now Playing and the keyboard's play/pause keys no longer reach Samara's videos. Aang's pet on the Mac

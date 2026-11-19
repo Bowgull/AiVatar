@@ -54,6 +54,7 @@ import { lookalike } from './lookalike.ts';
 import { askHelper, softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, LOCK_AFTER, Vault, fillScript, type Login } from './vault.ts';
+import { SecretLogins, type LoginVault } from './secretlogins.ts';
 import { DETAIL_KINDS, DetailsStore, PIN_MAX, PIN_MIN, PinSeal, cleanDetails, pinOk, detailFor, fillDetailsScript, samePin, type FieldKind } from './autofill.ts';
 import { createHmac, randomBytes } from 'node:crypto';
 import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
@@ -890,7 +891,8 @@ export class AangBrowser {
     });
   }
   /** 6.23: his logins from Bitwarden, filled when he clicks the key. */
-  private readonly vault = new Vault();
+  /** His logins: Bitwarden's in normal Samara; the secret window's own sealed ones there, never Bitwarden (secretlogins.ts). */
+  private readonly vault: LoginVault;
   private readonly details: DetailsStore;
   private readonly pinSeal: PinSeal;
   /** The tab and site a fill was started for: a fill never lands on a page that changed since. */
@@ -1048,10 +1050,13 @@ export class AangBrowser {
     } catch { /* none yet */ }
     this.stashSeq = this.stash.reduce((m, s) => Math.max(m, s.id), 0);
     setSearch(this.prefs.search, this.prefs.aiBox);
-    this.sitesFile = path.join(sd, 'vault-sites.json');
+    // 2026-11-19 (his ask): the secret window's logins are its own, sealed in its folder; it never reaches Bitwarden.
+    this.vault = o.secret ? new SecretLogins(path.join(o.stateDir, 'secret-logins.json'), () => this.room?.isOpen === true) : new Vault();
+    this.sitesFile = path.join(own, 'vault-sites.json');
     // Autofill (sheet 77): his details and his PIN's seal, both kept with the Keychain.
     this.details = new DetailsStore(path.join(sd, 'autofill-details.json'));
-    this.pinSeal = new PinSeal(path.join(sd, 'autofill-pin.json'));
+    // The secret window never uses (or wipes) normal Samara's autofill PIN: its own PIN opens its logins.
+    this.pinSeal = new PinSeal(path.join(own, 'autofill-pin.json'));
     this.vault.keepSealed = () => this.pinSeal.has();
     this.vault.setLockAfter(LOCK_AFTER[this.prefs.lockAfter]);
     const ok = readJson<unknown[] | null>(this.popupOkFile, null, (a) => Array.isArray(a) ? a : null);
@@ -2387,6 +2392,7 @@ export class AangBrowser {
     const was = this.paused;
     try { this.paused = new Set(readJson<Iterable<string>>(this.pausedFile, [])); } catch { this.paused = new Set(); }
     if (this.ads) { this.ads.pauseMany([...was].filter((h) => !this.paused.has(h)), false); this.ads.pauseMany([...this.paused], true); }
+    void this.learnSites();                       // which sites have its own logins (secretlogins.ts), for the key
     return true;
   }
   /** The blank night page: nothing of his shows, and an address typed on it opens in its place. */
@@ -4178,6 +4184,10 @@ export class AangBrowser {
     const P = this.pane;
     const s = await this.vault.state();
     this.pane = P;
+    if (this.o.secret) {
+      if (s !== 'unlocked') { this.note('', { kind: 'bad', from: 'shield', small: true, icon: 'key', kick: 'Locked', title: 'Your PIN first' }); return; }
+      await this.vaultList(); return;
+    }
     if (s === 'missing') { this.note('', { kind: 'bad', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Not on this computer yet', rows: [{ g: 'Why', v: "Bitwarden's tool is not installed here." }] }); return; }
     if (s === 'signed-out') { this.note('', { kind: 'need', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Sign in once first', rows: [{ g: 'Yourself', v: BW_LOGIN }] }); return; }
     if (s === 'locked') { this.win?.webContents.send('browser:vault', { mode: 'unlock', host }); return; }
@@ -4509,7 +4519,7 @@ export class AangBrowser {
         const logins = await this.vault.loginsFor(url);
         if (this.af !== a) return;
         if (logins && logins.length) { a.offer = 'login'; a.logins = logins; a.login = 0; this.lightShow(this.afLoginLabel()); return; }
-      } else if (a.kind === 'password' && (this.siteKnown(host) || !this.sites)) {
+      } else if (!this.o.secret && a.kind === 'password' && (this.siteKnown(host) || !this.sites)) {
         // Bitwarden is locked and this site has a login: the bar calls him for his PIN (or the master password).
         this.lightHide();
         if (this.pinSeal.has()) { this.afPin = { digits: '', then: 'fill' }; this.afBand('call'); }
@@ -4662,6 +4672,7 @@ export class AangBrowser {
     const s = this.afSave;
     if (!s) return;
     if (!this.vault.current()) {
+      if (this.o.secret) { this.afSave = null; this.afBand(); return; }    // locked: nothing of it is kept
       if (this.pinSeal.has()) { this.afPin = { digits: '', then: 'save' }; this.afBand('call'); }
       else void this.vaultKey();
       return;
@@ -4676,7 +4687,8 @@ export class AangBrowser {
     const ok = await this.vault.create(site, String(o.user ?? ''), o.pass);
     this.afSave = null;
     this.afBand(ok ? 'open' : undefined);
-    this.note('', ok ? { from: 'shield', small: true, icon: 'key', kick: 'Kept in Bitwarden', title: site } : { kind: 'bad', from: 'shield', icon: 'key', kick: 'Bitwarden', title: 'Did not keep it', rows: [{ g: 'Try', v: 'Again from the key.' }] });
+    const where = this.o.secret ? 'Kept on this Mac' : 'Kept in Bitwarden';
+    this.note('', ok ? { from: 'shield', small: true, icon: 'key', kick: where, title: site } : { kind: 'bad', from: 'shield', icon: 'key', kick: this.o.secret ? 'Secret logins' : 'Bitwarden', title: 'Did not keep it', rows: [{ g: 'Try', v: 'Again from the key.' }] });
     if (ok) void this.learnSites();
   }
   /** The address bar's key: what it shows now. `beat`: one moment to play (the call, opening, a wrong PIN). */
