@@ -1,0 +1,23 @@
+#!/bin/sh
+# Refuse a commit that would put a secret or one of Joshua's personal details into this PUBLIC repo (2026-11-19).
+# gitleaks checks only what is staged, with .gitleaks.local.toml (real names, gitignored) when it exists, else
+# .gitleaks.toml. Turn it on once per clone:  git config core.hooksPath tools/git-hooks
+# (that also turns on post-commit, which pushes every commit). Needs gitleaks 8.25 or newer on PATH:
+#   PC:  winget install gitleaks      Mac:  brew install gitleaks
+# Without gitleaks the commit is refused, because the post-commit hook publishes at once. A one-off override, only
+# for a commit Joshua has looked at himself:  AIVATAR_NO_GITLEAKS=1 git commit ...
+root="$(git rev-parse --show-toplevel)"
+cfg="$root/.gitleaks.toml"
+[ -f "$root/.gitleaks.local.toml" ] && cfg="$root/.gitleaks.local.toml"
+if [ "${AIVATAR_NO_GITLEAKS:-}" = "1" ]; then
+  echo "pre-commit: gitleaks skipped (AIVATAR_NO_GITLEAKS=1)." >&2; exit 0
+fi
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so this commit was not checked and is refused." >&2
+  echo "  Install it (PC: winget install gitleaks, Mac: brew install gitleaks) and commit again." >&2
+  exit 1
+fi
+gitleaks git --pre-commit --staged --redact --no-banner --config "$cfg" "$root" || {
+  echo "pre-commit: gitleaks found something above. Take it out of the staged files, then commit again." >&2
+  exit 1
+}

@@ -839,12 +839,8 @@ ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm
     fi
 ${opts.changelog ? `    # Samara's changelog, the same one as on the PC (his ask, 2026-10-14).
     printf '%s' '${b64(opts.changelog)}' | /usr/bin/base64 -D > "$DIR/Samara Changelog.md"
-` : ''}    # His approved target companies (2026-10-14): checked only when he asks. A newer list replaces an older one.
-    TC="$APP/Contents/Resources/app/src/target-companies.json"; TCD="$HOME/job-hunt-data/target-companies.json"
-    if [ -f "$TC" ]; then
-      VER='try{console.log(require(process.argv[1]).version||0)}catch(e){console.log(0)}'; NEWV=$("$NODE_DIR/bin/node" -e "$VER" "$TC"); OLDV=$("$NODE_DIR/bin/node" -e "$VER" "$TCD")
-      if [ "\${OLDV:-0}" -lt "\${NEWV:-0}" ]; then mkdir -p "$HOME/job-hunt-data"; cp "$TC" "$TCD" && echo "     Your approved company list is in job-hunt-data/target-companies.json"; fi
-    fi
+` : ''}    # His approved target companies live only in ~/job-hunt-data/target-companies.json (2026-11-19: the list left the
+    # public repo; Samara no longer ships or copies it). browser_check_companies reads it from there.
     if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Samara (aang-browser). Reopen a Claude session to see it."
     else echo "     Could not add Samara to Claude Code here."; fi
     # 2026-10-22: the aang-link mod (show_mockup, so Claude's mockups land in Samara's Mockups trail here) and his global

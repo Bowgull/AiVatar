@@ -196,3 +196,24 @@ test('a first name on its own is still not enough to block', () => {
     'G:/My Drive/Roe deer.md',
   ]) assert.equal(offLimits(p), null, `${p} should be allowed`);
 });
+
+test('the off-limits list is per machine: its salt is random and a saved list is honoured', async () => {
+  const { offLimitsEntries, offLimitsPrint } = await import('../src/files.ts');
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const names = { folders: ["Kim's Job Hunt"], people: ['Kim Poe'], handles: ['kimpoedesign'] };
+  const a = offLimitsEntries('a'.repeat(32), names), b = offLimitsEntries('b'.repeat(32), names);
+  assert.notEqual(a.people[0], b.people[0], 'two machines, two salts, two different fingerprints');
+  assert.equal(a.people[0], offLimitsPrint('a'.repeat(32), 'kim poe'));
+  const state = mkdtempSync(path.join(os.tmpdir(), 'aang-off-'));
+  writeFileSync(path.join(state, 'offlimits.json'), JSON.stringify({ salt: 'a'.repeat(32), ...a }));
+  const files = new URL('../src/files.ts', import.meta.url).href;
+  const out = execFileSync(process.execPath, ['--no-warnings', '--input-type=module', '-e',
+    `const f = await import(${JSON.stringify(files)}); console.log(JSON.stringify([f.offLimitsListLoaded(), f.offLimits("G:/My Drive/Kim's Job Hunt/cv.pdf"), f.offLimits('G:/My Drive/kimpoedesign-logo.png'), f.offLimits('G:/My Drive/notes.md')]))`],
+    { env: { ...process.env, AANG_STATE_DIR: state }, encoding: 'utf8' });
+  const [loaded, folder, handle, mine] = JSON.parse(out);
+  assert.equal(loaded, true);
+  assert.match(folder, /someone else/i);
+  assert.match(handle, /someone else/i);
+  assert.equal(mine, null);
+});

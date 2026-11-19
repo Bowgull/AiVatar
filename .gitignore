@@ -33,3 +33,6 @@ src/Core/test/offlimits.local.json
 
 # Joshua's Drive notes: job tracker, profile, job search (private; kept on disk)
 docs/drive/
+
+# gitleaks rules naming real people (see .gitleaks.local.toml.example)
+.gitleaks.local.toml

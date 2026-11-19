@@ -1,0 +1,50 @@
+# gitleaks rules for AiVatar (2026-11-19 scrub). The repo is public: on top of gitleaks' own secret rules, these catch
+# the personal things the scrub took out, so they cannot come back. Names of real people are NOT written here (that
+# would publish them): put those in .gitleaks.local.toml (gitignored), which extends this file; the pre-commit hook
+# uses it when it exists. Run by hand: gitleaks dir . --config .gitleaks.toml
+title = "AiVatar"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "aivatar-personal-email"
+description = "A personal mail address (commit as the GitHub noreply address; tests use example.com)"
+regex = '''(?i)\b[a-z0-9._%+-]+@(gmail|googlemail|outlook|hotmail|live|icloud|me|yahoo|proton|protonmail)\.(com|me|ca)\b'''
+keywords = ["gmail", "googlemail", "outlook", "hotmail", "live.", "icloud", "me.com", "yahoo", "proton"]
+[[rules.allowlists]]
+regexes = ['''^sam(\.k)?@gmail\.com$''']   # made-up senders in briefmail.test.ts
+
+[[rules]]
+id = "aivatar-tailscale-ip"
+description = "A real Tailscale address (100.64.0.0/10). Tests use 100.64.x.x or the listed made-up ones"
+regex = '''\b100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}\b'''
+keywords = ["100."]
+[[rules.allowlists]]
+regexes = ['''\b100\.64\.[0-9]{1,3}\.[0-9]{1,3}\b''', '''\b100\.101\.102\.103\b''', '''\b100\.83\.0\.1\b''', '''\b100\.91\.0\.2\b''', '''\b100\.127\.255\.255\b''']
+
+[[rules]]
+id = "aivatar-mac-hostname"
+description = "A real machine name such as <name>s-macbook-pro (use a placeholder)"
+regex = '''(?i)\b[a-z0-9]+s-(macbook|imac|mac-mini|mac-studio)(-pro|-air)?\b'''
+keywords = ["macbook", "imac", "mac-mini", "mac-studio"]
+
+[[rules]]
+id = "aivatar-job-hunt-list"
+description = "His job-hunt company list lives only in ~/job-hunt-data, never in the repo"
+path = '''(^|/)target-companies\.json$'''
+
+[[rules]]
+id = "aivatar-job-hunt-marks"
+description = "Job-hunt application marks (do-not-reapply lists belong in his job-hunt folder)"
+regex = '''(?i)\bdo[-_ ]?not[-_ ]?re[-_ ]?apply\b'''
+keywords = ["reapply", "re-apply", "re_apply"]
+
+[[rules]]
+id = "aivatar-private-notes"
+description = "Private notes that were moved out of the public repo"
+path = '''(^|/)(docs/SECURITY-FIX\.md|docs/DRIVE-CLAUDE-MD\.md|research_notes/samara-security/.*|docs/drive/.*)$'''
+
+[[allowlists]]
+description = "This file and the hook describe the rules themselves"
+paths = ['''(^|/)\.gitleaks(\.local)?\.toml$''', '''(^|/)\.mailmap$''', '''(^|/)tools/git-hooks/pre-commit$''']

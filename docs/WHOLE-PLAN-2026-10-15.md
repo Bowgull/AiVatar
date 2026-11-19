@@ -1,7 +1,7 @@
 # The whole plan, everything still open (2026-10-15)
 
 Pulled from docs/FINAL-AANG-BUILD.md (every step not ticked), its "Loose ends", the E section, K1-K10,
-Phase 9, the Samara security plan (research_notes/samara-security), and this week's open items.
+Phase 9, the Samara security plan (kept in his private notes since 2026-11-19), and this week's open items.
 Nothing here is new except "Samara speed" (proposed, waiting on his yes).
 
 ## NOW (proposed order)
