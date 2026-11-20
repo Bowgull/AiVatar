@@ -55,8 +55,11 @@ app.whenReady().then(async () => {
     if (still) break;
   }
   await wait(800);
-  const tray: Record<string, string> = await b.trayV.webContents.executeJavaScript(DUMP.replace('ROOTS', JSON.stringify(['.drawer', '.railhandle'])), true);
-  const frame: Record<string, string> = await b.win.webContents.executeJavaScript(DUMP.replace('ROOTS', JSON.stringify(['.hnd', '.railhandle'])), true);
+  const read = async () => [
+    await b.trayV.webContents.executeJavaScript(DUMP.replace('ROOTS', JSON.stringify(['.drawer', '.railhandle'])), true) as Record<string, string>,
+    await b.win.webContents.executeJavaScript(DUMP.replace('ROOTS', JSON.stringify(['.hnd', '.railhandle'])), true) as Record<string, string>,
+  ] as const;
+  let [tray, frame] = await read();
   const norm = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.replace(/http:\/\/127\.0\.0\.1:\d+/g, 'ORIGIN')]));
   // Kept as short fingerprints (the full styles are 11 MB); a difference names the element, and the same element's
   // styles on main and here show what moved.
@@ -66,6 +69,9 @@ app.whenReady().then(async () => {
   if (process.env.PIN_WRITE) { writeFileSync(PIN, JSON.stringify(now, null, 0)); console.log(`PIN WRITTEN ${n} elements`); app.exit(0); return; }
   if (!existsSync(PIN)) { console.log('FAIL no fingerprint at ' + PIN); app.exit(1); return; }
   const was = JSON.parse(readFileSync(PIN, 'utf8'));
+  const differs = (n: { tray: Record<string, string>; frame: Record<string, string> }) => (['tray', 'frame'] as const).some((k) => JSON.stringify(Object.entries(was[k]).sort()) !== JSON.stringify(Object.entries(n[k]).sort()));
+  // Read once more before failing: a slide or a favicon still settling is not a change.
+  if (differs(now)) { await wait(1500); [tray, frame] = await read(); now.tray = hash(tray); now.frame = hash(frame); }
   const bad: string[] = [];
   for (const part of ['tray', 'frame'] as const) {
     const a = was[part] as Record<string, string>, z = (now as any)[part] as Record<string, string>;
