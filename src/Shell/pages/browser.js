@@ -691,9 +691,17 @@ function editSlot(keepList = false) {
   slot.classList.add('editing');                 // sheet 88 B: out wider while he types (sheet 102: to 1280)
   edit.value = t?.url ?? '';
   edit.focus(); edit.select();
+  window.aang?.browserSlot?.(true);              // Samara keeps the keyboard here while tabs come back
+  // What he typed while Samara was still opening (early.js) goes in now (his ask, 2026-11-20).
+  const early = window.__early; window.__early = null;
+  if (early?.keys) {
+    edit.value = early.keys; edit.dispatchEvent(new Event('input'));
+    if (early.enter && early.keys.trim()) { window.aang?.browserGo?.(early.keys.trim()); hideSuggest(); closeSlot(); }
+    return;
+  }
   zeroSuggest();
 }
-function closeSlot() { edit.hidden = true; urlEl.hidden = false; el('slot').classList.remove('editing'); slotTo = null; }
+function closeSlot() { if (!edit.hidden) window.aang?.browserSlot?.(false); edit.hidden = true; urlEl.hidden = false; el('slot').classList.remove('editing'); slotTo = null; }
 addEventListener('resize', () => { slotTo = null; if (sugg.length) paintSuggest(); });
 el('slot').addEventListener('click', (e) => { if (finding || lock.contains(e.target)) return; if (edit.hidden) editSlot(); });
 // ---- address suggestions (6.22b item 6; sheet 88; sheet 102). The list is drawn on its own layer over the live page
@@ -830,8 +838,19 @@ edit.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { if (sugg.length && edit.value !== (own || zeroAt)) { edit.value = own || zeroAt; pick = own ? 0 : -1; paintSuggest(); e.preventDefault(); return; } hideSuggest(); closeSlot(); }
 });
 edit.addEventListener('blur', () => setTimeout(hideSuggest, 120));
-edit.addEventListener('blur', () => setTimeout(closeSlot, 120));
-window.aang?.onBrowserFocusSlot?.(() => editSlot(true));
+// The bar closes when he goes elsewhere, not when Samara hands it the keyboard straight back (2026-11-20: a tab loading
+// at startup took it for a moment, and the bar shut under him).
+edit.addEventListener('blur', () => setTimeout(() => { if (document.hasFocus() && document.activeElement === edit) return; closeSlot(); }, 120));
+// Ctrl+L, a new tab, and Samara opening (2026-11-20) put the cursor in the bar. Opening, he may already be typing in it:
+// what he typed stays.
+const bootAt = Date.now();
+window.aang?.onBrowserFocusSlot?.(() => {
+  const url = state.tabs.find((x) => x.id === state.active)?.url ?? '';
+  if (Date.now() - bootAt < 10_000 && !edit.hidden && edit.value && edit.value !== url) { edit.focus(); return; }
+  editSlot(true);
+});
+// He clicked the bar or typed before this code had loaded (early.js kept it): the bar opens with it now.
+if (window.__early && (window.__early.keys || window.__early.click)) editSlot(true);
 
 // ---- find on page (Ctrl+F). Typing searches as he types; Enter is the next match, Shift+Enter the one before;
 // Esc, or clicking away, puts the slot back as it was.

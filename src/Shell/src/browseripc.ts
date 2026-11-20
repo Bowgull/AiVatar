@@ -63,6 +63,7 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   ipcMain.on('browser:act', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && typeof a === 'string') b(e).act(a); });
   // Option + drag anywhere on the frame moves the window (2026-10-23): only the frame, only screen numbers.
   ipcMain.on('browser:windrag', (e, m) => { if ((top(e) && b(e)?.isFrame(e.sender)) && m && typeof m.phase === 'string' && Number.isFinite(m.x) && Number.isFinite(m.y)) b(e).winDrag(e.sender, m.phase, Math.round(m.x), Math.round(m.y)); });
+  ipcMain.on('browser:slot', (e, open) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).slotState(open === true); });
   ipcMain.on('browser:go', (e, text) => { if ((top(e) && b(e)?.isFrame(e.sender)) && typeof text === 'string') b(e).go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b(e).answer(a.id, a.allow === true); });
   // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.

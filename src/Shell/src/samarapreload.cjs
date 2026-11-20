@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserMarkOp: a => ipcRenderer.send('browser:markop', a),
   onBrowserTray(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tray', h); return () => ipcRenderer.removeListener('browser:tray', h); },
   browserGo: text => ipcRenderer.send('browser:go', text),
+  browserSlot: open => ipcRenderer.send('browser:slot', open === true),
   browserTab: a => ipcRenderer.send('browser:tab', a),
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   onOpenUpdate(fn) { const h = () => fn(); ipcRenderer.on('browser:openupdate', h); return () => ipcRenderer.removeListener('browser:openupdate', h); },

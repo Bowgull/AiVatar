@@ -262,6 +262,8 @@ interface Pane {
   inset: { left: number; top: number; right: number; bottom: number };
   drawerOpen: boolean;
   peekShot: { tab: number; url: string; at: number; shot: string } | null;
+  /** He is typing in this window's address bar: a tab coming forward does not take the keyboard from him (2026-11-20). */
+  slotOpen?: boolean;
   peeking: boolean;
   hideTimer: NodeJS.Timeout | null;
   trayV: WebContentsView | null;
@@ -1999,6 +2001,34 @@ export class AangBrowser {
     if (p) this.pane = p;
     return Boolean(p);
   }
+  /**
+   * The first seconds after Samara opens (his ask, 2026-11-20). Chromium hands the keyboard to a tab when its page first
+   * loads, even when nobody asked it to (seen on the hidden desktop: no focus() call, and the tab had it anyway). While
+   * the bar is open and he has not clicked the page, the keyboard goes back to the bar.
+   */
+  private holdBarAtStart(p: Pane): void {
+    const w = p.win;
+    if (!w) return;
+    const clickedAt = new Map<number, number>();
+    const watched = new Set<number>();
+    const end = Date.now() + 8000;
+    const timer = setInterval(() => {
+      if (Date.now() > end || !this.alive(p) || !p.slotOpen) { clearInterval(timer); return; }
+      for (const t of this.tabs) {
+        const wc = t.pane === p.id && t.view && !t.view.webContents.isDestroyed() ? t.view.webContents : null;
+        if (!wc || watched.has(wc.id)) continue;
+        watched.add(wc.id);
+        wc.on('input-event', (_e, input) => { if (input.type === 'mouseDown') clickedAt.set(wc.id, Date.now()); });
+      }
+      const f = allWebContents.getFocusedWebContents();
+      if (!f || f === w.webContents || !this.tabs.some((t) => t.pane === p.id && t.view?.webContents === f)) return;
+      if (Date.now() - (clickedAt.get(f.id) ?? 0) < 1000) return;   // he clicked the page: it is his
+      w.webContents.focus();
+      w.webContents.send('browser:focusslot');
+    }, 50);
+  }
+  /** The frame's address bar opened or closed (browser.js). */
+  slotState(open: boolean): void { this.pane.slotOpen = open; }
   isMainFrame(sender: Electron.WebContents): boolean {
     const p = this.panes.find((x) => this.alive(x) && sender === x.win!.webContents);
     if (p) this.pane = p;
@@ -3121,10 +3151,17 @@ export class AangBrowser {
       // Sheet 87: the secret window opens on its blank night page, locked; its tabs come back with its PIN.
       // His pick (2026-10-25): it opens on Brave Search, logged out; its address bar searches with Yandex.
       if (this.o.secret) { this.shut(); this.coverId = this.newTab(SECRET_COVER); return; }
+      // His ask (2026-11-20): Samara opens with the cursor in the address bar. Decided BEFORE his tabs come back: a tab
+      // told to take the keyboard while it is still loading takes it once it has loaded, after the bar had it.
+      const barFirst = !url && !this.whenOpen.length;
+      if (barFirst) p.slotOpen = true;
       // A mockup that opened the window (sheet 47) is its first tab: no home page under it.
       if (this.prefs.startup === 'home' || !this.restore()) { this.restored = true; if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
       for (const f of this.whenOpen.splice(0)) { this.pane = p; f(); }
+      // His ask (2026-11-20): the address bar is ready the moment Samara opens, so he can type a search straight away,
+      // as in Chrome. Not when a link or a mockup opened it: then the page is what he came for.
+      if (barFirst && !w.isDestroyed()) { w.webContents.focus(); w.webContents.send('browser:focusslot'); this.holdBarAtStart(p); }
       // Sheet 115: Claude's tabs from before the restart come back after his own.
       if (!this.o.secret) setTimeout(() => { void this.restoreClaude(); }, 1500);
     });
@@ -4195,7 +4232,9 @@ export class AangBrowser {
     for (const x of mine) if (x.id !== id && x !== hold && x !== partner && x.view && !x.lent) x.view.setVisible(false);
     if (partner?.view && !this.drawerOpen && !partner.crashed) partner.view.setVisible(true);
     if (fresh) void this.veilUp(t, hold);
-    if (!t.crashed) t.view!.webContents.focus();
+    // His ask (2026-11-20): he grabs the address bar while Samara is still opening. Tabs coming back used to take the
+    // keyboard, which closed the bar under him. While he is typing there, the page waits.
+    if (!t.crashed && !this.paneOfTab(t)?.slotOpen) t.view!.webContents.focus();
     // The drawer is open: the page area is a still picture, so take a fresh one of the tab now in front. Without this
     // a closed tab stayed on screen until the drawer shut (his report, 2026-10-12).
     if (this.drawerOpen) void this.drawer(true);
@@ -6739,6 +6778,7 @@ export class AangBrowser {
   private cur(): Tab | undefined { return this.tabs.find((x) => x.id === this.active); }
 
   go(address: string): void {
+    this.pane.slotOpen = false;                         // he pressed Enter: the page he asked for gets the keyboard
     if (/^\s*aang:hyrule\s*$/i.test(address) && this.openHyrule()) return;
     const url = addressFor(address, this.engine);
     const t = this.cur();
