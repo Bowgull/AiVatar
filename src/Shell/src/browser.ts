@@ -4609,6 +4609,8 @@ export class AangBrowser {
    * Sheet 106 v7: say something as a notice. Each of Samara's lines is sorted on the sheet's table (its kind, big or small,
    * what it drops from); a line given only as words becomes plain small news, or big with a Got it when it is long.
    */
+  /** A short line from Samara's own program, said as small news from the ... menu (Send to Aang that did not arrive). */
+  say(kick: string, title: string, kind: NoticeIn['kind'] = 'bad'): void { this.note('', { kind, from: 'menu', small: true, kick, title }); }
   private note(text: string, o?: Partial<NoticeIn>, on?: (act: string) => void): number {
     const n: NoticeIn = o?.title ? { kind: 'done', from: 'menu', kick: 'Samara', ...o } as NoticeIn : plainNotice(text, o);
     if (!n.small && !n.keys?.length) n.keys = [{ label: n.kind === 'bad' ? 'Close' : 'Got it', act: 'ok' }];

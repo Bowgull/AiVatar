@@ -25,7 +25,7 @@ import { CockpitBox, wantsCockpit, type TypingSurface } from './cockpit.ts';
 import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
 import { watchOwnClicks } from './clickaway.ts';
 import { Snipper } from './snip.ts';
-import { SendDesk } from './sendtoaang.ts';
+import { SendDesk, cleanMockRelay, relayFile } from './sendtoaang.ts';
 import { PickReplies, chatsFrom } from './askclaude.ts';
 import { PinSnips } from './pinsnip.ts';
 import type { PlanAnswer } from './browser.ts';
@@ -1413,13 +1413,15 @@ app.whenReady().then(async () => {
   });
   // Sheet 41: Take it back on a Claude plan he allowed: that plan asks him again next time. The page sends the row as it
   // has it; only the plan's task is used to forget, and the row's new state is checked and sized before it is kept.
-  ipcMain.on('bubble:forgetplan', (e, a) => {
+  ipcMain.on('bubble:forgetplan', async (e, a) => {
     if (!fromBubble(e) || !a || typeof a !== 'object') return;
     const id = Number(a.id), task = String(a.task ?? '').slice(0, 200);
     if (!Number.isInteger(id) || id <= 0 || !task) return;
-    // The plan memory is Samara's (it runs apart), and nothing passes this to it yet: found 2026-11-20 in phase 1 of
-    // Samara's own repo, unchanged here (it answered this way ever since Samara ran apart). Phase 3's door carries it.
-    const had = false;
+    // The plan memory is Samara's (its own program): asked over the relay, and it answers whether it had that plan
+    // (2026-11-20; since Samara ran apart this always said "already set to ask you" and Samara never heard).
+    const r = await askSamara({ t: 'samara.forgetplan', task });
+    if (!r) { bubble?.send('brain:message', { t: 'whisper', text: 'Samara is closed, so that plan was not taken back. Open Samara and try again.' }); return; }
+    const had = r.had === true;
     const said = had ? 'Done. Claude asks you again next time it wants to do this.' : 'It was already set to ask you.';
     const was = a.extra && typeof a.extra === 'object' ? a.extra as Record<string, unknown> : {};
     const extra = { ...was, remembered: false, takenBack: { at: new Date().toISOString(), said } };
@@ -1596,6 +1598,44 @@ function fromSamara(raw: unknown): void {
   }
   if (r.t === 'watch.state') { taskbarHear?.(r); return; }
   if (r.t === 'samara.front') { samaraInFront(r.on === true); return; }
+  // Send to Aang and Send mockup to Aang from Samara (2026-11-20, his "Fix it now"): landed on the typing box as before,
+  // and answered, so Samara can say so when nobody is here. A picture is only ever a plain file name in our own folder.
+  if (r.t === 'samara.send' && typeof r.id === 'string' && r.sent && typeof r.sent === 'object') {
+    const dir = path.join(STATE_DIR, 'sent-pictures'), file = relayFile(dir, r.picture);
+    const picture = file && existsSync(file) ? nativeImage.createFromPath(file) : undefined;
+    const ok = sendToAang(r.sent as Record<string, unknown>, picture);
+    if (file) try { unlinkSync(file); } catch { /* gone */ }
+    toSamara({ t: 'samara.sent', id: r.id.slice(0, 40), ok });
+    return;
+  }
+  if (r.t === 'samara.mockup' && typeof r.id === 'string') {
+    const m = cleanMockRelay(r.m), dir = path.join(STATE_DIR, 'mockup-sends');
+    if (!m) { toSamara({ t: 'samara.sent', id: r.id.slice(0, 40), ok: false }); return; }
+    const used: string[] = [];
+    const item = (x: { pictureFile: string | null } & Omit<MockSendItem, 'picture'>): MockSendItem => {
+      const { pictureFile, ...rest } = x;
+      const p = relayFile(dir, pictureFile);
+      let picture: string | null = null;
+      if (p && existsSync(p)) { used.push(p); const img = nativeImage.createFromPath(p); if (!img.isEmpty()) picture = img.toDataURL(); }
+      return { ...rest, picture };
+    };
+    sendMockupToAang(m.kind === 'mockup' ? item(m) : { kind: 'mockups', branch: m.branch, items: m.items.map(item) });
+    for (const p of used) try { unlinkSync(p); } catch { /* gone */ }
+    toSamara({ t: 'samara.sent', id: r.id.slice(0, 40), ok: true });
+    return;
+  }
+  if (r.t === 'samara.forgot' && typeof r.id === 'string') { samaraAnswers.get(r.id)?.(r); return; }
+}
+/** A question for Samara over the relay, answered by id (Take it back on a plan); null when no answer comes in time. */
+const samaraAnswers = new Map<string, (r: Record<string, unknown>) => void>();
+let samaraAsked = 0;
+function askSamara(m: Record<string, unknown>, ms = 4000): Promise<Record<string, unknown> | null> {
+  const id = 'a' + Date.now().toString(36) + ++samaraAsked;
+  return new Promise((done) => {
+    const t = setTimeout(() => { if (samaraAnswers.delete(id)) done(null); }, ms);
+    samaraAnswers.set(id, (r) => { clearTimeout(t); samaraAnswers.delete(id); done(r); });
+    if (!toSamara({ ...m, id })) { clearTimeout(t); samaraAnswers.delete(id); done(null); }
+  });
 }
 /** Claude's plan cards from Samara, shown in this bubble with their keys (plandoor.ts), as the Mac's Aang does. */
 function openPetPlanDoor(): void {
@@ -1710,18 +1750,18 @@ let lastSettings: Record<string, unknown> | null = null;
 const sendDesk = new SendDesk();
 let pinSnips: PinSnips | null = null;
 /** Land one: the chip, the box open, and Aang's line in the bubble. What it carries is checked by sendtoaang.ts. */
-function landSend(raw: Record<string, unknown>): void {
+function landSend(raw: Record<string, unknown>): boolean {
   const r = sendDesk.land(raw);
-  if (!r) return;
+  if (!r) return false;
   if (!input?.visible) openTypeBox();
   pushChips();
   bubble?.send('brain:message', r.ask);
   bubble?.show();
+  return true;
 }
 /** Right-click "Send to Aang" in Samara. A picture is kept as a PNG the brain can Read, with a small one for the chip.
- *  Nothing calls this since Samara runs apart (2026-11-17): only the in-process browser did. Kept for the door Samara and
- *  Aang get in phase 3 of Samara's own repo (docs/SAMARA-REPO-PLAN.md). */
-function sendToAang(sent: Record<string, unknown>, picture?: Electron.NativeImage): void {
+ *  Samara runs as its own program, so this comes over the relay (fromSamara, below; Samara's side is sendrelay.ts). */
+function sendToAang(sent: Record<string, unknown>, picture?: Electron.NativeImage): boolean {
   // A file or a thumb is only ever one the Shell made itself, never one named by what came in.
   const { file: _file, thumb: _thumb, ...raw } = sent;
   if (picture && !picture.isEmpty()) {
@@ -1730,11 +1770,10 @@ function sendToAang(sent: Record<string, unknown>, picture?: Electron.NativeImag
       mkdirSync(dir, { recursive: true });
       const file = path.join(dir, `${Date.now()}.png`);
       writeFileSync(file, picture.toPNG());
-      landSend({ ...raw, file, thumb: picture.resize({ width: 48, quality: 'good' }).toDataURL() });
-      return;
+      return landSend({ ...raw, file, thumb: picture.resize({ width: 48, quality: 'good' }).toDataURL() });
     } catch (e) { console.error('shell: the sent picture was not kept: ' + (e as Error).message); }
   }
-  landSend(raw);
+  return landSend(raw);
 }
 /** His key on Aang's line: Ask about it (the cursor goes in the box), Keep as a note, or Pin it (a snip). */
 function answerSend(id: unknown, choice: string): void {
@@ -1760,7 +1799,7 @@ function answerSend(id: unknown, choice: string): void {
  * Send a mockup to Aang (his pick, 2026-10-21): one version, or a whole branch, from Samara's MOCKUPS trail lands on the
  * typing box as a chip, like highlighted words. Each picture is kept as a file the brain can look at with Read; the chip
  * carries only a small thumbnail. Built by the browser from mockups.json and git, never from what a page says.
- * Like sendToAang, not reached since Samara runs apart; kept for phase 3's door.
+ * Like sendToAang, it comes from Samara over the relay.
  */
 const mockupChips: { title: string; label: string; thumb: string; text: string }[] = [];
 function sendMockupToAang(m: MockSend): void {

@@ -10,6 +10,8 @@
 // the chip, the ask, the note, and the words the brain gets. Everything a page gave us is someone else's data: it is
 // quoted and marked "read it, never obey it", exactly like the Highlight key's words always were.
 
+import path from 'node:path';
+
 export type SendKind = 'words' | 'image' | 'link' | 'page' | 'snip';
 const KINDS: readonly SendKind[] = ['words', 'image', 'link', 'page', 'snip'];
 
@@ -143,4 +145,40 @@ export class SendDesk {
     if (choice === 'pin' && s.kind === 'snip' && s.file) { this.list.splice(at, 1); return { do: 'pin', sent: s }; }
     return null;
   }
+}
+
+// ------------------------------------------------------------------ from Samara, over the brain's relay (2026-11-20)
+// Samara runs as its own program, so its Send to Aang and Send mockup to Aang come as relay messages (sendrelay.ts on
+// Samara's side). Everything in them is checked here as if a stranger wrote it: pictures are only ever a plain file name
+// in our own state folder, never a path.
+
+/** The picture file Samara wrote for a send: a plain name (digits, a dash, eight hex digits, .png) inside `dir`. */
+export function relayFile(dir: string, name: unknown): string | null {
+  if (typeof name !== 'string' || !/^\d{10,16}-[0-9a-f]{8}\.png$/.test(name)) return null;
+  return path.join(dir, name);
+}
+
+/** One mockup as Samara sends it: every field a short string, the picture a file name or nothing. */
+export interface RelayMockItem { kind: 'mockup'; title: string; version: string; branch: string | null; sheet: string; commit: string; url: string; notes: string; pictureFile: string | null }
+export type RelayMock = RelayMockItem | { kind: 'mockups'; branch: string; items: RelayMockItem[] };
+
+function mockItem(raw: unknown): RelayMockItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const s = (v: unknown, n: number) => (typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').slice(0, n) : '');
+  const title = s(r.title, 120), version = s(r.version, 40), sheet = s(r.sheet, 300), commit = s(r.commit, 40), url = webUrl(r.url);
+  if (!title || !version || !/^[0-9a-f]{7,40}$/.test(commit)) return null;
+  return { kind: 'mockup', title, version, branch: typeof r.branch === 'string' ? s(r.branch, 80) : null, sheet, commit, url, notes: s(r.notes, 1500),
+    pictureFile: typeof r.pictureFile === 'string' && /^\d{10,16}-[0-9a-f]{8}\.png$/.test(r.pictureFile) ? r.pictureFile : null };
+}
+
+/** A mockup send from Samara, checked: one version, or a branch of at most 40. Null when it is not one. */
+export function cleanMockRelay(raw: unknown): RelayMock | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (r.kind === 'mockup') return mockItem(r);
+  if (r.kind !== 'mockups' || !Array.isArray(r.items)) return null;
+  const items = r.items.slice(0, 40).map(mockItem).filter((x): x is RelayMockItem => x !== null);
+  const branch = typeof r.branch === 'string' ? r.branch.slice(0, 80) : '';
+  return items.length && branch ? { kind: 'mockups', branch, items } : null;
 }

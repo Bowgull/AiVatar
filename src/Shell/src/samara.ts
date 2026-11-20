@@ -10,7 +10,7 @@
 //
 // P1 (2026-11-17): the default on the PC (samara-mode.json, samaramode.ts); it runs with Aang off and stays open when
 // he quits Aang. Run: electron src/samara.ts
-import { app, Menu, net, shell } from 'electron';
+import { app, Menu, nativeImage, net, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -34,6 +34,7 @@ import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, 
 import { jumpIcons } from './jumpicons.ts';
 import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './jumplist.ts';
 import { launcherEnv, samaraLauncher, writeExitMark } from './samaraexit.ts';
+import { Answers, mockRelay, pictureName, sendRelay } from './sendrelay.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
@@ -62,6 +63,8 @@ app.commandLine.appendSwitch('enable-features', 'ParallelDownloading');
 }
 catchStrays('samara');
 
+/** Send to Aang's and Send mockup to Aang's answers from Aang's windows (sendrelay.ts). */
+const sends = new Answers<boolean>('s');
 /** Aang's pet is running (body.pid names a live process from this boot; see main.ts bodyAlive). */
 function aangUp(): boolean {
   try {
@@ -163,6 +166,14 @@ const link = new CoreLink({
       // His browser sounds switch on Aang's desk, and Aang's line about an update (the card comes up open).
       if (r.t === 'samara.sounds') { b?.setSounds(r.on === true); return; }
       if (r.t === 'samara.update') { b?.open(); b?.openUpdate(); return; }
+      // Aang's windows took (or could not take) a Send to Aang or a mockup (sendrelay.ts).
+      if (r.t === 'samara.sent') { sends.got(r.id, r.ok === true); return; }
+      // Take it back on a Claude plan, from Aang's bubble: the plan memory is Samara's.
+      if (r.t === 'samara.forgetplan' && typeof r.id === 'string' && typeof r.task === 'string') {
+        const had = boot?.plans.forget(r.task.slice(0, 200)) ?? false;
+        link.send({ t: 'relay', m: { t: 'samara.forgot', id: r.id.slice(0, 40), had } } as never);
+        return;
+      }
     }
   },
   onConnected: (up) => { if (!up) boot?.browserNow.claudeNews(null); },
@@ -262,6 +273,32 @@ app.whenReady().then(async () => {
   b.onNotePlace = (m) => link.send(m as never);
   b.onNoteOpen = (id) => link.send({ t: 'relay', m: { t: 'samara.note.open', id } } as never);
   b.onRouteDone = (r) => link.send({ t: 'hyrule.route.done', ...r } as never);
+  // Send to Aang and Send mockup to Aang (2026-11-20, his "Fix it now"): over the relay to Aang's windows, which answer.
+  // Pictures go as files beside this program's state; Aang's windows read them by name and delete them.
+  const unsent = (why: string) => b.say('Not sent', why);
+  const toAang = async (msg: Record<string, unknown> | null, id: string, files: string[]): Promise<void> => {
+    const drop = () => { for (const f of files) try { unlinkSync(f); } catch { /* gone */ } };
+    if (!msg) { drop(); unsent('Too big to send to Aang in one go'); return; }
+    const ok = await sends.ask(id, () => link.send({ t: 'relay', m: msg } as never), 6000);
+    if (ok === null) { drop(); unsent("Aang isn't running, so it didn't reach him"); }
+    else if (!ok) unsent("Aang couldn't take that one");
+  };
+  const keepPicture = (folder: string, png: Buffer): string | null => {
+    try { const dir = path.join(STATE_DIR, folder); mkdirSync(dir, { recursive: true }); const name = pictureName(); writeFileSync(path.join(dir, name), png); return name; } catch { return null; }
+  };
+  b.onSendToAang = (sent, picture) => {
+    if (!aangUp()) { unsent("Aang isn't running, so it didn't reach him"); return; }
+    const name = picture && !picture.isEmpty() ? keepPicture('sent-pictures', picture.toPNG()) : null;
+    const id = sends.newId();
+    void toAang(sendRelay(id, sent, name), id, name ? [path.join(STATE_DIR, 'sent-pictures', name)] : []);
+  };
+  b.onSendMockup = (m) => {
+    if (!aangUp()) { unsent("Aang isn't running, so it didn't reach him"); return; }
+    const items = m.kind === 'mockup' ? [m] : m.items;
+    const names = items.map((x) => { try { return x.picture ? keepPicture('mockup-sends', nativeImage.createFromDataURL(x.picture).toPNG()) : null; } catch { return null; } });
+    const id = sends.newId();
+    void toAang(mockRelay(id, m, names), id, names.filter((n): n is string => !!n).map((n) => path.join(STATE_DIR, 'mockup-sends', n)));
+  };
   b.onAsk = (text) => { if (!link.send({ t: 'relay', m: { t: 'samara.ask', text } } as never)) log('Aang is not there, so the question did not reach him'); };
   b.onClaude = (m) => { link.send(m as never); };
   b.onClaudeOpen = (target) => openInClaude(target);
