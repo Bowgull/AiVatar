@@ -14,6 +14,13 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   const b = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => { const s = secret(); return (s?.owns(e.sender) ? s : get()) as AangBrowser; };
   // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
   // The tab list floating over the page: open (where the frame says) or closed.
+  // Sheet 120 A: the band's panels float in their own layer; the frame asks for a panel, the layer says when it opens or closes.
+  ipcMain.on('browser:float', (e, a) => {
+    if (!top(e) || !a || typeof a !== 'object') return;
+    const br = b(e);
+    if (br?.isFloat(e.sender)) br.floatFromLayer(a);
+    else if (br?.isMainFrame(e.sender)) br.floatFromFrame(a);
+  });
   ipcMain.on('browser:tray', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a === 'object') b(e).tray(a.open === true, a); });
   // Sheet 60 section 4: the notes rail. A new note for this site (where it came from is the browser's to say), or one to open.
   ipcMain.on('browser:notesave', (e, n) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).noteSave(n); });

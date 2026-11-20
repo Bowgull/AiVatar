@@ -24,7 +24,9 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Every element under the roots, with its computed style (and ::before/::after), keyed by its place in the tree. */
 const DUMP = `(() => {
   const out = {};
-  const props = (cs) => { const o = []; for (let i = 0; i < cs.length; i++) { const k = cs[i]; o.push(k + ':' + cs.getPropertyValue(k)); } return o.sort().join(';'); };
+  // Custom properties (--name) are left out: one the drawer does not use changes nothing it draws, and one it does use
+  // shows up in the real property it feeds.
+  const props = (cs) => { const o = []; for (let i = 0; i < cs.length; i++) { const k = cs[i]; if (k.startsWith('--')) continue; o.push(k + ':' + cs.getPropertyValue(k)); } return o.sort().join(';'); };
   const name = (e) => { const p = []; for (let x = e; x && x !== document.documentElement; x = x.parentElement) { let i = 0; for (let s = x.previousElementSibling; s; s = s.previousElementSibling) i++; p.unshift(x.tagName.toLowerCase() + (x.id ? '#' + x.id : '') + '[' + i + ']'); } return p.join('>'); };
   for (const sel of ROOTS) for (const root of document.querySelectorAll(sel)) for (const e of [root, ...root.querySelectorAll('*')]) {
     if (e.closest('.sndmark')) continue;   // the sound mark is new on the handle and has its own check

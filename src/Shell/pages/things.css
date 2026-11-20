@@ -43,3 +43,27 @@
 .fb.zip{--c:#d9a536}.fb.pdf{--c:#d8553f}.fb.img{--c:#5fb36a}.fb.exe{--c:#8f8fb8}.fb.doc{--c:#5a8fd8}.fb.av{--c:#c46fc4}.fb.file{--c:#bfae8a}
 .bar{display:block;height:8px;margin:4px 0 3px;border-radius:4px;background:#1a0f07;border:2px solid #120A05;overflow:hidden}
 .bar i{display:block;height:100%;background:linear-gradient(180deg,#ffe596,#e0a83a)}
+
+/* ---- Sheet 120 A, wood refined (2026-11-20): the wood cards come from settings.css; here the rows get the same light
+   words, 40 high, dim lines that stay readable, and the search box is the sheet's dark slot. */
+.search{border:0;border-image:none;border-radius:11px;padding:0 14px;height:40px;background:var(--slot);
+  box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6),0 2px 0 rgba(255,224,150,.12)}
+.search input{color:#FFF6E0}
+.search input::placeholder{color:#A99C84}
+.search svg path{fill:var(--wood-dim)}
+.hrow{min-height:40px;box-sizing:border-box;padding:4px 22px;border-top:2px solid rgba(255,226,140,.07)}
+.hrow time{color:var(--wood-dim)}
+.hrow span{color:var(--wood-text)}
+.hrow small{color:var(--wood-dim)}
+.hrow:hover,.hrow:focus-visible{background:rgba(255,226,140,.08)}
+.hrow:focus-visible{outline:3px solid var(--ring);outline-offset:-3px}
+.drow{border-top:2px solid rgba(255,226,140,.07)}
+.drow .dt b{color:var(--wood-text)}
+.drow .dt small{color:var(--wood-dim)}
+.dx svg path{fill:var(--wood-dim)}
+.pick{color:var(--wood-text)}
+.pick.danger{color:#FFA99A}
+.foot{margin-top:2px}
+.foot .grow{max-width:none}
+.search:focus-within{box-shadow:0 0 0 2px #FFC43C,inset 0 3px 0 rgba(0,0,0,.6),0 2px 0 rgba(255,224,150,.12)}
+html:not(.solo) body .search input:focus-visible{outline:none}

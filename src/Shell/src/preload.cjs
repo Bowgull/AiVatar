@@ -224,6 +224,9 @@ contextBridge.exposeInMainWorld('aang', {
   browserWinDrag: m => ipcRenderer.send('browser:windrag', m),
   /** The tab list in its own layer above the live page (2026-10-13): open (with where it goes) or close. */
   browserTray: a => ipcRenderer.send('browser:tray', a),
+  /** Sheet 120 A: the band's panels in their own layer over the live page (a key pressed, a panel opened or closed). */
+  browserFloat: a => ipcRenderer.send('browser:float', a),
+  onBrowserFloat(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:float', h); return () => ipcRenderer.removeListener('browser:float', h); },
   // Sheet 87: the secret window's PIN box (try, set, reset with the Mac password, cancel) and what Samara says back.
   browserSecretPin: a => ipcRenderer.send('browser:secretpin', a),
   browserSecretMask: act => ipcRenderer.send('browser:secretmask', act),

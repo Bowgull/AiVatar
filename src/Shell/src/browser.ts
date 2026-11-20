@@ -294,6 +294,15 @@ interface Pane {
   watchTimer: NodeJS.Timeout | null;
   /** Sheet 60: this window's "Notes for this site" rail is open (Esc in the page closes it). */
   railOpen?: boolean;
+  /**
+   * Sheet 120 A (2026-11-20): the band's menus and panels (⋯, star, shield, downloads, update, plan) float in their own
+   * see-through layer over the LIVE page, the way the tab list and the rune do; the page is never frozen into a picture.
+   * The layer is the frame's own page (?float); floatLast holds what the frame was last told, for a layer that loads late.
+   */
+  floatV?: WebContentsView | null;
+  floatOn?: boolean;
+  floatReady?: boolean;
+  floatLast?: Map<string, unknown[]>;
 }
 /** Sheet 60 section 4: a note as Samara's notes rail needs it (only notes that came from a page carry `src`). */
 export interface RailNote { id: string; title: string; html: string; cat?: string; src?: { url: string; site: string }; updated: number }
@@ -324,6 +333,8 @@ function trailNameFor(url: string): string {
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/** What the band's floating panels draw from (sheet 120 A): the frame's messages that also go to their layer. */
+const FLOAT_CHANNELS = new Set(['browser:tabs', 'browser:dls', 'browser:plan', 'browser:updatewhy']);
 /**
  * Links that open an app instead of a page (his report, 2026-10-14: signing in to Claude on the Mac ended on "Open
  * Claude" and nothing happened, because every non-web link was dropped). Like Chrome: only these, and only after he
@@ -1974,7 +1985,8 @@ export class AangBrowser {
   // These also say which window the message is about: every frame message is checked here first, so from here on the
   // browser works in that window.
   isFrame(sender: Electron.WebContents): boolean {
-    const p = this.panes.find((x) => (this.alive(x) && sender === x.win!.webContents) || (x.trayV && !x.trayV.webContents.isDestroyed() && sender === x.trayV.webContents));
+    const p = this.panes.find((x) => (this.alive(x) && sender === x.win!.webContents) || (x.trayV && !x.trayV.webContents.isDestroyed() && sender === x.trayV.webContents)
+      || (x.floatV && !x.floatV.webContents.isDestroyed() && sender === x.floatV.webContents));
     if (p) this.pane = p;
     return Boolean(p);
   }
@@ -2066,6 +2078,84 @@ export class AangBrowser {
     w.webContents.send('browser:tray', { open: true });
     this.sendTabs();
   }
+  // ------------------------------------------------------------------ the band's panels, floating over the live page
+  /** The frame's panel layer: the frame's own page with ?float, see-through, the size of the window, on top while a panel is open. */
+  floatView(): WebContentsView | null {
+    const w = this.win, P = this.pane;
+    if (!w || w.isDestroyed()) return null;
+    if (P.floatV && !P.floatV.webContents.isDestroyed()) return P.floatV;
+    // Never slowed while hidden: a menu must draw the moment it shows. It does nothing at rest.
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    P.floatReady = false;
+    v.webContents.on('did-finish-load', () => {
+      this.pane = P;
+      // What the frame was told before this layer could listen: the tab list (with the site, zoom and update state),
+      // the downloads, Claude's plan.
+      for (const [ch, a] of P.floatLast ?? []) if (ch !== 'browser:openupdate') v.webContents.send(ch, ...a);
+      P.floatReady = true;
+      if (this.alive(P)) P.win!.webContents.send('browser:float', { ready: true });
+    });
+    v.webContents.on('render-process-gone', () => { P.floatReady = false; P.floatOn = false; if (this.alive(P)) P.win!.webContents.send('browser:float', { ready: false }); });
+    // His keys work while a menu is open (Ctrl+T, Ctrl+L ...), the same as in the tab list.
+    v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
+    void v.webContents.loadURL(`${this.o.origin}/browser.html?float=1`).catch(() => { /* its window closed while it loaded */ });
+    P.floatV = v;
+    return v;
+  }
+  isFloat(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => this.alive(x) && x.floatV && !x.floatV.webContents.isDestroyed() && sender === x.floatV.webContents);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  /** Show the layer over everything (it covers the whole window, so a click anywhere else closes the panel), or put it away. */
+  private floatShow(on: boolean): void {
+    const w = this.win, P = this.pane, v = P.floatV;
+    if (!w || w.isDestroyed() || !v || v.webContents.isDestroyed()) return;
+    if (!on) {
+      if (!P.floatOn) return;
+      P.floatOn = false;
+      v.setVisible(false);
+      // The keyboard goes back to the page he was on (or the band, when there is no page).
+      const t = this.cur();
+      if (t?.view && !t.lent && !t.view.webContents.isDestroyed() && t.view.getVisible()) t.view.webContents.focus(); else w.webContents.focus();
+      return;
+    }
+    const [cw, ch] = w.getContentSize();
+    v.setBounds({ x: 0, y: 0, width: cw, height: ch });
+    if (!P.floatOn) w.contentView.addChildView(v);   // to the top, over the page, the tab list and the rune
+    P.floatOn = true;
+    v.setVisible(true);
+    v.webContents.focus();
+  }
+  /** The frame: a key of the band was pressed; its panel opens in the layer. */
+  floatFromFrame(a: Record<string, unknown>): void {
+    const P = this.pane;
+    if (typeof a.click !== 'string' || !/^(menukey|star|lock|dlkey|upkey)$/.test(a.click)) return;
+    const v = this.floatView();
+    if (!v || !P.floatReady) return;
+    this.floatShow(true);
+    v.webContents.send('browser:float', { click: a.click, kb: a.kb === true });
+  }
+  /** The layer: a panel opened (show it) or the last one closed (put it away); the band's keys show which are open. */
+  floatFromLayer(a: Record<string, unknown>): void {
+    const P = this.pane;
+    if (a.open === true) this.floatShow(true);
+    else if (a.open === false) this.floatShow(false);
+    if (Array.isArray(a.over) && this.alive(P)) P.win!.webContents.send('browser:float', { over: a.over.filter((x) => typeof x === 'string').slice(0, 10) });
+    // A menu line that works on the band itself (find on the page, this site's notes, the tab list): the band does it.
+    if (typeof a.frame === 'string' && ['find', 'sitenotes', 'drawer'].includes(a.frame) && this.alive(P)) P.win!.webContents.send('browser:float', { do: a.frame });
+  }
+  /** The window changed size while a panel is open: the layer follows. */
+  private placeFloat(): void {
+    const w = this.win, P = this.pane, v = P.floatV;
+    if (!P.floatOn || !w || w.isDestroyed() || !v || v.webContents.isDestroyed()) return;
+    const [cw, ch] = w.getContentSize();
+    v.setBounds({ x: 0, y: 0, width: cw, height: ch });
+  }
+
   // ------------------------------------------------------------------ sheet 87, the secret window
   /**
    * Fill the screen, or back to a size easy to drag and resize (2026-10-25, his ask: "like Windows, double-click when
@@ -2627,6 +2717,16 @@ export class AangBrowser {
     this.pane = p;
     this.focused = p;
     lockDown(w.webContents);
+    // Sheet 120 A: what the band's panels draw from goes to their floating layer too (and is kept for when it loads).
+    p.floatLast = new Map();
+    const frameSend = w.webContents.send.bind(w.webContents);
+    w.webContents.send = ((ch: string, ...args: unknown[]) => {
+      frameSend(ch, ...args);
+      if (!FLOAT_CHANNELS.has(ch)) return;
+      p.floatLast!.set(ch, args);
+      const v = p.floatV;
+      if (v && p.floatReady && !v.webContents.isDestroyed()) v.webContents.send(ch, ...args);
+    }) as typeof w.webContents.send;
     softEdge(w);
     // M6: on the Mac, 'hidden' still shows the red, yellow and green buttons, floating over the band's left end (his
     // report, 2026-10-13). Aang's own gold buttons are the window's buttons on both machines.
@@ -2636,7 +2736,7 @@ export class AangBrowser {
     // Where the first window was is kept for next time; the others are made by dragging and open where they are dropped.
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); }, 800); };
     w.on('focus', () => { this.focused = p; });
-    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); keepSoon(); });
+    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); this.placeFloat(); keepSoon(); });
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
@@ -2649,8 +2749,8 @@ export class AangBrowser {
       this.pane = p;
       // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
       // window, and each close and reopen left four of them running (2026-10-30, stability check).
-      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
-      p.lightV = null; p.sugV = null; p.noticeV = null; p.handV = null;
+      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV, p.floatV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
+      p.lightV = null; p.sugV = null; p.noticeV = null; p.handV = null; p.floatV = null; p.floatOn = false; p.floatReady = false;
       // A notice it was showing moves to the window left (next time one is placed).
       if (this.noticePane === p) { this.noticePane = null; if (this.noticeNow) setTimeout(() => { if (this.noticeNow && !this.noticePane) void this.noticePlace(++this.noticeGen); }, 0); }
       const others = this.panes.filter((x) => x !== p && this.alive(x));
@@ -2696,6 +2796,9 @@ export class AangBrowser {
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
     w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.sugView(); this.noticeView(); this.pane = was; }, 3000));
+    // The panels' layer sooner: the ⋯ menu is often the first thing he clicks. Until it has loaded, the band opens its
+    // panels the old way (on a picture of the page).
+    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.floatView(); this.pane = was; }, 600));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
