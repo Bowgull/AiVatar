@@ -214,9 +214,11 @@ export function createDatabase(file: string): DatabaseSync {
  */
 export function openMemory(dataDir: string): OpenResult {
   const file = path.join(dataDir, 'aang.db');
-  // This machine's own backup (backup.ts, 2026-11-20); the old shared file only until the first new backup lands.
-  const own = path.join(dataDir, ...backupRel(machineOf()).split('/'));
-  const backup = existsSync(own) ? own : path.join(dataDir, ...LEGACY_REL.split('/'));
+  // This machine's own backup (backup.ts, 2026-11-20). The old shared file ends on the PC's database, so the PC (and
+  // only the PC) falls back to it until its own file exists; the Mac never restores the PC's memory over its own.
+  const machine = machineOf();
+  const own = path.join(dataDir, ...backupRel(machine).split('/'));
+  const backup = existsSync(own) || machine !== 'pc' ? own : path.join(dataDir, ...LEGACY_REL.split('/'));
 
   // 1. The normal case.
   if (usable(file)) {

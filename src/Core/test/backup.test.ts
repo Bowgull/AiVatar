@@ -219,7 +219,7 @@ test('his own uncommitted edits in the data folder are left alone', async () => 
   assert.match(git(pc, 'status', '--short'), /README\.md/);
 });
 
-test('the PC takes over the old shared file with its history; the Mac leaves it alone', async () => {
+test('neither machine writes, moves or deletes the old shared file', async () => {
   const bare = remote();
   const seed = clone(bare);
   mkdirSync(path.join(seed, 'backups'));
@@ -229,19 +229,16 @@ test('the PC takes over the old shared file with its history; the Mac leaves it 
   git(seed, 'commit', '-q', '-m', 'Backup: the old shared file');
   git(seed, 'push', '-q');
 
-  const mac = clone(bare);
-  makeDb(mac, 1, 0);
-  assert.equal((await new Backup(mac, { machine: 'mac' }).run()).ok, true);
-  assert.ok(existsSync(path.join(clone(bare), 'backups', 'aang.db')), 'the Mac never moves or deletes it');
-
-  const pc = clone(bare);
+  const pc = clone(bare), mac = clone(bare);
   makeDb(pc, 7, 0);
+  makeDb(mac, 1, 0);
   assert.equal((await new Backup(pc, { machine: 'pc' }).run()).ok, true);
+  assert.equal((await new Backup(mac, { machine: 'mac' }).run()).ok, true);
   const after = clone(bare);
-  assert.equal(existsSync(path.join(after, 'backups', 'aang.db')), false);
+  assert.equal(turnsIn(path.join(after, 'backups', 'aang.db')), 4);
+  assert.equal(git(after, 'log', '--format=%s', '--', LEGACY_REL).trim(), 'Backup: the old shared file');
   assert.equal(turnsIn(path.join(after, 'backups', 'aang-pc.db')), 7);
-  assert.match(git(after, 'log', '--follow', '--format=%s', '--', 'backups/aang-pc.db'), /the old shared file/, 'the history follows the file');
-  assert.equal(turnsIn(path.join(after, 'backups', 'aang-mac.db')), 1, 'the Mac\'s file is untouched');
+  assert.equal(turnsIn(path.join(after, 'backups', 'aang-mac.db')), 1);
 });
 
 test('the live database is never modified - only VACUUM INTO reads it', async () => {

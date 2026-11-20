@@ -27,9 +27,10 @@ export const machineOf = (platform: string = process.platform): Machine => platf
 /** This machine's own backup, as git names it (forward slashes on both machines). */
 export const backupRel = (m: Machine): string => `backups/aang-${m}.db`;
 /**
- * The one shared file both machines wrote until 2026-11-20. Read only as a migration source: the PC, where it was
- * born on 2026-09-28 and whose database it held last, takes it over with `git mv`, so `git log --follow
- * backups/aang-pc.db` still shows its whole history. The Mac never reads or writes it.
+ * The one shared file both machines wrote until 2026-11-20. Left in place and never written again: its history is
+ * mixed (2026-11-01 to 11-19 is the Mac's database, the last commit, 3a67aab, the PC's), so it is not handed to
+ * either machine's file. Its final state is the PC's, so only the PC restores from it (schema.ts), and only until
+ * backups/aang-pc.db exists.
  */
 export const LEGACY_REL = 'backups/aang.db';
 
@@ -139,16 +140,6 @@ export class Backup {
     }
   }
 
-  /** The PC's one-time move from the shared file: `git mv` so the history follows. Never on the Mac. */
-  private async migrate(): Promise<void> {
-    if (this.machine !== 'pc') return;
-    const tracked = async (rel: string) => (await this.git(['ls-files', '--', rel]).catch(() => '')).trim() !== '';
-    if (await tracked(this.rel) || !(await tracked(LEGACY_REL))) return;
-    await this.git(['mv', LEGACY_REL, this.rel]);
-    await this.git(['-c', 'user.name=Aang', '-c', 'user.email=aang@localhost', 'commit', '--quiet', '-m',
-      `Backup: ${LEGACY_REL} is the PC's backup, now ${this.rel}`, '--', LEGACY_REL, this.rel]);
-  }
-
   /** VACUUM INTO a fresh snapshot, verify it, line up with GitHub, commit this machine's file only, and push. Only
    *  ever READS the live database - a failure here can lose a backup, never the real thing. */
   async run(): Promise<BackupResult> {
@@ -166,7 +157,6 @@ export class Backup {
       // It is about to be replaced anyway.
       await this.gitOk(['checkout', '--quiet', 'HEAD', '--', this.rel]);
       await this.catchUp();
-      await this.migrate();
 
       await rename(tmp, this.backupPath);
       const sizeMB = (await stat(this.backupPath)).size / 1024 / 1024;
