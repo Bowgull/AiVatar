@@ -22,7 +22,7 @@ app.whenReady().then(async () => {
   const { wireBrowser } = await import('../../src/browseripc.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 's90-s-')) });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 's90-s-')) });
   wireBrowser(() => b);
   for (const [t, u] of [['YouTube', 'https://www.youtube.com/'], ['Reddit', 'https://www.reddit.com/'], ['Twitch', 'https://www.twitch.tv/'], ['GitHub', 'https://github.com/']]) b.marks.push({ title: t, url: u, folder: '' });
   b.open();

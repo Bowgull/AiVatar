@@ -34,7 +34,7 @@ app.whenReady().then(async () => {
   const { servePages } = await import('../../src/pageserver.ts');
   const { AangBrowser } = await import('../../src/browser.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'svgi-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'svgi-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
   b.open(`http://plain.example:${PORT}/`);
   const until = async (host: string) => { for (let i = 0; i < 75 && !b.icons.has(host); i++) await new Promise((r) => setTimeout(r, 200)); return b.icons.get(host) as string | undefined; };

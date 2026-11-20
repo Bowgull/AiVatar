@@ -68,7 +68,7 @@ app.whenReady().then(async () => {
     const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
     const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
     const b = new AangBrowser({ origin: pages.origin, stateDir: st, repoDir: path.join(tmp, 'no-repo-here'), mockupsAnywhere: true, mockHome: home,
-      preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), testLocal: true }) as any;
+      preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), testLocal: true }) as any;
     wireBrowser(() => b);
     await b.mockReady;
 

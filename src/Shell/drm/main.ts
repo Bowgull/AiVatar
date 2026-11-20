@@ -128,7 +128,7 @@ app.whenReady().then(async () => {
   views = stack({
     window: win,
     barHeight: BAR,
-    preloadPath: path.join(HERE, '..', 'src', 'preload.cjs'),
+    preloadPath: path.join(HERE, '..', 'src', 'samarapreload.cjs'),
     chromePage: path.join(HERE, '..', 'pages', 'popout.html'),
     allow: allowedInDrm,
   });

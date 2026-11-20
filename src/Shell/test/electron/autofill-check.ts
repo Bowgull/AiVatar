@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
   const { wireBrowser } = await import('../../src/browseripc.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const stateDir = path.join(tmp, 'state');
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
   wireBrowser(() => b);
   console.log('stage: browser made');

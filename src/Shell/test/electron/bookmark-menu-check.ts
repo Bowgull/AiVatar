@@ -24,7 +24,7 @@ app.whenReady().then(async () => {
   const st = mkdtempSync(path.join(os.tmpdir(), 'bmm-'));
   const M = ['https://www.netflix.com/browse', 'https://www.youtube.com/', 'https://www.reddit.com/'];
   writeFileSync(path.join(st, 'browser-bookmarks.json'), JSON.stringify(M.map((url, i) => ({ title: ['Netflix', 'YouTube', 'Reddit'][i], url, folder: 'Bookmarks bar' }))));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
+  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
   wireBrowser(() => b);
   b.open('http://127.0.0.1:47952/'); await wait(2500);
   const w: BrowserWindow = b.win;

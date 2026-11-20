@@ -60,7 +60,7 @@ app.whenReady().then(async () => {
   }).listen(TLS, '127.0.0.1');
 
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: path.join(TMP, 'state'), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b = new AangBrowser({ origin: pages.origin, stateDir: path.join(TMP, 'state'), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'),
     thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') }) as any;
   wireBrowser(() => b);                                       // the tab messages, as main.ts and macmain.ts wire them

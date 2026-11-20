@@ -55,7 +55,7 @@ app.whenReady().then(async () => {
   mkdirSync(path.join(st, 'open-urls'));
   // RUNE_PAGES: another copy of the pages (only to picture an older rune beside this one); normally unset.
   const pages = await servePages(process.env.RUNE_PAGES || path.join(HERE, '..', '..', 'pages'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true } as any) as any;
+  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true } as any) as any;
   wireBrowser(() => b);
   const sent: any[] = [], opened: string[] = [];
   b.onClaude = (m: any) => sent.push(m);

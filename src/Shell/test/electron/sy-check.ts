@@ -23,7 +23,7 @@ const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS
 app.whenReady().then(async () => {
   (screen as any).getCursorScreenPoint = () => ({ x: -20000, y: 500 });
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const make = () => new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'sy-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const make = () => new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'sy-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
   const pc = make() as any, mac = make() as any;
   pc.popupOk.add('twitch.tv'); pc.trusted.add('github.com'); pc.httpOk.add('192.168.1.10'); pc.paused.add('youtube.com');

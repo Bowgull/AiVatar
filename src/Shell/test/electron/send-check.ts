@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(SHELL, 'pages'));
 
   // ---- 1. the page menu: the real pagemenu.html with the real preload, fed exactly as browser.ts feeds it
-  const mw = offscreen({ width: 360, height: 420, backgroundColor: '#3A2414' }, path.join(SHELL, 'src', 'preload.cjs'));
+  const mw = offscreen({ width: 360, height: 420, backgroundColor: '#3A2414' }, path.join(SHELL, 'src', 'samarapreload.cjs'));
   await mw.loadURL(`${pages.origin}/pagemenu.html`);
   await mw.webContents.executeJavaScript('document.fonts.ready.then(() => 1)', true);
   const CASES: [string, MenuParams][] = [

@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
   const { servePages } = await import('../../src/pageserver.ts');
   const { AangBrowser } = await import('../../src/browser.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir: PROF ?? mkdtempSync(path.join(os.tmpdir(), 'rl-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir: PROF ?? mkdtempSync(path.join(os.tmpdir(), 'rl-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
   b.open('about:blank'); await new Promise((r) => setTimeout(r, Number(process.env.SETTLE ?? 1500))); console.log('settle: ' + lag());
   const insp = await import('node:inspector'); const ps = new insp.Session(); ps.connect();

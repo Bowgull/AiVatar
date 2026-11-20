@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
   });
   await new Promise<void>((r) => site.listen(SITE, '127.0.0.1', () => r()));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'lock-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'lock-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true });
   const drive = (op: string, x: any): Promise<any> => b.drive(op, x) as Promise<any>;
   const base = `http://127.0.0.1:${SITE}`;

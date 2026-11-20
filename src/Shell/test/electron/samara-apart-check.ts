@@ -56,6 +56,10 @@ try {
   const r8 = got.find((m) => m.t === 'drive.result' && m.id === 8);
   check('a page Aang hands over (relay) opens in Samara', JSON.stringify(tabs ?? '').includes('/relayed') || JSON.stringify(r8 ?? '').includes('/relayed'), { file: tabs?.tabs?.map((t: { url: string }) => t.url), drive: r8 });
   check('Samara never sent Aang\'s own messages', !got.some((m) => typeof m.t === 'string' && /^(bubble|input|pet)\./.test(m.t)));
+  // 2026-11-20 (phase 1 of Samara's own repo): Discord cards are drawn by Aang's own windows; Samara leaves them alone.
+  sock?.send(JSON.stringify({ t: 'drive', id: 9, op: 'card', a: { kind: 'note', data: {} } }));
+  await wait(4000);
+  check('Samara never answers a card for Discord (Aang\'s windows draw those)', !got.some((m) => m.t === 'drive.result' && m.id === 9));
 } finally {
   child.kill();
   brain.close(); site.close();

@@ -354,7 +354,7 @@ app.whenReady().then(async () => {
   if (existsSync(path.join(CACHE, 'adblock'))) { cpSync(path.join(CACHE, 'adblock'), path.join(stateDir, 'adblock'), { recursive: true }); cpSync(path.join(CACHE, 'phish'), path.join(stateDir, 'phish'), { recursive: true }); }
   const settings = { ...readSettings(stateDir), alwaysOnTop: true, clickThrough: false, fadeControls: true };
   let remembered = 0;
-  p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), settings: () => settings,
+  p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), settings: () => settings,
     remembered: () => ({ x: 200, y: 200, width: 640, height: 434 }), remember: () => { remembered++; evs.push({ t: ep(), k: 'remember' }); } });
   // Samara, through its real wiring (lend / giveBack). If browser.ts does not load (another session may be mid-edit),
   // fall back to a plain view lent straight to the pop-out.
@@ -362,7 +362,7 @@ app.whenReady().then(async () => {
   try {
     const { AangBrowser } = await import('../../src/browser.ts');
     const { wireBrowser } = await import('../../src/browseripc.ts');
-    b = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+    b = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
       tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
     wireBrowser(() => b);
     b.open(url('/watch'));

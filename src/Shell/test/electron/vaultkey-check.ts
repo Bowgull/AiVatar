@@ -23,7 +23,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const dir = mkdtempSync(path.join(os.tmpdir(), 'vk-'));
   writeFileSync(path.join(dir, 'vault-sites.json'), JSON.stringify({ key: 'a'.repeat(64), sites: ['x1', 'x2'] }));
-  const mk = () => new AangBrowser({ origin: pages.origin, stateDir: dir, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const mk = () => new AangBrowser({ origin: pages.origin, stateDir: dir, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') }) as any;
   const b1 = mk();
   const f = JSON.parse(readFileSync(path.join(dir, 'vault-sites.json'), 'utf8'));

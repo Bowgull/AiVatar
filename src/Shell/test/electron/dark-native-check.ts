@@ -26,7 +26,7 @@ app.whenReady().then(async () => {
   const site = http.createServer((q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>t</title>' + (PAGES[(q.url ?? '/').slice(1)] ?? '')));
   await new Promise<void>((r) => site.listen(47953, '127.0.0.1', () => r()));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'dn-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
+  const b = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'dn-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
   wireBrowser(() => b);
   b.prefs.dark = true; b.prefs.darkOff = []; b.colorScheme();
   check('sites are told he prefers dark', nativeTheme.shouldUseDarkColors === true && nativeTheme.themeSource === 'dark');

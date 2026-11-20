@@ -51,7 +51,7 @@ app.whenReady().then(async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'slv-s-')), sdir = path.join(dir, 'secret'); mkdirSync(sdir);
   copyFileSync(path.join(process.env.STATE!, 'browser-tabs.json'), path.join(sdir, 'browser-tabs.json'));
   const normal = Boolean(process.env.NORMAL);   // the same shots of normal Samara, to compare
-  const s: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: sdir, ...(normal ? {} : { sharedDir: dir, secret: true }) });
+  const s: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: sdir, ...(normal ? {} : { sharedDir: dir, secret: true }) });
   wireBrowser(() => null, () => s);
   s.open();
   for (let i = 0; i < 100 && !s.win; i++) await wait(150);

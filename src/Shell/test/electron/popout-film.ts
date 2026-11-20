@@ -67,9 +67,9 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const stateDir = mkdtempSync(path.join(os.tmpdir(), 'popout-film-state-'));
   const settings = { ...readSettings(stateDir), alwaysOnTop: true, clickThrough: false, fadeControls: true };
-  const p: any = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), settings: () => settings,
+  const p: any = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), settings: () => settings,
     remembered: () => ({ x: 900, y: 420, width: 640, height: 434 }), remember: () => {} } as any);
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'),
     thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
   wireBrowser(() => b);

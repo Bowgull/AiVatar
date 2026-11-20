@@ -25,7 +25,7 @@ app.whenReady().then(async () => {
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
   const dir = mkdtempSync(path.join(os.tmpdir(), 'st-s-'));
   copyFileSync(path.join(process.env.STATE!, 'browser-tabs.json'), path.join(dir, 'browser-tabs.json'));
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: dir });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: dir });
   wireBrowser(() => b);
   b.marks.push({ title: 'Stremio', url: 'https://web.stremio.com/', folder: '' });
   b.icons.set('web.stremio.com', 'data:image/png;base64,' + readFileSync(process.env.ICON!).toString('base64'));

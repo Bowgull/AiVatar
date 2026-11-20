@@ -76,6 +76,13 @@ try {
   check('Aang\'s windows and Samara both say hello to the brain', await until(() => socks.has('samara') && [...socks.keys()].some((k) => k !== 'samara'), 60_000), [...socks.keys()]);
   await wait(4000);
 
+  // 1b (2026-11-20, phase 1 of Samara's own repo): a card for Discord goes to every window program, as the brain sends
+  // it; Aang's windows draw it and answer, Samara stays out of it.
+  for (const ws of socks.values()) ws.send(JSON.stringify({ t: 'drive', id: 9001, op: 'card', a: { kind: 'note', data: { title: 'A note', text: 'card check' } } }));
+  const card = await until(() => got.some((g) => g.m.t === 'drive.result' && g.m.id === 9001), 20_000);
+  const answers = got.filter((g) => g.m.t === 'drive.result' && g.m.id === 9001);
+  check("1b. a Discord card is answered by Aang's windows, never by Samara", card && answers.every((g) => g.role !== 'samara'), answers.map((g) => ({ role: g.role, ok: g.m.ok, error: g.m.error })));
+
   // 2. The pet's door. Holding his mutex makes the pet think Aang runs, so it only hands the tool over.
   const mutex = spawn('powershell', ['-NoProfile', '-Command', "$m = New-Object System.Threading.Mutex($true, 'Local\\Aang.Body.Single'); [Console]::Out.WriteLine('held'); [Console]::Out.Flush(); Start-Sleep -Seconds 8; $m.ReleaseMutex()"], { stdio: ['ignore', 'pipe', 'ignore'] });
   mutex.stdout!.on('data', (d) => { holdOut += d; });

@@ -44,7 +44,7 @@ app.whenReady().then(async () => {
     const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
     const sd = mkdtempSync(path.join(os.tmpdir(), 'seal-pc-'));
     let threw = '';
-    try { new AangBrowser({ origin: 'http://127.0.0.1:1', preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: path.join(sd, 'secret'), sharedDir: sd, secret: true }); }
+    try { new AangBrowser({ origin: 'http://127.0.0.1:1', preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: path.join(sd, 'secret'), sharedDir: sd, secret: true }); }
     catch (e) { threw = (e as Error).message; }
     check('2 off the Mac the browser refuses to be a secret window', /Mac only/.test(threw), threw);
     const parts = path.join(ud, 'Partitions');

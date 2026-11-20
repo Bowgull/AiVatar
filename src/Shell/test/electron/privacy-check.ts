@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
   const stateDir = mkdtempSync(path.join(os.tmpdir(), 'pv-s-'));
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir });
   wireBrowser(() => b);
   b.ses.setCertificateVerifyProc((_r: unknown, cb: (n: number) => void) => cb(0));
   const go = async (url: string) => {

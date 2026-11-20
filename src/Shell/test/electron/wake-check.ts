@@ -24,7 +24,7 @@ app.whenReady().then(async () => {
   // the old probe here stalled until then and saw the curtain go down late (the "38 s" of the 2026-10-30 check).
   const { run } = await import('../../src/page.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'wake-s-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'wake-s-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
   wireBrowser(() => b);
   b.open(VIDEO);

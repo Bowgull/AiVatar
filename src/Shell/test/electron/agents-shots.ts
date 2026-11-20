@@ -277,7 +277,7 @@ async function runeShots(pages: { origin: string }) {
   (screen as any).getCursorScreenPoint = () => ({ x: -20000, y: 500 });
   const st = mkdtempSync(path.join(os.tmpdir(), 'rune58-'));
   mkdirSync(path.join(st, 'open-urls'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true } as any) as any;
+  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true } as any) as any;
   wireBrowser(() => b);
   b.onClaude = () => {}; b.onClaudeOpen = () => {};
   const site = http.createServer((q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Page</title><body style="background:#eef0f3;font:20px sans-serif;padding:40px"></body>'));

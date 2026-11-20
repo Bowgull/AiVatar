@@ -62,7 +62,7 @@ app.whenReady().then(async () => {
   const { AangBrowser } = await import('../../src/browser.ts');
   const { wireBrowser } = await import('../../src/browseripc.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir: process.env.STATE!, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir: process.env.STATE!, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
   wireBrowser(() => b);
   b.open();

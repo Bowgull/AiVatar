@@ -134,7 +134,7 @@ app.whenReady().then(async () => {
   // The real lists are a day's download; this one lists one made-up site. What is checked is that the engine still
   // gives Samara every navigation and redirect before it happens, and honours the stop.
   const phish = { ready: true, check: (u: string) => (/^https?:\/\/phish-test\.invalid\//.test(u) ? ['TEST LIST'] : []), count: () => 1, start: async () => {}, refresh: async () => {} };
-  const b = new AangBrowser({ origin: pages.origin, stateDir: path.join(TMP, 'state'), preloadPath: path.join(SHELL, 'src', 'preload.cjs'), phish: phish as never,
+  const b = new AangBrowser({ origin: pages.origin, stateDir: path.join(TMP, 'state'), preloadPath: path.join(SHELL, 'src', 'samarapreload.cjs'), phish: phish as never,
     tabPreloadPath: path.join(SHELL, 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(SHELL, 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(SHELL, 'src', 'thingspreload.cjs') });
   wireBrowser(() => b);
   b.open(`${local}/start`);

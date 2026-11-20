@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
   await new Promise<void>((res) => srv.listen(0, '127.0.0.1', () => res()));
   const { AangBrowser } = await import('../../src/browser.ts');
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
-  const b: any = new AangBrowser({ origin: 'http://127.0.0.1:1', preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 'scl-s-')) });
+  const b: any = new AangBrowser({ origin: 'http://127.0.0.1:1', preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 'scl-s-')) });
   b.stremioApi = `http://127.0.0.1:${(srv.address() as any).port}`;
   const tab = { id: 7, url: 'https://web.stremio.com/' };
   b.stremioMoved(tab, 'https://web.stremio.com/#/'); await wait(500);

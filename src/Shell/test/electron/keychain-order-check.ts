@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
   const dir = mkdtempSync(path.join(os.tmpdir(), 'ko-s-'));
   writeFileSync(path.join(dir, 'autofill-details.json'), JSON.stringify({ v: 1, sealed: Buffer.from(JSON.stringify({ given: 'Test' })).toString('base64') }));
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: dir });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: dir });
   wireBrowser(() => b);
   b.open();
   for (let i = 0; i < 200 && !b.win; i++) await wait(25);

@@ -176,7 +176,7 @@ export async function samaraBase(p: Platform, d: BootDeps): Promise<SamaraBase> 
   const pages = await d.servePages(path.join(p.here, '..', 'pages'));
   let browser: AangBrowser | null = null;
   const popout = d.newPopout({
-    pages, preloadPath: path.join(p.here, 'preload.cjs'),
+    pages, preloadPath: path.join(p.here, 'samarapreload.cjs'),
     remembered: () => d.readBox(p.stateDir),
     // "Your size wins", unless he has switched that off (sheet 4, section 7).
     remember: (box) => { if (p.settings().rememberSize) d.writeBox(p.stateDir, box); },
@@ -221,7 +221,7 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
   const b0 = base as Inner;
   const { pages, popout, drm } = base;
   const pre = (f: string) => path.join(p.here, f);
-  const preloads = { preloadPath: pre('preload.cjs'), tabPreloadPath: pre('tabpreload.cjs'), settingsPreloadPath: pre('settingspreload.cjs'), thingsPreloadPath: pre('thingspreload.cjs') };
+  const preloads = { preloadPath: pre('samarapreload.cjs'), tabPreloadPath: pre('tabpreload.cjs'), settingsPreloadPath: pre('settingspreload.cjs'), thingsPreloadPath: pre('thingspreload.cjs') };
   // 2026-10-31: every mockup kept in his one private repo, ~/projects/mockups on both machines (mockhome.ts).
   // 2026-11-03 (BG4): the Hyrule map's own private folder, on a machine that has it (hyrulehome.ts).
   const hyrule = hyruleHomeDir();

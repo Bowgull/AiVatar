@@ -67,7 +67,7 @@ app.whenReady().then(async () => {
   const { startClaudeDoor } = await import('../../src/claudedoor.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: path.join(DIR, 'st'), testLocal: true });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: path.join(DIR, 'st'), testLocal: true });
   wireBrowser(() => b);
   const updates = { goes: 0, ready: () => '1.29.9', go: async () => { updates.goes++; return { ok: true }; } };
   startClaudeDoor(() => b, path.join(DIR, 'st'), DOOR, { updates });

@@ -1450,6 +1450,16 @@
       "at": "2026-11-20T12:00:00-05:00",
       "kind": "fix",
       "text": "The Satchel is gone. Ctrl + Alt + V is free again."
+    },
+    {
+      "at": "2026-11-20T16:00:00-05:00",
+      "kind": "fix",
+      "text": "Old Samara copies are deleted, not left in your Mac's Trash."
+    },
+    {
+      "at": "2026-11-20T16:01:00-05:00",
+      "kind": "fix",
+      "text": "On the PC, Ctrl + Shift + V reaches your other programs again."
     }
   ]
 }
