@@ -49,6 +49,38 @@ try {
   addEventListener('auxclick', link, true);
 } catch { /* without it a page's own new tabs need the site's own address */ }
 
+// Sheet 121 (5), his pick 2026-11-20: peek at a link. Shift and a click on a link, or holding the mouse down on it for half
+// a second without moving, opens it on top of this page (Samara draws it), instead of a new window. Only his own presses;
+// only the link's address goes out. A held press keeps the click that follows from also opening the link here.
+try {
+  const linkOf = (e) => { for (const n of e.composedPath()) { if ((n instanceof HTMLAnchorElement || n instanceof HTMLAreaElement) && n.href) return n; if (n === document.body) return null; } return null; };
+  const web = (a) => /^https?:/i.test(a.href);
+  let holdT = 0, held = false, x0 = 0, y0 = 0;
+  addEventListener('click', (e) => {
+    if (!e.isTrusted || e.button !== 0) return;
+    if (held) { held = false; e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+    const a = linkOf(e);
+    if (!a || !web(a)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    ipcRenderer.send('tab:peek', String(a.href).slice(0, 4000));
+  }, true);
+  addEventListener('pointerdown', (e) => {
+    held = false; clearTimeout(holdT); holdT = 0;
+    if (!e.isTrusted || e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey) return;
+    const a = linkOf(e);
+    if (!a || !web(a)) return;
+    x0 = e.clientX; y0 = e.clientY;
+    holdT = setTimeout(() => { holdT = 0; held = true; ipcRenderer.send('tab:peek', String(a.href).slice(0, 4000)); }, 550);
+  }, true);
+  const drop = () => { clearTimeout(holdT); holdT = 0; };
+  addEventListener('pointermove', (e) => { if (holdT && Math.hypot(e.clientX - x0, e.clientY - y0) > 6) drop(); }, true);
+  addEventListener('pointerup', drop, true);
+  addEventListener('pointercancel', drop, true);
+  addEventListener('dragstart', drop, true);
+  addEventListener('contextmenu', drop, true);
+} catch { /* links open as they always did */ }
+
 // Watch mode (his picks, 2026-11-02): the site's own theater mode fills Samara's whole page area with just the player,
 // its own controls kept; the site's header, title, chat and suggestions go. Fullscreen stays the site's real fullscreen.
 // Esc, or theater pressed again, puts the page back. YouTube and Twitch, the sites with a theater mode. Only marks the

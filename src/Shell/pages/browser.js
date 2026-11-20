@@ -613,6 +613,13 @@ window.aang?.onBrowserFrozen?.((src) => {
 el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : openDrawer()));
 
 let newSeen = 0;
+// Sheet 121 (6), his pick 2026-11-20: a gold speaker on the folded tab handle while any tab here plays sound. Only the
+// mark: the handle itself does not change.
+function paintSoundMark() {
+  if (SOLO || FLOAT) return;
+  const on = state.tabs.some((t) => t.audible && !t.muted);
+  el('sndmark').hidden = !on;
+}
 function newTabsArrived(n) {
   if (SOLO) return;
   const tag = el('newn');
@@ -1464,6 +1471,7 @@ window.aang?.onBrowserTabs?.((s) => {
   const size = s.tabSize === 's' || s.tabSize === 'm' ? s.tabSize : 'l';
   if (!document.documentElement.classList.contains('tsize-' + size)) { document.documentElement.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); document.documentElement.classList.add('tsize-' + size); }
   railTabs(s);
+  paintSoundMark();
   paintMarks(s.marks);
   paintMockKey(s.mockups);
   paintHyruleKey(s);

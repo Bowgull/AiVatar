@@ -21,6 +21,9 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
     if (br?.isFloat(e.sender)) br.floatFromLayer(a);
     else if (br?.isMainFrame(e.sender)) br.floatFromFrame(a);
   });
+  // Sheet 121 (5): peek at a link (Shift-click or a held press, from the page), and the peek strip's keys.
+  ipcMain.on('tab:peek', (e, href) => { if (top(e) && typeof href === 'string') b(e)?.peekLink(e.sender, href.slice(0, 4000)); });
+  ipcMain.on('browser:peek', (e, act) => { if (top(e) && typeof act === 'string') b(e)?.peekAct(e.sender, act); });
   // Sheet 121 (4): side by side, from the band (the peg, a page's strip or its ×).
   ipcMain.on('browser:sbs', (e, a) => { if (top(e) && b(e)?.isMainFrame(e.sender) && a && typeof a === 'object') b(e).splitFromFrame(a); });
   // Sheet 121 (3): the tab list's hover picture, from the list's own layer.

@@ -167,3 +167,9 @@ html.solo .band .lantern,html.secret .band .lantern{display:none}
 html.sbdrag,html.sbdrag *{cursor:col-resize !important}
 /* While two pages show, the page area itself steps back: the wood shows in the gap, and each page carries its own edge. */
 .pg3.sbon{background:transparent !important;box-shadow:none !important;overflow:visible}
+
+/* ---- sheet 121 (6): the sound mark, a gold speaker on the folded tab handle's top corner (the handle is untouched) */
+.hnd .sndmark{position:absolute;left:16px;top:66px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;pointer-events:none;z-index:2;
+  background:linear-gradient(180deg,#FFE096,#FFC43C 60%,#C98C14);box-shadow:0 0 0 2px var(--outline),0 0 12px rgba(255,196,60,.7)}
+.hnd .sndmark[hidden],body.rail-out .hnd .sndmark,html.secret.locked .hnd .sndmark{display:none}
+.hnd .sndmark svg{display:block}

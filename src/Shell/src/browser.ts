@@ -44,6 +44,8 @@ import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type T
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { SessionStore, type SessionData } from './sessionstore.ts';
 import { SPLIT_EDGE, SPLIT_GAP, SPLIT_HEAD, clampSplit, splitLeftWidth } from './splitview.ts';
+/** Sheet 121 (5): the wood strip over a peeked page. */
+const PEEK_HEAD = 44;
 import { fitIn } from './geometry.ts';
 import { SavePaths, programAsk, quarantineMark, safeName, sameSite, siteOfUrl, zoneMark } from './downloads.ts';
 import { readJson } from './store.ts';
@@ -2217,6 +2219,100 @@ export class AangBrowser {
     });
   }
 
+  // ------------------------------------------------------------------ sheet 121 (5): peek at a link
+  /**
+   * His pick (2026-11-20): Shift and a click on a link (or holding the mouse down on it) opens it ON TOP of the page, no new
+   * tab. A wood strip over it keeps it as a tab or puts it side by side; Esc, the × or a click outside closes it. Two
+   * layers: a see-through one over the whole window (the shade, the strip and its keys, which takes the click outside),
+   * and the page itself in the box under the strip.
+   */
+  private lp: { pane: Pane; shade: WebContentsView; view: WebContentsView; from: number | null; ready: boolean } | null = null;
+  /** A page asked (Shift-click or a held press on a link). */
+  peekLink(sender: Electron.WebContents, href: string): void {
+    const t = this.tabs.find((x) => x.view?.webContents === sender);
+    if (!t || t.lent || t.internal) return;
+    const P = this.paneOfTab(t);
+    if (!P || !this.alive(P)) return;
+    this.pane = P;
+    this.linkPeek(href, t.id);
+  }
+  /** Open the peek over the page in front (a web address only). */
+  linkPeek(href: string, from: number | null = null): void {
+    let url: string;
+    try { const u = new URL(href); if (!/^https?:$/.test(u.protocol)) return; url = u.href; } catch { return; }
+    const P = this.pane, w = this.win;
+    if (!w || w.isDestroyed()) return;
+    this.linkPeekClose();
+    const shade = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
+    lockDown(shade.webContents);
+    shade.setBackgroundColor('#00000000');
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath, backgroundThrottling: false } });
+    view.setBackgroundColor('#ffffff');
+    try { view.setBorderRadius(12); } catch { /* square */ }
+    const lp = { pane: P, shade, view, from, ready: false };
+    this.lp = lp;
+    const wc = view.webContents;
+    // A link in it that wants a new window opens as a normal tab, behind.
+    wc.setWindowOpenHandler(({ url: u }) => { if (/^https?:/i.test(u)) { this.pane = P; this.newTab(u, null, false); } return { action: 'deny' }; });
+    const head = () => { if (this.lp !== lp || shade.webContents.isDestroyed() || !lp.ready) return; let host = '', rest = ''; try { const u = new URL(wc.getURL() || url); host = u.hostname.replace(/^www\./, ''); rest = u.pathname === '/' ? '' : u.pathname; } catch { host = url; } void shade.webContents.executeJavaScript(`peekHead(${JSON.stringify({ host, rest, title: wc.getTitle() })})`, true).catch(() => {}); };
+    for (const ev of ['did-navigate', 'did-navigate-in-page', 'page-title-updated', 'did-stop-loading'] as const) wc.on(ev as 'did-navigate', head);
+    const keys = (e: Electron.Event, input: Electron.Input) => { if (input.type === 'keyDown' && input.key === 'Escape') { e.preventDefault(); this.linkPeekClose(); } };
+    wc.on('before-input-event', keys);
+    shade.webContents.on('before-input-event', keys);
+    shade.webContents.on('did-finish-load', () => { lp.ready = true; this.placePeek(); head(); });
+    void shade.webContents.loadURL(`${this.o.origin}/peek.html`).catch(() => { /* gone */ });
+    void wc.loadURL(url).catch(() => { /* the page says so itself */ });
+    w.contentView.addChildView(shade);
+    w.contentView.addChildView(view);
+    this.placePeek();
+    wc.focus();
+  }
+  /** The box over the page area: two thirds of it wide (at least 640), centred, a little in from the top and bottom. */
+  private peekBox(): { shade: Electron.Rectangle; box: Electron.Rectangle } | null {
+    const lp = this.lp, w = lp?.pane.win;
+    if (!lp || !w || w.isDestroyed()) return null;
+    const [cw, ch] = w.getContentSize(), ins = lp.pane.inset;
+    const aw = Math.max(0, cw - ins.left - ins.right), ah = Math.max(0, ch - ins.top - ins.bottom);
+    const bw = Math.min(aw - 40, Math.max(640, Math.round(aw * 0.66)));
+    const x = ins.left + Math.round((aw - bw) / 2), y = ins.top + 22, h = Math.max(200, ah - 54);
+    return { shade: { x: 0, y: 0, width: cw, height: ch }, box: { x, y, width: Math.max(0, bw), height: h } };
+  }
+  private placePeek(): void {
+    const lp = this.lp, b = this.peekBox();
+    if (!lp || !b) return;
+    lp.shade.setBounds(b.shade);
+    lp.view.setBounds({ x: b.box.x, y: b.box.y + PEEK_HEAD, width: b.box.width, height: Math.max(0, b.box.height - PEEK_HEAD) });
+    if (lp.ready && !lp.shade.webContents.isDestroyed()) void lp.shade.webContents.executeJavaScript(`peekBox(${JSON.stringify({ ...b.box, head: PEEK_HEAD })})`, true).catch(() => {});
+  }
+  /** Close it (Esc, the ×, a click outside, or he kept it). */
+  linkPeekClose(): void {
+    const lp = this.lp;
+    if (!lp) return;
+    this.lp = null;
+    const w = lp.pane.win;
+    for (const v of [lp.view, lp.shade]) {
+      try { if (w && !w.isDestroyed()) w.contentView.removeChildView(v); } catch { /* gone */ }
+      try { if (!v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ }
+    }
+    const t = this.tabs.find((x) => x.id === lp.pane.active);
+    if (t?.view && !t.view.webContents.isDestroyed()) t.view.webContents.focus();
+  }
+  /** The strip's keys: keep it as a tab (in front), put it side by side with the page under it, or close it. */
+  peekAct(sender: Electron.WebContents, act: unknown): void {
+    const lp = this.lp;
+    if (!lp || sender !== lp.shade.webContents) return;
+    this.pane = lp.pane;
+    const url = lp.view.webContents.isDestroyed() ? '' : lp.view.webContents.getURL();
+    if (act === 'close' || !/^https?:/i.test(url)) { this.linkPeekClose(); return; }
+    if (act === 'tab') { this.linkPeekClose(); this.newTab(url, lp.from, true); return; }
+    if (act === 'split') {
+      this.linkPeekClose();
+      const id = this.newTab(url, lp.from, false);
+      this.pane = lp.pane;
+      if (id !== null) this.splitOpen(id);
+    }
+  }
+
   // ------------------------------------------------------------------ sheet 121 (3): hover a tab to see it
   /**
    * His pick (2026-11-20): resting the mouse on a tab in the list for a moment shows a small picture of that page with its
@@ -2941,7 +3037,7 @@ export class AangBrowser {
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); }, 800); };
     w.on('focus', () => { this.focused = p; this.frontNow(); });
     w.on('blur', () => setTimeout(() => this.frontNow(), 60));
-    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); this.placeFloat(); keepSoon(); });
+    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); this.placeFloat(); if (this.lp?.pane === p) this.placePeek(); keepSoon(); });
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });

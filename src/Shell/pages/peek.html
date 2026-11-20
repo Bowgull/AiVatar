@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 121 (5), his pick 2026-11-20: peek at a link. The shade over the window and the wood strip on the peeked page,
+     with its keys. The page itself is the Shell's own view, placed in the box under the strip. A click on the shade
+     closes it. Its address and title are the website's words: textContent only. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Peek</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="samaralook.css">
+<link rel="stylesheet" href="peek.css">
+</head>
+<body>
+<div class="shade" id="shade"></div>
+<div class="box" id="box" role="dialog" aria-labelledby="where">
+  <div class="ph">
+    <span class="where" id="where"><b id="host"></b><span id="rest"></span></span>
+    <button class="chip" type="button" data-act="tab"><svg viewBox="0 0 8 6" width="16" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h4v1H0zM0 1h8v1H0zM0 2h1v3H0zM7 2h1v3H7zM0 5h8v1H0z"/></svg>Open as a tab</button>
+    <button class="chip" type="button" data-act="split"><svg viewBox="0 0 8 6" width="16" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h8v1H0zM0 1h1v4H0zM3 1h2v4H3zM7 1h1v4H7zM0 5h8v1H0z"/></svg>Side by side</button>
+    <button class="chip x" type="button" data-act="close" aria-label="Close"><svg viewBox="0 0 5 5" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1H0zM4 0h1v1H4zM1 1h1v1H1zM3 1h1v1H3zM2 2h1v1H2zM1 3h1v1H1zM3 3h1v1H3zM0 4h1v1H0zM4 4h1v1H4z"/></svg></button>
+  </div>
+</div>
+<script src="peek.js"></script>
+</body>
+</html>
