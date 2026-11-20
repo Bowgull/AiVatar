@@ -45,6 +45,18 @@ export function readInstalled(file: string): Installed {
   });
 }
 
+/**
+ * Deletes an old copy of Samara for good (his rule, 2026-11-20: never the Trash). macOS 13's App Management can refuse
+ * to delete inside an app bundle while still allowing the folder to move, so a refused copy waits in `old` (beside it,
+ * in browser/) and the update script deletes `old` again on every update. Says what happened only when it had to wait.
+ */
+export function retireCopy(dir: string, old: string, name: string): string {
+  try { rmSync(dir, { recursive: true, force: true }); } catch { /* refused: moved aside below */ }
+  if (!existsSync(dir)) return '';
+  try { mkdirSync(old, { recursive: true }); renameSync(dir, path.join(old, `${name} ${new Date().toISOString().replace(/[:.]/g, '-')}`)); } catch { /* left where it is */ }
+  return existsSync(dir) ? `an old ${name} copy could not be deleted or moved: ${dir}` : `macOS would not let Samara delete an old ${name} copy; it waits in ${old} for the next update`;
+}
+
 /** How a script is run (tests swap this): 'prepare' waits and says how it ended; 'swap' is let go. */
 export type RunScript = (script: string, phase: 'prepare' | 'swap', log: string) => Promise<number>;
 const runScript: RunScript = (script, phase, log) => new Promise((res) => {
@@ -72,9 +84,9 @@ export class MacStage {
   private again = false;
   private built: Build | null = null;
   private readonly p: MacPaths;
-  private readonly o: { run: RunScript; log: (s: string) => void; changed: () => void; trash: string };
-  constructor(p: MacPaths, o: { run?: RunScript; log: (s: string) => void; changed: () => void; trash?: string }) {
-    this.p = p; this.o = { ...o, run: o.run ?? runScript, trash: o.trash ?? path.join(os.homedir(), '.Trash') };
+  private readonly o: { run: RunScript; log: (s: string) => void; changed: () => void };
+  constructor(p: MacPaths, o: { run?: RunScript; log: (s: string) => void; changed: () => void }) {
+    this.p = p; this.o = { ...o, run: o.run ?? runScript };
   }
 
   /** What the build should be: "1.24.0", "1.23.0+44.9.3", or '' (nothing waits). */
@@ -137,18 +149,14 @@ export class MacStage {
     this.o.changed();
     if (this.again) { this.again = false; await this.build(); }
   }
-  /** The newer one, made behind, takes the ready one's place on the key (the old staged copy goes to the Trash). Not
+  /** The newer one, made behind, takes the ready one's place on the key (the old staged copy is deleted). Not
    *  while Restart now is putting the old one in: the new Samara makes the newer one again. */
   private promote(k: string, want: { samara: MacStage['samara']; engine: MacStage['engine'] }): void {
     if (this.swapping) return;
     const staged = path.join(this.p.br, 'staged'), next = path.join(this.p.br, 'staged-next');
     rmSync(this.p.staged, { force: true });   // the old one is never put in half moved
     this.built = null;
-    if (existsSync(staged)) {
-      // To the Trash (his rule); a plain delete of this copy only when there is no Trash to move it to.
-      try { mkdirSync(this.o.trash, { recursive: true }); renameSync(staged, path.join(this.o.trash, `Samara staged ${new Date().toISOString().replace(/[:.]/g, '-')}`)); }
-      catch { rmSync(staged, { recursive: true, force: true }); }
-    }
+    if (existsSync(staged)) { const w = retireCopy(staged, path.join(this.p.br, 'old'), 'staged'); if (w) this.o.log('update: ' + w); }
     renameSync(next, staged);
     const script = macUpdateScript({ bundle: want.samara?.bundle ?? '', version: want.samara?.m.version ?? readInstalled(this.p.installed).version, commit: want.samara?.m.commit ?? readInstalled(this.p.installed).commit, ...(want.engine ? { engine: want.engine } : {}), stage: 'staged' });
     writeFileSync(this.p.script, script); chmodSync(this.p.script, 0o700);

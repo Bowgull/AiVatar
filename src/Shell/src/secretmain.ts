@@ -51,7 +51,7 @@ app.whenReady().then(async () => {
   const here = import.meta.dirname;
   const pages = await servePages(path.join(here, '..', 'pages'));
   const pre = (f: string) => path.join(here, f);
-  const s = new AangBrowser({ origin: pages.origin, preloadPath: pre('preload.cjs'), tabPreloadPath: pre('tabpreload.cjs'), settingsPreloadPath: pre('settingspreload.cjs'),
+  const s = new AangBrowser({ origin: pages.origin, preloadPath: pre('samarapreload.cjs'), tabPreloadPath: pre('tabpreload.cjs'), settingsPreloadPath: pre('settingspreload.cjs'),
     thingsPreloadPath: pre('thingspreload.cjs'), stateDir: path.join(AANG, 'secret'), sharedDir: AANG, secret: true });
   // Every page and button of its window goes to it (there is no other browser in this program).
   wireBrowser(() => s, () => s);

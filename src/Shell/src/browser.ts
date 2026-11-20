@@ -69,7 +69,7 @@ import { Driver, type Job } from './driver.ts';
 import { LOOP_STOP, LOOP_WARN, LoopCatch } from './loopcatch.ts';
 import { declineCookies } from './cookiedecline.ts';
 import { FORM_EVERY_MS, FORM_GRAB_JS, GONE_MS, cleanForm, formFillJs, hasTyping, placeName, readKept, sameName, writeKept, type KeptField, type KeptForm, type KeptJob } from './claudekeep.ts';
-import { HELD_OPS, NEW_CHAT_MAX, cardRows, cleanWhy, newChatLink, newPass, noteDid, pickText, reportLines, reportOf, type Chat, type Hand, type HandReport } from './askclaude.ts';
+import { HELD_OPS, NEW_CHAT_MAX, cardRows, cleanWhy, newChatLink, newPass, noteDid, pickText, reportLines, reportOf, type Chat, type Hand, type HandReport } from './claudehand.ts';
 import { pastSearches, searchQueryOf, topSites } from './recall.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 import { DRAINED, NoticeQueue, cleanNotice, plainNotice, type NoticeFrom, type NoticeIn, type NoticeShown } from './notices.ts';
@@ -115,7 +115,7 @@ import { CookieWall, cleanLink, cookieHeaders, guardPrivacy } from './privacy.ts
 import { SealedDir, electronKeychain } from './sealdir.ts';
 import { SECRET_ELSEWHERE, markSecret, secretAllowed } from './secretguard.ts';
 import { createRequire } from 'node:module';
-import { pageMenuItems, sendKindFor } from './sendtoaang.ts';
+import { pageMenuItems, sendKindFor } from './pagemenu.ts';
 import { WATCH_CSS, WATCH_HOSTS } from './watchmode.ts';
 import { GOOGLE_WORDS_JS, googleRefused, refusalTarget } from './passkeys.ts';
 
@@ -4609,6 +4609,8 @@ export class AangBrowser {
    * Sheet 106 v7: say something as a notice. Each of Samara's lines is sorted on the sheet's table (its kind, big or small,
    * what it drops from); a line given only as words becomes plain small news, or big with a Got it when it is long.
    */
+  /** A short line from Samara's own program, said as small news from the ... menu (Send to Aang that did not arrive). */
+  say(kick: string, title: string, kind: NoticeIn['kind'] = 'bad'): void { this.note('', { kind, from: 'menu', small: true, kick, title }); }
   private note(text: string, o?: Partial<NoticeIn>, on?: (act: string) => void): number {
     const n: NoticeIn = o?.title ? { kind: 'done', from: 'menu', kick: 'Samara', ...o } as NoticeIn : plainNotice(text, o);
     if (!n.small && !n.keys?.length) n.keys = [{ label: n.kind === 'bad' ? 'Close' : 'Got it', act: 'ok' }];

@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { HELD_OPS, PickReplies, cardRows, chatsFrom, cleanWhy, newChatLink, noteDid, pickText, reportLines, reportOf, type Hand } from '../src/askclaude.ts';
-import { pageMenuItems, type MenuHas, type MenuParams } from '../src/sendtoaang.ts';
+import { PickReplies, chatsFrom } from '../src/askclaude.ts';
+import { HELD_OPS, cardRows, cleanWhy, newChatLink, noteDid, pickText, reportLines, reportOf, type Hand } from '../src/claudehand.ts';
+import { pageMenuItems, type MenuHas, type MenuParams } from '../src/pagemenu.ts';
 import { openPlanDoor, planDoorClient } from '../src/plandoor.ts';
 
 const P = (o: Partial<MenuParams>): MenuParams => ({

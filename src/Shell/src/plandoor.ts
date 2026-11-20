@@ -15,7 +15,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import type { PlanAnswer, PlanCard } from './browser.ts';
 import type { PlanStarted } from './claudedoor.ts';
-import type { Chat } from './askclaude.ts';
+import type { Chat } from './claudehand.ts';
 
 export const PLAN_DOOR_PORT = 47857;
 /** Five minutes unanswered means no answer (the PC's rule, main.ts onPlanAsk). */

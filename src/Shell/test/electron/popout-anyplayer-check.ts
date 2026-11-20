@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
   const srv = http.createServer((_q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end(html));
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), settings: () => ({ ...readSettings(state), clickThrough: false }), remembered: () => null, remember: () => {} });
+  const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), settings: () => ({ ...readSettings(state), clickThrough: false }), remembered: () => null, remember: () => {} });
   ipcMain.on('popout:stage', (_e, r) => p.setStage(r));
   ipcMain.on('popout:chrome', (_e, px) => p.setChrome(px));
   const view = new WebContentsView();

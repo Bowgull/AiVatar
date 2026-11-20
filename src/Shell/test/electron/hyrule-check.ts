@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
   const hy = mkdtempSync(path.join(os.tmpdir(), 'hyrule-home-'));
   writeFileSync(path.join(hy, 'index.html'), '<!doctype html><title>Hyrule</title><button id="f">full</button><script>f.onclick=()=>document.documentElement.requestFullscreen()</script>');
   const src = (f: string) => path.join(HERE, '..', '..', 'src', f);
-  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: src('preload.cjs'), tabPreloadPath: src('tabpreload.cjs'), settingsPreloadPath: src('settingspreload.cjs'), thingsPreloadPath: src('thingspreload.cjs'), testLocal: true, hyruleDir: hy }) as any;
+  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: src('samarapreload.cjs'), tabPreloadPath: src('tabpreload.cjs'), settingsPreloadPath: src('settingspreload.cjs'), thingsPreloadPath: src('thingspreload.cjs'), testLocal: true, hyruleDir: hy }) as any;
   wireBrowser(() => b);
   b.open('http://127.0.0.1:47953/'); await wait(2500);
   const w: BrowserWindow = b.win;

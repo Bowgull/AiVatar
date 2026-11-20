@@ -70,7 +70,7 @@ app.whenReady().then(async () => {
     await new Promise<void>((r) => live.listen(0, '127.0.0.1', () => r()));
     const lport = (live.address() as { port: number }).port, liveUrl = `http://127.0.0.1:${lport}/rec`;
     const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-    const b = new AangBrowser({ origin: pages.origin, stateDir: st, repoDir: home, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
+    const b = new AangBrowser({ origin: pages.origin, stateDir: st, repoDir: home, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
     wireBrowser(() => b);
     const v1 = await b.openMockupDrop(fr!);
     const lwc = () => b.tabs.find((t: any) => t.internal === 'mocklog')?.view?.webContents;

@@ -20,7 +20,7 @@ app.whenReady().then(async () => {
   const { wireBrowser } = await import('../../src/browseripc.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 'tl-s-')) });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 'tl-s-')) });
   wireBrowser(() => b);
   b.open('https://www.youtube.com/');
   for (let i = 0; i < 100 && !b.cur()?.view; i++) await wait(150);

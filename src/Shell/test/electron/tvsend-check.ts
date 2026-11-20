@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const P = (f: string) => path.join(HERE, '..', '..', 'src', f);
   const state = mkdtempSync(path.join(os.tmpdir(), 'tvs-st-'));
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: state,
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: state,
     tvAt: { host: '127.0.0.1', port: tv.remotePort, pairPort: tv.pairPort, name: 'Pretend TV' } });
   wireBrowser(() => b);
   b.ses.setCertificateVerifyProc((_r: unknown, cb: (n: number) => void) => cb(0));

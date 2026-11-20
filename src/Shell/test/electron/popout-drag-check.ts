@@ -28,7 +28,7 @@ const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS
 
 app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), settings: () => ({ ...readSettings(state), clickThrough: false }), remembered: () => null, remember: () => {} });
+  const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), settings: () => ({ ...readSettings(state), clickThrough: false }), remembered: () => null, remember: () => {} });
   const w = p.open('https://example.com/');
   if (!w) { console.log('no window'); app.exit(2); return; }
   await wait(1500);

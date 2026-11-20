@@ -76,6 +76,33 @@ try {
   check('Aang\'s windows and Samara both say hello to the brain', await until(() => socks.has('samara') && [...socks.keys()].some((k) => k !== 'samara'), 60_000), [...socks.keys()]);
   await wait(4000);
 
+  // 1b (2026-11-20, phase 1 of Samara's own repo): a card for Discord goes to every window program, as the brain sends
+  // it; Aang's windows draw it and answer, Samara stays out of it.
+  for (const ws of socks.values()) ws.send(JSON.stringify({ t: 'drive', id: 9001, op: 'card', a: { kind: 'note', data: { title: 'A note', text: 'card check' } } }));
+  const card = await until(() => got.some((g) => g.m.t === 'drive.result' && g.m.id === 9001), 20_000);
+  const answers = got.filter((g) => g.m.t === 'drive.result' && g.m.id === 9001);
+  check("1b. a Discord card is answered by Aang's windows, never by Samara", card && answers.every((g) => g.role !== 'samara'), answers.map((g) => ({ role: g.role, ok: g.m.ok, error: g.m.error })));
+
+  // 1c (2026-11-20, his "Fix it now"): Send to Aang and Send mockup to Aang from Samara come over the relay. Played here
+  // as the brain passes them on: Aang's windows land each one and answer; a picture is read from its file and deleted.
+  const aangSock = socks.get([...socks.keys()].find((k) => k !== 'samara')!)!;
+  const relayed = (role: string, t: string, id: string) => got.find((g) => g.role === role && g.m.t === 'relay' && (g.m.m as Record<string, unknown> | undefined)?.t === t && (g.m.m as Record<string, unknown>).id === id);
+  mkdirSync(path.join(STATE, 'sent-pictures'), { recursive: true });
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  const pic = '1700000000000-0123abcd.png';
+  writeFileSync(path.join(STATE, 'sent-pictures', pic), PNG);
+  aangSock.send(JSON.stringify({ t: 'relay', m: { t: 'samara.send', id: 'e2e-words', sent: { kind: 'words', text: 'hello from Samara', site: 'example.com', url: 'https://example.com/', samara: true }, picture: null } }));
+  aangSock.send(JSON.stringify({ t: 'relay', m: { t: 'samara.send', id: 'e2e-pic', sent: { kind: 'image', site: 'example.com', url: 'https://example.com/cat.png', samara: true }, picture: pic } }));
+  aangSock.send(JSON.stringify({ t: 'relay', m: { t: 'samara.mockup', id: 'e2e-mock', m: { kind: 'mockup', title: 'Top bar', version: 'v3', branch: 'Top bar', sheet: 'sheets/3.html', commit: 'a'.repeat(40), url: 'https://github.com/x/y', notes: 'n', picture: null, pictureFile: null } } }));
+  const sentAll = await until(() => ['e2e-words', 'e2e-pic', 'e2e-mock'].every((id) => relayed('aang', 'samara.sent', id)), 15_000);
+  check("1c. Send to Aang (words, a picture) and a mockup from Samara are landed by Aang's windows, and answered", sentAll && ['e2e-words', 'e2e-pic', 'e2e-mock'].every((id) => (relayed('aang', 'samara.sent', id)!.m.m as { ok?: unknown }).ok === true),
+    ['e2e-words', 'e2e-pic', 'e2e-mock'].map((id) => relayed('aang', 'samara.sent', id)?.m.m ?? 'no answer'));
+  check('    the picture file Samara left was read and deleted', !existsSync(path.join(STATE, 'sent-pictures', pic)));
+  // Take it back on a plan, from Aang's bubble: Samara's plan memory answers whether it had it.
+  socks.get('samara')!.send(JSON.stringify({ t: 'relay', m: { t: 'samara.forgetplan', id: 'e2e-forget', task: 'a plan nobody allowed' } }));
+  check("1d. Take it back reaches Samara's plan memory and it answers", await until(() => !!relayed('samara', 'samara.forgot', 'e2e-forget'), 10_000) && (relayed('samara', 'samara.forgot', 'e2e-forget')!.m.m as { had?: unknown }).had === false,
+    relayed('samara', 'samara.forgot', 'e2e-forget')?.m.m ?? 'no answer');
+
   // 2. The pet's door. Holding his mutex makes the pet think Aang runs, so it only hands the tool over.
   const mutex = spawn('powershell', ['-NoProfile', '-Command', "$m = New-Object System.Threading.Mutex($true, 'Local\\Aang.Body.Single'); [Console]::Out.WriteLine('held'); [Console]::Out.Flush(); Start-Sleep -Seconds 8; $m.ReleaseMutex()"], { stdio: ['ignore', 'pipe', 'ignore'] });
   mutex.stdout!.on('data', (d) => { holdOut += d; });

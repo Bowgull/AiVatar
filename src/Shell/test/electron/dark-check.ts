@@ -37,7 +37,7 @@ app.whenReady().then(async () => {
   const port = (srv.address() as any).port;
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const state = mkdtempSync(path.join(os.tmpdir(), 'dark-'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
   const any = b as any;
   const bg = async () => { const wc = any.cur()?.view?.webContents; return wc ? await wc.executeJavaScript('getComputedStyle(document.body).backgroundColor', true) : null; };

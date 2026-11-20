@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { macUpdateScript } from '../src/macupdate.ts';
@@ -34,7 +34,7 @@ test('a phase it does not know does nothing', () => {
 // Oct 29 on his Mac: `open -a` said -600 while the old Samara was still closing, and Samara never came back.
 test('when macOS will not open Samara, its own program is started instead, and the script goes on', () => {
   const s = macUpdateScript(ok);
-  const fn = s.slice(s.indexOf('running() {'), s.indexOf('aside() {'));
+  const fn = s.slice(s.indexOf('running() {'), s.indexOf('# Deletes an old copy'));
   const d = mkdtempSync(path.join(os.tmpdir(), 'mu-'));
   const app = path.join(d, 'Samara.app'), mark = path.join(d, 'started');
   execFileSync('mkdir', ['-p', path.join(app, 'Contents/MacOS')]);
@@ -74,13 +74,12 @@ test('a slow start is kept; only a start that dies, or none at all in four minut
 
 // Oct 30 on his Mac: macOS refused to delete an old staged copy, prepare stopped half way, and a near-empty copy was left
 // marked as the new version. The old copy is moved aside (to the Trash) and the mark goes first.
-test('an old staged copy is moved aside, never half-deleted and left marked ready', () => {
+test('an old staged copy is deleted (or set aside when macOS refuses), never half-deleted and left marked ready', () => {
   const s = macUpdateScript(ok);
   const prep = s.slice(s.indexOf('if [ "$PHASE" = "prepare" ]'), s.indexOf('# swap'));
-  assert.ok(prep.indexOf('rm -f "$STAGE/version"') < prep.indexOf('aside "$STAGE" staged'), 'the ready mark goes before anything else');
-  assert.match(prep, /aside "\$STAGE" staged/);
-  assert.match(s, /aside\(\) \{[^\n]*\.Trash/);
-  // the swap and the way back never delete inside an app bundle either
+  assert.ok(prep.indexOf('rm -f "$STAGE/version"') < prep.indexOf('retire "$STAGE" staged'), 'the ready mark goes before anything else');
+  assert.match(prep, /retire "\$STAGE" staged/);
+  // the swap and the way back only delete through retire (which sets a refused copy aside), never with a bare rm
   const swap = s.slice(s.indexOf('# swap'));
   assert.doesNotMatch(swap, /rm -rf "\$(RB|APP|STAGE)/);
   assert.match(prep, /could not be moved out of the way/);
@@ -98,4 +97,46 @@ test('a good install that is not running is opened again, never left closed', ()
     echo end`]).toString();
   assert.match(out, /launched/);
   assert.doesNotMatch(out, /putting the old one back/);
+});
+
+// 2026-11-20 (his rule): old copies of Samara are deleted, never sent to the Trash (41 of ~343 MB had piled up there).
+test('no step of the script moves anything to the Trash', () => {
+  for (const s of [macUpdateScript(ok), macUpdateScript({ ...ok, stage: 'staged-next' }), macUpdateScript({ ...ok, engine: { app: '/e/Electron.app', version: '44.9.3' } })]) {
+    assert.doesNotMatch(s, /\.Trash/);
+    assert.doesNotMatch(s, /\baside\b/);
+  }
+});
+
+/** Runs the script's retire/clear_old for real in bash, with a pretend home; `refuse` makes rm fail (macOS App Management). */
+const retireRun = (what: string, refuse = false) => {
+  const s = macUpdateScript(ok);
+  const fn = s.slice(s.indexOf('OLD="$BR/old"'), s.indexOf('[ "$PHASE" = "swap" ]'));
+  const home = mkdtempSync(path.join(os.tmpdir(), 'mu-home-')), br = path.join(home, 'br');
+  const copy = path.join(br, 'staged', 'Samara.app', 'Contents');
+  mkdirSync(copy, { recursive: true }); writeFileSync(path.join(copy, 'Info.plist'), 'x');
+  const out = execFileSync('bash', ['-c', `set -e; HOME='${home}'; BR='${br}'\n${refuse ? 'rm() { return 1; }\n' : ''}${fn}\n${what}\necho done`]).toString();
+  return { home, br, out };
+};
+
+test('an old staged copy is deleted for good, and the Trash is never touched', () => {
+  const { home, br, out } = retireRun('retire "$BR/staged" staged; clear_old');
+  assert.match(out, /done/);
+  assert.ok(!existsSync(path.join(br, 'staged')), 'the old copy is gone');
+  assert.ok(!existsSync(path.join(br, 'old')));
+  assert.ok(!existsSync(path.join(home, '.Trash')), 'nothing went to the Trash');
+});
+
+test('when macOS refuses the delete, the copy waits in browser/old (never the Trash) and the script goes on', () => {
+  const { home, br, out } = retireRun('retire "$BR/staged" staged', true);
+  assert.match(out, /waits in .*\/old/);
+  assert.match(out, /done/, 'set -e did not stop the script');
+  assert.ok(!existsSync(path.join(br, 'staged')), 'out of the way, so the new copy can be made');
+  assert.equal(readdirSync(path.join(br, 'old')).length, 1);
+  assert.ok(!existsSync(path.join(home, '.Trash')));
+});
+
+test('the next update deletes what waited in browser/old', () => {
+  const { br } = retireRun('retire "$BR/staged" staged', true);
+  execFileSync('bash', ['-c', `BR='${br}'\n${(() => { const s = macUpdateScript(ok); return s.slice(s.indexOf('OLD="$BR/old"'), s.indexOf('[ "$PHASE" = "swap" ]')); })()}\nclear_old`]);
+  assert.ok(!existsSync(path.join(br, 'old')));
 });

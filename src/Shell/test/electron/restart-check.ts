@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
   const state = mkdtempSync(path.join(os.tmpdir(), 'restart-'));
   // One Samara: its browser and its door. His OKs are answered yes, as he would.
   const samara = () => {
-    const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+    const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
       tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
     const ask = b.askForClaude.bind(b); b.askForClaude = async (w: string) => (/^use Samara/.test(w) ? true : ask(w));
     b.askPlan = async (c: any) => ({ go: true, keep: c.sites.map((s: any) => s.site), note: '' });

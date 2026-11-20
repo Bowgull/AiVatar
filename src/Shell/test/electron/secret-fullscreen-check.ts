@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
   writeFileSync(path.join(st, 'browser-prefs.json'), '{}');
   const pages = await servePages(path.join(SRC, '..', 'pages'));
   const src = (f: string) => path.join(SRC, f);
-  const b = new AangBrowser({ origin: pages.origin, stateDir: sd, ...(MODE === 'secret' ? { sharedDir: st, secret: true } : {}), preloadPath: src('preload.cjs'), tabPreloadPath: src('tabpreload.cjs'),
+  const b = new AangBrowser({ origin: pages.origin, stateDir: sd, ...(MODE === 'secret' ? { sharedDir: st, secret: true } : {}), preloadPath: src('samarapreload.cjs'), tabPreloadPath: src('tabpreload.cjs'),
     settingsPreloadPath: src('settingspreload.cjs'), thingsPreloadPath: src('thingspreload.cjs'), testLocal: true } as any) as any;
   wireBrowser(() => (MODE === 'secret' ? null : b), () => (MODE === 'secret' ? b : null));
   b.open(MODE === 'secret' ? undefined : PAGE_URL);

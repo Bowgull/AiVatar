@@ -1,7 +1,8 @@
 // Sheet 62, "One Send to Aang" (his pick, 2026-10-22): the plain logic in sendtoaang.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SendDesk, chipOf, cleanSent, pageMenuItems, promptOf, sendKindFor, type MenuParams, type MenuHas } from '../src/sendtoaang.ts';
+import { SendDesk, chipOf, cleanSent, promptOf } from '../src/sendtoaang.ts';
+import { pageMenuItems, sendKindFor, type MenuParams, type MenuHas } from '../src/pagemenu.ts';
 
 const P = (o: Partial<MenuParams>): MenuParams => ({
   linkURL: '', srcURL: '', mediaType: 'none', selectionText: '', isEditable: false, misspelledWord: '', dictionarySuggestions: [],

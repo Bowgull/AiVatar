@@ -78,7 +78,7 @@ app.whenReady().then(async () => {
   const stateDir = mkdtempSync(path.join(os.tmpdir(), 'look-state-'));
   const T = [['/maple', 'Pressing maple leaves · Fieldnotes'], ['/weather', 'Weather · Montréal'], ['/lofi', 'Lo-fi to read to, 3 hours'], ['/miso', 'Miso soup in ten minutes']];
   writeFileSync(path.join(stateDir, 'browser-tabs.json'), JSON.stringify({ v: 1, active: 0, fronts: [0], tabs: T.map(([u, t]) => ({ url: `http://127.0.0.1:${PORT}${u}`, title: t, scrollY: 0, zoom: 0, win: 0, trail: null })), trails: [], closed: [] }));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
   wireBrowser(() => b);
   b.open();

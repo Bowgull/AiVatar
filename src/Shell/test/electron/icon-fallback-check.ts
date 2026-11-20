@@ -17,7 +17,7 @@ app.whenReady().then(async () => {
   const { servePages } = await import('../../src/pageserver.ts');
   const { AangBrowser } = await import('../../src/browser.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'icon-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'icon-state-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') } as any);
   b.open(URL0);
   const host = new URL(URL0).hostname;

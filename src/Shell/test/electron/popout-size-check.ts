@@ -43,7 +43,7 @@ app.whenReady().then(async () => {
   const srv = http.createServer((q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end(q.url === '/twitch' ? twitch : html));
   await new Promise<void>(r => srv.listen(0, '127.0.0.1', () => r()));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), settings: () => ({ ...readSettings(state), alwaysOnTop: false, clickThrough: false }), remembered: () => null, remember: () => {} });
+  const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'), settings: () => ({ ...readSettings(state), alwaysOnTop: false, clickThrough: false }), remembered: () => null, remember: () => {} });
   // The same two messages the real wiring passes (popoutipc.ts): the picture area, and how tall the bar is.
   ipcMain.on('popout:stage', (_e, r) => p.setStage(r));
   ipcMain.on('popout:chrome', (_e, px) => p.setChrome(px));

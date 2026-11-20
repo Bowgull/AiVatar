@@ -30,7 +30,7 @@ app.whenReady().then(async () => {
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
   const base = `http://127.0.0.1:${(srv.address() as any).port}`;
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const make = (state: string) => new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const make = (state: string) => new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
 
   // (1) one window, closed with its own X

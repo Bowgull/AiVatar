@@ -26,7 +26,7 @@ app.whenReady().then(async () => {
   const { servePages } = await import('../../src/pageserver.ts');
   const { AangBrowser } = await import('../../src/browser.ts');
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
-  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'leak-s-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b: any = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'leak-s-')), preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
   b.open(`http://127.0.0.1:${(srv.address() as any).port}/`);
   for (let i = 0; i < 100 && !b.cur()?.view; i++) await wait(200);

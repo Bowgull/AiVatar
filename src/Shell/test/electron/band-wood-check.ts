@@ -15,7 +15,7 @@ app.whenReady().then(async () => {
   const { wireBrowser } = await import(SH + '/src/browseripc.ts');
   const pages = await servePages(SH + '/pages');
   const P = (f: string) => SH + '/src/' + f;
-  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('preload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 'db2-s-')) });
+  const b: any = new AangBrowser({ origin: pages.origin, preloadPath: P('samarapreload.cjs'), tabPreloadPath: P('tabpreload.cjs'), settingsPreloadPath: P('settingspreload.cjs'), thingsPreloadPath: P('thingspreload.cjs'), stateDir: mkdtempSync(path.join(os.tmpdir(), 'db2-s-')) });
   wireBrowser(() => b);
   b.open(); for (let i = 0; i < 100 && !b.win; i++) await wait(100); await wait(3000);
   const fw = b.win.webContents;

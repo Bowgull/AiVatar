@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
   const base = `http://127.0.0.1:${(site.address() as any).port}`;
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const state = mkdtempSync(path.join(os.tmpdir(), 'door-'));
-  const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
+  const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'samarapreload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true });
   // The test answers his one OK per Claude session (AI lockdown G11) as if he said yes.
   { const ask = (b as any).askForClaude.bind(b); (b as any).askForClaude = async (w: string) => (/^use Samara/.test(w) ? true : ask(w)); }

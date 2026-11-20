@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
   mkdirSync(path.join(st, 'open-urls'));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const src = (f: string) => path.join(HERE, '..', '..', 'src', f);
-  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: src('preload.cjs'), tabPreloadPath: src('tabpreload.cjs'), settingsPreloadPath: src('settingspreload.cjs'), thingsPreloadPath: src('thingspreload.cjs'), testLocal: true } as any) as any;
+  const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: src('samarapreload.cjs'), tabPreloadPath: src('tabpreload.cjs'), settingsPreloadPath: src('settingspreload.cjs'), thingsPreloadPath: src('thingspreload.cjs'), testLocal: true } as any) as any;
   wireBrowser(() => b);
   b.open(URL0);
   await until(() => !!b.win, 8000);

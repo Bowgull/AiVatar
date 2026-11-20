@@ -1,7 +1,7 @@
 // Sheet 62, "One Send to Aang" (his pick, 2026-10-22): one offscreen check of the whole flow, with the real pages.
 // Never on his screen (offscreen windows; the pinned snip is put far off any display by a stubbed pointer), never
 // focused, no real mouse, keys or clipboard, no dialogs (every error ends the run with app.exit).
-// Checks: Samara's real page menu (pagemenu.html, fed by sendtoaang.ts pageMenuItems as browser.ts feeds it) has Send to
+// Checks: Samara's real page menu (pagemenu.html, fed by pagemenu.ts pageMenuItems as browser.ts feeds it) has Send to
 // Aang FIRST with its line under it, for highlighted words, a picture, a link and the page; a send lands as a chip on the
 // real typing box (input.html); the real bubble (bubble.html) asks one line with the keys Ask about it / Keep as a note,
 // plus Pin it for a snip; Keep as a note makes a note (Core's Notes.keep) with the link; Pin it opens the pinned snip's
@@ -13,7 +13,8 @@ import { app, BrowserWindow, screen } from 'electron';
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
 import { servePages } from '../../src/pageserver.ts';
-import { SendDesk, pageMenuItems, type MenuParams, type MenuHas } from '../../src/sendtoaang.ts';
+import { SendDesk } from '../../src/sendtoaang.ts';
+import { pageMenuItems, type MenuParams, type MenuHas } from '../../src/pagemenu.ts';
 import { PinSnips } from '../../src/pinsnip.ts';
 import { Notes } from '../../../Core/src/notes.ts';
 
@@ -46,7 +47,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(SHELL, 'pages'));
 
   // ---- 1. the page menu: the real pagemenu.html with the real preload, fed exactly as browser.ts feeds it
-  const mw = offscreen({ width: 360, height: 420, backgroundColor: '#3A2414' }, path.join(SHELL, 'src', 'preload.cjs'));
+  const mw = offscreen({ width: 360, height: 420, backgroundColor: '#3A2414' }, path.join(SHELL, 'src', 'samarapreload.cjs'));
   await mw.loadURL(`${pages.origin}/pagemenu.html`);
   await mw.webContents.executeJavaScript('document.fonts.ready.then(() => 1)', true);
   const CASES: [string, MenuParams][] = [
