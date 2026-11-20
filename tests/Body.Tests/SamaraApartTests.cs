@@ -58,6 +58,14 @@ public class SamaraApartTests
     }
 
     [Fact]
+    public void A_process_that_started_after_the_pid_file_is_not_samara()
+    {
+        var written = new DateTime(2026, 11, 20, 14, 50, 39, DateTimeKind.Utc);
+        Assert.True(CoreSupervisor.SameRun(written.AddSeconds(-2), written));      // Samara started, then wrote its number
+        Assert.False(CoreSupervisor.SameRun(written.AddMinutes(30), written));     // a later process given the same number
+    }
+
+    [Fact]
     public void A_planned_restart_on_trial_is_not_rolled_back()
     {
         // 2026-11-20: the engine update restarted Samara (exit 75) 162 s into Samara 1.60.1's trial, and 1.60.1 was undone.

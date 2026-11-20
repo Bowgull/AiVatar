@@ -374,13 +374,22 @@ sealed class CoreSupervisor : IDisposable
     /// <summary>A Shell that is running right now, from the pid it keeps in shell.pid (only if it really is Electron).</summary>
     public static Process? RunningShell() => RunningFrom("shell.pid");
 
+    /// <summary>
+    /// The process with that number is the one that wrote the file: it started before the file was written. 2026-11-20:
+    /// Samara quit for an update, Windows gave its number to one of Aang's page processes (also electron.exe), and his
+    /// clicks on Samara did nothing, three times, because "Samara is already running".
+    /// </summary>
+    internal static bool SameRun(DateTime startedUtc, DateTime writtenUtc) => startedUtc <= writtenUtc.AddSeconds(5);
+
     static Process? RunningFrom(string pidFile)
     {
         try
         {
-            if (!int.TryParse(File.ReadAllText(Paths.File(pidFile)).Trim(), out var pid)) return null;
+            var file = Paths.File(pidFile);
+            if (!int.TryParse(File.ReadAllText(file).Trim(), out var pid)) return null;
             var p = Process.GetProcessById(pid);
-            if (!p.HasExited && p.ProcessName.Contains("electron", StringComparison.OrdinalIgnoreCase)) return p;
+            if (!p.HasExited && p.ProcessName.Contains("electron", StringComparison.OrdinalIgnoreCase)
+                && SameRun(p.StartTime.ToUniversalTime(), File.GetLastWriteTimeUtc(file))) return p;
             p.Dispose();
         }
         catch { /* none */ }
