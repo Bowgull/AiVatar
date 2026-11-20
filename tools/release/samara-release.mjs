@@ -32,7 +32,7 @@ mkdirSync(out, { recursive: true });
 const bundle = path.join(out, 'samara-bundle.tgz');
 const gnu = /GNU tar/.test(execFileSync('tar', ['--version'], { encoding: 'utf8' }));
 execFileSync('tar', [...(gnu ? ['--sort=name', '--owner=0', '--group=0', '--numeric-owner', '--mtime=@0'] : []), '-czf', bundle,
-  '-C', shell, 'src', 'pages', 'drm', 'assets', '-C', repo, 'claude-link/.claude-plugin', 'claude-link/hooks',
+  '-C', shell, 'src', 'pages', 'drm', 'assets', 'test/electron/engine-safety-check.ts', 'test/electron/calls-check.ts', '-C', repo, 'claude-link/.claude-plugin', 'claude-link/hooks',
   '-C', path.join(shell, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'inherit', env: { ...process.env, GZIP: '-n' } });
 const bytes = readFileSync(bundle);
 // Aang's brain (his pick, 2026-10-30: one version number for Samara and Aang): the Mac's brain takes it from here.

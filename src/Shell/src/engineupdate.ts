@@ -68,7 +68,7 @@ export function shaFor(list: string, file: string): string | null {
 const DAY = 24 * 60 * 60_000;
 
 /** What Aang's checks said about an engine (test/electron/calls-check.ts and engine-safety-check.ts). */
-export interface TestResult { ok: boolean; look: string[]; chrome: string }
+export interface TestResult { ok: boolean; look: string[]; chrome: string; missing?: boolean }
 /** calls-check.ts exits with this when only look checks (Samara's own page) failed: the engine itself is fine. */
 export const LOOK_ONLY = 5;
 /**
@@ -395,12 +395,15 @@ export class EngineUpdates {
     const look = runs.flatMap((r) => r.look), chrome = runs.find((r) => r.chrome)?.chrome ?? '';
     if (ok) { if (look.length) console.log(`shell: engine ${v} passed Aang's checks; ${look.length} look check${look.length === 1 ? '' : 's'} on Samara's page failed (shown on the key, not blocking)`); return { ok, look, chrome }; }
     // Held by a call or a game mid-test is not a failure; anything else waits until tomorrow.
-    if (!this.o.quietNow()) this.markFailedToday(v);
+    if (!this.o.quietNow() && !runs.some((r) => r.missing)) this.markFailedToday(v);
     console.log(`shell: engine ${v} did not pass Aang's checks; not offered, tried again tomorrow`);
     return { ok: false, look, chrome };
   }
   /** One check script on the new engine, at most four minutes. */
   private async runCheck(v: string, script: string): Promise<TestResult> {
+    // 2026-11-20: the release left the check scripts out, so Electron sat on a missing file until the 4 minute kill and
+    // every engine was turned away. Missing now says so at once, and is not counted against the engine.
+    if (!existsSync(path.join(this.o.shellDir, script))) { console.log(`shell: engine ${v}: ${script} is missing from this Samara; the engine is not offered`); return { ok: false, look: [], chrome: '', missing: true }; }
     const pics = await mkdtemp(path.join(os.tmpdir(), 'aang-engine-test-'));
     let out = '';
     const code = await new Promise<number | null>((res) => {

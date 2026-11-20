@@ -20,8 +20,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { servePages } from '../../src/pageserver.ts';
 
-process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + (e as Error).stack); app.exit(2); });
-process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
+// 2026-11-20: a crash in Samara's own page (tier 'look') stopped the run with exit 2 and blocked a good engine. Past
+// part 1 the engine has already passed; a page crash there is a look failure, not the engine's.
+const crashed = (kind: string, e: unknown) => {
+  console.log(`HARNESS ${kind} ${String((e as Error)?.stack ?? e)}`);
+  const blockingFailed = results.some((x) => !x.ok && x.tier === 'blocking');
+  if (tier === 'look' && !blockingFailed) { console.log('FAIL  [look] the page check stopped early (see HARNESS above)'); app.exit(LOOK_ONLY); }
+  else app.exit(2);
+};
+process.on('uncaughtException', (e) => crashed('ERROR', e));
+process.on('unhandledRejection', (e) => crashed('REJECTION', e));
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 90_000).unref();
 
 // Its own profile folder, so nothing here touches the running Aang's cookies or cache.
@@ -216,5 +224,5 @@ app.whenReady().then(async () => {
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
   pages.close?.();
-  app.exit(failed.length ? 1 : 0);
+  app.exit(failed.some((x) => x.tier === 'blocking') ? 1 : failed.length ? LOOK_ONLY : 0);
 });
