@@ -66,7 +66,7 @@ test('no unguarded Windows-only call in anything the Mac runs', () => {
   ];
   // engineupdate.ts: the PC's engine updater (castLabs win32 zips, tar.exe, electron.exe). macmain imports only
   // onCastlabs from it (checked below). drmrunner.ts: electron.exe is the PC's side of a darwin/win32 choice.
-  const EXEMPT: Record<string, string> = { 'engineupdate.ts': 'PC engine updater; macmain uses only onCastlabs', 'drmrunner.ts': 'a platform ternary' };
+  const EXEMPT: Record<string, string> = { 'engineupdate.ts': 'PC engine updater; macmain uses only onCastlabs', 'drmrunner.ts': 'a platform ternary', 'brand.ts': 'PC engine branding, reached only from the engine updater' };
   const bad: string[] = [];
   for (const file of closure().files) {
     const name = path.relative(SRC, file).split(path.sep).join('/');
