@@ -54,6 +54,22 @@ internal static class EnginePointer
         return exe ?? fallbackExe;
     }
 
+    /// <summary>
+    /// Samara.exe or Aang.exe beside an engine's electron.exe, with their own names and icons in Task Manager (brand.ts,
+    /// his ask 2026-11-20: "all i saw was electron"), when it is there. Samara.exe only with its own video signature, so
+    /// paid video always plays; otherwise electron.exe, as before.
+    /// </summary>
+    public static string Branded(string exe, string file, bool needsSignature)
+    {
+        try
+        {
+            if (!string.Equals(Path.GetFileName(exe), "electron.exe", StringComparison.OrdinalIgnoreCase)) return exe;
+            var b = Path.Combine(Path.GetDirectoryName(exe)!, file);
+            return File.Exists(b) && (!needsSignature || File.Exists(b + ".sig")) ? b : exe;
+        }
+        catch { return exe; }
+    }
+
     /// <summary>An engine folder's electron.exe, only if the folder is inside engines/ (a pointer can never send the
     /// pet to run something elsewhere on the disk).</summary>
     static string? Safe(string shellDir, string dir)
@@ -79,7 +95,8 @@ internal static class EnginePointer
         if (ptr == null || ptr.status != "trial" || ranFor >= TrialGrace) return false;
         var trialExe = Safe(shellDir, ptr.dir);
         // Only the trial engine failing counts: the OLD engine quitting so the new one can start is not a failure.
-        if (trialExe == null || !string.Equals(Path.GetFullPath(trialExe), Path.GetFullPath(exeThatRan), StringComparison.OrdinalIgnoreCase)) return false;
+        // The folder, not the file: Samara.exe and Aang.exe (brand.ts) sit beside electron.exe in the same engine.
+        if (trialExe == null || !string.Equals(Path.GetDirectoryName(Path.GetFullPath(trialExe)), Path.GetDirectoryName(Path.GetFullPath(exeThatRan)), StringComparison.OrdinalIgnoreCase)) return false;
         // The brain never offers this version again.
         try { File.AppendAllText(Path.Combine(shellDir, "engines", "failed.txt"), ptr.version + Environment.NewLine); } catch { /* best effort */ }
         if (ptr.previous != null && Safe(shellDir, ptr.previous.dir) != null)

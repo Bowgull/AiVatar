@@ -18,6 +18,7 @@ import { readJson, saveText } from './store.ts';
 import { FUSE, readFuses, setFuses, wireMap } from './fusewire.ts';
 import { behindMs, behindWords, chromeStable, closesGap, downloadEngine, latestEngine } from './enginerelease.ts';
 import { Evs, type Signed } from './evs.ts';
+import { stampEngine } from './brand.ts';
 
 /** His tick boxes on an engine update (2026-10-14): the login lock, and closing the back doors. On by default. */
 export interface Choices { lock: boolean; closeBackdoors: boolean }
@@ -128,6 +129,30 @@ export class EngineUpdates {
   /** castLabs engines live in castlabs-<version>, plain Electron ones in <version>. */
   private dirOf(v: string): string { return existsSync(path.join(this.engines, 'castlabs-' + plain(v))) ? 'castlabs-' + plain(v) : plain(v); }
   private exeOf(v: string): string { return path.join(this.engines, this.dirOf(v), 'electron.exe'); }
+  /** The program the checks run: Samara.exe when it is there and signed (what he will run), else electron.exe. */
+  private testExe(v: string): string {
+    const s = path.join(this.engines, this.dirOf(v), 'Samara.exe');
+    return existsSync(s) && existsSync(s + '.sig') ? s : this.exeOf(v);
+  }
+  /**
+   * Samara.exe and Aang.exe beside electron.exe, with their own names and icons (brand.ts), and Samara.exe signed for
+   * paid video. Never blocks an engine: without them, Samara runs on electron.exe as before.
+   */
+  private async brand(dir: string): Promise<boolean> {
+    if (process.platform !== 'win32') return false;
+    if (!(await stampEngine(dir, this.o.shellDir, (l) => console.log(l)))) return false;
+    const r = await this.evs.sign(dir, 'Samara');
+    if (r !== 'ok') { console.log(`shell: Samara.exe was not signed for video (${r}); Samara keeps electron.exe`); rmSync(path.join(dir, 'Samara.exe'), { force: true }); rmSync(path.join(dir, 'Samara.exe.sig'), { force: true }); return false; }
+    console.log(`shell: engine in ${path.basename(dir)} carries Samara's and Aang's names and icons`);
+    return true;
+  }
+  /** The engine running now, made before branding (2026-11-20): branded once, a few minutes after start. */
+  private brandRunning(): void {
+    if (process.platform !== 'win32' || !onCastlabs()) return;
+    const dir = path.dirname(process.execPath);
+    if (path.resolve(path.dirname(dir)) !== path.resolve(this.engines) || existsSync(path.join(dir, 'Samara.exe.sig'))) return;
+    this.timers.push(setTimeout(() => { if (!this.busy && !this.o.quietNow()) { this.busy = true; void this.brand(dir).finally(() => { this.busy = false; }); } }, 3 * 60_000));
+  }
   private failed(): Set<string> {
     try { return new Set(readFileSync(path.join(this.engines, 'failed.txt'), 'utf8').split(/\r?\n/).map((x) => x.trim()).filter(Boolean)); } catch { return new Set(); }
   }
@@ -174,6 +199,7 @@ export class EngineUpdates {
   /** Ten minutes after start, then once a day (the scheduler; held through a call or a game, then run). */
   start(): void {
     this.trialCheck();
+    this.brandRunning();
     sched.every('engine.check', DAY, () => this.check(), { first: 10 * 60_000, quiet: true });
   }
   stop(): void { this.timers.forEach(clearTimeout); this.timers = []; sched.cancel('engine.check'); }
@@ -274,6 +300,7 @@ export class EngineUpdates {
       const signed = await this.switchesAndSign(v);
       if (signed === 'denied') this.denied.set(v, Date.now() + DAY);
       if (signed !== 'ok') return;
+      await this.brand(dir);
       const t = await this.test(v, his);
       if (!t.ok) return;
       // A new major is never put in by itself: it waits for his click, security fixes or not.
@@ -407,7 +434,7 @@ export class EngineUpdates {
     const pics = await mkdtemp(path.join(os.tmpdir(), 'aang-engine-test-'));
     let out = '';
     const code = await new Promise<number | null>((res) => {
-      const t = spawn(this.exeOf(v), [script, pics], { cwd: this.o.shellDir, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      const t = spawn(this.testExe(v), [script, pics], { cwd: this.o.shellDir, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
       t.stdout?.on('data', (d) => { out = (out + String(d)).slice(-20_000); });
       t.stderr?.on('data', () => { /* Chromium's own noise */ });
       const kill = setTimeout(() => { try { t.kill(); } catch { /* gone */ } }, 4 * 60_000);

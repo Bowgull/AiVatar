@@ -16,6 +16,7 @@
     "darkreader": "4.9.133",
     "electron": "44.7.0",
     "electron-drm": "github:castlabs/electron-releases#v44.5.1+wvcus",
+    "rcedit": "4.0.1",
     "tldts-experimental": "^7.4.16",
     "ws": "^8.18.0"
   },

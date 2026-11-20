@@ -99,4 +99,30 @@ public class EnginePointerTests
         Assert.True(EnginePointer.AfterExit(s, trial, TimeSpan.FromSeconds(5)));
         Assert.Equal("fallback.exe", EnginePointer.Pick(s, "fallback.exe"));
     }
+
+    // 2026-11-20 ("all i saw was electron"): Samara.exe beside electron.exe, only once castLabs signed it for video.
+    [Fact]
+    public void Samara_runs_by_name_only_with_its_video_signature()
+    {
+        var d = Path.Combine(Path.GetTempPath(), "aang-brand-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(d);
+        var electron = Path.Combine(d, "electron.exe");
+        File.WriteAllText(electron, "");
+        Assert.Equal(electron, EnginePointer.Branded(electron, "Samara.exe", needsSignature: true));
+        File.WriteAllText(Path.Combine(d, "Samara.exe"), "");
+        Assert.Equal(electron, EnginePointer.Branded(electron, "Samara.exe", needsSignature: true));   // not signed yet
+        File.WriteAllText(Path.Combine(d, "Samara.exe.sig"), "");
+        Assert.Equal(Path.Combine(d, "Samara.exe"), EnginePointer.Branded(electron, "Samara.exe", needsSignature: true));
+        File.WriteAllText(Path.Combine(d, "Aang.exe"), "");
+        Assert.Equal(Path.Combine(d, "Aang.exe"), EnginePointer.Branded(electron, "Aang.exe", needsSignature: false));
+    }
+
+    [Fact]
+    public void A_trial_engine_that_dies_as_Samara_exe_is_still_rolled_back()
+    {
+        var s = NewShellDir();
+        var trial = Path.Combine(Path.GetDirectoryName(Engine(s, "44.7.0"))!, "Samara.exe");
+        Point(s, "44.7.0", "trial");
+        Assert.True(EnginePointer.AfterExit(s, trial, TimeSpan.FromSeconds(5)));
+    }
 }

@@ -198,6 +198,8 @@ sealed class CoreSupervisor : IDisposable
                 }
                 var started = DateTime.UtcNow;
                 var exe = spec.PickExe?.Invoke(spec.Exe) ?? spec.Exe;
+                // Aang's windows by name; only when the browser is apart (Aang.exe has no video signature).
+                if (spec.PickExe != null && ApartFor(spec.PickDir?.Invoke() ?? spec.Dir)) exe = EnginePointer.Branded(exe, "Aang.exe", needsSignature: false);
                 var args = spec.Args;
                 if (spec.Independent && NextExtra is { Length: > 0 } extra) { args += " " + extra; NextExtra = null; }
                 var psi = new ProcessStartInfo(exe, args)
@@ -379,6 +381,10 @@ sealed class CoreSupervisor : IDisposable
     /// Samara quit for an update, Windows gave its number to one of Aang's page processes (also electron.exe), and his
     /// clicks on Samara did nothing, three times, because "Samara is already running".
     /// </summary>
+    /// <summary>The engine under any of its names: electron, or Samara and Aang once branded (brand.ts).</summary>
+    internal static bool IsEngine(string processName) =>
+        processName.Contains("electron", StringComparison.OrdinalIgnoreCase) || processName.Equals("Samara", StringComparison.OrdinalIgnoreCase) || processName.Equals("Aang", StringComparison.OrdinalIgnoreCase);
+
     internal static bool SameRun(DateTime startedUtc, DateTime writtenUtc) => startedUtc <= writtenUtc.AddSeconds(5);
 
     static Process? RunningFrom(string pidFile)
@@ -388,7 +394,7 @@ sealed class CoreSupervisor : IDisposable
             var file = Paths.File(pidFile);
             if (!int.TryParse(File.ReadAllText(file).Trim(), out var pid)) return null;
             var p = Process.GetProcessById(pid);
-            if (!p.HasExited && p.ProcessName.Contains("electron", StringComparison.OrdinalIgnoreCase)
+            if (!p.HasExited && IsEngine(p.ProcessName)
                 && SameRun(p.StartTime.ToUniversalTime(), File.GetLastWriteTimeUtc(file))) return p;
             p.Dispose();
         }
@@ -456,6 +462,7 @@ sealed class CoreSupervisor : IDisposable
             exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
             var dir = s.PickDir?.Invoke() ?? s.Dir;
             var apart = ApartFor(dir);
+            if (apart) exe = EnginePointer.Branded(exe, "Samara.exe", needsSignature: true);                   // Samara, by name
             var args = apart ? "src/samara.ts" + (quiet ? " --quiet" : "") : s.Args;
             var psi = new ProcessStartInfo(exe, args) { WorkingDirectory = dir, UseShellExecute = false, CreateNoWindow = true };
             if (s.PickDir != null) psi.Environment["AANG_SHELL_HOME"] = s.Dir;

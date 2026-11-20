@@ -1129,7 +1129,7 @@ sealed class PetWindow : Form
             if (fgh != IntPtr.Zero)
             {
                 Win32.GetWindowThreadProcessId(fgh, out var fgPid);
-                if (fgPid != Environment.ProcessId && !foreground.Equals("electron", StringComparison.OrdinalIgnoreCase))
+                if (fgPid != Environment.ProcessId && !CoreSupervisor.IsEngine(foreground))
                     returnTo = fgh;
             }
         }

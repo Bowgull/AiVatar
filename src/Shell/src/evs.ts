@@ -117,21 +117,22 @@ export class Evs {
 
   /** Sign an engine (the folder holding Electron.app, or electron.exe) for video, on this machine with his castLabs
    *  account (his pick, 2026-10-30: each machine signs its own). Signed only when castLabs' own check then agrees. */
-  async sign(engineDir: string): Promise<Signed> {
+  /** hint: which program in the folder to sign ("Samara" for Samara.exe, brand.ts); castLabs' own pick when left out. */
+  async sign(engineDir: string, hint?: string): Promise<Signed> {
     if (!(await this.ensure())) return 'failed';
     // -n: never stop to ask for a password (nobody would see it); a missing sign-in comes back as 'signin'.
-    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', '-n', 'sign-pkg', engineDir], { timeoutMs: 5 * 60_000 });
+    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', '-n', 'sign-pkg', ...(hint ? ['-H', hint] : []), engineDir], { timeoutMs: 5 * 60_000 });
     const r = readSigning(out.code, out.text);
     if (r !== 'ok') { this.log(`update: castLabs signing said ${r} (exit ${out.code}): ${tail(out.text)}`); return r; }
-    if (await this.verify(engineDir)) return 'ok';
+    if (await this.verify(engineDir, hint)) return 'ok';
     this.log('update: castLabs signed the engine, but its own check does not agree');
     return 'failed';
   }
 
   /** castLabs' own check: true only for a real (not development) signature on the folder holding the app. */
-  async verify(engineDir: string): Promise<boolean> {
+  async verify(engineDir: string, hint?: string): Promise<boolean> {
     if (!(await this.ensure())) return false;
-    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', '-n', 'verify-pkg', engineDir], { timeoutMs: 2 * 60_000 });
+    const out = await this.run(this.python, ['-m', 'castlabs_evs.vmp', '-n', 'verify-pkg', ...(hint ? ['-H', hint] : []), engineDir], { timeoutMs: 2 * 60_000 });
     return readVerify(out.code, out.text);
   }
 
