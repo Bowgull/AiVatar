@@ -216,7 +216,9 @@ sealed class CoreSupervisor : IDisposable
                     Set($"{spec.Name} started (pid {child.Id}, on its own)");
                     await child.WaitForExitAsync(cts.Token);
                     Set($"{spec.Name} exited with code {child.ExitCode}");
-                    try { spec.AfterExit?.Invoke(exe, DateTime.UtcNow - started); } catch (Exception e) { Set("after-exit check failed: " + e.Message); }
+                    // A planned restart (exit 75: an update going in) is not a trial failing (2026-11-20: the engine update's restart
+                    // rolled Samara 1.60.1 back, 162 s into its trial).
+                    if (child.ExitCode != PlannedRestart) try { spec.AfterExit?.Invoke(exe, DateTime.UtcNow - started); } catch (Exception e) { Set("after-exit check failed: " + e.Message); }
                     if (child.ExitCode == PlannedRestart) { pause = TimeSpan.FromMilliseconds(150); Set($"{spec.Name} restarting for an update"); goto Again; }
                     // He closed Samara with the pet running: the Shell quits only when told to, so this is a crash.
                     if (TooManyDeaths(DateTime.UtcNow)) { GivenUp = true; Set($"gave up after {BurstLimit} crashes"); GaveUp?.Invoke($"{spec.GiveUpSays}. I have stopped trying so it does not loop forever."); return; }
@@ -277,7 +279,9 @@ sealed class CoreSupervisor : IDisposable
                 Set($"{spec.Name} started (pid {child.Id})");
                 await child.WaitForExitAsync(cts.Token);
                 Set($"{spec.Name} exited with code {child.ExitCode}");
-                try { spec.AfterExit?.Invoke(exe, DateTime.UtcNow - started); } catch (Exception e) { Set("after-exit check failed: " + e.Message); }
+                // A planned restart (exit 75: an update going in) is not a trial failing (2026-11-20: the engine update's restart
+                    // rolled Samara 1.60.1 back, 162 s into its trial).
+                    if (child.ExitCode != PlannedRestart) try { spec.AfterExit?.Invoke(exe, DateTime.UtcNow - started); } catch (Exception e) { Set("after-exit check failed: " + e.Message); }
                 // Let the readers finish the tail of the output before the writer goes away. Without this the
                 // dispose races them, which is the leak that started all of the above.
                 try { await Task.WhenAll(pipes).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* a slow tail must not block the restart */ }
@@ -468,6 +472,8 @@ sealed class CoreSupervisor : IDisposable
         {
             if (!p.WaitForExit(grace)) return false;    // past its grace: it is good (it marks itself so)
             Log.Write($"samara: exited with code {p.ExitCode} after {(int)(DateTime.UtcNow - started).TotalSeconds} s, on trial");
+            // A planned restart (an update going in) is not the trial failing.
+            if (p.ExitCode == PlannedRestart) return false;
             afterExit(exe, DateTime.UtcNow - started);
             return true;
         }

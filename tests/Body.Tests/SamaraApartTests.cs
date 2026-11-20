@@ -58,6 +58,16 @@ public class SamaraApartTests
     }
 
     [Fact]
+    public void A_planned_restart_on_trial_is_not_rolled_back()
+    {
+        // 2026-11-20: the engine update restarted Samara (exit 75) 162 s into Samara 1.60.1's trial, and 1.60.1 was undone.
+        using var p = Process.Start(new ProcessStartInfo("cmd.exe", "/c exit 75") { UseShellExecute = false, CreateNoWindow = true })!;
+        var called = false;
+        Assert.False(CoreSupervisor.WatchTrial(p, onTrial: true, "engine.exe", DateTime.UtcNow, (_, _) => called = true, TimeSpan.FromSeconds(20)));
+        Assert.False(called);
+    }
+
+    [Fact]
     public void With_nothing_on_trial_the_launcher_does_not_wait()
     {
         using var p = Quick();
