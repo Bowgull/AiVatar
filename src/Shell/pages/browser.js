@@ -223,6 +223,31 @@ if (SOLO) {
   el('rail').setAttribute('aria-hidden', 'false');
 }
 
+// ---- Sheet 121 (3), his pick 2026-11-20: hover a tab to see it. Resting on a row for 0.4 s shows a picture of the page
+// BESIDE the list (the Shell's own small layer); moving on to another row shows that one at once. Only listening here:
+// nothing about the list, its rows or its timing changes.
+if (SOLO) {
+  let peekT = 0, peekId = null;
+  const peekOff = () => { clearTimeout(peekT); if (peekId !== null) { peekId = null; window.aang?.browserTabPeek?.(null); } };
+  tabsBox.addEventListener('pointerover', (e) => {
+    const row = e.target instanceof Element ? e.target.closest('.tp[data-tab]') : null;
+    if (!row || dragging || e.buttons) return;
+    const id = Number(row.dataset.tab);
+    if (!Number.isInteger(id) || id === peekId) return;
+    clearTimeout(peekT);
+    peekT = setTimeout(() => {
+      if (!row.isConnected) return;
+      const r = row.getBoundingClientRect();
+      peekId = id;
+      window.aang?.browserTabPeek?.({ id, top: Math.round(r.top), bottom: Math.round(r.bottom) });
+    }, peekId !== null ? 0 : 400);
+  });
+  tabsBox.addEventListener('pointerout', (e) => { const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest('.tp[data-tab]') : null; if (!to) peekOff(); });
+  for (const ev of ['pointerdown', 'wheel', 'dragstart', 'contextmenu']) tabsBox.addEventListener(ev, peekOff, true);
+  document.querySelector('.drawer')?.addEventListener('scroll', peekOff, { passive: true });
+  document.documentElement.addEventListener('mouseleave', peekOff);
+}
+
 // ---- the ⋯ menu: the browser's settings, grouped. Its switches are real: ads, popups, sounds.
 const menu = el('menu'), menukey = el('menukey');
 let menuOpen = false;

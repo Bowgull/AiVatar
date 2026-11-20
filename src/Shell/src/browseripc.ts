@@ -21,6 +21,8 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
     if (br?.isFloat(e.sender)) br.floatFromLayer(a);
     else if (br?.isMainFrame(e.sender)) br.floatFromFrame(a);
   });
+  // Sheet 121 (3): the tab list's hover picture, from the list's own layer.
+  ipcMain.on('browser:tabpeek', (e, a) => { if (top(e) && b(e)?.isFrame(e.sender)) void b(e).tabPeek(a && typeof a === 'object' ? a : null); });
   ipcMain.on('browser:tray', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a === 'object') b(e).tray(a.open === true, a); });
   // Sheet 60 section 4: the notes rail. A new note for this site (where it came from is the browser's to say), or one to open.
   ipcMain.on('browser:notesave', (e, n) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).noteSave(n); });

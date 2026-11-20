@@ -201,6 +201,8 @@ interface Tab {
   /** The last picture of the page as he left it (taken when his mouse heads for the tab list): shown at once when it
    *  wakes from sleep, so it never looks blank or crashed (2026-10-23). `waking`: its sound and video wait for the page. */
   leftShot?: string; waking?: boolean;
+  /** Sheet 121 (3): a small picture of the page from the last time it was in front, for the tab list's hover picture. */
+  card?: string; cardUrl?: string;
   /** Frozen (2026-10-23, Edge's sleeping tabs): its timers and network stop, the page stays; it thaws instantly. */
   frozen?: boolean;
   /** A freeze was asked for and may still land (2026-10-30): a thaw must undo it even before it is marked frozen. */
@@ -2053,6 +2055,7 @@ export class AangBrowser {
       // The rail slides back in with its handle (his ask, 2026-10-20), then goes; the band's own handle shows again
       // only once the rail's copy is back on top of it, so there is never a second arrow.
       const v = this.trayV && !this.trayV.webContents.isDestroyed() ? this.trayV : null;
+      void this.tabPeek(null);
       if (!this.trayOn) { v?.setVisible(false); return; }
       this.trayOn = false;
       v?.webContents.send('browser:tray', { open: false });
@@ -2066,6 +2069,7 @@ export class AangBrowser {
     const v = this.trayView();
     if (!v) return;
     this.newSince = 0;
+    void this.cardOf(this.cur());                // the page in front, for the list's hover picture
     const n = (x: unknown, d: number) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : d);
     this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y), hy: n((at as { hy?: unknown })?.hy, this.trayAt.hy ?? 80) };
     this.trayOn = true;
@@ -2078,6 +2082,71 @@ export class AangBrowser {
     w.webContents.send('browser:tray', { open: true });
     this.sendTabs();
   }
+  // ------------------------------------------------------------------ sheet 121 (3): hover a tab to see it
+  /**
+   * His pick (2026-11-20): resting the mouse on a tab in the list for a moment shows a small picture of that page with its
+   * full name and address, BESIDE the list. The list itself is not touched: the picture is its own small layer to the
+   * right of it. The page in front is pictured live; the others show the picture taken the last time they were in front.
+   */
+  private tabPeekV: WebContentsView | null = null;
+  private tabPeekOn = false;
+  private tabPeekReady = false;
+  private tabPeekSeq = 0;
+  /** A small picture of the page in front, for the tab list's hover picture. */
+  private async cardOf(t: Tab | undefined): Promise<void> {
+    if (!t?.view || t.crashed || t.blocked || t.failed || t.lent || t.internal || !t.view.getVisible() || t.id !== this.active) return;
+    try { const s = await capture(t.view, { ms: 500, maxWidth: 640, quality: 72 }); if (s) { t.card = s.dataUrl(); t.cardUrl = t.url; } } catch { /* none this time */ }
+  }
+  private tabPeekView(): WebContentsView | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    if (this.tabPeekV && !this.tabPeekV.webContents.isDestroyed()) {
+      // The layer belongs to one window at a time: moved to the one he is in.
+      if (!w.contentView.children.includes(this.tabPeekV)) { this.tabPeekV.setVisible(false); this.tabPeekOn = false; }
+      return this.tabPeekV;
+    }
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    this.tabPeekReady = false;
+    v.webContents.on('did-finish-load', () => { this.tabPeekReady = true; });
+    void v.webContents.loadURL(`${this.o.origin}/tabpeek.html`).catch(() => { /* gone */ });
+    this.tabPeekV = v;
+    return v;
+  }
+  /** The list: the mouse rests on a tab (its row's top and bottom in the list's own layer), or it left the rows. */
+  async tabPeek(a: { id?: unknown; top?: unknown; bottom?: unknown } | null): Promise<void> {
+    const seq = ++this.tabPeekSeq;
+    const w = this.win, P = this.pane;
+    const hide = () => { if (this.tabPeekOn) { this.tabPeekOn = false; this.tabPeekV?.setVisible(false); } };
+    if (!a || !w || w.isDestroyed() || !P.trayOn) { hide(); return; }
+    const t = this.tabs.find((x) => x.id === Number(a.id) && x.pane === P.id);
+    const top = Number(a.top), bottom = Number(a.bottom);
+    if (!t || !Number.isFinite(top) || !Number.isFinite(bottom)) { hide(); return; }
+    const v = this.tabPeekView();
+    if (!v) return;
+    if (t.id === this.active) await this.cardOf(t);
+    if (seq !== this.tabPeekSeq || !P.trayOn || w.isDestroyed()) return;
+    const shot = t.card ?? t.leftShot ?? null;
+    let host = '', rest = '';
+    try { const u = new URL(t.url); host = u.hostname.replace(/^www\./, ''); rest = (u.pathname === '/' ? '' : u.pathname) + u.search; } catch { host = t.url.startsWith('aang:') ? 'Samara' : t.url; }
+    const W = 356, H = shot ? 278 : 92;
+    const [cw, ch] = w.getContentSize();
+    const x = Math.min(cw - W - 4, P.trayAt.x + TRAY_W[this.tabSize] + 6);
+    const mid = P.trayAt.y + (top + bottom) / 2;
+    const y = Math.max(P.trayAt.y + 4, Math.min(ch - H - 4, Math.round(mid - H / 2)));
+    if (x < P.trayAt.x + 40) { hide(); return; }       // no room beside the list in a narrow window
+    const data = { shot, title: t.title || host, host, rest, playing: t.audible === true && !t.muted };
+    // The page has no doors of its own: it is handed the picture and the words (drawn with textContent there).
+    const paint = () => { if (seq === this.tabPeekSeq && !v.webContents.isDestroyed()) void v.webContents.executeJavaScript(`show(${JSON.stringify(data)})`, true).catch(() => { /* gone */ }); };
+    if (this.tabPeekReady) paint(); else v.webContents.once('did-finish-load', paint);
+    v.setBounds({ x: Math.max(0, x), y, width: W, height: H });
+    if (!this.tabPeekOn || !w.contentView.children.includes(v)) w.contentView.addChildView(v);   // over the page, beside the list
+    this.tabPeekOn = true;
+    v.setVisible(true);
+  }
+
   // ------------------------------------------------------------------ the band's panels, floating over the live page
   /** The frame's panel layer: the frame's own page with ?float, see-through, the size of the window, on top while a panel is open. */
   floatView(): WebContentsView | null {
@@ -3239,6 +3308,8 @@ export class AangBrowser {
       // it has held still (painted()).
       if (this.veil?.tab === tab.id && !tab.waking) this.veilDown(VEIL_FADE_MS);
       this.sendTabs();
+      // Sheet 121 (3): its hover picture, once it has settled (only the page in front can be pictured).
+      setTimeout(() => { if (tab.id === this.active) void this.cardOf(tab); }, 1200);
       void this.googleCheck(wc, () => { const h = wc.navigationHistory, i = h.getActiveIndex(); return i > 0 ? h.getEntryAtIndex(i - 1)?.url ?? '' : ''; });
     });
     // The loading steps (2026-10-12): the click, the site answering, the page read, the page drawn (painted()).

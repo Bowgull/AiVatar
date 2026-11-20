@@ -1,0 +1,17 @@
+/* Sheet 121 (3): the hover picture, sheet 120 A's wood (the .prev drawing). */
+html,body{margin:0;background:transparent;overflow:hidden}
+.prev{position:absolute;inset:0;box-sizing:border-box;padding:8px 8px 6px;border-style:solid;border-width:6px;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3);
+  animation:pin .12s ease-out}
+.prev[hidden]{display:none}
+@keyframes pin{from{opacity:0;transform:translateX(-6px)}}
+.shot{height:190px;border-radius:8px;overflow:hidden;background:#f7f4ee;box-shadow:0 0 0 2px #120A05}
+.shot[hidden]{display:none}
+.shot img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left;image-rendering:auto}
+b{display:block;margin:8px 4px 0;font:700 14px/1.25 var(--body);color:#FFF6E0;text-shadow:1px 1px 0 rgba(0,0,0,.6);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+small{display:flex;align-items:center;gap:0;margin:3px 4px 0;font:500 12.5px var(--body);color:#D2BF98;white-space:nowrap;overflow:hidden}
+small #host{color:#F1E6CF;font-weight:700;flex:none}
+small #rest{overflow:hidden;text-overflow:ellipsis}
+small i{margin-left:auto;padding-left:8px;font:400 9px var(--label);letter-spacing:1px;color:var(--gold, #FFC43C);font-style:normal;flex:none}
+@media (prefers-reduced-motion:reduce){.prev{animation:none}}
