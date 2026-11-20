@@ -1405,6 +1405,21 @@
       "at": "2026-11-19T08:17:27-05:00",
       "kind": "fix",
       "text": "Paid shows (Netflix, Crunchyroll, Prime, Disney+) play again on both machines; a file they need had been removed by mistake on Nov 12."
+    },
+    {
+      "at": "2026-11-20T04:40:00-05:00",
+      "kind": "feature",
+      "text": "The secret window lives only on the Mac now, as its own program: everything it keeps, its own saved logins too, is locked on the Mac behind your PIN and never goes anywhere else. Normal Samara keeps Now Playing and the play and pause keys."
+    },
+    {
+      "at": "2026-11-20T04:41:00-05:00",
+      "kind": "fix",
+      "text": "When Claude asks to use Samara, the ask shows in Samara itself, never only in Aang's bubble, and anything Samara pops up stays fully on one screen."
+    },
+    {
+      "at": "2026-11-20T04:42:00-05:00",
+      "kind": "fix",
+      "text": "Samara talks to the internet less: updates are checked once a day, the always-on update ping and the Reddit feed are gone, and the ad lists download once instead of twice."
     }
   ]
 }
