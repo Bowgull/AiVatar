@@ -6,6 +6,12 @@
 // whole group, named like "Video + Job + Player", its other members kept off the taskbar while joined; it carries the
 // player's buttons when the player is in it. A running Claude job draws its % under the lantern.
 
+// The picture copy now lives with capture (captureplan.ts), and the pop-out task names with Samara's right-click list
+// (jumplist.ts) (2026-11-20, phase 1 of Samara's own repo); both are re-exported here for the taskbar's own code.
+export { blit } from './captureplan.ts';
+export { POPOUT_TASKS, NEEDS_AANG, isPopoutTask, type PopoutTask } from './jumplist.ts';
+import type { PopoutTask } from './jumplist.ts';
+
 export interface Box { x: number; y: number; width: number; height: number }
 
 /**
@@ -199,30 +205,3 @@ export function boundsOf(boxes: Box[]): Box {
   return { x: L, y: T, width: Math.max(...boxes.map((b) => b.x + b.width)) - L, height: Math.max(...boxes.map((b) => b.y + b.height)) - T };
 }
 
-/**
- * Copy one premultiplied BGRA picture into another at (x, y), over what is there (src + dst * (1 - a)). Clipped to the
- * destination. Members never overlap, so this is mostly a plain copy.
- */
-export function blit(dst: Uint8Array, dw: number, dh: number, src: Uint8Array, sw: number, sh: number, x: number, y: number): void {
-  for (let r = 0; r < sh; r++) {
-    const ty = y + r;
-    if (ty < 0 || ty >= dh) continue;
-    for (let c = 0; c < sw; c++) {
-      const tx = x + c;
-      if (tx < 0 || tx >= dw) continue;
-      const si = (r * sw + c) * 4, di = (ty * dw + tx) * 4, a = src[si + 3]!;
-      if (a === 255) { dst[di] = src[si]!; dst[di + 1] = src[si + 1]!; dst[di + 2] = src[si + 2]!; dst[di + 3] = 255; continue; }
-      if (a === 0) continue;
-      const k = 1 - a / 255;
-      for (let ch = 0; ch < 4; ch++) dst[di + ch] = Math.min(255, Math.round(src[si + ch]! + dst[di + ch]! * k));
-    }
-  }
-}
-
-// ---------------------------------------------------------------- the right-click list's Pop-outs section
-
-export const POPOUT_TASKS = ['popouts-show', 'popouts-hide', 'popouts-gather', 'new-note', 'timer', 'player'] as const;
-export type PopoutTask = typeof POPOUT_TASKS[number];
-/** New note, Timer and Music player need Aang (notes and timers are his): listed only while he runs. */
-export const NEEDS_AANG: ReadonlySet<PopoutTask> = new Set(['new-note', 'timer', 'player']);
-export const isPopoutTask = (t: unknown): t is PopoutTask => typeof t === 'string' && (POPOUT_TASKS as readonly string[]).includes(t);

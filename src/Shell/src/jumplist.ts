@@ -12,7 +12,13 @@
 // no Shell running, the new one IS Samara, on its own, without Aang (like the Samara shortcut). Only the names below
 // (five of Samara's, six pop-out ones) are ever acted on; anything else on the command line is ignored.
 import path from 'node:path';
-import { POPOUT_TASKS, type PopoutTask } from './taskbarplan.ts';
+
+// The Pop-outs section's names (moved here from taskbarplan.ts on 2026-11-20, phase 1 of Samara's own repo).
+export const POPOUT_TASKS = ['popouts-show', 'popouts-hide', 'popouts-gather', 'new-note', 'timer', 'player'] as const;
+export type PopoutTask = typeof POPOUT_TASKS[number];
+/** New note, Timer and Music player need Aang (notes and timers are his): listed only while he runs. */
+export const NEEDS_AANG: ReadonlySet<PopoutTask> = new Set(['new-note', 'timer', 'player']);
+export const isPopoutTask = (t: unknown): t is PopoutTask => typeof t === 'string' && (POPOUT_TASKS as readonly string[]).includes(t);
 
 // Sheet 66 A (2026-10-22): a "Pop-outs" section above the Tasks (Show all, Hide all, Gather them by Aang, New note,
 // Timer, Music player). Same door: main.ts hands these six to taskbar.ts instead of the browser.

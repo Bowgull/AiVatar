@@ -13,7 +13,7 @@
 // Screen Recording permission on the Mac and works the same on the PC, and nothing leaves the computer.
 import { BrowserWindow, WebContentsView, nativeImage, type NativeImage, type Rectangle, type WebContents } from 'electron';
 import { within } from './page.ts';
-import { blit } from './taskbarplan.ts';
+import { blit } from './captureplan.ts';
 import { MAX_W, fitWidth, shownLayers, type Layer } from './captureplan.ts';
 export { SIZES, fitWidth } from './captureplan.ts';
 

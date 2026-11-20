@@ -24,3 +24,22 @@ export function shownLayers(children: { visible: boolean; bounds: Rectangle; nam
     .map((c) => ({ x: c.bounds.x, y: c.bounds.y, width: c.bounds.width, height: c.bounds.height, name: c.name }));
 }
 
+/**
+ * Copy one premultiplied BGRA picture into another at (x, y), over what is there (src + dst * (1 - a)). Clipped to the
+ * destination. Members never overlap, so this is mostly a plain copy.
+ */
+export function blit(dst: Uint8Array, dw: number, dh: number, src: Uint8Array, sw: number, sh: number, x: number, y: number): void {
+  for (let r = 0; r < sh; r++) {
+    const ty = y + r;
+    if (ty < 0 || ty >= dh) continue;
+    for (let c = 0; c < sw; c++) {
+      const tx = x + c;
+      if (tx < 0 || tx >= dw) continue;
+      const si = (r * sw + c) * 4, di = (ty * dw + tx) * 4, a = src[si + 3]!;
+      if (a === 255) { dst[di] = src[si]!; dst[di + 1] = src[si + 1]!; dst[di + 2] = src[si + 2]!; dst[di + 3] = 255; continue; }
+      if (a === 0) continue;
+      const k = 1 - a / 255;
+      for (let ch = 0; ch < 4; ch++) dst[di + ch] = Math.min(255, Math.round(src[si + ch]! + dst[di + ch]! * k));
+    }
+  }
+}

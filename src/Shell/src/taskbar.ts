@@ -21,7 +21,8 @@ import path from 'node:path';
 import { askHelper, askProxy, onHelperEvent } from './winedge.ts';
 import * as P from './taskbarplan.ts';
 import { capture } from './capture.ts';
-import { BUTTON_GLYPHS, TASK_GLYPH, glyphBitmap, icoFromPngs } from './taskbaricons.ts';
+import { BUTTON_GLYPHS, glyphBitmap, icoFromPngs } from './taskbaricons.ts';
+export { jumpIcons } from './jumpicons.ts';
 import type { MemberWin } from './familywin.ts';
 
 /** Samara's lantern: the button's icon, and each pop-out's own (the video keeps its turquoise lantern). */
@@ -444,22 +445,3 @@ export function wireTaskbar(host: FamilyLike, d: TaskbarDeps): TaskbarPops | nul
   return tb;
 }
 
-/**
- * The right-click list's Pop-outs icons as .ico files (Windows reads a jump list's icons from files, after the Shell is
- * gone too): made once into `dir`, from the same pixels as the buttons. Gather wears Aang's own face (`aangIco`).
- */
-export function jumpIcons(dir: string, aangIco: string): Partial<Record<P.PopoutTask, string>> {
-  const out: Partial<Record<P.PopoutTask, string>> = { 'popouts-gather': aangIco };
-  try { mkdirSync(dir, { recursive: true }); } catch { return out; }
-  for (const [task, glyph] of Object.entries(TASK_GLYPH)) {
-    const f = path.join(dir, `jump-${glyph}.ico`);
-    try {
-      if (!existsSync(f)) {
-        const png = (k: number) => nativeImage.createFromBitmap(glyphBitmap(glyph, k), { width: 16 * k, height: 16 * k }).toPNG();
-        writeFileSync(f, icoFromPngs([{ size: 16, png: png(1) }, { size: 32, png: png(2) }]));
-      }
-      out[task as P.PopoutTask] = f;
-    } catch { /* that one keeps the lantern */ }
-  }
-  return out;
-}

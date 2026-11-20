@@ -29,12 +29,11 @@ import { readSettings } from './settings.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import { readJson } from './store.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
-import { CardRenderer } from './cardrender.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
 import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
-import { jumpIcons } from './taskbar.ts';
-import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './taskbarplan.ts';
-import { launcherEnv, samaraLauncher, writeExitMark } from './samaramode.ts';
+import { jumpIcons } from './jumpicons.ts';
+import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './jumplist.ts';
+import { launcherEnv, samaraLauncher, writeExitMark } from './samaraexit.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
@@ -131,7 +130,6 @@ app.on('second-instance', (_e, argv, _cwd, data) => {
 });
 
 /** Aang's brain: the browser's news in, and the way to Aang's windows. */
-let cards: CardRenderer | null = null;
 const link = new CoreLink({
   port: PORT, stateDir: STATE_DIR, role: 'samara',
   onMessage: (m) => {
@@ -151,13 +149,9 @@ const link = new CoreLink({
     if (m.t === 'tidy.answer' && Number.isInteger(m.id)) { b?.tidyAnswer(Number(m.id), { ok: m.ok === true, text: typeof m.text === 'string' ? m.text : '', why: typeof m.why === 'string' ? m.why : '' }); return; }
     if (m.t === 'drive' && Number.isInteger(m.id) && typeof m.op === 'string') {
       const id = Number(m.id), a = (m.a && typeof m.a === 'object') ? m.a as Record<string, unknown> : {};
-      // A card Aang draws for Discord (9.D D3), off screen with Samara's pages.
-      if (m.op === 'card') {
-        if (!boot) { link.send({ t: 'drive.result', id, ok: false, error: 'the pages are not ready' } as never); return; }
-        cards ??= new CardRenderer(boot.pages.origin);
-        void cards.render(String(a.kind ?? ''), a.data).then((r) => link.send({ t: 'drive.result', id, ...r } as never));
-        return;
-      }
+      // A card for Discord (9.D D3) is drawn by Aang's own windows (main.ts) since 2026-11-20; never answered here, so
+      // the brain takes theirs.
+      if (m.op === 'card') return;
       if (!b) { link.send({ t: 'drive.result', id, ok: false, error: 'the browser is not running' } as never); return; }
       void b.drive(m.op.slice(0, 12), a).then((r) => link.send({ t: 'drive.result', id, ...r } as never));
       return;

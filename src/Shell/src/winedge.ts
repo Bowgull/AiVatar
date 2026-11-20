@@ -18,7 +18,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { screen, type BaseWindow } from 'electron';
-import { ALL_ROUND, CORNER_RADIUS, artCornerSteps, bodyCornerArt, cornerSteps } from './family.ts';
+import { ALL_ROUND, CORNER_RADIUS, artCornerSteps, bodyCornerArt, cornerSteps } from './corners.ts';
 
 /** Dark wood, as Windows wants it: 0x00BBGGRR. #24160D. */
 const EDGE = 0x000d1624;

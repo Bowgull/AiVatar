@@ -17,7 +17,7 @@ import type { PopoutSettings } from './settings.ts';
 import type { SkipSettings } from './skip/settings.ts';
 import type { AdBlock } from './skip/ads.ts';
 import type { PlanMemory } from './claudeplan.ts';
-import type { Chat } from './askclaude.ts';
+import type { Chat } from './claudehand.ts';
 import type { DoorUpdates, PlanStarted } from './claudedoor.ts';
 import type { EngineOptions, Offer, Source, UpdateEngine } from './updateengine.ts';
 import type { SyncMsg } from './bsync.ts';

@@ -1,21 +1,19 @@
 // Aang's Shell: every window he draws, from FINAL AANG BUILD Phase 6 onward.
 //
 // What stays in C#: the pet, the tray, the hotkeys, screen reading and window placement. Nothing else
-// on Windows can do those. What lives here: the pop-out, the new bubble, window 2 and the browser.
+// on Windows can do those. What lives here: the new bubble, window 2, notes, timers, the music player and the pop-outs'
+// family. Samara, the browser, is its own program (samara.ts); since 2026-11-20 (phase 1 of Samara's own repo,
+// docs/SAMARA-REPO-PLAN.md) this process never holds it, whatever the pet says.
 //
 // It talks to the brain over the WebSocket that already exists, with the password from step S1. THE
 // PROTOCOL DOES NOT CHANGE: this is a second client beside the C# one, not a new language.
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
-import { samaraBase, samaraBrowser, type Platform, type SamaraBase, type SamaraBooted } from './boot.ts';
-import { bootDeps } from './bootdeps.ts';
 import { PlanRows } from './planrows.ts';
-import { samaraShortcutsLit } from './shortcuticon.ts';
-import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
+import { taskFromArgv, taskFromLockData, type SamaraTask } from './jumplist.ts';
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, net, powerMonitor, screen, session, shell } from 'electron';
-import { SamaraUpdates, samaraRoot } from './pcupdate.ts';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -30,11 +28,9 @@ import { Snipper } from './snip.ts';
 import { SendDesk } from './sendtoaang.ts';
 import { PickReplies, chatsFrom } from './askclaude.ts';
 import { PinSnips } from './pinsnip.ts';
-import { AangBrowser, type PlanAnswer } from './browser.ts';
+import type { PlanAnswer } from './browser.ts';
 import type { MockSend, MockSendItem } from './mockups.ts';
-import { EngineUpdates, onCastlabs } from './engineupdate.ts';
-import { pcEngine, pcSamara } from './pcsource.ts';
-import type { UpdateEngine } from './updateengine.ts';
+import { onCastlabs } from './engineupdate.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { readJson, saveJson } from './store.ts';
 import { catchStrays, openLog } from './log.ts';
@@ -50,8 +46,9 @@ import { TimerWindows } from './timerwin.ts';
 import { JobPops } from './jobpop.ts';
 import { wireFamily } from './familywire.ts';
 import { wireTaskbarPops } from './taskbarwire.ts';
-import { jumpIcons, type TaskbarPops } from './taskbar.ts';
-import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './taskbarplan.ts';
+import { jumpIcons } from './jumpicons.ts';
+import type { TaskbarPops } from './taskbar.ts';
+import { NEEDS_AANG, isPopoutTask, type PopoutTask } from './jumplist.ts';
 import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import type { FamilyHost } from './familywin.ts';
 import type { TimerData } from './timerwin.ts';
@@ -61,15 +58,10 @@ import { SAFE_WEB_PREFERENCES, lockDown, wrongSettings } from './safety.ts';
 import { snapshotOnce } from './snapshot.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { openPlanDoor, PLAN_WAIT_MS } from './plandoor.ts';
-import type { Popout } from './popout.ts';
-import type { Hotkey } from './hotkey.ts';
 import { HotkeyKeeper, talkStepsAside } from './hotkeys.ts';
-import type { DrmRuntime } from './drmrunner.ts';
-import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
-import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import { fitIn, type Box } from './geometry.ts';
-import { SamaraWatch, launcherEnv, pidAlive, readExitMark, samaraApart, samaraLauncher, samaraPid } from './samaramode.ts';
+import { SamaraWatch, launcherEnv, pidAlive, readExitMark, samaraLauncher, samaraPid } from './samaramode.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 /** Chromium's GPU workaround that keeps video out of DirectComposition overlays. Underscores: see below. */
@@ -92,18 +84,13 @@ const STATE_DIR = process.env.AANG_STATE_DIR
   ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
 const DATA_DIR = process.env.AANG_DATA_DIR ?? path.join(os.homedir(), 'Documents', 'Aang');
 const HERE = import.meta.dirname;
-/** The code folder (2026-10-29): where the engines and the paid-video runtime live. The pet says so when Samara runs from
- *  an installed release (src/Body/SamaraPointer.cs); run from the code folder itself, it is the same folder. */
-const SHELL_HOME = process.env.AANG_SHELL_HOME && existsSync(process.env.AANG_SHELL_HOME) ? process.env.AANG_SHELL_HOME : path.join(HERE, '..');
 /**
- * Phase 2 (2026-11-12, his words: "i want samara as its own standalone browser that i use forever"): with this switch on,
- * Samara runs as its own program (samara.ts) and this process is Aang's windows only. The two see each other through the
- * brain (`relay`) and the plan door. P1 (2026-11-17): a saved setting (samara-mode.json), on by default, which the pet
- * reads and decides on for the code it starts; this follows the pet's answer (samaramode.ts).
+ * Phase 2 (2026-11-12, his words: "i want samara as its own standalone browser that i use forever"): Samara runs as its
+ * own program (samara.ts) and this process is Aang's windows only. The two see each other through the brain (`relay`)
+ * and the plan door. Until 2026-11-20 a setting could still put the browser back in here (samara-mode.json); no more.
  */
-const SAMARA_APART = samaraApart();
 // Samara keeps the default profile (his cookies and logins); two programs cannot share one, so Aang's windows get theirs.
-if (SAMARA_APART) app.setPath('userData', process.env.AANG_USER_DATA ?? path.join(app.getPath('appData'), 'Aang Pet'));
+app.setPath('userData', process.env.AANG_USER_DATA ?? path.join(app.getPath('appData'), 'Aang Pet'));
 
 // Samara on its own (his ask, 2026-10-20): this process holds his browser, so it is no longer tied to the pet. It may
 // outlive him, so it writes its own log instead of a pipe the pet holds (a pipe that would break when he closes).
@@ -159,9 +146,10 @@ app.on('second-instance', (_e, argv, _cwd, data) => {
   console.log('shell: taskbar task ' + t);
   // Sheet 66 A: the Pop-outs section's six go to the pop-outs (taskbar.ts), the rest to the browser.
   if (isPopoutTask(t)) { runPopoutTask(t); return; }
-  // Quit Samara belongs to Samara on its own (samara.ts); Aang's windows never close for it.
+  // Quit Samara belongs to Samara on its own (samara.ts); Aang's windows never close for it. The browser's own tasks
+  // are Samara's: it is opened for them.
   if (t === 'quit') return;
-  if (aangBrowser) aangBrowser.jumpTask(t); else pendingTask = t;
+  openSamara();
 });
 /** Sheet 66 A (2026-10-22): every pop-out under Samara's lantern (taskbar.ts), and the brain's messages it reads. */
 let taskbarPops: TaskbarPops | null = null, taskbarHear: ((m: Record<string, unknown>) => void) | null = null;
@@ -191,18 +179,10 @@ function wakeAang(): void {
     if (exe && existsSync(exe)) { spawn(exe, [], { detached: true, stdio: 'ignore', cwd: path.dirname(exe) }).unref(); console.log('shell: starting Aang for a list item'); }
   } catch (e) { console.error('shell: could not start Aang: ' + (e as Error).message); }
 }
-/** Samara's right-click list (every item always there; runPopoutTask starts Aang when one needs him). */
-function writeJumpList(aang: boolean): void {
-  if (process.env.AANG_TEST) return;
-  const popouts = { aang, icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON) };
-  console.log('shell: Samara taskbar list: ' + writeSamaraJumpList(app, { main: path.join(HERE, 'main.ts'), dir: path.join(HERE, '..'), icon: SAMARA_JUMP_ICON, ownId: 'Aang', popouts }));
-}
-
 /** Every window this Shell has open, by kind, so the brain's messages reach the right one. */
 const windows = new Map<string, BrowserWindow>();
 
 let pages: PageServer | null = null;
-let popout: Popout | null = null;
 let timerWins: TimerWindows | null = null;
 /** A message held back from the bubble only (he is tucked in the dock); everything else still gets it. */
 let notForBubble: unknown = null;
@@ -255,8 +235,8 @@ let escHeld = false;
 /** Ctrl+C is held only while the mouse is on a showing bubble: it copies the reply (his call, 2026-10-12). */
 let copyHeld = false;
 /**
- * Ctrl+Alt+P pins (was Ctrl+Shift+P: another program on this PC catches that one before Aang sees it, 2026-10-12) and
- * unpins the popout; held only while the popout is up, so other programs keep it otherwise.
+ * Ctrl+Alt+P pins and unpins whatever of Aang's is under the mouse (a timer, a note, a family member); held only while
+ * one is up, so other programs keep it otherwise. The pop-out is Samara's (samara.ts), with its own keys.
  * Sheet 61 v2 (2026-10-22): every key he can change from Aang's right-click menu (Hotkeys), held here, live: a change
  * there is held at once, no restart. Talk, Snip and Quick note only while Aang runs; the pop-out's always; the pin only
  * while something is up.
@@ -264,11 +244,11 @@ let copyHeld = false;
 const hotkeys = new HotkeyKeeper(STATE_DIR, globalShortcut, {
   talk: () => onHotkey(),
   snip: () => { void snipper?.start(); },
-  popout: () => popout?.toggleHidden(),
+  popout: () => { /* the pop-out is Samara's; this process never holds its key */ },
   // His interview (2026-10-22): Ctrl + number pad *. Sheet 60: the quick note is the SAME note, opened small and ready.
   note: () => { if (!noteWins?.quick()) bubble?.send('brain:message', { t: 'notes.board', fresh: true }); },
   // 1b: the same key is the ONE way back from click-through for every family member (the group under the mouse).
-  pin: () => { const p = screen.getCursorScreenPoint(); if (family?.reachAt(p) || timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); },
+  pin: () => { const p = screen.getCursorScreenPoint(); if (family?.reachAt(p) || timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; },
 });
 
 let busySent = '';
@@ -297,8 +277,8 @@ function watchBusyOnce(): void {
   if (showing && bw && !bw.isDestroyed()) { const p = screen.getCursorScreenPoint(), b = bw.getBounds(); overBubble = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height; }
   if (overBubble && !copyHeld) copyHeld = globalShortcut.register('Control+C', () => bubble?.send('bubble:copy', null));
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
-  // Ctrl+Alt+P pins or unpins whatever is under the mouse: a timer if one is there, otherwise the pop-out (sheet 17).
-  const popUp = Boolean(popout?.window?.isVisible()) || Boolean(timerWins?.any) || Boolean(noteWins?.any) || Boolean(family?.anyThrough);
+  // Ctrl+Alt+P pins or unpins whatever is under the mouse: a timer, a note, a family member (sheet 17).
+  const popUp = Boolean(timerWins?.any) || Boolean(noteWins?.any) || Boolean(family?.anyThrough);
   hotkeys.want('pin', popUp);
   if (snipper?.open) { escHeld = false; return; }
   // Not while the typing box is up: a global Esc would beat the box to it, and the box's own Esc closes the
@@ -402,18 +382,8 @@ function starters(): { label: string; text: string }[] {
   out.push({ label: 'I miss much?', text: 'what have you done since I last spoke to you?' });
   return out.slice(0, 3);
 }
-let hotkey: Hotkey | null = null;
 /** His pop-out switches. Read once at start and kept in step when he changes one. */
 let settings: PopoutSettings = readSettings(STATE_DIR);
-/** What he has asked Aang to skip. Twitch ads are off until he decides (step 6.6). */
-let skipSettings: SkipSettings = DEFAULT_SKIPS;
-try {
-  const f = path.join(STATE_DIR, 'skips.json');
-  const raw = readJson<unknown>(f, null);
-  if (raw !== null) skipSettings = withDefaults(raw);
-} catch { /* an unreadable file means the defaults, never a refusal to start */ }
-/** The separate castLabs process that plays paid video (step 6.4). */
-let drm: DrmRuntime | null = null;
 
 /** Where the pet last said it was (step 6.10b). Null until the C# Body says. */
 let petAt: PetAt | null = null;
@@ -462,10 +432,17 @@ const link = new CoreLink({
   onMessage: m => {
     // Phase 2: with Samara apart, the browser's news is Samara's (it hears the brain itself); what Samara hands Aang
     // comes as a relay.
-    if (SAMARA_APART && m.t === 'relay') { fromSamara((m as { m?: unknown }).m); return; }
-    if (SAMARA_APART && samaraOwns(m)) return;
-    // M6: the Mac's browser, through the brain. Only the browser's sync reads these; no window ever sees them.
-    if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
+    if (m.t === 'relay') { fromSamara((m as { m?: unknown }).m); return; }
+    // 9.D D3: a card Aang draws for Discord, rendered off screen with his own pages. His, with Samara apart too (until
+    // 2026-11-20 Samara drew them then; phase 1 of Samara's own repo, docs/SAMARA-REPO-PLAN.md).
+    if (m.t === 'drive' && Number.isInteger(m.id) && m.op === 'card') {
+      const id = Number(m.id), a = (m.a && typeof m.a === 'object') ? m.a as Record<string, unknown> : {};
+      if (!pages) { link?.send({ t: 'drive.result', id, ok: false, error: 'the pages are not ready' }); return; }
+      cards ??= new CardRenderer(pages.origin);
+      void cards.render(String(a.kind ?? ''), a.data).then((r) => link?.send({ t: 'drive.result', id, ...r }));
+      return;
+    }
+    if (samaraOwns(m)) return;
     // The progress trace (2026-10-21): when the Shell got the push, beside the brain's own times, so a page can time its
     // paint against every hop. With AANG_PROGRESS_TRACE=1 one line per push says how long each hop took.
     if (m.t === 'claude.jobs' && m.lat && typeof m.lat === 'object') {
@@ -473,8 +450,6 @@ const link = new CoreLink({
       lat.sh = Date.now();
       if (process.env.AANG_PROGRESS_TRACE === '1') console.log(`progress trace: ${String(lat.type)} session->brain ${Number(lat.rx) - Number(lat.ev)} ms, brain ${Number(lat.tx) - Number(lat.rx)} ms, brain->shell ${Number(lat.sh) - Number(lat.tx)} ms`);
     }
-    // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
-    if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
     // Sheet 109: the brain's answer to an Ask Claude pick.
     if (picks.got(m as never)) return;
     taskbarHear?.(m as Record<string, unknown>);
@@ -484,13 +459,6 @@ const link = new CoreLink({
       if (m.t === 'claude.jobs') lastJobs = m.jobs; else lastWaits = m.items;
       jobPops?.update(lastJobs, lastWaits);
     }
-    // "Open on PC" from the Mac's browser (through the brain): a full tab here, brought to the front.
-    if (m.t === 'browser.open' && typeof m.url === 'string') { aangBrowser?.openForward(m.url); return; }
-    // The engine update's version and name, from the brain's one list of Samara versions (sheet 35).
-    // The morning brief's Update button: the same as Restart now, with the boxes as they are.
-    if (m.t === 'engine.go') { void engineGo(); return; }
-    // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
-    if (m.t === 'popout.open' && typeof m.url === 'string') { openPopout(m.url); return; }
     // Sheet 17: the brain's list of running timers is the truth; the windows follow it.
     if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
     // Sheet 17's wheel, from the pet: held on Aang, then let go.
@@ -511,15 +479,12 @@ const link = new CoreLink({
       return;
     }
     if (m.t === 'menu.pick') return;               // for the pet, not for us
-    // Sheet 25: a route ask for his Hyrule map (botw_route_add); with no Samara, the brain hears so at once.
-    if (m.t === 'hyrule.route') { if (aangBrowser) aangBrowser.hyruleRoute(m); else link?.send({ t: 'hyrule.route.done', id: String(m.id ?? ''), state: 'off' }); return; }
     // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
     if (m.t === 'notes.state' && Array.isArray(m.notes)) {
       // Sheet 60: his own categories travel with the list, so every note window and Samara's rail colour them alike.
       const own = Array.isArray((m.cats as { own?: unknown } | undefined)?.own) ? ((m.cats as { own: unknown[] }).own).map(String) : [];
       if (noteWins) noteWins.cats = own;
       notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest);
-      aangBrowser?.notesNews(m.notes, own);
     }
     // He clicked Aang. His rule (2026-10-20): what Aang last said comes back (an ask still waiting first), and clicking
     // that message opens the chat box to answer it. With a message already showing, or nothing said yet, the click opens
@@ -548,23 +513,6 @@ const link = new CoreLink({
     if (m.t === 'pet.say' && m.greet === true && input?.visible && !cockpitOn) return;
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'snip') { void snipper?.start(); return; }
-    if (m.t === 'browser') { aangBrowser?.open(); return; }
-    // 6.25a: a driving step from the brain; the answer goes back with the same id.
-    if (m.t === 'drive' && Number.isInteger(m.id) && m.op === 'card') {
-      // 9.D D3: a card Aang draws for Discord, rendered off screen. Needs no browser window.
-      const id = Number(m.id), a = (m.a && typeof m.a === 'object') ? m.a as Record<string, unknown> : {};
-      if (!pages) { link?.send({ t: 'drive.result', id, ok: false, error: 'the pages are not ready' }); return; }
-      cards ??= new CardRenderer(pages.origin);
-      void cards.render(String(a.kind ?? ''), a.data).then((r) => link?.send({ t: 'drive.result', id, ...r }));
-      return;
-    }
-    if (m.t === 'drive' && Number.isInteger(m.id) && typeof m.op === 'string') {
-      const id = Number(m.id);
-      if (!aangBrowser) { link?.send({ t: 'drive.result', id, ok: false, error: 'the browser is not running' }); return; }
-      void aangBrowser.drive(m.op.slice(0, 12), (m.a && typeof m.a === 'object') ? m.a as Record<string, unknown> : {}).then((r) => link?.send({ t: 'drive.result', id, ...r }));
-      return;
-    }
-    if (m.t === 'tidy.answer' && Number.isInteger(m.id)) { aangBrowser?.tidyAnswer(Number(m.id), { ok: m.ok === true, text: typeof m.text === 'string' ? m.text : '', why: typeof m.why === 'string' ? m.why : '' }); return; }
     // 6.17: remember which file the brain accepted, so the bubble can only ever name that one.
     if (m.t === 'drop.done' && typeof m.path === 'string') lastDropPath = m.path;
     // 6.17 Highlight: the text lands on the typing box as a chip; it goes with his next message. Sheet 62 (2026-10-22):
@@ -595,7 +543,6 @@ const link = new CoreLink({
       else bubble?.send('brain:message', m);
       return;
     }
-    if (m.t === 'popout.close') { popout?.close(); drm?.close(); return; }
     if (m.t === 'panel.reply') {
       jobsWaiting = Array.isArray((m as Record<string, unknown>).jobs) ? ((m as { jobs: unknown[] }).jobs).length : 0;
       input?.send('input:state', { starters: starters() });
@@ -668,7 +615,7 @@ const link = new CoreLink({
       input?.send('input:ask', liveAsk);
     }
     // The browser's own switch rides along with the pet's: the Shell keeps it, not the pet.
-    if (m.t === 'settings') { lastSettings = m as Record<string, unknown>; (m as Record<string, unknown>).browserSounds = aangBrowser?.sounds ?? false; }
+    if (m.t === 'settings') { lastSettings = m as Record<string, unknown>; (m as Record<string, unknown>).browserSounds = samaraSounds; }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
     // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
     // separately rather than being swept up by a loop that does not know about it.
@@ -680,8 +627,6 @@ const link = new CoreLink({
   onConnected: up => {
     // Spotify Connect (2026-10-22): a brain that (re)started does not know the player is showing; told after the hello.
     if (up) setTimeout(() => miniPlayer?.rewatch(), 0);
-    // C7 (2026-10-21): no brain, no jobs to show, so the rune leaves Samara's band.
-    if (!up) aangBrowser?.claudeNews(null);
     // Aang off (Samara on its own, 2026-10-20): a brain that is not there is not news; nothing pops up to say so.
     if (!up && !bodyAlive()) return;
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up);
@@ -783,20 +728,11 @@ app.whenReady().then(async () => {
     return 'unknown';
   });
 
-  // The pop-out's page is served over http rather than loaded from disk: a YouTube embed from a
-  // file:// page fails with Error 153 (tested 2026-10-04).
   try {
-    // The boot engine (boot.ts): the flight log, the permission wall (nothing may ask for the camera, the microphone,
-    // notifications or his location), the pages, the pop-out, paid video and ad blocking, the same as on the Mac.
-    if (SAMARA_APART) {
-      // Aang's windows serve their own pages; the browser, the pop-out and paid video are Samara's (samara.ts).
-      pages = await servePages(path.join(HERE, '..', 'pages'));
-      startSamara({ quiet: true });
-      watchSamara();
-    } else {
-      base = await samaraBase(pcPlatform(), bootDeps((s) => console.log('shell: ' + s)));
-      ({ pages, popout, drm } = base);
-    }
+    // Aang's windows serve their own pages over http; the browser, the pop-out and paid video are Samara's (samara.ts).
+    pages = await servePages(path.join(HERE, '..', 'pages'));
+    startSamara({ quiet: true });
+    watchSamara();
     console.log(`shell: pages on ${pages.origin}`);
     // Step 6.12. OFF unless he asks for it: the old GDI bubble is still running, and two bubbles saying
     // the same thing at once is worse than one old one. It is not something to discover mid-raid.
@@ -836,7 +772,7 @@ app.whenReady().then(async () => {
         pick: (slot) => {
           if (slot === 'TIMER') bubble?.send('brain:message', { t: 'timer.setup' });
           else if (slot === 'NOTES') bubble?.send('brain:message', { t: 'notes.board' });
-          else if (slot === 'BROWSER') { if (SAMARA_APART) openSamara(); else aangBrowser?.open(); }
+          else if (slot === 'BROWSER') openSamara();
           else if (slot === 'MUSIC') miniPlayer?.open();
           else if (slot === 'SNIP') void snipper?.start();
           // 9.D D9 (his ask, 2026-10-13): the wheel's last disc is Away. Talking moves to Discord until he is back.
@@ -904,10 +840,10 @@ app.whenReady().then(async () => {
       wireNotes60({ held: () => noteHeld, notes: () => noteWins, fromBubble, send: (x) => link?.send(x as never), toBubble: (x) => bubble?.send('brain:message', x) });
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
       ({ player: miniPlayer, fromBrain: playerHears } = wireMiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, 'playerpreload.cjs'), iconPath: AANG_ICON, prefsFile: path.join(STATE_DIR, 'player.json'), send: (m) => link?.send(m as never) }));
-      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops, snips: pinSnips, player: miniPlayer });
+      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout: null, notes: noteWins, timers: timerWins, jobs: jobPops, snips: pinSnips, player: miniPlayer });
       // Sheet 66 A (2026-10-22): every pop-out under Samara's lantern; a snapped group is one picture (taskbar.ts).
       ({ taskbar: taskbarPops, hear: taskbarHear } = wireTaskbarPops({
-        family, popout: () => popout, jobs: () => jobPops, snips: () => pinSnips, samara: () => aangBrowser?.frontWindow() ?? null,
+        family, popout: () => null, jobs: () => jobPops, snips: () => pinSnips, samara: () => null,
         jobList: () => lastJobs, notes: () => notesLatest, aang: () => petAt?.sprite ?? null,
         open: { note: () => { if (!noteWins?.quick()) bubble?.send('brain:message', { t: 'notes.board', fresh: true }); }, timer: () => bubble?.send('brain:message', { t: 'timer.setup' }), player: () => { miniPlayer?.open(); } },
         send: (m) => link?.send(m as never),
@@ -915,113 +851,18 @@ app.whenReady().then(async () => {
         icons: jumpIcons(path.join(app.getPath('userData'), 'taskbar-icons'), AANG_ICON),
         log: process.env.AANG_TASKBAR_LOG ? (s) => console.log('shell: taskbar: ' + s) : undefined,
       }));
-      // With Samara apart there is no browser here to pick the start task up (below): a tool he asked for as Aang
-      // started (Aang.exe --open player, 2026-11-18) opens now, in his windows.
-      if (SAMARA_APART && pendingTask && isPopoutTask(pendingTask)) { const t = pendingTask; pendingTask = null; runPopoutTask(t); }
+      // A tool he asked for as Aang started (Aang.exe --open player, 2026-11-18) opens now, in his windows; a browser task
+      // is Samara's.
+      if (pendingTask && isPopoutTask(pendingTask)) { const t = pendingTask; pendingTask = null; runPopoutTask(t); }
+      else if (pendingTask && pendingTask !== 'quit') { pendingTask = null; openSamara(); }
       input.window();
       const body = readJson<unknown>(path.join(STATE_DIR, 'body.json'), null) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
       // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
       // Ctrl+Plus and Snipit: taken below, once Snipit exists, and only while Aang is running.
 
-      // Phase 2: Samara apart shows Claude's plans in this bubble through the plan door, as the Mac's Aang does.
-      if (SAMARA_APART) openPetPlanDoor();
-      // The boot engine's second part (boot.ts): the browser and the Claude door, mockups, sync and the update key, the
-      // same as on the Mac. What follows is the PC's own: the pet's notes and Claude panel, the jump list, the brain.
-      if (!SAMARA_APART && base) {
-      boot = samaraBrowser(base, pcPlatform(), {
-        // repoDir: the mockups' repo is the code folder's, also when Samara runs from an installed release (2026-10-29).
-        options: { repoDir: path.join(SHELL_HOME, '..', '..') },
-        // 2026-11-01 (his "huge flaw, fix it permanently"): Samara on the PC takes show_mockup at its own signed door too,
-        // as on the Mac (mockupdoor.ts). Before, the PC's only way in was through Aang's brain, so with Samara open on its
-        // own every Claude session's mockup was refused ("Aang is not running") and never reached the trail.
-        mockupDoor: { offWhy: () => "Samara's Mockups trail is switched off. Tell the user where the file is." },
-        // Sheet 37: a Claude session's plan goes to Aang's bubble on this PC (when Claude's own window is not in front),
-        // and his answer comes back. Five minutes unanswered means no answer. Sheet 41: each plan is a scroll-back row.
-        plans: {
-          ask: (card) => {
-            if (!bubble) return Promise.resolve(null);
-            return new Promise((done) => {
-              planWait.set(card.id, done);
-              setTimeout(() => { if (planWait.delete(card.id)) { done(null); bubble?.send('brain:message', { t: 'ask.expired', id: card.id }); } }, 5 * 60_000);
-              bubble!.send('brain:message', { t: 'plan', id: card.id, steps: card.steps.map((text) => ({ text })), samara: card });
-            });
-          },
-          step: (id, at) => bubble?.send('brain:message', { t: 'plan.step', id, at }),
-          started: (p) => planRows.started(p),
-          done: (job) => planRows.done(job),
-        },
-        // M6: one browser on both machines. Changes go to the brain, which passes them to the Mac's browser.
-        syncSend: (m) => link.send(m as never),
-        // The update engine (2026-10-30, updateengine.ts): the castLabs engine (6.28, from the sealed engine release now)
-        // and Samara's own code from GitHub (2026-10-29), both on his UPDATE key by one set of rules, as on the Mac.
-        updates: {
-          sources: (changed) => {
-            engineUpdates = new EngineUpdates({
-              shellDir: SHELL_HOME, stateDir: STATE_DIR,
-              quietNow: () => gameQuiet || aangBrowser?.inCall === true,
-              changed,
-              signinNeeded: (signIn) => link?.send({ t: 'engine.signin', signIn } as never),
-            });
-            const root = process.platform === 'win32' && !process.env.AANG_TEST ? samaraRoot() : null;
-            if (root) samaraUpdates = new SamaraUpdates({ root, codeDir: path.join(HERE, '..'), fetch: net.fetch as never, changed, changelog: path.join(DATA_DIR, 'Samara Changelog.md') });
-            engineSrc = pcEngine(engineUpdates, { browserOpen: () => aangBrowser?.showing === true });
-            return [...(samaraUpdates ? [pcSamara(samaraUpdates)] : []), engineSrc];
-          },
-          prefsFile: updatePrefsFile, changelog: path.join(DATA_DIR, 'Samara Changelog.md'),
-          inGame: () => gameQuiet,
-          beforeGo: (w) => { if (engineSrc) engineSrc.overnight = w.overnight ? { title: w.title, lines: w.lines } : null; },
-          restart: (w) => { if (w.overnight) console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); },
-          wentBack: () => { aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); },
-          // Aang says it in his bubble (2026-11-01, his ask: Samara is often closed, Aang is in front of his game). The
-          // brain decides when (attention.ts) and how often (once a day); a click opens this card in Samara.
-          told: (card) => link?.send({ t: 'update.ready', update: card ? {
-            version: card.version, title: card.title ?? '', signin: card.signin === 'ask',
-            lines: card.groups.flatMap((g) => g.items.map((i) => i.text)).slice(0, 3),
-          } : null } as never),
-        },
-      }, bootDeps((s) => console.log('shell: ' + s)));
-      aangBrowser = boot.browserNow;
-      updates = boot.updates;
-      // The Shrine Reddit feed (sheet R18) is gone (2026-11-19, his "Drop the Reddit feed").
-      // Sheet 60 section 4: Samara's notes rail. A note written there goes to the brain; one clicked opens in the bubble.
-      aangBrowser.onNoteSave = (n) => link?.send({ t: 'notes.save', note: n });
-      aangBrowser.onNoteOpen = (id) => bubble?.send('brain:message', { t: 'notes.board', open: id });
-      aangBrowser.onNotePlace = (m) => link?.send(m);
-      aangBrowser.onRouteDone = (r) => link?.send({ t: 'hyrule.route.done', ...r });
-      // Sheet 26c: the Hyrule map's "Ask Aang" bar, sent as if typed in his box (his one chat door): his words show in
-      // the bubble above Aang's answer, as with the box.
-      aangBrowser.onAsk = (text) => {
-        if (link?.send({ t: 'submit', id: 'h' + Date.now(), text, mode: inputMode })) bubble?.send('brain:message', { t: 'asked', text });
-        else bubble?.send('brain:message', { t: 'whisper', text: 'My brain is not there, so that question did not reach me.' });
-      };
-      // C7 (2026-10-21): the rune's panel, already checked in browser.ts (claudewire.ts), the same doors as the cockpit's.
-      aangBrowser.onClaude = (m) => { link?.send(m as never); };
-      aangBrowser.onClaudeOpen = (target) => openInClaude(target);
-      // One engine (his yes, 2026-10-13): on castLabs' engine paid video plays right in the tab. Only on the stock
-      // engine do paid services still go to the separate paid-video window.
-      if (!onCastlabs()) aangBrowser.onPaid = (url) => openPopout(url);
-      // Samara's taskbar right-click list (2026-10-21): a task this Shell was started with, then the list itself, written
-      // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
-      if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) runPopoutTask(t); else if (t !== 'quit') aangBrowser.jumpTask(t); }
-      writeJumpList(bodyAlive());
-      aangBrowser.onFront = (on) => samaraInFront(on);
-      aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
-      // The engine keeps its own timers (ten minutes after start, then daily, its trial check); the engine's rules tick.
-      engineUpdates?.start();
-      if (samaraUpdates) { const su = samaraUpdates; setTimeout(() => su.markGood(), 5 * 60_000); }
-      {
-        const done = engineUpdates?.justUpdated();
-        if (done) {
-          if (done.overnight && done.title) aangBrowser.setUpdated({ title: done.title, lines: done.lines ?? [] });
-          if (done.browser) aangBrowser.open();
-          setTimeout(() => bubble?.send('brain:message', { t: 'whisper', text: `Updated the browser to ${done.to}.` }), 4000);
-        }
-      }
-      // Trail clean up asks Qwen through the brain; the answer comes back as tidy.answer.
-      aangBrowser.onDriverStop = (j) => { link?.send({ t: 'drive.stopped', job: j.id }); };
-      aangBrowser.onTidyAsk = (id, prompt) => { if (!link?.send({ t: 'tidy.ask', id, prompt })) aangBrowser?.tidyAnswer(id, { ok: false, why: 'offline' }); };
-      }   // the browser, when it is this process's (not SAMARA_APART)
+      // Phase 2: Samara shows Claude's plans in this bubble through the plan door, as the Mac's Aang does.
+      openPetPlanDoor();
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
       // Sheet 62 (2026-10-22): no corner card any more; it lands like everything sent to Aang, and Aang asks one line.
@@ -1037,13 +878,6 @@ app.whenReady().then(async () => {
       if (bodyAlive()) takeAangKeys();
     }
 
-    if (drm && !drm.available) console.log('shell: the castLabs build is not installed, so paid video will not play yet');
-
-    // The key that puts it away and brings it back, still playing (sheet 4, way 5).
-    // Whichever runtime is playing, the key hides it: he should not have to know which is which.
-    hotkeys.want('popout', true);
-    hotkey = { active: hotkeys.keys.popout, release: () => hotkeys.want('popout', false) };
-    console.log(`shell: ${hotkey.active} hides and shows the pop-out`);
   } catch (e) {
     console.error('shell: the page server would not start, so the pop-out is unavailable: ' + (e as Error).message);
   }
@@ -1245,9 +1079,7 @@ app.whenReady().then(async () => {
       if (!/^https?:\/\//i.test(value)) { console.error('shell: refused a chip that was not http'); return; }
       // Sheet 41 (his ask, 2026-10-20): a link Aang shows opens in Samara, a meeting link included. Samara sends a bank
       // site on to Chrome itself. Without Samara (it failed to start) the default browser still gets it.
-      if (SAMARA_APART) { openSamara(value); return; }
-      if (aangBrowser) { aangBrowser.open(value); return; }
-      void shell.openExternal(value);
+      openSamara(value);
       return;
     }
     if (t.kind === 'file') {
@@ -1529,8 +1361,8 @@ app.whenReady().then(async () => {
     if (!fromDesk(e) || !a || typeof a !== 'object') return;
     const key = String(a.key ?? '');
     if (key === 'browserSounds') {
-      aangBrowser?.setSounds(a.on === true);
-      if (SAMARA_APART) toSamara({ t: 'samara.sounds', on: a.on === true });
+      samaraSounds = a.on === true;
+      toSamara({ t: 'samara.sounds', on: samaraSounds });
       if (lastSettings) windows.get('desk')?.webContents.send('brain:message', { ...lastSettings, browserSounds: a.on === true });
       return;
     }
@@ -1585,7 +1417,9 @@ app.whenReady().then(async () => {
     if (!fromBubble(e) || !a || typeof a !== 'object') return;
     const id = Number(a.id), task = String(a.task ?? '').slice(0, 200);
     if (!Number.isInteger(id) || id <= 0 || !task) return;
-    const had = boot?.plans.forget(task) ?? false;
+    // The plan memory is Samara's (it runs apart), and nothing passes this to it yet: found 2026-11-20 in phase 1 of
+    // Samara's own repo, unchanged here (it answered this way ever since Samara ran apart). Phase 3's door carries it.
+    const had = false;
     const said = had ? 'Done. Claude asks you again next time it wants to do this.' : 'It was already set to ask you.';
     const was = a.extra && typeof a.extra === 'object' ? a.extra as Record<string, unknown> : {};
     const extra = { ...was, remembered: false, takenBack: { at: new Date().toISOString(), said } };
@@ -1623,7 +1457,7 @@ app.whenReady().then(async () => {
   ipcMain.on('bubble:focus', (e, name) => {
     if (!fromBubble(e) || typeof name !== 'string' || !name) return;
     // Aang's line about an update: Samara comes forward with its update card open (2026-11-01).
-    if (name === 'Samara update') { if (SAMARA_APART) { openSamara(); toSamara({ t: 'samara.update' }); return; } aangBrowser?.open(); aangBrowser?.openUpdate(); return; }
+    if (name === 'Samara update') { openSamara(); toSamara({ t: 'samara.update' }); return; }
     link?.send({ t: 'bubble.focus', focus: name.slice(0, 200) });
   });
   // C4, Claude in the cockpit (2026-10-21): his answers and messages to Claude sessions, from his own bubble only. Every
@@ -1680,7 +1514,7 @@ function applyTalk(): void { hotkeys.want('talk', talkWanted && !talkStepsAside(
 function samaraInFront(on: boolean): void {
   if (samaraFrontWatch) { clearInterval(samaraFrontWatch); samaraFrontWatch = null; }
   // A Samara that went away while in front (closed, crashed) never keeps the key.
-  if (on) samaraFrontWatch = setInterval(() => { if (SAMARA_APART && !samaraRunning()) samaraInFront(false); }, 5000);
+  if (on) samaraFrontWatch = setInterval(() => { if (!samaraRunning()) samaraInFront(false); }, 5000);
   if (on === samaraFront) return;
   samaraFront = on;
   applyTalk();
@@ -1696,8 +1530,8 @@ function takeAangKeys(): void {
   if (snipper) hotkeys.want('snip', true);
   console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 }
-// ---------------------------------------------------------------- Phase 2: Samara as its own program (SAMARA_APART)
-/** The brain's news that is Samara's alone: with Samara apart it hears these itself, and this process must not answer. */
+// ---------------------------------------------------------------- Phase 2: Samara as its own program
+/** The brain's news that is Samara's alone: Samara hears these itself, and this process must not answer. */
 const SAMARA_NEWS = new Set(['browser.open', 'browser', 'engine.go', 'popout.open', 'popout.close', 'hyrule.route', 'drive', 'tidy.answer']);
 function samaraOwns(m: Record<string, unknown>): boolean {
   return typeof m.t === 'string' && (m.t.startsWith('bsync.') || SAMARA_NEWS.has(m.t));
@@ -1788,10 +1622,6 @@ function openPetPlanDoor(): void {
   app.on('before-quit', close);
 }
 
-/** Samara or the pop-out is open: what keeps this process going when Aang is off. */
-function samaraOpen(): boolean {
-  return Boolean(aangBrowser?.hasWindow()) || Boolean(popout?.window?.isVisible());
-}
 /**
  * Samara on its own (his ask, 2026-10-20). When Aang closes or crashes, his tabs and the pop-out stay; Aang's own
  * windows (bubble, typing box, notes and timers on screen) go, and his keys are let go. When he starts again, he
@@ -1817,13 +1647,12 @@ let pagesAt = pagesNow();
 const mainAt = mainNow();
 let mainStale = false;
 function freshShell(): void {
-  if (aangBrowser?.inCall) return;
   console.log('shell: my own code changed since I started; starting a fresh Shell');
   app.relaunch();
   app.exit(0);
 }
 function freshen(): void {
-  if (mainNow() > mainAt) { mainStale = true; if (!samaraOpen()) { freshShell(); return; } }
+  if (mainNow() > mainAt) { mainStale = true; freshShell(); return; }
   if (pagesNow() > pagesAt) {
     pagesAt = pagesNow();
     console.log('shell: the pages changed; reloading the bubble and the typing box');
@@ -1845,63 +1674,16 @@ setInterval(() => {
       for (const [kind, w] of windows) if (kind !== 'popout' && !w.isDestroyed() && w.isVisible()) w.hide();
     }
   }
-  if (aangBrowser) aangBrowser.onSendToAang = up ? sendToAang : null;
-  // Sheet 109: Ask Claude stays in the menu (New chat needs no Aang); its chats are the brain's, while Aang runs.
-  if (aangBrowser) { aangBrowser.claudeChats = async () => (up ? chatsFrom(lastJobs) : []); aangBrowser.onAskClaude = (s, t) => picks.ask((m) => link.send(m as never), s, t); }
-  if (aangBrowser) aangBrowser.onSendMockup = up ? sendMockupToAang : null;
-  // Newer code waiting for Samara to close (see freshen): its last window just went.
-  if (mainStale && up && !samaraOpen()) freshShell();
-  if (!up && !samaraOpen() && Date.now() - shellStarted > 20_000) { console.log('shell: Aang is off and Samara is closed: nothing left to run'); app.quit(); }
+  if (mainStale && up) freshShell();
+  if (!up && Date.now() - shellStarted > 20_000) { console.log('shell: Aang is off: nothing left to run'); app.quit(); }
 }, 3000).unref();
 
-// Samara's desktop and Start menu shortcuts: the lit lantern while a Samara window is open, the dark one when the last one
-// closes (his ask, 2026-10-20). Checked every second, which is cheap; the first check also mends a lantern a crash left lit.
-// With Samara apart, Samara lights its own lantern (samara.ts).
-if (!SAMARA_APART) setInterval(() => samaraShortcutsLit(Boolean(aangBrowser?.hasWindow())), 1000).unref();
-
-/** A message is only acted on if it really came from the pop-out's own page. */
-/** "Put X on": into the pop-out over WoW. Paid video goes to the separate castLabs process: hardware acceleration
- *  has to be off for it, and that is process-wide. Everything else plays in the ordinary pop-out (step 6.4).
- *  True when something is now playing. */
-function openPopout(url: string): boolean {
-  return base?.openPop(url) ?? false;
-}
-/** Paid video on this PC: the separate castLabs process, one at a time across both runtimes (decision 34). */
-function paidOnPc(url: string, s: { popout: Popout; drm: DrmRuntime }): boolean {
-  const paid = serviceFor(url);
-  if (!paid) return false;
-  if (!paid.ready) { console.error(`shell: ${notReadyBecause(paid.id)}`); return false; }
-  s.popout.close();
-  const why = s.drm.open(url);
-  if (why) { console.error(`shell: ${why}`); return false; }
-  return true;
-}
-/** The PC's part of Samara's startup (boot.ts): its folders, the pet's switches, the Mac through the brain. */
-function pcPlatform(): Platform {
-  return {
-    name: 'pc', here: HERE, stateDir: STATE_DIR, log: (s) => console.log('shell: ' + s),
-    settings: () => settings, skips: () => skipSettings,
-    // Always said, not only on a bad code: a paid-video window that vanishes should never do so silently, and the code
-    // is the first thing worth knowing when it does.
-    drm: { shellDir: SHELL_HOME, codeDir: path.join(HERE, '..'), onExit: (code) => console.log(`shell: the paid-video runtime stopped (code ${code})`) },
-    paidPop: paidOnPc,
-    // The pop-out: "Send to" goes to the MacBook from here.
-    other: { open: (url) => link?.send({ t: 'open.onmac', url }), send: (url) => link?.send({ t: 'watch.tomac', url }) },
-    playback: (s) => { taskbarHear?.({ t: 'watch.state', ...s }); link?.send({ t: 'watch.state', ...s } as never); },
-  };
-}
-
-function fromPopout(e: Electron.IpcMainEvent): boolean {
-  const w = popout?.window;
-  return Boolean(w && e.sender === w.webContents && e.senderFrame?.parent === null);
-}
 
 /**
  * Did this come from the bubble? (step 6.12)
  *
- * Separate from fromPopout on purpose rather than a general "is it one of ours": the pop-out shows
- * pages from the internet, so it must never be able to reach the bubble's doors and put things on his
- * clipboard or send ratings in his name.
+ * Each window has its own check rather than a general "is it one of ours": a page from the internet must never be able
+ * to reach the bubble's doors and put things on his clipboard or send ratings in his name.
  */
 function fromInput(e: Electron.IpcMainEvent): boolean {
   const w = input?.window();
@@ -1916,33 +1698,8 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
 
 /** 6.17: Snipit (its snips land through the Send to Aang desk, sheet 62). */
 let snipper: Snipper | null = null;
-/** Samara's startup (boot.ts): its first part once the pages are served, then the browser. */
-let base: SamaraBase | null = null, boot: SamaraBooted | null = null;
-/** 6.19/6.20: Samara, made when the pages are being served. */
-let aangBrowser: AangBrowser | null = null;
-/** A planned restart for an update (2026-10-14, "extremely smooth"): the pet starts Samara again at once, without its
- *  crash pause, and does not count it as a crash. */
-const UPDATE_RESTART = 75;
-/** Restart for an update. The pet starts the new one; with Aang off, Samara asks Aang.exe to reopen it alone. */
-function exitForUpdate(): void {
-  if (!bodyAlive()) {
-    try {
-      const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
-      if (exe && existsSync(exe)) spawn(exe, ['--samara', '--after', String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
-    } catch (e) { console.error('shell: could not arrange to reopen after the update: ' + (e as Error).message); }
-  }
-  app.exit(UPDATE_RESTART);
-}
-let engineUpdates: EngineUpdates | null = null;
-/** The engine's update source, told what to say after an overnight update. */
-let engineSrc: ReturnType<typeof pcEngine> | null = null;
-const updatePrefsFile = path.join(STATE_DIR, 'update-prefs.json');
-function updatePrefs(): { overnight: boolean } { return { overnight: readJson<{ overnight?: unknown }>(updatePrefsFile, {}).overnight === true }; }
-/** Samara's own update from GitHub (2026-10-29, his pick: the PC like the Mac), set up once the browser is. */
-let samaraUpdates: SamaraUpdates | null = null;
-/** The update engine: both sources, one key (updateengine.ts). */
-let updates: UpdateEngine | null = null;
-async function engineGo(): Promise<void> { await updates?.go(); }
+/** Samara's sounds switch, as he last set it in window 2 (Samara keeps the real one). */
+let samaraSounds = false;
 /** 9.D D3: draws the cards Aang posts to Discord. Made on first use. */
 let cards: CardRenderer | null = null;
 /** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
@@ -1961,7 +1718,9 @@ function landSend(raw: Record<string, unknown>): void {
   bubble?.send('brain:message', r.ask);
   bubble?.show();
 }
-/** Right-click "Send to Aang" in Samara. A picture is kept as a PNG the brain can Read, with a small one for the chip. */
+/** Right-click "Send to Aang" in Samara. A picture is kept as a PNG the brain can Read, with a small one for the chip.
+ *  Nothing calls this since Samara runs apart (2026-11-17): only the in-process browser did. Kept for the door Samara and
+ *  Aang get in phase 3 of Samara's own repo (docs/SAMARA-REPO-PLAN.md). */
 function sendToAang(sent: Record<string, unknown>, picture?: Electron.NativeImage): void {
   // A file or a thumb is only ever one the Shell made itself, never one named by what came in.
   const { file: _file, thumb: _thumb, ...raw } = sent;
@@ -2001,6 +1760,7 @@ function answerSend(id: unknown, choice: string): void {
  * Send a mockup to Aang (his pick, 2026-10-21): one version, or a whole branch, from Samara's MOCKUPS trail lands on the
  * typing box as a chip, like highlighted words. Each picture is kept as a file the brain can look at with Read; the chip
  * carries only a small thumbnail. Built by the browser from mockups.json and git, never from what a page says.
+ * Like sendToAang, not reached since Samara runs apart; kept for phase 3's door.
  */
 const mockupChips: { title: string; label: string; thumb: string; text: string }[] = [];
 function sendMockupToAang(m: MockSend): void {
@@ -2077,7 +1837,6 @@ function openInClaude(t: ClaudeOpen): void {
   // box (keeping its draft) and every rune panel in Samara.
   bubble?.send('bubble:dismiss', 'openclaude');
   if (input?.visible) input.close(false);
-  aangBrowser?.claudeFold();
   if (t.kind === 'mac') { link?.send({ t: 'claude.front', host: 'mac' }); return; }
   const front = () => link?.send({ t: 'bubble.focus', focus: 'Claude' });
   if (t.kind === 'front') { front(); return; }
@@ -2096,8 +1855,8 @@ function clickedAway(): void {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-// Samara's own (the browser, the pop-out, paid video, the ad lists, the pages) are closed by the boot engine (boot.ts).
-app.on('before-quit', () => { family?.saveNow(); taskbarPops?.dispose(); samaraShortcutsLit(false, { quitting: true }); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); jobPops?.dispose(); bubble?.close(); });
+// Samara's own (the browser, the pop-out, paid video, the ad lists) live in its own program (samara.ts).
+app.on('before-quit', () => { family?.saveNow(); taskbarPops?.dispose(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); jobPops?.dispose(); bubble?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 catchStrays('shell');
