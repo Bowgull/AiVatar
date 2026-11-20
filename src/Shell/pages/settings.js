@@ -59,32 +59,63 @@ document.addEventListener('mouseover', (e) => {
 for (const ev of ['mousedown', 'wheel', 'keydown']) document.addEventListener(ev, () => { clearTimeout(helpWait); helpNow(''); }, true);
 document.addEventListener('mouseleave', () => { helpFor = null; clearTimeout(helpWait); helpNow(''); });
 
-// ---- ‹ value ›: the word is what it is set to; either arrow moves it, and so does a click on the row
-const ONOFF = [[true, 'On'], [false, 'Off']];
-const CYCLE = {
-  startup: [['tabs', 'My tabs'], ['home', 'Home page']], dark: ONOFF, tabSize: [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']],
-  search: [['brave', 'Brave'], ['ddg', 'DuckDuckGo'], ['google', 'Google'], ['yandex', 'Yandex']], aiBox: ONOFF, ads: ONOFF, popups: ONOFF, sounds: ONOFF, afSounds: ONOFF,
+// ---- sheet 120 A: on and off is a switch; a choice of a few is a segmented row. Each control is named by its row
+// ("Dark websites, switch, on"); a click on an on/off row flips it too; the arrow keys move along a segmented row.
+const ONOFF = new Set(['dark', 'aiBox', 'ads', 'popups', 'sounds', 'afSounds', 'tvAnswer', 'tvPause']);
+const CHOICES = {
+  startup: [['tabs', 'My tabs'], ['home', 'Home page']], tabSize: [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']],
+  search: [['brave', 'Brave'], ['ddg', 'DuckDuckGo'], ['google', 'Google'], ['yandex', 'Yandex']],
   lockAfter: [['5m', '5 min'], ['30m', '30 min'], ['2h', '2 hours'], ['quit', 'Until I quit']],
-  tvAnswer: ONOFF, tvPause: ONOFF,
 };
-for (const r of document.querySelectorAll('[data-cyc]')) {
-  const key = r.dataset.cyc;
-  const c = Object.assign(document.createElement('div'), { className: 'cyc' });
-  const mk = (d) => { const b = Object.assign(document.createElement('button'), { type: 'button', className: 'ar' }); b.setAttribute('aria-label', d < 0 ? 'Back' : 'Next'); b.append(d < 0 ? LEFT() : RIGHT()); b.addEventListener('click', (e) => { e.stopPropagation(); step(key, d); }); return b; };
-  c.append(mk(-1), Object.assign(document.createElement('span'), { className: 'v' }), mk(1));
-  r.append(c);
-  r.addEventListener('click', () => step(key, 1));
+/** A segmented row (radiogroup, roving tabindex): `pick(v, byKey)` is called when he chooses. */
+function segRow(name, choices, pick) {
+  const g = Object.assign(document.createElement('div'), { className: 'seg' });
+  g.setAttribute('role', 'radiogroup'); g.setAttribute('aria-label', name);
+  for (const [v, word] of choices) {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: word, tabIndex: -1 });
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false'); b.dataset.v = String(v);
+    b.addEventListener('click', (e) => { e.stopPropagation(); pick(v, false); });
+    g.append(b);
+  }
+  g.addEventListener('keydown', (e) => {
+    const bs = [...g.querySelectorAll('button')], at = bs.indexOf(document.activeElement);
+    if (at < 0) return;
+    const to = { ArrowRight: at + 1, ArrowDown: at + 1, ArrowLeft: at - 1, ArrowUp: at - 1, Home: 0, End: bs.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const n = (to + bs.length) % bs.length;
+    bs[n].focus();
+    pick(choices[n][0], true);
+  });
+  return g;
 }
-function step(key, d) {
-  const l = CYCLE[key], now = l.findIndex(([v]) => v === data?.[key]);
-  const [v] = l[((now < 0 ? 0 : now) + d + l.length) % l.length];
-  if (data) { data[key] = v; paintCycles(); }
-  S?.set(key, v);
+function segPaint(g, now) {
+  const bs = [...g.querySelectorAll('button')];
+  const hit = bs.findIndex((b) => b.dataset.v === String(now));
+  bs.forEach((b, i) => { b.setAttribute('aria-checked', String(i === hit)); b.tabIndex = i === (hit < 0 ? 0 : hit) ? 0 : -1; });
+}
+const choose = (key, v) => { if (data) { data[key] = v; paintCycles(); } S?.set(key, v); };
+for (const r of document.querySelectorAll('[data-cyc]')) {
+  const key = r.dataset.cyc, name = r.querySelector('b')?.textContent ?? key;
+  if (ONOFF.has(key)) {
+    const sw = Object.assign(document.createElement('button'), { type: 'button', className: 'sw' });
+    sw.setAttribute('role', 'switch'); sw.setAttribute('aria-checked', 'false'); sw.setAttribute('aria-label', name);
+    const bed = Object.assign(document.createElement('i'), { className: 'bed' }); bed.append(Object.assign(document.createElement('i'), { className: 'nub' }));
+    sw.append(bed);
+    r.classList.add('flip');
+    r.append(sw);
+    r.addEventListener('click', () => choose(key, data?.[key] !== true));
+  } else {
+    r.classList.add('pickrow');
+    r.append(segRow(name, CHOICES[key], (v) => choose(key, v)));
+  }
 }
 function paintCycles() {
   for (const r of document.querySelectorAll('[data-cyc]')) {
-    const hit = CYCLE[r.dataset.cyc].find(([v]) => v === data?.[r.dataset.cyc]);
-    r.querySelector('.v').textContent = hit ? hit[1] : '';
+    const key = r.dataset.cyc;
+    const sw = r.querySelector('.sw');
+    if (sw) sw.setAttribute('aria-checked', String(data?.[key] === true));
+    else segPaint(r.querySelector('.seg'), data?.[key]);
   }
 }
 for (const b of document.querySelectorAll('[data-act]')) b.addEventListener('click', () => S?.act(b.dataset.act));
@@ -202,8 +233,13 @@ $('#af-street').addEventListener('blur', () => setTimeout(() => { found = []; su
 // ---- the PIN: he picks 4 to 8; one slot per number; the eye shows them; typed twice
 let pinLen = 6, pin1 = '', pin2 = '', eye = false;
 function pinReset() { pin1 = ''; pin2 = ''; eye = false; pinLen = data?.autofill?.pinLen || 6; $('#pinsay').textContent = ''; pinDraw(); setTimeout(() => $('#pin1').focus(), 0); }
+// The length: a segmented row of 4 to 8; a click goes on to the slots, the arrow keys stay on the row.
+const pinSeg = segRow('PIN length', [4, 5, 6, 7, 8].map((n) => [n, String(n)]), (v, byKey) => {
+  pinLen = v; pin1 = pin1.slice(0, pinLen); pin2 = pin2.slice(0, pinLen); pinDraw(); if (!byKey) $('#pin1').focus();
+});
+$('#pinlen').replaceWith(pinSeg);
 function pinDraw() {
-  $('#pinlen').textContent = `${pinLen} numbers`;
+  segPaint(pinSeg, pinLen);
   for (const [id, v] of [['pin1', pin1], ['pin2', pin2]]) {
     const box = $('#' + id); box.replaceChildren();
     for (let i = 0; i < pinLen; i++) box.append(Object.assign(document.createElement('i'), { className: i < v.length ? 'f' : '', textContent: i < v.length ? (eye ? v[i] : '●') : '' }));
@@ -213,7 +249,6 @@ function pinDraw() {
   $('#eye').classList.toggle('on', eye);
   $('#eye').setAttribute('aria-label', eye ? 'Hide PIN' : 'Show PIN');
 }
-for (const b of document.querySelectorAll('[data-len]')) b.addEventListener('click', () => { pinLen = Math.min(8, Math.max(4, pinLen + Number(b.dataset.len))); pin1 = pin1.slice(0, pinLen); pin2 = pin2.slice(0, pinLen); pinDraw(); $('#pin1').focus(); });
 $('#eye').addEventListener('click', () => { eye = !eye; pinDraw(); $('#pin1').focus(); });
 for (const id of ['pin1', 'pin2']) $('#' + id).addEventListener('keydown', (e) => {
   if (/^[0-9]$/.test(e.key)) { e.preventDefault(); if (pin1.length < pinLen) pin1 += e.key; else if (pin2.length < pinLen) pin2 += e.key; pinDraw(); if (pin2.length === pinLen) pinSet(); }

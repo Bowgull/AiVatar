@@ -63,7 +63,7 @@ import { servePages, type PageServer } from './pageserver.ts';
 import { openPlanDoor, PLAN_WAIT_MS } from './plandoor.ts';
 import type { Popout } from './popout.ts';
 import type { Hotkey } from './hotkey.ts';
-import { HotkeyKeeper } from './hotkeys.ts';
+import { HotkeyKeeper, talkStepsAside } from './hotkeys.ts';
 import type { DrmRuntime } from './drmrunner.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
@@ -1016,6 +1016,7 @@ app.whenReady().then(async () => {
       // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
       if (pendingTask) { const t = pendingTask; pendingTask = null; if (isPopoutTask(t)) runPopoutTask(t); else if (t !== 'quit') aangBrowser.jumpTask(t); }
       writeJumpList(bodyAlive());
+      aangBrowser.onFront = (on) => samaraInFront(on);
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
       // The engine keeps its own timers (ten minutes after start, then daily, its trial check); the engine's rules tick.
       engineUpdates?.start();
@@ -1681,12 +1682,27 @@ app.whenReady().then(async () => {
 // the pop-out and the bubble come and go while Aang stays running.
 app.on('window-all-closed', () => { /* deliberately nothing */ });
 
+/**
+ * 2026-11-20 (his rule): Ctrl and + zooms the page while a Samara window is in front, so Aang's talk key steps aside
+ * then, when it is a zoom key (Ctrl and +, -, 0). Samara says when one of its windows gains or loses the front.
+ */
+let talkWanted = false, samaraFront = false, samaraFrontWatch: NodeJS.Timeout | null = null;
+function applyTalk(): void { hotkeys.want('talk', talkWanted && !talkStepsAside(hotkeys.keys.talk, samaraFront)); }
+function samaraInFront(on: boolean): void {
+  if (samaraFrontWatch) { clearInterval(samaraFrontWatch); samaraFrontWatch = null; }
+  // A Samara that went away while in front (closed, crashed) never keeps the key.
+  if (on) samaraFrontWatch = setInterval(() => { if (SAMARA_APART && !samaraRunning()) samaraInFront(false); }, 5000);
+  if (on === samaraFront) return;
+  samaraFront = on;
+  applyTalk();
+}
 /** Ctrl+Plus, the typing box: Aang's, so only while he is running. */
 function takeAangKeys(): void {
   // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad (hotkeys.ts twins).
   // 6.17: Snipit, on Ctrl+Shift+Plus (his key). Sheet 61 v2 (2026-10-22): Quick note, Ctrl + number pad *. All three
   // are his to change from Aang's menu.
-  hotkeys.want('talk', true);
+  talkWanted = true;
+  applyTalk();
   hotkeys.want('note', true);
   if (snipper) hotkeys.want('snip', true);
   console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
@@ -1756,6 +1772,7 @@ function fromSamara(raw: unknown): void {
     return;
   }
   if (r.t === 'watch.state') { taskbarHear?.(r); return; }
+  if (r.t === 'samara.front') { samaraInFront(r.on === true); return; }
 }
 /** Claude's plan cards from Samara, shown in this bubble with their keys (plandoor.ts), as the Mac's Aang does. */
 function openPetPlanDoor(): void {
@@ -1832,6 +1849,7 @@ setInterval(() => {
     if (up) { if (!first) { console.log('shell: Aang is back'); freshen(); if (input) takeAangKeys(); } }
     else if (!first) {
       console.log('shell: Aang closed; Samara stays');
+      talkWanted = false;
       for (const k of ['talk', 'snip', 'note'] as const) hotkeys.want(k, false);
       // The brain went down a moment before the pet did: cancel the bubble's "waiting for my brain", silently.
       try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); noteHeld?.set({ on: false }); timerWins?.sync([]); jobPops?.closeAll(); } catch { /* gone */ }

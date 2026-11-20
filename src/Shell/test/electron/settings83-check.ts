@@ -1,5 +1,5 @@
 // Sheet 83 v2 (2026-10-23): the real Settings page, off screen, with a stand-in for its doors. Checks the chapters, the
-// ‹ › values, the home page row, the half-second help line, the address lookup, the PIN slots and eye; takes pictures.
+// switches and segmented rows, the home page row, the half-second help line, the address lookup, the PIN slots and eye; takes pictures.
 // Run: npx electron test/electron/settings83-check.ts <folder for pictures>
 import { app, BrowserWindow } from 'electron';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -31,14 +31,17 @@ app.whenReady().then(async () => {
   check('seven chapters, no search box', (await js(`document.querySelectorAll('.side a').length`)) === 7 && !(await js(`!!document.getElementById('find')`)));
   check('no grey line under any row', (await js(`document.querySelectorAll('.r small').length`)) === 0);
   check('home page row shows what is saved', (await js(`document.getElementById('homev').textContent`)) === 'search.brave.com');
-  check('When Samara opens says My tabs', (await js(`document.querySelector('[data-cyc=startup] .v').textContent`)) === 'My tabs');
+  check('When Samara opens has My tabs chosen', (await js(`document.querySelector('[data-cyc=startup] [aria-checked=true]')?.textContent`)) === 'My tabs');
+  check('the switch is named by its row', (await js(`(() => { const s = document.querySelector('[data-cyc=dark] .sw'); return s.getAttribute('role') + '|' + s.getAttribute('aria-label') + '|' + s.getAttribute('aria-checked'); })()`)) === 'switch|Dark websites|true');
   await shot('start');
   await js(`document.getElementById('homerow').click()`);
   check('a click on it opens the box with it in', (await js(`document.getElementById('homein').value`)) === 'search.brave.com' && !(await js(`document.getElementById('homeedit').hidden`)));
   await js(`(() => { const i = document.getElementById('homein'); i.value = 'reddit.com'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`);
   check('Enter saves reddit.com', (await js(`__sent()`)).includes('"key":"home","value":"reddit.com"'));
-  await js(`document.querySelector('[data-cyc=startup] .ar[aria-label=Next]').click()`);
-  check('› moves My tabs to Home page', (await js(`document.querySelector('[data-cyc=startup] .v').textContent`)) === 'Home page' && (await js(`__sent()`)).includes('"key":"startup","value":"home"'));
+  await js(`document.querySelector('[data-cyc=startup] [data-v=home]').click()`);
+  check('a click on Home page chooses it', (await js(`document.querySelector('[data-cyc=startup] [aria-checked=true]')?.textContent`)) === 'Home page' && (await js(`__sent()`)).includes('"key":"startup","value":"home"'));
+  await js(`(() => { const b = document.querySelector('[data-cyc=startup] [data-v=home]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); })()`);
+  check('Left arrow moves back to My tabs, focus with it', (await js(`document.activeElement?.dataset.v + '|' + document.activeElement?.getAttribute('aria-checked') + '|' + document.activeElement?.tabIndex`)) === 'tabs|true|0');
 
   // the help line waits half a second
   await go('look');
@@ -80,11 +83,13 @@ app.whenReady().then(async () => {
   await js(`document.querySelector('[data-go=pin]').click()`);
   await wait(100);
   check('PIN starts at 6 slots', (await js(`document.querySelectorAll('#pin1 i').length`)) === 6);
-  for (let i = 0; i < 3; i++) await js(`document.querySelector('[data-len="1"]').click()`);
-  check('it goes no longer than 8', (await js(`document.querySelectorAll('#pin1 i').length`)) === 8);
-  for (let i = 0; i < 6; i++) await js(`document.querySelector('[data-len="-1"]').click()`);
-  check('and no shorter than 4', (await js(`document.querySelectorAll('#pin1 i').length`)) === 4);
-  await js(`document.querySelector('[data-len="1"]').click(); document.querySelector('[data-len="1"]').click()`);
+  const len = (n: number) => js(`document.querySelector('[aria-label="PIN length"] [data-v="${n}"]').click()`);
+  check('the lengths are 4 to 8', (await js(`[...document.querySelectorAll('[aria-label="PIN length"] [role=radio]')].map(b => b.textContent).join('')`)) === '45678');
+  await len(8);
+  check('8 gives 8 slots', (await js(`document.querySelectorAll('#pin1 i').length`)) === 8);
+  await len(4);
+  check('4 gives 4 slots', (await js(`document.querySelectorAll('#pin1 i').length`)) === 4);
+  await len(6);
   for (const d of '4817') await js(`document.getElementById('pin1').dispatchEvent(new KeyboardEvent('keydown', { key: '${d}', bubbles: true }))`);
   check('typed numbers are hidden', (await js(`[...document.querySelectorAll('#pin1 i.f')].map(i => i.textContent).join('')`)) === '●●●●');
   await js(`document.getElementById('eye').click()`);
@@ -96,8 +101,8 @@ app.whenReady().then(async () => {
 
   // Bitwarden
   await js(`document.querySelector('section[data-sec=pin] [data-back]').click(); document.querySelector('[data-go=bw]').click()`);
-  await js(`document.querySelector('[data-cyc=lockAfter] .ar[aria-label=Next]').click()`);
-  check('lock time moves to 2 hours', (await js(`document.querySelector('[data-cyc=lockAfter] .v').textContent`)) === '2 hours');
+  await js(`document.querySelector('[data-cyc=lockAfter] [data-v="2h"]').click()`);
+  check('lock time moves to 2 hours', (await js(`document.querySelector('[data-cyc=lockAfter] [aria-checked=true]')?.textContent`)) === '2 hours');
   await shot('bw');
   w.destroy(); pages.close();
   console.log(bad ? `${bad} FAILED` : 'ALL PASS');

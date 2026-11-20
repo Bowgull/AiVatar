@@ -263,6 +263,8 @@ app.whenReady().then(async () => {
   const b = boot.browserNow;
   // The browser's news for Aang's brain, as main.ts wires it.
   b.onNoteSave = (n) => link.send({ t: 'notes.save', note: n } as never);
+  // Ctrl and + zooms the page while Samara is in front (his rule): Aang's talk key steps aside then (main.ts samaraInFront).
+  b.onFront = (on) => { link.send({ t: 'relay', m: { t: 'samara.front', on } } as never); };
   b.onNotePlace = (m) => link.send(m as never);
   b.onNoteOpen = (id) => link.send({ t: 'relay', m: { t: 'samara.note.open', id } } as never);
   b.onRouteDone = (r) => link.send({ t: 'hyrule.route.done', ...r } as never);

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 121 (3), his pick 2026-11-20: hover a tab to see it. A small picture of the page with its full name and address,
+     in the tray's wood, beside the tab list (never in it). Drawn from what the Shell hands show(); all of it is the
+     website's own words, so only textContent. Nothing here can be clicked. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Tab picture</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="samaralook.css">
+<link rel="stylesheet" href="tabpeek.css">
+</head>
+<body>
+<div class="prev" id="prev" hidden>
+  <div class="shot" id="shotbox"><img id="shot" alt=""></div>
+  <b id="title"></b>
+  <small><span id="host"></span><span id="rest"></span><i id="snd" hidden>PLAYING</i></small>
+</div>
+<script src="tabpeek.js"></script>
+</body>
+</html>

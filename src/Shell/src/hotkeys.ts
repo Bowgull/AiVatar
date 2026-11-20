@@ -116,6 +116,14 @@ export function ourClash(id: KeyId, acc: string, now: Record<KeyId, string>): st
 
 export const keysFile = (stateDir: string) => path.join(stateDir, 'hotkeys.json');
 
+/**
+ * 2026-11-20 (his rule): with a Samara window in front, Ctrl and + zooms the page. Aang's talk key steps aside then, but
+ * only when it is one of the browser's zoom keys (Ctrl and +, -, 0, on either keyboard); any other key he picked stays.
+ */
+export function talkStepsAside(talkAcc: string, samaraFront: boolean): boolean {
+  return samaraFront && /^Control\+(=|-|0|numadd|numsub|num0)$/.test(talkAcc);
+}
+
 export function readKeys(stateDir: string): Record<KeyId, string> {
   const out = Object.fromEntries(KEY_IDS.map((k) => [k, KEYS[k].def])) as Record<KeyId, string>;
   try {

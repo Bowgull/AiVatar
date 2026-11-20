@@ -38,3 +38,17 @@ body{position:relative;display:block;min-height:100%;overflow:visible}
 .pm .arr{width:8px;height:12px;flex:none;margin-left:14px;image-rendering:pixelated}
 .pm button[aria-haspopup]{justify-content:flex-start;align-items:center}
 .pm button.open{color:#ffe28c}
+
+/* ---- Sheet 120 A, wood refined (his pick, 2026-11-20): the menu is the tray's grain in its gold-cornered frame, rows 34
+   high in light words, the row he points at lit with a gold edge, shortcuts as small key chips, gold lines between groups.
+   The window is still sized from the menu's own box (pagemenu.js), so the frame is counted in. */
+.pm{min-width:230px;max-width:340px;padding:8px 6px;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:var(--wood-panel);image-rendering:pixelated;box-shadow:none}
+.pm button{height:34px;min-height:34px;align-items:center;gap:18px;padding:0 10px;border-radius:7px;font:600 14.5px var(--body);color:#ECDFC4;
+  text-shadow:1px 1px 0 rgba(0,0,0,.75);image-rendering:auto;transition:none}
+.pm button:hover:not(:disabled),.pm button:focus-visible,.pm button.open{padding-left:10px;color:#FFF6E0;background:rgba(255,226,140,.12);box-shadow:inset 3px 0 0 var(--gold);outline:none}
+.pm button:hover:not(:disabled)::before,.pm button:focus-visible::before{content:none}
+.pm button:disabled{color:#A39274}
+.pm button i.wkbd{font:400 9px var(--label);color:#E3D3AE;text-shadow:none;align-self:center}
+.pm .sep.wsep{height:2px;margin:6px 6px;background:linear-gradient(90deg,transparent,rgba(255,196,60,.32),transparent)}
+.pm .arr path{fill:var(--gold)}

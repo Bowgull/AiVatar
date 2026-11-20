@@ -135,3 +135,16 @@ test('a hand-mangled file falls back to the defaults', () => {
   writeFileSync(path.join(d, 'hotkeys.json'), '{not json');
   assert.equal(readKeys(d).talk, 'Control+=');
 });
+
+// 2026-11-20 (his rule): Ctrl and + zooms the page while Samara is in front; Aang's talk key steps aside only then, and only
+// when it is a zoom key.
+test('talk steps aside for the zoom keys while Samara is in front', async () => {
+  const { talkStepsAside } = await import('../src/hotkeys.ts');
+  assert.equal(talkStepsAside('Control+=', true), true);
+  assert.equal(talkStepsAside('Control+numadd', true), true);
+  assert.equal(talkStepsAside('Control+-', true), true);
+  assert.equal(talkStepsAside('Control+=', false), false);
+  assert.equal(talkStepsAside('Control+Shift+=', true), false);   // Snip's key is not the browser's
+  assert.equal(talkStepsAside('Control+nummult', true), false);
+  assert.equal(talkStepsAside('Alt+F9', true), false);
+});

@@ -15,7 +15,7 @@ import { readText } from './store.ts';
 /** One tab as written. Extra fields (mock, pageBg, pageState, favicon, win) pass through untouched. */
 export interface SavedTab { url: string; title?: string; mock?: unknown; [k: string]: unknown }
 /** The file: every window's tabs, the trails, the recently closed. */
-export interface SessionData { v: 1; active: number; fronts?: number[]; tabs: SavedTab[]; trails: unknown[]; closed: string[] }
+export interface SessionData { v: 1; active: number; fronts?: number[]; tabs: SavedTab[]; trails: unknown[]; closed: string[]; splits?: unknown[] }
 
 /** A save in progress: taken before waiting on anything, so a write that lands meanwhile makes it stale. */
 export interface Ticket { readonly gen: number }

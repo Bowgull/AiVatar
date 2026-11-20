@@ -169,3 +169,44 @@ body{background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(art/
 .act:hover::before{content:"";position:absolute;left:0;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
 .act:focus-visible,.r:focus-visible{outline:2px solid #ffe28c;outline-offset:2px}
 .say{font:600 14px var(--body);color:#ffe28c;text-shadow:1px 1px 0 #000}
+
+/* ---- Sheet 120 A, wood refined (his pick, 2026-11-20): what he opens is wood. The cards are the tray's own grain in
+   its gold-cornered frame (no ink); rows 40 high; light words on the wood, the dim ones still easy to read; on and off
+   is the switch, a choice of a few the segmented row (samaralook.css draws both). */
+body{color:var(--wood-text)}
+.card{background:var(--wood-panel);padding:4px 0}
+.card h3{font:400 10px var(--label);letter-spacing:1.4px;color:var(--wood-label);text-transform:uppercase;padding:12px 22px 6px}
+.side a{color:#E3D5B8;font:700 14.5px var(--body)}
+.side a:hover{color:#FFF2D6;background:rgba(255,226,140,.06)}
+.side a.on{color:#FFE28C;background:rgba(255,226,140,.12)}
+.main h2 .back{color:#E3D5B8}
+.lead{color:var(--wood-dim)}
+.r{min-height:40px;padding:0 18px 0 48px;gap:14px;border-top:2px solid rgba(255,226,140,.07)}
+.fld{min-height:42px;padding:0 18px 0 48px;border-top:2px solid rgba(255,226,140,.07)}
+.r b,.fld label{font:600 15px var(--body);color:var(--wood-text)}
+.r:hover{background:rgba(255,226,140,.08)}
+.r:hover::before,.fld.lit::before{left:16px}
+.r .v{font:700 14.5px var(--body);color:var(--wood-text);text-shadow:1px 1px 0 #000}
+.r:hover .v{color:#FFE28C}
+.r .v.dim{color:var(--wood-dim)}
+.r.pickrow{cursor:default}
+.r .seg,.r .sw{margin:5px 0}
+.tag2{color:#A8F4EA}
+.tag2.off{color:var(--wood-dim)}
+.ar,.go{opacity:.8}
+.fld input{color:#FFF6E0;border-bottom-color:rgba(241,230,207,.6)}
+.act{color:var(--wood-text)}
+.say{color:#FFE28C}
+.empty,.ysempty{color:var(--wood-dim)}
+.list .mark small{color:var(--wood-dim)}
+.chip{color:var(--wood-text);background:rgba(0,0,0,.4)}
+.x{color:var(--wood-text);background:rgba(255,226,140,.14)}
+.yskey{color:var(--wood-text)}
+.yscell i{color:#B9A9C9}
+.tip{background:var(--wood-panel);color:var(--wood-text)}
+.sug{background:var(--wood-panel)}
+.sug div{color:var(--wood-text)}
+.sug small{font:400 9px var(--label);letter-spacing:1.2px;color:var(--wood-dim)}
+.slots i{background:var(--slot)}
+/* the page behind is recessed further, so the wood cards stand out from it */
+body{background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(0,0,0,.5)),url(art/browser/tray.png) 0 0/128px 256px}

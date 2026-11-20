@@ -32,3 +32,20 @@ html,body{margin:0;background:transparent;overflow:hidden;user-select:none;-webk
 .srow.on .sa{visibility:visible}
 .srow.on .sg svg path{fill:var(--gold-lit)}
 @media (prefers-reduced-motion:reduce){.box,.mark{transition:none}.box.in{animation:none}}
+
+/* ---- Sheet 120 A, wood refined (his pick, 2026-11-20): the list is the tray's grain in its gold-cornered frame, like the
+   ⋯ menu; the row he points at is lit with a gold edge; the dividers are the gold line. Rows stay 40 high with 15 px
+   words (sheet 102); the layer is still exactly the box and its 3 px drop. */
+.box{padding:4px 0 6px;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;border-radius:0;
+  background:var(--wood-panel);image-rendering:pixelated}
+.box::before{display:none}
+.rows{image-rendering:auto}
+.mark{left:6px;right:6px;border-radius:7px;background:rgba(255,226,140,.12);box-shadow:inset 3px 0 0 var(--gold)}
+.srow{padding:0 16px}
+.gl{height:2px;margin:4px 12px;background:linear-gradient(90deg,transparent,rgba(255,196,60,.32),transparent)}
+.sg svg path{fill:var(--wood-dim)}
+.st{font:600 15px var(--body);color:#ECDFC4;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.st b{font-weight:800;color:#FFF6E0}
+.su{font:500 13px var(--body);color:var(--wood-dim);text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+.sa{font:400 9px var(--label);letter-spacing:.8px;text-transform:uppercase;color:#E3D3AE;padding:3px 5px 2px;border-radius:4px;background:rgba(255,226,140,.12);box-shadow:inset 0 -1px 0 rgba(0,0,0,.5)}
+.srow.on .st{color:#FFF6E0}

@@ -224,6 +224,16 @@ contextBridge.exposeInMainWorld('aang', {
   browserWinDrag: m => ipcRenderer.send('browser:windrag', m),
   /** The tab list in its own layer above the live page (2026-10-13): open (with where it goes) or close. */
   browserTray: a => ipcRenderer.send('browser:tray', a),
+  /** Sheet 120 A: the band's panels in their own layer over the live page (a key pressed, a panel opened or closed). */
+  browserFloat: a => ipcRenderer.send('browser:float', a),
+  /** Sheet 121 (4): two pages side by side. The band moves the peg, picks or closes a side; the Shell says what shows. */
+  browserSplit: a => ipcRenderer.send('browser:sbs', a),
+  /** Sheet 121 (5): the peek strip's keys: 'tab', 'split' or 'close'. */
+  browserPeek: act => ipcRenderer.send('browser:peek', act),
+  onBrowserSplit(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:sbs', h); return () => ipcRenderer.removeListener('browser:sbs', h); },
+  /** Sheet 121 (3): the mouse rests on a tab in the list (its row's place), or left the rows (null). */
+  browserTabPeek: a => ipcRenderer.send('browser:tabpeek', a),
+  onBrowserFloat(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:float', h); return () => ipcRenderer.removeListener('browser:float', h); },
   // Sheet 87: the secret window's PIN box (try, set, reset with the Mac password, cancel) and what Samara says back.
   browserSecretPin: a => ipcRenderer.send('browser:secretpin', a),
   browserSecretMask: act => ipcRenderer.send('browser:secretmask', act),

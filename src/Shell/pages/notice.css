@@ -68,3 +68,42 @@ html,body{background:transparent!important;overflow:hidden;height:100%;margin:0}
 .nt.small.held .drain{animation-play-state:paused}
 .key{transition:top .08s ease,box-shadow .08s ease}
 @media (prefers-reduced-motion:reduce){.nt.drop,.nt.rise,.nt.drop .sock,.nt.drop .sock .spark{animation-duration:.01s!important;animation-delay:0s!important}}
+
+/* ---- Sheet 120 A, wood refined (his pick, 2026-11-20): what Samara tells him is parchment. One card, a dark outline,
+   round 12 px corners; the gem on the left, the title bold with its small line, and under them the gold key and the
+   cream one. The small news is the same card, one line high. Motion, sizes and where it drops from are unchanged. */
+.nt.dltray.uptray.upx{width:372px;padding:14px 16px 14px 14px;border:3px solid var(--outline);border-image:none;border-radius:12px;color:#2E2216;
+  background:linear-gradient(180deg,#F0DCB4,#ECD5A8 45%,#DEC28C);
+  box-shadow:inset 0 4px 0 rgba(255,255,255,.5),inset 0 -5px 0 rgba(150,110,60,.3),0 3px 0 rgba(0,0,0,.6),0 14px 26px rgba(0,0,0,.45)}
+.nt>.caps{display:none}
+.nt:not(.small){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;align-items:start}
+.nt:not(.small) .uphd{display:contents}
+.nt:not(.small) .sock{grid-column:1;grid-row:1 / span 4}
+.nt:not(.small)>*:not(.caps):not(.uphd),.nt:not(.small) .uphd .t{grid-column:2}
+.nt .uphd{background:none;border:0;box-shadow:none;padding:0;margin:0}
+.nt .uphd .t{line-height:1.2;padding-top:1px}
+.nt .uphd small{font:700 11px var(--body);letter-spacing:.6px;color:#5A4834;text-shadow:none}
+.nt .uphd b{font:800 16px var(--body);color:#2E2216;text-shadow:none;margin-top:1px}
+.nt .uphd:has(.count) .t{padding-right:48px}
+.nt .count{position:absolute;right:14px;top:13px;font:700 12px var(--body);color:#5A4834;text-shadow:none}
+.nt .sock{width:36px;height:36px;border-width:2px;box-shadow:0 0 0 2px var(--outline),0 2px 0 2px rgba(0,0,0,.25)}
+.nt .uplist{margin:10px 0 0;padding:6px 10px;border-radius:8px;background:rgba(120,80,30,.12);box-shadow:inset 0 2px 0 rgba(90,60,20,.18)}
+.nt .grp{color:#8A3E1C}
+.nt .upfoot{margin:12px 0 0;gap:8px;flex-wrap:wrap}
+/* the keys: gold for the first, cream for the rest (and for every plain one) */
+.nt .key{top:0;height:32px;min-height:32px;display:inline-flex;align-items:center;padding:0 14px;border:0;border-radius:8px;font:800 13.5px var(--body);letter-spacing:.1px;
+  color:#3A2A14;text-shadow:none;background:linear-gradient(180deg,#F3E2BD,#DCC08A);
+  box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,255,255,.5),0 3px 0 rgba(0,0,0,.45)}
+.nt .key.primary{color:#2A1C00;background:linear-gradient(180deg,#FFE096,#FFC43C 55%,#C98C14)}
+.nt .key:hover:not(:disabled){filter:brightness(1.06)}
+.nt .key:active:not(:disabled){top:2px;box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(0,0,0,.18),0 1px 0 rgba(0,0,0,.45)}
+.nt .key:focus-visible{outline:3px solid #FFF2A0;outline-offset:3px;box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,255,255,.5),0 3px 0 rgba(0,0,0,.45),0 0 0 7px var(--outline)}
+.nt .key:disabled{filter:grayscale(.6);opacity:.55}
+/* small news: the same parchment, one line */
+.nt.small{width:316px;padding:10px 12px;overflow:hidden}
+.nt.small .uphd{display:flex;align-items:center;gap:12px}
+.nt.small .sock{width:32px;height:32px}
+.nt.small .uphd b{font-size:15px}
+.nt.small .key{height:30px;min-height:30px}
+.nt.small .count{position:static}
+.nt.small .drain{bottom:0;height:3px;background:#C98C14;border-radius:0}

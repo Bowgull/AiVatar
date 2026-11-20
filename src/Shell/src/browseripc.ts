@@ -14,6 +14,20 @@ export function wireBrowser(get: () => AangBrowser | null, secret: () => AangBro
   const b = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => { const s = secret(); return (s?.owns(e.sender) ? s : get()) as AangBrowser; };
   // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
   // The tab list floating over the page: open (where the frame says) or closed.
+  // Sheet 120 A: the band's panels float in their own layer; the frame asks for a panel, the layer says when it opens or closes.
+  ipcMain.on('browser:float', (e, a) => {
+    if (!top(e) || !a || typeof a !== 'object') return;
+    const br = b(e);
+    if (br?.isFloat(e.sender)) br.floatFromLayer(a);
+    else if (br?.isMainFrame(e.sender)) br.floatFromFrame(a);
+  });
+  // Sheet 121 (5): peek at a link (Shift-click or a held press, from the page), and the peek strip's keys.
+  ipcMain.on('tab:peek', (e, href) => { if (top(e) && typeof href === 'string') b(e)?.peekLink(e.sender, href.slice(0, 4000)); });
+  ipcMain.on('browser:peek', (e, act) => { if (top(e) && typeof act === 'string') b(e)?.peekAct(e.sender, act); });
+  // Sheet 121 (4): side by side, from the band (the peg, a page's strip or its ×).
+  ipcMain.on('browser:sbs', (e, a) => { if (top(e) && b(e)?.isMainFrame(e.sender) && a && typeof a === 'object') b(e).splitFromFrame(a); });
+  // Sheet 121 (3): the tab list's hover picture, from the list's own layer.
+  ipcMain.on('browser:tabpeek', (e, a) => { if (top(e) && b(e)?.isFrame(e.sender)) void b(e).tabPeek(a && typeof a === 'object' ? a : null); });
   ipcMain.on('browser:tray', (e, a) => { if ((top(e) && b(e)?.isFrame(e.sender)) && a && typeof a === 'object') b(e).tray(a.open === true, a); });
   // Sheet 60 section 4: the notes rail. A new note for this site (where it came from is the browser's to say), or one to open.
   ipcMain.on('browser:notesave', (e, n) => { if (top(e) && b(e)?.isFrame(e.sender)) b(e).noteSave(n); });

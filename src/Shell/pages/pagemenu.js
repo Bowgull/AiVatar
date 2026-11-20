@@ -21,11 +21,11 @@ function row(it) {
   if (it.gem) { b.classList.add('ic'); b.insertAdjacentHTML('beforeend', GEM); }
   if (it.plus) { b.classList.add('ic'); b.insertAdjacentHTML('beforeend', PLUS); }
   b.append(Object.assign(document.createElement('span'), { textContent: String(it.label ?? '') }));
-  if (it.key) b.append(Object.assign(document.createElement('i'), { textContent: String(it.key) }));
+  if (it.key) b.append(Object.assign(document.createElement('i'), { className: 'wkbd', textContent: String(it.key) }));
   if (it.sub) { b.setAttribute('aria-haspopup', 'menu'); b.insertAdjacentHTML('beforeend', ARR); }
   return b;
 }
-const sepEl = () => Object.assign(document.createElement('div'), { className: 'sep' });
+const sepEl = () => Object.assign(document.createElement('div'), { className: 'sep wsep', role: 'separator' });
 
 function size() {
   requestAnimationFrame(() => {

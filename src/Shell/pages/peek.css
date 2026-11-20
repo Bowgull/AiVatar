@@ -1,0 +1,20 @@
+/* Sheet 121 (5): the peek, sheet 121's drawing. */
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+.shade{position:absolute;inset:0;background:rgba(10,6,4,.55);animation:fade .14s ease-out}
+.box{position:absolute;border-radius:16px;box-shadow:0 0 0 2px rgba(20,12,6,.9),0 0 0 8px rgba(26,15,9,.85),0 30px 70px rgba(0,0,0,.7);background:#eef3f8;
+  animation:rise .16s ease-out}
+.ph{height:44px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;border-radius:16px 16px 0 0;
+  background:url(art/browser/band.png) repeat-x 0 -8px/128px 58px;image-rendering:pixelated;border-bottom:3px solid var(--outline);
+  font:600 14px var(--body);color:#efe3c8;white-space:nowrap}
+.where{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+.where b{color:#FFF6E0}
+.chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:0;border-radius:8px;cursor:pointer;
+  font:700 13px var(--body);color:var(--gold-lit);background:linear-gradient(180deg,#3a2456,#24143a);
+  box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.18),0 2px 0 rgba(0,0,0,.45)}
+.chip svg{fill:currentColor;display:block}
+.chip:hover{filter:brightness(1.18)}
+.chip:active{transform:translateY(2px);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(0,0,0,.35)}
+.chip.x{width:34px;padding:0;justify-content:center}
+@keyframes fade{from{opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+@media (prefers-reduced-motion:reduce){.shade,.box{animation:none}}

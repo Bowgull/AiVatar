@@ -43,6 +43,9 @@ import { addressFor, engineHome, guessesUrl, parseGuesses, searchFor, setSearch,
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic, writeFileAtomicSoon } from './atomic.ts';
 import { SessionStore, type SessionData } from './sessionstore.ts';
+import { SPLIT_EDGE, SPLIT_GAP, SPLIT_HEAD, clampSplit, splitLeftWidth } from './splitview.ts';
+/** Sheet 121 (5): the wood strip over a peeked page. */
+const PEEK_HEAD = 44;
 import { fitIn } from './geometry.ts';
 import { SavePaths, programAsk, quarantineMark, safeName, sameSite, siteOfUrl, zoneMark } from './downloads.ts';
 import { readJson } from './store.ts';
@@ -201,6 +204,8 @@ interface Tab {
   /** The last picture of the page as he left it (taken when his mouse heads for the tab list): shown at once when it
    *  wakes from sleep, so it never looks blank or crashed (2026-10-23). `waking`: its sound and video wait for the page. */
   leftShot?: string; waking?: boolean;
+  /** Sheet 121 (3): a small picture of the page from the last time it was in front, for the tab list's hover picture. */
+  card?: string; cardUrl?: string;
   /** Frozen (2026-10-23, Edge's sleeping tabs): its timers and network stop, the page stays; it thaws instantly. */
   frozen?: boolean;
   /** A freeze was asked for and may still land (2026-10-30): a thaw must undo it even before it is marked frozen. */
@@ -294,6 +299,17 @@ interface Pane {
   watchTimer: NodeJS.Timeout | null;
   /** Sheet 60: this window's "Notes for this site" rail is open (Esc in the page closes it). */
   railOpen?: boolean;
+  /**
+   * Sheet 120 A (2026-11-20): the band's menus and panels (⋯, star, shield, downloads, update, plan) float in their own
+   * see-through layer over the LIVE page, the way the tab list and the rune do; the page is never frozen into a picture.
+   * The layer is the frame's own page (?float); floatLast holds what the frame was last told, for a layer that loads late.
+   */
+  floatV?: WebContentsView | null;
+  floatOn?: boolean;
+  floatReady?: boolean;
+  floatLast?: Map<string, unknown[]>;
+  /** Sheet 121 (4): two pages side by side in this window (tab ids, and the left page's share of the width). */
+  split?: { left: number; right: number; ratio: number } | null;
 }
 /** Sheet 60 section 4: a note as Samara's notes rail needs it (only notes that came from a page carry `src`). */
 export interface RailNote { id: string; title: string; html: string; cat?: string; src?: { url: string; site: string }; updated: number }
@@ -324,6 +340,10 @@ function trailNameFor(url: string): string {
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/** A view whose page is still there (a view's page can be gone, or missing, once its window has closed). */
+const liveView = (v: WebContentsView | null | undefined): v is WebContentsView => { try { return Boolean(v?.webContents && !v.webContents.isDestroyed()); } catch { return false; } };
+/** What the band's floating panels draw from (sheet 120 A): the frame's messages that also go to their layer. */
+const FLOAT_CHANNELS = new Set(['browser:tabs', 'browser:dls', 'browser:plan', 'browser:updatewhy']);
 /**
  * Links that open an app instead of a page (his report, 2026-10-14: signing in to Claude on the Mac ended on "Open
  * Claude" and nothing happened, because every non-web link was dropped). Like Chrome: only these, and only after he
@@ -1974,7 +1994,8 @@ export class AangBrowser {
   // These also say which window the message is about: every frame message is checked here first, so from here on the
   // browser works in that window.
   isFrame(sender: Electron.WebContents): boolean {
-    const p = this.panes.find((x) => (this.alive(x) && sender === x.win!.webContents) || (x.trayV && !x.trayV.webContents.isDestroyed() && sender === x.trayV.webContents));
+    const p = this.panes.find((x) => (this.alive(x) && sender === x.win!.webContents) || (x.trayV && !x.trayV.webContents.isDestroyed() && sender === x.trayV.webContents)
+      || (liveView(x.floatV) && sender === x.floatV!.webContents));
     if (p) this.pane = p;
     return Boolean(p);
   }
@@ -2041,6 +2062,7 @@ export class AangBrowser {
       // The rail slides back in with its handle (his ask, 2026-10-20), then goes; the band's own handle shows again
       // only once the rail's copy is back on top of it, so there is never a second arrow.
       const v = this.trayV && !this.trayV.webContents.isDestroyed() ? this.trayV : null;
+      void this.tabPeek(null);
       if (!this.trayOn) { v?.setVisible(false); return; }
       this.trayOn = false;
       v?.webContents.send('browser:tray', { open: false });
@@ -2054,6 +2076,8 @@ export class AangBrowser {
     const v = this.trayView();
     if (!v) return;
     this.newSince = 0;
+    void this.cardOf(this.cur());                // the page in front, for the list's hover picture
+    this.tabPeekView();                          // and its layer, loaded before the first hover
     const n = (x: unknown, d: number) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : d);
     this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y), hy: n((at as { hy?: unknown })?.hy, this.trayAt.hy ?? 80) };
     this.trayOn = true;
@@ -2066,6 +2090,375 @@ export class AangBrowser {
     w.webContents.send('browser:tray', { open: true });
     this.sendTabs();
   }
+  // ------------------------------------------------------------------ sheet 121 (4): two pages side by side
+  /**
+   * His pick (2026-11-20): two pages in one window. The page he is using has the gold edge; a wood peg between them shares
+   * the space. Opened by dropping a tab at the window's right edge, or "Side by side" in the ⋯ menu; each page's × ends it
+   * (both tabs stay open). The pair is remembered: picking either tab shows both again, and it comes back after a restart.
+   */
+  /** The pair in this window, when both of its tabs are still here (a pair that lost a tab is forgotten). */
+  private splitOf(P: Pane = this.pane): { L: Tab; R: Tab; ratio: number } | null {
+    const s = P.split;
+    if (!s) return null;
+    const L = this.tabs.find((x) => x.id === s.left && x.pane === P.id), R = this.tabs.find((x) => x.id === s.right && x.pane === P.id);
+    if (!L || !R || L === R || L.lent || R.lent) { P.split = null; return null; }
+    return { L, R, ratio: s.ratio };
+  }
+  /** The pair, while one of its tabs is the one in front (and no page is full screen). */
+  private splitShown(P: Pane = this.pane): { L: Tab; R: Tab; ratio: number } | null {
+    const x = this.splitOf(P);
+    return x && (P.active === x.L.id || P.active === x.R.id) && P.fullTab === null ? x : null;
+  }
+  /** The other page of the pair shown with this one, if any. */
+  private partnerOf(id: number, P: Pane = this.pane): Tab | null {
+    const x = this.splitOf(P);
+    return !x ? null : x.L.id === id ? x.R : x.R.id === id ? x.L : null;
+  }
+  /** In front: the tab in front of a window, or the other page of a pair shown beside it. */
+  private inFront(t: Tab): boolean {
+    return this.panes.some((p) => p.active === t.id || (this.splitShown(p) !== null && (p.split!.left === t.id || p.split!.right === t.id)));
+  }
+  /** The two pages' places (window pixels): the page area cut in two with the peg's gap, a name strip over each. */
+  private splitBoxes(ratio: number): { left: Electron.Rectangle; right: Electron.Rectangle } | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    const [cw, ch] = w.getContentSize();
+    const x0 = this.inset.left, y0 = this.inset.top + SPLIT_HEAD, W = Math.max(0, cw - this.inset.left - this.inset.right), H = Math.max(0, ch - y0 - this.inset.bottom);
+    const lw = splitLeftWidth(W, ratio);
+    return { left: { x: x0, y: y0, width: lw, height: H }, right: { x: x0 + lw + SPLIT_GAP, y: y0, width: Math.max(0, W - lw - SPLIT_GAP), height: H } };
+  }
+  /** Lay out the pair (from place()). */
+  private placeSplit(x: { L: Tab; R: Tab; ratio: number }): void {
+    const b = this.splitBoxes(x.ratio);
+    if (!b) return;
+    for (const [t, r] of [[x.L, b.left], [x.R, b.right]] as const) {
+      if (!t.view) continue;
+      if (t.crashed || t.blocked || t.failed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); continue; }
+      t.view.setBounds(r);
+      if (!this.drawerOpen && !t.view.getVisible()) t.view.setVisible(true);
+    }
+    if (this.veil?.up && this.curtain) { const t = this.cur(); if (t?.view) this.curtain.setBounds(t.view.getBounds()); }
+  }
+  /** The band draws the name strips, the gold edge and the peg from this (only when something changed). */
+  private splitSent = new WeakMap<Pane, string>();
+  private splitSend(): void {
+    const P = this.pane, w = this.win;
+    if (!w || w.isDestroyed()) return;
+    const x = this.splitShown(P);
+    const info = (t: Tab) => { let host = '', rest = ''; try { const u = new URL(t.url); host = u.hostname.replace(/^www\./, ''); rest = u.pathname === '/' ? '' : u.pathname; } catch { host = t.title; } return { id: t.id, title: t.title, host, rest, favicon: t.favicon || this.iconOf(t.url) }; };
+    const msg = x ? { ratio: x.ratio, gap: SPLIT_GAP, head: SPLIT_HEAD, on: P.active === x.L.id ? 'left' : 'right', left: info(x.L), right: info(x.R) } : null;
+    const sig = JSON.stringify(msg);
+    if (this.splitSent.get(P) === sig) return;
+    this.splitSent.set(P, sig);
+    w.webContents.send('browser:sbs', msg);
+  }
+  /** Side by side with another tab: the one given (dropped at the right edge), or the last one he was on, or a new one. */
+  splitOpen(other?: number): void {
+    const P = this.pane, a = this.cur();
+    if (!a || a.lent || !this.alive(P)) return;
+    const mine = this.paneTabs(P).filter((x) => !x.lent && !x.done && x.internal !== 'night');
+    let left = a, right: Tab | undefined;
+    const dropped = other === undefined ? undefined : mine.find((x) => x.id === other);
+    if (dropped && dropped !== a) right = dropped;
+    else {
+      right = mine.filter((x) => x !== a).sort((p, q) => q.lastSeen - p.lastSeen)[0];
+      if (dropped === a && right) { left = right; right = a; }      // the page in front was dropped at the edge: it goes right
+    }
+    if (!right) {
+      const id = this.newTab(this.HOME, null, false);
+      right = id === null ? undefined : this.tabs.find((x) => x.id === id);
+      this.pane = P;
+    }
+    if (!right) return;
+    P.split = { left: left.id, right: right.id, ratio: P.split?.ratio ?? 0.5 };
+    for (const t of [left, right]) if (!t.view) this.wake(t); else this.thaw(t);
+    this.pane = P;
+    this.activate(dropped && dropped !== a ? dropped.id : a.id);
+    this.changed();
+  }
+  /** The pair ends; both tabs stay open. `keep`: the page that stays in front (the other one's × was pressed). */
+  splitClose(keep?: number): void {
+    const P = this.pane, x = this.splitOf(P);
+    P.split = null;
+    if (!x) { this.splitSend(); return; }
+    const stay = keep === x.L.id || keep === x.R.id ? keep : P.active ?? x.L.id;
+    this.activate(stay);
+    this.changed();
+  }
+  /** The band: the peg was dragged (a share of the width), a page's strip was clicked, or its × pressed. */
+  splitFromFrame(a: Record<string, unknown>): void {
+    const P = this.pane, x = this.splitOf(P);
+    if (!x) return;
+    if (typeof a.ratio === 'number' && Number.isFinite(a.ratio)) {
+      P.split!.ratio = clampSplit(a.ratio);
+      this.place();
+      if (a.done === true) this.changed();
+      return;
+    }
+    const id = Number(a.id);
+    if (id !== x.L.id && id !== x.R.id) return;
+    if (a.act === 'focus') this.activate(id);
+    else if (a.act === 'close') this.splitClose(id === x.L.id ? x.R.id : x.L.id);
+  }
+  /** A page of the pair got the keyboard (he clicked into it): it becomes the page in front, with the gold edge. */
+  private splitFocus(t: Tab): void {
+    const P = this.paneOfTab(t);
+    if (!P || !this.alive(P) || P.active === t.id) return;
+    const x = this.splitShown(P);
+    if (!x || (x.L !== t && x.R !== t)) return;
+    this.pane = P;
+    this.activate(t.id);
+  }
+  /** Pairs read back from the saved tabs, waiting until both tabs are in the same window (other windows open a moment later). */
+  private splitsWanted: { L: Tab; R: Tab; ratio: number }[] = [];
+  private adoptSplits(): void {
+    this.splitsWanted = this.splitsWanted.filter((s) => {
+      if (!this.tabs.includes(s.L) || !this.tabs.includes(s.R)) return false;
+      if (s.L.pane !== s.R.pane) return true;
+      const P = this.panes.find((p) => p.id === s.L.pane);
+      if (!P) return true;
+      if (!P.split) { P.split = { left: s.L.id, right: s.R.id, ratio: s.ratio }; const was = this.pane; this.pane = P; if (P.active === s.L.id || P.active === s.R.id) this.activate(P.active!); this.pane = was; }
+      return false;
+    });
+  }
+
+  // ------------------------------------------------------------------ sheet 121 (5): peek at a link
+  /**
+   * His pick (2026-11-20): Shift and a click on a link (or holding the mouse down on it) opens it ON TOP of the page, no new
+   * tab. A wood strip over it keeps it as a tab or puts it side by side; Esc, the × or a click outside closes it. Two
+   * layers: a see-through one over the whole window (the shade, the strip and its keys, which takes the click outside),
+   * and the page itself in the box under the strip.
+   */
+  private lp: { pane: Pane; shade: WebContentsView; view: WebContentsView; from: number | null; ready: boolean } | null = null;
+  /** A page asked (Shift-click or a held press on a link). */
+  peekLink(sender: Electron.WebContents, href: string): void {
+    const t = this.tabs.find((x) => x.view?.webContents === sender);
+    if (!t || t.lent || t.internal) return;
+    const P = this.paneOfTab(t);
+    if (!P || !this.alive(P)) return;
+    this.pane = P;
+    this.linkPeek(href, t.id);
+  }
+  /** Open the peek over the page in front (a web address only). */
+  linkPeek(href: string, from: number | null = null): void {
+    let url: string;
+    try { const u = new URL(href); if (!/^https?:$/.test(u.protocol)) return; url = u.href; } catch { return; }
+    const P = this.pane, w = this.win;
+    if (!w || w.isDestroyed()) return;
+    this.linkPeekClose();
+    const shade = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
+    lockDown(shade.webContents);
+    shade.setBackgroundColor('#00000000');
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath, backgroundThrottling: false } });
+    view.setBackgroundColor('#ffffff');
+    try { view.setBorderRadius(12); } catch { /* square */ }
+    const lp = { pane: P, shade, view, from, ready: false };
+    this.lp = lp;
+    const wc = view.webContents;
+    // A link in it that wants a new window opens as a normal tab, behind.
+    wc.setWindowOpenHandler(({ url: u }) => { if (/^https?:/i.test(u)) { this.pane = P; this.newTab(u, null, false); } return { action: 'deny' }; });
+    const head = () => { if (this.lp !== lp || shade.webContents.isDestroyed() || !lp.ready) return; let host = '', rest = ''; try { const u = new URL(wc.getURL() || url); host = u.hostname.replace(/^www\./, ''); rest = u.pathname === '/' ? '' : u.pathname; } catch { host = url; } void shade.webContents.executeJavaScript(`peekHead(${JSON.stringify({ host, rest, title: wc.getTitle() })})`, true).catch(() => {}); };
+    for (const ev of ['did-navigate', 'did-navigate-in-page', 'page-title-updated', 'did-stop-loading'] as const) wc.on(ev as 'did-navigate', head);
+    const keys = (e: Electron.Event, input: Electron.Input) => { if (input.type === 'keyDown' && input.key === 'Escape') { e.preventDefault(); this.linkPeekClose(); } };
+    wc.on('before-input-event', keys);
+    shade.webContents.on('before-input-event', keys);
+    shade.webContents.on('did-finish-load', () => { lp.ready = true; this.placePeek(); head(); });
+    void shade.webContents.loadURL(`${this.o.origin}/peek.html`).catch(() => { /* gone */ });
+    void wc.loadURL(url).catch(() => { /* the page says so itself */ });
+    w.contentView.addChildView(shade);
+    w.contentView.addChildView(view);
+    this.placePeek();
+    wc.focus();
+  }
+  /** The box over the page area: two thirds of it wide (at least 640), centred, a little in from the top and bottom. */
+  private peekBox(): { shade: Electron.Rectangle; box: Electron.Rectangle } | null {
+    const lp = this.lp, w = lp?.pane.win;
+    if (!lp || !w || w.isDestroyed()) return null;
+    const [cw, ch] = w.getContentSize(), ins = lp.pane.inset;
+    const aw = Math.max(0, cw - ins.left - ins.right), ah = Math.max(0, ch - ins.top - ins.bottom);
+    const bw = Math.min(aw - 40, Math.max(640, Math.round(aw * 0.66)));
+    const x = ins.left + Math.round((aw - bw) / 2), y = ins.top + 22, h = Math.max(200, ah - 54);
+    return { shade: { x: 0, y: 0, width: cw, height: ch }, box: { x, y, width: Math.max(0, bw), height: h } };
+  }
+  private placePeek(): void {
+    const lp = this.lp, b = this.peekBox();
+    if (!lp || !b) return;
+    lp.shade.setBounds(b.shade);
+    lp.view.setBounds({ x: b.box.x, y: b.box.y + PEEK_HEAD, width: b.box.width, height: Math.max(0, b.box.height - PEEK_HEAD) });
+    if (lp.ready && !lp.shade.webContents.isDestroyed()) void lp.shade.webContents.executeJavaScript(`peekBox(${JSON.stringify({ ...b.box, head: PEEK_HEAD })})`, true).catch(() => {});
+  }
+  /** Close it (Esc, the ×, a click outside, or he kept it). */
+  linkPeekClose(): void {
+    const lp = this.lp;
+    if (!lp) return;
+    this.lp = null;
+    const w = lp.pane.win;
+    for (const v of [lp.view, lp.shade]) {
+      try { if (w && !w.isDestroyed()) w.contentView.removeChildView(v); } catch { /* gone */ }
+      try { if (!v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ }
+    }
+    const t = this.tabs.find((x) => x.id === lp.pane.active);
+    if (t?.view && !t.view.webContents.isDestroyed()) t.view.webContents.focus();
+  }
+  /** The strip's keys: keep it as a tab (in front), put it side by side with the page under it, or close it. */
+  peekAct(sender: Electron.WebContents, act: unknown): void {
+    const lp = this.lp;
+    if (!lp || sender !== lp.shade.webContents) return;
+    this.pane = lp.pane;
+    const url = lp.view.webContents.isDestroyed() ? '' : lp.view.webContents.getURL();
+    if (act === 'close' || !/^https?:/i.test(url)) { this.linkPeekClose(); return; }
+    if (act === 'tab') { this.linkPeekClose(); this.newTab(url, lp.from, true); return; }
+    if (act === 'split') {
+      this.linkPeekClose();
+      const id = this.newTab(url, lp.from, false);
+      this.pane = lp.pane;
+      if (id !== null) this.splitOpen(id);
+    }
+  }
+
+  // ------------------------------------------------------------------ sheet 121 (3): hover a tab to see it
+  /**
+   * His pick (2026-11-20): resting the mouse on a tab in the list for a moment shows a small picture of that page with its
+   * full name and address, BESIDE the list. The list itself is not touched: the picture is its own small layer to the
+   * right of it. The page in front is pictured live; the others show the picture taken the last time they were in front.
+   */
+  private tabPeekV: WebContentsView | null = null;
+  private tabPeekOn = false;
+  private tabPeekReady = false;
+  private tabPeekSeq = 0;
+  /** A small picture of the page in front, for the tab list's hover picture. */
+  private async cardOf(t: Tab | undefined): Promise<void> {
+    if (!t?.view || t.crashed || t.blocked || t.failed || t.lent || t.internal || !t.view.getVisible() || t.id !== this.active) return;
+    try { const s = await capture(t.view, { ms: 500, maxWidth: 640, quality: 72 }); if (s) { t.card = s.dataUrl(); t.cardUrl = t.url; } } catch { /* none this time */ }
+  }
+  private tabPeekView(): WebContentsView | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    if (liveView(this.tabPeekV) && this.tabPeekV) {
+      // The layer belongs to one window at a time: moved to the one he is in.
+      if (!w.contentView.children.includes(this.tabPeekV)) { this.tabPeekV.setVisible(false); this.tabPeekOn = false; }
+      return this.tabPeekV;
+    }
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    this.tabPeekReady = false;
+    v.webContents.on('did-finish-load', () => { this.tabPeekReady = true; });
+    void v.webContents.loadURL(`${this.o.origin}/tabpeek.html`).catch(() => { /* gone */ });
+    this.tabPeekV = v;
+    return v;
+  }
+  /** The list: the mouse rests on a tab (its row's top and bottom in the list's own layer), or it left the rows. */
+  async tabPeek(a: { id?: unknown; top?: unknown; bottom?: unknown } | null): Promise<void> {
+    const seq = ++this.tabPeekSeq;
+    const w = this.win, P = this.pane;
+    const hide = () => { if (this.tabPeekOn) { this.tabPeekOn = false; this.tabPeekV?.setVisible(false); } };
+    if (!a || !w || w.isDestroyed() || !P.trayOn) { hide(); return; }
+    const t = this.tabs.find((x) => x.id === Number(a.id) && x.pane === P.id);
+    const top = Number(a.top), bottom = Number(a.bottom);
+    if (!t || !Number.isFinite(top) || !Number.isFinite(bottom)) { hide(); return; }
+    const v = this.tabPeekView();
+    if (!v) return;
+    if (t.id === this.active) await this.cardOf(t);
+    if (seq !== this.tabPeekSeq || !P.trayOn || w.isDestroyed()) return;
+    const shot = t.card ?? t.leftShot ?? null;
+    let host = '', rest = '';
+    try { const u = new URL(t.url); host = u.hostname.replace(/^www\./, ''); rest = (u.pathname === '/' ? '' : u.pathname) + u.search; } catch { host = t.url.startsWith('aang:') ? 'Samara' : t.url; }
+    const W = 356, H = shot ? 278 : 92;
+    const [cw, ch] = w.getContentSize();
+    const x = Math.min(cw - W - 4, P.trayAt.x + TRAY_W[this.tabSize] + 6);
+    const mid = P.trayAt.y + (top + bottom) / 2;
+    const y = Math.max(P.trayAt.y + 4, Math.min(ch - H - 4, Math.round(mid - H / 2)));
+    if (x < P.trayAt.x + 40) { hide(); return; }       // no room beside the list in a narrow window
+    const data = { shot, title: t.title || host, host, rest, playing: t.audible === true && !t.muted };
+    // The page has no doors of its own: it is handed the picture and the words (drawn with textContent there).
+    const paint = () => { if (seq === this.tabPeekSeq && !v.webContents.isDestroyed()) void v.webContents.executeJavaScript(`show(${JSON.stringify(data)})`, true).catch(() => { /* gone */ }); };
+    if (this.tabPeekReady) paint(); else v.webContents.once('did-finish-load', paint);
+    v.setBounds({ x: Math.max(0, x), y, width: W, height: H });
+    if (!this.tabPeekOn || !w.contentView.children.includes(v)) w.contentView.addChildView(v);   // over the page, beside the list
+    this.tabPeekOn = true;
+    v.setVisible(true);
+  }
+
+  // ------------------------------------------------------------------ the band's panels, floating over the live page
+  /** The frame's panel layer: the frame's own page with ?float, see-through, the size of the window, on top while a panel is open. */
+  floatView(): WebContentsView | null {
+    const w = this.win, P = this.pane;
+    if (!w || w.isDestroyed()) return null;
+    if (liveView(P.floatV)) return P.floatV!;
+    // Never slowed while hidden: a menu must draw the moment it shows. It does nothing at rest.
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    P.floatReady = false;
+    v.webContents.on('did-finish-load', () => {
+      this.pane = P;
+      // What the frame was told before this layer could listen: the tab list (with the site, zoom and update state),
+      // the downloads, Claude's plan.
+      for (const [ch, a] of P.floatLast ?? []) if (ch !== 'browser:openupdate') v.webContents.send(ch, ...a);
+      P.floatReady = true;
+      if (this.alive(P)) P.win!.webContents.send('browser:float', { ready: true });
+    });
+    v.webContents.on('render-process-gone', () => { P.floatReady = false; P.floatOn = false; if (this.alive(P)) P.win!.webContents.send('browser:float', { ready: false }); });
+    // His keys work while a menu is open (Ctrl+T, Ctrl+L ...), the same as in the tab list.
+    v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
+    void v.webContents.loadURL(`${this.o.origin}/browser.html?float=1`).catch(() => { /* its window closed while it loaded */ });
+    P.floatV = v;
+    return v;
+  }
+  isFloat(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => this.alive(x) && liveView(x.floatV) && sender === x.floatV!.webContents);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  /** Show the layer over everything (it covers the whole window, so a click anywhere else closes the panel), or put it away. */
+  private floatShow(on: boolean): void {
+    const w = this.win, P = this.pane, v = P.floatV;
+    if (!w || w.isDestroyed() || !liveView(v)) return;
+    if (!on) {
+      if (!P.floatOn) return;
+      P.floatOn = false;
+      v.setVisible(false);
+      // The keyboard goes back to the page he was on (or the band, when there is no page).
+      const t = this.cur();
+      if (t?.view && !t.lent && !t.view.webContents.isDestroyed() && t.view.getVisible()) t.view.webContents.focus(); else w.webContents.focus();
+      return;
+    }
+    const [cw, ch] = w.getContentSize();
+    v.setBounds({ x: 0, y: 0, width: cw, height: ch });
+    if (!P.floatOn) w.contentView.addChildView(v);   // to the top, over the page, the tab list and the rune
+    P.floatOn = true;
+    v.setVisible(true);
+    v.webContents.focus();
+  }
+  /** The frame: a key of the band was pressed; its panel opens in the layer. */
+  floatFromFrame(a: Record<string, unknown>): void {
+    const P = this.pane;
+    if (typeof a.click !== 'string' || !/^(menukey|star|lock|dlkey|upkey)$/.test(a.click)) return;
+    const v = this.floatView();
+    if (!v || !P.floatReady) return;
+    this.floatShow(true);
+    v.webContents.send('browser:float', { click: a.click, kb: a.kb === true });
+  }
+  /** The layer: a panel opened (show it) or the last one closed (put it away); the band's keys show which are open. */
+  floatFromLayer(a: Record<string, unknown>): void {
+    const P = this.pane;
+    if (a.open === true) this.floatShow(true);
+    else if (a.open === false) this.floatShow(false);
+    if (Array.isArray(a.over) && this.alive(P)) P.win!.webContents.send('browser:float', { over: a.over.filter((x) => typeof x === 'string').slice(0, 10) });
+    // A menu line that works on the band itself (find on the page, this site's notes, the tab list): the band does it.
+    if (typeof a.frame === 'string' && ['find', 'sitenotes', 'drawer'].includes(a.frame) && this.alive(P)) P.win!.webContents.send('browser:float', { do: a.frame });
+  }
+  /** The window changed size while a panel is open: the layer follows. */
+  private placeFloat(): void {
+    const w = this.win, P = this.pane, v = P.floatV;
+    if (!P.floatOn || !w || w.isDestroyed() || !liveView(v)) return;
+    const [cw, ch] = w.getContentSize();
+    v.setBounds({ x: 0, y: 0, width: cw, height: ch });
+  }
+
   // ------------------------------------------------------------------ sheet 87, the secret window
   /**
    * Fill the screen, or back to a size easy to drag and resize (2026-10-25, his ask: "like Windows, double-click when
@@ -2627,6 +3020,16 @@ export class AangBrowser {
     this.pane = p;
     this.focused = p;
     lockDown(w.webContents);
+    // Sheet 120 A: what the band's panels draw from goes to their floating layer too (and is kept for when it loads).
+    p.floatLast = new Map();
+    const frameSend = w.webContents.send.bind(w.webContents);
+    w.webContents.send = ((ch: string, ...args: unknown[]) => {
+      frameSend(ch, ...args);
+      if (!FLOAT_CHANNELS.has(ch)) return;
+      p.floatLast!.set(ch, args);
+      const v = p.floatV;
+      if (p.floatReady && liveView(v)) v!.webContents.send(ch, ...args);
+    }) as typeof w.webContents.send;
     softEdge(w);
     // M6: on the Mac, 'hidden' still shows the red, yellow and green buttons, floating over the band's left end (his
     // report, 2026-10-13). Aang's own gold buttons are the window's buttons on both machines.
@@ -2635,8 +3038,9 @@ export class AangBrowser {
     let keep: NodeJS.Timeout | null = null;
     // Where the first window was is kept for next time; the others are made by dragging and open where they are dropped.
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); }, 800); };
-    w.on('focus', () => { this.focused = p; });
-    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); keepSoon(); });
+    w.on('focus', () => { this.focused = p; this.frontNow(); });
+    w.on('blur', () => setTimeout(() => this.frontNow(), 60));
+    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); this.placeFloat(); if (this.lp?.pane === p) this.placePeek(); keepSoon(); });
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
@@ -2649,8 +3053,11 @@ export class AangBrowser {
       this.pane = p;
       // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
       // window, and each close and reopen left four of them running (2026-10-30, stability check).
-      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
-      p.lightV = null; p.sugV = null; p.noticeV = null; p.handV = null;
+      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV, p.floatV]) { try { if (liveView(v)) v!.webContents.close(); } catch { /* gone */ } }
+      // The tab list's hover picture and a peek lived in this window: they go with it.
+      if (this.tabPeekV && !this.panes.some((x) => x !== p && this.alive(x) && x.win!.contentView.children.includes(this.tabPeekV!))) { try { if (liveView(this.tabPeekV)) this.tabPeekV.webContents.close(); } catch { /* gone */ } this.tabPeekV = null; this.tabPeekOn = false; }
+      if (this.lp?.pane === p) this.lp = null;
+      p.lightV = null; p.sugV = null; p.noticeV = null; p.handV = null; p.floatV = null; p.floatOn = false; p.floatReady = false;
       // A notice it was showing moves to the window left (next time one is placed).
       if (this.noticePane === p) { this.noticePane = null; if (this.noticeNow) setTimeout(() => { if (this.noticeNow && !this.noticePane) void this.noticePlace(++this.noticeGen); }, 0); }
       const others = this.panes.filter((x) => x !== p && this.alive(x));
@@ -2696,6 +3103,9 @@ export class AangBrowser {
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
     w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.sugView(); this.noticeView(); this.pane = was; }, 3000));
+    // The panels' layer sooner: the ⋯ menu is often the first thing he clicks. Until it has loaded, the band opens its
+    // panels the old way (on a picture of the page).
+    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.floatView(); this.pane = was; }, 600));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
@@ -2703,6 +3113,7 @@ export class AangBrowser {
         const list = (Array.isArray(bring) ? bring : [bring]).filter((t) => this.tabs.includes(t) && !t.lent && this.paneOfTab(t));
         for (const t of list) this.moveTo(t, p);           // the last one moved ends up in front
         if (!list.length) this.newTab(this.HOME);
+        this.adoptSplits();
         return;
       }
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
@@ -2742,7 +3153,12 @@ export class AangBrowser {
     if (!t || t.lent || !this.alive(src)) return;
     const pt = screen.getCursorScreenPoint();
     const inside = (w: BrowserWindow) => { const b = w.getBounds(); return pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height; };
-    if (inside(src.win)) return;                               // let go inside its own window: nothing happens
+    if (inside(src.win)) {
+      // Sheet 121 (4): let go at the window's right edge, the tab goes side by side with the page in front.
+      const cb = src.win.getContentBounds();
+      if (pt.x >= cb.x + cb.width * (1 - SPLIT_EDGE) && pt.y >= cb.y + this.inset.top) { this.pane = src; this.tray(false); this.splitOpen(t.id); }
+      return;                                                  // elsewhere inside its own window: nothing happens
+    }
     this.pane = src;
     this.tray(false);
     const into = this.panes.find((x) => x !== src && this.alive(x) && inside(x.win!));
@@ -2822,9 +3238,13 @@ export class AangBrowser {
     if (!t?.view || t.lent) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
     if (t.crashed || t.blocked || t.failed || this.pinOpen) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); this.veilDown(0); return; }
-    if (this.fullTab === t.id) { t.view.setBounds({ x: 0, y: 0, width: cw, height: ch }); this.veilDown(0); return; }
+    if (this.fullTab === t.id) { t.view.setBounds({ x: 0, y: 0, width: cw, height: ch }); this.partnerOf(t.id)?.view?.setVisible(false); this.veilDown(0); this.splitSend(); return; }
+    // Sheet 121 (4): two pages side by side.
+    const pair = this.splitShown();
+    if (pair) { this.placeSplit(pair); this.splitSend(); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
     if (this.veil?.up && this.curtain) this.curtain.setBounds(t.view.getBounds());
+    this.splitSend();
   }
 
   // ------------------------------------------------------------------ the soft fade between pages (his pick, 2026-10-12)
@@ -2985,6 +3405,7 @@ export class AangBrowser {
     // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
     const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
+    on('focus', () => this.splitFocus(tab));          // sheet 121 (4): a click into the other page of a pair makes it the one in front
     this.nameFor(wc);
     if (!tab.internal) declineCookies(wc);                                         // cookiedecline.ts: banners rejected by themselves
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
@@ -3135,6 +3556,8 @@ export class AangBrowser {
       // it has held still (painted()).
       if (this.veil?.tab === tab.id && !tab.waking) this.veilDown(VEIL_FADE_MS);
       this.sendTabs();
+      // Sheet 121 (3): its hover picture, once it has settled (only the page in front can be pictured).
+      setTimeout(() => { if (tab.id === this.active) void this.cardOf(tab); }, 1200);
       void this.googleCheck(wc, () => { const h = wc.navigationHistory, i = h.getActiveIndex(); return i > 0 ? h.getEntryAtIndex(i - 1)?.url ?? '' : ''; });
     });
     // The loading steps (2026-10-12): the click, the site answering, the page read, the page drawn (painted()).
@@ -3585,7 +4008,7 @@ export class AangBrowser {
   }
   /** Out of sight and quiet: a tab that may be frozen or put to sleep right now. */
   private mayRest(t: Tab): boolean {
-    return Boolean(t.view) && !t.lent && !t.call && !t.internal && !t.audible && !t.crashed && !this.panes.some((p) => p.active === t.id);
+    return Boolean(t.view) && !t.lent && !t.call && !t.internal && !t.audible && !t.crashed && !this.inFront(t);
   }
   /** A freeze still under way is called off (it backs out, or thaws the page itself); a frozen page thaws. */
   thaw(t: Tab): void { if (t.freezing) { t.freezing = false; return; } if (t.frozen) void this.freeze(t, false); }
@@ -3640,10 +4063,10 @@ export class AangBrowser {
     }
     // A tab a Claude or Aang job has (its own, or his lent) never sleeps or freezes: its page is what the job is using.
     const jobs = (t: Tab) => Boolean(this.driver.pageOfTab(t.id));
-    const can = (t: Tab) => t.view && !t.lent && !t.call && !t.internal && !jobs(t) && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_MIN_MS;
+    const can = (t: Tab) => t.view && !t.lent && !t.call && !t.internal && !jobs(t) && !this.inFront(t) && !t.audible && now - t.lastSeen > SLEEP_MIN_MS;
     let any = false;
     // Frozen first: out of sight for 5 minutes and silent; a call, the pop-out and Claude's work never.
-    for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !jobs(t) && !t.audible && !this.panes.some((p) => p.active === t.id) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
+    for (const t of this.tabs) if (t.view && !t.frozen && !t.lent && !t.call && !t.internal && !jobs(t) && !t.audible && !this.inFront(t) && now - t.lastSeen > FREEZE_AFTER_MS) await this.freeze(t, true);
     const rest = async (t: Tab) => { await this.rest(t); any = true; };
     for (const t of this.tabs) if (can(t) && now - t.lastSeen > SLEEP_AFTER_MS) await rest(t);
     if (await memoryShort()) {
@@ -3740,6 +4163,9 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return;
     if (other) w.focus();
     const mine = this.paneTabs();
+    // Sheet 121 (4): the other page of a pair stays shown beside it.
+    const partner = t.lent ? null : this.partnerOf(id);
+    if (partner && !partner.view) this.wake(partner); else if (partner) this.thaw(partner);
     // Every live tab stays in the window; switching only shows one and hides the rest. Placed first, then
     // shown, so it never appears for a moment at the last tab's size.
     if (t.lent) {
@@ -3763,10 +4189,11 @@ export class AangBrowser {
     // A tab still loading with nothing drawn yet (a new tab, a tab waking up): the page he was on stays until the
     // curtain holds its picture, then the new one fades in as it draws, never a blank frame (his ask, 2026-10-13).
     const fresh = !this.drawerOpen && Boolean(t.phase) && t.phase !== 'idle' && !t.drawn;
-    const hold = fresh && prev && prev.id !== id && prev.view && !prev.lent && !prev.crashed && !prev.blocked && !prev.failed && prev.view.getVisible() ? prev : undefined;
+    const hold = fresh && prev && prev.id !== id && prev !== partner && prev.view && !prev.lent && !prev.crashed && !prev.blocked && !prev.failed && prev.view.getVisible() ? prev : undefined;
     // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
     if (!this.drawerOpen && !hold) t.view!.setVisible(true);
-    for (const x of mine) if (x.id !== id && x !== hold && x.view && !x.lent) x.view.setVisible(false);
+    for (const x of mine) if (x.id !== id && x !== hold && x !== partner && x.view && !x.lent) x.view.setVisible(false);
+    if (partner?.view && !this.drawerOpen && !partner.crashed) partner.view.setVisible(true);
     if (fresh) void this.veilUp(t, hold);
     if (!t.crashed) t.view!.webContents.focus();
     // The drawer is open: the page area is a still picture, so take a fresh one of the tab now in front. Without this
@@ -5100,6 +5527,16 @@ export class AangBrowser {
   private railCats: string[] = [];
   /** A new note for this site, from the rail (main.ts sends it to the brain). */
   onNoteSave: ((n: RailNote) => void) | null = null;
+  /** 2026-11-20 (his rule): a Samara window gained or lost the front; Aang's Ctrl and + steps aside so it zooms the page. */
+  onFront?: (front: boolean) => void;
+  private frontWas = false;
+  private frontNow(): void {
+    const f = BrowserWindow.getFocusedWindow();
+    const on = Boolean(f && this.panes.some((p) => p.win === f));
+    if (on === this.frontWas) return;
+    this.frontWas = on;
+    try { this.onFront?.(on); } catch { /* the key is Aang's business */ }
+  }
   /** A note in the rail clicked: it opens where notes open (Aang's bubble). */
   onNoteOpen: ((id: string) => void) | null = null;
   /** The brain's notes changed: the ones that came from a page (src) go to every window with its rail open. */
@@ -5454,7 +5891,7 @@ export class AangBrowser {
   /** He can see it, or it may play out of sight: a call, the pop-out, Spotify (his only music). */
   private seen(t: Tab): boolean {
     let spotify = false; try { spotify = /(^|\.)spotify\.com$/i.test(new URL(t.url).hostname); } catch { /* not an address */ }
-    return t.lent || t.call === true || spotify || this.panes.some((p) => p.active === t.id);
+    return t.lent || t.call === true || spotify || this.inFront(t);
   }
   /** His rule (2026-10-20): a tab he leaves pauses, and a tab he is not looking at never starts playing. */
   private quietHidden(): void {
@@ -6329,6 +6766,8 @@ export class AangBrowser {
       case 'zoomin': if (wc && t) { t.zoom = Math.min(5, wc.getZoomLevel() + 0.5); wc.setZoomLevel(t.zoom); this.changed(); } break;
       case 'zoomout': if (wc && t) { t.zoom = Math.max(-5, wc.getZoomLevel() - 0.5); wc.setZoomLevel(t.zoom); this.changed(); } break;
       case 'zoomreset': if (wc && t) { t.zoom = 0; wc.setZoomLevel(0); this.changed(); } break;
+      // Sheet 121 (4): "Side by side" in the ⋯ menu, or "Close side by side" while two pages show.
+      case 'split': if (this.splitShown()) this.splitClose(); else this.splitOpen(); break;
       case 'newtab': this.newTab(this.HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
@@ -6517,6 +6956,8 @@ export class AangBrowser {
       })),
       trails,
       closed,
+      // Sheet 121 (4): each window's pair of pages side by side.
+      splits: windows.map((p, i) => { const s = p.split; if (!s) return null; const l = keep.findIndex((t) => t.id === s.left), r = keep.findIndex((t) => t.id === s.right); return l >= 0 && r >= 0 ? { win: i, left: l, right: r, ratio: s.ratio } : null; }).filter(Boolean),
     });
     // Closing or quitting: written once at once with what is known (2026-10-28: quitting could end Samara before the
     // pages answered below, and then nothing of the last few seconds was kept), then again with their scroll spots.
@@ -6576,6 +7017,12 @@ export class AangBrowser {
       list.forEach((t: { win?: unknown }, i: number) => { const w = this.o.secret ? 0 : Math.max(0, Math.min(6, Number(t.win) || 0)); if (w > 0) { const a = wins.get(w) ?? []; a.push(this.tabs[at0 + i]!); wins.set(w, a); } });
       const fronts: number[] = Array.isArray(s.fronts) ? s.fronts.map((n: unknown) => Number(n)) : [];
       const here = this.tabs.filter((t) => ![...wins.values()].some((a) => a.includes(t)));
+      // Sheet 121 (4): the pairs side by side, taken up once both tabs are in their window.
+      this.splitsWanted = (Array.isArray(s.splits) ? s.splits : []).flatMap((x: { left?: unknown; right?: unknown; ratio?: unknown }) => {
+        const L = this.tabs[at0 + Number(x?.left)], R = this.tabs[at0 + Number(x?.right)];
+        return L && R && L !== R && Number.isInteger(Number(x?.left)) && Number.isInteger(Number(x?.right)) ? [{ L, R, ratio: clampSplit(Number(x?.ratio)) }] : [];
+      });
+      this.adoptSplits();
       const want = this.tabs[at0 + Number(fronts[0])];
       const a = at0 + Math.min(Math.max(0, Number(s.active) || 0), list.length - 1);
       this.activate((want && here.includes(want) ? want : here[0] ?? this.tabs[a]!).id);
@@ -6642,6 +7089,7 @@ export class AangBrowser {
       hyrule: Boolean(this.o.hyruleDir),
       // 2026-10-22: the notes rail needs Aang (its notes live in his brain). Samara alone or on the Mac: the row is hidden.
       notes: Boolean(this.onNoteSave),
+      split: this.splitShown() !== null,
       // The trails with a tab in this window (or the one about to start here).
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || tr.mock || mine.some((x) => x.trail === tr.id)),
       // Sheet 111: Claude's group rows are real tabs: their name and icon are the tab's, and he may have one (YOU HAVE IT).

@@ -17,6 +17,12 @@ const failCat = catScene(el('failcat'));
 // old drawer, which showed a picture of the page). This same page, opened with ?tray, is that layer: only the list.
 const SOLO = new URLSearchParams(location.search).has('tray');
 if (SOLO) document.documentElement.classList.add('solo');
+// Sheet 120 A (2026-11-20): the band's menus and panels float over the LIVE page in their own see-through layer, which is
+// this same page opened with ?float. There only the open panel shows; the band's keys hand their clicks to it.
+const FLOAT = new URLSearchParams(location.search).has('float');
+if (FLOAT) document.documentElement.classList.add('float');
+/** The band (not a layer): its panels live in the floating layer once that layer has loaded. */
+let floated = false;
 const tabsBox = el('tabs'), urlEl = el('url'), lock = el('lock'), edit = el('edit'), loading = el('loading');
 let state = { active: null, tabs: [], canBack: false, canForward: false };
 /** His rule (2026-10-22): a name carries its icon. The last row added to a menu (Send to Aang) gets Aang's face in front. */
@@ -29,7 +35,7 @@ function aangFaceOn(m) {
 // ---- 6.19: where the page area is. Measured, then the Shell keeps it in place on every resize itself.
 const page = el('page');
 function report() {
-  if (SOLO) return;                         // the tray layer has no page area of its own
+  if (SOLO || FLOAT) return;                // the tray and panel layers have no page area of its own
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
   // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it. Sheet 89
   // (his "badly misaligned"): the page's whole recess moves with it, so the ask hangs over the band's wood and the page
@@ -81,8 +87,64 @@ const frozen = el('frozen');
 let drawerOpen = false, drawerWait = 0;
 // The drawer and the ⋯ menu both lie over the page, so the page is pictured while EITHER is open.
 const over = new Set();
-function freeze(who) { const was = over.size; over.add(who); if (!was) window.aang?.browserAct?.('drawer-open'); }
-function unfreeze(who, after = 0) { over.delete(who); setTimeout(() => { if (!over.size) window.aang?.browserAct?.('drawer-close'); }, after); }
+// In the panel layer a panel opening shows the layer and the last one closing puts it away; the band itself then never
+// freezes the page (its own copies of the panels are not drawn). Before the layer has loaded the band works as before.
+function freeze(who) {
+  const was = over.size; over.add(who);
+  if (FLOAT) { window.aang?.browserFloat?.({ open: true, over: [...over] }); return; }
+  if (floated) return;
+  if (!was) window.aang?.browserAct?.('drawer-open');
+}
+function unfreeze(who, after = 0) {
+  over.delete(who);
+  setTimeout(() => {
+    if (FLOAT) { window.aang?.browserFloat?.({ open: over.size > 0, over: [...over] }); return; }
+    if (!over.size) window.aang?.browserAct?.('drawer-close');
+  }, after);
+}
+// The band: its keys open their panels in the layer (a click, Enter or Space on them; a click the band makes itself too).
+const FLOAT_KEYS = '#menukey, #star, #lock, #dlkey, #upkey';
+if (!SOLO && !FLOAT) {
+  document.addEventListener('click', (e) => {
+    if (!floated) return;
+    const k = e.target instanceof Element ? e.target.closest(FLOAT_KEYS) : null;
+    if (!k) return;
+    e.stopPropagation(); e.preventDefault();
+    window.aang?.browserFloat?.({ click: k.id, kb: e.detail === 0 });
+  }, true);
+  window.aang?.onBrowserFloat?.((f) => {
+    if (!f) return;
+    if (typeof f.ready === 'boolean') { floated = f.ready; document.documentElement.classList.toggle('floated', f.ready); }
+    // What is open in the layer, on the band's keys (pressed in, and what a screen reader hears).
+    if (Array.isArray(f.over)) {
+      el('menukey').setAttribute('aria-expanded', String(f.over.includes('menu')));
+      el('dlkey').setAttribute('aria-expanded', String(f.over.includes('dl')));
+      el('upkey').setAttribute('aria-expanded', String(f.over.includes('up')));
+      lock.classList.toggle('open', f.over.includes('site'));
+    }
+    // A menu line that works on the band itself: find on the page, this site's notes, the tab list.
+    if (f.do === 'find') setTimeout(openFind, 0);
+    if (f.do === 'sitenotes') openRail();
+    if (f.do === 'drawer') openDrawer();
+  });
+}
+if (FLOAT) {
+  window.aang?.onBrowserFloat?.((f) => {
+    if (!f || typeof f.click !== 'string' || !/^(menukey|star|lock|dlkey|upkey)$/.test(f.click)) return;
+    el(f.click).click();
+    if (f.kb && f.click === 'menukey' && menuOpen) menuFocus(0);
+    // A key that opened nothing (the shield on a page with no site): the layer goes again at once.
+    setTimeout(() => { if (!over.size) window.aang?.browserFloat?.({ open: false, over: [] }); }, 80);
+  });
+  // Esc closes whatever is open; the layer goes with the last one.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    closeMenu(); closeDl();
+    if (!el('sitepanel').hidden) { el('sitepanel').hidden = true; lock.classList.remove('open'); }
+  });
+}
+/** A menu line meant for the band (the layer has no visible band): the band does it. */
+function onBand(what, here) { if (FLOAT) window.aang?.browserFloat?.({ frame: what }); else here(); }
 // The list itself is drawn by the tray layer; here the handle only asks for it, and says where it goes.
 function trayRect() {
   const k = el('drawerkey').getBoundingClientRect(), b = document.querySelector('.body3').getBoundingClientRect();
@@ -161,6 +223,87 @@ if (SOLO) {
   el('rail').setAttribute('aria-hidden', 'false');
 }
 
+// ---- Sheet 121 (4), his pick 2026-11-20: two pages side by side. The Shell places the two pages; the band draws a name
+// strip over each (a click picks that page, its × ends the pair and both tabs stay), the gold edge on the page in use, and
+// the wood peg between them (drag it, or arrow keys on it, to share the space).
+if (!SOLO && !FLOAT) {
+  const SB_MIN = 0.2, sbClamp = (r) => (Number.isFinite(r) ? Math.min(1 - SB_MIN, Math.max(SB_MIN, r)) : 0.5);
+  const sbs = el('sbs'), peg = el('sbpeg');
+  let sb = null;
+  const side = (box, t, on) => {
+    box.classList.toggle('on', on);
+    const img = box.querySelector('.fav');
+    if (t.favicon) { img.src = t.favicon; img.hidden = false; img.onerror = () => { img.hidden = true; }; } else img.hidden = true;
+    box.querySelector('b').textContent = t.host || t.title || '';
+    box.querySelector('.pa').textContent = t.rest || '';
+    box.querySelector('.ph').title = t.title || '';
+    box.querySelector('.x').setAttribute('aria-label', 'Close ' + (t.host || 'this side'));
+  };
+  const paintSb = () => {
+    sbs.hidden = !sb;
+    page.classList.toggle('sbon', Boolean(sb));
+    if (!sb) return;
+    const W = page.clientWidth, gap = sb.gap || 22, lw = Math.max(0, Math.round((W - gap) * sbClamp(sb.ratio)));
+    el('sbl').style.cssText = 'left:0;width:' + lw + 'px';
+    el('sbgut').style.cssText = 'left:' + lw + 'px;width:' + gap + 'px';
+    el('sbr').style.cssText = 'left:' + (lw + gap) + 'px;width:' + Math.max(0, W - lw - gap) + 'px';
+    for (const b of sbs.querySelectorAll('.ph')) b.style.height = (sb.head || 34) + 'px';
+    side(el('sbl'), sb.left, sb.on === 'left'); side(el('sbr'), sb.right, sb.on === 'right');
+    peg.setAttribute('aria-valuenow', String(Math.round(sbClamp(sb.ratio) * 100)));
+  };
+  window.aang?.onBrowserSplit?.((s) => { sb = s && typeof s === 'object' && s.left && s.right ? s : null; paintSb(); });
+  new ResizeObserver(paintSb).observe(page);
+  for (const [box, k] of [[el('sbl'), 'left'], [el('sbr'), 'right']]) {
+    box.querySelector('.ph').addEventListener('click', (e) => { if (!sb) return; const id = sb[k].id; window.aang?.browserSplit?.({ act: e.target.closest('.x') ? 'close' : 'focus', id }); });
+  }
+  // The peg: pressed and dragged (the pages follow as it moves), or Left and Right on it; a double-click halves it again.
+  let moveRaf = 0;
+  const share = (x) => { const r = page.getBoundingClientRect(), gap = sb?.gap || 22; return sbClamp((x - r.left - gap / 2) / Math.max(1, r.width - gap)); };
+  const send = (done) => { cancelAnimationFrame(moveRaf); moveRaf = 0; if (sb) window.aang?.browserSplit?.({ ratio: sb.ratio, done }); };
+  peg.addEventListener('pointerdown', (e) => {
+    if (!sb || e.button !== 0) return;
+    e.preventDefault();
+    peg.setPointerCapture(e.pointerId);
+    document.documentElement.classList.add('sbdrag');
+    const move = (m) => { sb.ratio = share(m.clientX); paintSb(); if (!moveRaf) moveRaf = requestAnimationFrame(() => { moveRaf = 0; send(false); }); };
+    const end = () => { peg.removeEventListener('pointermove', move); peg.removeEventListener('pointerup', end); peg.removeEventListener('pointercancel', end); document.documentElement.classList.remove('sbdrag'); send(true); };
+    peg.addEventListener('pointermove', move); peg.addEventListener('pointerup', end); peg.addEventListener('pointercancel', end);
+  });
+  peg.addEventListener('keydown', (e) => {
+    if (!sb) return;
+    const d = e.key === 'ArrowLeft' ? -0.05 : e.key === 'ArrowRight' ? 0.05 : e.key === 'Home' ? -1 : e.key === 'End' ? 1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    sb.ratio = sbClamp(sb.ratio + d); paintSb(); send(true);
+  });
+  peg.addEventListener('dblclick', () => { if (sb) { sb.ratio = 0.5; paintSb(); send(true); } });
+}
+
+// ---- Sheet 121 (3), his pick 2026-11-20: hover a tab to see it. Resting on a row for 0.4 s shows a picture of the page
+// BESIDE the list (the Shell's own small layer); moving on to another row shows that one at once. Only listening here:
+// nothing about the list, its rows or its timing changes.
+if (SOLO) {
+  let peekT = 0, peekId = null;
+  const peekOff = () => { clearTimeout(peekT); if (peekId !== null) { peekId = null; window.aang?.browserTabPeek?.(null); } };
+  tabsBox.addEventListener('pointerover', (e) => {
+    const row = e.target instanceof Element ? e.target.closest('.tp[data-tab]') : null;
+    if (!row || dragging || e.buttons) return;
+    const id = Number(row.dataset.tab);
+    if (!Number.isInteger(id) || id === peekId) return;
+    clearTimeout(peekT);
+    peekT = setTimeout(() => {
+      if (!row.isConnected) return;
+      const r = row.getBoundingClientRect();
+      peekId = id;
+      window.aang?.browserTabPeek?.({ id, top: Math.round(r.top), bottom: Math.round(r.bottom) });
+    }, peekId !== null ? 0 : 400);
+  });
+  tabsBox.addEventListener('pointerout', (e) => { const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest('.tp[data-tab]') : null; if (!to) peekOff(); });
+  for (const ev of ['pointerdown', 'wheel', 'dragstart', 'contextmenu']) tabsBox.addEventListener(ev, peekOff, true);
+  document.querySelector('.drawer')?.addEventListener('scroll', peekOff, { passive: true });
+  document.documentElement.addEventListener('mouseleave', peekOff);
+}
+
 // ---- the ⋯ menu: the browser's settings, grouped. Its switches are real: ads, popups, sounds.
 const menu = el('menu'), menukey = el('menukey');
 let menuOpen = false;
@@ -172,6 +315,8 @@ function openMenu() {
   menukey.setAttribute('aria-expanded', 'true');
   paintMenu();
   menu.hidden = false;
+  // The keyboard goes to the menu itself, so Up and Down work at once (Enter or Space on the ⋯ key lands on its first line).
+  if (FLOAT) menu.focus({ preventScroll: true });
   freeze('menu');
 }
 function closeMenu() {
@@ -189,6 +334,8 @@ function paintMenu() {
   // Phase 5: only where Samara is its own program (samara.ts sets it), never in the secret window.
   el('m-quit').hidden = state.canQuit !== true || state.secret === true;
   el('m-tvbox').hidden = true; el('m-tv').classList.remove('open');
+  // Sheet 121 (4): the same line opens two pages side by side, or puts them back to one.
+  el('m-split').firstElementChild.textContent = state.split ? 'Close side by side' : 'Side by side';
 }
 menukey.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
 menu.addEventListener('click', (e) => e.stopPropagation());
@@ -198,15 +345,39 @@ el('zout').addEventListener('click', () => window.aang?.browserAct?.('zoomout'))
 el('zreset').addEventListener('click', () => window.aang?.browserAct?.('zoomreset'));
 el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang?.browserAct?.('newtab'); });
 el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
-el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind, 0); });
+el('m-find').addEventListener('click', () => { closeMenu(); onBand('find', () => setTimeout(openFind, 0)); });
 // Sheet 60 section 4: this site's notes, in the rail on the right (sitenotes.js).
-el('m-sitenotes').addEventListener('click', () => { closeMenu(); openRail(); });
+el('m-sitenotes').addEventListener('click', () => { closeMenu(); onBand('sitenotes', openRail); });
 el('m-print').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('print'); });
-el('m-tv').addEventListener('click', () => { const box = el('m-tvbox'); box.hidden = !box.hidden; el('m-tv').classList.toggle('open', !box.hidden); });
+el('m-tv').addEventListener('click', () => { const box = el('m-tvbox'); box.hidden = !box.hidden; el('m-tv').classList.toggle('open', !box.hidden); el('m-tv').setAttribute('aria-expanded', String(!box.hidden)); });
+// ---- the ⋯ menu by keyboard (sheet 120 A): its lines are menu items. Up and Down move, Home and End jump, Right opens
+// Send to TV and Left folds it, Esc or Tab closes the menu.
+function menuItems() { return [...menu.querySelectorAll('[role="menuitem"]')].filter((b) => !b.disabled && b.offsetParent !== null); }
+function menuFocus(i) {
+  const l = menuItems();
+  if (!l.length) return;
+  const k = ((i % l.length) + l.length) % l.length;
+  l.forEach((b, j) => { b.tabIndex = j === k ? 0 : -1; });
+  l[k].focus();
+}
+menu.addEventListener('keydown', (e) => {
+  const l = menuItems(), at = l.indexOf(document.activeElement);
+  const tv = el('m-tv'), box = el('m-tvbox');
+  if (e.key === 'ArrowDown') menuFocus(at + 1);
+  else if (e.key === 'ArrowUp') menuFocus(at < 0 ? -1 : at - 1);
+  else if (e.key === 'Home') menuFocus(0);
+  else if (e.key === 'End') menuFocus(-1);
+  else if (e.key === 'ArrowRight' && document.activeElement === tv && box.hidden) { tv.click(); menuFocus(menuItems().indexOf(el('m-tvwin'))); }
+  else if (e.key === 'ArrowLeft' && box.contains(document.activeElement)) { tv.click(); menuFocus(menuItems().indexOf(tv)); }
+  else if (e.key === 'Escape' || e.key === 'Tab') closeMenu();
+  else return;
+  e.preventDefault(); e.stopPropagation();
+});
 el('m-tvwin').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserTab?.({ id: state.active, act: 'tvwindow' }); });
 el('m-tvvid').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserTab?.({ id: state.active, act: 'tvvideo' }); });
 el('m-other').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserToMac?.(state.active); });
-el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('tidy'); });
+el('m-split').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('split'); });
+el('m-tidy').addEventListener('click', () => { closeMenu(); onBand('drawer', openDrawer); window.aang?.browserAct?.('tidy'); });
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
 el('m-quit').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('quit'); });
@@ -442,6 +613,13 @@ window.aang?.onBrowserFrozen?.((src) => {
 el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : openDrawer()));
 
 let newSeen = 0;
+// Sheet 121 (6), his pick 2026-11-20: a gold speaker on the folded tab handle while any tab here plays sound. Only the
+// mark: the handle itself does not change.
+function paintSoundMark() {
+  if (SOLO || FLOAT) return;
+  const on = state.tabs.some((t) => t.audible && !t.muted);
+  el('sndmark').hidden = !on;
+}
 function newTabsArrived(n) {
   if (SOLO) return;
   const tag = el('newn');
@@ -468,7 +646,7 @@ handle.addEventListener('dragenter', () => { if (!drawerOpen) openDrawer(); });
 // Anything that will cover the page: take its picture while the mouse is on the way, so the click is instant.
 // Not the address slot (measured 2026-10-20): the mouse crosses it all the time, and each pass took a picture of the
 // page for nothing. A click on it takes the picture then.
-for (const id of ['menukey', 'dlkey']) el(id)?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
+for (const id of ['menukey', 'dlkey']) el(id)?.addEventListener('pointerenter', () => { if (!floated) window.aang?.browserAct?.('peek'); });
 // A click on the page (its picture) puts the drawer away, as clicking outside any drawer does.
 page.addEventListener('pointerdown', () => { closeDrawer(); closeMenu(); });
 // A new tab from the list keeps the list open (his ask, 2026-10-13); it goes when the mouse leaves it.
@@ -477,7 +655,7 @@ el('newtab').addEventListener('click', () => { if (!SOLO) closeDrawer(); });
 // ---- the little wood sounds: off until he turns them on in Settings. Made here, no sound files.
 let audio = null;
 function tap(pitch = 1) {
-  if (!state.sounds) return;
+  if (!state.sounds || FLOAT) return;       // the band makes the sounds; the panel layer never doubles them
   try {
     audio ??= new AudioContext();
     const now = audio.currentTime, len = Math.floor(audio.sampleRate * 0.05);
@@ -1177,8 +1355,24 @@ lock.addEventListener('click', (e) => {
 // Sheet 37: the shield's panel, every rule for this site. The Shell sends them in state.site.
 for (const s of document.querySelectorAll('#sitepanel [data-pix]')) { const svg = pixIcon(s.dataset.pix, 2); if (svg) s.append(svg); }
 function setSw(id, on, disabled = false) { el(id).classList.toggle('on', on); el(id).setAttribute('aria-checked', String(on)); el(id).disabled = disabled; }
-const TRI = { allow: ['Allow', 'primary'], ask: ['Ask', ''], block: ['Block', 'burnt'] };
-function setTri(id, v) { const [w, c] = TRI[v] ?? TRI.ask; el(id).textContent = w; el(id).className = 'key sm tri ' + c; el(id).dataset.v = v in TRI ? v : 'ask'; }
+// Camera and microphone: Allow / Ask / Block as one segmented row (sheet 120 A: one control for a choice of a few).
+function setTri(id, v) {
+  const now = ['allow', 'ask', 'block'].includes(v) ? v : 'ask';
+  el(id).dataset.v = now;
+  for (const b of el(id).querySelectorAll('[role="radio"]')) { const on = b.dataset.v === now; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; }
+}
+/** A segmented row: a click picks; Left and Right (or Up and Down) move and pick, as a radio group does. */
+function segRow(box, pick) {
+  box.addEventListener('click', (e) => { const b = e.target.closest('[role="radio"]'); if (b && box.contains(b)) pick(b.dataset.v); });
+  box.addEventListener('keydown', (e) => {
+    const l = [...box.querySelectorAll('[role="radio"]')], at = l.findIndex((b) => b.getAttribute('aria-checked') === 'true');
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const n = l[(at + d + l.length) % l.length];
+    n.focus(); pick(n.dataset.v);
+  });
+}
 function paintSite() {
   const st = state.site;
   setSw('adsw', state.adsOn && !state.adsPaused, !state.adsOn);
@@ -1207,9 +1401,8 @@ el('darksw').addEventListener('click', (e) => { e.preventDefault(); if (state.da
 el('popsw').addEventListener('click', (e) => { e.preventDefault(); if (state.site) rule('popups', !state.site.popupBlock); });
 el('aisw').addEventListener('click', (e) => { e.preventDefault(); if (state.site) rule('ai', !state.site.ai); });
 el('loginsw').addEventListener('click', (e) => { e.preventDefault(); if (state.site?.ai) rule('login', !state.site.login); });
-const NEXT = { allow: 'ask', ask: 'block', block: 'allow' };
-el('camk').addEventListener('click', () => rule('camera', NEXT[el('camk').dataset.v] ?? 'ask'));
-el('mick').addEventListener('click', () => rule('mic', NEXT[el('mick').dataset.v] ?? 'ask'));
+segRow(el('camk'), (v) => { setTri('camk', v); rule('camera', v); });
+segRow(el('mick'), (v) => { setTri('mick', v); rule('mic', v); });
 document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) { el('sitepanel').hidden = true; lock.classList.remove('open'); } });
 // The shield's panel sits OVER the page, like the ... menu, on a still picture of it (his report, 2026-10-14: pushing the live
 // page down to make room left a big white bar above it). However it closes, the live page comes back.
@@ -1278,6 +1471,7 @@ window.aang?.onBrowserTabs?.((s) => {
   const size = s.tabSize === 's' || s.tabSize === 'm' ? s.tabSize : 'l';
   if (!document.documentElement.classList.contains('tsize-' + size)) { document.documentElement.classList.remove('tsize-s', 'tsize-m', 'tsize-l'); document.documentElement.classList.add('tsize-' + size); }
   railTabs(s);
+  paintSoundMark();
   paintMarks(s.marks);
   paintMockKey(s.mockups);
   paintHyruleKey(s);
@@ -2214,7 +2408,7 @@ function paintWho() {
     for (const g of groupsOf(u)) for (const it of g.items ?? []) if (it.key && !(it.key in choices)) choices[it.key] = it.on !== false;
     drawList(el('uplist'), groupsOf(u), true);
     el('upback').hidden = u.canBack !== true;
-    el('upnight').classList.toggle('on', u.overnight === true);
+    el('upnight').classList.toggle('on', u.overnight === true); el('upnightkey').setAttribute('aria-checked', String(u.overnight === true));
     const call = s.inCall === true;
     // Sheet 108 (his yes, 2026-10-30): castLabs wants him to sign in before the new engine is signed for video (one key,
     // Terminal opens with the sign-in typed), or Terminal is open; otherwise how far behind Chrome the engine is.
@@ -2281,7 +2475,7 @@ function paintWho() {
     if (a === 'changelog') { act('changelog'); view('vers'); el('uplog').textContent = 'One moment...'; return; }
     if (a === 'home') { view('main'); return; }
     if (a === 'back') { act('back'); close(); return; }
-    if (a === 'overnight') { const on = !el('upnight').classList.contains('on'); el('upnight').classList.toggle('on', on); act('overnight', { on }); return; }
+    if (a === 'overnight') { const on = !el('upnight').classList.contains('on'); el('upnight').classList.toggle('on', on); el('upnightkey').setAttribute('aria-checked', String(on)); act('overnight', { on }); return; }
   });
   // Every version: the changelog, read here as plain lines (headings stay headings).
   const showLog = (box, text) => {
@@ -2355,7 +2549,7 @@ el('planno').addEventListener('click', () => { if (planCard) window.aang?.browse
 // C7 Claude's rune (2026-10-21, sheet 50): by the ... key only while a Claude job runs, waits on him, or has finished and
 // he has not said Nice. Its panel is drawn in its own layer over the live page (see below). The tray layer
 // (?tray) has no band, so no rune.
-if (!SOLO) {
+if (!SOLO && !FLOAT) {
   // 2026-10-21 (his report: opening it bugged out the browser, worst over a video): its panel no longer freezes the page
   // or pictures it (no freeze, no peek): it opens in its own see-through layer above the live page (browser.ts runeView).
   startRune({ slot: el('runeslot'), band: el('band'), closeOthers: () => { closeMenu(); closeDrawer(); closeDl(); } });

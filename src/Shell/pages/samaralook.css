@@ -1,0 +1,175 @@
+/* ============================================================================
+   SAMARA, WOOD REFINED  (sheet 120 A, his pick 2026-11-20)
+   ============================================================================
+   "i like the concept of refining the wood and unifying the look but i dont want to change any behaviour of the side
+   drawer or its looks." So this file is loaded LAST by every Samara page and draws everything but the tab drawer:
+   the band's menus and panels, notices, Settings, history, the right-click menu, the suggestions. The drawer (html.solo,
+   .drawer, .hnd) is left out of every rule here; test/electron/drawer-pin-check.ts fails if a single style of it moves.
+
+   One rule for surfaces: what he opens is wood (tray grain in the gold-cornered frame); what Samara tells him is
+   parchment. One control for each job: the switch for on and off, the segmented row for a choice of a few, both with
+   names a screen reader reads as "Block ads, on". One gold focus ring. */
+
+:root{
+  --ring:#FFE28C;
+  --wood-text:#F1E6CF;
+  --wood-dim:#CDBB98;
+  --wood-label:#FFC43C;
+  --slot:#0B0718;
+  --wood-panel:radial-gradient(120% 40% at 50% 0%,rgba(255,200,120,.10),transparent 60%),url(art/browser/tray.png) 0 0/128px 256px;
+}
+
+/* ---- one focus ring: gold, outside the edge, never on the drawer -------------------------------------------- */
+html:not(.solo) body :not(.hnd, .hnd *, .drawer, .drawer *):focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+html:not(.solo) body :not(.hnd, .hnd *, .drawer, .drawer *):focus:not(:focus-visible){outline:none}
+
+/* ---- the switch: on and off, the same everywhere ------------------------------------------------------------
+   <button class="sw" role="switch" aria-checked aria-label="Block ads"><i class="bed"><i class="nub"></i></i></button>
+   Off: a dark slot, a wood knob on the left. On: plum, a gold knob on the right. */
+.sw{background:none;border:0;padding:0;margin:0;cursor:pointer;flex:0 0 auto;border-radius:999px;line-height:0}
+.sw .bed{display:block;position:relative;width:54px;height:30px;border:0;border-radius:999px;box-sizing:border-box;background:var(--slot);
+  box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6);transition:background .18s}
+.sw .nub{position:absolute;top:3px;left:3px;width:24px;height:24px;border:0;border-radius:50%;box-sizing:border-box;
+  background:linear-gradient(180deg,#8a6a4a,#5a3e24);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.3);transition:left .18s}
+.sw.on .bed,.sw[aria-checked="true"] .bed{background:linear-gradient(180deg,#5a3a86,#3a2258)}
+.sw.on .nub,.sw[aria-checked="true"] .nub{left:27px;background:linear-gradient(180deg,#FFE096,#FFC43C 60%,#C98C14);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,255,255,.55)}
+.sw:disabled{opacity:.45;cursor:default}
+.sw:hover:not(:disabled) .nub{filter:brightness(1.12)}
+
+/* ---- the segmented row: one of a few (Allow / Ask / Block, Small / Medium / Large) ---------------------------
+   <div class="seg" role="radiogroup" aria-label="Camera"><button role="radio" aria-checked="true">Ask</button>...</div> */
+.seg{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:10px;background:var(--slot);flex:0 0 auto;
+  box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6)}
+.seg button{min-height:26px;min-width:0;padding:0 11px;border:0;border-radius:7px;background:none;color:#C9B892;cursor:pointer;
+  font:700 13px var(--body);letter-spacing:.1px;white-space:nowrap}
+.seg button:hover:not([aria-checked="true"]){color:#F7ECD2;background:rgba(255,226,140,.10)}
+.seg button[aria-checked="true"]{color:#FFE096;background:linear-gradient(180deg,#5a3a86,#3a2258);
+  box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.22)}
+.seg button[aria-checked="true"][data-v="allow"]{color:#2a1c00;background:linear-gradient(180deg,#FFE096,#FFC43C 60%,#C98C14);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+.seg button[aria-checked="true"][data-v="block"]{color:#fff2e4;background:linear-gradient(180deg,#d8743c,#a8481c);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,220,180,.35)}
+.seg:has(button:disabled){opacity:.5}
+
+/* ---- small things the panels share --------------------------------------------------------------------------- */
+.wlab{font:400 10px var(--label);letter-spacing:1.4px;color:var(--wood-label);text-transform:uppercase}
+.wkbd,kbd.wkbd{font:400 9px var(--label);letter-spacing:.8px;color:#E3D3AE;padding:3px 5px 2px;border-radius:4px;background:rgba(255,226,140,.12);
+  box-shadow:inset 0 -1px 0 rgba(0,0,0,.5);white-space:nowrap}
+.wsep{border:0;height:2px;margin:6px 6px;background:linear-gradient(90deg,transparent,rgba(255,196,60,.32),transparent)}
+
+@media (prefers-reduced-motion:reduce){.sw .bed,.sw .nub{transition:none}}
+@media (forced-colors:active){
+  .sw .bed{border:2px solid ButtonText}.sw[aria-checked="true"] .bed{background:Highlight}
+  .seg button[aria-checked="true"]{background:Highlight;color:HighlightText}
+}
+
+/* ============================================================================ the band's panels (browser.html) */
+/* ---- the floating layer (?float): only the open panel shows, over the live page; the rest of the frame is not drawn */
+html.float,html.float body{background:transparent !important}
+html.float .bw{background:none !important;border:0 !important;box-shadow:none !important}
+html.float .bw::before,html.float .bw::after{display:none !important}
+html.float .loading,html.float .body3,html.float .railhandle,html.float .linkpeek{display:none !important}
+html.float .band{visibility:hidden;background:none !important;border-color:transparent !important;box-shadow:none !important;-webkit-app-region:no-drag !important}
+html.float .band *{-webkit-app-region:no-drag !important}
+html.float #menu,html.float #markpanel,html.float #sitepanel,html.float #dltray,html.float #uptray,html.float #updone,html.float #plantray{visibility:visible}
+html.float #vaultchip,html.float #afsavechip,html.float #sharechip,html.float #tvchip{display:none !important}
+/* ---- the band, once its layer has loaded: its own copies of the panels are never drawn (they are under the page) */
+html.floated:not(.float) #menu,html.floated:not(.float) #markpanel,html.floated:not(.float) #sitepanel,html.floated:not(.float) #dltray,
+html.floated:not(.float) #uptray,html.floated:not(.float) #updone,html.floated:not(.float) #plantray{display:none !important}
+
+/* ---- one wood panel: the ⋯ menu, the star, the shield and the downloads all hang the same way, 6 px under the band */
+#menu,#sitepanel,#markpanel{border-style:solid;border-width:8px;border-image:url(art/browser/trayframe.png) 4 repeat;border-radius:0;
+  background:var(--wood-panel);image-rendering:pixelated;color:var(--wood-text);box-shadow:0 4px 0 #120a05,0 18px 36px rgba(0,0,0,.6)}
+#menu,#dltray{top:calc(100% + 6px)}
+#sitepanel,#markpanel{top:calc(100% + 6px);padding:12px 14px 14px;box-sizing:border-box;animation:dldrop .16s ease-out;transform-origin:20% 0}
+#sitepanel::before,#markpanel::before{display:none}
+#sitepanel .q,#markpanel .q{color:#FFF6E0;font:800 15px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+#sitepanel .srow{min-height:36px;margin-top:4px}
+#sitepanel .srow b{color:var(--wood-text);font:600 14.5px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+#sitepanel .ssec{font:400 10px var(--label);letter-spacing:1.4px;color:var(--wood-label);margin:12px 0 2px;padding-top:10px;border-top:0;
+  background:linear-gradient(90deg,transparent,rgba(255,196,60,.32),transparent) top/100% 2px no-repeat}
+#sitepanel .poprow b{color:#FFF6E0}
+#sitepanel .poprow small{color:var(--wood-dim)}
+#sitepanel{width:344px}
+#sitepanel .seg button{padding:0 9px;font-size:12.5px}
+#menu:focus,#menu:focus-visible{outline:none}
+.markname{margin-top:10px;padding:0 12px;height:38px;border:0;border-radius:10px;background:var(--slot);color:#F2ECFF;font:600 14.5px var(--body);
+  box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6),0 2px 0 rgba(255,224,150,.12)}
+.markname:focus{border:0;box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6),0 0 0 4px var(--ring)}
+#markpanel .keys{margin-top:12px}
+
+/* ---- the ⋯ menu, sheet 120 A: gold pixel labels, 34 px lines, a gold edge on the line under the mouse or the keyboard */
+#menu{width:318px;padding:6px 4px 8px}
+#menu .grp+.grp{margin-top:6px;padding-top:6px;border-top:0;box-shadow:none;
+  background:linear-gradient(90deg,transparent,rgba(255,196,60,.32),transparent) top/calc(100% - 12px) 2px no-repeat}
+#menu .gh{font:400 11px var(--label);letter-spacing:1.4px;color:var(--wood-label);text-shadow:1px 1px 0 #000;margin:0;padding:8px 10px 4px}
+#menu .mrow{min-height:34px;padding:0 10px;border-radius:7px;font:600 14.5px var(--body);color:var(--wood-text)}
+#menu button.mrow:hover:not(:disabled),#menu .mrow:focus-visible{background:rgba(255,226,140,.12);box-shadow:inset 3px 0 0 var(--gold);outline:none}
+#menu .mrow i{color:var(--gold);font-size:12px}
+#menu .mrow.sub{padding-left:24px;font-weight:500}
+#menu .mrow kbd.wkbd{margin-left:auto}
+#menu .zoom{cursor:default}
+#menu .zk b{font:700 13.5px var(--body);color:var(--gold-lit);min-width:44px}
+#menu .zb{min-width:28px;height:26px;padding:0 7px;border:0;border-radius:7px;color:var(--gold);font:800 15px/1 var(--body);
+  background:linear-gradient(180deg,#3a2456,#24143a);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.18),0 2px 0 rgba(0,0,0,.45)}
+#menu .zb.wide{font:700 12px var(--body);color:var(--gold-lit)}
+#menu .zb:hover{filter:brightness(1.18)}
+#menu .zb:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+#menu .zb:active{transform:translateY(2px);box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(0,0,0,.35)}
+
+/* ---- the downloads tray: the same lines and labels as the menu */
+#dltray .gh{font:400 10px var(--label);letter-spacing:1.4px;color:var(--wood-label)}
+#dltray .gh span{font:500 12px var(--body);letter-spacing:0;color:var(--wood-dim)}
+#dltray .drow .dt b{color:var(--wood-text);font-size:14px}
+#dltray .drow .dt small{color:var(--wood-dim);font-size:12px}
+#dltray .dfoot{border-top:0;box-shadow:none;background:linear-gradient(90deg,transparent,rgba(255,196,60,.32),transparent) top/100% 2px no-repeat}
+#dltray .dfoot button{color:#E8DCC0;font:700 13px var(--body);padding:6px 8px;border-radius:7px}
+#dltray .dfoot button:hover{color:#FFE28C;background:rgba(255,226,140,.10)}
+/* the update tray's "update by itself overnight": the same switch, a size smaller inside its line */
+.upx .upmenu .sw{margin-left:auto;transform:scale(.8);transform-origin:right center}
+
+/* ---- the band, sheet 120 A: the lantern at its left end, gold pixel arrows on plum keys, a deeper address slot */
+.band .lantern{flex:0 0 auto;width:32px;height:32px;image-rendering:pixelated;pointer-events:none;-webkit-user-drag:none;
+  filter:drop-shadow(0 2px 0 rgba(0,0,0,.5));margin-right:-1px}
+html.solo .band .lantern,html.secret .band .lantern{display:none}
+#back,#fwd,#reload,#menukey{width:34px;height:34px;border:0;border-radius:9px;background:linear-gradient(180deg,#3a2456,#24143a);
+  box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.18),inset 0 -3px 0 rgba(0,0,0,.45),0 3px 0 rgba(0,0,0,.45)}
+#back svg path,#fwd svg path,#reload svg path,#menukey svg path,#menukey svg rect{fill:var(--gold)}
+#back:active:not(.dim),#fwd:active:not(.dim),#reload:active,#menukey:active,#menukey[aria-expanded="true"]{top:2px;
+  box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
+#menukey[aria-expanded="true"]{background:linear-gradient(180deg,#5a3a86,#3a2258)}
+#menukey[aria-expanded="true"] svg path,#menukey[aria-expanded="true"] svg rect{fill:var(--gold-lit)}
+#back.dim,#fwd.dim{opacity:1;background:linear-gradient(180deg,#2c1d3e,#1e1430)}
+#back.dim svg path,#fwd.dim svg path{fill:#7d6a8e}
+.band .slot{border:0;border-radius:11px;min-height:38px;box-sizing:border-box;padding:0 12px;margin:0 4px;
+  box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6),0 2px 0 rgba(255,224,150,.12)}
+.band .slot .url{color:#A69DC2}
+
+/* ---- sheet 121 (4): two pages side by side. The band draws around the Shell's two pages: a name strip over each, the
+   gold edge on the one in use, the wood peg in the gap between them. */
+.sbs{position:absolute;inset:0;z-index:6;pointer-events:none}
+.sbs[hidden]{display:none}
+.sbpane{position:absolute;top:0;bottom:0;border-radius:16px;background:#efe7da;box-shadow:0 0 0 2px rgba(20,12,6,.9),0 6px 0 rgba(0,0,0,.35)}
+.sbpane.on{box-shadow:0 0 0 2px rgba(20,12,6,.9),0 0 0 4px rgba(255,196,60,.85),0 0 16px rgba(255,196,60,.25)}
+.sbpane .ph{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:0 6px 0 12px;box-sizing:border-box;border-radius:16px 16px 0 0;
+  background:#efe7da;border-bottom:1px solid #ddd2bf;font:700 13px var(--body);color:#3a2c1c;cursor:pointer;white-space:nowrap;overflow:hidden}
+.sbpane .ph .fav{width:16px;height:16px;border-radius:3px;flex:none}
+.sbpane .ph .fav[hidden]{display:none}
+.sbpane .ph b{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.sbpane .ph .pa{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:#7a6548}
+.sbpane:not(.on) .ph{background:#e2d8c6;color:#5a4a36}
+.sbpane .ph .x{flex:none;width:28px;height:26px;border:0;border-radius:7px;background:none;cursor:pointer;position:relative;color:#7a6548}
+.sbpane .ph .x::before,.sbpane .ph .x::after{content:"";position:absolute;left:8px;top:12px;width:12px;height:2px;background:currentColor;transform:rotate(45deg)}
+.sbpane .ph .x::after{transform:rotate(-45deg)}
+.sbpane .ph .x:hover{background:rgba(90,60,30,.14);color:#3a2c1c}
+.sbgut{position:absolute;top:0;bottom:0;display:grid;place-items:center;pointer-events:auto;cursor:col-resize}
+.sbgut .peg{width:10px;height:74px;padding:0;border:0;border-radius:5px;cursor:col-resize;background:linear-gradient(180deg,#8a6a4a,#5a3e24);
+  box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.3),0 3px 0 rgba(0,0,0,.4)}
+.sbgut .peg:hover,html.sbdrag .sbgut .peg{background:linear-gradient(180deg,#FFE096,#FFC43C 60%,#C98C14)}
+html.sbdrag,html.sbdrag *{cursor:col-resize !important}
+/* While two pages show, the page area itself steps back: the wood shows in the gap, and each page carries its own edge. */
+.pg3.sbon{background:transparent !important;box-shadow:none !important;overflow:visible}
+
+/* ---- sheet 121 (6): the sound mark, a gold speaker on the folded tab handle's top corner (the handle is untouched) */
+.hnd .sndmark{position:absolute;left:16px;top:66px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;pointer-events:none;z-index:2;
+  background:linear-gradient(180deg,#FFE096,#FFC43C 60%,#C98C14);box-shadow:0 0 0 2px var(--outline),0 0 12px rgba(255,196,60,.7)}
+.hnd .sndmark[hidden],body.rail-out .hnd .sndmark,html.secret.locked .hnd .sndmark{display:none}
+.hnd .sndmark svg{display:block}
