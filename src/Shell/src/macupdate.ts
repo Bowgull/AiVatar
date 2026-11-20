@@ -43,9 +43,18 @@ launch() {
   [ -x "$BIN" ] && { nohup "$BIN" >/dev/null 2>&1 & disown; return 0; }
   echo "Samara could not be opened again."; return 0
 }
-# Moves an app folder aside to the Trash (macOS 13 won't let Samara delete inside an app bundle); a plain delete only if
-# the Trash can't take it.
-aside() { [ -e "$1" ] || return 0; mv "$1" "$HOME/.Trash/Samara $2 $(date +%Y-%m-%d-%H%M%S)" 2>/dev/null || rm -rf "$1"; }
+# Deletes an old copy of Samara for good (his rule, 2026-11-20: never the Trash; 41 copies of ~343 MB had piled up there).
+# macOS 13's App Management can refuse to delete inside an app bundle (2026-10-30: "rm: ... Permission denied"), while
+# moving the folder is still allowed: a copy it refuses waits in browser/old and is deleted again on every update.
+OLD="$BR/old"
+retire() {
+  [ -e "$1" ] || return 0
+  rm -rf "$1" 2>/dev/null || true; [ -e "$1" ] || return 0
+  mkdir -p "$OLD" && mv "$1" "$OLD/$2 $(date +%Y-%m-%d-%H%M%S)-$$" 2>/dev/null || true
+  [ -e "$1" ] && return 1
+  echo "macOS would not let Samara delete an old copy; it waits in $OLD and is tried again on the next update."; return 0
+}
+clear_old() { [ -d "$OLD" ] || return 0; rm -rf "$OLD" 2>/dev/null || echo "Old copies still wait in $OLD (macOS would not let Samara delete them)."; return 0; }
 [ "$PHASE" = "swap" ] && trap 'launch' EXIT
 sign_app() { codesign --force --deep -s "Samara on this Mac" "$1" >/dev/null 2>&1 || codesign --force --deep -s - "$1" >/dev/null 2>&1 || true; }
 npm_bin() { if [ -x "$NODE_DIR/bin/npm" ]; then echo "$NODE_DIR/bin/npm"; else command -v npm; fi; }
@@ -53,12 +62,12 @@ npm_bin() { if [ -x "$NODE_DIR/bin/npm" ]; then echo "$NODE_DIR/bin/npm"; else c
 if [ "$PHASE" = "prepare" ]; then
   [ -z "$BUNDLE" ] || [ -f "$BUNDLE" ] || { echo "The release bundle is missing."; exit 1; }
   [ -z "$ENGINE" ] || [ -f "$ENGINE/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig" ] || { echo "The new engine is not signed for video."; exit 1; }
-  # A copy staged before (an update he never pressed, or one that failed half way) is moved to the Trash, not deleted:
-  # macOS 13's App Management stops Samara deleting inside an app bundle (2026-10-30: "rm: ... Permission denied", the
-  # next update could not be prepared, and a half-made copy was left labelled ready). Moving the folder is allowed, and
-  # his rule is the Trash anyway. The version mark goes first, so a half-made copy can never be swapped in.
+  # A copy staged before (an update he never pressed, or one that failed half way) is deleted (retire, above). The
+  # version mark goes first, so a half-made copy can never be swapped in (2026-10-30: a refused delete once left a
+  # half-made copy labelled ready).
   rm -f "$STAGE/version"
-  aside "$STAGE" staged
+  clear_old
+  retire "$STAGE" staged
   [ -e "$STAGE" ] && { echo "An older staged copy could not be moved out of the way."; exit 1; }
   mkdir -p "$STAGE"; NEWAPP="$STAGE/Samara.app"
   if [ -n "$ENGINE" ]; then
@@ -116,9 +125,9 @@ for i in $(seq 1 120); do running || break; sleep 0.5; done
 if running; then pkill -TERM -f "Applications/(Samara|Aang).app/Contents/MacOS/" 2>/dev/null || true; for i in $(seq 1 20); do running || break; sleep 0.5; done; fi
 if running; then pkill -KILL -f "Applications/(Samara|Aang).app/Contents/MacOS/" 2>/dev/null || true; sleep 1; fi
 # Only what is INSIDE Samara.app changes places, never the folder: the Dock's pin follows the folder.
-aside "$RB/Samara.app" previous; mkdir -p "$RB/Samara.app"
+retire "$RB/Samara.app" previous; mkdir -p "$RB/Samara.app"
 mv "$APP/Contents" "$RB/Samara.app/Contents"
-mv "$STAGE/Samara.app/Contents" "$APP/Contents"; aside "$STAGE" staged
+mv "$STAGE/Samara.app/Contents" "$APP/Contents"; retire "$STAGE" staged
 cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
 printf '%s' ${q(installed)} > "$BR/installed.json"
 "$LSR" -u "$RB/Samara.app" >/dev/null 2>&1 || true; "$LSR" -f "$APP" >/dev/null 2>&1 || true
@@ -141,7 +150,7 @@ grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && { running || launc
 running && exit 0
 if [ -d "$RB/Samara.app/Contents" ]; then
   echo "The new Samara did not start; putting the old one back."
-  aside "$APP/Contents" failed; mv "$RB/Samara.app/Contents" "$APP/Contents"; aside "$RB/Samara.app" previous
+  retire "$APP/Contents" failed; mv "$RB/Samara.app/Contents" "$APP/Contents"; retire "$RB/Samara.app" previous
   if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
   [ -n "$BUNDLE" ] && echo ${q(o.version)} >> "$BR/failed-updates.txt"
   [ -n "$EV" ] && echo "$EV" >> "$BR/failed-engines.txt"
