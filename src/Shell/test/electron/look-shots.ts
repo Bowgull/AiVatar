@@ -108,7 +108,7 @@ app.whenReady().then(async () => {
     if (sw) for (const s of ['look', 'privacy']) { await js(sw, `document.querySelector('.side a[data-sec="${s}"]').click(), 1`); await wait(700); await composite(b, `07-settings-${s}.png`); }
     if (sw) { await js(sw, `document.querySelector('.side a[data-sec="autofill"]').click(); document.querySelector('[data-go=pin]').click(), 1`); await wait(700); await composite(b, '07-settings-pin.png'); }
   }
-  if (want('08')) { b.openThings('history'); await wait(3000); console.log('VIEWS 08\n  ' + views()); await composite(b, '08-history.png'); }
+  if (want('08')) { b.openThings('history'); await wait(3000); await composite(b, '08-history.png'); }
   if (want('09')) {
     b.activate(b.tabs[0].id); await wait(1200);
     b.pageMenu(b.cur(), { x: 400, y: 300, linkURL: '', srcURL: '', selectionText: '', isEditable: false, mediaType: 'none', editFlags: {} });
@@ -120,7 +120,7 @@ app.whenReady().then(async () => {
     await composite(b, '09-rightclick.png'); b.hideMenu();
   }
   if (want('10')) { await js(F, `(() => { const s = document.getElementById('slot'); s.click(); const e = document.getElementById('edit'); e.hidden = false; e.focus(); e.value = 'ma'; e.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`); await wait(1500); await composite(b, '10-suggest.png'); await esc(); }
-  // The new pieces (only once built): each harness step is skipped quietly when its piece is missing.
+  // The new pieces (only once built): a step whose piece is missing is skipped.
   if (want('11') && b.tabPeek) { b.activate(b.tabs[1].id); await wait(3500); b.activate(b.tabs[0].id); await wait(1500); b.tray(true, { x: 42, y: 62, hy: 80 }); await wait(1400); await js(b.trayV.webContents, `(() => { const r = document.querySelectorAll('#tabs .tp[data-tab]')[1]; r.dispatchEvent(new PointerEvent('pointerover', { bubbles: true })); return r.dataset.tab; })()`); await wait(1600); await composite(b, '11-hover-tab.png'); b.tabPeek(null); b.tray(false); await wait(600); }
   if (want('12') && b.splitOpen) { b.splitOpen(b.tabs[1].id); await wait(2200); await composite(b, '12-side-by-side.png'); }
   if (want('13') && b.linkPeek) { b.splitClose?.(); await wait(800); b.linkPeek(`http://127.0.0.1:${PORT}/newsprint`); await wait(2500); await composite(b, '13-peek.png'); b.linkPeekClose?.(); await wait(600); }

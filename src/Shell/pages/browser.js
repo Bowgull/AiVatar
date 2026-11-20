@@ -237,7 +237,7 @@ if (!SOLO && !FLOAT) {
     box.querySelector('b').textContent = t.host || t.title || '';
     box.querySelector('.pa').textContent = t.rest || '';
     box.querySelector('.ph').title = t.title || '';
-    box.querySelector('.x').setAttribute('aria-label', 'Close ' + (t.host || 'this side') + ' on this side');
+    box.querySelector('.x').setAttribute('aria-label', 'Close ' + (t.host || 'this side'));
   };
   const paintSb = () => {
     sbs.hidden = !sb;
