@@ -1420,6 +1420,31 @@
       "at": "2026-11-20T04:42:00-05:00",
       "kind": "fix",
       "text": "Samara checks for updates once a day instead of every 15 minutes. The always-on update ping and the Reddit feed are gone, and the ad lists download once instead of twice."
+    },
+    {
+      "at": "2026-11-20T06:40:21-05:00",
+      "kind": "feature",
+      "text": "Samara's menus, Settings, history and right-click menu now share one wood look, with the same switches and buttons everywhere and a gold ring on whatever the keyboard is on. Menus open over the live page instead of freezing it, Samara's messages are on parchment, and the lantern sits at the left of the band. The tab list is unchanged."
+    },
+    {
+      "at": "2026-11-20T06:41:21-05:00",
+      "kind": "feature",
+      "text": "Rest the mouse on a tab in the tab list to see a small picture of its page."
+    },
+    {
+      "at": "2026-11-20T06:42:21-05:00",
+      "kind": "feature",
+      "text": "Two pages can sit side by side in one window. Drag a tab to the right edge, or pick Side by side in the menu, and drag the wood peg to change the sizes."
+    },
+    {
+      "at": "2026-11-20T06:43:21-05:00",
+      "kind": "feature",
+      "text": "Shift-click a link, or hold the mouse on it, to look at it on top of the page without opening a tab. A gold speaker on the folded tab list shows when a tab is playing sound."
+    },
+    {
+      "at": "2026-11-20T06:44:21-05:00",
+      "kind": "fix",
+      "text": "Ctrl and + zooms the page while Samara is in front."
     }
   ]
 }
