@@ -2075,6 +2075,7 @@ export class AangBrowser {
     if (!v) return;
     this.newSince = 0;
     void this.cardOf(this.cur());                // the page in front, for the list's hover picture
+    this.tabPeekView();                          // and its layer, loaded before the first hover
     const n = (x: unknown, d: number) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : d);
     this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y), hy: n((at as { hy?: unknown })?.hy, this.trayAt.hy ?? 80) };
     this.trayOn = true;
