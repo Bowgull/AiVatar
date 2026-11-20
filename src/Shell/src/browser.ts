@@ -2735,7 +2735,8 @@ export class AangBrowser {
     let keep: NodeJS.Timeout | null = null;
     // Where the first window was is kept for next time; the others are made by dragging and open where they are dropped.
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); }, 800); };
-    w.on('focus', () => { this.focused = p; });
+    w.on('focus', () => { this.focused = p; this.frontNow(); });
+    w.on('blur', () => setTimeout(() => this.frontNow(), 60));
     w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); this.placeFloat(); keepSoon(); });
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
@@ -5203,6 +5204,16 @@ export class AangBrowser {
   private railCats: string[] = [];
   /** A new note for this site, from the rail (main.ts sends it to the brain). */
   onNoteSave: ((n: RailNote) => void) | null = null;
+  /** 2026-11-20 (his rule): a Samara window gained or lost the front; Aang's Ctrl and + steps aside so it zooms the page. */
+  onFront?: (front: boolean) => void;
+  private frontWas = false;
+  private frontNow(): void {
+    const f = BrowserWindow.getFocusedWindow();
+    const on = Boolean(f && this.panes.some((p) => p.win === f));
+    if (on === this.frontWas) return;
+    this.frontWas = on;
+    try { this.onFront?.(on); } catch { /* the key is Aang's business */ }
+  }
   /** A note in the rail clicked: it opens where notes open (Aang's bubble). */
   onNoteOpen: ((id: string) => void) | null = null;
   /** The brain's notes changed: the ones that came from a page (src) go to every window with its rail open. */
