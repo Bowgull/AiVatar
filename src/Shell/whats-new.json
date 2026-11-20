@@ -1465,6 +1465,26 @@
       "at": "2026-11-20T08:42:00-05:00",
       "kind": "fix",
       "text": "Send to Aang and Take it back work again."
+    },
+    {
+      "at": "2026-11-20T10:20:04-05:00",
+      "text": "Samara opens ready for you to type a search.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-20T10:21:04-05:00",
+      "text": "A big window no longer pauses updates.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-20T10:22:04-05:00",
+      "text": "New engines are no longer turned away by mistake.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-20T10:23:04-05:00",
+      "text": "A second update no longer undoes the first.",
+      "kind": "fix"
     }
   ]
 }
