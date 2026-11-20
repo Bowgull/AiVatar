@@ -180,7 +180,7 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserDownload(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:download', h); return () => ipcRenderer.removeListener('browser:download', h); },
   /** The tab drawer is open: a still picture of the page to show under it (or null to drop it). */
   onBrowserFrozen(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:frozen', h); return () => ipcRenderer.removeListener('browser:frozen', h); },
-  onBrowserFocusSlot(fn) { const h = () => fn(); ipcRenderer.on('browser:focusslot', h); return () => ipcRenderer.removeListener('browser:focusslot', h); },
+  onBrowserFocusSlot(fn) { const h = (_e, m) => fn(m && typeof m === 'object' ? { start: m.start === true } : undefined); ipcRenderer.on('browser:focusslot', h); return () => ipcRenderer.removeListener('browser:focusslot', h); },
 
   // --- C4, Claude in the cockpit (2026-10-21). One narrow door for everything he says to a Claude session (an answer,
   // a message, pause, play, a model); main.ts checks every field before the brain hears it. And one to open a session

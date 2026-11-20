@@ -701,7 +701,7 @@ function editSlot(keepList = false) {
   }
   zeroSuggest();
 }
-function closeSlot() { if (!edit.hidden) window.aang?.browserSlot?.(false); edit.hidden = true; urlEl.hidden = false; el('slot').classList.remove('editing'); slotTo = null; }
+function closeSlot() { if (!edit.hidden) window.aang?.browserSlot?.(false); edit.placeholder = ''; edit.hidden = true; urlEl.hidden = false; el('slot').classList.remove('editing'); slotTo = null; }
 addEventListener('resize', () => { slotTo = null; if (sugg.length) paintSuggest(); });
 el('slot').addEventListener('click', (e) => { if (finding || lock.contains(e.target)) return; if (edit.hidden) editSlot(); });
 // ---- address suggestions (6.22b item 6; sheet 88; sheet 102). The list is drawn on its own layer over the live page
@@ -843,11 +843,14 @@ edit.addEventListener('blur', () => setTimeout(hideSuggest, 120));
 edit.addEventListener('blur', () => setTimeout(() => { if (document.hasFocus() && document.activeElement === edit) return; closeSlot(); }, 120));
 // Ctrl+L, a new tab, and Samara opening (2026-11-20) put the cursor in the bar. Opening, he may already be typing in it:
 // what he typed stays.
-const bootAt = Date.now();
-window.aang?.onBrowserFocusSlot?.(() => {
-  const url = state.tabs.find((x) => x.id === state.active)?.url ?? '';
-  if (Date.now() - bootAt < 10_000 && !edit.hidden && edit.value && edit.value !== url) { edit.focus(); return; }
+window.aang?.onBrowserFocusSlot?.((m) => {
+  if (!m?.start) { editSlot(true); return; }
+  // Samara opening (his ask, 2026-11-20: "why is it always selected?"): an empty bar, the page's address shown faintly
+  // in it, as Chrome and Firefox open a new window. Already in the bar: what he typed stays.
+  if (!edit.hidden) { edit.focus(); return; }
   editSlot(true);
+  const url = state.tabs.find((x) => x.id === state.active)?.url ?? '';
+  if (edit.value === url) { edit.placeholder = url; edit.value = ''; }
 });
 // He clicked the bar or typed before this code had loaded (early.js kept it): the bar opens with it now.
 if (window.__early && (window.__early.keys || window.__early.click)) editSlot(true);

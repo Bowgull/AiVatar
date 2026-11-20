@@ -54,12 +54,13 @@ app.whenReady().then(async () => {
     proto.focus = function (this: any) { const st = String(new Error().stack).split('\n').slice(2, 5).map((l) => l.trim()).join(' < '); console.log('FOCUS ' + String(this.getURL()).slice(0, 50) + ' ' + st); return f.call(this); };
   }
   await new Promise<void>((r) => w.webContents.once('did-finish-load', () => r()));
-  const bar = async () => ({ ...(await w.webContents.executeJavaScript(`(() => { const e = document.getElementById('edit'); return { open: !e.hidden, focused: document.activeElement === e, value: e.value }; })()`)),
+  const bar = async () => ({ ...(await w.webContents.executeJavaScript(`(() => { const e = document.getElementById('edit'); return { open: !e.hidden, focused: document.activeElement === e, value: e.value, hint: e.placeholder }; })()`)),
     keys: (await import('electron')).webContents.getFocusedWebContents()?.getURL().slice(0, 60) ?? 'none', slotOpen: b.pane.slotOpen, winFocused: w.isFocused() });
 
   await wait(800);
   let s = await bar();
   check('Samara opens with the cursor in the address bar', s.open && s.focused && w.webContents.isFocused(), JSON.stringify(s));
+  check('the bar opens empty, the page address shown faintly in it', s.value === '' && String(s.hint).includes('/first'), JSON.stringify(s));
 
   await wait(3000);                                      // the slow tab has finished; Claude's tabs had their turn
   s = await bar();

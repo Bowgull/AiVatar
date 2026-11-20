@@ -2024,7 +2024,7 @@ export class AangBrowser {
       if (!f || f === w.webContents || !this.tabs.some((t) => t.pane === p.id && t.view?.webContents === f)) return;
       if (Date.now() - (clickedAt.get(f.id) ?? 0) < 1000) return;   // he clicked the page: it is his
       w.webContents.focus();
-      w.webContents.send('browser:focusslot');
+      w.webContents.send('browser:focusslot', { start: true });
     }, 50);
   }
   /** The frame's address bar opened or closed (browser.js). */
@@ -3161,7 +3161,7 @@ export class AangBrowser {
       for (const f of this.whenOpen.splice(0)) { this.pane = p; f(); }
       // His ask (2026-11-20): the address bar is ready the moment Samara opens, so he can type a search straight away,
       // as in Chrome. Not when a link or a mockup opened it: then the page is what he came for.
-      if (barFirst && !w.isDestroyed()) { w.webContents.focus(); w.webContents.send('browser:focusslot'); this.holdBarAtStart(p); }
+      if (barFirst && !w.isDestroyed()) { w.webContents.focus(); w.webContents.send('browser:focusslot', { start: true }); this.holdBarAtStart(p); }
       // Sheet 115: Claude's tabs from before the restart come back after his own.
       if (!this.o.secret) setTimeout(() => { void this.restoreClaude(); }, 1500);
     });
