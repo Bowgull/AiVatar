@@ -167,7 +167,7 @@ export class EngineUpdates {
     return true;
   }
   /** Check for updates now (Samara's ... menu): what was put away comes back, and a look right now. */
-  async checkNow(): Promise<void> { for (const f of [this.filedFile(), this.todayFile()]) { try { unlinkSync(f); } catch { /* none */ } } this.denied.clear(); await this.check(); }
+  async checkNow(): Promise<void> { for (const f of [this.filedFile(), this.todayFile()]) { try { unlinkSync(f); } catch { /* none */ } } this.denied.clear(); await this.check(true); }
   /** castLabs said no to signing these engines: not asked again until the time here. */
   private denied = new Map<string, number>();
 
@@ -203,11 +203,12 @@ export class EngineUpdates {
   }
 
   /** Is there a newer engine? Get it ready, quietly. */
-  async check(): Promise<void> {
-    if (this.busy || this.o.quietNow()) return;
+  /** `his`: his own "Check for updates" click. It is never held by a call; only the background check waits. */
+  async check(his = false): Promise<void> {
+    if (this.busy || (!his && this.o.quietNow())) return;
     // One engine (his yes, 2026-10-13): the browser runs on castLabs' engine so paid video plays in its tabs. A stock
     // Electron update would take Widevine away, so none is offered; castLabs' own come in their own step.
-    if (onCastlabs()) { await this.castlabsCheck(); return; }
+    if (onCastlabs()) { await this.castlabsCheck(his); return; }
     this.busy = true;
     try {
       const cur = process.versions.electron;
@@ -238,7 +239,7 @@ export class EngineUpdates {
    * Video wins over the safety switches (his pick, 2026-10-30, until castLabs says yes): castLabs signs only an
    * engine exactly as they shipped it (proved 2026-10-23), so the switches stay as castLabs set them.
    */
-  private async castlabsCheck(): Promise<void> {
+  private async castlabsCheck(his = false): Promise<void> {
     if (this.busy || this.signin === 'waiting') return;
     this.busy = true;
     try {
@@ -273,7 +274,7 @@ export class EngineUpdates {
       const signed = await this.switchesAndSign(v);
       if (signed === 'denied') this.denied.set(v, Date.now() + DAY);
       if (signed !== 'ok') return;
-      const t = await this.test(v);
+      const t = await this.test(v, his);
       if (!t.ok) return;
       // A new major is never put in by itself: it waits for his click, security fixes or not.
       const security = !this.pendingMajor && closesGap(process.versions.chrome, m.chrome, stable);
@@ -382,8 +383,8 @@ export class EngineUpdates {
    * sharing, camera permission, spellcheck, and Samara's own page). Only blocking checks stop an engine; look checks
    * are reported on the key. A failure is remembered for the day, so the test is not run again until tomorrow.
    */
-  private async test(v: string): Promise<TestResult> {
-    if (this.o.quietNow()) return { ok: false, look: [], chrome: '' };
+  private async test(v: string, his = false): Promise<TestResult> {
+    if (!his && this.o.quietNow()) return { ok: false, look: [], chrome: '' };
     const runs: TestResult[] = [];
     for (const script of ['test/electron/engine-safety-check.ts', 'test/electron/calls-check.ts']) {
       const r = await this.runCheck(v, script);

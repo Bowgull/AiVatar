@@ -14,19 +14,35 @@ static class Readings
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr hwnd);
 
-    /// <summary>Something covers the screen: a full-screen app or video (QUNS_BUSY), an exclusive full-screen game
-    /// (QUNS_RUNNING_D3D_FULL_SCREEN) or presentation mode. One cheap call, so it is read every poll.
-    /// A maximized window is not full screen (2026-11-02): with the taskbar hidden it covers the screen too, Windows
-    /// called a maximized Samara "busy", and Samara's update would not go in ("Not during a game").</summary>
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
+    const int GWL_STYLE = -16, WS_CAPTION = 0x00C00000, WS_THICKFRAME = 0x00040000;
+
+    /// <summary>Something really is full screen: an exclusive full-screen game (QUNS_RUNNING_D3D_FULL_SCREEN),
+    /// presentation mode, or a window that covers the screen with no title bar and no resize edge (a video or page in
+    /// full screen, a borderless game). One cheap call, so it is read every poll.</summary>
     public static bool FullScreen()
     {
         try
         {
             if (SHQueryUserNotificationState(out var s) != 0) return false;
-            if (s is 3 or 4) return true;
-            return s == 2 && !IsZoomed(GetForegroundWindow());
+            var fg = GetForegroundWindow();
+            return IsFullScreen(s, IsZoomed(fg), GetWindowLong(fg, GWL_STYLE));
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// The rule, apart from Windows so it can be tested. His screen hides the taskbar, so Windows says "busy" (QUNS_BUSY)
+    /// for ANY window that covers the screen. On 2026-11-02 that was patched for maximized windows only; on 2026-11-20 a
+    /// big Claude window (not maximized, 8 px past each edge as every window is) still counted, 521 times in the log, and
+    /// held Samara's updates and his own "Check for updates" as "Not during a game". A window that still has its title
+    /// bar or its resize edge is a normal window, however big. Real full screen (a video, F11, a borderless game) drops both.
+    /// </summary>
+    internal static bool IsFullScreen(int state, bool zoomed, int style)
+    {
+        if (state is 3 or 4) return true;
+        if (state != 2 || zoomed) return false;
+        return (style & WS_CAPTION) != WS_CAPTION && (style & WS_THICKFRAME) == 0;
     }
 
     /// <summary>
