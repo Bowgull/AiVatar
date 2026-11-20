@@ -17,6 +17,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { backupRel, machineOf, LEGACY_REL } from './backup.ts';
 
 /**
  * Bumped when the shape below changes, so a database written by a newer build is recognisable
@@ -213,7 +214,9 @@ export function createDatabase(file: string): DatabaseSync {
  */
 export function openMemory(dataDir: string): OpenResult {
   const file = path.join(dataDir, 'aang.db');
-  const backup = path.join(dataDir, 'backups', 'aang.db');
+  // This machine's own backup (backup.ts, 2026-11-20); the old shared file only until the first new backup lands.
+  const own = path.join(dataDir, ...backupRel(machineOf()).split('/'));
+  const backup = existsSync(own) ? own : path.join(dataDir, ...LEGACY_REL.split('/'));
 
   // 1. The normal case.
   if (usable(file)) {

@@ -120,6 +120,11 @@ test('his session names, the memory backup and the Mac release hash run off the 
     mkdirSync(data);
     execFileSync('git', ['init', '-q'], { cwd: data });
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '--allow-empty', '-q', '-m', 'init'], { cwd: data });
+    // A bare repo standing in for GitHub: a backup only counts once it is pushed (backup.ts, 2026-11-20).
+    const bare = path.join(dir, 'remote.git');
+    execFileSync('git', ['init', '-q', '--bare', bare]);
+    execFileSync('git', ['remote', 'add', 'origin', bare], { cwd: data });
+    execFileSync('git', ['push', '-q', '-u', 'origin', 'HEAD'], { cwd: data });
     const db = new DatabaseSync(path.join(data, 'aang.db'));
     db.exec('CREATE TABLE turns (id INTEGER PRIMARY KEY, text TEXT); CREATE TABLE facts (id INTEGER PRIMARY KEY, text TEXT)');
     const ins = db.prepare('INSERT INTO turns (text) VALUES (?)');

@@ -114,10 +114,10 @@ test('a stale write-ahead log is cleared when the file is swapped', () => {
 });
 
 test('the real backup on this machine restores cleanly', () => {
-  // Not a synthetic fixture: the actual backups/aang.db, if it is there. This is the file the whole
-  // design leans on, so it is worth one assertion that it is what we think it is.
-  const real = path.join('C:', 'Users', 'Shadow', 'Documents', 'Aang', 'backups', 'aang.db');
-  if (!existsSync(real)) return;                      // not this machine; skip rather than fail
+  // Not a synthetic fixture: the PC's actual backup, if it is there (aang-pc.db since 2026-11-20, aang.db before).
+  // This is the file the whole design leans on, so it is worth one assertion that it is what we think it is.
+  const real = ['aang-pc.db', 'aang.db'].map(f => path.join('C:', 'Users', 'Shadow', 'Documents', 'Aang', 'backups', f)).find(f => existsSync(f));
+  if (!real) return;                                  // not this machine; skip rather than fail
   const dir = tmp();
   mkdirSync(path.join(dir, 'backups'), { recursive: true });
   copyFileSync(real, path.join(dir, 'backups', 'aang.db'));
