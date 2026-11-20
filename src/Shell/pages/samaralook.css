@@ -142,3 +142,28 @@ html.solo .band .lantern,html.secret .band .lantern{display:none}
 .band .slot{border:0;border-radius:11px;min-height:38px;box-sizing:border-box;padding:0 12px;margin:0 4px;
   box-shadow:0 0 0 2px var(--outline),inset 0 3px 0 rgba(0,0,0,.6),0 2px 0 rgba(255,224,150,.12)}
 .band .slot .url{color:#A69DC2}
+
+/* ---- sheet 121 (4): two pages side by side. The band draws around the Shell's two pages: a name strip over each, the
+   gold edge on the one in use, the wood peg in the gap between them. */
+.sbs{position:absolute;inset:0;z-index:6;pointer-events:none}
+.sbs[hidden]{display:none}
+.sbpane{position:absolute;top:0;bottom:0;border-radius:16px;background:#efe7da;box-shadow:0 0 0 2px rgba(20,12,6,.9),0 6px 0 rgba(0,0,0,.35)}
+.sbpane.on{box-shadow:0 0 0 2px rgba(20,12,6,.9),0 0 0 4px rgba(255,196,60,.85),0 0 16px rgba(255,196,60,.25)}
+.sbpane .ph{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:0 6px 0 12px;box-sizing:border-box;border-radius:16px 16px 0 0;
+  background:#efe7da;border-bottom:1px solid #ddd2bf;font:700 13px var(--body);color:#3a2c1c;cursor:pointer;white-space:nowrap;overflow:hidden}
+.sbpane .ph .fav{width:16px;height:16px;border-radius:3px;flex:none}
+.sbpane .ph .fav[hidden]{display:none}
+.sbpane .ph b{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.sbpane .ph .pa{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:#7a6548}
+.sbpane:not(.on) .ph{background:#e2d8c6;color:#5a4a36}
+.sbpane .ph .x{flex:none;width:28px;height:26px;border:0;border-radius:7px;background:none;cursor:pointer;position:relative;color:#7a6548}
+.sbpane .ph .x::before,.sbpane .ph .x::after{content:"";position:absolute;left:8px;top:12px;width:12px;height:2px;background:currentColor;transform:rotate(45deg)}
+.sbpane .ph .x::after{transform:rotate(-45deg)}
+.sbpane .ph .x:hover{background:rgba(90,60,30,.14);color:#3a2c1c}
+.sbgut{position:absolute;top:0;bottom:0;display:grid;place-items:center;pointer-events:auto;cursor:col-resize}
+.sbgut .peg{width:10px;height:74px;padding:0;border:0;border-radius:5px;cursor:col-resize;background:linear-gradient(180deg,#8a6a4a,#5a3e24);
+  box-shadow:0 0 0 2px var(--outline),inset 0 2px 0 rgba(255,224,150,.3),0 3px 0 rgba(0,0,0,.4)}
+.sbgut .peg:hover,html.sbdrag .sbgut .peg{background:linear-gradient(180deg,#FFE096,#FFC43C 60%,#C98C14)}
+html.sbdrag,html.sbdrag *{cursor:col-resize !important}
+/* While two pages show, the page area itself steps back: the wood shows in the gap, and each page carries its own edge. */
+.pg3.sbon{background:transparent !important;box-shadow:none !important;overflow:visible}

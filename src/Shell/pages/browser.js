@@ -223,6 +223,62 @@ if (SOLO) {
   el('rail').setAttribute('aria-hidden', 'false');
 }
 
+// ---- Sheet 121 (4), his pick 2026-11-20: two pages side by side. The Shell places the two pages; the band draws a name
+// strip over each (a click picks that page, its × ends the pair and both tabs stay), the gold edge on the page in use, and
+// the wood peg between them (drag it, or arrow keys on it, to share the space).
+if (!SOLO && !FLOAT) {
+  const SB_MIN = 0.2, sbClamp = (r) => (Number.isFinite(r) ? Math.min(1 - SB_MIN, Math.max(SB_MIN, r)) : 0.5);
+  const sbs = el('sbs'), peg = el('sbpeg');
+  let sb = null;
+  const side = (box, t, on) => {
+    box.classList.toggle('on', on);
+    const img = box.querySelector('.fav');
+    if (t.favicon) { img.src = t.favicon; img.hidden = false; img.onerror = () => { img.hidden = true; }; } else img.hidden = true;
+    box.querySelector('b').textContent = t.host || t.title || '';
+    box.querySelector('.pa').textContent = t.rest || '';
+    box.querySelector('.ph').title = t.title || '';
+    box.querySelector('.x').setAttribute('aria-label', 'Close ' + (t.host || 'this side') + ' on this side');
+  };
+  const paintSb = () => {
+    sbs.hidden = !sb;
+    page.classList.toggle('sbon', Boolean(sb));
+    if (!sb) return;
+    const W = page.clientWidth, gap = sb.gap || 22, lw = Math.max(0, Math.round((W - gap) * sbClamp(sb.ratio)));
+    el('sbl').style.cssText = 'left:0;width:' + lw + 'px';
+    el('sbgut').style.cssText = 'left:' + lw + 'px;width:' + gap + 'px';
+    el('sbr').style.cssText = 'left:' + (lw + gap) + 'px;width:' + Math.max(0, W - lw - gap) + 'px';
+    for (const b of sbs.querySelectorAll('.ph')) b.style.height = (sb.head || 34) + 'px';
+    side(el('sbl'), sb.left, sb.on === 'left'); side(el('sbr'), sb.right, sb.on === 'right');
+    peg.setAttribute('aria-valuenow', String(Math.round(sbClamp(sb.ratio) * 100)));
+  };
+  window.aang?.onBrowserSplit?.((s) => { sb = s && typeof s === 'object' && s.left && s.right ? s : null; paintSb(); });
+  new ResizeObserver(paintSb).observe(page);
+  for (const [box, k] of [[el('sbl'), 'left'], [el('sbr'), 'right']]) {
+    box.querySelector('.ph').addEventListener('click', (e) => { if (!sb) return; const id = sb[k].id; window.aang?.browserSplit?.({ act: e.target.closest('.x') ? 'close' : 'focus', id }); });
+  }
+  // The peg: pressed and dragged (the pages follow as it moves), or Left and Right on it; a double-click halves it again.
+  let moveRaf = 0;
+  const share = (x) => { const r = page.getBoundingClientRect(), gap = sb?.gap || 22; return sbClamp((x - r.left - gap / 2) / Math.max(1, r.width - gap)); };
+  const send = (done) => { cancelAnimationFrame(moveRaf); moveRaf = 0; if (sb) window.aang?.browserSplit?.({ ratio: sb.ratio, done }); };
+  peg.addEventListener('pointerdown', (e) => {
+    if (!sb || e.button !== 0) return;
+    e.preventDefault();
+    peg.setPointerCapture(e.pointerId);
+    document.documentElement.classList.add('sbdrag');
+    const move = (m) => { sb.ratio = share(m.clientX); paintSb(); if (!moveRaf) moveRaf = requestAnimationFrame(() => { moveRaf = 0; send(false); }); };
+    const end = () => { peg.removeEventListener('pointermove', move); peg.removeEventListener('pointerup', end); peg.removeEventListener('pointercancel', end); document.documentElement.classList.remove('sbdrag'); send(true); };
+    peg.addEventListener('pointermove', move); peg.addEventListener('pointerup', end); peg.addEventListener('pointercancel', end);
+  });
+  peg.addEventListener('keydown', (e) => {
+    if (!sb) return;
+    const d = e.key === 'ArrowLeft' ? -0.05 : e.key === 'ArrowRight' ? 0.05 : e.key === 'Home' ? -1 : e.key === 'End' ? 1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    sb.ratio = sbClamp(sb.ratio + d); paintSb(); send(true);
+  });
+  peg.addEventListener('dblclick', () => { if (sb) { sb.ratio = 0.5; paintSb(); send(true); } });
+}
+
 // ---- Sheet 121 (3), his pick 2026-11-20: hover a tab to see it. Resting on a row for 0.4 s shows a picture of the page
 // BESIDE the list (the Shell's own small layer); moving on to another row shows that one at once. Only listening here:
 // nothing about the list, its rows or its timing changes.
@@ -278,6 +334,8 @@ function paintMenu() {
   // Phase 5: only where Samara is its own program (samara.ts sets it), never in the secret window.
   el('m-quit').hidden = state.canQuit !== true || state.secret === true;
   el('m-tvbox').hidden = true; el('m-tv').classList.remove('open');
+  // Sheet 121 (4): the same line opens two pages side by side, or puts them back to one.
+  el('m-split').firstElementChild.textContent = state.split ? 'Close side by side' : 'Side by side';
 }
 menukey.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
 menu.addEventListener('click', (e) => e.stopPropagation());
@@ -318,6 +376,7 @@ menu.addEventListener('keydown', (e) => {
 el('m-tvwin').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserTab?.({ id: state.active, act: 'tvwindow' }); });
 el('m-tvvid').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserTab?.({ id: state.active, act: 'tvvideo' }); });
 el('m-other').addEventListener('click', () => { closeMenu(); if (state.active != null) window.aang?.browserToMac?.(state.active); });
+el('m-split').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('split'); });
 el('m-tidy').addEventListener('click', () => { closeMenu(); onBand('drawer', openDrawer); window.aang?.browserAct?.('tidy'); });
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
