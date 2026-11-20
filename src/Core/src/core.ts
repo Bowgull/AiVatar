@@ -46,7 +46,7 @@ import { addonDirs, installed } from './addons.ts';
 const WOW_DEFAULT_ROOT = 'C:\\Program Files (x86)\\World of Warcraft';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
-import { Backup } from './backup.ts';
+import { Backup, BackupWatch } from './backup.ts';
 import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
@@ -1652,6 +1652,8 @@ export class Core {
   private readonly undo = new UndoStack();
   /** A verified copy of his memory, off this machine, every time he starts. See backup.ts. */
   private readonly backup: Backup;
+  /** Whether that copy is actually reaching GitHub, so a failing push is said and shown, never only logged. */
+  private readonly backupWatch = new BackupWatch();
 
   /** What really happened this chat turn, for checking the reply against before he sees it. */
   private turnActions: { did: string; ok: boolean; note: string; tool?: string }[] = [];
@@ -2110,6 +2112,7 @@ export class Core {
     const waiting = [
       ...live.filter(l => l.state === 'needs you').map(l => `${l.name} needs you`),
       ...(this.permission !== null ? ['a question in the bubble'] : []),
+      ...[this.backupWatch.waiting()].filter((w): w is string => !!w),
     ].slice(0, 8);
     return { week: q ? q.week : null, five: q ? q.five : null, pace, running: live.filter(l => l.state === 'working' || l.state === 'waiting').length, waiting };
   }
@@ -2527,7 +2530,11 @@ export class Core {
       if (!t) return;
       await this.addonDesk.morning().catch(() => null);                // sheet 65: CurseForge's list, fresh, WoW closed
       const card = await this.briefCard().catch(() => null);
-      this.announce(t, card ? { brief: card } : {});
+      const backup = this.backupWatch.warning();
+      this.announce(backup ? `${t}
+
+**Memory backup**
+${backup}` : t, card ? { brief: card } : {});
     }).catch(() => { /* tried again in ten minutes */ }).finally(() => { this.briefBusy = false; });
   }
 
@@ -2827,9 +2834,9 @@ export class Core {
     } catch (e) { console.error('mac-setup: front desk skipped: ' + (e as Error).message); return null; }
   }
 
-  /** VACUUM INTO, verify, commit, push - see backup.ts. A quiet receipt in #log either way; a spoken word only
-   *  if the last GOOD backup is already more than STALE_MS old, so one slow push on a fast night never sounds
-   *  an alarm by itself. */
+  /** VACUUM INTO, verify, commit, push - see backup.ts. A quiet receipt in #log either way. A failure is said once in
+   *  the bubble (blocking, so it reaches needs-you on Discord when he is away) as soon as the last copy on GitHub is
+   *  more than STALE_MS old, and stays on the brief and the waiting list until a backup gets through (BackupWatch). */
   /** One memory backup at a time (2026-10-21: it is in the background now, so a slow push must not overlap the next). */
   private memoryBackup: Promise<void> | null = null;
   private runBackup(): void {
@@ -2837,11 +2844,12 @@ export class Core {
     this.memoryBackup = this.runBackupNow().catch(e => console.error('backup: ' + (e as Error).message)).finally(() => { this.memoryBackup = null; });
   }
   private async runBackupNow(): Promise<void> {
-    const wasStale = await this.backup.stale();
+    this.backupWatch.seen(await this.backup.lastPushedAt());
     const r = await this.backup.run();
     const rec = this.actions.add({ tool: 'backup', did: r.ok ? `backed up his memory: ${r.detail}` : `backup failed: ${r.detail}`, ok: r.ok, note: r.ok ? '' : r.detail });
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });
-    if (!r.ok && wasStale) this.sayAang('a memory backup', `His memory has not been backed up cleanly in over 12 hours. The last try said: ${r.detail}`);
+    const say = this.backupWatch.after(r);
+    if (say) this.sayAang('a memory backup', say, undefined, { blocking: true });
   }
 
   /** He came back to (or left) the machine: from the pet on the PC, from the Mac's presence helper on the Mac. */
@@ -3144,6 +3152,9 @@ export class Core {
     // And every 24 hours while he stays up (his ask, 2026-10-13): the brain can run for days without a restart,
     // and a backup that only happens at start would then not happen at all.
     this.sched.every('backup', 24 * 3_600_000, () => this.runBackup(), { first: 5_000 });
+    // And again every hour while the last one failed or nothing has reached GitHub for STALE_MS (2026-11-20: the PC's
+    // pushes were refused for three weeks and only the log knew).
+    this.sched.every('backup.check', 3_600_000, () => { if (this.backupWatch.due()) this.runBackup(); });
     // Something happened to his memory on the way up: it was missing, or damaged and restored, or
     // built from nothing. He says so himself rather than leaving it in a log, because the failure
     // this replaces was Aang starting with no memory at all and talking to Joshua as a stranger

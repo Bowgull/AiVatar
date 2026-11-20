@@ -17,8 +17,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createDatabase, openMemory, SCHEMA_VERSION } from '../src/schema.ts';
+import { backupRel, machineOf } from '../src/backup.ts';
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-schema-'));
+/** This machine's own backup file (aang-pc.db or aang-mac.db), where the restore looks first. */
+const ownBackup = (dir: string) => path.join(dir, ...backupRel(machineOf()).split('/'));
 
 /** A real, valid memory database with one turn in it, to stand in for a backup or a live file. */
 function seed(file: string, turnText = 'hello'): void {
@@ -58,7 +61,7 @@ test('an existing, healthy database is just opened, with nothing to announce', (
 test('a damaged database is restored from the backup, and he says so', () => {
   const dir = tmp();
   mkdirSync(path.join(dir, 'backups'), { recursive: true });
-  seed(path.join(dir, 'backups', 'aang.db'), 'the backed up turn');
+  seed(ownBackup(dir), 'the backed up turn');
   // A database truncated by a hard shutdown: the right header, then nothing that parses.
   writeFileSync(path.join(dir, 'aang.db'), 'SQLite format 3\0' + 'x'.repeat(400));
 
@@ -73,7 +76,7 @@ test('a damaged database is restored from the backup, and he says so', () => {
 test('the damaged file is kept, not deleted: it is the only evidence of what happened', () => {
   const dir = tmp();
   mkdirSync(path.join(dir, 'backups'), { recursive: true });
-  seed(path.join(dir, 'backups', 'aang.db'));
+  seed(ownBackup(dir));
   writeFileSync(path.join(dir, 'aang.db'), 'SQLite format 3\0' + 'x'.repeat(400));
 
   const r = openMemory(dir);
@@ -88,7 +91,7 @@ test('a corrupt BACKUP is not restored over the top; it starts empty instead', (
   // the one file that might have been repairable.
   const dir = tmp();
   mkdirSync(path.join(dir, 'backups'), { recursive: true });
-  writeFileSync(path.join(dir, 'backups', 'aang.db'), 'SQLite format 3\0' + 'junk'.repeat(80));
+  writeFileSync(ownBackup(dir), 'SQLite format 3\0' + 'junk'.repeat(80));
   writeFileSync(path.join(dir, 'aang.db'), 'SQLite format 3\0' + 'x'.repeat(400));
 
   const r = openMemory(dir);
@@ -103,7 +106,7 @@ test('a stale write-ahead log is cleared when the file is swapped', () => {
   // to corrupt a database that had just been made good again.
   const dir = tmp();
   mkdirSync(path.join(dir, 'backups'), { recursive: true });
-  seed(path.join(dir, 'backups', 'aang.db'));
+  seed(ownBackup(dir));
   writeFileSync(path.join(dir, 'aang.db'), 'SQLite format 3\0' + 'x'.repeat(400));
   writeFileSync(path.join(dir, 'aang.db-wal'), 'stale write ahead log from the dead database');
 
@@ -114,13 +117,13 @@ test('a stale write-ahead log is cleared when the file is swapped', () => {
 });
 
 test('the real backup on this machine restores cleanly', () => {
-  // Not a synthetic fixture: the actual backups/aang.db, if it is there. This is the file the whole
-  // design leans on, so it is worth one assertion that it is what we think it is.
-  const real = path.join('C:', 'Users', 'Shadow', 'Documents', 'Aang', 'backups', 'aang.db');
-  if (!existsSync(real)) return;                      // not this machine; skip rather than fail
+  // Not a synthetic fixture: the PC's actual backup, if it is there (aang-pc.db since 2026-11-20, aang.db before).
+  // This is the file the whole design leans on, so it is worth one assertion that it is what we think it is.
+  const real = ['aang-pc.db', 'aang.db'].map(f => path.join('C:', 'Users', 'Shadow', 'Documents', 'Aang', 'backups', f)).find(f => existsSync(f));
+  if (!real) return;                                  // not this machine; skip rather than fail
   const dir = tmp();
   mkdirSync(path.join(dir, 'backups'), { recursive: true });
-  copyFileSync(real, path.join(dir, 'backups', 'aang.db'));
+  copyFileSync(real, ownBackup(dir));
   writeFileSync(path.join(dir, 'aang.db'), 'SQLite format 3\0' + 'x'.repeat(400));
 
   const r = openMemory(dir);
