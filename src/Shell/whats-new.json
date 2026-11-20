@@ -1445,6 +1445,11 @@
       "at": "2026-11-20T06:44:21-05:00",
       "kind": "fix",
       "text": "Ctrl and + zooms the page while Samara is in front."
+    },
+    {
+      "at": "2026-11-20T12:00:00-05:00",
+      "kind": "fix",
+      "text": "The Satchel is gone. Ctrl + Alt + V is free again."
     }
   ]
 }

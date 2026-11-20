@@ -58,8 +58,8 @@ test('a clash with another of ours names it, pad twins and fixed keys included',
   assert.equal(ourClash('note', 'Control+Alt+N', now), null);
 });
 
-test('defaults: Ctrl+Plus, Ctrl+Shift+Plus, Ctrl+Shift+V, the new Ctrl+*, Ctrl+Alt+P, the Satchel Ctrl+Alt+V', () => {
-  assert.deepEqual(readKeys(dir()), { talk: 'Control+=', snip: 'Control+Shift+=', popout: 'Control+Shift+V', note: 'Control+nummult', pin: 'Control+Alt+P', satchel: 'Control+Alt+V' });
+test('defaults: Ctrl+Plus, Ctrl+Shift+Plus, Ctrl+Shift+V, the new Ctrl+*, Ctrl+Alt+P', () => {
+  assert.deepEqual(readKeys(dir()), { talk: 'Control+=', snip: 'Control+Shift+=', popout: 'Control+Shift+V', note: 'Control+nummult', pin: 'Control+Alt+P' });
 });
 
 test('held while wanted; let go while the menu listens; a press runs its action', () => {
