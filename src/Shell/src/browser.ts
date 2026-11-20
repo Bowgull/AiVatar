@@ -340,6 +340,8 @@ function trailNameFor(url: string): string {
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/** A view whose page is still there (a view's page can be gone, or missing, once its window has closed). */
+const liveView = (v: WebContentsView | null | undefined): v is WebContentsView => { try { return Boolean(v?.webContents && !v.webContents.isDestroyed()); } catch { return false; } };
 /** What the band's floating panels draw from (sheet 120 A): the frame's messages that also go to their layer. */
 const FLOAT_CHANNELS = new Set(['browser:tabs', 'browser:dls', 'browser:plan', 'browser:updatewhy']);
 /**
@@ -1993,7 +1995,7 @@ export class AangBrowser {
   // browser works in that window.
   isFrame(sender: Electron.WebContents): boolean {
     const p = this.panes.find((x) => (this.alive(x) && sender === x.win!.webContents) || (x.trayV && !x.trayV.webContents.isDestroyed() && sender === x.trayV.webContents)
-      || (x.floatV && !x.floatV.webContents.isDestroyed() && sender === x.floatV.webContents));
+      || (liveView(x.floatV) && sender === x.floatV!.webContents));
     if (p) this.pane = p;
     return Boolean(p);
   }
@@ -2332,7 +2334,7 @@ export class AangBrowser {
   private tabPeekView(): WebContentsView | null {
     const w = this.win;
     if (!w || w.isDestroyed()) return null;
-    if (this.tabPeekV && !this.tabPeekV.webContents.isDestroyed()) {
+    if (liveView(this.tabPeekV) && this.tabPeekV) {
       // The layer belongs to one window at a time: moved to the one he is in.
       if (!w.contentView.children.includes(this.tabPeekV)) { this.tabPeekV.setVisible(false); this.tabPeekOn = false; }
       return this.tabPeekV;
@@ -2384,7 +2386,7 @@ export class AangBrowser {
   floatView(): WebContentsView | null {
     const w = this.win, P = this.pane;
     if (!w || w.isDestroyed()) return null;
-    if (P.floatV && !P.floatV.webContents.isDestroyed()) return P.floatV;
+    if (liveView(P.floatV)) return P.floatV!;
     // Never slowed while hidden: a menu must draw the moment it shows. It does nothing at rest.
     const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
     lockDown(v.webContents);
@@ -2407,14 +2409,14 @@ export class AangBrowser {
     return v;
   }
   isFloat(sender: Electron.WebContents): boolean {
-    const p = this.panes.find((x) => this.alive(x) && x.floatV && !x.floatV.webContents.isDestroyed() && sender === x.floatV.webContents);
+    const p = this.panes.find((x) => this.alive(x) && liveView(x.floatV) && sender === x.floatV!.webContents);
     if (p) this.pane = p;
     return Boolean(p);
   }
   /** Show the layer over everything (it covers the whole window, so a click anywhere else closes the panel), or put it away. */
   private floatShow(on: boolean): void {
     const w = this.win, P = this.pane, v = P.floatV;
-    if (!w || w.isDestroyed() || !v || v.webContents.isDestroyed()) return;
+    if (!w || w.isDestroyed() || !liveView(v)) return;
     if (!on) {
       if (!P.floatOn) return;
       P.floatOn = false;
@@ -2452,7 +2454,7 @@ export class AangBrowser {
   /** The window changed size while a panel is open: the layer follows. */
   private placeFloat(): void {
     const w = this.win, P = this.pane, v = P.floatV;
-    if (!P.floatOn || !w || w.isDestroyed() || !v || v.webContents.isDestroyed()) return;
+    if (!P.floatOn || !w || w.isDestroyed() || !liveView(v)) return;
     const [cw, ch] = w.getContentSize();
     v.setBounds({ x: 0, y: 0, width: cw, height: ch });
   }
@@ -3026,7 +3028,7 @@ export class AangBrowser {
       if (!FLOAT_CHANNELS.has(ch)) return;
       p.floatLast!.set(ch, args);
       const v = p.floatV;
-      if (v && p.floatReady && !v.webContents.isDestroyed()) v.webContents.send(ch, ...args);
+      if (p.floatReady && liveView(v)) v!.webContents.send(ch, ...args);
     }) as typeof w.webContents.send;
     softEdge(w);
     // M6: on the Mac, 'hidden' still shows the red, yellow and green buttons, floating over the band's left end (his
@@ -3051,7 +3053,10 @@ export class AangBrowser {
       this.pane = p;
       // Its hidden helper pages (tab list, rune layer, light, suggestions) go with it: a page in a view outlives its
       // window, and each close and reopen left four of them running (2026-10-30, stability check).
-      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV, p.floatV]) { try { if (v && !v.webContents.isDestroyed()) v.webContents.close(); } catch { /* gone */ } }
+      for (const v of [p.trayV, p.runeV, p.lightV, p.sugV, p.noticeV, p.handV, p.floatV]) { try { if (liveView(v)) v!.webContents.close(); } catch { /* gone */ } }
+      // The tab list's hover picture and a peek lived in this window: they go with it.
+      if (this.tabPeekV && !this.panes.some((x) => x !== p && this.alive(x) && x.win!.contentView.children.includes(this.tabPeekV!))) { try { if (liveView(this.tabPeekV)) this.tabPeekV.webContents.close(); } catch { /* gone */ } this.tabPeekV = null; this.tabPeekOn = false; }
+      if (this.lp?.pane === p) this.lp = null;
       p.lightV = null; p.sugV = null; p.noticeV = null; p.handV = null; p.floatV = null; p.floatOn = false; p.floatReady = false;
       // A notice it was showing moves to the window left (next time one is placed).
       if (this.noticePane === p) { this.noticePane = null; if (this.noticeNow) setTimeout(() => { if (this.noticeNow && !this.noticePane) void this.noticePlace(++this.noticeGen); }, 0); }
