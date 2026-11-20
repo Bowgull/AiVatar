@@ -1485,6 +1485,21 @@
       "at": "2026-11-20T10:23:04-05:00",
       "text": "A second update no longer undoes the first.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-20T12:04:39-05:00",
+      "text": "Task Manager shows Samara by name, with its icon.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-11-20T12:05:39-05:00",
+      "text": "Samara opens with an empty address bar.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-20T12:06:39-05:00",
+      "text": "The Samara button works again after an update.",
+      "kind": "fix"
     }
   ]
 }
