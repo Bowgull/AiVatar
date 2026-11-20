@@ -1,7 +1,7 @@
 // Samara on the PC as its own program (Phase 2, 2026-11-12; his words: "i want samara as its own standalone browser that i
 // use forever", and Aang and Samara "can see each other"). The same browser as main.ts runs today and as macmain.ts runs
 // on the Mac, through the same boot engine (boot.ts), but in a process of its own: nothing Aang's windows do (the bubble,
-// the Satchel, notes, timers, the family, the taskbar pop-outs) can take it down, and it never waits on them to start.
+// notes, timers, the family, the taskbar pop-outs) can take it down, and it never waits on them to start.
 //
 // Aang and Samara see each other through Aang's brain (link.ts, hello role 'samara'): the browser's own news (sync with
 // the Mac, Claude driving, notes, Claude's jobs, Hyrule routes) comes here; what is Aang's goes to Aang's windows; and
