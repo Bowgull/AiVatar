@@ -20,6 +20,8 @@ export function pcSamara(su: SamaraUpdates): Source {
     file: () => su.put(), skip: () => su.skip(),
     canBack: () => !!su.pointer() && su.canBack(), back: () => su.goBack(),
     checkNow: () => su.checkNow(),
+    watch: (report) => su.watch(report),
+    current: () => su.current(),
   };
 }
 

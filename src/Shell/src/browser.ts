@@ -79,6 +79,7 @@ import { HOME_NAME, artOf, diskReader, gather, homeHead, homeReady, keep, newSho
 import { LOGO_SPOTS, MockServer, MockStore, logoSlug, srcOf, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockStage, type MockVersion, type MockupDrop } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
+import type { CheckProgress } from './updateengine.ts';
 /** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
  *  line with a key is a tick box he can untick), whether he can go back, and his overnight setting. */
 export interface UpdateCard {
@@ -1371,6 +1372,9 @@ export class AangBrowser {
   /** After an update put in overnight: what it did, shown once by the ... key (sheet 35). */
   private updated: { title: string; lines: string[] } | null = null;
   setUpdated(d: { title: string; lines: string[] } | null): void { this.updated = d; this.sendTabs(); }
+  /** Sheet 122: what his "Check for updates" is doing (checking, downloading, setting up, how it ended), or null. */
+  private checking: CheckProgress | null = null;
+  setChecking(c: CheckProgress | null): void { this.checking = c; this.sendTabs(); }
   /** Why Restart now did not go ahead, in the update tray. */
   updateWhy(why: string): void { for (const p of this.panes) if (this.alive(p)) p.win!.webContents.send('browser:updatewhy', why); }
   /** The browser window is open. */
@@ -7129,7 +7133,7 @@ export class AangBrowser {
     const send = (data: Record<string, unknown>) => { w.webContents.send('browser:tabs', data); if (this.trayOn) tray?.send('browser:tabs', data); };
     send({
       active: this.active,
-      update: this.update, updated: this.updated, inCall: this.inCall, canQuit: this.onQuit !== null,
+      update: this.update, updated: this.updated, checking: this.checking, inCall: this.inCall, canQuit: this.onQuit !== null,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
       tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null, internal: x.internal ? true : undefined, mocklog: x.internal === 'mocklog' ? true : undefined, hyrule: x.internal === 'hyrule' ? true : undefined,

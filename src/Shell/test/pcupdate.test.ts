@@ -113,6 +113,31 @@ test('skip for good, and put away; an older or equal release is never offered', 
   assert.equal(d.ready, null);
 });
 
+// Sheet 122 (his pick, 2026-11-22): his "Check for updates" says each step and how it ended.
+test('a watched check says checking, downloading with a count, setting up, and ends ready', async () => {
+  const { su } = setup(release('1.0.0'));
+  const said: { stage: string; got?: number; total?: number; version?: string }[] = [];
+  const out = await su.watch((p) => said.push(p));
+  assert.equal(out, 'ready');
+  const stages = said.map((p) => p.stage);
+  assert.ok(stages.includes('download') && stages.includes('setup'), stages.join(','));
+  assert.ok(stages.indexOf('download') < stages.indexOf('setup'));
+  const last = said.filter((p) => p.stage === 'download').at(-1)!;
+  assert.equal(last.got, last.total, 'the count ends at the whole size');
+  assert.equal(last.version, '1.0.0');
+});
+
+test('a watched check on the newest version ends up to date; GitHub not answering ends could not check', async () => {
+  const first = setup(release('1.0.0'));
+  await first.su.check('test'); first.su.go();
+  const onIt = new SamaraUpdates({ root: first.root, codeDir: path.join(first.root, 'versions', '1.0.0'), fetch: release('1.0.0') as never, changed: () => {}, run, pub: PUB });
+  assert.equal(onIt.current(), '1.0.0');
+  assert.equal(await onIt.watch(() => {}), 'none');
+  const down = async () => ({ ok: false, status: 503, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0), body: null });
+  const off = new SamaraUpdates({ root: first.root, codeDir: path.join(first.root, 'versions', '1.0.0'), fetch: down as never, changed: () => {}, run, pub: PUB });
+  assert.equal(await off.watch(() => {}), 'error');
+});
+
 test('a bundle that is not a Samara release leaves nothing behind', async () => {
   const bad = release('2.0.0');
   const { root, su } = setup(bad);

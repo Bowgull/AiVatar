@@ -1520,6 +1520,16 @@
       "at": "2026-11-22T15:51:00-05:00",
       "text": "The address bar stays open when you grab it early.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-22T16:20:00-05:00",
+      "text": "Checking for updates no longer freezes Samara.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-22T16:21:00-05:00",
+      "text": "Check for updates shows what it's doing.",
+      "kind": "feature"
     }
   ]
 }

@@ -13,7 +13,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, saveJson, saveText } from './store.ts';
-import { LATEST_API, RELEASES, RELEASE_KEY, download, isVersion, latest, newer, withSection, type Manifest } from './ghrelease.ts';
+import { LATEST_API, RELEASES, RELEASE_KEY, download, isVersion, latest, newer, titleOf, withSection, type Manifest } from './ghrelease.ts';
+import type { CheckOutcome, CheckProgress } from './updateengine.ts';
 
 export interface SamaraVersion { version: string; dir: string }
 export interface Pointer extends SamaraVersion { status: 'trial' | 'good'; previous: SamaraVersion | null; at: string }
@@ -35,7 +36,6 @@ export class SamaraUpdates {
   ready: SamaraReady | null = null;
   /** Sheet 114: a newer version being made ready in its own folder while `ready` stays on the key. */
   getting = '';
-  private busy = false;
   private at = 0;
   private o: SamaraUpdatesOpts;
   constructor(o: SamaraUpdatesOpts) { this.o = o; }
@@ -58,28 +58,45 @@ export class SamaraUpdates {
   running(): string { return path.resolve(this.o.codeDir).toLowerCase().startsWith(path.resolve(this.o.root, 'versions').toLowerCase()) ? path.basename(path.resolve(this.o.codeDir)) : ''; }
 
   /** On start, once a day, and when he checks. */
-  async check(why: string): Promise<void> {
-    if (this.busy || Date.now() - this.at < 60_000) return;
-    this.busy = true; this.at = Date.now();
+  async check(why: string): Promise<void> { await this.look(why); }
+
+  /** Sheet 122: his "Check for updates" says each step (checking, downloading, setting up) while a look runs. */
+  private report: ((p: Omit<CheckProgress, 'at'>) => void) | null = null;
+  private running_: Promise<CheckOutcome> | null = null;
+  /** Sheet 122: the version running now. */
+  current(): string { return this.pointer()?.version ?? this.running(); }
+  /** His own check, watched: what was put away comes back, and a look right now (or the one already under way). */
+  async watch(report: (p: Omit<CheckProgress, 'at'>) => void): Promise<CheckOutcome> {
+    rmSync(this.file('filed.txt'), { force: true });
+    this.report = report;
+    try { return await this.look('his check', true); } finally { this.report = null; }
+  }
+  private look(why: string, now = false): Promise<CheckOutcome> {
+    if (this.running_) return this.running_;
+    if (!now && Date.now() - this.at < 60_000) return Promise.resolve(this.ready ? 'ready' : 'none');
+    this.at = Date.now();
+    this.running_ = this.lookOnce(why).finally(() => { this.running_ = null; });
+    return this.running_;
+  }
+  private async lookOnce(why: string): Promise<CheckOutcome> {
     try {
       const m = await latest(this.o.fetch, RELEASES, this.o.pub ?? RELEASE_KEY, LATEST_API);
-      const have = this.pointer()?.version ?? this.running();
+      if (!m) return 'error';   // GitHub did not answer, or its answer did not carry his seal
+      const have = this.current();
       // The version he is on is in "Every version" too.
-      if (m && m.version === have && this.o.changelog) this.addToChangelog(m);
-      if (!m || !newer(m.version, have) || this.list('failed.txt').includes(m.version) || this.list('filed.txt').includes(m.version)) return;
-      if (this.ready?.version === m.version) return;
+      if (m.version === have && this.o.changelog) this.addToChangelog(m);
+      if (!newer(m.version, have) || this.list('failed.txt').includes(m.version) || this.list('filed.txt').includes(m.version)) return this.ready ? 'ready' : 'none';
+      if (this.ready?.version === m.version) return 'ready';
       console.log(`shell: Samara ${m.version} is on GitHub (${why}); getting it ready`);
       if (this.ready) { this.getting = m.version; this.o.changed(); }
       const made = await this.prepare(m);
       this.getting = '';
-      if (!made) this.o.changed();
-      else {
-        this.ready = { version: m.version, name: m.name, commit: m.commit, notes: m.notes, since: Date.parse(m.at) || Date.now() };
-        this.addToChangelog(m);
-        this.o.changed();
-      }
-    } catch (e) { console.error('shell: Samara update check: ' + (e as Error).message); }
-    finally { this.busy = false; }
+      if (!made) { this.o.changed(); return 'error'; }
+      this.ready = { version: m.version, name: m.name, commit: m.commit, notes: m.notes, since: Date.parse(m.at) || Date.now() };
+      this.addToChangelog(m);
+      this.o.changed();
+      return 'ready';
+    } catch (e) { console.error('shell: Samara update check: ' + (e as Error).message); return 'error'; }
   }
 
   private addToChangelog(m: Manifest): void {
@@ -91,7 +108,12 @@ export class SamaraUpdates {
     const versions = this.file('versions'), dest = path.join(versions, m.version), part = dest + '.part', bundle = this.file(`samara-${m.version}.tgz`);
     if (existsSync(path.join(dest, 'src', 'main.ts'))) return true;
     mkdirSync(versions, { recursive: true });
-    if (!(await download(this.o.fetch, m, bundle))) { console.error(`shell: Samara ${m.version} did not download whole`); return false; }
+    // Sheet 122: the count while it comes in (at most four times a second), then "setting it up".
+    const title = titleOf(m);
+    let said = 0;
+    const onBytes = (got: number, total: number) => { const t = Date.now(); if (got < total && t - said < 250) return; said = t; this.report?.({ stage: 'download', version: m.version, title, got, total }); };
+    if (!(await download(this.o.fetch, m, bundle, RELEASES, onBytes))) { console.error(`shell: Samara ${m.version} did not download whole`); return false; }
+    this.report?.({ stage: 'setup', version: m.version, title });
     const run = this.o.run ?? runIt;
     // Every whole-folder step below is async (2026-11-22, his report: "check for updates freezes the window and it says
     // not responding", then Samara crashed): copying node_modules, about 4,000 files, with cpSync held the window's own
@@ -150,7 +172,7 @@ export class SamaraUpdates {
   }
   put(): void { if (this.ready) { this.add('filed.txt', this.ready.version); this.ready = null; this.o.changed(); } }
   skip(): void { if (this.ready) { this.add('failed.txt', this.ready.version); this.ready = null; this.o.changed(); } }
-  checkNow(): void { rmSync(this.file('filed.txt'), { force: true }); this.at = 0; void this.check('his check'); }
+  checkNow(): void { rmSync(this.file('filed.txt'), { force: true }); void this.look('his check', true); }
 }
 
 function runIt(cmd: string, args: string[], cwd: string): Promise<number> {

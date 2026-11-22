@@ -2515,7 +2515,54 @@ function paintWho() {
   el('updoneok').addEventListener('click', () => { done.hidden = true; unfreeze('updone'); act('seen'); });
   el('updonevers').addEventListener('click', () => { done.hidden = true; unfreeze('updone'); act('seen'); view('vers'); tray.hidden = false; place(tray, el('menukey')); freeze('up'); act('changelog'); el('uplog').textContent = 'One moment...'; });
   window.aang?.onBrowserUpdateWhy?.((why) => { view('main'); el('upwhy').textContent = String(why ?? ''); el('upwhy').hidden = false; el('upgo').disabled = false; });
-  el('m-updates').addEventListener('click', () => { closeMenu(); act('check'); });
+  el('m-updates').addEventListener('click', () => { closeMenu(); ckHid = false; act('check'); });
+  // Sheet 122 (his pick, 2026-11-22: "clicking check for updates freezes the window ... we need an interaction for
+  // that"): what the check is doing, under the ... key. Hide while it works keeps it closed until it ends; closing an
+  // ending (ready, up to date, could not check) is the end of it.
+  const ck = el('upcheck');
+  let ckHid = false, ckStage = '';
+  const FINAL = new Set(['ready', 'none', 'error']);
+  const ckClose = (final) => { if (!ck.hidden) { ck.hidden = true; unfreeze('upcheck'); } if (final) act('checkdone'); else ckHid = true; };
+  window.aang?.onBrowserTabs?.((s) => {
+    const c = s && s.checking;
+    if (!c || typeof c.stage !== 'string') { if (!ck.hidden) { ck.hidden = true; unfreeze('upcheck'); } ckHid = false; ckStage = ''; return; }
+    const st = c.stage, final = FINAL.has(st);
+    if (final) ckHid = false;
+    if (ckHid) return;
+    ckStage = st;
+    const v = typeof c.version === 'string' ? c.version.slice(0, 20) : '';
+    const title = typeof c.title === 'string' && c.title ? c.title.slice(0, 60) : v ? `Samara ${v}` : 'Samara';
+    el('upckick').textContent = { checking: 'CHECKING FOR UPDATES', download: 'GETTING IT READY', setup: 'GETTING IT READY', ready: 'UPDATE READY', none: "YOU'RE UP TO DATE", error: 'COULD NOT CHECK' }[st] ?? 'CHECKING FOR UPDATES';
+    el('upcname').textContent = st === 'none' || st === 'error' || st === 'checking' ? (v ? `Samara ${v}` : 'Samara') : title;
+    const mb = (n) => (Math.max(0, Number(n) || 0) / 1048576).toFixed(1);
+    const line = el('upcline'); line.replaceChildren();
+    if (st === 'checking') line.append('Looking on GitHub for a newer Samara. ', T2('b', '', 'Keep browsing'), ', this never stops your tabs.');
+    else if (st === 'download') line.append('Downloading. ', T2('b', '', `${mb(c.got)} of ${mb(c.total)} MB`));
+    else if (st === 'setup') line.append("Setting it up beside the one you're using. ", T2('b', '', 'About a minute.'));
+    else if (st === 'ready') line.append("Ready to go in. It's on the ", T2('b', '', 'UPDATE'), ' key too.');
+    else if (st === 'none') line.append('This is the newest Samara.');
+    else line.append('GitHub did not answer. ', T2('b', '', 'Try again'), ' in a minute.');
+    const bar = el('upcbar'), fill = bar.querySelector('i');
+    bar.hidden = st === 'none' || st === 'error';
+    bar.classList.toggle('busy', st === 'checking' || st === 'setup');
+    fill.style.width = st === 'download' ? `${Math.round(100 * Math.min(1, (Number(c.got) || 0) / Math.max(1, Number(c.total) || 1)))}%` : st === 'ready' ? '100%' : '';
+    const keys = { checking: [], download: ['Hide'], setup: ['Hide'], ready: ['Restart now', 'Later'], none: ['Got it'], error: ['Try again', 'Close'] }[st] ?? [];
+    el('upca').textContent = keys[0] ?? ''; el('upca').hidden = !keys[0];
+    el('upcb').textContent = keys[1] ?? ''; el('upcb').hidden = !keys[1];
+    el('upcfoot').hidden = !keys.length;
+    if (ck.hidden) { ck.hidden = false; place(ck, el('menukey')); freeze('upcheck'); }
+  });
+  el('upca').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (ckStage === 'download' || ckStage === 'setup') { ckClose(false); return; }
+    if (ckStage === 'error') { act('check'); return; }
+    // Restart now: through the key's own tray, so a "not right now" is said where it always is
+    if (ckStage === 'ready') { ckClose(true); if (cur && tray.hidden) key.click(); go(); return; }
+    ckClose(true);
+  });
+  el('upcb').addEventListener('click', (e) => { e.stopPropagation(); ckClose(true); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ck.hidden) ckClose(FINAL.has(ckStage)); });
+  document.addEventListener('mousedown', (e) => { if (!ck.hidden && !ck.contains(e.target)) ckClose(FINAL.has(ckStage)); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!tray.hidden) close(); if (!done.hidden) { done.hidden = true; unfreeze('updone'); act('seen'); } } });
   document.addEventListener('mousedown', (e) => {
     if (!tray.hidden && !tray.contains(e.target) && !key.contains(e.target)) close();

@@ -65,7 +65,8 @@ export async function latest(fetchFn: Fetch, base = RELEASES, pub = RELEASE_KEY,
 }
 
 /** The release's bundle, saved at dest only when it is exactly the size and fingerprint the sealed manifest says. */
-export async function download(fetchFn: Fetch, m: Manifest, dest: string, base = RELEASES): Promise<boolean> {
+/** `onBytes` (sheet 122, his own check): how much has come so far, of the sealed size. */
+export async function download(fetchFn: Fetch, m: Manifest, dest: string, base = RELEASES, onBytes?: (got: number, total: number) => void): Promise<boolean> {
   const part = dest + '.part';
   try {
     const r = await fetchFn(`${base}samara-v${m.version}/${m.bundle.file}`, { signal: AbortSignal.timeout(10 * 60_000) });
@@ -73,10 +74,12 @@ export async function download(fetchFn: Fetch, m: Manifest, dest: string, base =
     const hash = createHash('sha256'), out = createWriteStream(part);
     let n = 0;
     const reader = r.body.getReader();
+    onBytes?.(0, m.bundle.bytes);
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       n += value.length;
+      onBytes?.(Math.min(n, m.bundle.bytes), m.bundle.bytes);
       if (n > m.bundle.bytes) { await reader.cancel(); throw new Error('too big'); }
       hash.update(value);
       if (!out.write(value)) await new Promise<void>((res) => out.once('drain', () => res()));

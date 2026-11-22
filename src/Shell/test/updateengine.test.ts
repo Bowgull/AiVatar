@@ -161,3 +161,26 @@ test('a running Samara looks for a new version once a day, not every 15 minutes 
     assert.ok(job!.next - Date.now() <= 30_000, 'the first one still goes half a minute after start');
   } finally { e.stop(); }
 });
+
+// Sheet 122 (his pick, 2026-11-22): his "Check for updates" said step by step, then how it ended.
+test("check for updates: checking, the source's own steps, then ready or up to date or could not check", async () => {
+  const offer: Offer = { version: '1.62.2', since: 0, title: 'Version 1.62.2: Gojo', groups: [], canBack: false };
+  let has: Offer | null = null, others = 0;
+  const watched = (out: 'ready' | 'none' | 'error'): Source => ({
+    id: 'samara', onKey: true, ready: () => has, check: async () => {}, go: async () => ({ ok: true }), file: () => {}, skip: () => {}, canBack: () => false, back: () => false, checkNow: () => {},
+    current: () => '1.62.1',
+    watch: async (report) => { report({ stage: 'download', version: '1.62.2', got: 5, total: 10 }); report({ stage: 'setup', version: '1.62.2' }); if (out === 'ready') has = offer; return out; },
+  });
+  const engine: Source = { id: 'engine', onKey: true, ready: () => null, check: async () => {}, go: async () => ({ ok: true }), file: () => {}, skip: () => {}, canBack: () => false, back: () => false, checkNow: () => { others++; } };
+  const run = async (out: 'ready' | 'none' | 'error') => {
+    has = null;
+    const said: string[] = [];
+    const e = new UpdateEngine({ sources: [watched(out), engine], moment: () => ({ now: new Date(), idleSeconds: 0, inCall: false, inGame: false }) as Moment, overnight: () => false, changed: () => {}, restart: () => {} });
+    await e.checkNow((p) => said.push(`${p.stage}${p.version ? ' ' + p.version : ''}`));
+    return said;
+  };
+  assert.deepEqual(await run('ready'), ['checking 1.62.1', 'download 1.62.2', 'setup 1.62.2', 'ready 1.62.2']);
+  assert.deepEqual(await run('none'), ['checking 1.62.1', 'download 1.62.2', 'setup 1.62.2', 'none 1.62.1']);
+  assert.deepEqual((await run('error')).at(-1), 'error 1.62.1');
+  assert.equal(others, 3, 'the engine looks too, each time');
+});

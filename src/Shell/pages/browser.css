@@ -691,6 +691,16 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .upx .key{white-space:nowrap}
 .upx .key.danger{background:linear-gradient(180deg,#B8452E,#7A2418);color:#FFF1E0}
 .uptray.updone{width:300px}
+/* Sheet 122 (his pick, 2026-11-22): "Check for updates" while it works. Dark words on the parchment; a gold line that
+   fills with the download, or moves back and forth while it checks or sets up. */
+.upcheck .upcline{margin:2px 0 10px;font:500 13px/1.35 var(--body);color:#3a2a18;text-shadow:none}
+.upcheck .upcline b{color:#8a4b0c}
+.upcheck .upcbar{position:relative;height:6px;border-radius:3px;background:rgba(58,42,24,.2);overflow:hidden;margin:0 0 6px}
+.upcheck .upcbar[hidden]{display:none}
+.upcheck .upcbar i{position:absolute;top:0;bottom:0;left:0;width:0;border-radius:3px;background:linear-gradient(90deg,#f0b54a,#ffd36a);box-shadow:0 0 8px rgba(255,200,90,.6);transition:width .25s ease}
+.upcheck .upcbar.busy i{width:28%;transition:none;animation:upcgo 1.4s ease-in-out infinite alternate}
+@keyframes upcgo{from{left:0}to{left:72%}}
+.upcheck .upfoot[hidden],.upcheck .key[hidden]{display:none}
 
 /* Sheet 22, his pick D (2026-10-14): a raised wood lip across the top, a full-width strip to grab the window by.
    The band grows by 14px; the buttons and the address sit where they did, under the lip. */

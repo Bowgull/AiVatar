@@ -120,7 +120,18 @@ export interface Source {
   checkNow(): void;
   /** Sheet 108, the engine only: his click on "Sign in to castLabs". */
   signin?(): Promise<boolean>;
+  /** Sheet 122, Samara only: "Check for updates" with each step said as it happens; how it ended. */
+  watch?(report: (p: Omit<CheckProgress, 'at'>) => void): Promise<CheckOutcome>;
+  /** Sheet 122: the version running now ("1.62.1"). */
+  current?(): string;
 }
+
+/** Sheet 122 (his pick, 2026-11-22): what his own "Check for updates" is doing, for the drop-down under the ... key. */
+export interface CheckProgress {
+  stage: 'checking' | 'download' | 'setup' | 'ready' | 'none' | 'error';
+  version?: string; title?: string; got?: number; total?: number; at: number;
+}
+export type CheckOutcome = 'ready' | 'none' | 'error';
 
 export interface EngineOptions {
   sources: Source[];
@@ -211,6 +222,28 @@ export class UpdateEngine {
       this.o.restart({ sources: done, overnight, title, lines });
       return { ok: true };
     } finally { this.going = false; }
+  }
+
+  /**
+   * Sheet 122 (his pick, 2026-11-22): his "Check for updates", said step by step (checking, downloading, setting up) and
+   * how it ended (ready, up to date, could not check). The other sources look too, as before.
+   */
+  private watching = false;
+  async checkNow(report: (p: CheckProgress) => void): Promise<void> {
+    if (this.watching) return;
+    this.watching = true;
+    const send = (p: Omit<CheckProgress, 'at'>) => { try { report({ ...p, at: Date.now() }); } catch { /* a closed window */ } };
+    const main = this.o.sources.find((s) => s.watch);
+    const here = () => main?.current?.() ?? '';
+    send({ stage: 'checking', version: here() });
+    try {
+      for (const s of this.o.sources) if (s !== main) s.checkNow();
+      const out = main ? await main.watch!(send) : 'none';
+      const card = this.card();
+      if (card) send({ stage: 'ready', version: card.version, ...(card.title ? { title: card.title } : {}) });
+      else send({ stage: out === 'error' ? 'error' : 'none', version: here() });
+    } catch { send({ stage: 'error', version: here() }); }
+    finally { this.watching = false; }
   }
 
   /** The ... menu, for whatever the key shows (Samara's first). */

@@ -69,11 +69,11 @@ html.float .bw::before,html.float .bw::after{display:none !important}
 html.float .loading,html.float .body3,html.float .railhandle,html.float .linkpeek{display:none !important}
 html.float .band{visibility:hidden;background:none !important;border-color:transparent !important;box-shadow:none !important;-webkit-app-region:no-drag !important}
 html.float .band *{-webkit-app-region:no-drag !important}
-html.float #menu,html.float #markpanel,html.float #sitepanel,html.float #dltray,html.float #uptray,html.float #updone,html.float #plantray{visibility:visible}
+html.float #menu,html.float #markpanel,html.float #sitepanel,html.float #dltray,html.float #uptray,html.float #updone,html.float #upcheck,html.float #plantray{visibility:visible}
 html.float #vaultchip,html.float #afsavechip,html.float #sharechip,html.float #tvchip{display:none !important}
 /* ---- the band, once its layer has loaded: its own copies of the panels are never drawn (they are under the page) */
 html.floated:not(.float) #menu,html.floated:not(.float) #markpanel,html.floated:not(.float) #sitepanel,html.floated:not(.float) #dltray,
-html.floated:not(.float) #uptray,html.floated:not(.float) #updone,html.floated:not(.float) #plantray{display:none !important}
+html.floated:not(.float) #uptray,html.floated:not(.float) #updone,html.floated:not(.float) #upcheck,html.floated:not(.float) #plantray{display:none !important}
 
 /* ---- one wood panel: the ⋯ menu, the star, the shield and the downloads all hang the same way, 6 px under the band */
 #menu,#sitepanel,#markpanel{border-style:solid;border-width:8px;border-image:url(art/browser/trayframe.png) 4 repeat;border-radius:0;

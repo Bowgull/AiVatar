@@ -312,7 +312,10 @@ export function samaraBrowser(base: SamaraBase, p: Platform, bp: BrowserPlatform
     if (act === 'overnight') { try { d.writeAtomic(u.prefsFile, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } ue.show(); return; }
     if (act === 'seen') { browser.setUpdated(null); u.seen?.(); return; }
     if (act === 'castlabs') { void ue.signin().then((ok) => { if (!ok) sender.send('browser:updatewhy', 'Terminal could not be opened. Try again in a moment.'); }); return; }
-    if (act === 'file' || act === 'skip' || act === 'check') { ue.act(act); return; }
+    // Sheet 122 (his pick, 2026-11-22): his check is shown step by step under the ... key; 'checkdone' is him closing it.
+    if (act === 'check') { void ue.checkNow((c) => browser.setChecking(c)); return; }
+    if (act === 'checkdone') { browser.setChecking(null); return; }
+    if (act === 'file' || act === 'skip') { ue.act(act); return; }
     if (act === 'back') { if (ue.act('back')) u.wentBack?.(); else sender.send('browser:updatewhy', 'There is no earlier version kept to go back to.'); }
   });
   d.onFrame('browser:updatego', frame, (sender) => { void ue.go().then((r) => { if (!r.ok) sender.send('browser:updatewhy', r.why ?? 'Not right now.'); }); });

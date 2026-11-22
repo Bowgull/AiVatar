@@ -20,7 +20,7 @@ import { Evs } from './evs.ts';
 import { engineGroups } from './pcsource.ts';
 import { macUpdateScript } from './macupdate.ts';
 import { readJson, saveJson } from './store.ts';
-import { VersionLists, isVersion, newer, plain, type CardGroup, type Offer, type Source } from './updateengine.ts';
+import { VersionLists, isVersion, newer, plain, type CardGroup, type CheckOutcome, type CheckProgress, type Offer, type Source } from './updateengine.ts';
 
 type Fetch = Parameters<typeof ghLatest>[0];
 export interface Installed { version: string; commit: string; status: string; engine?: string }
@@ -115,6 +115,8 @@ export class MacStage {
   }
   /** The ready one is not wanted any more (put away or skipped): it leaves the key. */
   forget(): void { this.built = null; }
+  /** Sheet 122: back once nothing is being built (his watched check waits for "setting it up" to end). */
+  async whenBuilt(): Promise<void> { while (this.building || this.again) await new Promise((r) => setTimeout(r, 500)); }
   private script(stage: 'staged' | 'staged-next'): string {
     const i = readInstalled(this.p.installed);
     const version = this.samara?.m.version ?? i.version, commit = this.samara?.m.commit ?? i.commit;
@@ -179,7 +181,6 @@ export class MacStage {
 export class MacSamara implements Source {
   readonly id = 'samara' as const;
   readonly onKey = true;
-  private busy = false;
   private at = 0;
   private tried = new Set<string>();
   readonly lists: VersionLists;
@@ -210,28 +211,53 @@ export class MacSamara implements Source {
     if (!s) return null;
     return { version: s.m.version, since: Date.parse(s.m.at) || Date.now(), title: titleOf(s.m), groups: [{ name: 'SAMARA', items: s.m.notes.map((text) => ({ text })) }], canBack: this.canBack(), ...(coming ? { coming } : {}) };
   }
-  async check(why: string): Promise<void> {
-    if (this.busy || Date.now() - this.at < 60_000) return;
-    this.busy = true; this.at = Date.now();
+  async check(why: string): Promise<void> { await this.look(why); }
+
+  /** Sheet 122: his "Check for updates" says each step (checking, downloading, setting up) while a look runs. */
+  private report: ((p: Omit<CheckProgress, 'at'>) => void) | null = null;
+  private running_: Promise<CheckOutcome> | null = null;
+  current(): string { return this.installed().version; }
+  async watch(report: (p: Omit<CheckProgress, 'at'>) => void): Promise<CheckOutcome> {
+    this.lists.unfile(); this.tried.clear();
+    this.report = report;
+    try { return await this.look('his check', true); } finally { this.report = null; }
+  }
+  private look(why: string, now = false): Promise<CheckOutcome> {
+    if (this.running_) return this.running_;
+    if (!now && Date.now() - this.at < 60_000) return Promise.resolve(this.stage.readySamara ? 'ready' : 'none');
+    this.at = Date.now();
+    this.running_ = this.lookOnce(why).finally(() => { this.running_ = null; });
+    return this.running_;
+  }
+  private async lookOnce(why: string): Promise<CheckOutcome> {
     try {
       const m = await ghLatest(this.o.fetch, undefined, this.o.pub);
-      if (!m) return;
+      if (!m) return 'error';
       const i = this.installed();
       // The version he is on is in "Every version" too (however it was put in).
       if (m.version === i.version) this.changelog(m);
-      if (!newer(m.version, i.version) || this.lists.blocked(m.version)) { if (this.stage.samara) { this.stage.samara = null; void this.stage.build(); this.o.changed(); } return; }
-      if (this.stage.samara?.m.version === m.version || this.tried.has(m.version)) return;
+      if (!newer(m.version, i.version) || this.lists.blocked(m.version)) { if (this.stage.samara) { this.stage.samara = null; void this.stage.build(); this.o.changed(); } return 'none'; }
+      const title = titleOf(m);
+      if (this.stage.samara?.m.version === m.version || this.tried.has(m.version)) {
+        // already on its way: a watched check waits for it to be set up
+        if (this.report && this.stage.samara?.m.version === m.version && !this.stage.readySamara) { this.report({ stage: 'setup', version: m.version, title }); await this.stage.whenBuilt(); }
+        return this.stage.readySamara ? 'ready' : 'none';
+      }
       this.tried.add(m.version);
       this.o.log(`update: Samara ${m.version} is on GitHub (${why}); downloading it`);
       const dir = path.join(this.p.br, 'github');
       mkdirSync(dir, { recursive: true });
       const bundle = path.join(dir, `samara-${m.version}.tgz`);
-      if (!(await ghDownload(this.o.fetch, m, bundle))) { this.o.log(`update: Samara ${m.version} did not download whole; trying again later`); this.tried.delete(m.version); return; }
+      let said = 0;
+      const onBytes = (got: number, total: number) => { const t = Date.now(); if (got < total && t - said < 250) return; said = t; this.report?.({ stage: 'download', version: m.version, title, got, total }); };
+      if (!(await ghDownload(this.o.fetch, m, bundle, undefined, onBytes))) { this.o.log(`update: Samara ${m.version} did not download whole; trying again later`); this.tried.delete(m.version); return 'error'; }
       this.changelog(m);
       this.stage.samara = { m, bundle };
-      void this.stage.build();
-    } catch (e) { this.o.log('update: GitHub check: ' + (e as Error).message); }
-    finally { this.busy = false; }
+      if (!this.report) { void this.stage.build(); return 'none'; }
+      this.report({ stage: 'setup', version: m.version, title });
+      await this.stage.build(); await this.stage.whenBuilt();
+      return this.stage.readySamara?.m.version === m.version ? 'ready' : 'error';
+    } catch (e) { this.o.log('update: GitHub check: ' + (e as Error).message); return 'error'; }
   }
   go(): Promise<{ ok: boolean; why?: string }> { return this.stage.swap(); }
   /** Put away or skipped: the one on the key (sheet 114: a newer one being made behind it stays wanted). */
@@ -246,7 +272,7 @@ export class MacSamara implements Source {
     try { const out = openSync(this.p.updateLog, 'w'); spawn('/bin/bash', ['-c', BACK_SCRIPT], { detached: true, stdio: ['ignore', out, out] }).unref(); this.o.log('update: going back to the last version (his click)'); return true; }
     catch (e) { this.o.log('update: could not go back: ' + (e as Error).message); return false; }
   }
-  checkNow(): void { this.lists.unfile(); this.tried.clear(); this.at = 0; void this.check('his check'); }
+  checkNow(): void { this.lists.unfile(); this.tried.clear(); void this.look('his check', true); }
 }
 
 /** Going back on the Mac: only the app's insides change places, never the Samara.app folder itself (his pet peeve,
