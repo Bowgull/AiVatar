@@ -13,7 +13,7 @@
 // Run: electron src/macaang.ts   (the LaunchAgent com.aang.pet does this)
 import { app, BrowserWindow, Menu, Tray, clipboard, globalShortcut, ipcMain, nativeImage, screen, shell, systemPreferences } from 'electron';
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
@@ -93,7 +93,14 @@ let artY = 0;
 const SNAP = 24;                                   // pixels of his art showing now (animated towards SHOW[pose])
 let dockUp = false;
 let shadowFront = false;
-let hidden = false;
+// Hidden is remembered across restarts (his ask, 2026-11-22: "retire him ... just for now"), like the PC's pet-hidden.flag:
+// the file is there while he is hidden, and Show Aang in the menu bar removes it.
+const HIDDEN_FLAG = path.join(STATE_DIR, 'pet-hidden.flag');
+let hidden = existsSync(HIDDEN_FLAG);
+function rememberHidden(on: boolean): void {
+  try { if (on) writeFileSync(HIDDEN_FLAG, new Date().toISOString()); else rmSync(HIDDEN_FLAG, { force: true }); }
+  catch (e) { console.log(`aang: pet-hidden flag: ${(e as Error).message}`); }
+}
 let lastTouch = Date.now();
 let slide: { from: number; to: number; at: number } | null = null;
 let markNow: string | null = null;
@@ -422,8 +429,8 @@ function picked(id: string): void {
   if (id === 'comeback') { undock(); lastTouch = Date.now(); return; }
   if (id === 'dock.bottom' || id === 'dock.left' || id === 'dock.right' || id === 'dock.top') { if (docked) undock(); dockAt(id.slice(5) as DockEdge); return; }
   // Hide is undone from the same row, which reads "Show Aang" while he is hidden (2026-10-29, fix 6: it was one-way).
-  if (id === 'hide' && hidden) { hidden = false; pet?.showInactive(); setPose(docked ? 'peek' : 'out'); if (heldBubble && (heldBubble.proactive !== true || Date.now() - heldAt < 60 * 60_000)) say(heldBubble); else heldBubble = null; return; }
-  if (id === 'hide') { hidden = true; bubble?.hide(); input?.close(false); setPose('hidden'); pet?.hide(); return; }
+  if (id === 'hide' && hidden) { hidden = false; rememberHidden(false); pet?.showInactive(); setPose(docked ? 'peek' : 'out'); if (heldBubble && (heldBubble.proactive !== true || Date.now() - heldAt < 60 * 60_000)) say(heldBubble); else heldBubble = null; return; }
+  if (id === 'hide') { hidden = true; rememberHidden(true); bubble?.hide(); input?.close(false); setPose('hidden'); pet?.hide(); return; }
   if (id.startsWith('model.')) { inputMode = id.slice(6); link.send({ t: 'mode', mode: inputMode as never }); return; }
   if (id === 'saving') { link.send({ t: 'saving', on: lastLevel !== 'saving' }); return; }
   if (id === 'quit') { console.log('aang: quit from his menu'); app.quit(); return; }
@@ -677,7 +684,8 @@ app.whenReady().then(async () => {
   await pet.loadURL(`${pages.origin}/macpet.html`);
   pet.webContents.send('pet:frames', loadFrames());
   placePet();
-  pet.showInactive();
+  if (hidden) setPose('hidden');   // hidden before the restart: stays hidden until Show Aang
+  else pet.showInactive();
   setTimeout(step, 100);
 
   tray = new Tray(headIcon());

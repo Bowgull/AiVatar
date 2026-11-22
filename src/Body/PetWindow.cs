@@ -141,8 +141,22 @@ sealed class PetWindow : Form
     /// Joshua hid him, so he stays hidden until Joshua asks for him back. Clippy's real failure was not the
     /// art, it was coming back by itself after being dismissed, and OpenAI's pet has the same bug open today.
     /// Nothing below may call Show() while this is set.
+    /// Remembered across restarts (his ask, 2026-11-22: "retire him ... just for now"): pet-hidden.flag in Aang's folder,
+    /// written when he hides him and removed when he brings him back, so a restart no longer puts him on screen.
     /// </summary>
-    bool hiddenByUser;
+    bool hiddenByUser
+    {
+        get => hiddenField;
+        set
+        {
+            if (hiddenField == value) return;
+            hiddenField = value;
+            try { if (value) File.WriteAllText(Paths.File(HiddenFlag), DateTime.Now.ToString("s")); else File.Delete(Paths.File(HiddenFlag)); }
+            catch (Exception e) { Log.Write("pet-hidden flag: " + e.Message); }
+        }
+    }
+    bool hiddenField = File.Exists(Paths.File(HiddenFlag));
+    const string HiddenFlag = "pet-hidden.flag";
     /// <summary>Test flag (--set-hotkey): open the key chooser as soon as the window is up.</summary>
     bool openHotkeyBox;
     /// <summary>Test flag (--panel): open the Panel as soon as the window is up.</summary>
@@ -448,7 +462,9 @@ sealed class PetWindow : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        Render();
+        // hidden before the restart: stays hidden (nothing drawn, so no flash), back from his tray's Show or hide
+        if (hiddenByUser) { Log.Write("started hidden: hidden by Joshua"); BeginInvoke(Hide); }
+        else Render();
         timer.Start(); fgTimer.Start(); PollForeground(); ApplyQuiet();
         // Perf sweep (2026-10-22): the only reader of wowRunning is the docked hover-reveal, so the whole process list (290
         // processes, a few ms and ~290 objects to collect each time) is only walked while he is tucked at an edge, and every
