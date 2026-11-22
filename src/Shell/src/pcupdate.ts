@@ -9,7 +9,8 @@
 //   failed.txt / filed.txt                       versions not to offer again / put away until he checks
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, saveJson, saveText } from './store.ts';
 import { LATEST_API, RELEASES, RELEASE_KEY, download, isVersion, latest, newer, withSection, type Manifest } from './ghrelease.ts';
@@ -92,8 +93,11 @@ export class SamaraUpdates {
     mkdirSync(versions, { recursive: true });
     if (!(await download(this.o.fetch, m, bundle))) { console.error(`shell: Samara ${m.version} did not download whole`); return false; }
     const run = this.o.run ?? runIt;
+    // Every whole-folder step below is async (2026-11-22, his report: "check for updates freezes the window and it says
+    // not responding", then Samara crashed): copying node_modules, about 4,000 files, with cpSync held the window's own
+    // thread for the whole copy.
     try {
-      rmSync(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
+      await rm(part, { recursive: true, force: true }); mkdirSync(part, { recursive: true });
       // Windows' own tar (bsdtar), so a drive letter is never read as a remote host.
       const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
       if (await run(tar, ['-xzf', bundle, '-C', part], part) !== 0) throw new Error('unpacking failed');
@@ -102,19 +106,19 @@ export class SamaraUpdates {
       const lock = (d: string) => { try { return createHash('sha256').update(readFileSync(path.join(d, 'package-lock.json'))).digest('hex'); } catch { return ''; } };
       const now = this.pointer();
       const from = now ? this.file(now.dir) : '';
-      if (from && lock(from) === lock(part) && existsSync(path.join(from, 'node_modules'))) cpSync(path.join(from, 'node_modules'), path.join(part, 'node_modules'), { recursive: true });
+      if (from && lock(from) === lock(part) && existsSync(path.join(from, 'node_modules'))) await cp(path.join(from, 'node_modules'), path.join(part, 'node_modules'), { recursive: true });
       else {
         const cmd = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : 'npm';
         const args = ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'];
         if (await run(cmd, process.platform === 'win32' ? ['/d', '/s', '/c', 'npm ' + args.join(' ')] : args, part) !== 0) throw new Error("installing the browser's libraries failed");
       }
-      rmSync(dest, { recursive: true, force: true });
+      await rm(dest, { recursive: true, force: true });
       renameSync(part, dest);
       rmSync(bundle, { force: true });
       return true;
     } catch (e) {
       console.error(`shell: getting Samara ${m.version} ready failed: ${(e as Error).message}`);
-      rmSync(part, { recursive: true, force: true });
+      await rm(part, { recursive: true, force: true }).catch(() => { /* left for the next try */ });
       return false;
     }
   }
