@@ -1,7 +1,7 @@
 // The address bar the moment Samara opens (his ask, 2026-11-20: "when samara opens sometimes i like to grab the address
-// bar as its opening and google something"). A restored session of two tabs, one slow. Checks that the cursor is in the
-// bar once Samara is up, that tabs coming back do not take it away, that his typing lands there, and that Enter hands
-// the keyboard to the page.
+// bar as its opening and google something"; 2026-11-22: "it should just load normally"). A restored session of two tabs,
+// one slow. Checks that the bar is NOT opened for him, that a bar he grabs while Samara opens is not taken away by tabs
+// coming back, that his typing lands there, and that Enter hands the keyboard to the page.
 // Run it on the hidden desktop only (tools/hidden-desktop-run.ps1): it uses real focus.
 //
 // Run (from src/Shell):  npx electron test/electron/address-at-start-check.ts
@@ -59,8 +59,16 @@ app.whenReady().then(async () => {
 
   await wait(800);
   let s = await bar();
-  check('Samara opens with the cursor in the address bar', s.open && s.focused && w.webContents.isFocused(), JSON.stringify(s));
-  check('the bar opens empty, the page address shown faintly in it', s.value === '' && String(s.hint).includes('/first'), JSON.stringify(s));
+  // 2026-11-22 (his ask, changing 11-20's): it loads normally, the bar not opened or selected for him
+  check('Samara opens with the address bar closed, nothing selected', !s.open && !s.focused, JSON.stringify(s));
+
+  // he grabs the bar while it is still opening (the slow tab has not loaded yet)
+  // (Ctrl+L's route: a synthetic mouse click does not reach the frame on the hidden desktop)
+  w.webContents.focus(); w.webContents.send('browser:focusslot');
+  if (process.env.TRACE2) for (const ms of [0, 30, 60, 120, 250]) { await wait(ms ? 30 : 0); console.log('T+' + ms, JSON.stringify(await bar())); }
+  await wait(300);
+  s = await bar();
+  check('grabbing the bar while Samara opens opens it', s.open && s.focused, JSON.stringify(s));
 
   await wait(3000);                                      // the slow tab has finished; Claude's tabs had their turn
   s = await bar();

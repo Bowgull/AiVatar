@@ -2013,13 +2013,14 @@ export class AangBrowser {
     const watched = new Set<number>();
     const end = Date.now() + 8000;
     const timer = setInterval(() => {
-      if (Date.now() > end || !this.alive(p) || !p.slotOpen) { clearInterval(timer); return; }
+      if (Date.now() > end || !this.alive(p)) { clearInterval(timer); return; }
       for (const t of this.tabs) {
         const wc = t.pane === p.id && t.view && !t.view.webContents.isDestroyed() ? t.view.webContents : null;
         if (!wc || watched.has(wc.id)) continue;
         watched.add(wc.id);
         wc.on('input-event', (_e, input) => { if (input.type === 'mouseDown') clickedAt.set(wc.id, Date.now()); });
       }
+      if (!p.slotOpen) return;   // 2026-11-22: the bar is no longer opened for him; this only keeps it once HE opened it
       const f = allWebContents.getFocusedWebContents();
       if (!f || f === w.webContents || !this.tabs.some((t) => t.pane === p.id && t.view?.webContents === f)) return;
       if (Date.now() - (clickedAt.get(f.id) ?? 0) < 1000) return;   // he clicked the page: it is his
@@ -3151,17 +3152,15 @@ export class AangBrowser {
       // Sheet 87: the secret window opens on its blank night page, locked; its tabs come back with its PIN.
       // His pick (2026-10-25): it opens on Brave Search, logged out; its address bar searches with Yandex.
       if (this.o.secret) { this.shut(); this.coverId = this.newTab(SECRET_COVER); return; }
-      // His ask (2026-11-20): Samara opens with the cursor in the address bar. Decided BEFORE his tabs come back: a tab
-      // told to take the keyboard while it is still loading takes it once it has loaded, after the bar had it.
+      // His ask (2026-11-22, changing 2026-11-20's): Samara opens normally, the bar NOT opened or selected for him; he
+      // can still grab it the moment it opens (early.js keeps an early click or typing, holdBarAtStart keeps it his).
       const barFirst = !url && !this.whenOpen.length;
-      if (barFirst) p.slotOpen = true;
       // A mockup that opened the window (sheet 47) is its first tab: no home page under it.
       if (this.prefs.startup === 'home' || !this.restore()) { this.restored = true; if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
       for (const f of this.whenOpen.splice(0)) { this.pane = p; f(); }
-      // His ask (2026-11-20): the address bar is ready the moment Samara opens, so he can type a search straight away,
-      // as in Chrome. Not when a link or a mockup opened it: then the page is what he came for.
-      if (barFirst && !w.isDestroyed()) { w.webContents.focus(); w.webContents.send('browser:focusslot', { start: true }); this.holdBarAtStart(p); }
+      // The first seconds: if he opens the bar while the tabs are still coming back, they do not take it from him.
+      if (barFirst && !w.isDestroyed()) this.holdBarAtStart(p);
       // Sheet 115: Claude's tabs from before the restart come back after his own.
       if (!this.o.secret) setTimeout(() => { void this.restoreClaude(); }, 1500);
     });
@@ -4796,7 +4795,18 @@ export class AangBrowser {
     // Its height is the list's own (the page says, suggestSize): a first guess until then, rows 40 tall.
     const b = v.getBounds(), height = first || !v.getVisible() ? Math.min(ch - y, 14 + 40 * Math.max(1, rows.length)) : b.height;
     v.setBounds({ x, y, width, height });
-    if (first || !v.getVisible()) { w.contentView.addChildView(v); v.setVisible(true); }
+    if (first || !v.getVisible()) {
+      w.contentView.addChildView(v); v.setVisible(true);
+      // The list never needs the keyboard (its rows act through suggestAct). Chromium gives it the keyboard when it is
+      // first shown, and the bar then closed under him a moment after he opened it (2026-11-22, grabbed while Samara
+      // opens): it goes straight back to the bar.
+      // (looked for every 10 ms for 400 ms: the bar shuts 120 ms after losing the keyboard)
+      const until = Date.now() + 400;
+      const back = setInterval(() => {
+        if (Date.now() > until || w.isDestroyed() || v.webContents.isDestroyed()) { clearInterval(back); return; }
+        if (v.webContents.isFocused() && P.slotOpen) w.webContents.focus();
+      }, 10);
+    }
     v.webContents.send('suggest:show', { ...show, first });
   }
   /** The list drew this tall: the layer is exactly that, so it never covers the page below the list. */
