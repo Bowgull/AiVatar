@@ -1500,6 +1500,16 @@
       "at": "2026-11-20T12:06:39-05:00",
       "text": "The Samara button works again after an update.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-11-22T15:20:00-05:00",
+      "text": "Hidden Aang stays hidden after a restart.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-11-22T15:21:00-05:00",
+      "text": "Mini player bars no longer cover the song's source.",
+      "kind": "fix"
     }
   ]
 }
