@@ -113,7 +113,9 @@ html.idling .idle{opacity:1}
 .iwhere{position:absolute;right:12px;top:8px;font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#ffe6b0;text-shadow:0 1px 0 #000;background:rgba(20,12,6,.6);padding:3px 6px 2px;border-radius:5px;white-space:nowrap}
 .idle.cover .iwhere{right:auto;left:200px;top:12px}
 .idle .ibars{right:14px;top:28px}
-.idle.cover .ibars{top:12px}
+/* beside the cover the place label starts at 200 px and runs long ("EVERY WHERE · SPOTIFY"), so on its row the bars
+   drew over its end (his screenshot, 2026-11-22): they sit under the label's row instead, as they do without a cover */
+.idle.cover .ibars{top:30px}
 .idim{position:absolute;inset:0;background:rgba(10,6,3,.62);opacity:0;transition:opacity .4s ease}
 .idle.cover .idim{left:192px}
 /* the lyrics roll (sheet 118 v2, amber): one column, the sung line in the middle; no box */
