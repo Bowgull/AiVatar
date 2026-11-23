@@ -40,6 +40,18 @@ app.whenReady().then(async () => {
   await js(`(() => { const q = document.querySelector('#find input'); q.value = '10'; q.dispatchEvent(new Event('input')); return 1; })()`);
   await wait(200);
   check('a number finds by number (102, 104, 106, 107, 109)', (await rows()).length === 5, (await rows()).join(', '));
+  // 2026-11-23: a project's name finds the project. "samara" on Samara shows all its sheets; "aang" moves to Aang's tab.
+  const tabOn = () => js(`document.querySelector('#ptabs .ptab.on span:nth-child(2)').textContent`) as Promise<string>;
+  await js(`(() => { const q = document.querySelector('#find input'); q.value = 'samara'; q.dispatchEvent(new Event('input')); return 1; })()`);
+  await wait(200);
+  check('the project name shows all its sheets', (await rows()).length === 9, String((await rows()).length));
+  await js(`(() => { const q = document.querySelector('#find input'); q.value = 'aang'; q.dispatchEvent(new Event('input')); return 1; })()`);
+  await wait(200);
+  check('another project\'s name moves to its tab', (await tabOn()) === 'Aang' && (await rows()).length === 2, `${await tabOn()}: ${(await rows()).join(', ')}`);
+  await shot('project');
+  await js(`[...document.querySelectorAll('#ptabs .ptab')].find((b) => b.textContent.startsWith('Samara')).click(); 1`);
+  await wait(200);
+  check('a tab picked by hand stays, even with a project name typed', (await tabOn()) === 'Samara', await tabOn());
   await js(`(() => { const q = document.querySelector('#find input'); q.value = ''; q.dispatchEvent(new Event('input')); [...document.querySelectorAll('#find .mk')].find((b) => b.textContent === 'FIX').click(); return 1; })()`);
   await wait(200);
   check('FIX shows only fixes', (await rows()).join() === 'Pixel edges', (await rows()).join(', '));

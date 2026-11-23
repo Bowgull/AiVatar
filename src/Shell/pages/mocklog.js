@@ -132,7 +132,7 @@ function draw() {
   };
   // Sheet 113 (his picks, 2026-10-31): what he has not opened sits in New, above the topics, until he opens it; search,
   // the marks and the sort narrow what is shown. Done stays at the bottom either way.
-  const live = p.topics.flatMap((t) => t.sheets).filter(shows);
+  const live = p.topics.flatMap((t) => t.sheets).filter((n) => shows(n, p));
   let any = false;
   if (find.sort === 'newest') {
     any = live.length > 0;
@@ -149,7 +149,7 @@ function draw() {
     // A project with one group only, the one with no topic, needs no heading over it.
     const lone = p.topics.length === 1 && p.topics[0].name === 'Other';
     for (const t of p.topics) {
-      const ss = t.sheets.filter((n) => !n.fresh && shows(n));
+      const ss = t.sheets.filter((n) => !n.fresh && shows(n, p));
       if (!ss.length) continue;
       any = true;
       if (lone) { list.append(...ss.map(row)); continue; }
@@ -158,7 +158,7 @@ function draw() {
       if (!shut) list.append(...ss.map(row));
     }
   }
-  const done = p.done.filter(shows);
+  const done = p.done.filter((n) => shows(n, p));
   if (done.length) {
     any = true;
     const d = el('div', 'done');
@@ -178,10 +178,11 @@ function draw() {
 const find = { q: '', marks: new Set(), sort: 'topic' };
 const markOf = (n) => (n.fresh ? 'new' : (STG[n.mark] ?? OPEN)[1]);
 const finding = () => Boolean(find.q || find.marks.size);
-function shows(n) {
+function shows(n, p) {
   if (find.marks.size && !find.marks.has(markOf(n))) return false;
   const q = find.q.trim().toLowerCase();
-  return !q || String(n.name).toLowerCase().includes(q) || String(n.num ?? '').startsWith(q);
+  return !q || String(n.name).toLowerCase().includes(q) || String(n.num ?? '').startsWith(q)
+    || Boolean(p && String(p.name).toLowerCase().includes(q));
 }
 function nameOf(n) {
   const s = el('span', 'nm'), q = find.q.trim().toLowerCase(), name = String(n.name), i = q ? name.toLowerCase().indexOf(q) : -1;
@@ -189,10 +190,19 @@ function nameOf(n) {
   s.append(name.slice(0, i), el('span', 'hl', name.slice(i, i + q.length)), name.slice(i + q.length));
   return s;
 }
+// His ask (2026-11-23): a project's name finds it too. Typing "sundesk" on another project's tab moves to Sundesk, unless
+// the project he is on already has a match. Only while typing: picking a tab by hand stays where he put it.
+function toProjectNamed() {
+  const q = find.q.trim().toLowerCase(), ps = projects();
+  if (!q) return;
+  const cur = ps.find((x) => x.name === pick.p) ?? ps[0];
+  const to = ps.find((x) => String(x.name).toLowerCase().includes(q));
+  if (to && cur && to !== cur && !sheetsOf(cur).some((n) => shows(n, cur))) { doneLooking(); pick.p = to.name; pick.s = pick.v = null; }
+}
 (function finder() {
   const box = document.getElementById('find');
-  const q = el('input'); q.type = 'search'; q.placeholder = 'Search by name or number'; q.spellcheck = false;
-  q.addEventListener('input', () => { find.q = q.value; draw(); });
+  const q = el('input'); q.type = 'search'; q.placeholder = 'Search by name, number or project'; q.spellcheck = false;
+  q.addEventListener('input', () => { find.q = q.value; toProjectNamed(); draw(); });
   q.addEventListener('keydown', (e) => { if (e.key === 'Escape' && q.value) { e.stopPropagation(); q.value = ''; find.q = ''; draw(); } });
   const chips = el('div', 'chips');
   for (const [t, c] of [['NEW', 'new'], ['OPEN', 'open'], ['APPROVED', 'ok'], ['FIX', 'chg'], ['BUILT', 'built'], ['PARKED', 'park']]) {
