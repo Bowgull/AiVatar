@@ -292,7 +292,8 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .ah .tray2 .amt input{width:3.2ch;min-width:0;border:0;outline:0;background:transparent;text-align:right;font:600 18px "Pixelify Sans";color:#2a1a0e;padding:4px 1px;-webkit-user-select:text;user-select:text}
 .ah .tray2 .amt input:focus{background:#f1e4c3;border-radius:5px;box-shadow:inset 0 0 0 2px #c8962e}
 .ah .tray2 .amt input::placeholder{color:#9a8f78}
-.ah .tray2 .amt .mg{color:#b8860b;margin-right:6px}.ah .tray2 .amt .ms{color:#7c7c88}
+.ah .tray2 .amt .mg{color:#b8860b;margin-right:6px;padding:8px 4px 8px 0}.ah .tray2 .amt .ms{color:#7c7c88;padding:8px 4px 8px 0}
+.ah .tray2 .amt input{min-height:40px}
 .mg{color:#ffd100}.ms{color:#c7c7cf}.mc{color:#d58a4a}
 .ah .tray2 .tile.down{box-shadow:inset 0 2px 0 #120803,0 0 0 2px #ffd36b88}
 .uprow{display:flex;align-items:center;gap:10px;background:#1a120b;border-radius:9px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:7px 9px;flex:none;cursor:pointer}
@@ -1117,7 +1118,8 @@ function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeEleme
   const gIn=$('input'),sIn=$('input');for(const [x,v,n] of [[gIn,up.max>=CU_ANY?'':Math.floor(up.max/10000)||'',4],[sIn,up.max>=CU_ANY?'':Math.floor(up.max/100)%100||'',2]]){x.inputMode='numeric';x.pattern='[0-9]*';x.maxLength=n;x.value=String(v);x.placeholder=up.max>=CU_ANY?(x===gIn?'Any':''):'0';x.autocomplete='off'}
   const typed=()=>{const g=Math.min(1000,parseInt(gIn.value||'0',10)||0),sv=Math.min(99,parseInt(sIn.value||'0',10)||0),c=g*10000+sv*100;if(c>=100&&c!==up.max&&CU_SEND)cuMax(Math.min(CU_ANY,c))};
   for(const x of [gIn,sIn]){x.addEventListener('input',()=>{x.value=x.value.replace(/\D/g,'')});x.addEventListener('change',typed);x.addEventListener('keydown',e=>{if(e.key==='Enter')x.blur()})}
-  amt.append(gIn,$('span','mg','g'),sIn,$('span','ms','s'));
+  const gL=$('span','mg','g'),sL=$('span','ms','s');gL.addEventListener('click',()=>gIn.focus());sL.addEventListener('click',()=>sIn.focus());   // the letter opens its own box
+  amt.append(gIn,gL,sIn,sL);
   minus.addEventListener('click',()=>{if(!CU_SEND)return;const k=up.max>=CU_ANY?CU_STEPS.length-1:CU_STEPS.findLastIndex(v=>v<up.max);if(k>=0)cuMax(CU_STEPS[k])});
   plus.addEventListener('click',()=>{if(!CU_SEND)return;const k=CU_STEPS.findIndex(v=>v>up.max);cuMax(k>=0?CU_STEPS[k]:CU_ANY)});
   st.append(minus,amt,plus);
