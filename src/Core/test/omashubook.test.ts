@@ -42,11 +42,20 @@ test('talent point: the next point of the leveling path, with its rank', () => {
   assert.equal(makeBook(base({ unspent: 2 }))!.cards[0].t, 'Spend your 2 talent points');
 });
 
-test('training: only spells you are high enough for', () => {
-  const b = makeBook(base({ level: 20, train: [{ name: 'Consecration', lvl: 20 }, { name: 'Exorcism', lvl: 20 }, { name: 'Hammer of Wrath', lvl: 44 }] }))!;
-  const c = b.cards.find(c => c.t.startsWith('Train'))!;
-  assert.equal(c.t, 'Train 2 new spells');
-  assert.match(c.d, /^Consecration, Exorcism · /);
+test('training: the trainer list split into new spells (with plain lines) and upgrades, total cost', () => {
+  const b = makeBook(base({ level: 10, spells: ['Judgement', 'Holy Light', 'Seal of Righteousness'],
+    train: [{ name: 'Lay on Hands', lvl: 10, rank: 1, cost: 300 }, { name: 'Seal of Fury', lvl: 10, rank: 1, cost: 300 }, { name: 'Seal of Righteousness', lvl: 10, rank: 2, cost: 300 }, { name: 'Holy Light', lvl: 14, rank: 3, cost: 2000 }] }))!;
+  assert.deepEqual(b.train!.fresh.map(f => f.name), ['Lay on Hands', 'Seal of Fury']);
+  assert.equal(b.train!.fresh[0].use, "Panic button when you're about to die."); assert.ok(b.train!.fresh[1].skip, 'tank seal: skip for now');
+  assert.deepEqual(b.train!.ups.map(u => u.name + ' ' + u.rank), ['Seal of Righteousness 2'], 'only what you can learn now');
+  assert.equal(b.train!.cost, 900);
+  assert.equal(makeBook(base())!.train, null, 'nothing to train: no card');
+});
+
+test('fight: only spells you know (no Hammer of Justice before you have it), new ones flagged', () => {
+  const b = makeBook(base({ level: 6, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Seal of the Crusader'], fresh: ['Holy Strike'] }))!;
+  assert.deepEqual(b.steps.map(s => s[4]), ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light']);
+  assert.deepEqual(b.fresh, ['Holy Strike']); assert.equal(b.crusader, true);
 });
 
 test('weapon: the best open rung that beats what you hold; Verigan\'s Fist until its quest is done', () => {
