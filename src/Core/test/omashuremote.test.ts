@@ -333,7 +333,7 @@ test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only fo
     assert.equal(bk.cards[0].t, 'Spend your talent point');
     assert.match(bk.cards[0].d, /Sanctified Judgement, rank 1 of 3/);
     assert.ok(bk.restock.some((x: { t: string; price: string[] }) => x.t === 'Healing Potion ×5' && x.price[0] === 'AH 18s'), 'auction prices reach the restock list');
-    assert.equal((await r.as(LINDZ).get('/api/book')).status, 403, 'a phone without chat gets no book');
+    assert.equal((await r.as(GUEST).get('/api/book')).status, 403, 'a phone without chat gets no book');
     const icon = await r.as(JOSH).get('/book/icons/classicon_paladin.jpg');
     assert.equal(icon.status, 200); assert.equal(icon.headers.get('content-type'), 'image/jpeg');
     assert.equal((await r.as(JOSH).get('/book/icons/..%2Fremote.jpg')).status, 404, 'only plain icon names');
