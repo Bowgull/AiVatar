@@ -1951,7 +1951,7 @@ export class AangBrowser {
     if (!u || !isWeb(u)) { this.note('', { kind: 'bad', from: 'slot', small: true, kick: 'The address bar', title: 'Not a web address' }); return; }
     this.prefs.home = u;
     this.savePrefs();
-    this.note('', t ? { from: 'menu', small: true, kick: 'Saved', title: 'Your home page' } : { from: 'menu', small: true, kick: 'Home page', title: 'Back to Brave Search' });
+    this.note('', t ? { from: 'menu', small: true, icon: 'home', kick: 'Saved', title: 'Your home page' } : { from: 'menu', small: true, icon: 'home', kick: 'Home page', title: 'Back to Brave Search' });
     this.sendTabs();
   }
 
@@ -3961,7 +3961,7 @@ export class AangBrowser {
       return;
     }
     const mac = process.platform === 'darwin';
-    this.notices.push(cleanNotice({ kind: 'done', from: 'dl', group: 'dl', kick: 'Downloaded', title: 'Ready', files: [row],
+    this.notices.push(cleanNotice({ kind: 'done', from: 'dl', group: 'dl', icon: 'download', kick: 'Downloaded', title: 'Ready', files: [row],
       keys: [{ label: mac ? 'Show in Finder' : 'Show in folder', act: 'show' }, { label: 'Got it', act: 'ok', plain: true }] }), (act, _v, n) => {
       // Show in Finder: the one file, or the Downloads folder when several came together
       if (act === 'show') { if (n.files?.length === 1) this.dlAct('show', n.files[0].id); else this.dlAct('folder', 0); }
@@ -6874,7 +6874,7 @@ export class AangBrowser {
         if (tuck) this.win.minimize();
         else if (set !== 'None') this.fillOrShrink(this.win);
       } break;
-      case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('', { from: 'menu', small: true, kick: 'Home page', title: 'This page' }); this.sendTabs(); } break; }
+      case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('', { from: 'menu', small: true, icon: 'home', kick: 'Home page', title: 'This page' }); this.sendTabs(); } break; }
       case 'star': this.toggleMark(); break;
       // The + key on the shelf in the floating tab list (his freeze, 2026-10-20): its name box opened INSIDE that
       // see-through layer, out of sight, and the layer hung over the page. Now the list slides away and the band opens

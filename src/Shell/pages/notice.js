@@ -1,5 +1,5 @@
-// Sheet 106 v7 (his yes, 2026-10-30): the notice layer. Samara sends one notice at a time (the queue is in notices.ts);
-// this draws it from the plan card's tray pieces, drops it in, plays the one sound for "needs you", and says which button
+// Sheet 106 v7 (his yes, 2026-10-30), dressed as sheet 124 A (carved wood, his pick 2026-11-25): the notice layer.
+// Samara sends one notice at a time (the queue is in notices.ts); this draws it from the plan card's tray pieces, drops it in, plays the one sound for "needs you", and says which button
 // he pressed. Everything is built with textContent: file names and sites are the websites' own words.
 import { pixIcon } from './pixicons.js';
 
@@ -39,8 +39,11 @@ function gem(n) {
   const ic = T('span', 'ic');
   ic.append(pixIcon(n.claude ? 'claude' : n.icon || { done: 'yes', need: 'bell', bad: 'wont' }[n.kind], 2) ?? T('span'));
   s.append(ic);
-  if (!n.small) for (const [dx, dy, l, t] of SPARKS) { const i = T('i', 'spark'); i.style.cssText = `left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px`; s.append(i); }
-  return s;
+  // the sparks sit beside the socket, not in it: the socket's pixel-round edge would cut them off
+  const g = T('span', 'gem');
+  g.append(s);
+  if (!n.small) for (const [dx, dy, l, t] of SPARKS) { const i = T('i', 'spark'); i.style.cssText = `left:${l}px;top:${t}px;--dx:${dx}px;--dy:${dy}px`; g.append(i); }
+  return g;
 }
 function key(k, i, n) {
   const b = T('button', 'key sm' + (i === 0 && !k.plain ? ' primary' : ''), k.label);
@@ -129,7 +132,7 @@ function draw(s) {
     // a small one with Undo carries its key in the header strip
     if (n.keys?.length) hd.append(key(n.keys[0], 1, n));
     if (count) hd.append(count);
-    box.append(T('span', 'drain'));
+    const fuse = T('span', 'fuse'); fuse.append(T('span', 'drain')); box.append(fuse);
   } else {
     if (count) hd.append(count);
     box.append(...parchment(n));

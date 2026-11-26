@@ -68,6 +68,8 @@ const C3 = {
   a: '#B06A10', A: '#FFD24A', T: '#1F8C7E', t: '#3FBFAE', u: '#9FF0E6',
 };
 const ICONS3 = {
+  // an arrow down into a tray: a download (sheet 124 A)
+  download: ['....TTTT....', '....TutT....', '....TutT....', '....TutT....', '.TTTTutTTTT.', '..TttttttT..', '...TttttT...', '....TttT....', 'nn...TT...nn', 'nmn......nmn', 'nmmmmmmmmmmn', 'nnnnnnnnnnnn'],
   // a little screen with a play mark: a video he was shown
   video: ['kkkkkkkkkk', 'kBBBBBBBBk', 'kbbwbbbbbk', 'kbbwwbbbbk', 'kbbwwwbbbk', 'kbbwwbbbbk', 'kbbwbbbbbk', 'kkkkkkkkkk', '...kGGk...', '.kkkkkkkk.'],
   // a rolled scroll: research
@@ -88,6 +90,8 @@ const C4 = {
   N: '#1B2340', l: '#6CC46A', L: '#B4E89A', Y: '#E0CCA4', P: '#E8B868', p: '#C98A3E',
 };
 const ICONS4 = {
+  // a little house, its window lit: the home page (sheet 124 A)
+  home: ['....oooo....', '...orRRro...', '..orrRRrro..', '.orrrrrrrro.', 'orrrrrrrrrro', 'oooooooooooo', '.oXXXXXXXXo.', '.oXyyXonnXo.', '.oXyyXonnXo.', '.oXXXXonnXo.', '.oXXXXonnXo.', '.oooooooooo.'],
   // a campfire: Couch Mode, and its campfire scenes
   fire: ['....r.....', '...rRr....', '..rRyRr.r.', '..rRyyRrRr', '.rRyhyyRRr', '.rRyhhyRr.', '..rRyyRr..', '.oWWooWWo.', 'oWWmoomWWo', '.oo....oo.'],
   // a signpost, two boards: Waymark

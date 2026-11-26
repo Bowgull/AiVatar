@@ -93,9 +93,9 @@ app.whenReady().then(async () => {
   await wait(700);
   const n1 = await lj(`(() => { const n = document.querySelector('.nt'); const rows = [...n.querySelectorAll('.files .drow')];
     return { kick: n.querySelector('.uphd small').textContent, kind: n.className, rows: rows.map((r) => ({ name: r.querySelector('.dt b').textContent, meta: r.querySelector('.dt small').textContent, badge: r.querySelector('.fb b').textContent, drag: r.draggable })),
-      keys: [...n.querySelectorAll('.upfoot .key')].map((k) => k.textContent + (k.classList.contains('primary') ? '*' : '')), caps: !!n.querySelector('.caps'), gem: getComputedStyle(n.querySelector('.sock')).borderRadius }; })()`);
+      keys: [...n.querySelectorAll('.upfoot .key')].map((k) => k.textContent + (k.classList.contains('primary') ? '*' : '')), caps: !!n.querySelector('.caps'), gem: getComputedStyle(n.querySelector('.sock')).clipPath.slice(0, 7) + ' ' + n.querySelector('.sock').getBoundingClientRect().width }; })()`);
   check('...teal, DOWNLOADED, its row is the tray\'s row (badge, name, size · site · time), draggable', /kind-done/.test(n1.kind) && n1.kick === 'DOWNLOADED' && n1.rows.length === 1 && n1.rows[0].name === 'tax-form.pdf' && n1.rows[0].badge === 'PDF' && /KB · 127\.0\.0\.1 · now/.test(n1.rows[0].meta) && n1.rows[0].drag, JSON.stringify(n1));
-  check('...the plan card\'s pieces: gold caps, a round gem, Show in Finder (gold) and Got it', n1.caps && n1.gem === '50%' && n1.keys.join() === `${process.platform === 'darwin' ? 'Show in Finder' : 'Show in folder'}*,Got it`, JSON.stringify(n1.keys));
+  check('...sheet 124 A\'s pieces: gold caps, the pixel socket, Show in Finder (gold) and Got it', n1.caps && n1.gem === 'polygon 44' && n1.keys.join() === `${process.platform === 'darwin' ? 'Show in Finder' : 'Show in folder'}*,Got it`, JSON.stringify(n1.keys));
   const L = layer().getBounds(), dk = await keyRect('dlkey'), band = await keyRect('band');
   check('...it hangs from the download key: right edge under it, top at the band', Math.abs((L.x + L.width - 16) - (dk.right + 12)) <= 6 && Math.abs(L.y - (band.bottom - 6)) <= 2, JSON.stringify({ L, dk, band }));
   check('...no sound for done', (await lj('window.__notes')) === 0);
@@ -197,13 +197,13 @@ app.whenReady().then(async () => {
   check('...exactly the one he grabs: report.docx, by its row', /report\.docx$/.test(dragged), dragged);
   await press('Got it'); await gone();
 
-  // ---- 7 · Claude asks: from the rune, Claude's spark on a white gem, the sound, Allow once
+  // ---- 7 · Claude asks: from the rune, Claude's spark in a socket lit Claude orange, the sound, Allow once
   await spySound();
   const asked = b.askForClaude('open the checkout');
   check('Claude asks, as a "needs you"', await settled('Open the checkout?'));
   await wait(700);
-  const n7 = await lj(`(() => { const n = document.querySelector('.nt'); const s = n.querySelector('.sock'); return { cls: n.className, claude: s.classList.contains('claude'), bg: getComputedStyle(s).backgroundColor, kick: n.querySelector('.uphd small').textContent, keys: [...n.querySelectorAll('.upfoot .key')].map((k) => k.textContent) }; })()`);
-  check('...Claude\'s spark on a white gem, Allow once and No', n7.claude && n7.bg === 'rgb(246, 242, 234)' && /kind-need/.test(n7.cls) && n7.keys.join() === 'Allow once,No', JSON.stringify(n7));
+  const n7 = await lj(`(() => { const n = document.querySelector('.nt'); const s = n.querySelector('.sock'); return { cls: n.className, claude: s.classList.contains('claude'), bg: getComputedStyle(s).getPropertyValue('--glow').trim(), kick: n.querySelector('.uphd small').textContent, keys: [...n.querySelectorAll('.upfoot .key')].map((k) => k.textContent) }; })()`);
+  check('...Claude\'s spark in a socket lit Claude orange, Allow once and No', n7.claude && n7.bg === 'rgba(217,119,87,.8)' && /kind-need/.test(n7.cls) && n7.keys.join() === 'Allow once,No', JSON.stringify(n7));
   check('...with the sound', (await lj('window.__notes')) === 2);
   await shot('7-claude-asks');
   await press('Allow once');
