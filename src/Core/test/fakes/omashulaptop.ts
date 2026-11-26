@@ -50,6 +50,8 @@ export class FakeLaptop {
   bookSave: unknown = null;
   bookPrices: Record<string, number> = {};
   bookIds: string[] = [];
+  /** What the trackpad sent, in order. */
+  mouse: Record<string, unknown>[] = [];
   powerPosts = 0;
   /** How long a game takes to close after /power (the real WoW took ~40 s on 2026-11-11). While it closes, Couch Mode
    *  answers /wake and /power with 409 busy (couch.ps1: one thing at a time) and /state still says lit. */
@@ -163,6 +165,18 @@ export class FakeLaptop {
       this.bookIds = ids;
       const prices = Object.fromEntries(Object.entries(this.bookPrices).filter(([k]) => ids.includes(k)));
       j(200, { at: this.bookSave ? '2026-11-26T20:00:00.000Z' : null, book: this.bookSave, prices });
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/mouse') {
+      let b = '';
+      req.on('data', d => { b += d; });
+      req.on('end', () => {
+        let m: Record<string, unknown> = {};
+        try { m = JSON.parse(b); } catch { j(400, { ok: false, why: 'refused' }); return; }
+        if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
+        this.mouse.push(m);
+        j(200, { ok: true, us: 10 });
+      });
       return;
     }
     if (req.method === 'GET' && url.pathname === '/ah/items') { j(200, { at: '2026-11-11T00:00:00.000Z', items: this.ahItems }); return; }

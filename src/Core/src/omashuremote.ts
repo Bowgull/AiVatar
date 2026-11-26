@@ -49,6 +49,17 @@ export function loadRemoteConfig(file: string): RemoteConfig | null {
 // ------------------------------------------------------------------ the laptop
 
 type Fetch = typeof fetch;
+export interface MouseAsk { dx?: number; dy?: number; w?: number; b?: 'l' | 'r'; d?: boolean; park?: boolean }
+/** A trackpad message from the phone, or null when it isn't one: finite numbers in range, known buttons only. */
+export function cleanMouse(v: unknown): MouseAsk | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>, m: MouseAsk = {};
+  for (const k of ['dx', 'dy'] as const) if (o[k] !== undefined) { const n = Number(o[k]); if (!Number.isFinite(n) || Math.abs(n) > 4000) return null; m[k] = Math.round(n * 100) / 100; }
+  if (o.w !== undefined) { const n = Number(o.w); if (!Number.isInteger(n) || Math.abs(n) > 20) return null; if (n) m.w = n; }
+  if (o.b !== undefined) { if (o.b !== 'l' && o.b !== 'r' || typeof o.d !== 'boolean') return null; m.b = o.b; m.d = o.d; }
+  if (o.park === true) m.park = true;
+  return Object.keys(m).length ? m : null;
+}
 export interface ChatBatch { session: string | null; seq: number; ah?: boolean; lines: { seq: number; raw: string; cls?: string }[] }
 
 export class Laptop {
@@ -114,6 +125,16 @@ export class Laptop {
     const prices: Record<string, number> = {};
     if (j.prices && typeof j.prices === 'object') for (const [k, v] of Object.entries(j.prices)) if (/^\d{1,7}$/.test(k) && typeof v === 'number' && v > 0) prices[k] = v;
     return { at: typeof j.at === 'string' ? j.at : null, book: j.book && typeof j.book === 'object' ? j.book : null, prices };
+  }
+/** The phone's trackpad (sheet omashu/remote/19): one message of moves (pixels), a wheel turn, a button press or
+   *  release, or park. The laptop acts only while WoW is playing and in front. ms is the round trip. */
+  async mouse(m: MouseAsk): Promise<{ ok: boolean; why?: string; ms: number }> {
+    const t0 = performance.now();
+    const r = await this.call('/mouse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(m) }, 1500);
+    const ms = Math.round(performance.now() - t0);
+    if (!r) return { ok: false, why: 'asleep', ms };
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
+    return r.ok && j.ok !== false ? { ok: true, ms } : { ok: false, why: String(j.why ?? r.status), ms };
   }
   async send(line: string): Promise<{ ok: boolean; why?: string }> {
     const r = await this.call('/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line }) }, 5000);
@@ -489,6 +510,14 @@ export class OmashuRemote {
       if (!text || text.length > 60 || /[\x00-\x1f|\\]/.test(text)) { json(res, 400, { ok: false, why: 'refused' }); return; }
       if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
       const r = await this.laptop.ahSearch(text);
+      json(res, r.ok ? 200 : 409, r);
+      return;
+    }
+    if (p === '/api/mouse') {
+      const m = cleanMouse(await body(req));
+      if (!m) { json(res, 400, { ok: false, why: 'refused' }); return; }
+      if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
+      const r = await this.laptop.mouse(m);
       json(res, r.ok ? 200 : 409, r);
       return;
     }

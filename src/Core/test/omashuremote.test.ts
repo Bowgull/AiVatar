@@ -344,6 +344,23 @@ test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only fo
   } finally { await r.done(); }
 });
 
+test('trackpad (sheet 19): moves, wheel, buttons and park reach the laptop in order, only clean ones, only for the chat phone', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    for (const m of [{ dx: 12.345, dy: -3 }, { w: -2 }, { b: 'l', d: true }, { b: 'l', d: false }, { park: true }]) assert.equal((await r.as(JOSH).post('/api/mouse', m)).status, 200, JSON.stringify(m));
+    assert.deepEqual(r.lap.mouse, [{ dx: 12.35, dy: -3 }, { w: -2 }, { b: 'l', d: true }, { b: 'l', d: false }, { park: true }]);
+    for (const bad of [{}, { dx: 'x' }, { dx: 99999 }, { b: 'm', d: true }, { b: 'l' }, { w: 1.5 }, { w: 99 }]) assert.equal((await r.as(JOSH).post('/api/mouse', bad)).status, 400, JSON.stringify(bad));
+    assert.equal((await r.as(GUEST).post('/api/mouse', { dx: 1 })).status, 403, 'a phone without chat cannot move the mouse');
+    assert.equal((await r.as(JOSH).post('/api/mouse', { dx: 1 }, {})).status, 403, 'a page elsewhere cannot post');
+    r.lap.stopWow();
+    await until(async () => (await r.poll()).chat === false);
+    assert.equal((await r.as(JOSH).post('/api/mouse', { dx: 1 })).status, 409, 'no WoW: nothing moves');
+    assert.equal(r.lap.mouse.length, 5);
+  } finally { await r.done(); }
+});
+
 test('tooltips: by id when the log kept codes, by name when not; HTML never reaches the phone', async () => {
   const calls: string[] = [];
   const fake: typeof fetch = async (u) => {
