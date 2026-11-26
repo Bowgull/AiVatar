@@ -118,7 +118,18 @@ export type SendAsk =
   | { act: 'invite' | 'friend' | 'ignore' | 'who'; name: string }
   | { act: Emote; name?: string }
   | { act: 'roll' }
-  | { act: 'reload' };   // the phone's Reload tile: WoW's interface reloads (Joshua 2026-11-11)
+  | { act: 'reload' }    // the phone's Reload tile: WoW's interface reloads (Joshua 2026-11-11)
+  // Cheap Upgrades' own two settings, from the Upgrades tab (sheet 17b A, Joshua 2026-11-26): rich mode, and the max
+  // price per item in copper (sent as gold and silver, the way the add-on reads it)
+  | { cu: 'rich'; on: boolean }
+  | { cu: 'max'; copper: number };
+
+/** Copper as Cheap Upgrades' /cu max reads it: "5g", "1g 50s", "50s" (copper dropped; at least 1s, at most 1000g). */
+export function cuMoney(copper: number): string | null {
+  if (!Number.isInteger(copper) || copper < 100 || copper > 10_000_000) return null;
+  const g = Math.floor(copper / 10000), s = Math.floor(copper / 100) % 100;
+  return g ? `${g}g${s ? ` ${s}s` : ''}` : `${s}s`;
+}
 
 /**
  * The emotes: assets/omashu/emotes.json, the one list (mockup omashu/remote/10, approved 2026-11-09). The phone draws
@@ -165,6 +176,8 @@ export const ALLOWED: RegExp[] = [
   new RegExp(String.raw`^/(invite|friend|ignore|who) ${NAME12}$`),
   /^\/roll$/,
   /^\/reload$/,
+  /^\/cu rich (on|off)$/,
+  /^\/cu max ([1-9]\d{0,3}g( [1-9]\d?s)?|[1-9]\d?s)$/,
   new RegExp(String.raw`^/(${EMOTES.join('|')})( ${NAME12})?$`),
 ];
 export const allowed = (line: string) => typeof line === 'string' && line.length <= 255 && ALLOWED.some(r => r.test(line));
@@ -175,6 +188,10 @@ export const tidy = (text: string) => String(text ?? '').replace(/[\r\n\t]+/g, '
 /** The chat command for an ask, or null when it is not one he approved (or the text could not be sent as is). */
 export function buildLine(a: SendAsk): string | null {
   if (!a || typeof a !== 'object') return null;
+  if ('cu' in a) {
+    const line = a.cu === 'rich' && typeof a.on === 'boolean' ? `/cu rich ${a.on ? 'on' : 'off'}` : a.cu === 'max' ? (cuMoney(a.copper) ? `/cu max ${cuMoney(a.copper)}` : null) : null;
+    return line && allowed(line) ? line : null;
+  }
   // a whisper name is exactly two words: WoW takes the first two words as the name, so "Bujuju" alone would whisper
   // "Bujuju <first word>" the rest; the other commands take one or two
   const emote = 'act' in a && EMOTES.includes(a.act);

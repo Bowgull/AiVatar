@@ -2,7 +2,7 @@
 // sent to WoW, and Wowhead tooltips turned into plain lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOG, EMOTES, allowed, cleanFavourites, buildLine, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
+import { CATALOG, EMOTES, allowed, cleanFavourites, buildLine, cuMoney, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
 
 test('a magic packet is six 0xFF and the MAC sixteen times', () => {
   const p = magicPacket('aa:bb:cc:dd:ee:ff');
@@ -116,4 +116,17 @@ test('emotes.json: six pages of 12, no repeats, favourites only known commands (
   assert.ok(CATALOG.favourites.includes('sit'));
   assert.deepEqual(cleanFavourites(['roll', 'fart']), ['roll', 'fart']);
   for (const bad of [['run'], ['wave', 'wave'], Array(13).fill('wave'), 'wave', [1], ['/wave'], ['attacktarget']]) assert.equal(cleanFavourites(bad), null, JSON.stringify(bad));
+});
+
+test('Cheap Upgrades from the Upgrades tab (sheet 17b A): rich on/off and a max price in gold and silver, nothing else', () => {
+  assert.equal(buildLine({ cu: 'rich', on: true }), '/cu rich on');
+  assert.equal(buildLine({ cu: 'rich', on: false }), '/cu rich off');
+  assert.equal(buildLine({ cu: 'max', copper: 50000 }), '/cu max 5g');
+  assert.equal(buildLine({ cu: 'max', copper: 32045 }), '/cu max 3g 20s', 'copper dropped');
+  assert.equal(buildLine({ cu: 'max', copper: 2500 }), '/cu max 25s');
+  assert.equal(buildLine({ cu: 'max', copper: 10_000_000 }), '/cu max 1000g');
+  for (const bad of [{ cu: 'max', copper: 99 }, { cu: 'max', copper: 10_000_100 }, { cu: 'max', copper: 1.5 }, { cu: 'rich', on: 'yes' }, { cu: 'scan' }, { cu: 'max', copper: '5g' }])
+    assert.equal(buildLine(bad as never), null, JSON.stringify(bad));
+  assert.equal(cuMoney(10000), '1g');
+  assert.ok(!allowed('/cu scan') && !allowed('/cu max 5g; /run x') && !allowed('/cu rich maybe'));
 });

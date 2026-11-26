@@ -20,6 +20,8 @@ const ALLOW = [
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
   String.raw`^/reload$`,
+  String.raw`^/cu rich (on|off)$`,
+  String.raw`^/cu max ([1-9]\d{0,3}g( [1-9]\d?s)?|[1-9]\d?s)$`,
   // the emotes: the same emotes.json Couch Mode reads (mockup 10)
   String.raw`^/(` + EMOTE_CMDS.join('|') + String.raw`)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));
@@ -44,6 +46,10 @@ export class FakeLaptop {
   searched: string[] = [];
   /** aux's item list as Couch Mode serves it. */
   ahItems: [string, number][] = [['Tin Ore', 1], ['Tin Bar', 1], ['Copper Ore', 1], ['Thunderfury', 5]];
+  /** OmaBook's newest save as Couch Mode's GET /book serves it (null until a character saved), aux's prices, and the ids asked. */
+  bookSave: unknown = null;
+  bookPrices: Record<string, number> = {};
+  bookIds: string[] = [];
   powerPosts = 0;
   /** How long a game takes to close after /power (the real WoW took ~40 s on 2026-11-11). While it closes, Couch Mode
    *  answers /wake and /power with 409 busy (couch.ps1: one thing at a time) and /state still says lit. */
@@ -150,6 +156,13 @@ export class FakeLaptop {
         this.echo(line);
         setTimeout(() => j(200, { ok: true }), this.sendDelayMs);
       });
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/book') {
+      const ids = (url.searchParams.get('ids') ?? '').split(',').filter(x => /^\d{1,7}$/.test(x)).slice(0, 80);
+      this.bookIds = ids;
+      const prices = Object.fromEntries(Object.entries(this.bookPrices).filter(([k]) => ids.includes(k)));
+      j(200, { at: this.bookSave ? '2026-11-26T20:00:00.000Z' : null, book: this.bookSave, prices });
       return;
     }
     if (req.method === 'GET' && url.pathname === '/ah/items') { j(200, { at: '2026-11-11T00:00:00.000Z', items: this.ahItems }); return; }

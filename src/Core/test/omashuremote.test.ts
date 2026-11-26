@@ -312,6 +312,38 @@ test('auction search (sheet 14): the tab follows the auction house, the search r
   } finally { await r.done(); }
 });
 
+test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only for a paladin, only for the chat phone', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'no save yet: no book');
+    assert.equal(((await r.poll()) as { book?: unknown }).book, null);
+    r.lap.bookSave = { class: 'WARLOCK', name: 'Bujuju', level: 30 };
+    r.remote['bookAskedAt'] = 0;
+    await until(() => r.lap.bookIds.length > 0);
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'a warlock gets no paladin book');
+    r.lap.bookSave = { class: 'PALADIN', name: 'Bunji', level: 23, unspent: 1, talents: { Deflection: 5, Conviction: 3, 'Improved Judgement': 2, 'Pursuit of Justice': 2, 'Seal of Command': 1 }, bags: {} };
+    r.lap.bookPrices = { 929: 1800, 1710: 15000, 3241: 900, 99999: 5 };
+    r.remote['bookAskedAt'] = 0;
+    await until(async () => ((await r.poll()) as { book?: { level: number } | null }).book?.level === 23);
+    assert.ok(r.lap.bookIds.includes('929') && r.lap.bookIds.includes('3241'), 'asks prices for potions and stones');
+    const bk = await (await r.as(JOSH).get('/api/book')).json();
+    assert.equal(bk.name, 'Bunji');
+    assert.equal(bk.cards[0].t, 'Spend your talent point');
+    assert.match(bk.cards[0].d, /Sanctified Judgement, rank 1 of 3/);
+    assert.ok(bk.restock.some((x: { t: string; price: string[] }) => x.t === 'Healing Potion ×5' && x.price[0] === 'AH 18s'), 'auction prices reach the restock list');
+    assert.equal((await r.as(GUEST).get('/api/book')).status, 403, 'a phone without chat gets no book');
+    const icon = await r.as(JOSH).get('/book/icons/classicon_paladin.jpg');
+    assert.equal(icon.status, 200); assert.equal(icon.headers.get('content-type'), 'image/jpeg');
+    assert.equal((await r.as(JOSH).get('/book/icons/..%2Fremote.jpg')).status, 404, 'only plain icon names');
+    assert.equal((await r.as(JOSH).get('/book/icons/nope_not_here.jpg')).status, 404);
+    r.lap.stopWow();
+    await until(async () => (await r.poll()).chat === false);
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'WoW closed: the book closes too');
+  } finally { await r.done(); }
+});
+
 test('tooltips: by id when the log kept codes, by name when not; HTML never reaches the phone', async () => {
   const calls: string[] = [];
   const fake: typeof fetch = async (u) => {
