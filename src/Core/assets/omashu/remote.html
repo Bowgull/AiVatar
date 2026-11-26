@@ -306,6 +306,23 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .upgo{display:flex;align-items:center;justify-content:center;height:46px;border-radius:11px;background:#c88a1e;color:#2a1405;font:600 17px "Pixelify Sans";box-shadow:inset 0 -4px 0 #7a4a0a,0 0 12px #ffb84a55;flex:none;cursor:pointer}
 .upgo.no{background:#3a2212;color:#9a8f78;box-shadow:inset 0 -4px 0 #24140a}
 .q2{color:#1eff00!important}.q3{color:#0070dd!important}.q4{color:#a335ee!important}.q0{color:#9d9d9d!important}
+/* the trackpad (sheet 19): a fourth coin right of chat; the pad covers the screen */
+.mousecoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center}
+.mousecoin.on{display:grid}.mousecoin svg{width:30px;height:30px}
+.tpad{position:absolute;left:10px;right:10px;top:max(14px,env(safe-area-inset-top));bottom:max(14px,env(safe-area-inset-bottom));z-index:8;background:var(--parch);border-radius:28px;
+  box-shadow:0 0 0 7px #b8662c,0 0 0 10px #6a3412,0 -10px 40px #000a;padding:12px;display:flex;flex-direction:column;gap:10px;animation:tpup .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes tpup{from{transform:translateY(12px);opacity:.6}}
+.tpad .pbar{display:flex;justify-content:space-between;align-items:center}
+.tpad .pbar .t{font:700 16px Cinzel,serif;color:#3a2410}
+.tpad .done{font:600 14px "Pixelify Sans";background:#2a1a0e;color:#ffd36b;border-radius:10px;padding:9px 16px;box-shadow:0 0 0 2px #c8962e,inset 0 -3px 0 #0006}
+.tpad .surf{flex:1;border-radius:18px;background:repeating-linear-gradient(45deg,#120c08 0 6px,#0f0a07 6px 12px);box-shadow:inset 0 0 0 3px #2a1a0e,inset 0 4px 18px #000;position:relative;overflow:hidden;touch-action:none}
+.tpad .touch{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:radial-gradient(#ffd36b55,#ffd36b00 70%);box-shadow:0 0 0 2px #ffd36b66;pointer-events:none}
+.tpad .tpno{position:absolute;left:0;right:0;bottom:12px;text-align:center;font:13px Figtree,system-ui;color:#ff9a7a}
+.tpad .btns{display:flex;gap:10px}
+.tpad .btn2{flex:1;height:84px;border-radius:16px;display:grid;place-items:center;font:600 18px "Pixelify Sans";color:#f0e2bf;background:#3a2212;box-shadow:inset 0 -6px 0 #24140a,0 0 0 2px #24140a;touch-action:none}
+.tpad .btn2.down{background:#24140a;box-shadow:inset 0 4px 0 #120803,0 0 0 2px #ffd36b88;color:#ffd36b}
+@media (prefers-reduced-motion:reduce){.tpad{animation:none}}
 /* the Paladin Book's coin (sheet 18 v5): left of the "?", only while Bunji (a paladin) plays */
 .bookcoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center;animation:bkbr 2.8s ease-in-out infinite}
@@ -479,7 +496,7 @@ const $=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=
 const BUBBLE='<svg viewBox="0 0 30 26"><path d="M4 2 h22 a3 3 0 0 1 3 3 v11 a3 3 0 0 1 -3 3 h-12 l-6 5 v-5 h-4 a3 3 0 0 1 -3 -3 v-11 a3 3 0 0 1 3 -3 z" fill="#ffd36b" stroke="#140904" stroke-width="2"/><rect x="8" y="8" width="14" height="2" fill="#7a4a1e"/><rect x="8" y="12" width="9" height="2" fill="#7a4a1e"/></svg>';
 const SEND='<svg viewBox="0 0 20 20"><path d="M2 10 L18 2 L12 18 L10 11 Z" fill="#fff"/></svg>';
 const coin=$('div','chatcoin');coin.innerHTML=BUBBLE;const badge=$('div','badge');badge.hidden=true;coin.appendChild(badge);app.appendChild(coin);
-function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left=(r.left+CX*k-30)+'px';coin.style.top=(r.top+QY*k-30)+'px';if(typeof placeBook==='function')placeBook()}
+function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left=(r.left+CX*k-30)+'px';coin.style.top=(r.top+QY*k-30)+'px';if(typeof placeBook==='function')placeBook();if(typeof placeMouse==='function')placeMouse()}
 function fit(){const k=3;cv.style.width=PW*k+'px';cv.style.height=PH*k+'px';cv.style.left=Math.round((innerWidth-PW*k)/2)+'px';cv.style.top=Math.round((innerHeight-PH*k)/2)+'px';place()}
 fit();addEventListener('resize',fit);
 
@@ -496,9 +513,11 @@ const onFire=p=>Math.abs(p.x-FX)<36&&p.y>FY-72&&p.y<FY+16;
 app.addEventListener('pointerdown',e=>{
   if(app.querySelector('.sheet')){if(!e.target.closest('.sheet'))closeSheet();return}
   if(book.host){if(!e.target.closest('.bookhost'))closeBook();return}
+  if(tp.el)return;
   if(e.target!==cv)return;
   const p=pos(e);
   if(book.on&&Math.hypot(p.x-BX,p.y-QY)<12){openBook();return}
+  if(chat.on&&Math.hypot(p.x-MX,p.y-QY)<12){openPad();return}
   if(Math.hypot(p.x-QX,p.y-QY)<12){openSheet();return}
   if(chat.on&&Math.hypot(p.x-CX,p.y-QY)<12){openChat();return}
   if(onFire(p)){S.touch={x:p.x,y:Math.max(FY-50,p.y),k:0,spread:1,down:true};cv.setPointerCapture(e.pointerId)}});
@@ -1160,6 +1179,60 @@ function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeEleme
   for(const u of list){const r=$('div','uprow');r.innerHTML=upRow(u);r.addEventListener('click',()=>{up.pick=u.id;drawUp()});ahEl.appendChild(r)}}
 function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u.icon)}.jpg" alt="">`:''}<div class="upw"><div class="upn${u.q!=null?' q'+u.q:''}">${esc(u.name)}</div><div class="ups">${esc(u.slot)}${u.lvl?' · level '+u.lvl:''}</div></div><div class="upr"><div class="upg">+${u.pct}%</div><div class="upc">${moneyHtml(u.price)}</div></div>`}
 
+// ---------- the trackpad (sheet omashu/remote/19): the phone moves and clicks the laptop's mouse, inside WoW only ----------
+// Speed: a laptop-trackpad curve. Slow finger = fine control, fast flick = across the TV. Moves are gathered and
+// sent one message at a time (never a queue), so the pointer is never behind your finger by more than one trip.
+// libinput's touchpad curve in phone points (reports/Phone trackpad research 2026-11-26.md): slow = finer, a flick up
+// to 5.3x; base 2 px per pt. Tap: lifted within 180 ms, moved under 8 pt. Two-finger tap: both up within 200 ms.
+const TP={ base:2.0, tapMs:180, tapPt:8, twoMs:200, scrollPt:20 };
+const tp={on:false,el:null,dx:0,dy:0,ev:[],busy:false,touches:new Map(),last:null,vel:0,two:null};
+const MOUSE_SVG='<svg viewBox="0 0 30 30"><rect x="8" y="3" width="14" height="24" rx="7" fill="#ffd36b" stroke="#140904" stroke-width="2"/><line x1="15" y1="3" x2="15" y2="12" stroke="#140904" stroke-width="2"/><rect x="14" y="6" width="2" height="4" fill="#7a4a1e"/></svg>';
+var mouseCoin=$('div','mousecoin');mouseCoin.innerHTML=MOUSE_SVG;app.appendChild(mouseCoin);
+const MX=CX+25;
+function placeMouse(){if(!mouseCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;mouseCoin.style.left=(r.left+MX*k-28)+'px';mouseCoin.style.top=(r.top+QY*k-28)+'px'}
+function tpGain(v){const u=Math.min(v,3.14);const f=v<0.036?0.33+18.4*v:v<=0.785?1:1+0.587*u*(u-0.785);return TP.base*f}
+function tpPush(m){tp.ev.push(m);tpFlush()}
+async function tpFlush(){
+  if(tp.busy)return;
+  const m={};const ddx=Math.round(tp.dx*100)/100,ddy=Math.round(tp.dy*100)/100;
+  if(ddx||ddy){m.dx=ddx;m.dy=ddy;tp.dx-=ddx;tp.dy-=ddy}
+  if(tp.ev.length)Object.assign(m,tp.ev.shift());
+  if(!Object.keys(m).length)return;
+  tp.busy=true;const {ok,j}=await api('/api/mouse',m);tp.busy=false;
+  const no=tp.el&&tp.el.querySelector('.tpno');if(no)no.textContent=ok?'':(j.why==='not-in-wow'?'WoW isn’t in front':'Not reaching the laptop');
+  if(tp.dx||tp.dy||tp.ev.length)tpFlush();
+}
+function openPad(){if(tp.el)return;tp.on=true;
+  const el=$('div','tpad');el.innerHTML=`<div class="pbar"><div class="t">Trackpad</div><div class="done">Done</div></div>
+  <div class="surf"><div class="tpno"></div></div><div class="btns"><div class="btn2" data-b="l">Left click</div><div class="btn2" data-b="r">Right click</div></div>`;
+  app.appendChild(el);tp.el=el;
+  el.querySelector('.done').addEventListener('click',closePad);
+  el.querySelectorAll('.btn2').forEach(b=>{
+    const up=e=>{if(!b.classList.contains('down'))return;b.classList.remove('down');tpPush({b:b.dataset.b,d:false})};
+    b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('down');knock();tpPush({b:b.dataset.b,d:true})});
+    b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up)});
+  const surf=el.querySelector('.surf');
+  surf.addEventListener('pointerdown',e=>{e.preventDefault();surf.setPointerCapture(e.pointerId);
+    const t={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now(),tl:performance.now(),dot:$('div','touch')};
+    t.dot.style.left=e.clientX-surf.getBoundingClientRect().left+'px';t.dot.style.top=e.clientY-surf.getBoundingClientRect().top+'px';surf.appendChild(t.dot);
+    tp.touches.set(e.pointerId,t);
+    if(tp.touches.size===2)tp.two={t0:performance.now(),moved:0,acc:0};
+    if(tp.touches.size===1)tp.vel=0});
+  surf.addEventListener('pointermove',e=>{const t=tp.touches.get(e.pointerId);if(!t)return;
+    const now=performance.now(),mx=e.clientX-t.x,my=e.clientY-t.y,dt=Math.max(1,now-t.tl);t.x=e.clientX;t.y=e.clientY;t.tl=now;
+    const r=surf.getBoundingClientRect();t.dot.style.left=e.clientX-r.left+'px';t.dot.style.top=e.clientY-r.top+'px';
+    if(tp.touches.size===1){const v=Math.hypot(mx,my)/dt;tp.vel=tp.vel*0.6+v*0.4;const g=tpGain(tp.vel);tp.dx+=mx*g;tp.dy+=my*g;tpFlush()}
+    else if(tp.two){tp.two.moved+=Math.abs(my)+Math.abs(mx);tp.two.acc+=my/2;   // two fingers: scroll (each finger moves it half)
+      const n=Math.trunc(tp.two.acc/TP.scrollPt);if(n){tp.two.acc-=n*TP.scrollPt;tpPush({w:n})}}});
+  const lift=e=>{const t=tp.touches.get(e.pointerId);if(!t)return;tp.touches.delete(e.pointerId);t.dot.remove();
+    const now=performance.now();
+    if(tp.two){if(tp.touches.size===0){if(now-tp.two.t0<TP.twoMs+150&&tp.two.moved<TP.tapPt*2){knock();tpPush({b:'r',d:true});tpPush({b:'r',d:false})}tp.two=null}return}
+    if(now-t.t0<TP.tapMs&&Math.hypot(t.x-t.x0,t.y-t.y0)<TP.tapPt){knock();tpPush({b:'l',d:true});tpPush({b:'l',d:false})}};
+  surf.addEventListener('pointerup',lift);surf.addEventListener('pointercancel',lift);
+  tpPush({dx:1,dy:0});tpPush({dx:-1,dy:0});   // a small nudge: WoW shows its pointer once the mouse moves
+}
+function closePad(){if(!tp.el)return;tp.el.remove();tp.el=null;tp.on=false;tp.touches.clear();tp.two=null;tpPush({park:true})}
+
 // ---------- staying in step with Aang ----------
 let pollT=0,polling=false;
 async function poll(){
@@ -1168,7 +1241,7 @@ async function poll(){
   const {ok,j}=await api(`/api/poll?after=${after}&session=${encodeURIComponent(chat.session||'')}`);
   if(ok){
     if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
-    const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);
+    const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);mouseCoin.classList.toggle('on',chat.on);if(!chat.on&&tp.el)closePad();
     if(!chat.on){chat.ah=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
       if(j.session!==chat.session){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
