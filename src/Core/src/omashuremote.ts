@@ -17,6 +17,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, parseGuildLine, tooltipLines, type ChatLine, type GuildMember, type SendAsk, type TipLine } from './omashu.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { makeBook, PRICE_IDS, FIGHTS, TREE, DESC, PATH, type BookView } from './omashubook.ts';
 
 export const REMOTE_PORT = 47880;
 const ASSETS = path.join(import.meta.dirname, '..', 'assets', 'omashu');
@@ -102,6 +103,17 @@ export class Laptop {
     const items = (j.items as unknown[]).filter((x): x is [string, number, number?] => Array.isArray(x) && typeof x[0] === 'string' && x[0].length <= 100 && Number.isInteger(x[1]))
       .slice(0, 30000).map(x => [x[0], Math.max(0, Math.min(7, x[1])), Math.max(0, Math.min(3, Number(x[2]) || 0))] as [string, number, number]);
     return { at: typeof j.at === 'string' ? j.at : null, items };
+  }
+  /** The Paladin Book's data (sheet omashu/remote/18): OmaBook's save as of the last reload or logout, with aux's prices
+   *  for the given items. book is null until a character has saved with OmaBook. */
+  async book(ids: number[]): Promise<{ at: string | null; book: unknown; prices: Record<string, number> } | null> {
+    const r = await this.call(`/book?ids=${ids.filter(i => Number.isInteger(i) && i > 0).slice(0, 80).join(',')}`, {}, 8000);
+    if (!r?.ok) return null;
+    const j = await r.json().catch(() => null) as { at?: unknown; book?: unknown; prices?: unknown } | null;
+    if (!j) return null;
+    const prices: Record<string, number> = {};
+    if (j.prices && typeof j.prices === 'object') for (const [k, v] of Object.entries(j.prices)) if (/^\d{1,7}$/.test(k) && typeof v === 'number' && v > 0) prices[k] = v;
+    return { at: typeof j.at === 'string' ? j.at : null, book: j.book && typeof j.book === 'object' ? j.book : null, prices };
   }
   async send(line: string): Promise<{ ok: boolean; why?: string }> {
     const r = await this.call('/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line }) }, 5000);
@@ -217,6 +229,9 @@ export class OmashuRemote {
   /** aux's auctionable items, fetched from the laptop while at the auction house (at most every 5 minutes). */
   items: { at: string | null; items: [string, number, number][] } | null = null;
   private itemsAskedAt = 0;
+  /** The Paladin Book (sheet 18): made from the newest OmaBook save while WoW runs; null when that save isn't a paladin. */
+  book: BookView | null = null;
+  private bookAskedAt = 0;
   /** Who in the guild is online (sheet 11): the last complete list from the add-on; null until one arrives. */
   guild: GuildMember[] | null = null;
   private guildParts: { list: number; n: number; got: (GuildMember | undefined)[] } | null = null;
@@ -268,12 +283,18 @@ export class OmashuRemote {
     else this.fire = up ? 'lit' : 'out';
     this.game = st?.game ?? null;
     if (this.game === 'wow') await this.follow();
-    else this.forget();
+    else { this.forget(); this.book = null; this.bookAskedAt = 0; }
   }
 
   private forget() { this.ah = false; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
 
   private async follow(): Promise<void> {
+    // the book's save only changes on a reload, logout, level-up or bag change, so once a minute is plenty
+    if (this.now() - this.bookAskedAt > 60_000) {
+      this.bookAskedAt = this.now();
+      const bk = await this.laptop.book(PRICE_IDS);
+      if (bk) this.book = makeBook(bk.book, bk.prices);
+    }
     let b = await this.laptop.chat(this.after);
     if (!b) return;
     this.ah = !!b.ah;
@@ -381,12 +402,23 @@ export class OmashuRemote {
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
-      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah } : {}) });
+      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
       return;
     }
     if (req.method === 'GET' && p === '/api/items') {
       if (!phone.chat) { json(res, 403, { ok: false }); return; }
       json(res, 200, this.items ?? { at: null, items: [] });
+      return;
+    }
+    if (req.method === 'GET' && p === '/api/book') {
+      if (!phone.chat) { json(res, 403, { ok: false }); return; }
+      json(res, this.book ? 200 : 404, this.book ? { ...this.book, fights: FIGHTS, tree: TREE, desc: DESC, path: PATH } : { ok: false });
+      return;
+    }
+    const icon = /^\/book\/icons\/([a-z0-9_]{3,64})\.jpg$/.exec(p)?.[1];
+    if (req.method === 'GET' && icon) {
+      const f = path.join(ASSETS, 'book', 'icons', `${icon}.jpg`);
+      if (existsSync(f)) send(res, 200, readFileSync(f), 'image/jpeg', { 'Cache-Control': 'max-age=86400' }); else res.writeHead(404).end();
       return;
     }
     if (req.method === 'GET' && p === '/api/lookup') {

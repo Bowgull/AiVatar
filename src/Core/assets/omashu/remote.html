@@ -281,6 +281,15 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 /* every tap shows it landed: a little darker and smaller while your thumb is down (an iPhone page can't buzz) */
 .tab,.chan,.emo,.go,.findgo,.back,.mi,.tile,.chip,.srow,.mem,.who-row,.roster .hd,.rb div,.menu .no{transition:transform .08s,filter .08s}
 .tab:active,.chan:active,.emo:active,.go:active,.findgo:active,.back:active,.mi:active,.tile:active,.chip:active,.srow:active,.mem:active,.who-row:active,.roster .hd:active,.rb div:active,.menu .no:active{filter:brightness(.82);transform:scale(.97)}
+/* the Paladin Book's coin (sheet 18 v5): left of the "?", only while Bunji (a paladin) plays */
+.bookcoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center;animation:bkbr 2.8s ease-in-out infinite}
+.bookcoin.on{display:grid}
+.bookcoin img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #2a1205}
+.bookcoin .lv{position:absolute;top:-6px;right:-8px;font:600 13px "Pixelify Sans";color:#2a1405;background:#ffd36b;border-radius:9px;padding:1px 6px;box-shadow:0 0 0 2px #3a1a08}
+@keyframes bkbr{0%,100%{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 16px #ffb84a44}50%{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 30px #ffb84aaa}}
+.bookhost{position:absolute;inset:0;z-index:7;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.bookcoin{animation:none}}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -445,7 +454,7 @@ const $=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=
 const BUBBLE='<svg viewBox="0 0 30 26"><path d="M4 2 h22 a3 3 0 0 1 3 3 v11 a3 3 0 0 1 -3 3 h-12 l-6 5 v-5 h-4 a3 3 0 0 1 -3 -3 v-11 a3 3 0 0 1 3 -3 z" fill="#ffd36b" stroke="#140904" stroke-width="2"/><rect x="8" y="8" width="14" height="2" fill="#7a4a1e"/><rect x="8" y="12" width="9" height="2" fill="#7a4a1e"/></svg>';
 const SEND='<svg viewBox="0 0 20 20"><path d="M2 10 L18 2 L12 18 L10 11 Z" fill="#fff"/></svg>';
 const coin=$('div','chatcoin');coin.innerHTML=BUBBLE;const badge=$('div','badge');badge.hidden=true;coin.appendChild(badge);app.appendChild(coin);
-function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left=(r.left+CX*k-30)+'px';coin.style.top=(r.top+QY*k-30)+'px'}
+function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left=(r.left+CX*k-30)+'px';coin.style.top=(r.top+QY*k-30)+'px';if(typeof placeBook==='function')placeBook()}
 function fit(){const k=3;cv.style.width=PW*k+'px';cv.style.height=PH*k+'px';cv.style.left=Math.round((innerWidth-PW*k)/2)+'px';cv.style.top=Math.round((innerHeight-PH*k)/2)+'px';place()}
 fit();addEventListener('resize',fit);
 
@@ -461,8 +470,10 @@ const pos=e=>{const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)/(b.
 const onFire=p=>Math.abs(p.x-FX)<36&&p.y>FY-72&&p.y<FY+16;
 app.addEventListener('pointerdown',e=>{
   if(app.querySelector('.sheet')){if(!e.target.closest('.sheet'))closeSheet();return}
+  if(book.host){if(!e.target.closest('.bookhost'))closeBook();return}
   if(e.target!==cv)return;
   const p=pos(e);
+  if(book.on&&Math.hypot(p.x-BX,p.y-QY)<12){openBook();return}
   if(Math.hypot(p.x-QX,p.y-QY)<12){openSheet();return}
   if(chat.on&&Math.hypot(p.x-CX,p.y-QY)<12){openChat();return}
   if(onFire(p)){S.touch={x:p.x,y:Math.max(FY-50,p.y),k:0,spread:1,down:true};cv.setPointerCapture(e.pointerId)}});
@@ -898,6 +909,157 @@ function hint(msg){
   h.textContent=msg;clearTimeout(h._t);h._t=setTimeout(()=>h.remove(),4000);
 }
 
+// ---------- the Paladin Book (sheet omashu/remote/18 v5): Now, Fight, Talents, Gear, as of Bunji's last reload ----------
+// Drawn in its own shadow root so its styles (lifted from the approved mockup) never touch the chat's.
+const BX=QX-25;
+const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff;--parch:#f1e4c3;--parch2:#e7d8b4;--wood:#b8662c;--woodd:#6a3412}
+*{box-sizing:border-box}
+.sheet{position:absolute;left:10px;right:10px;top:70px;bottom:18px;max-width:420px;margin:0 auto;background:var(--parch);border-radius:28px;box-shadow:0 0 0 7px var(--wood),0 0 0 10px var(--woodd),0 -10px 40px #000a;padding:12px 12px 10px;color:#2a1a0e;display:flex;flex-direction:column;animation:up .26s cubic-bezier(.2,.8,.2,1);pointer-events:auto;font-family:"Pixelify Sans",system-ui,sans-serif}
+@keyframes up{from{transform:translateY(14px);opacity:.6}}
+.grip{width:60px;height:6px;border-radius:3px;background:#c9b48a;margin:0 auto 9px}
+.head{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.head img{width:38px;height:38px;border-radius:7px;box-shadow:0 0 0 2px #2a1205,0 0 0 4px #c8962e}
+.nm{font:700 16px Cinzel,serif;letter-spacing:.5px;color:#3a2410;line-height:1.1}
+.nm small{font:600 12px Figtree,system-ui;color:#b0487a;letter-spacing:0}
+.sub{font:12.5px Figtree,system-ui;color:#7a6446}
+.xp{height:8px;border-radius:4px;background:#d9c49a;margin-top:4px;overflow:hidden}
+.xp i{display:block;height:100%;background:linear-gradient(90deg,#8a3ccf,#c87af0)}
+.tabs{display:flex;gap:5px;margin-bottom:9px}
+.tab{flex:1;text-align:center;font:600 13px "Pixelify Sans";padding:8px 0;border-radius:10px;background:var(--parch2);color:#4a3420;box-shadow:inset 0 -3px 0 #0002;cursor:pointer;transition:background .15s ease-out}
+.tab.on{background:#2a1a0e;color:var(--hot);box-shadow:0 0 0 2px #c8962e,inset 0 -3px 0 #0006}
+.well{flex:1;background:#0d0906;border-radius:16px;box-shadow:inset 0 0 0 3px #2a1a0e;padding:11px;overflow:auto;color:#f0e2bf;position:relative;scrollbar-width:none;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.well::-webkit-scrollbar{display:none}
+.k{font:12px "Pixelify Sans";color:#9a8f78;letter-spacing:.6px;margin:2px 2px 7px;text-transform:uppercase;display:flex;justify-content:space-between}
+.k b{color:#c8b890;font-weight:400}
+.card{display:flex;gap:10px;align-items:center;background:#1a120b;border-radius:12px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:8px 10px;margin-bottom:7px}
+.card[data-g]{cursor:pointer}
+.card.hot{box-shadow:inset 0 0 0 2px #ffd36baa;background:linear-gradient(90deg,#2e1f0f,#1f150c)}
+.card img{width:40px;height:40px;border-radius:7px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20;flex:0 0 auto}
+.card .t{font:600 15px Figtree,system-ui;color:#fff3d8;line-height:1.15}
+.card .d{font:12.5px Figtree,system-ui;color:#a8987a;margin-top:2px;line-height:1.25}
+.card .go{margin-left:auto;font:600 12px "Pixelify Sans";color:var(--hot);flex:0 0 auto;text-align:right}
+.green{color:var(--green)!important}.blue{color:var(--blue)!important}
+.note{font:12px Figtree,system-ui;color:#8a7a5a;margin:6px 2px 0;line-height:1.35}
+.trees{display:flex;gap:5px;margin-bottom:8px}
+.trees span{flex:1;text-align:center;font:600 12px "Pixelify Sans";padding:6px 0;border-radius:8px;background:#1a120b;color:#a8987a;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
+.trees span.on{color:var(--pal);box-shadow:inset 0 0 0 2px #f48cba88;background:#24141c}
+.trees span i{font-style:normal;color:#c8b890;margin-left:4px}
+.tree{display:grid;grid-template-columns:repeat(4,46px);justify-content:center;gap:9px 16px;padding:12px 10px;border-radius:12px;background:radial-gradient(ellipse at 50% 0,#3a1626 0%,#120a0f 70%);box-shadow:inset 0 0 0 2px #3a1a2a}
+.nd{position:relative;aspect-ratio:1;border-radius:7px;cursor:pointer}
+.nd img{width:100%;height:100%;border-radius:7px;display:block;box-shadow:0 0 0 2px #000,0 0 0 3px #555;filter:grayscale(1) brightness(.4)}
+.nd.part img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #2fdc3a}
+.nd.max img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #ffd36b}
+.nd.next img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #ffd36b,0 0 14px #ffd36b;animation:nx 2.6s ease-in-out infinite}
+@keyframes nx{50%{box-shadow:0 0 0 2px #000,0 0 0 3px #fff3c0,0 0 22px #ffd36b}}
+.nd.later img{filter:grayscale(.6) brightness(.7);box-shadow:0 0 0 2px #000,0 0 0 3px #7a5a3a}
+.nd.sel{outline:2px solid #fff;outline-offset:3px}
+.nd b{position:absolute;right:-5px;bottom:-6px;font:600 10px "Pixelify Sans";background:#000;color:#9a9a9a;border-radius:5px;padding:0 3px;box-shadow:0 0 0 1px #333}
+.nd.part b{color:var(--green)}.nd.max b,.nd.next b{color:var(--hot)}
+.tt{margin-top:9px;background:#100c18;border:1px solid #5a4a7a;border-radius:9px;padding:9px 11px;font:13px/1.4 Figtree,system-ui;color:#e8dcff}
+.tt h5{margin:0;font:700 15px Figtree,system-ui;color:#fff;display:flex;gap:8px;align-items:baseline}
+.tt .rk{font:12px "Pixelify Sans";color:#c8a8ff}
+.tt .when{font:12px "Pixelify Sans";color:var(--hot);margin-top:5px}
+.pips{display:inline-flex;gap:3px;margin-left:auto}
+.pips i{width:8px;height:8px;border-radius:50%;background:#3a2a4a;box-shadow:0 0 0 1px #000}
+.pips i.f{background:var(--hot)}
+.mini{display:flex;gap:10px;align-items:center;justify-content:center;background:#1a120b;border-radius:12px;padding:8px;margin-bottom:8px;box-shadow:inset 0 0 0 2px #2a1a0e}
+.trig{display:flex;flex-direction:column;gap:4px}
+.trig span{font:600 11px "Pixelify Sans";padding:3px 7px;border-radius:6px;background:#2a1a0e;color:#6a5a40;box-shadow:inset 0 -2px 0 #000}
+.trig span.on{background:var(--hot);color:#2a1405}
+.dpad,.face{position:relative;width:76px;height:76px}
+.dpad span,.face span{position:absolute;width:24px;height:24px;display:grid;place-items:center;font:600 11px "Pixelify Sans";color:#6a5a40;background:#2a1a0e;box-shadow:inset 0 -2px 0 #000}
+.dpad span{border-radius:4px}.face span{border-radius:50%}
+.dpad .U,.face .Y{left:26px;top:0}.dpad .D,.face .A{left:26px;bottom:0}.dpad .L,.face .X{left:0;top:26px}.dpad .R,.face .B{right:0;top:26px}
+.face .on.A{background:#2f9e3c;color:#fff}.face .on.B{background:#c0402e;color:#fff}.face .on.X{background:#2f6fd8;color:#fff}.face .on.Y{background:#d8a020;color:#2a1405}
+.dpad .on{background:var(--hot);color:#2a1405}
+.mini .on{box-shadow:0 0 12px #ffd36b,inset 0 -2px 0 #0004!important}
+.step{display:flex;align-items:center;gap:9px;background:#1a120b;border-radius:12px;padding:7px 9px;box-shadow:inset 0 0 0 2px #2a1a0e;margin-bottom:6px;cursor:pointer}
+.step.on{box-shadow:inset 0 0 0 2px #ffd36baa;background:#2a1c0e}
+.n{font:600 12px "Pixelify Sans";color:#2a1405;background:var(--hot);border-radius:5px;width:20px;height:20px;display:grid;place-items:center;flex:0 0 auto}
+.step img{width:32px;height:32px;border-radius:6px;box-shadow:0 0 0 2px #000}
+.step .t{font:600 14px Figtree,system-ui;color:#fff3d8}
+.step .d{font:12px Figtree,system-ui;color:#a8987a}
+.step .key{margin-left:auto;font:600 11px "Pixelify Sans";color:#c8b890;flex:0 0 auto}
+.seg{display:flex;gap:5px;margin:2px 0 8px}
+.seg span{flex:1;text-align:center;font:600 12px "Pixelify Sans";padding:6px 0;border-radius:8px;background:#1a120b;color:#a8987a;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
+.seg span.on{background:#2a1c0e;color:var(--hot);box-shadow:inset 0 0 0 2px #ffd36b99}
+.ladder{position:relative;padding-left:22px}
+.ladder::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:3px;background:linear-gradient(#ffd36b,#5a3a10);border-radius:2px}
+.rung{position:relative;display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.rung::before{content:"";position:absolute;left:-19px;width:11px;height:11px;border-radius:50%;background:#2a1a0e;box-shadow:0 0 0 2px #7a5a2a}
+.rung.have::before{background:#7a5a2a}.rung.next::before{background:var(--hot);box-shadow:0 0 0 2px #fff3c0,0 0 10px var(--hot)}
+.rung img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000}
+.rung .t{font:600 14px Figtree,system-ui;line-height:1.1}.rung .d{font:12px Figtree,system-ui;color:#a8987a}
+.rung .l{margin-left:auto;font:600 13px "Pixelify Sans";color:#c8b890}
+.rung.later{opacity:.55}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.fd{background:#1a120b;border-radius:10px;padding:6px 4px;text-align:center;box-shadow:inset 0 0 0 2px #2a1a0e}
+.fd img{width:32px;height:32px;border-radius:5px;box-shadow:0 0 0 2px #000}
+.fd div{font:11.5px/1.15 Figtree,system-ui;color:#e8dab8;margin-top:3px}
+.fd span{font:10px "Pixelify Sans";color:#9a8f78;display:block}
+.carry{display:grid;grid-template-columns:auto 1fr auto;gap:6px 9px;align-items:center;background:#1a120b;border-radius:12px;padding:8px 10px;box-shadow:inset 0 0 0 2px #2a1a0e;margin-bottom:6px}
+.carry img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000}
+.carry .t{font:600 14px Figtree,system-ui;color:#fff3d8;line-height:1.1}.carry .d{font:12px Figtree,system-ui;color:#a8987a;line-height:1.25}
+.carry .p{font:600 12px "Pixelify Sans";text-align:right;line-height:1.3}
+.carry .p .ah{color:var(--hot)}.carry .p .bag{color:#c8b890}
+.set{text-align:center;padding:18px 8px;background:#1a120b;border-radius:14px;box-shadow:inset 0 0 0 2px #2a1a0e}.set img{width:46px;height:46px;border-radius:8px;box-shadow:0 0 0 2px #000,0 0 0 4px #c8962e}.set .t{font:700 17px Cinzel,serif;color:var(--hot);margin-top:8px}.set .d{font:13px Figtree,system-ui;color:#a8987a;margin-top:4px}
+.slot{font:10px "Pixelify Sans";color:#9a8f78;letter-spacing:.5px;text-transform:uppercase}
+.tab:active,.card[data-g]:active,.step:active,.seg span:active,.trees span:active,.nd:active{filter:brightness(.85)}
+@media (prefers-reduced-motion:reduce){.nd.next img,.sheet{animation:none}}`;
+var bookCoin=$('div','bookcoin');bookCoin.innerHTML='<img src="/book/icons/classicon_paladin.jpg" alt=""><span class="lv"></span>';app.appendChild(bookCoin);
+var book={on:false,level:0,at:0,host:null,data:null};
+const BI=n=>`/book/icons/${encodeURIComponent(n)}.jpg`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+function placeBook(){if(!bookCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;bookCoin.style.left=(r.left+BX*k-28)+'px';bookCoin.style.top=(r.top+QY*k-28)+'px'}
+function showBookCoin(j){const b=chat.on&&j.book;book.on=!!b;bookCoin.classList.toggle('on',book.on);
+  if(b){bookCoin.querySelector('.lv').textContent=b.level;if(book.host&&b.at!==book.at)loadBook()}book.at=b?b.at:0;if(!book.on)closeBook()}
+async function openBook(){if(book.host)return;
+  app.appendChild($('div','dim'));const host=$('div','bookhost');app.appendChild(host);book.host=host;
+  const sh=host.attachShadow({mode:'open'});sh.innerHTML=`<style>${BOOK_CSS}</style><div class="sheet"><div class="grip"></div><div class="body"></div></div>`;
+  book.tab='now';await loadBook()}
+function closeBook(){if(!book.host)return;book.host.remove();book.host=null;app.querySelectorAll('.dim').forEach(n=>n.remove())}
+async function loadBook(){const {ok,j}=await api('/api/book');if(!book.host)return;
+  if(!ok){closeBook();return}book.data=j;drawBook()}
+function drawBook(){const B=book.data,root=book.host.shadowRoot,body=root.querySelector('.body');
+  body.style.cssText='display:flex;flex-direction:column;flex:1;min-height:0';
+  body.innerHTML=`<div class="head"><img src="${BI('classicon_paladin')}" alt=""><div style="flex:1"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${B.zone?' · '+esc(B.zone):''}</div><div class="xp"><i style="width:${B.xpPct}%"></i></div></div></div>
+  <div class="tabs">${['now','fight','talents','gear'].map(t=>`<span class="tab${t===book.tab?' on':''}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</span>`).join('')}</div><div class="well"></div>`;
+  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>bookTab(t.dataset.t));bookTab(book.tab)}
+function bookTab(t){book.tab=t;const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
+function ago(at){const m=Math.max(0,Math.round((Date.now()/1000-at)/60));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`}
+function bookNow(w,B){const k=`<div class="k">Now <b>as of your last reload · ${ago(B.at)}</b></div>`;
+  if(!B.cards.length&&!B.restock.length){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
+  w.innerHTML=k+B.cards.map(c=>`<div class="card${c.tone==='hot'?' hot':''}"${c.tab?` data-g="${c.tab}"`:''}><img src="${BI(c.icon)}" alt=""><div><div class="t${c.tone==='blue'?' blue':c.tone==='green'?' green':''}">${esc(c.t)}</div><div class="d">${esc(c.d)}</div></div>${c.go?`<div class="go">${esc(c.go)}</div>`:''}</div>`).join('')
+   +(B.restock.length?`<div class="k" style="margin-top:12px">Restock <b>for level ${B.level}</b></div>`+B.restock.map(r=>`<div class="carry"><img src="${BI(r.icon)}" alt=""><div><div class="slot">${esc(r.slot)}</div><div class="t">${esc(r.t)}</div><div class="d">${esc(r.d)}</div></div><div class="p">${r.price.map((p,i)=>`<span class="${i?'bag':'ah'}">${esc(p)}</span>`).join('<br>')}</div></div>`).join(''):'')
+   +(B.fine?`<p class="note">${esc(B.fine)}</p>`:'');
+  w.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>bookTab(c.dataset.g))}
+function bookFight(w,B){let br=B.bracket,sel=0;const F=B.fights;
+  const draw=()=>{const S=F[br],s=S[sel],[,lay,btn]=s;const d=['U','D','L','R'].includes(btn)&&lay!=='LT'&&lay!=='RT'||lay==='none'||s[0].startsWith('D');
+   w.innerHTML=`<div class="seg">${Object.keys(F).map(b=>`<span class="${b===br?'on':''}" data-b="${b}">Level ${b}</span>`).join('')}</div>
+   <div class="mini"><div class="trig"><span class="${lay==='LT'?'on':''}">LT</span><span class="${lay==='RT'?'on':''}">RT</span></div>
+   <div class="dpad">${['U','D','L','R'].map(k=>`<span class="${k} ${(d&&btn===k)?'on':''}">${{U:'▲',D:'▼',L:'◀',R:'▶'}[k]}</span>`).join('')}</div>
+   <div class="face">${['Y','X','B','A'].map(k=>`<span class="${k} ${(!d&&btn===k)?'on':''}">${k}</span>`).join('')}</div></div>
+   ${S.map((x,i)=>`<div class="step${i===sel?' on':''}" data-i="${i}"><span class="n">${i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}</div><div class="d">${esc(x[5])}</div></div><span class="key">${x[1]==='none'?x[0]:x[1]+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2])}</span></div>`).join('')}
+   <p class="note">Hold the trigger, press the button. Steps are a priority, not a timer: press what's ready, top first.</p>`;
+   w.querySelectorAll('[data-b]').forEach(e=>e.onclick=()=>{br=e.dataset.b;sel=0;draw()});w.querySelectorAll('.step').forEach(e=>e.onclick=()=>{sel=+e.dataset.i;draw()})};
+  draw()}
+function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(let i=0;i<r;i++){(lvlOf[n]=lvlOf[n]||[]).push(l+i);plan[n]=(plan[n]||0)+1}});
+  const have=n=>B.ranks[n]||0;let tree='Retribution',pick=B.next||(B.path[0]&&B.path[0][0]);
+  const totals=t=>B.tree.filter(x=>x.tree===t).reduce((s,x)=>s+have(x.name),0);
+  const draw=()=>{const nodes=B.tree.filter(x=>x.tree===tree);let cells='';for(let tier=1;tier<=7;tier++)for(let c=0;c<4;c++){const x=nodes.find(n=>n.tier===tier&&n.col===c);if(!x){cells+='<div></div>';continue}
+      const h=have(x.name),cls=x.name===B.next?'next':h>=x.max?'max':h>0?'part':plan[x.name]?'later':'';
+      cells+=`<div class="nd ${cls}${x.name===pick?' sel':''}" data-n="${esc(x.name)}"><img src="${BI(x.icon)}" alt="${esc(x.name)}"><b>${h}/${x.max}</b></div>`}
+    const x=B.tree.find(n=>n.name===pick)||nodes[0],h=have(x.name),ls=lvlOf[x.name]||[];
+    w.innerHTML=`<div class="trees">${['Holy','Protection','Retribution'].map(t=>`<span class="${t===tree?'on':''}" data-t="${t}">${t==='Protection'?'Prot':t==='Retribution'?'Ret':t}<i>${totals(t)}</i></span>`).join('')}</div>
+    <div class="tree">${cells}</div>
+    <div class="tt"><h5>${esc(x.name)}<span class="pips">${Array.from({length:x.max},(_,i)=>`<i class="${i<h?'f':''}"></i>`).join('')}</span></h5><span class="rk">${h}/${x.max} now · you'll take ${plan[x.name]||0}</span><div style="margin-top:4px">${esc(B.desc[x.name]||'Not in your leveling build.')}</div>${ls.length?`<div class="when">At level ${ls.join(', ')}${x.name===B.next?' · next point':''}</div>`:''}</div>`;
+    w.querySelectorAll('[data-t]').forEach(e=>e.onclick=()=>{tree=e.dataset.t;const f=B.tree.find(n=>n.tree===tree&&plan[n.name]);pick=f?f.name:(B.tree.find(n=>n.tree===tree)||{}).name;draw()});
+    w.querySelectorAll('.nd').forEach(e=>e.onclick=()=>{pick=e.dataset.n;draw()})};
+  draw()}
+function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div class="ladder">${B.ladder.map(r=>`<div class="rung ${r.state}"><img src="${BI(r.icon)}" alt=""><div><div class="t blue">${esc(r.name)}</div><div class="d">${esc(r.from)} · ${r.dps.toFixed(1)} DPS</div></div><span class="l">${r.lvl}</span></div>`).join('')}</div>
+  <div class="k" style="margin-top:6px">For level ${B.level}</div><div class="grid4">${B.forLevel.map(f=>`<div class="fd"><img src="${BI(f.icon)}" alt=""><div>${esc(f.name)}</div><span>${esc(f.what)}</span></div>`).join('')}</div>
+  ${B.gearNote?`<p class="note">${esc(B.gearNote)}</p>`:''}`}
+
 // ---------- staying in step with Aang ----------
 let pollT=0,polling=false;
 async function poll(){
@@ -906,7 +1068,7 @@ async function poll(){
   const {ok,j}=await api(`/api/poll?after=${after}&session=${encodeURIComponent(chat.session||'')}`);
   if(ok){
     if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
-    const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);
+    const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);
     if(!chat.on){chat.ah=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
       if(j.session!==chat.session){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
