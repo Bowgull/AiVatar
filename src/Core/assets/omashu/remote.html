@@ -281,6 +281,21 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 /* every tap shows it landed: a little darker and smaller while your thumb is down (an iPhone page can't buzz) */
 .tab,.chan,.emo,.go,.findgo,.back,.mi,.tile,.chip,.srow,.mem,.who-row,.roster .hd,.rb div,.menu .no{transition:transform .08s,filter .08s}
 .tab:active,.chan:active,.emo:active,.go:active,.findgo:active,.back:active,.mi:active,.tile:active,.chip:active,.srow:active,.mem:active,.who-row:active,.roster .hd:active,.rb div:active,.menu .no:active{filter:brightness(.82);transform:scale(.97)}
+/* the Upgrades tab (sheet 17): Cheap Upgrades' list while Bunji plays, gold like the Auction tab */
+.ah .k{color:#9a8f78;font:13px "Pixelify Sans";padding:2px 4px 0}
+.ah .tray2{display:flex;gap:6px;flex:none}
+.ah .tray2 .tile{flex:1 1 0;min-width:0;font-size:14px;padding:9px 2px 8px;line-height:1.15}
+.ah .tray2 .tile.down{box-shadow:inset 0 2px 0 #120803,0 0 0 2px #ffd36b88}
+.uprow{display:flex;align-items:center;gap:10px;background:#1a120b;border-radius:9px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:7px 9px;flex:none;cursor:pointer}
+.uprow.lit{box-shadow:inset 0 0 0 2px #ffd36b99;background:#2a1c0e}
+.uprow img{width:36px;height:36px;border-radius:6px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20;flex:0 0 auto}
+.uprow .upw{flex:1;min-width:0}
+.uprow .upn{font-size:15px;color:#fff;line-height:1.15}.uprow .ups{font-size:12px;color:#9a8f78;margin-top:2px}
+.uprow .upr{margin-left:auto;text-align:right;flex:0 0 auto}
+.uprow .upg{font:600 15px "Pixelify Sans";color:#ffd36b;text-shadow:0 0 8px #ffd36b55}.uprow .upc{font-size:12px;color:#d8d8e0;margin-top:2px}
+.upgo{display:flex;align-items:center;justify-content:center;height:46px;border-radius:11px;background:#c88a1e;color:#2a1405;font:600 17px "Pixelify Sans";box-shadow:inset 0 -4px 0 #7a4a0a,0 0 12px #ffb84a55;flex:none;cursor:pointer}
+.upgo.no{background:#3a2212;color:#9a8f78;box-shadow:inset 0 -4px 0 #24140a}
+.q2{color:#1eff00!important}.q3{color:#0070dd!important}.q4{color:#a335ee!important}.q0{color:#9d9d9d!important}
 /* the Paladin Book's coin (sheet 18 v5): left of the "?", only while Bunji (a paladin) plays */
 .bookcoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center;animation:bkbr 2.8s ease-in-out infinite}
@@ -583,8 +598,10 @@ if(window.visualViewport){visualViewport.addEventListener('resize',settle);visua
 
 function pickTab(name){
   if(name==='Auction'&&!chat.ah)name='All';
+  if(name==='Upgrades'&&!book.on)name='All';
   chat.tab=name;
   if(name==='Auction'){render(true);return}
+  if(name==='Upgrades'){up.pick=null;render(true);loadUp();return}
   chat.wPerson=null;
   if(name==='Whispers'){const inc=chat.lines.filter(l=>l.kind==='whisper');chat.wUnread=new Set(chat.whispers?inc.slice(-chat.whispers).map(l=>l.seq):[]);
     chat.wOpen=Math.max(chat.seen.Whispers??0,...inc.filter(l=>!chat.wUnread.has(l.seq)).map(l=>l.seq),0);const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
@@ -602,15 +619,18 @@ function render(full){
   if(!tabsEl.children.length){const t=$('div','tab','Auction');t.addEventListener('click',()=>pickTab('Auction'));
     t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabsEl.appendChild(t);tabEls.Auction=t}
   tabEls.Auction.hidden=!chat.ah;tabEls.Auction.className='tab'+(chat.tab==='Auction'?' on':'');
-  if(tabsEl.children.length===1)for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
+  if(!tabEls.Upgrades){const t=$('div','tab','Upgrades');t.addEventListener('click',()=>pickTab('Upgrades'));
+    t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabEls.Auction.after(t);tabEls.Upgrades=t}
+  tabEls.Upgrades.hidden=!book.on;tabEls.Upgrades.className='tab'+(chat.tab==='Upgrades'?' on':'');
+  if(!tabEls[TABS[0][0]])for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
     if(TAB_FILL[n])t.style.setProperty('--tf',TAB_FILL[n]);t.style.setProperty('--tc',TAB_LIT[n]);tabsEl.appendChild(t);tabEls[n]=t}
   for(const [n,f] of TABS){const t=tabEls[n];t.className='tab'+(n===chat.tab?' on':'');
     const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
     let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
   tabFade();
-  const isAh=chat.tab==='Auction';
-  ahEl.hidden=!isAh;ahSendEl.hidden=!isAh;sendEl.hidden=isAh;if(trayEl2)trayEl2.hidden=!isAh;
-  if(isAh){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;drawAh();return}
+  const isAh=chat.tab==='Auction',isUp=chat.tab==='Upgrades';
+  ahEl.hidden=!(isAh||isUp);ahSendEl.hidden=!isAh;sendEl.hidden=isAh||isUp;if(trayEl2)trayEl2.hidden=!isAh;
+  if(isAh||isUp){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;if(isUp)drawUp();else drawAh();return}
   logEl.hidden=false;
   const isW=l=>l.kind==='whisper'||l.kind==='whisper-out';
   const people=chat.tab==='Whispers'&&!chat.wPerson;
@@ -849,7 +869,7 @@ function layoutEmo(){
   emoEl.classList.toggle('on',!!chat.emo);emoEl.innerHTML=chat.emo?SMILE_ON:SMILE;
   trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
   const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
-  const ahTab=chat.tab==='Auction';   // the Auction tab has its own list in place of the log
+  const ahTab=chat.tab==='Auction'||chat.tab==='Upgrades';   // these tabs have their own list in place of the log
   // move the tray and More sheet only when they're not already in place: moving a node takes the cursor out of the
   // emote search box, so the keyboard opened and at once closed again (Joshua 2026-11-11: "cant click into the search bar")
   if(s){if(trayEl.parentNode!==rightEl||trayEl.nextSibling!==moreEl||moreEl.nextSibling)rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo||ahTab;logEl.hidden=ahTab}
@@ -1011,7 +1031,8 @@ var book={on:false,level:0,at:0,host:null,data:null};
 const BI=n=>`/book/icons/${encodeURIComponent(n)}.jpg`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
 function placeBook(){if(!bookCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;bookCoin.style.left=(r.left+BX*k-28)+'px';bookCoin.style.top=(r.top+QY*k-28)+'px'}
-function showBookCoin(j){const b=chat.on&&j.book;book.on=!!b;bookCoin.classList.toggle('on',book.on);
+function showBookCoin(j){const b=chat.on&&j.book;const was=book.on;book.on=!!b;bookCoin.classList.toggle('on',book.on);
+  if(chat.open&&was!==book.on){if(!book.on&&chat.tab==='Upgrades')pickTab('All');else render()}if(b&&chat.open&&chat.tab==='Upgrades'&&b.at!==up.at)loadUp();
   if(b){bookCoin.querySelector('.lv').textContent=b.level;if(book.host&&b.at!==book.at)loadBook()}book.at=b?b.at:0;if(!book.on)closeBook()}
 async function openBook(){if(book.host)return;
   app.appendChild($('div','dim'));const host=$('div','bookhost');app.appendChild(host);book.host=host;
@@ -1059,6 +1080,28 @@ function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(
 function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div class="ladder">${B.ladder.map(r=>`<div class="rung ${r.state}"><img src="${BI(r.icon)}" alt=""><div><div class="t blue">${esc(r.name)}</div><div class="d">${esc(r.from)} · ${r.dps.toFixed(1)} DPS</div></div><span class="l">${r.lvl}</span></div>`).join('')}</div>
   <div class="k" style="margin-top:6px">For level ${B.level}</div><div class="grid4">${B.forLevel.map(f=>`<div class="fd"><img src="${BI(f.icon)}" alt=""><div>${esc(f.name)}</div><span>${esc(f.what)}</span></div>`).join('')}</div>
   ${B.gearNote?`<p class="note">${esc(B.gearNote)}</p>`:''}`}
+
+// ---------- the Upgrades tab (sheet 17): Cheap Upgrades' list from its last scan, as of the last reload ----------
+// Its mode and budget tiles show what Cheap Upgrades is set to. Sending its own commands (/cu rich, /cu max, /cu scan)
+// waits for an in-game check that an add-on slash command typed from the phone doesn't block the controller.
+const CU_SEND=false;
+const up={data:null,pick:null,at:0};
+async function loadUp(){const {ok,j}=await api('/api/book');if(ok){up.data=j;up.at=j.at}if(chat.open&&chat.tab==='Upgrades')drawUp()}
+const money=c=>{c=Math.round(c||0);const g=Math.floor(c/10000),s=Math.floor(c/100)%100;return g?`${g}g${s?` ${s}s`:''}`:s?`${s}s`:`${c%100}c`};
+function drawUp(){ahEl.textContent='';const B=up.data;if(!B||!B.cu){ahEl.appendChild($('div','hd','Reading Cheap Upgrades…'));return}
+  const tiles=(label,opts)=>{ahEl.appendChild($('div','k',label));const tr=$('div','tray2');for(const [t,on,cmd] of opts){const x=$('div','tile'+(on?' down':''),t);
+    if(CU_SEND&&cmd)x.addEventListener('click',()=>{knock();api('/api/send',{cu:cmd}).then(()=>setTimeout(loadUp,4000))});tr.appendChild(x)}ahEl.appendChild(tr)};
+  tiles('Show me',[['Most per gold',!B.cu.rich,'rich off'],['Biggest in budget',B.cu.rich,'rich on']]);
+  const max=B.cu.max,bud=[['1g',10000],['5g',50000],['25g',250000],['Any',null]];
+  tiles('Spend up to',bud.map(([t,v])=>[t,v===max||(v===null&&!bud.some(b=>b[1]===max)),'max '+(v?v/10000:0)]));
+  const list=B.cu.list;
+  if(up.pick){const u=list.find(x=>x.id===up.pick);if(u){const d=$('div','uprow lit');d.innerHTML=upRow(u);ahEl.appendChild(d);
+    const go=$('div','upgo','Search');go.addEventListener('click',async()=>{knock();const {ok}=await api('/api/ah',{text:u.name.toLowerCase()+'/exact'});go.classList.toggle('no',!ok);go.textContent=ok?'Searched':'Open the auction house first';setTimeout(()=>{go.classList.remove('no');go.textContent='Search'},2500)});ahEl.appendChild(go);
+    const back=$('div','hd','‹ All upgrades');back.style.cursor='pointer';back.addEventListener('click',()=>{up.pick=null;drawUp()});ahEl.appendChild(back);return}}
+  ahEl.appendChild($('div','k',`Best for ${B.name} now`));
+  if(!list.length){ahEl.appendChild($('div','hd','Nothing yet. Scan at the auction house, then /reload.'));return}
+  for(const u of list){const r=$('div','uprow');r.innerHTML=upRow(u);r.addEventListener('click',()=>{up.pick=u.id;drawUp()});ahEl.appendChild(r)}}
+function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u.icon)}.jpg" alt="">`:''}<div class="upw"><div class="upn${u.q!=null?' q'+u.q:''}">${esc(u.name)}</div><div class="ups">${esc(u.slot)}${u.lvl?' · level '+u.lvl:''}</div></div><div class="upr"><div class="upg">+${u.pct}%</div><div class="upc">${money(u.price)}</div></div>`}
 
 // ---------- staying in step with Aang ----------
 let pollT=0,polling=false;

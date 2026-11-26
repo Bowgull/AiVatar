@@ -94,3 +94,11 @@ test('restock: a sharp weapon wants sharpening stones; First Aid adds bandages y
 test('coins read like the game', () => {
   assert.equal(coin(11000), '1g 10s'); assert.equal(coin(1800), '18s'); assert.equal(coin(9), '9c'); assert.equal(coin(20000), '2g');
 });
+
+test('Upgrades tab: Cheap Upgrades\' mode, budget and list pass through, bad entries dropped', () => {
+  const b = makeBook(base({ cu: { rich: true, max: 50000, list: [{ id: 2264, name: 'Mantle of Thieves', slot: 'Shoulder', price: 11000, pct: 64.4 }, { name: 'no id' }, { id: -1, name: 'bad' }] } }))!;
+  assert.equal(b.cu.rich, true); assert.equal(b.cu.max, 50000);
+  assert.deepEqual(b.cu.list, [{ id: 2264, name: 'Mantle of Thieves', slot: 'Shoulder', price: 11000, pct: 64 }]);
+  assert.equal(b.cards.find(c => c.tone === 'green')!.item, 2264, 'the remote can give the card its real icon');
+  assert.deepEqual(makeBook(base())!.cu, { rich: false, max: null, list: [] });
+});

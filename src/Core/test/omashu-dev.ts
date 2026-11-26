@@ -15,7 +15,7 @@ lap.bookSave = { class: 'PALADIN', name: 'Bunji', level: 23, xp: 410, xpMax: 100
   unspent: allset ? 0 : 1, talents: { Deflection: 5, Conviction: 3, 'Improved Judgement': 2, 'Pursuit of Justice': 2, 'Seal of Command': 1, ...(allset ? { 'Sanctified Judgement': 1 } : {}) },
   skills: { 'Two-Handed Maces': 115 }, weapon: { id: 7230, dps: 19.71, sub: 5 }, done: allset ? { 1806: true, 78093: true } : {},
   bags: allset ? { 4542: 14, 1205: 18, 1710: 5, 3241: 3 } : { 5480: 8, 1179: 12, 3241: 1 },
-  cu: { list: allset ? [] : [{ name: 'Ringed Chestguard', slot: 'Chest', price: 11000, pct: 64 }] } };
+  cu: { rich: false, max: 50000, list: allset ? [] : [{ id: 2264, name: 'Mantle of Thieves', slot: 'Shoulder', price: 11000, pct: 64 }, { id: 15562, name: "Brutish Breastplate", slot: 'Chest', price: 4500, pct: 31 }, { id: 6380, name: 'Inscribed Buckler', slot: 'Off Hand', price: 2200, pct: 12 }] } };
 lap.bookPrices = { 929: 1800, 1710: 15000, 3241: 900 };   // e.g. CLOSE_MS=6000: a slow close like the real WoW's
 const remote = new OmashuRemote({
   cfg: { port: Number(process.env.PORT ?? 47880), laptop: { url: lap.url, key: KEY, mac: MAC, broadcast: ['127.0.0.1'], wakePort: lap.udpPort }, phones: [{ name: 'Josh', key: PHONE, chat: true }] },

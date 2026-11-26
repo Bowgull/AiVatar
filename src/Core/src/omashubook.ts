@@ -135,7 +135,7 @@ export const ICONS: string[] = [...new Set([
 
 // ------------------------------------------------------------------ what the phone draws
 
-export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear' }
+export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
 export interface Restock { icon: string; slot: string; t: string; d: string; price: string[] }
 export interface BookView {
   name: string; level: number; xpPct: number; spec: string; zone: string; at: number;
@@ -143,6 +143,9 @@ export interface BookView {
   ranks: Record<string, number>; next: string | null;
   ladder: (Rung & { state: 'have' | 'next' | 'later' })[]; forLevel: { icon: string; name: string; what: string }[]; gearNote: string;
   bracket: string;
+  /** Cheap Upgrades (sheet 17): its mode (rich = biggest in budget), budget in copper, and its list from the last scan.
+   *  icon, q (quality) and lvl are filled in from Wowhead by the remote. */
+  cu: { rich: boolean; max: number | null; list: { id: number; name: string; slot: string; price: number; pct: number; icon?: string; q?: number; lvl?: number }[] };
 }
 
 export const coin = (c: number) => { c = Math.round(c); const g = Math.floor(c / 10000), s = Math.floor(c / 100) % 100, k = c % 100; return g ? `${g}g${s ? ` ${s}s` : ''}` : s ? `${s}s` : `${k}c`; };
@@ -203,7 +206,7 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   if (cq) cards.push({ icon: cq.icon, t: `Class quest: ${cq.name}`, d: 'Open it in Polestar' });
   // 6. Cheap Upgrades, only the big ones (+60% or more)
   for (const u of (s.cu?.list ?? []).filter(u => u && num(u.pct) >= 60).slice(0, 2))
-    cards.push({ icon: 'inv_chest_chain_05', t: `Upgrade: ${String(u.name ?? 'an item')}`, d: `Cheap Upgrades: ${String(u.slot ?? '').toLowerCase()} +${Math.round(num(u.pct))}%${u.price ? ` · AH ${coin(num(u.price))}` : ''}`, tone: 'green', go: `+${Math.round(num(u.pct))}%` });
+    cards.push({ icon: 'inv_chest_chain_05', t: `Upgrade: ${String(u.name ?? 'an item')}`, d: `Cheap Upgrades: ${String(u.slot ?? '').toLowerCase()} +${Math.round(num(u.pct))}%${u.price ? ` · AH ${coin(num(u.price))}` : ''}`, tone: 'green', go: `+${Math.round(num(u.pct))}%`, ...(num(u.id) > 0 ? { item: num(u.id) } : {}) });
 
   // Restock: the best of each for your level, only when low
   const restock: Restock[] = [], fine: string[] = [];
@@ -252,5 +255,10 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
     cards, restock, fine: fine.length ? `All stocked: ${fine.join(', ')}.` : '',
     ranks, next: nt?.name ?? nextTalent(ranks, level + 1)?.name ?? null,
     ladder, forLevel, gearNote, bracket: level < 20 ? '1-20' : level < 40 ? '20-40' : '40+',
+    cu: {
+      rich: s.cu?.rich === true, max: num(s.cu?.max) > 0 ? num(s.cu?.max) : null,
+      list: (s.cu?.list ?? []).filter(u => u && Number.isInteger(u.id) && num(u.id) > 0 && typeof u.name === 'string').slice(0, 10)
+        .map(u => ({ id: num(u.id), name: String(u.name), slot: String(u.slot ?? ''), price: Math.max(0, num(u.price)), pct: Math.round(num(u.pct)) })),
+    },
   };
 }

@@ -140,7 +140,7 @@ export function sendWake(mac: string, targets: string[], port = 9): Promise<void
 
 // ------------------------------------------------------------------ Wowhead
 
-export interface Tip { name: string; kind: 'item' | 'quest' | 'spell'; q?: number; lines: TipLine[] }
+export interface Tip { name: string; kind: 'item' | 'quest' | 'spell'; q?: number; icon?: string; lines: TipLine[] }
 const TYPE: Record<number, Tip['kind']> = { 3: 'item', 5: 'quest', 6: 'spell' };
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15';
 
@@ -163,9 +163,9 @@ export class Wowhead {
   async byId(kind: Tip['kind'], id: number): Promise<Tip | null> {
     const k = `${kind}:${id}`;
     if (this.cache.has(k)) return this.cache.get(k)!;
-    const j = await this.json(`${this.hosts.tip}${this.dir}/tooltip/${kind}/${id}?locale=0`) as { name?: string; quality?: number; tooltip?: string } | null;
+    const j = await this.json(`${this.hosts.tip}${this.dir}/tooltip/${kind}/${id}?locale=0`) as { name?: string; quality?: number; icon?: string; tooltip?: string } | null;
     const tip = j && typeof j.name === 'string' && typeof j.tooltip === 'string'
-      ? { name: j.name, kind, ...(typeof j.quality === 'number' ? { q: j.quality } : {}),
+      ? { name: j.name, kind, ...(typeof j.quality === 'number' ? { q: j.quality } : {}), ...(typeof j.icon === 'string' && /^[a-z0-9_]{3,64}$/.test(j.icon) ? { icon: j.icon } : {}),
         // Classic's own tooltips show no item level; Wowhead adds one
         lines: tooltipLines(j.tooltip).filter(l => !(this.flavor === 'classic' && /^Item Level \d+$/.test(l.l))) } : null;
     if (tip || j) this.remember(k, tip);   // a network failure is not remembered, so it is tried again
@@ -203,6 +203,8 @@ export interface RemoteOpts {
   /** Fast polling for tests. */
   tickMs?: { busy: number; idle: number };
   host?: string;
+  /** Where item icons not shipped with the book come from (tests point it at a fake). */
+  iconHost?: string;
   /** Saves the settings file after a phone changes its favourites (core.ts writes omashu-remote.json). */
   saveCfg?: (cfg: RemoteConfig) => void;
 }
@@ -293,7 +295,20 @@ export class OmashuRemote {
     if (this.now() - this.bookAskedAt > 60_000) {
       this.bookAskedAt = this.now();
       const bk = await this.laptop.book(PRICE_IDS);
-      if (bk) this.book = makeBook(bk.book, bk.prices);
+      if (bk) {
+        const book = makeBook(bk.book, bk.prices);
+        // Cheap Upgrades' items: their icon, quality and level from Wowhead (cached), for the Upgrades tab
+        for (const u of book?.cu.list ?? []) {
+          const t = await this.wowhead.byId('item', u.id);
+          if (!t) continue;
+          if (t.icon) u.icon = t.icon;
+          if (typeof t.q === 'number') u.q = t.q;
+          const lv = t.lines.map(l => /^Requires Level (\d+)$/.exec(l.l)?.[1]).find(Boolean);
+          if (lv) u.lvl = Number(lv);
+        }
+        for (const c of book?.cards ?? []) { const u = c.item && book!.cu.list.find(x => x.id === c.item); if (u && u.icon) c.icon = u.icon; }
+        this.book = book;
+      }
     }
     let b = await this.laptop.chat(this.after);
     if (!b) return;
@@ -362,6 +377,21 @@ export class OmashuRemote {
     return this.fire;
   }
 
+  private icons = new Map<string, Buffer>();
+  private async iconFromWowhead(name: string): Promise<Buffer | null> {
+    const have = this.icons.get(name);
+    if (have) return have;
+    try {
+      const r = await (this.o.fetch ?? fetch)(`${this.o.iconHost ?? 'https://wow.zamimg.com'}/images/wow/icons/large/${name}.jpg`, { signal: AbortSignal.timeout(6000) });
+      if (!r.ok || !/^image\/jpe?g/.test(r.headers.get('content-type') ?? '')) return null;
+      const b = Buffer.from(await r.arrayBuffer());
+      if (b.length > 200_000) return null;
+      this.icons.set(name, b);
+      while (this.icons.size > 100) this.icons.delete(this.icons.keys().next().value!);
+      return b;
+    } catch { return null; }
+  }
+
   // ---------- HTTP ----------
   private phoneOf(req: http.IncomingMessage, pairKey?: string): PhoneEntry | null {
     const key = pairKey ?? /(?:^|;\s*)omashu=([A-Za-z0-9_-]{20,64})/.exec(req.headers.cookie ?? '')?.[1];
@@ -418,7 +448,10 @@ export class OmashuRemote {
     const icon = /^\/book\/icons\/([a-z0-9_]{3,64})\.jpg$/.exec(p)?.[1];
     if (req.method === 'GET' && icon) {
       const f = path.join(ASSETS, 'book', 'icons', `${icon}.jpg`);
-      if (existsSync(f)) send(res, 200, readFileSync(f), 'image/jpeg', { 'Cache-Control': 'max-age=86400' }); else res.writeHead(404).end();
+      if (existsSync(f)) { send(res, 200, readFileSync(f), 'image/jpeg', { 'Cache-Control': 'max-age=86400' }); return; }
+      // an item from Cheap Upgrades' list: its icon from Wowhead's icon store, kept in memory
+      const img = this.book?.cu.list.some(u => u.icon === icon) ? await this.iconFromWowhead(icon) : null;
+      if (img) send(res, 200, img, 'image/jpeg', { 'Cache-Control': 'max-age=86400' }); else res.writeHead(404).end();
       return;
     }
     if (req.method === 'GET' && p === '/api/lookup') {
