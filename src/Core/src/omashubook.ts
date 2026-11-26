@@ -12,7 +12,7 @@ const BOOK_DIR = path.join(import.meta.dirname, '..', 'assets', 'omashu', 'book'
 /** OmaBook's save (addons/OmaBook in oma-suite). Every field may be missing on an older or broken save. */
 export interface BookSave {
   v?: number; at?: number; name?: string; realm?: string; faction?: string; class?: string; zone?: string;
-  level?: number; xp?: number; xpMax?: number; unspent?: number;
+  level?: number; money?: number; xp?: number; xpMax?: number; unspent?: number;
   talents?: Record<string, number>; spells?: string[]; train?: { name: string; lvl: number }[];
   skills?: Record<string, number>; weapon?: { id?: number; name?: string; dps?: number; sub?: number } | null;
   bags?: Record<string, number>; done?: Record<string, boolean>; log?: number[];
@@ -138,7 +138,7 @@ export const ICONS: string[] = [...new Set([
 export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
 export interface Restock { icon: string; slot: string; t: string; d: string; price: string[] }
 export interface BookView {
-  name: string; level: number; xpPct: number; spec: string; zone: string; at: number;
+  name: string; level: number; xpPct: number; spec: string; zone: string; at: number; /** gold carried, in copper */ money: number;
   cards: Card[]; restock: Restock[]; fine: string;
   ranks: Record<string, number>; next: string | null;
   ladder: (Rung & { state: 'have' | 'next' | 'later' })[]; forLevel: { icon: string; name: string; what: string }[]; gearNote: string;
@@ -251,7 +251,7 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   const xpMax = num(s.xpMax);
   return {
     name: String(s.name ?? 'Paladin'), level, xpPct: xpMax > 0 ? Math.round(num(s.xp) / xpMax * 100) : 0,
-    spec: spec && spec[1] > 0 ? spec[0] : '', zone: typeof s.zone === 'string' ? s.zone : '', at: num(s.at),
+    spec: spec && spec[1] > 0 ? spec[0] : '', zone: typeof s.zone === 'string' ? s.zone : '', at: num(s.at), money: Math.max(0, Math.floor(num(s.money))),
     cards, restock, fine: fine.length ? `All stocked: ${fine.join(', ')}.` : '',
     ranks, next: nt?.name ?? nextTalent(ranks, level + 1)?.name ?? null,
     ladder, forLevel, gearNote, bracket: level < 20 ? '1-20' : level < 40 ? '20-40' : '40+',

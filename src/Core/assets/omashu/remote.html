@@ -285,6 +285,15 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .ah .k{color:#9a8f78;font:13px "Pixelify Sans";padding:2px 4px 0}
 .ah .tray2{display:flex;gap:6px;flex:none}
 .ah .tray2 .tile{flex:1 1 0;min-width:0;font-size:14px;padding:9px 2px 8px;line-height:1.15}
+.ah .tray2.step .tile{flex:0 0 64px;font-size:20px}
+.ah .tray2 .amt{flex:1;text-align:center;background:#fffaf0;border-radius:9px;box-shadow:inset 0 0 0 2px #d9c391;padding:8px 0;font:600 18px "Pixelify Sans";color:#2a1a0e}
+.ah .tray2.chips .tile{font-size:13px}
+.ah .tray2 .amt{display:flex;align-items:center;justify-content:center;gap:2px;padding:4px 6px}
+.ah .tray2 .amt input{width:3.2ch;min-width:0;border:0;outline:0;background:transparent;text-align:right;font:600 18px "Pixelify Sans";color:#2a1a0e;padding:4px 1px;-webkit-user-select:text;user-select:text}
+.ah .tray2 .amt input:focus{background:#f1e4c3;border-radius:5px;box-shadow:inset 0 0 0 2px #c8962e}
+.ah .tray2 .amt input::placeholder{color:#9a8f78}
+.ah .tray2 .amt .mg{color:#b8860b;margin-right:6px}.ah .tray2 .amt .ms{color:#7c7c88}
+.mg{color:#ffd100}.ms{color:#c7c7cf}.mc{color:#d58a4a}
 .ah .tray2 .tile.down{box-shadow:inset 0 2px 0 #120803,0 0 0 2px #ffd36b88}
 .uprow{display:flex;align-items:center;gap:10px;background:#1a120b;border-radius:9px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:7px 9px;flex:none;cursor:pointer}
 .uprow.lit{box-shadow:inset 0 0 0 2px #ffd36b99;background:#2a1c0e}
@@ -1023,12 +1032,14 @@ const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff
 .carry .p{font:600 12px "Pixelify Sans";text-align:right;line-height:1.3}
 .carry .p .ah{color:var(--hot)}.carry .p .bag{color:#c8b890}
 .set{text-align:center;padding:18px 8px;background:#1a120b;border-radius:14px;box-shadow:inset 0 0 0 2px #2a1a0e}.set img{width:46px;height:46px;border-radius:8px;box-shadow:0 0 0 2px #000,0 0 0 4px #c8962e}.set .t{font:700 17px Cinzel,serif;color:var(--hot);margin-top:8px}.set .d{font:13px Figtree,system-ui;color:#a8987a;margin-top:4px}
+.mg{color:#ffd100}.ms{color:#c7c7cf}.mc{color:#d58a4a}
 .slot{font:10px "Pixelify Sans";color:#9a8f78;letter-spacing:.5px;text-transform:uppercase}
 .tab:active,.card[data-g]:active,.step:active,.seg span:active,.trees span:active,.nd:active{filter:brightness(.85)}
 @media (prefers-reduced-motion:reduce){.nd.next img,.sheet{animation:none}}`;
 var bookCoin=$('div','bookcoin');bookCoin.innerHTML='<img src="/book/icons/classicon_paladin.jpg" alt=""><span class="lv"></span>';app.appendChild(bookCoin);
 var book={on:false,level:0,at:0,host:null,data:null};
 const BI=n=>`/book/icons/${encodeURIComponent(n)}.jpg`;
+const coins=t=>esc(t).replace(/(\d+)([gsc])\b/g,(_,n,u)=>`${n}<span class="m${u}">${u}</span>`);
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
 function placeBook(){if(!bookCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;bookCoin.style.left=(r.left+BX*k-28)+'px';bookCoin.style.top=(r.top+QY*k-28)+'px'}
 function showBookCoin(j){const b=chat.on&&j.book;const was=book.on;book.on=!!b;bookCoin.classList.toggle('on',book.on);
@@ -1050,8 +1061,8 @@ function bookTab(t){book.tab=t;const root=book.host.shadowRoot,w=root.querySelec
 function ago(at){const m=Math.max(0,Math.round((Date.now()/1000-at)/60));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`}
 function bookNow(w,B){const k=`<div class="k">Now <b>as of your last reload · ${ago(B.at)}</b></div>`;
   if(!B.cards.length&&!B.restock.length){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
-  w.innerHTML=k+B.cards.map(c=>`<div class="card${c.tone==='hot'?' hot':''}"${c.tab?` data-g="${c.tab}"`:''}><img src="${BI(c.icon)}" alt=""><div><div class="t${c.tone==='blue'?' blue':c.tone==='green'?' green':''}">${esc(c.t)}</div><div class="d">${esc(c.d)}</div></div>${c.go?`<div class="go">${esc(c.go)}</div>`:''}</div>`).join('')
-   +(B.restock.length?`<div class="k" style="margin-top:12px">Restock <b>for level ${B.level}</b></div>`+B.restock.map(r=>`<div class="carry"><img src="${BI(r.icon)}" alt=""><div><div class="slot">${esc(r.slot)}</div><div class="t">${esc(r.t)}</div><div class="d">${esc(r.d)}</div></div><div class="p">${r.price.map((p,i)=>`<span class="${i?'bag':'ah'}">${esc(p)}</span>`).join('<br>')}</div></div>`).join(''):'')
+  w.innerHTML=k+B.cards.map(c=>`<div class="card${c.tone==='hot'?' hot':''}"${c.tab?` data-g="${c.tab}"`:''}><img src="${BI(c.icon)}" alt=""><div><div class="t${c.tone==='blue'?' blue':c.tone==='green'?' green':''}">${esc(c.t)}</div><div class="d">${coins(c.d)}</div></div>${c.go?`<div class="go">${esc(c.go)}</div>`:''}</div>`).join('')
+   +(B.restock.length?`<div class="k" style="margin-top:12px">Restock <b>for level ${B.level}</b></div>`+B.restock.map(r=>`<div class="carry"><img src="${BI(r.icon)}" alt=""><div><div class="slot">${esc(r.slot)}</div><div class="t">${esc(r.t)}</div><div class="d">${esc(r.d)}</div></div><div class="p">${r.price.map((p,i)=>`<span class="${i?'bag':'ah'}">${coins(p)}</span>`).join('<br>')}</div></div>`).join(''):'')
    +(B.fine?`<p class="note">${esc(B.fine)}</p>`:'');
   w.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>bookTab(c.dataset.g))}
 function bookFight(w,B){let br=B.bracket,sel=0;const F=B.fights;
@@ -1085,23 +1096,43 @@ function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div c
 // Its mode and budget tiles show what Cheap Upgrades is set to. Sending its own commands (/cu rich, /cu max, /cu scan)
 // waits for an in-game check that an add-on slash command typed from the phone doesn't block the controller.
 const CU_SEND=false;
-const up={data:null,pick:null,at:0};
-async function loadUp(){const {ok,j}=await api('/api/book');if(ok){up.data=j;up.at=j.at}if(chat.open&&chat.tab==='Upgrades')drawUp()}
+const up={data:null,pick:null,at:0,rich:null,max:null,pending:false,maxT:0};
+async function loadUp(){const {ok,j}=await api('/api/book');if(ok){if(j.at!==up.at){up.rich=up.max=null;up.pending=false}up.data=j;up.at=j.at}if(chat.open&&chat.tab==='Upgrades')drawUp()}
 const money=c=>{c=Math.round(c||0);const g=Math.floor(c/10000),s=Math.floor(c/100)%100;return g?`${g}g${s?` ${s}s`:''}`:s?`${s}s`:`${c%100}c`};
-function drawUp(){ahEl.textContent='';const B=up.data;if(!B||!B.cu){ahEl.appendChild($('div','hd','Reading Cheap Upgrades…'));return}
-  const tiles=(label,opts)=>{ahEl.appendChild($('div','k',label));const tr=$('div','tray2');for(const [t,on,cmd] of opts){const x=$('div','tile'+(on?' down':''),t);
-    if(CU_SEND&&cmd)x.addEventListener('click',()=>{knock();api('/api/send',{cu:cmd}).then(()=>setTimeout(loadUp,4000))});tr.appendChild(x)}ahEl.appendChild(tr)};
-  tiles('Show me',[['Most per gold',!B.cu.rich,'rich off'],['Biggest in budget',B.cu.rich,'rich on']]);
-  const max=B.cu.max,bud=[['1g',10000],['5g',50000],['25g',250000],['Any',null]];
-  tiles('Spend up to',bud.map(([t,v])=>[t,v===max||(v===null&&!bud.some(b=>b[1]===max)),'max '+(v?v/10000:0)]));
+// the game's coin colours on the letters: gold g, silver s, copper c
+const moneyHtml=c=>esc(money(c)).replace(/(\d+)([gsc])/g,(_,n,u)=>`${n}<span class="m${u}">${u}</span>`);
+const CU_STEPS=[1000,2500,5000,10000,20000,50000,100000,250000,500000,1000000],CU_ANY=10000000;
+function cuSend(ask){if(!CU_SEND)return;knock();api('/api/send',ask)}
+function cuMax(c){up.max=c;up.pending=true;clearTimeout(up.maxT);up.maxT=setTimeout(()=>cuSend({cu:'max',copper:c}),1200);drawUp()}
+function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;ahEl.textContent='';const B=up.data;if(!B||!B.cu){ahEl.appendChild($('div','hd','Reading Cheap Upgrades…'));return}
+  if(up.rich==null)up.rich=B.cu.rich;if(up.max==null)up.max=B.cu.max||50*10000;
+  const tray=()=>{const t=$('div','tray2');ahEl.appendChild(t);return t};
+  ahEl.appendChild($('div','k','Show me'));
+  const m=tray();for(const [label,on] of [['Best value',false],['Biggest upgrade',true]]){const x=$('div','tile'+(up.rich===on?' down':''),label);
+    x.addEventListener('click',()=>{if(up.rich===on||!CU_SEND)return;up.rich=on;up.pending=true;cuSend({cu:'rich',on});drawUp()});m.appendChild(x)}
+  ahEl.appendChild($('div','k','Most per item'));
+  const st=tray();st.classList.add('step');
+  const minus=$('div','tile','−'),amt=$('div','amt'),plus=$('div','tile','+');
+  // tap to type: gold and silver boxes, number keypad; saved when you leave the box or press Go
+  const gIn=$('input'),sIn=$('input');for(const [x,v,n] of [[gIn,up.max>=CU_ANY?'':Math.floor(up.max/10000)||'',4],[sIn,up.max>=CU_ANY?'':Math.floor(up.max/100)%100||'',2]]){x.inputMode='numeric';x.pattern='[0-9]*';x.maxLength=n;x.value=String(v);x.placeholder=up.max>=CU_ANY?(x===gIn?'Any':''):'0';x.autocomplete='off'}
+  const typed=()=>{const g=Math.min(1000,parseInt(gIn.value||'0',10)||0),sv=Math.min(99,parseInt(sIn.value||'0',10)||0),c=g*10000+sv*100;if(c>=100&&c!==up.max&&CU_SEND)cuMax(Math.min(CU_ANY,c))};
+  for(const x of [gIn,sIn]){x.addEventListener('input',()=>{x.value=x.value.replace(/\D/g,'')});x.addEventListener('change',typed);x.addEventListener('keydown',e=>{if(e.key==='Enter')x.blur()})}
+  amt.append(gIn,$('span','mg','g'),sIn,$('span','ms','s'));
+  minus.addEventListener('click',()=>{if(!CU_SEND)return;const k=up.max>=CU_ANY?CU_STEPS.length-1:CU_STEPS.findLastIndex(v=>v<up.max);if(k>=0)cuMax(CU_STEPS[k])});
+  plus.addEventListener('click',()=>{if(!CU_SEND)return;const k=CU_STEPS.findIndex(v=>v>up.max);cuMax(k>=0?CU_STEPS[k]:CU_ANY)});
+  st.append(minus,amt,plus);
+  const ch=tray();ch.classList.add('chips');
+  if(B.money>=100){const g=$('div','tile'+(up.max===Math.floor(B.money/100)*100?' down':''));g.innerHTML='<span>My gold · '+moneyHtml(B.money)+'</span>';g.addEventListener('click',()=>CU_SEND&&cuMax(Math.max(100,Math.floor(B.money/100)*100)));ch.appendChild(g)}
+  const any=$('div','tile'+(up.max>=CU_ANY?' down':''),'Any');any.addEventListener('click',()=>CU_SEND&&cuMax(CU_ANY));ch.appendChild(any);
+  if(up.pending)ahEl.appendChild($('div','hd','New list after your next reload'));
   const list=B.cu.list;
   if(up.pick){const u=list.find(x=>x.id===up.pick);if(u){const d=$('div','uprow lit');d.innerHTML=upRow(u);ahEl.appendChild(d);
     const go=$('div','upgo','Search');go.addEventListener('click',async()=>{knock();const {ok}=await api('/api/ah',{text:u.name.toLowerCase()+'/exact'});go.classList.toggle('no',!ok);go.textContent=ok?'Searched':'Open the auction house first';setTimeout(()=>{go.classList.remove('no');go.textContent='Search'},2500)});ahEl.appendChild(go);
     const back=$('div','hd','‹ All upgrades');back.style.cursor='pointer';back.addEventListener('click',()=>{up.pick=null;drawUp()});ahEl.appendChild(back);return}}
   ahEl.appendChild($('div','k',`Best for ${B.name} now`));
-  if(!list.length){ahEl.appendChild($('div','hd','Nothing yet. Scan at the auction house, then /reload.'));return}
+  if(!list.length){ahEl.appendChild($('div','hd','Nothing yet. Scan at the auction house, then reload.'));return}
   for(const u of list){const r=$('div','uprow');r.innerHTML=upRow(u);r.addEventListener('click',()=>{up.pick=u.id;drawUp()});ahEl.appendChild(r)}}
-function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u.icon)}.jpg" alt="">`:''}<div class="upw"><div class="upn${u.q!=null?' q'+u.q:''}">${esc(u.name)}</div><div class="ups">${esc(u.slot)}${u.lvl?' · level '+u.lvl:''}</div></div><div class="upr"><div class="upg">+${u.pct}%</div><div class="upc">${money(u.price)}</div></div>`}
+function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u.icon)}.jpg" alt="">`:''}<div class="upw"><div class="upn${u.q!=null?' q'+u.q:''}">${esc(u.name)}</div><div class="ups">${esc(u.slot)}${u.lvl?' · level '+u.lvl:''}</div></div><div class="upr"><div class="upg">+${u.pct}%</div><div class="upc">${moneyHtml(u.price)}</div></div>`}
 
 // ---------- staying in step with Aang ----------
 let pollT=0,polling=false;

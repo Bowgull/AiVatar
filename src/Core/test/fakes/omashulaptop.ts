@@ -20,6 +20,8 @@ const ALLOW = [
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
   String.raw`^/reload$`,
+  String.raw`^/cu rich (on|off)$`,
+  String.raw`^/cu max ([1-9]\d{0,3}g( [1-9]\d?s)?|[1-9]\d?s)$`,
   // the emotes: the same emotes.json Couch Mode reads (mockup 10)
   String.raw`^/(` + EMOTE_CMDS.join('|') + String.raw`)( [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?)?$`,
 ].map(s => new RegExp(s));
