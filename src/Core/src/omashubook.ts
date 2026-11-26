@@ -13,7 +13,7 @@ const BOOK_DIR = path.join(import.meta.dirname, '..', 'assets', 'omashu', 'book'
 export interface BookSave {
   v?: number; at?: number; name?: string; realm?: string; faction?: string; class?: string; zone?: string;
   level?: number; money?: number; xp?: number; xpMax?: number; unspent?: number;
-  talents?: Record<string, number>; spells?: string[]; train?: { name: string; lvl: number }[];
+  talents?: Record<string, number>; spells?: string[]; train?: { name: string; lvl: number; rank?: number; cost?: number; id?: number }[]; fresh?: string[];
   skills?: Record<string, number>; weapon?: { id?: number; name?: string; dps?: number; sub?: number } | null;
   bags?: Record<string, number>; done?: Record<string, boolean>; log?: number[];
   cu?: { rich?: boolean; max?: number; list?: { id?: number; name?: string; slot?: string; price?: number; pct?: number }[] } | null;
@@ -51,6 +51,32 @@ export const FIGHTS: Record<string, [string, string, string, string, string, str
   '1-20': [['D-up', 'none', 'U', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'As you run in'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'A second mob, or to stop a cast'], ['LT', 'LT', 'Y', 'spell_holy_holybolt', 'Holy Light', 'After the fight, if under half']],
   '20-40': [['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on, slow two-hander'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'Stun first'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'Double damage on a stunned enemy'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'On cooldown'], ['RT', 'RT', 'B', 'spell_holy_innerfire', 'Consecration', 'Only on 3+ mobs'], ['LT', 'LT', 'Y', 'spell_holy_holybolt', 'Holy Light', 'Between fights']],
   '40+': [['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Swing 3 times: 3 stored copies'], ['D-down', 'none', 'D', 'ability_thunderbolt', 'Seal of Righteousness', 'Swap for the 4th swing: copies go off'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'On cooldown'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'On cooldown, refreshes Judgement'], ['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Undead and demons'], ['D-up', 'RT', 'U', 'ability_thunderclap', 'Hammer of Wrath', 'Under 20% health (44+)']],
+};
+
+/** Each paladin spell Forever's trainer sells to 24 (Polestar's trainer data, Wowhead Forever tooltips, 2026-11-26), in
+ *  plain words: what it does, when to use it, get it now or skip it for now (and why), and where OmaPad puts it.
+ *  Spells not here still show in the train list, just without the lines. */
+export interface SpellGuide { icon: string; what: string; use?: string; skip?: string; pad?: string }
+export const SPELLS: Record<string, SpellGuide> = {
+  'Judgement': { icon: 'spell_holy_righteousfury', what: 'Uses up your seal to hit the mob once.', use: 'Run in, Judgement, then put your seal back on.', pad: 'RT + X' },
+  'Divine Protection': { icon: 'spell_holy_restoration', what: "You take no damage for a few secs, but you can't attack.", use: "Only when a fight's going bad. Heal up or run.", pad: 'LT + D-down' },
+  'Holy Strike': { icon: 'classicon_paladin', what: 'Quick hit: some weapon damage plus Holy damage. 10 sec cooldown.', use: 'Hit it whenever it lights up.', pad: 'RT + Y' },
+  'Seal of the Crusader': { icon: 'spell_holy_holysmite', what: 'Judge it and the mob takes more Holy damage for 40 secs.', skip: 'Righteousness is simpler and hits harder solo. Handy in groups.', pad: 'D-left' },
+  'Parry': { icon: 'ability_parry', what: 'Lets you parry some hits. Nothing to press.', use: 'Always on once you have it.' },
+  'Lay on Hands': { icon: 'spell_holy_layonhands', what: 'Heals to full but uses all your mana.', use: "Panic button when you're about to die.", pad: 'LT + D-right' },
+  'Blessing of Protection': { icon: 'spell_holy_sealofprotection', what: "Stops all physical damage on someone for a bit, but they can't attack.", use: 'Save a buddy in a group who has aggro.', pad: 'set 2, LT + Y' },
+  'Seal of Fury': { icon: 'spell_holy_retributionaura', what: 'A tank seal: Judging it makes the mob attack you.', skip: "Only for tanking in groups. Solo you don't need it.", pad: 'set 2, LT + RT + Y' },
+  'Blessing of Wisdom': { icon: 'spell_holy_sealofwisdom', what: 'Gives you mana back over time for an hour.', use: 'Swap Might for it if you keep running out of mana.', pad: 'set 2, LT + X' },
+  'Retribution Aura': { icon: 'spell_holy_auraoflight', what: 'Mobs that hit you take Holy damage back.', use: 'Try it instead of Devotion while questing.', pad: 'LT + RT + D-down' },
+  'Righteous Fury': { icon: 'spell_holy_sealoffury', what: 'Makes mobs much more likely to attack you.', skip: 'Tanking only. Leave it off solo.', pad: 'set 2, LT + RT + X' },
+  'Blessing of Freedom': { icon: 'spell_holy_sealofvalor', what: "Can't be slowed or rooted for 10 secs.", use: 'When something slows you or roots you.', pad: 'LT + D-left' },
+  'Exorcism': { icon: 'spell_holy_excorcism_02', what: 'Big Holy hit, only on undead or demons.', use: 'Open on undead and demons.', pad: 'RT + A' },
+  'Flash of Light': { icon: 'spell_holy_flashheal', what: 'Small, fast, cheap heal.', use: 'Top up between fights, or mid-fight when Holy Light is too slow.', pad: 'LT + X' },
+  'Blessing of Kings': { icon: 'spell_magic_magearmor', what: '+10% to all your stats for an hour.', use: 'Keep it on if you like it more than Might.', pad: 'LT + RT + A' },
+  'Consecration': { icon: 'spell_holy_innerfire', what: 'Holy fire on the ground around you.', use: 'When 3 or more mobs are on you.', pad: 'RT + B' },
+  'Concentration Aura': { icon: 'spell_holy_mindsooth', what: 'Helps you finish casts while getting hit.', skip: "For healers. You're better with Devotion or Retribution.", pad: 'set 2, RT + D-left' },
+  'Seal of Justice': { icon: 'spell_holy_sealofwrath', what: "Judge it and the mob can't run away.", use: 'On mobs that run at low health.' },
+  'Turn Undead': { icon: 'spell_holy_turnundead', what: 'Makes one undead run away for a bit.', skip: 'Rarely needed solo.', pad: 'set 2, LT + A' },
 };
 
 /** Two-hander ladder: Wowhead Forever item ids, DPS and icons; sources from Polestar's Forever guides. */
@@ -130,14 +156,27 @@ export const PRICE_IDS: number[] = [...POTION, ...WEIGHTSTONE, ...SHARPENING].ma
 export const ICONS: string[] = [...new Set([
   ...TREE.map(t => t.icon), ...LADDER.map(r => r.icon), ...CLASS_QUESTS.map(q => q.icon),
   ...[FOOD, WATER, POTION, WEIGHTSTONE, SHARPENING, BANDAGE].flat().map(w => w.icon),
-  ...Object.values(FIGHTS).flat().map(f => f[3]), 'classicon_paladin', 'inv_misc_book_09', 'inv_chest_chain_05',
+  ...Object.values(FIGHTS).flat().map(f => f[3]), ...Object.values(SPELLS).map(g => g.icon), 'spell_holy_devotionaura', 'spell_holy_fistofjustice', 'spell_holy_resurrection', 'classicon_paladin', 'inv_misc_book_09', 'inv_chest_chain_05',
 ])].sort();
 
 // ------------------------------------------------------------------ what the phone draws
 
 export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
 export interface Restock { icon: string; slot: string; t: string; d: string; price: string[] }
+/** Icons for the spells the trainer only upgrades (Wowhead Forever). */
+const RANK_ICONS: Record<string, string> = { 'Seal of Righteousness': 'ability_thunderbolt', 'Devotion Aura': 'spell_holy_devotionaura',
+  'Holy Light': 'spell_holy_holybolt', 'Blessing of Might': 'spell_holy_fistofjustice', 'Hammer of Justice': 'spell_holy_sealofmight',
+  'Redemption': 'spell_holy_resurrection' };
+const iconOf = (n: string) => SPELLS[n]?.icon ?? RANK_ICONS[n] ?? 'inv_misc_book_09';
+export interface TrainSpell { name: string; icon: string; what?: string; use?: string; skip?: string; pad?: string; lvl: number }
 export interface BookView {
+  /** The trainer's list now (null: nothing to train): spells you've never had, with their lines, and upgrades. */
+  train: { fresh: TrainSpell[]; ups: { name: string; icon: string; rank: number }[]; cost: number } | null;
+  /** Spells learned since the last reload: they glow on Fight until the next one. */
+  fresh: string[];
+  /** Fight steps for your bracket: only spells you know. */
+  steps: [string, string, string, string, string, string][];
+  crusader: boolean;
   name: string; level: number; xpPct: number; spec: string; zone: string; at: number; /** gold carried, in copper */ money: number;
   cards: Card[]; restock: Restock[]; fine: string;
   ranks: Record<string, number>; next: string | null;
@@ -188,9 +227,21 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
     const node = nt && TREE.find(t => t.name === nt.name);
     cards.push({ icon: node?.icon ?? 'classicon_paladin', t: unspent > 1 ? `Spend your ${unspent} talent points` : 'Spend your talent point', d: nt && node ? `${nt.name}, rank ${nt.rank} of ${node.max}` : 'Your leveling build is done: pick what you like', tone: 'hot', tab: 'talents', go: '›' });
   }
-  // 2. spells to train (the spellbook's own "learn at level N" list)
-  const train = (s.train ?? []).filter(x => x && typeof x.name === 'string' && num(x.lvl) <= level).map(x => x.name);
-  if (train.length) cards.push({ icon: 'inv_misc_book_09', t: train.length > 1 ? `Train ${train.length} new spells` : `Train ${train[0]}`, d: `${train.slice(0, 4).join(', ')}${train.length > 4 ? '…' : ''} · at a paladin trainer` });
+  // 2. what to train: the trainer's list (Polestar's Forever data) split into spells you've never had and upgrades
+  const known = new Set((s.spells ?? []).filter(x => typeof x === 'string'));
+  let train: BookView['train'] = null;
+  const list = (s.train ?? []).filter(x => x && typeof x.name === 'string' && num(x.lvl) <= level);
+  if (list.length) {
+    const fresh: TrainSpell[] = [], ups: { name: string; icon: string; rank: number }[] = [];
+    let cost = 0;
+    for (const x of list) {
+      cost += Math.max(0, num(x.cost));
+      const g = SPELLS[x.name];
+      if (num(x.rank) >= 2 && known.has(x.name)) ups.push({ name: x.name, icon: iconOf(x.name), rank: num(x.rank) });
+      else if (!fresh.some(f => f.name === x.name)) fresh.push({ name: x.name, icon: iconOf(x.name), what: g?.what, use: g?.use, skip: g?.skip, pad: g?.pad, lvl: num(x.lvl) });
+    }
+    train = { fresh, ups, cost };
+  }
   // 3. a weapon skill the ladder will need soon
   const owned = s.weapon && typeof s.weapon === 'object' ? s.weapon : null;
   const myDps = num(owned?.dps);
@@ -249,7 +300,10 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   for (const t of TREE) per[t.tree] = (per[t.tree] ?? 0) + (ranks[t.name] ?? 0);
   const spec = Object.entries(per).sort((a, b) => b[1] - a[1])[0];
   const xpMax = num(s.xpMax);
+  const br = level < 20 ? '1-20' : level < 40 ? '20-40' : '40+';
+  const steps = FIGHTS[br].filter(f => known.size === 0 || known.has(f[4]));
   return {
+    train, fresh: (s.fresh ?? []).filter(x => typeof x === 'string'), steps, crusader: known.has('Seal of the Crusader'),
     name: String(s.name ?? 'Paladin'), level, xpPct: xpMax > 0 ? Math.round(num(s.xp) / xpMax * 100) : 0,
     spec: spec && spec[1] > 0 ? spec[0] : '', zone: typeof s.zone === 'string' ? s.zone : '', at: num(s.at), money: Math.max(0, Math.floor(num(s.money))),
     cards, restock, fine: fine.length ? `All stocked: ${fine.join(', ')}.` : '',

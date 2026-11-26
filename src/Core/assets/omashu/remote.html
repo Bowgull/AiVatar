@@ -1036,6 +1036,25 @@ const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff
 .mg{color:#ffd100}.ms{color:#c7c7cf}.mc{color:#d58a4a}
 .slot{font:10px "Pixelify Sans";color:#9a8f78;letter-spacing:.5px;text-transform:uppercase}
 .tab:active,.card[data-g]:active,.step:active,.seg span:active,.trees span:active,.nd:active{filter:brightness(.85)}
+.tr{background:#1a120b;border-radius:12px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:9px 10px;margin-bottom:7px}
+.tr.newsp{box-shadow:inset 0 0 0 2px #f48cba88;background:linear-gradient(90deg,#24141c,#1a120b)}
+.tr .top{display:flex;gap:10px;align-items:center}
+.tr img{width:38px;height:38px;border-radius:7px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20}
+.tr .t{font:600 15px Figtree,system-ui;color:#fff3d8}
+.tr .tag{margin-left:auto;font:600 11px "Pixelify Sans";padding:3px 7px;border-radius:6px;flex:0 0 auto}
+.tr .tag+.tag{margin-left:5px}
+.tag.get{background:#ffd36b;color:#2a1405}.tag.skip{background:#2a1a0e;color:#9a8f78;box-shadow:inset 0 0 0 1px #4a3a20}.tag.new{background:#f48cba;color:#2a0d18}
+.tr .what{font:13px/1.35 Figtree,system-ui;color:#e8dab8;margin-top:6px}
+.tr .when{font:13px/1.35 Figtree,system-ui;color:#a8987a;margin-top:3px}.tr .when b{color:#ffd36b;font-weight:600}
+.tr .pad{font:600 11px "Pixelify Sans";color:#c8b890;margin-top:5px}
+.ups{display:flex;flex-wrap:wrap;gap:6px}
+.up{display:flex;align-items:center;gap:6px;background:#1a120b;border-radius:9px;padding:5px 8px 5px 5px;box-shadow:inset 0 0 0 2px #2a1a0e;font:13px Figtree,system-ui;color:#e8dab8}
+.up img{width:26px;height:26px;border-radius:5px;box-shadow:0 0 0 1px #000}.up i{font-style:normal;color:#9a8f78;font-size:12px}
+.costl{display:flex;justify-content:space-between;font:12px "Pixelify Sans";color:#9a8f78;margin:4px 2px 8px}.costl b{color:#ffd36b;font-weight:400}
+.step.glow{box-shadow:inset 0 0 0 2px #f48cba,0 0 14px #f48cba66;background:linear-gradient(90deg,#2a1420,#1a120b);animation:gl 2.8s ease-in-out infinite}
+@keyframes gl{50%{box-shadow:inset 0 0 0 2px #ffc0dc,0 0 22px #f48cba99}}
+.step .nb{font:600 10px "Pixelify Sans";color:#2a0d18;background:#f48cba;border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:2px}
+@media (prefers-reduced-motion:reduce){.step.glow{animation:none}}
 @media (prefers-reduced-motion:reduce){.nd.next img,.sheet{animation:none}}`;
 var bookCoin=$('div','bookcoin');bookCoin.innerHTML='<img src="/book/icons/classicon_paladin.jpg" alt=""><span class="lv"></span>';app.appendChild(bookCoin);
 var book={on:false,level:0,at:0,host:null,data:null};
@@ -1061,19 +1080,24 @@ function drawBook(){const B=book.data,root=book.host.shadowRoot,body=root.queryS
 function bookTab(t){book.tab=t;const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
 function ago(at){const m=Math.max(0,Math.round((Date.now()/1000-at)/60));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`}
 function bookNow(w,B){const k=`<div class="k">Now <b>as of your last reload · ${ago(B.at)}</b></div>`;
-  if(!B.cards.length&&!B.restock.length){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
-  w.innerHTML=k+B.cards.map(c=>`<div class="card${c.tone==='hot'?' hot':''}"${c.tab?` data-g="${c.tab}"`:''}><img src="${BI(c.icon)}" alt=""><div><div class="t${c.tone==='blue'?' blue':c.tone==='green'?' green':''}">${esc(c.t)}</div><div class="d">${coins(c.d)}</div></div>${c.go?`<div class="go">${esc(c.go)}</div>`:''}</div>`).join('')
+  if(!B.cards.length&&!B.restock.length&&!B.train){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
+  w.innerHTML=k+trainHtml(B)+B.cards.map(c=>`<div class="card${c.tone==='hot'?' hot':''}"${c.tab?` data-g="${c.tab}"`:''}><img src="${BI(c.icon)}" alt=""><div><div class="t${c.tone==='blue'?' blue':c.tone==='green'?' green':''}">${esc(c.t)}</div><div class="d">${coins(c.d)}</div></div>${c.go?`<div class="go">${esc(c.go)}</div>`:''}</div>`).join('')
    +(B.restock.length?`<div class="k" style="margin-top:12px">Restock <b>for level ${B.level}</b></div>`+B.restock.map(r=>`<div class="carry"><img src="${BI(r.icon)}" alt=""><div><div class="slot">${esc(r.slot)}</div><div class="t">${esc(r.t)}</div><div class="d">${esc(r.d)}</div></div><div class="p">${r.price.map((p,i)=>`<span class="${i?'bag':'ah'}">${coins(p)}</span>`).join('<br>')}</div></div>`).join(''):'')
    +(B.fine?`<p class="note">${esc(B.fine)}</p>`:'');
   w.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>bookTab(c.dataset.g))}
-function bookFight(w,B){let br=B.bracket,sel=0;const F=B.fights;
+function trainHtml(B){const T=B.train;if(!T)return'';
+  return `<div class="k" style="margin-top:2px">Train <b>at your paladin trainer</b></div>`
+   +T.fresh.map(f=>`<div class="tr newsp"><div class="top"><img src="${BI(f.icon)}" alt=""><div class="t">${esc(f.name)}</div><span class="tag new">NEW</span><span class="tag ${f.skip?'skip':'get'}">${f.skip?'Skip for now':'Get it'}</span></div>${f.what?`<div class="what">${esc(f.what)}</div>`:''}${f.skip?`<div class="when"><b>Skip it:</b> ${esc(f.skip)}</div>`:f.use?`<div class="when"><b>Use it:</b> ${esc(f.use)}</div>`:''}${f.pad&&!f.skip?`<div class="pad">Lands on ${esc(f.pad)}</div>`:''}</div>`).join('')
+   +(T.ups.length?`<div class="k" style="margin-top:8px">Upgrades <b>just grab these</b></div><div class="ups">${T.ups.map(u=>`<span class="up"><img src="${BI(u.icon)}" alt="">${esc(u.name)} <i>rank ${u.rank}</i></span>`).join('')}</div>`:'')
+   +`<div class="costl"><span>Cost for all of it</span><b>${moneyHtml(T.cost)}</b></div>`}
+function bookFight(w,B){let br=B.bracket,sel=0;const F=Object.assign({},B.fights,{[B.bracket]:B.steps.length?B.steps:B.fights[B.bracket]});const NEW=new Set(B.fresh||[]);
   const draw=()=>{const S=F[br],s=S[sel],[,lay,btn]=s;const d=['U','D','L','R'].includes(btn)&&lay!=='LT'&&lay!=='RT'||lay==='none'||s[0].startsWith('D');
    w.innerHTML=`<div class="seg">${Object.keys(F).map(b=>`<span class="${b===br?'on':''}" data-b="${b}">Level ${b}</span>`).join('')}</div>
    <div class="mini"><div class="trig"><span class="${lay==='LT'?'on':''}">LT</span><span class="${lay==='RT'?'on':''}">RT</span></div>
    <div class="dpad">${['U','D','L','R'].map(k=>`<span class="${k} ${(d&&btn===k)?'on':''}">${{U:'▲',D:'▼',L:'◀',R:'▶'}[k]}</span>`).join('')}</div>
    <div class="face">${['Y','X','B','A'].map(k=>`<span class="${k} ${(!d&&btn===k)?'on':''}">${k}</span>`).join('')}</div></div>
-   ${S.map((x,i)=>`<div class="step${i===sel?' on':''}" data-i="${i}"><span class="n">${i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}</div><div class="d">${esc(x[5])}</div></div><span class="key">${x[1]==='none'?x[0]:x[1]+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2])}</span></div>`).join('')}
-   <p class="note">Hold the trigger, press the button. Steps are a priority, not a timer: press what's ready, top first.</p>`;
+   ${S.map((x,i)=>`<div class="step${i===sel?' on':''}${br===B.bracket&&NEW.has(x[4])?' glow':''}" data-i="${i}"><span class="n">${i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}${br===B.bracket&&NEW.has(x[4])?'<span class="nb">NEW</span>':''}</div><div class="d">${esc(x[5])}</div></div><span class="key">${x[1]==='none'?x[0]:x[1]+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2])}</span></div>`).join('')}
+   <p class="note">Hold the trigger, press the button. Top of the list first, whatever's ready.${B.crusader&&br===B.bracket?' Seal of the Crusader: skip it solo. Righteousness hits harder.':''}</p>`;
    w.querySelectorAll('[data-b]').forEach(e=>e.onclick=()=>{br=e.dataset.b;sel=0;draw()});w.querySelectorAll('.step').forEach(e=>e.onclick=()=>{sel=+e.dataset.i;draw()})};
   draw()}
 function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(let i=0;i<r;i++){(lvlOf[n]=lvlOf[n]||[]).push(l+i);plan[n]=(plan[n]||0)+1}});
