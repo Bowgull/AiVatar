@@ -335,7 +335,7 @@ svg.px{shape-rendering:crispEdges}
 .tpad .sugg:empty{display:none}
 .tpad .sg img{width:30px;height:30px;border-radius:5px;box-shadow:0 0 0 2px #000;flex:none}
 .tpad .sg{display:flex;align-items:center;gap:9px;min-height:44px;background:#120a05;border-radius:10px;padding:6px 12px;box-shadow:inset 0 0 0 2px #3a2412;font:600 16px Figtree,system-ui,sans-serif}
-.tpad .sg:active{box-shadow:inset 0 0 0 2px #ffd36b88}
+.tpad .sg:active,.tpad .sg.down{box-shadow:inset 0 0 0 2px #ffd36b88}
 .tpad .surf{flex:1;min-height:0;border-radius:16px;position:relative;overflow:hidden;z-index:1;touch-action:none;
   background:radial-gradient(ellipse at 50% 40%,#1c130c,#0d0805 75%);box-shadow:inset 0 0 0 2px #0a0503,inset 0 0 0 4px #5a3a18,inset 0 6px 22px #000}
 .tpad .surf::after{content:"";position:absolute;inset:0;opacity:.18;pointer-events:none;background-image:radial-gradient(#6a4a2a 1px,transparent 1px);background-size:5px 5px}
@@ -1238,8 +1238,13 @@ function drawSugg(){
   for(const it of suggest(i.value)){const g=$('div','sg');g.style.color=QCOLOR[it.q]||'#fff';
     if(it.id){const im=$('img');im.alt='';im.src='/api/item/'+it.id+'.jpg';im.onerror=()=>im.remove();g.appendChild(im)}   // its picture (sheet 21), when Wowhead has one
     g.append(it.n);
-    g.addEventListener('pointerdown',e=>e.preventDefault());   // keeps the keyboard up until the search goes
-    g.addEventListener('click',()=>ahSearch(it.n));box.appendChild(g)}
+    // 2026-11-27 (Joshua: "tapping what's suggested and nothing is happening"): on the iPhone a tap takes the focus off
+    // the slot first, which cleared this list before the tap's click came. Now the search goes when the finger lifts
+    // on the row, and the list waits a moment after the slot loses focus.
+    g.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});   // keeps the keyboard and the list up
+    g.addEventListener('pointerdown',e=>{e.preventDefault();g.classList.add('down')});
+    g.addEventListener('pointerup',()=>{if(g.classList.contains('down'))ahSearch(it.n)});
+    g.addEventListener('pointercancel',()=>g.classList.remove('down'));box.appendChild(g)}
 }
 let ahBusy=false;
 async function ahSearch(text){
@@ -1247,8 +1252,8 @@ async function ahSearch(text){
   const item=ITEM_BY&&ITEM_BY.get(text.toLowerCase());if(item)text=item.n;   // a known item: searched exactly that item
   let ok=false,why='';try{const a=await api('/api/ah',{text:item?item.l+'/exact':text});ok=a.ok;why=a.j&&a.j.why||''}catch(e){}finally{ahBusy=false}
   const slot=el.querySelector('.slot'),i=slot.querySelector('input');
-  if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);i.value='';i.placeholder=why==='chat-open'?'WoW’s chat box is open':why==='no-ah'?'The auction house isn’t open':why==='not-in-wow'?'WoW isn’t in front':'Not sent, try again';clearTimeout(i._t);i._t=setTimeout(()=>{i.placeholder=''},4000);drawSugg();return}   // the slot itself says why (the pad's line is hidden under the keyboard)
-  i.value='';i.blur();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
+  if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);i.value='';i.placeholder=why==='chat-open'?'WoW’s chat box is open':why==='no-ah'?'The auction house isn’t open':why==='not-in-wow'?'WoW isn’t in front':'Not sent, try again';clearTimeout(i._t);i._t=setTimeout(()=>{i.placeholder=''},4000);if(document.activeElement!==i)el.classList.remove('kb');drawSugg();return}   // the slot itself says why (the pad's line is hidden under the keyboard)
+  i.value='';i.blur();el.classList.remove('kb');drawSugg();settle();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
 }
 // The fast lane (2026-11-27, "jumpy and glitchy"): moves no longer wait for each answer. The finger's total since the
 // pad opened goes out once per screen refresh, up to 4 on the way at once; Aang sends each on to the laptop as one UDP
@@ -1280,7 +1285,7 @@ function openPad(){if(tp.el)return;tp.on=true;
   const L=el.querySelector('.lev');L.addEventListener('click',()=>throwLever(L));
   const i=el.querySelector('.slot input');
   i.addEventListener('focus',()=>{el.classList.add('kb');loadItems();drawSugg()});
-  i.addEventListener('blur',()=>{el.classList.remove('kb');drawSugg();settle()});
+  i.addEventListener('blur',()=>setTimeout(()=>{if(!tp.el||document.activeElement===i||ahBusy)return;el.classList.remove('kb');drawSugg();settle()},300));
   i.addEventListener('input',drawSugg);
   i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ahSearch(i.value)}});
   el.querySelectorAll('.bar').forEach(b=>{
