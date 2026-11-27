@@ -652,3 +652,51 @@ test('danger (sheet 27): Defense lines in his zone reach Now; an attack buzzes o
     assert.equal((await r.as(GUEST).get('/api/poll').then(x => x.json()) as P).danger, undefined, 'only the chat phone sees it');
   } finally { await r.done(); }
 });
+
+test('chat list (sheet 28 C): rows grouped NEW then QUIET, whispers one row per person, reply goes to what you read', async () => {
+  const vm = await import('node:vm');
+  vm.runInThisContext(readFileSync(path.join(import.meta.dirname, '..', 'assets', 'omashu', 'wowchat.js'), 'utf8'));   // the page's own file, as the phone runs it
+  const C = (globalThis as { WowChat?: any }).WowChat!;
+  const L = (seq: number, raw: string) => parseChatLine(`11/27 16:${String(40 + seq).padStart(2, '0')}:00.000  ${raw}`, seq)!;
+  const lines = [
+    L(1, '[1. General - Tirisfal Glades] Rowman Vonshlitz: If she smokes she pokes'),
+    L(2, 'Ferathiel Mavelock whispers: pst for ginv :)'),
+    L(3, '[3. LocalDefense - Tirisfal Glades] The Bulwark is under attack!'),
+    L(4, '[Guild] Bujuju Banton: anyone got linen?'),
+    L(5, '[Party] Nox Xerius: ready?'),
+    L(6, '[4. LookingForGroup] Renga Tombkeeper: LF TANK ROL GTG!'),
+    L(7, 'Hadrik whispers: hi'),
+    L(8, 'To Hadrik: hey'),
+    L(9, 'Bunji says: hello'),
+  ];
+  assert.deepEqual(lines.map(l => C.chanOf(l)), ['gen', 'w:Ferathiel Mavelock', 'def', 'guild', 'party', 'lfg', 'w:Hadrik', 'w:Hadrik', null]);
+  assert.equal(C.tagOf(lines[2]), 'Defense'); assert.equal(C.tagOf(lines[5]), 'LFG');
+  // a fresh session with Aang saying 1 whisper is unread: only the newest whisper in counts, nothing else
+  const seen = C.initSeen(lines, 1);
+  let R = C.rows(lines, seen, 'Bunji');
+  assert.equal(R.all.id, 'all');
+  assert.deepEqual(R.fresh.map((r: { id: string; u: number }) => [r.id, r.u]), [['w:Hadrik', 1]]);
+  assert.deepEqual(R.quiet.map((r: { id: string }) => r.id), ['w:Ferathiel Mavelock', 'guild', 'party', 'def', 'gen', 'lfg', 'trade'], 'whispers first, newest first, then the channels in order');
+  assert.equal(R.quiet.find((r: { id: string }) => r.id === 'trade').last, null, 'nobody spoke in Trade');
+  // new lines: they count where they belong; your own echo never does
+  const more = [...lines, L(10, '[Guild] Morrowyn: grats'), L(11, '[Guild] Bunji: ty'), L(12, '[3. LocalDefense - Tirisfal Glades] Crypto Exchange: alliance at sm'), L(13, 'Ferathiel Mavelock whispers: ?')];
+  R = C.rows(more, seen, 'Bunji');
+  assert.deepEqual(R.fresh.map((r: { id: string; u: number }) => [r.id, r.u]), [['w:Ferathiel Mavelock', 1], ['w:Hadrik', 1], ['guild', 1], ['def', 1]]);
+  assert.deepEqual(C.busyOrder(R), ['w:Ferathiel Mavelock', 'w:Hadrik', 'guild', 'def'], 'the swipe order: the busy rows as the list shows them');
+  // reading a row clears it
+  seen.guild = 13;
+  assert.ok(!C.rows(more, seen, 'Bunji').fresh.some((r: { id: string }) => r.id === 'guild'));
+  // where a reply goes: the channel you read, Everything to Say; a channel nobody used yet gets its usual number
+  assert.deepEqual(C.replyTo('all', more, {}), { to: 'say' });
+  assert.deepEqual(C.replyTo('w:Hadrik', more, {}), { to: 'whisper', name: 'Hadrik' });
+  assert.deepEqual(C.replyTo('guild', more, {}), { to: 'guild' });
+  assert.deepEqual(C.replyTo('party', more, {}), { to: 'party' });
+  assert.deepEqual(C.replyTo('def', more, {}), { to: 'channel', num: 3 });
+  assert.deepEqual(C.replyTo('lfg', more, {}), { to: 'channel', num: 4 });
+  assert.deepEqual(C.replyTo('trade', more, { 2: 'Trade' }), { to: 'channel', num: 2 });
+  assert.deepEqual(C.replyTo('trade', [], { 5: 'Trade' }), { to: 'channel', num: 5 }, 'from the channels WoW named');
+  assert.equal(C.hint('all'), 'Say something…'); assert.equal(C.hint('w:Ferathiel Mavelock'), 'Whisper Ferathiel…'); assert.equal(C.hint('def'), 'Message Defense…');
+  // every reply target is one the server builds a line for
+  const { buildLine } = await import('../src/omashu.ts');
+  for (const id of ['all', 'w:Hadrik Stone', 'guild', 'party', 'def', 'gen', 'lfg', 'trade']) assert.ok(buildLine({ ...C.replyTo(id, more, {}), text: 'hi' }), id);
+});

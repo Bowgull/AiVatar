@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- The phone fire remote for Omashu (built from approved mockups 02, 06 and 07, mockups/omashu/remote/). Served by
+<!-- The phone fire remote for Omashu (built from approved mockups 02, 06, 07, 27 and 28 C, mockups/omashu/remote/). Served by
      src/Core/src/omashuremote.ts. The drawing part is sheet 02's own code, unchanged. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#010204">
 <title>Fire</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Figtree:wght@400;500;600;700&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--wood-dark:#120803;--wood:#71401f;--wood-hi:#c27a3e;--parch:#f0e2bf;--parch-line:#d9c391;--brown:#3a2212;
   --c-guild:#40ff40;--c-party:#aaaaff;--c-whisper:#ff80ff;--c-general:#ffc0c0;--c-say:#ffffff;--c-sys:#ffff00;--c-item:#1eff00;--c-quest:#ffff00;--c-emote:#ff8040}
@@ -44,23 +44,6 @@ body{position:fixed;inset:0}                          /* the page itself never s
 svg.gl{width:40px;height:33px;display:block;margin:0 auto}
 svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .sheet .foot{margin-top:auto;padding-top:8px;display:flex;justify-content:space-between;font-size:13px;color:#7a5a3a}
-/* the chat coin's bubble and its count (sheet 06); the coin itself is drawn on the canvas like the "?" */
-.chatcoin{position:absolute;width:60px;height:60px;z-index:3;display:none;align-items:center;justify-content:center;pointer-events:none}
-.chatcoin.on{display:flex}
-.chatcoin svg{width:30px;height:26px}
-.badge{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#b5413a;border:2px solid #120803;
-  color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0 5px}
-/* the chat panel: parchment frame on wood, a dark log inside like WoW's (sheet 06) */
-.cdim{position:absolute;inset:0;z-index:4;background:#000a}
-.panel{position:absolute;left:8px;right:8px;top:56px;bottom:8px;z-index:5;background:var(--parch);
-  border:6px solid var(--wood);box-shadow:0 0 0 3px var(--wood-hi) inset,0 0 0 3px var(--wood-dark),0 -10px 40px #000c;
-  border-radius:18px;display:flex;flex-direction:column;padding:10px 10px 12px;touch-action:auto}
-.panel .grip{width:48px;height:6px;border-radius:3px;background:var(--parch-line);margin:-2px auto 8px;box-shadow:0 0 0 10px transparent}
-.tabs{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;margin:0 0 8px;scrollbar-width:none;touch-action:pan-x}
-.tabs::-webkit-scrollbar{display:none}
-.tab{flex:none;padding:6px 9px 5px;border-radius:9px;background:var(--tf,#e4d1a3);color:#2a1408;font-size:14px;font-weight:600;box-shadow:inset 0 -2px 0 #0003}
-.tab.on{background:#1a120b;color:var(--tc,var(--parch));box-shadow:inset 0 0 0 2px var(--tc,#3a2614),0 0 10px -2px var(--tc,transparent)}
-/* guild, who's on (sheet 11): folded above the guild chat */
 .roster{flex:none;max-height:45%;overflow-y:auto;background:#1a120b;border-radius:10px;box-shadow:inset 0 0 0 2px #3a2614;margin:0 0 8px;padding:8px 8px 6px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:pan-y}
 .roster .hd{display:flex;justify-content:space-between;align-items:center;font-size:15px;padding:0 4px 6px;cursor:pointer}
 .roster .hd b{color:var(--c-guild);font-weight:600}
@@ -73,19 +56,6 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .mem .zn{color:#b39b73;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mem.hl{background:#ffffff14;border-radius:7px}
 /* whispers (sheet 12): the last 4 people, then one person's last 6 lines */
-.people{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;padding:8px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-.who-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px;border-radius:9px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
-.who-row .nm{font-size:16px;font-weight:600;color:var(--c-whisper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.who-row .ago{font-size:12px;color:#8a7b63;text-align:right;font-variant-numeric:tabular-nums}
-.who-row .last{grid-column:1/3;color:#ff80ffcc;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.who-row .last.me{color:#b39b73}
-.who-row .n{display:inline-block;margin-left:6px;background:#b5413a;color:#fff;border-radius:8px;padding:0 6px;font-size:11px;font-weight:700;vertical-align:2px}
-.who-row.new{box-shadow:inset 0 0 0 2px #ff80ff66}
-.people .quiet{margin-top:auto;text-align:center;color:#5c4f3c;font-family:"Pixelify Sans";font-size:12px;padding:6px}
-.convo-hd{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-weight:600}
-.convo-hd .back{background:#e4d1a3;color:var(--brown);border-radius:9px;padding:5px 9px 4px;box-shadow:inset 0 -2px 0 #c9b07a;font-size:14px;cursor:pointer}
-.convo-hd .nm{color:var(--c-whisper);background:#1a120b;border-radius:9px;padding:5px 10px 4px;box-shadow:inset 0 0 0 2px #2a1a0e;font-size:15px}
-.tab .n{display:inline-block;margin-left:4px;background:#b5413a;color:#fff;border-radius:8px;padding:0 5px;font-size:11px;font-family:system-ui,-apple-system,sans-serif;font-weight:700}
 .log{flex:1;min-height:0;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;
   padding:10px 10px;overflow-y:auto;font-size:15px;line-height:1.38;display:flex;flex-direction:column;gap:5px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
   touch-action:pan-y;-webkit-user-select:text;user-select:text}
@@ -100,8 +70,6 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .l.hl{background:#ffffff14;border-radius:6px;margin:0 -4px;padding:0 4px}
 .l.new{background:#ff804022;border-radius:6px;margin:0 -4px;padding:0 4px}
 .send{margin-top:8px;display:flex;gap:6px;align-items:stretch}
-.chan{flex:none;padding:9px 9px 8px;border-radius:10px;background:var(--wood);color:var(--parch);font-weight:600;font-size:14px;box-shadow:inset 0 -3px 0 var(--wood-dark);max-width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chan.g{color:#c9ffc9}
 .box{flex:1;min-width:0;background:#fffaf0;border:0;outline:0;border-radius:10px;box-shadow:inset 0 0 0 2px var(--parch-line);padding:9px 10px;color:#2a1a0e;font-size:16px;font-family:system-ui,-apple-system,sans-serif;-webkit-user-select:text;user-select:text}
 .box::placeholder{color:#7a6448}
 .emo{flex:none;width:44px;border-radius:10px;background:var(--wood);box-shadow:inset 0 -3px 0 var(--wood-dark);display:flex;align-items:center;justify-content:center}
@@ -109,9 +77,6 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .emo svg{width:24px;height:24px}
 .go{flex:none;width:46px;border-radius:10px;background:#3f8f47;box-shadow:inset 0 -3px 0 #1f4f27;display:flex;align-items:center;justify-content:center}
 .go svg{width:20px;height:20px}
-/* the Upgrades tab's list (sheet 17) */
-.ah{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;padding:8px;overflow-y:auto;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:pan-y}
-.ah .hd{color:#8a7b63;font-size:12px;padding:2px 4px 0;font-family:"Pixelify Sans"}
 /* name menu (and the channel picker, the same wood menu) */
 .mdim{position:absolute;inset:0;z-index:6;background:#000a}
 .menu{position:absolute;z-index:7;left:44px;right:44px;top:330px;background:var(--wood);border-radius:14px;
@@ -164,8 +129,6 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .cols .left{flex:1;min-width:0;display:flex;flex-direction:column}
 .cols .right{flex:none;width:262px;display:flex;flex-direction:column;animation:slide .18s ease-out}
 @keyframes slide{from{transform:translateX(40px);opacity:0}}
-.side .panel{left:54px;right:54px;top:8px;bottom:18px;padding:8px 10px 10px}
-.side .panel .grip{display:none}
 .side .tray{margin:0;flex:1;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr);align-content:stretch}
 .side .tray .tile{padding:0 2px}
 .side .emsheet{margin:0;flex:1;min-height:0;overflow-y:auto}
@@ -199,23 +162,11 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 html{font-size:17px}
 @supports (font:-apple-system-body){html{font:-apple-system-body}}
 html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
-/* the panel stays clear of the Dynamic Island and the home bar */
-.panel{top:max(56px,calc(env(safe-area-inset-top,0px) + 8px));bottom:max(8px,env(safe-area-inset-bottom,0px));padding:8px 10px 10px}
-.side .panel{left:max(54px,env(safe-area-inset-left,0px));right:max(54px,env(safe-area-inset-right,0px));bottom:max(18px,env(safe-area-inset-bottom,0px))}
-.panel .grip{position:relative;margin:0 auto 10px}
-.panel .grip::after{content:"";position:absolute;left:-40px;right:-40px;top:-19px;bottom:-19px}
-/* tabs: 44 tall, scroll sideways, a fade at the edge says there are more */
-.tabs{gap:6px;margin:0 0 8px}
-.tabs.more{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
-.tab{min-height:var(--tap);min-width:var(--tap);padding:0 13px;font-size:var(--fs-label);display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
-.tab .n,.who-row .n{font-size:var(--fs-fine);min-width:20px;height:20px;line-height:20px;padding:0 6px;border-radius:10px;text-align:center;margin-left:6px}
 /* chat */
 .log{font-size:var(--fs-body);line-height:1.36;gap:6px;padding:10px 12px}
 .t{font-size:var(--fs-fine);color:var(--dim-text)}
 .l.hl,.l.new{margin:0 -6px;padding:2px 6px}
-/* send row: picker, smiley, box, send, all 44+ ; the box stays 16+ so the iPhone doesn't zoom when you type */
 .send{gap:6px;margin-top:8px}
-.chan{min-height:var(--tap);max-width:36%;padding:0 11px;font-size:var(--fs-label);display:flex;align-items:center}
 .emo,.go{min-height:var(--tap);width:var(--tap)}
 .emo svg{width:26px;height:26px}.go svg{width:22px;height:22px}
 .box{min-height:var(--tap);min-width:38%;font-size:max(16px,var(--fs-body));padding:0 10px}
@@ -226,17 +177,6 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .roster.folded{padding:0 8px}
 .mem{min-height:var(--row);font-size:var(--fs-body);padding:8px 6px}
 .mem .zn{font-size:var(--fs-sub);color:#c9b48a}
-/* whispers */
-.who-row{min-height:64px;padding:11px 12px}
-.who-row .nm{font-size:var(--fs-body)}
-.who-row .ago{font-size:var(--fs-fine);color:var(--dim-text)}
-.who-row .last{font-size:var(--fs-sub)}
-.people .quiet{font-size:var(--fs-fine);color:var(--quiet-text)}
-.convo-hd{gap:10px}
-.convo-hd .back{min-height:var(--tap);padding:0 14px;font-size:var(--fs-label);display:inline-flex;align-items:center;border-radius:10px}
-.convo-hd .nm{font-size:var(--fs-body);padding:8px 12px}
-/* auction tab */
-.ah .hd{font-size:var(--fs-sub);color:var(--dim-text);padding:4px 6px 0}
 /* menus */
 .menu,.menu.name{left:20px;right:20px;top:auto;bottom:max(16px,calc(env(safe-area-inset-bottom,0px) + 10px));padding:14px 12px 12px;max-height:calc(100% - 70px)}
 .side .menu,.side .menu.name{bottom:auto}   /* menus rise from the bottom, where the thumb is; sideways keeps its own place */
@@ -261,42 +201,13 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .tip{font-size:var(--fs-label)}.tip .nm{font-size:1.06rem}.tip .fine{font-size:var(--fs-fine);color:#a8a8c0}
 .review{font-size:var(--fs-body)}.review .to{font-size:var(--fs-sub)}
 .rb div{min-height:48px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-body)}
-/* the coin's count */
-.badge{min-width:24px;height:24px;border-radius:12px;font-size:var(--fs-fine)}
 /* the controls sheet (look, don't tap) */
 .sheet table{font-size:var(--fs-body)}.sheet td.s,.sheet .hint,.sheet .foot{font-size:var(--fs-sub)}.btn{font-size:var(--fs-sub)}.btn.w{font-size:var(--fs-fine)}
 /* every tap shows it landed: a little darker and smaller while your thumb is down (an iPhone page can't buzz) */
 .tab,.chan,.emo,.go,.back,.mi,.tile,.chip,.mem,.who-row,.roster .hd,.rb div,.menu .no{transition:transform .08s,filter .08s}
 .tab:active,.chan:active,.emo:active,.go:active,.back:active,.mi:active,.tile:active,.chip:active,.mem:active,.who-row:active,.roster .hd:active,.rb div:active,.menu .no:active{filter:brightness(.82);transform:scale(.97)}
-/* the Upgrades tab (sheet 17): Cheap Upgrades' list while Bunji plays, gold like the Auction tab */
-.ah .k{color:#9a8f78;font:13px "Pixelify Sans";padding:2px 4px 0}
-.ah .tray2{display:flex;gap:6px;flex:none}
-.ah .tray2 .tile{flex:1 1 0;min-width:0;font-size:14px;padding:9px 2px 8px;line-height:1.15}
-.ah .tray2.step .tile{flex:0 0 64px;font-size:20px}
-.ah .tray2 .amt{flex:1;text-align:center;background:#fffaf0;border-radius:9px;box-shadow:inset 0 0 0 2px #d9c391;padding:8px 0;font:600 18px "Pixelify Sans";color:#2a1a0e}
-.ah .tray2.chips .tile{font-size:13px}
-.ah .tray2 .amt{display:flex;align-items:center;justify-content:center;gap:2px;padding:4px 6px}
-.ah .tray2 .amt input{width:3.2ch;min-width:0;border:0;outline:0;background:transparent;text-align:right;font:600 18px "Pixelify Sans";color:#2a1a0e;padding:4px 1px;-webkit-user-select:text;user-select:text}
-.ah .tray2 .amt input:focus{background:#f1e4c3;border-radius:5px;box-shadow:inset 0 0 0 2px #c8962e}
-.ah .tray2 .amt input::placeholder{color:#9a8f78}
-.ah .tray2 .amt .mg{color:#b8860b;margin-right:6px;padding:8px 4px 8px 0}.ah .tray2 .amt .ms{color:#7c7c88;padding:8px 4px 8px 0}
-.ah .tray2 .amt input{min-height:40px}
 .mg{color:#ffd100}.ms{color:#c7c7cf}.mc{color:#d58a4a}
-.ah .tray2 .tile.down{box-shadow:inset 0 2px 0 #120803,0 0 0 2px #ffd36b88}
-.uprow{display:flex;align-items:center;gap:10px;background:#1a120b;border-radius:9px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:7px 9px;flex:none;cursor:pointer}
-.uprow.lit{box-shadow:inset 0 0 0 2px #ffd36b99;background:#2a1c0e}
-.uprow img{width:36px;height:36px;border-radius:6px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20;flex:0 0 auto}
-.uprow .upw{flex:1;min-width:0}
-.uprow .upn{font-size:15px;color:#fff;line-height:1.15}.uprow .ups{font-size:12px;color:#9a8f78;margin-top:2px}
-.uprow .upr{margin-left:auto;text-align:right;flex:0 0 auto}
-.uprow .upg{font:600 15px "Pixelify Sans";color:#ffd36b;text-shadow:0 0 8px #ffd36b55}.uprow .upc{font-size:12px;color:#d8d8e0;margin-top:2px}
-.upgo{display:flex;align-items:center;justify-content:center;height:46px;border-radius:11px;background:#c88a1e;color:#2a1405;font:600 17px "Pixelify Sans";box-shadow:inset 0 -4px 0 #7a4a0a,0 0 12px #ffb84a55;flex:none;cursor:pointer}
-.upgo.no{background:#3a2212;color:#9a8f78;box-shadow:inset 0 -4px 0 #24140a}
 .q2{color:#1eff00!important}.q3{color:#0070dd!important}.q4{color:#a335ee!important}.q0{color:#9d9d9d!important}
-/* the trackpad (sheet 19): a fourth coin right of chat; the pad covers the screen */
-.mousecoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center}
-.mousecoin.on{display:grid}.mousecoin svg{width:30px;height:30px}
 /* the mouse pad (sheet 21 v3, 2026-11-27): a leather mat in the wood frame, stitched, brass corners, a felt pad and two
    click bars with no words. At the auction house a search slot and the window lever sit along the top. The brass tab
    on top puts it away (the pointer leaves the TV); so does leaving the app. */
@@ -370,15 +281,151 @@ svg.px{shape-rendering:crispEdges}
 .tpad .bar.down{background:linear-gradient(#24140a,#2e1a0c);box-shadow:inset 0 5px 0 #0a0503,inset 0 0 18px #ffd36b33}
 .tpad.kb{bottom:auto;box-shadow:0 0 0 6px var(--wood),0 0 0 9px var(--wood-dark),inset 0 0 0 2px #120803,0 0 0 100vmax #000d}.tpad.kb .surf,.tpad.kb .bars{display:none}   /* typing: the rest of the screen dims, nothing under it to hit */
 @media (prefers-reduced-motion:reduce){.tpad{animation:none}.tpad .tslot{animation:none}.tpad .lev .arm,.tpad .lev .ic,.tpad .slot{transition:none}}
-/* the Paladin Book's coin (sheet 18 v5): left of the "?", only while Bunji (a paladin) plays */
-.bookcoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center;animation:bkbr 2.8s ease-in-out infinite}
-.bookcoin.on{display:grid}
-.bookcoin img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #2a1205}
-.bookcoin .lv{position:absolute;top:-6px;right:-8px;font:600 13px "Pixelify Sans";color:#2a1405;background:#ffd36b;border-radius:9px;padding:1px 6px;box-shadow:0 0 0 2px #3a1a08}
-@keyframes bkbr{0%,100%{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 16px #ffb84a44}50%{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 30px #ffb84aaa}}
-.bookhost{position:absolute;inset:0;z-index:7;pointer-events:none}
-@media (prefers-reduced-motion:reduce){.bookcoin{animation:none}}
+/* ---------- the WoW home (sheets 27 and 28 C, approved 2026-11-27): one coin on the campfire opens one home with a bar
+   of wood keys along the bottom, Now · Chat · Pad · Book. Lifted from the mockups; arrive 300 ms on the arrive curve,
+   leave 160 ms, pages fade in 220 ms, chat pages push 280 ms (back 160 ms). ---------- */
+:root{--arrive:cubic-bezier(.32,.72,0,1);--leave:cubic-bezier(.5,0,.75,0);--spring:cubic-bezier(.3,1.4,.6,1);--hot:#ffd36b}
+.wowcoin{position:absolute;width:66px;height:66px;z-index:3;display:none;border-radius:50%;cursor:pointer;place-items:center;
+  background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;animation:wcbr 2.8s ease-in-out infinite;transition:transform .08s}
+.wowcoin.on{display:grid}.wowcoin:active{transform:scale(.95)}
+.wowcoin .ic{display:grid;place-items:center}
+.wowcoin img{width:40px;height:40px;border-radius:7px;box-shadow:0 0 0 2px #2a1205;display:block}
+.wowcoin svg{width:32px;height:28px}
+.wowcoin .lv{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font:600 13px "Pixelify Sans";color:#2a1405;background:var(--hot);border-radius:9px;padding:0 7px;box-shadow:0 0 0 2px #3a1a08}
+.wowcoin .n{position:absolute;top:-6px;right:-8px;min-width:22px;height:22px;border-radius:11px;background:#c8509a;color:#fff;font:600 13px "Pixelify Sans";display:grid;place-items:center;padding:0 5px;box-shadow:0 0 0 2px #2a0a1a}
+.wowcoin .dot{position:absolute;top:-2px;left:-4px;width:14px;height:14px;border-radius:50%;background:var(--hot);box-shadow:0 0 0 2px #3a1a08,0 0 10px var(--hot)}
+@keyframes wcbr{0%,100%{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 16px #ffb84a44}50%{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 30px #ffb84aaa}}
+.whdim{position:absolute;inset:0;z-index:6;background:#000b;animation:whdi .3s var(--arrive)}
+@keyframes whdi{from{opacity:0}}
+.whdim.out{opacity:0;transition:opacity .16s var(--leave)}
+.wh{position:absolute;left:10px;right:10px;top:max(56px,calc(env(safe-area-inset-top,0px) + 8px));bottom:max(14px,env(safe-area-inset-bottom,0px));max-width:440px;margin:0 auto;z-index:7;
+  background:#f1e4c3;border-radius:30px;box-shadow:0 0 0 7px #b8662c,0 0 0 10px #6a3412,0 -10px 40px #000a;display:flex;flex-direction:column;color:#2a1a0e;
+  animation:whup .3s var(--arrive);touch-action:auto}
+@keyframes whup{from{transform:translateY(16px);opacity:.5}}
+.wh.out{transform:translateY(16px);opacity:0;transition:transform .16s var(--leave),opacity .16s var(--leave)}
+.wh .grip{width:60px;height:6px;border-radius:3px;background:#c9b48a;margin:9px auto 7px;flex:none;position:relative;cursor:pointer}
+.wh .grip::after{content:"";position:absolute;left:-40px;right:-40px;top:-12px;bottom:-10px}
+.wh .head{display:flex;align-items:center;gap:10px;padding:0 14px 8px;flex:none;min-height:46px}
+.wh .head img{width:38px;height:38px;border-radius:7px;box-shadow:0 0 0 2px #2a1205,0 0 0 4px #c8962e;flex:none}
+.wh .hw{flex:1;min-width:0}
+.wh .nm{font:700 16px Cinzel,serif;color:#3a2410;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wh .nm small{font:600 12px Figtree,system-ui;color:#b0487a}
+.wh .sub{font:12.5px Figtree,system-ui;color:#7a6446;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wh .xp{height:7px;border-radius:4px;background:#d9c49a;margin-top:4px;overflow:hidden}.wh .xp i{display:block;height:100%;background:linear-gradient(90deg,#8a3ccf,#c87af0)}
+.wh .well{flex:1;min-height:0;margin:0 10px;background:#0d0906;border-radius:16px;box-shadow:inset 0 0 0 3px #2a1a0e;padding:11px;overflow:auto;color:#f0e2bf;scrollbar-width:none;position:relative;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.wh .well::-webkit-scrollbar{display:none}
+.wh .well.flush{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.wh .hbar{flex:none;display:flex;gap:6px;padding:9px 12px 12px}
+.wh .bk{flex:1;height:58px;border-radius:13px;background:#e7d8b4;box-shadow:inset 0 -4px 0 #0002;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative;
+  font:600 11px "Pixelify Sans";color:#5a4028;transition:background .18s var(--arrive),transform .06s}
+.wh .bk svg{width:26px;height:26px}
+.wh .bk:active{transform:translateY(2px)}
+.wh .bk.on{background:#2a1a0e;color:var(--hot);box-shadow:0 0 0 2px #c8962e,inset 0 -4px 0 #0006}
+.wh .bk .n{position:absolute;top:4px;right:12px;min-width:18px;height:18px;border-radius:9px;background:#c8509a;color:#fff;font:600 11px "Pixelify Sans";display:grid;place-items:center;padding:0 4px}
+.wh .bk .dot{position:absolute;top:7px;right:16px;width:9px;height:9px;border-radius:50%;background:var(--hot);box-shadow:0 0 6px var(--hot)}
+.wh .pagefade{animation:whpf .22s var(--arrive)}@keyframes whpf{from{opacity:0;transform:translateY(4px)}}
+/* Now */
+.wh .k{font:12px "Pixelify Sans";color:#9a8f78;letter-spacing:.6px;margin:4px 2px 7px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
+.wh .k b{color:#c8b890;font-weight:400}
+.wh .danger{display:flex;gap:10px;align-items:center;border-radius:12px;padding:9px 10px;margin-bottom:12px;background:linear-gradient(90deg,#3a1408,#22100a);box-shadow:inset 0 0 0 2px #ff8a5a88}
+.wh .danger img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000;flex:none}
+.wh .danger .ti{font:600 15px Figtree,system-ui;color:#ffd0b8}.wh .danger .de{font:12px Figtree,system-ui;color:#c89a80;margin-top:1px;overflow-wrap:anywhere}
+.wh .danger .ago{margin-left:auto;font:600 11px "Pixelify Sans";color:#ff9a7a;flex:none;text-align:right}
+.wh .er{background:#1a120b;border-radius:12px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:9px 10px;margin-bottom:7px}
+.wh .er .top,.wh .dtc .top{display:flex;align-items:center;gap:9px}
+.wh .er .top img.sw{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000;flex:none}
+.wh .ti{font:600 15px Figtree,system-ui;color:#fff3d8;line-height:1.15}.wh .de{font:12px/1.35 Figtree,system-ui;color:#a8987a}
+.wh .er .cost{margin-left:auto;font:600 14px Figtree,system-ui;color:#f0e2bf;flex:none}
+.wh .spells{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.wh .spells img{width:32px;height:32px;border-radius:6px;box-shadow:0 0 0 2px #000,0 0 0 3px #c8962e}
+.wh .it{display:flex;align-items:center;gap:10px;padding:6px 2px;border-top:1px solid #2a1a0e;cursor:pointer;min-height:46px}
+.wh .it:first-child{border-top:0}
+.wh .it img,.wh .noimg{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000;flex:none;background:#2a1a0e}
+.wh .it .ti{flex:1;min-width:0;transition:color .3s,opacity .3s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wh .it .q{font:600 13px "Pixelify Sans";color:#c8b890}
+.wh .tick{width:26px;height:26px;border-radius:7px;flex:none;box-shadow:inset 0 0 0 2px #6a4a2a;background:#120a05;display:grid;place-items:center;transition:background .2s,box-shadow .2s}
+.wh .tick svg{width:16px;height:16px;opacity:0;transform:scale(.6);transition:opacity .2s,transform .3s var(--spring)}
+.wh .it.done .tick{background:#3a2a10;box-shadow:inset 0 0 0 2px var(--hot)}.wh .it.done .tick svg{opacity:1;transform:scale(1)}
+.wh .it.done .ti{color:#7a6a50;text-decoration:line-through;text-decoration-color:#7a6a5088}
+.wh .add{display:flex;align-items:center;gap:9px;margin-top:6px;padding:9px 10px;min-height:44px;border-radius:10px;background:#120a05;box-shadow:inset 0 0 0 2px #3a2412;font:600 14px Figtree,system-ui;color:#9a8f78;cursor:pointer}
+.wh .add svg{width:20px;height:20px}
+.wh .it:active,.wh .add:active{filter:brightness(.85)}
+.wh .dtc{background:#1a120b;border-radius:12px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:9px 10px;margin-bottom:8px}
+.wh .dtc .top{gap:10px}
+.wh .dtc img.rw{width:42px;height:42px;border-radius:7px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a6aff88;flex:none}
+.wh .dtc .rwn{font:600 13px Figtree,system-ui;color:#4a90ff}
+.wh .dtc .de{margin-top:2px}
+.wh .dtc .gain{margin-left:auto;text-align:right;flex:none;font:600 15px "Pixelify Sans";color:#2fdc3a}
+.wh .dtc .gain small{display:block;font:11px "Pixelify Sans";color:#8a7b63}
+.wh .pgo{margin-top:9px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;
+  font:600 14px "Pixelify Sans";color:#2a1405;background:linear-gradient(#e0b04a,#a8761e);box-shadow:inset 0 -4px 0 #6a4a1a,inset 0 2px 0 #fff3c0,0 0 0 2px #3a1a08;transition:transform .06s}
+.wh .pgo:active{transform:translateY(2px)}
+.wh .pgo.sent{background:#2a1c0e;color:var(--hot);box-shadow:inset 0 0 0 2px #ffd36b88}
+.wh .pgo.no{background:#2a1c0e;color:#ff9a7a;box-shadow:inset 0 0 0 2px #b5413a}
+.wh .pgo.busy{filter:brightness(.85)}
+.wh .pgo svg{width:18px;height:18px}
+/* adding an errand: the auction search look (sheet 22) */
+.wh .askdim{position:absolute;inset:0;border-radius:30px;z-index:4;background:#0006;animation:whdi .3s var(--arrive)}
+.wh .ask{position:absolute;left:0;right:0;bottom:0;top:194px;background:#0d0906;border-radius:22px;box-shadow:0 0 0 6px #b8662c,0 0 0 9px #6a3412;padding:12px;animation:whup .3s var(--arrive);z-index:5;overflow:auto;scrollbar-width:none;color:#f0e2bf}
+.wh .ask::-webkit-scrollbar{display:none}
+.wh .ask.out,.wh .askdim.out{opacity:0;transition:opacity .16s var(--leave)}
+.wh .aslot{height:52px;border-radius:10px;background:#120a05;box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #ffd36b88,0 0 14px #ffd36b33;display:flex;align-items:center;gap:10px;padding:0 12px}
+.wh .aslot svg{width:22px;height:22px;flex:none}
+.wh .aslot input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 17px Figtree,system-ui,sans-serif;color:#f0e2bf;caret-color:#ffd36b;-webkit-user-select:text;user-select:text}
+.wh .asg{display:flex;align-items:center;gap:10px;background:#1a120b;border-radius:10px;padding:7px 9px;margin-top:6px;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer;min-height:48px}
+.wh .asg.on{box-shadow:inset 0 0 0 2px #ffd36b88}
+.wh .asg.down{filter:brightness(.85)}
+.wh .asg img,.wh .asg .noimg{width:32px;height:32px;border-radius:6px;box-shadow:0 0 0 2px #000}
+.wh .asg .ti{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wh .asg .p{font:600 13px Figtree,system-ui;color:#f0e2bf;text-align:right;flex:none}.wh .asg .p small{display:block;font:11px Figtree,system-ui;color:#8a7b63}
+.wh .stepper{display:flex;align-items:center;gap:6px;flex:none}
+.wh .stepper span{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;background:#2a1a0e;color:#f0e2bf;font:600 18px "Pixelify Sans";box-shadow:inset 0 -3px 0 #000;cursor:pointer}
+.wh .stepper span:active{transform:translateY(2px)}
+.wh .stepper b{min-width:26px;text-align:center;font:600 16px "Pixelify Sans";color:var(--hot)}
+.wh .ahdr{font:12px "Pixelify Sans";color:#8a7b63;letter-spacing:.6px;margin:12px 2px 0}
+.wh .ask .pgo{margin-top:12px}
+.wh .ask .pgo.off{opacity:.45}
+.mg{color:#ffd700}.ms{color:#c7c7cf}.mc{color:#e08a4a}
+/* Chat (sheet 28 C) */
+.wh .cwrap{flex:1;min-height:0;display:flex;flex-direction:column}
+.wh .clist{flex:1;min-height:0;overflow:auto;padding:8px;scrollbar-width:none;touch-action:pan-y}
+.wh .clist::-webkit-scrollbar{display:none}
+.wh .cv{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;margin-bottom:4px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;min-height:60px}
+.wh .cv:active{background:#2a1c0e}
+.wh .av{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;font:600 16px "Pixelify Sans";color:#0d0906}
+.wh .cv .b{flex:1;min-width:0}
+.wh .cv .n{font:600 16px Figtree,system-ui;display:flex;justify-content:space-between;gap:6px}
+.wh .cv .n span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wh .cv .n small{font:500 12px Figtree,system-ui;color:#8a7b63;flex:none;font-variant-numeric:tabular-nums}
+.wh .cv .p{font:14px Figtree,system-ui;color:#a8987a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.wh .cv .u{min-width:22px;height:22px;border-radius:11px;background:#c8509a;color:#fff;font:600 12px "Pixelify Sans";display:grid;place-items:center;flex:none;padding:0 6px}
+.wh .cv.quiet{opacity:.6}
+.wh .sep{font:11px "Pixelify Sans";color:#6a5a40;letter-spacing:.6px;margin:10px 4px 6px}
+.wh .ctop{flex:none;display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:2px solid #2a1a0e}
+.wh .ctop .back{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:#2a1a0e;cursor:pointer;flex:none}
+.wh .ctop .back svg{width:18px;height:18px}
+.wh .ct{min-width:0}.wh .cn{font:600 17px Figtree,system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wh .ct small{display:block;font:12px Figtree,system-ui;color:#8a7b63}
+.wh .cwrap .roster{margin:8px 8px 0}
+.wh .cwrap .log{flex:1;min-height:0;background:none;box-shadow:none;border-radius:0;padding:10px 12px}
+.wh .cwrap .l.none{color:#6a5a40}
+.wh .cdots{display:flex;justify-content:center;gap:6px;padding:2px 0 6px;flex:none}
+.wh .cdots i{width:7px;height:7px;border-radius:50%;background:#3a2a14}.wh .cdots i.on{background:var(--hot)}
+.wh .cwrap .send{margin:0;padding:8px;flex:none}
+.wh .cwrap .box{background:#f0e2bf;box-shadow:inset 0 0 0 2px #c8962e;color:#2a1a0e}
+.wh .cwrap .box::placeholder{color:#6a5a40}
+.wh .cwrap .go{background:#2f8a3c;box-shadow:inset 0 -4px 0 #1a5a22;width:48px}
+.wh .cwrap .tray,.wh .cwrap .emsheet{margin:0 8px 0}
+.wh .cwrap .emsheet{max-height:55%;overflow-y:auto}
+.wh .slide{animation:whpush .28s var(--arrive)}@keyframes whpush{from{transform:translateX(24px);opacity:.3}}
+.wh .slideb{animation:whpushb .16s var(--arrive)}@keyframes whpushb{from{transform:translateX(-24px);opacity:.3}}
+/* Pad: the mouse pad inside the well (sheet 27), no brass tab: leaving the page puts it away */
+.tpad.inwell{position:absolute;inset:0;padding:0;border-radius:16px;background:none;box-shadow:none;animation:none;z-index:1;gap:8px}
+.tpad.inwell::before,.tpad.inwell .put,.tpad.inwell .corner{display:none}
+.tpad.inwell .rail,.tpad.inwell .trail,.tpad.inwell .sugg{margin:8px 8px 0}
+.tpad.inwell .bars{height:62px;margin:0 8px 8px;border-radius:12px}
+.tpad.inwell.kb{bottom:0;box-shadow:none}
+/* Book: Fight and Talents only */
+.wh .bhost{display:block}
+@media (prefers-reduced-motion:reduce){.wowcoin,.wh,.whdim,.wh .ask,.wh .askdim,.wh .pagefade,.wh .slide,.wh .slideb{animation:none}.wh.out,.whdim.out,.wh .ask.out{transition:none}.wowcoin{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 24px #ffb84a88}}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -405,6 +452,7 @@ svg.px{shape-rendering:crispEdges}
   <div class="foot"><span>Right column: what the game shows</span><span class="new">Green = moved</span></div>
 </div></template>
 <script src="/forest.js"></script>
+<script src="/wowchat.js"></script>
 <script>
 // The phone grid, every pixel 3 CSS pixels (sheet 02 is 130 x 281 on a 390 x 844 iPhone). Wider or taller phones get
 // more grid, not a blurrier scale: the Couch Mode scene (320 x 180) is cropped to the middle and sits 43 above the bottom.
@@ -530,8 +578,8 @@ function token(c,cx,cy,r){for(let y=-r;y<r;y++)for(let x=-r;x<r;x++){const d=Mat
 const Q=['.gggg.','gg..gg','....gg','...gg.','..gg..','..gg..','......','..gg..','..gg..'];
 function question(c,x,y){Q.forEach((r,ry)=>[...r].forEach((ch,rx)=>{if(ch==='g')px(c,x+rx,y+ry+1,'#140904')}));Q.forEach((r,ry)=>[...r].forEach((ch,rx)=>{if(ch==='g')px(c,x+rx,y+ry,'#ffd36b')}))}
 
-// ---------- the chat coin's place: right of the "?" (sheet 06) ----------
-const QX=Math.floor(PW/2), QY=PH-22, CX=QX+25;
+// ---------- the "?" coin's place; while WoW is on, the one WoW coin sits there instead (sheet 27) ----------
+const QX=Math.floor(PW/2), QY=PH-22;
 
 // ---------- the remote ----------
 const app=document.getElementById('app');
@@ -541,9 +589,9 @@ const BG=background();
 const S={lv:0,target:0,touch:null,t:0,heldUntil:0};
 const $=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
 const BUBBLE='<svg viewBox="0 0 30 26"><path d="M4 2 h22 a3 3 0 0 1 3 3 v11 a3 3 0 0 1 -3 3 h-12 l-6 5 v-5 h-4 a3 3 0 0 1 -3 -3 v-11 a3 3 0 0 1 3 -3 z" fill="#ffd36b" stroke="#140904" stroke-width="2"/><rect x="8" y="8" width="14" height="2" fill="#7a4a1e"/><rect x="8" y="12" width="9" height="2" fill="#7a4a1e"/></svg>';
-const SEND='<svg viewBox="0 0 20 20"><path d="M2 10 L18 2 L12 18 L10 11 Z" fill="#fff"/></svg>';
-const coin=$('div','chatcoin');coin.innerHTML=BUBBLE;const badge=$('div','badge');badge.hidden=true;coin.appendChild(badge);app.appendChild(coin);
-function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left=(r.left+CX*k-30)+'px';coin.style.top=(r.top+QY*k-30)+'px';if(typeof placeBook==='function')placeBook();if(typeof placeMouse==='function')placeMouse()}
+const wowCoin=$('div','wowcoin');wowCoin.innerHTML='<span class="ic"></span><span class="lv" hidden></span><span class="n" hidden></span><span class="dot" hidden></span>';app.appendChild(wowCoin);
+wowCoin.addEventListener('click',()=>{knock();openHome()});
+function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;wowCoin.style.left=(r.left+QX*k-33)+'px';wowCoin.style.top=(r.top+QY*k-33)+'px'}
 function fit(){const k=3;cv.style.width=PW*k+'px';cv.style.height=PH*k+'px';cv.style.left=Math.round((innerWidth-PW*k)/2)+'px';cv.style.top=Math.round((innerHeight-PH*k)/2)+'px';place()}
 fit();addEventListener('resize',fit);
 
@@ -561,14 +609,10 @@ const pos=e=>{const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)/(b.
 const onFire=p=>Math.abs(p.x-FX)<36&&p.y>FY-72&&p.y<FY+16;
 app.addEventListener('pointerdown',e=>{
   if(app.querySelector('.sheet')){if(!e.target.closest('.sheet'))closeSheet();return}
-  if(book.host)return;   // the book closes on a tap on the dim well away from it (openBook), never on a touch or scroll start
-  if(tp.el)return;
+  if(home.el)return;     // the WoW home closes on a tap on the dim around it, never on a touch or scroll start
   if(e.target!==cv)return;
   const p=pos(e);
-  if(book.on&&Math.hypot(p.x-BX,p.y-QY)<12){openBook();return}
-  if(chat.on&&Math.hypot(p.x-MX,p.y-QY)<12){openPad();return}
-  if(Math.hypot(p.x-QX,p.y-QY)<12){openSheet();return}
-  if(chat.on&&Math.hypot(p.x-CX,p.y-QY)<12){openChat();return}
+  if(!chat.on&&Math.hypot(p.x-QX,p.y-QY)<12){openSheet();return}   // the "?" (Zelda controls) is hidden while WoW is on
   if(onFire(p)){S.touch={x:p.x,y:Math.max(FY-50,p.y),k:0,spread:1,down:true};cv.setPointerCapture(e.pointerId)}});
 app.addEventListener('pointermove',e=>{if(S.touch&&S.touch.down){const p=pos(e);S.touch.x=p.x;S.touch.y=Math.max(FY-50,p.y)}});
 const lift=()=>{if(!S.touch||!S.touch.down)return;S.touch.down=false;S.heldUntil=performance.now()+5000;
@@ -584,7 +628,6 @@ app.addEventListener('pointerdown',e=>{const a=document.activeElement;
   if(!e.defaultPrevented&&a&&a.tagName==='INPUT'&&!(e.target.closest&&e.target.closest('input')))a.blur()});
 
 document.addEventListener('touchstart',()=>{},{passive:true});   // lets :active show on iPhone (press feedback)
-function tabFade(){if(tabsEl)tabsEl.classList.toggle('more',tabsEl.scrollWidth-tabsEl.scrollLeft-tabsEl.clientWidth>4)}
 
 // ---------- the loop ----------
 let last=performance.now();
@@ -598,124 +641,113 @@ const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;S.t+=dt;
   glow(c,S.t,S.lv);
   stones(c,S.lv,true);ashbed(c,S.lv);logs(c,S.t,S.lv,'back');flames(c,S.t,S.lv,S.touch);logs(c,S.t,S.lv,'front');stones(c,S.lv,false);
   sparks.run(c,dt,S.lv>.3?S.lv*.08:0);smoke.run(c,dt,S.lv<.6?.12:.04);fireflies(c,S.t);
-  token(c,QX,QY,10);question(c,QX-3,QY-5);
-  if(chat.on)token(c,CX,QY,10);
+  if(!chat.on){token(c,QX,QY,10);question(c,QX-3,QY-5)}
   requestAnimationFrame(loop)};
 requestAnimationFrame(loop);
 
-// ---------- WoW chat (sheet 06; Joshua's phone only, while WoW is up) ----------
-const TABS=[['All',()=>true],['Whispers',l=>l.kind==='whisper'||l.kind==='whisper-out'],['Guild',l=>l.kind==='guild'||l.kind==='officer'],
-  ['Party',l=>l.kind==='party'||l.kind==='raid'],['General',l=>l.chan&&/^general/i.test(l.chan.name)],['Trade',l=>l.chan&&/^trade/i.test(l.chan.name)],
-  ['LFG',l=>l.chan&&/lookingforgroup|^lfg/i.test(l.chan.name)]];
-// sheet 12 (look B, Joshua 2026-11-10 "B, whole tab"): each tab filled in a soft version of its chat colour; the open one lit in the full colour
-const TAB_FILL={Whispers:'#f0a8f0',Guild:'#8ee08e',Party:'#bcbcf4',General:'#f2b8b8',Trade:'#f2b8b8',LFG:'#f2b8b8'};
-const TAB_LIT={All:'#efe6d2',Whispers:'#ff80ff',Guild:'#40ff40',Party:'#aaaaff',General:'#ffc0c0',Trade:'#ffc0c0',LFG:'#ffc0c0'};
-const W_PEOPLE=4,W_LINES=6;
+// ---------- WoW chat (sheets 06, 28 C; Joshua's phone only, while WoW is up): the WoW home's Chat page ----------
+// A Messages-style list (Everything on top, then NEW, then QUIET); tap a row to read it, the back arrow to return, and
+// inside, swipe left or right to the next busy one. What you type goes to the channel you're reading (no picker;
+// Everything goes to Say). The list, counts and reply targets are wowchat.js (tested in omashuremote.test.ts).
 // WoW's own class colours (RAID_CLASS_COLORS), for the guild list
 const CLASS_COLOR={WARRIOR:'#C69B6D',MAGE:'#3FC7EB',ROGUE:'#FFF468',DRUID:'#FF7C0A',HUNTER:'#AAD372',SHAMAN:'#0070DD',PRIEST:'#FFFFFF',WARLOCK:'#8788EE',PALADIN:'#F48CBA',DEATHKNIGHT:'#C41E3A',MONK:'#00FF98',DEMONHUNTER:'#A330C9',EVOKER:'#33937F'};
 // names only: the three class colours under 4.5:1 on the log get a lighter shade of the same hue (size pass 2026-11-13)
 const NAME_COLOR={...CLASS_COLOR,SHAMAN:'#3d9bff',DEATHKNIGHT:'#ec4c66',EVOKER:'#3fb39b'};
-const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';   // sheet 12: the last 4 people, the last 6 lines with each
+const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
-const AH_FILL='#f2d58a',AH_LIT='#ffd36b';
-const chat={ah:false,ahWin:null,typing:false,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'say'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
-  linkColor:{}};
-const short=n=>String(n||'').split('-')[0];
-
-function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='party'?'Party':t.to==='whisper'?'To '+short(t.name):(chat.chans[t.num]||('Channel '+t.num))}
-function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
-function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
-
-let peopleEl=null,convoEl=null,rosterEl=null,ahEl=null;
-let logRO=null,logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
-function openChat(){
-  if(chat.open)return;chat.open=true;
-  app.appendChild($('div','cdim'));
-  panel=$('div','panel');
-  const grip=$('div','grip');grip.addEventListener('click',closeChat);panel.appendChild(grip);
-  tabsEl=$('div','tabs');tabsEl.addEventListener('scroll',tabFade,{passive:true});panel.appendChild(tabsEl);
-  const cols=$('div','cols');leftEl=$('div','left');rightEl=$('div','right');cols.append(leftEl,rightEl);panel.appendChild(cols);
-  convoEl=$('div','convo-hd');convoEl.hidden=true;peopleEl=$('div','people');peopleEl.hidden=true;rosterEl=$('div','roster');rosterEl.hidden=true;rosterSig='';
-  logEl=$('div','log');leftEl.append(convoEl,rosterEl,peopleEl,logEl);
+const W=window.WowChat;
+const chat={ah:false,ahWin:null,typing:false,on:false,session:null,lines:[],seen:{},whispers:0,to:{to:'say'},chans:{},guild:null,guildFolded:false,
+  linkColor:{},view:null,order:[],danger:[],zone:null,emo:null};
+const short=W.short;
+const BACK_PX='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M7 2h2v1h-1v1h-1v1h-1v2h1v1h1v1h1v1h-2v-1h-1v-1h-1v-1h-1v-2h1v-1h1v-1h1z" fill="#ffd36b"/></svg>';
+const SEND_PX='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 5h7v-2h1v1h1v1h1v2h-1v1h-1v1h-1v-2h-7z" fill="#fff"/></svg>';
+let rosterEl=null,listEl=null,dotsEl=null,chatWrap=null;
+let logRO=null,logStuck=true,panel=null,logEl=null,sendEl=null,box=null,trayEl=null,moreEl=null,emoEl=null,shownSeq=0,listSig='';
+const myName=()=>book.data&&book.data.name||'';
+const chatRows=()=>W.rows(chat.lines,chat.seen,myName());
+function unreadWhispers(){return chatRows().fresh.filter(r=>r.kind==='whisper').reduce((a,r)=>a+r.u,0)}
+function mountChat(well){chatWrap=$('div','cwrap');well.appendChild(chatWrap);chat.emo=null;showList('')}
+function unmountChat(){if(logRO)logRO.disconnect();closeMenus();app.classList.remove('typing');chatWrap=listEl=logEl=sendEl=box=trayEl=moreEl=emoEl=rosterEl=dotsEl=null;chat.view=null;chat.emo=null;listSig=''}
+function showList(dir){
+  if(!chatWrap)return;if(logRO)logRO.disconnect();closeMenus();
+  chat.view='list';chatWrap.textContent='';logEl=sendEl=box=trayEl=moreEl=emoEl=rosterEl=dotsEl=null;app.classList.remove('typing');
+  listEl=$('div','clist'+(dir?' '+dir:''));chatWrap.appendChild(listEl);listSig='';drawList()}
+function drawList(){
+  if(!listEl)return;const R=chatRows();
+  const sig=JSON.stringify([R.all.last&&R.all.last.seq,R.fresh.map(r=>[r.id,r.u,r.last&&r.last.seq]),R.quiet.map(r=>[r.id,r.last&&r.last.seq])]);
+  if(sig===listSig)return;listSig=sig;const top=listEl.scrollTop;listEl.textContent='';
+  listEl.appendChild(rowEl(R.all));
+  if(R.fresh.length){listEl.appendChild($('div','sep','NEW'));R.fresh.forEach(r=>listEl.appendChild(rowEl(r)))}
+  listEl.appendChild($('div','sep','QUIET'));R.quiet.forEach(r=>listEl.appendChild(rowEl(r)));
+  listEl.scrollTop=top}
+function rowEl(r){
+  const d=$('div','cv'+(r.u||r.kind==='all'?'':' quiet'));
+  const av=$('div','av',r.ic);av.style.background=r.col;
+  const b=$('div','b'),n=$('div','n'),nm=$('span',null,r.name);nm.style.color=r.col;n.append(nm,$('small',null,r.last&&r.last.t||''));
+  const l=r.last,pre=!l?'':l.kind==='whisper-out'?'You: ':l.who&&r.kind!=='whisper'?short(l.who)+': ':'';   // a whisper row already names the person
+  b.append(n,$('div','p',l?pre+W.plain(l):'quiet since you logged in'));d.append(av,b);
+  if(r.u)d.appendChild($('span','u',r.u>99?'99+':String(r.u)));
+  d.addEventListener('click',()=>{knock();openConvo(r.id,'slide')});
+  return d}
+function openConvo(id,dir){
+  if(!chatWrap)return;
+  if(chat.view==='list'||!chat.order.includes(id))chat.order=W.busyOrder(chatRows());   // the busy ones, as the list showed them
+  if(logRO)logRO.disconnect();closeMenus();
+  chat.view=id;chat.to=W.replyTo(id,chat.lines,chat.chans);chatWrap.textContent='';listEl=null;listSig='';
+  const inf=W.info(id),top=$('div','ctop'+(dir?' '+dir:''));
+  const back=$('div','back');back.innerHTML=BACK_PX;back.addEventListener('click',()=>{knock();showList('slideb')});
+  const tt=$('div','ct'),nm=$('div','cn',inf.name);nm.style.color=inf.col;tt.append(nm,$('small',null,inf.sub));top.append(back,tt);
+  rosterEl=$('div','roster');rosterEl.hidden=true;rosterSig='';
+  logEl=$('div','log'+(dir?' '+dir:''));shownSeq=0;
   logStuck=true;logEl.addEventListener('scroll',()=>{logStuck=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40});
-  if(window.ResizeObserver){logRO=logRO||new ResizeObserver(()=>{if(logStuck&&logEl&&!logEl.hidden)logEl.scrollTop=logEl.scrollHeight});logRO.observe(logEl)}
+  if(window.ResizeObserver){logRO=logRO||new ResizeObserver(()=>{if(logStuck&&logEl)logEl.scrollTop=logEl.scrollHeight});logRO.observe(logEl)}
+  swipeOn(logEl);
+  dotsEl=$('div','cdots');
   trayEl=tray(null);moreEl=$('div','emsheet');
   sendEl=$('div','send');
-  chanEl=$('div','chan');chanEl.addEventListener('click',pickChannel);
   emoEl=$('div','emo');emoEl.addEventListener('click',smiley);
   box=$('input','box');box.type='text';box.enterKeyHint='send';box.autocomplete='off';box.maxLength=240;
   box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send()}});
   box.addEventListener('focus',()=>{app.classList.add('typing');if(chat.emo){chat.emo=null;layoutEmo()}});
   box.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
-  const go=$('div','go');go.innerHTML=SEND;go.addEventListener('pointerdown',e=>e.preventDefault());go.addEventListener('click',send);   // pointerdown kept off the box: tapping Send doesn't close the keyboard
-  sendEl.append(chanEl,emoEl,box,go);leftEl.appendChild(sendEl);
-  ahEl=$('div','ah');ahEl.hidden=true;leftEl.insertBefore(ahEl,sendEl);
-  app.appendChild(panel);
-  app.querySelector('.cdim').addEventListener('click',closeChat);
-  chat.emo=null;layoutEmo();pickTab(chat.tab);chat.to={to:'say'};render();fitPanel();   // always opens on Say (Joshua 2026-11-27)
-}
-function closeChat(){if(logRO)logRO.disconnect();chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
-// the keyboard: the panel fits the part of the screen still showing (tabs on top, the box just above the keys); the log shrinks
+  const go=$('div','go');go.innerHTML=SEND_PX;go.addEventListener('pointerdown',e=>e.preventDefault());go.addEventListener('click',send);   // pointerdown kept off the box: tapping Send doesn't close the keyboard
+  sendEl.append(emoEl,box,go);
+  chatWrap.append(top,rosterEl,logEl,dotsEl,sendEl);
+  chat.emo=null;layoutEmo();render(true);fitPanel()}
+// swipe left or right inside a channel: the next busy one (sheet 28 C)
+function swipeOn(el){
+  let s=null;const start=(x,y)=>{s={x,y}},end=(x,y)=>{if(!s)return;const dx=x-s.x,dy=y-s.y;s=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)swipe(dx<0?1:-1)};
+  if('ontouchstart' in window){el.addEventListener('touchstart',e=>{const t=e.touches[0];if(e.touches.length===1)start(t.clientX,t.clientY);else s=null},{passive:true});
+    el.addEventListener('touchend',e=>{const t=e.changedTouches[0];end(t.clientX,t.clientY)});el.addEventListener('touchcancel',()=>{s=null})}
+  else{el.addEventListener('pointerdown',e=>start(e.clientX,e.clientY));el.addEventListener('pointerup',e=>end(e.clientX,e.clientY))}}
+function swipe(d){const o=chat.order,i=o.indexOf(chat.view);if(i<0||o.length<2)return;knock();openConvo(o[(i+d+o.length)%o.length],d>0?'slide':'slideb')}
+function drawDots(){if(!dotsEl)return;const o=chat.order,i=o.indexOf(chat.view);dotsEl.hidden=i<0||o.length<2;dotsEl.innerHTML=o.map((x,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}
+function seenWhispers(){if(chat.whispers){chat.whispers=0;api('/api/seen',{})}}
+// the conversation keeps its lines: only new ones are added, so a tap never lands on a line that was just replaced
+function render(full){
+  if(!chatWrap){updateBadges();return}
+  if(chat.view==='list'){drawList();updateBadges();return}
+  if(!logEl)return;const id=chat.view;
+  drawRoster();
+  const stick=full||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
+  if(full||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0}
+  let added=0;for(const l of chat.lines)if(l.seq>shownSeq&&W.inChan(l,id)){if(!added++){const q=logEl.querySelector('.none');if(q)q.remove()}logEl.appendChild(lineEl(l,id))}
+  if(chat.lines.length)shownSeq=Math.max(shownSeq,chat.lines[chat.lines.length-1].seq);
+  while(logEl.children.length>300)logEl.firstChild.remove();
+  if(!logEl.children.length)logEl.appendChild($('div','l none','Nothing yet.'));
+  if(stick)logEl.scrollTop=logEl.scrollHeight;
+  chat.seen[id]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
+  if(chat.whispers&&!unreadWhispers())seenWhispers();
+  drawDots();box.placeholder=W.hint(id);updateBadges()}
+// the keyboard: the home fits the part of the screen still showing (the reply box just above the keys); the log shrinks
 function fitPanel(){
   if(scrollY||scrollX)scrollTo(0,0);
   if(!panel||!window.visualViewport)return;const v=visualViewport;
   panel.style.top=panel.style.bottom='';
-  if(v.offsetTop<1&&v.height>innerHeight-2)return;                            // no keyboard: the sheet's own place
+  if(v.offsetTop<1&&v.height>innerHeight-2)return;                            // no keyboard: the home's own place
   panel.style.top=(parseFloat(getComputedStyle(panel).top)+v.offsetTop)+'px';
   panel.style.bottom=Math.max(8,innerHeight-v.height-v.offsetTop+8)+'px'}
 if(window.visualViewport){visualViewport.addEventListener('resize',settle);visualViewport.addEventListener('scroll',fitPanel)}
-
-function pickTab(name){
-  if(name==='Upgrades'&&!book.on)name='All';
-  chat.tab=name;
-  if(name==='Upgrades'){up.pick=null;render(true);loadUp(true);return}
-  chat.wPerson=null;
-  if(name==='Whispers'){const inc=chat.lines.filter(l=>l.kind==='whisper');chat.wUnread=new Set(chat.whispers?inc.slice(-chat.whispers).map(l=>l.seq):[]);
-    chat.wOpen=Math.max(chat.seen.Whispers??0,...inc.filter(l=>!chat.wUnread.has(l.seq)).map(l=>l.seq),0);const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
-  else if(name==='Guild')chat.to={to:'guild'};else if(name==='Party')chat.to={to:'party'};
-  else{const f=TABS.find(t=>t[0]===name)[1],l=[...chat.lines].reverse().find(x=>x.chan&&f(x));if(l&&name!=='All')chat.to={to:'channel',num:l.chan.num}}
-  chat.seen[name]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
-  render(true);
-}
-function seenWhispers(){if(chat.whispers){chat.whispers=0;api('/api/seen',{});showBadge()}}
-function showBadge(){badge.hidden=!chat.whispers;badge.textContent=chat.whispers>99?'99+':chat.whispers}
-
-let tabEls={},shownTab=null,shownSeq=0;
-function render(full){
-  if(!panel)return;
-  if(!tabEls.Upgrades){const t=$('div','tab','Upgrades');t.addEventListener('click',()=>pickTab('Upgrades'));
-    t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabsEl.prepend(t);tabEls.Upgrades=t}
-  tabEls.Upgrades.hidden=!book.on;tabEls.Upgrades.className='tab'+(chat.tab==='Upgrades'?' on':'');
-  if(!tabEls[TABS[0][0]])for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
-    if(TAB_FILL[n])t.style.setProperty('--tf',TAB_FILL[n]);t.style.setProperty('--tc',TAB_LIT[n]);tabsEl.appendChild(t);tabEls[n]=t}
-  for(const [n,f] of TABS){const t=tabEls[n];t.className='tab'+(n===chat.tab?' on':'');
-    const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
-    let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
-  tabFade();
-  const isUp=chat.tab==='Upgrades';
-  ahEl.hidden=!isUp;sendEl.hidden=isUp;
-  // 2026-11-26: new chat lines only update the counts here; rebuilding the list under a finger lost taps in busy chat
-  if(isUp){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;if(full||shownTab!==chat.tab){shownTab=chat.tab;drawUp()}return}
-  logEl.hidden=false;
-  const isW=l=>l.kind==='whisper'||l.kind==='whisper-out';
-  const people=chat.tab==='Whispers'&&!chat.wPerson;
-  peopleEl.hidden=!people;logEl.hidden=people;convoEl.hidden=!(chat.tab==='Whispers'&&chat.wPerson);
-  if(people)drawPeople(isW);
-  drawRoster();
-  if(chat.tab==='Whispers'&&chat.wPerson){convoEl.textContent='';const b=$('div','back','‹ Whispers');b.addEventListener('click',()=>{chat.wPerson=null;render(true)});
-    convoEl.append(b,$('div','nm',short(chat.wPerson)));chat.wSeen[chat.wPerson]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0}
-  const key=chat.tab+'|'+(chat.wPerson||'');
-  const f=chat.wPerson?(l=>isW(l)&&l.who===chat.wPerson):TABS.find(t=>t[0]===chat.tab)[1];
-  const stick=full||shownTab!==key||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
-  // only new lines are added, so a tap on a line never lands on one that was just replaced
-  if(full||shownTab!==key||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0;shownTab=key}
-  for(const l of chat.lines)if(l.seq>shownSeq&&f(l))logEl.appendChild(lineEl(l));
-  if(chat.lines.length)shownSeq=Math.max(shownSeq,chat.lines[chat.lines.length-1].seq);
-  while(logEl.children.length>(chat.wPerson?W_LINES:300))logEl.firstChild.remove();
-  if(stick)logEl.scrollTop=logEl.scrollHeight;
-  chat.seen[chat.tab]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
-  chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
-}
 // the item list (auctionable items, from the laptop) and the best 3 for what's typed: the mouse pad's suggestions
 let ITEMS=null,ITEM_BY=null,itemsAskedAt=0;
 async function loadItems(){
@@ -741,10 +773,11 @@ function knock(){try{actx=actx||new (window.AudioContext||window.webkitAudioCont
   for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,4);
   const src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=n;f.type='bandpass';f.frequency.value=1100;f.Q.value=2.5;g.gain.value=.35;
   src.connect(f).connect(g).connect(actx.destination);src.start()}catch(e){}}
-// the Guild tab: who's on (sheet 11), names in their class colour, highest level first, you last (the add-on sorts)
+// the Guild channel: who's on (sheet 11), names in their class colour, highest level first, you last (the add-on sorts)
 let rosterSig='';
 function drawRoster(){
-  const show=chat.tab==='Guild'&&Array.isArray(chat.guild)&&chat.guild.length>0;rosterEl.hidden=!show;if(!show){rosterSig='';return}
+  if(!rosterEl)return;
+  const show=chat.view==='guild'&&Array.isArray(chat.guild)&&chat.guild.length>0;rosterEl.hidden=!show;if(!show){rosterSig='';return}
   const sig=chat.guildFolded+'|'+JSON.stringify(chat.guild);if(sig===rosterSig)return;rosterSig=sig;
   rosterEl.textContent='';rosterEl.classList.toggle('folded',chat.guildFolded);
   const hd=$('div','hd');hd.append($('b',null,'On now · '+chat.guild.length),$('span',null,chat.guildFolded?'open ▾':'fold ▴'));
@@ -755,34 +788,27 @@ function drawRoster(){
     r.append(nm,$('div','lv',String(m.level)),$('div','zn',m.zone));
     r.addEventListener('click',()=>{r.classList.add('hl');guildMenu(m,r)});rosterEl.appendChild(r)}
 }
+// a whisper from a menu: that person's conversation, keyboard up
+function whisperTo(n){openConvo('w:'+n,'slide');if(box)box.focus()}
 function guildMenu(m,row){
   const n=m.name;const m2=menuShell(short(n),'Level '+m.level+' '+CLASS_NAME(m.cls)+(m.zone?' · '+m.zone:''));m2.classList.add('name');row.classList.add('hl');
-  mi(m2,'Whisper','/w',()=>{chat.to={to:'whisper',name:n};render();box.focus()});
+  mi(m2,'Whisper','/w',()=>whisperTo(n));
   mi(m2,'Invite to party','/invite',()=>act({act:'invite',name:n}));
   mi(m2,'Who is this?','/who',()=>act({act:'who',name:n}));
 }
-// the Whispers tab: the last 4 people (newest first), their last line, unread count; tap one for just that conversation
-function drawPeople(isW){
-  peopleEl.textContent='';const seen=[];
-  for(let i=chat.lines.length-1;i>=0&&seen.length<W_PEOPLE;i--){const l=chat.lines[i];if(isW(l)&&l.who&&!seen.some(p=>p.l.who===l.who))seen.push({l})}
-  for(const {l} of seen){
-    const k=chat.lines.filter(x=>x.kind==='whisper'&&x.who===l.who&&x.seq>(chat.wSeen[l.who]??0)&&(chat.wUnread?.has(x.seq)||x.seq>chat.wOpen)).length;
-    const r=$('div','who-row'+(k?' new':''));const nm=$('div','nm',short(l.who));if(k)nm.appendChild($('span','n',String(k)));
-    const me=l.kind==='whisper-out';const last=$('div','last'+(me?' me':''),(me?'You: ':'')+l.text.map(s=>'s' in s?s.s:'['+s.name+']').join(''));
-    r.append(nm,$('div','ago',l.t||''),last);
-    r.addEventListener('click',()=>{chat.wPerson=l.who;chat.to={to:'whisper',name:l.who};render(true)});peopleEl.appendChild(r)}
-  peopleEl.appendChild($('div','quiet',seen.length?'the last 4 people · gone when WoW closes':'no whispers yet'));
-}
-function lineEl(l){
-  const d=$('div','l '+(l.em?'em':KIND[l.kind]||''));d.dataset.seq=l.seq;
+// one line. In Everything it carries a short tag ([General], [Defense]) that opens that channel; inside a channel the
+// header says it once. Inside a whisper: "Name: ..." and "You: ...".
+function lineEl(l,id){
+  const cid=W.chanOf(l),wv=!!id&&id.startsWith('w:');
+  const d=$('div','l '+(l.em?'em':cid==='def'?'sys':KIND[l.kind]||''));d.dataset.seq=l.seq;
   if(l.em&&l.em>performance.now()){d.classList.add('new');setTimeout(()=>d.classList.remove('new'),l.em-performance.now())}
   if(l.t)d.appendChild($('span','t',l.t));
-  if(l.chan){const ch=$('span','ch','['+l.chan.num+'. '+l.chan.name+'] ');ch.addEventListener('click',()=>{chat.to={to:'channel',num:l.chan.num};render()});d.appendChild(ch)}
-  const tag={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid'}[l.kind];
-  if(tag){const ch=$('span','ch','['+tag+'] ');if(l.kind==='guild'||l.kind==='party')ch.addEventListener('click',()=>{chat.to={to:l.kind};render()});d.appendChild(ch)}
-  const who=()=>{const w=$('span','who','['+short(l.who)+']');if(l.cls&&NAME_COLOR[l.cls])w.style.color=NAME_COLOR[l.cls];w.addEventListener('click',()=>nameMenu(l,d));return w};   // class colour, as in WoW and the guild list
-  if(l.kind==='whisper-out'){d.append('To ',who(),': ')}
-  else if(l.who){d.appendChild(who());d.append(l.kind==='whisper'?' whispers: ':l.kind==='say'?' says: ':l.kind==='yell'?' yells: ':': ')}
+  if(id==='all'&&l.kind!=='whisper'&&l.kind!=='whisper-out'){const tag=W.tagOf(l);
+    if(tag){const ch=$('span','ch','['+tag+'] ');if(cid)ch.addEventListener('click',()=>openConvo(cid,'slide'));d.appendChild(ch)}}
+  // sheet 28: plain names (no brackets); inside a whisper, the first name
+  const who=()=>{const w=$('span','who',wv?short(l.who).split(' ')[0]:short(l.who));if(l.cls&&NAME_COLOR[l.cls])w.style.color=NAME_COLOR[l.cls];w.addEventListener('click',()=>nameMenu(l,d));return w};   // class colour, as in WoW and the guild list
+  if(l.kind==='whisper-out'){if(wv)d.append('You: ');else d.append('To ',who(),': ')}
+  else if(l.who){d.appendChild(who());d.append(wv?': ':l.kind==='whisper'?' whispers: ':l.kind==='say'?' says: ':l.kind==='yell'?' yells: ':': ')}
   for(const s of l.text){
     if('s' in s){d.append(s.s);continue}
     const cls=s.link==='quest'?'quest':s.link==='spell'?'spell':s.q!=null?'q'+s.q:(chat.linkColor[s.name]||'item');
@@ -797,9 +823,9 @@ function menuShell(title,sub){closeMenus();const dm=$('div','mdim');dm.addEventL
 function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small)b.appendChild($('small',null,small));b.addEventListener('click',()=>{closeMenus();fn()});(into||m).appendChild(b);return b}
 function nameMenu(l,row){
   row.classList.add('hl');
-  const n=l.who,where={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid',whisper:'Whisper','whisper-out':'Whisper',say:'Say',yell:'Yell'}[l.kind]||(l.chan?l.chan.name:'');
+  const n=l.who,where={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid',whisper:'Whisper','whisper-out':'Whisper',say:'Say',yell:'Yell'}[l.kind]||(l.chan?W.tagOf(l):'');
   const m=menuShell(short(n),where);m.classList.add('name');row.classList.add('hl');
-  mi(m,'Whisper','/w',()=>{chat.to={to:'whisper',name:n};render();box.focus()});
+  mi(m,'Whisper','/w',()=>whisperTo(n));
   mi(m,'Invite to party','/invite',()=>act({act:'invite',name:n}));
   mi(m,'Add friend','/friend',()=>act({act:'friend',name:n}));
   mi(m,'Ignore','/ignore',()=>act({act:'ignore',name:n}));
@@ -825,8 +851,6 @@ async function loadEmotes(){
 }
 function saveFavs(){api('/api/favourites',{favourites:FAVS})}
 // asked of the layout itself, not innerWidth/innerHeight: iOS reports those late after turning the phone or closing the keyboard
-const SIDE=matchMedia('(orientation: landscape) and (max-height: 559px)');
-const side=()=>SIDE.matches;
 let emoteUntil=0,swapIn=null,emPage='',emQuery='';
 function emoteTile(c,name){
   const t=$('div','tile');if(c==='roll')t.innerHTML=DIE;t.append(LABEL[c]||c);
@@ -860,7 +884,7 @@ function tray(name){
   const list=name?[...FAVS.filter(c=>c!=='roll'),...(FAVS.includes('follow')?[]:['follow'])].slice(0,12):FAVS;
   for(const c of list){const t=emoteTile(c,name);if(swapIn&&!name)t.classList.add('pick');g.appendChild(t)}
   if(swapIn&&!name){const h=$('div','swaphint','Tap the favourite to swap for '+(LABEL[swapIn]||swapIn));g.appendChild(h)}
-  else{const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(!chat.open)openChat();showMore(name)});g.appendChild(more)}
+  else{const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(moreEl)showMore(name)});g.appendChild(more)}
   return g;
 }
 let moreFor=null;
@@ -898,31 +922,18 @@ function smiley(){
   layoutEmo();
 }
 function layoutEmo(){
-  if(!panel)return;
-  const s=side();app.classList.toggle('side',s);
+  if(!sendEl||!chatWrap)return;
   emoEl.classList.toggle('on',!!chat.emo);emoEl.innerHTML=chat.emo?SMILE_ON:SMILE;
   trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
-  const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
-  const ahTab=chat.tab==='Upgrades';   // this tab has its own list in place of the log
+  const stick=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
   // move the tray and More sheet only when they're not already in place: moving a node takes the cursor out of the
   // emote search box, so the keyboard opened and at once closed again (Joshua 2026-11-11: "cant click into the search bar")
-  if(s){if(trayEl.parentNode!==rightEl||trayEl.nextSibling!==moreEl||moreEl.nextSibling)rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo||ahTab;logEl.hidden=ahTab}
-  else{if(moreEl.parentNode!==leftEl||moreEl.nextSibling!==trayEl||trayEl.nextSibling!==sendEl){leftEl.insertBefore(moreEl,sendEl);leftEl.insertBefore(trayEl,sendEl)}rightEl.hidden=true;logEl.hidden=ahTab}
+  if(moreEl.parentNode!==chatWrap||moreEl.nextSibling!==trayEl||trayEl.nextSibling!==sendEl){chatWrap.insertBefore(moreEl,sendEl);chatWrap.insertBefore(trayEl,sendEl)}
   if(stick){logEl.scrollTop=logEl.scrollHeight;logStuck=true}
 }
-function relayout(){if(panel)layoutEmo();else app.classList.toggle('side',side());fitPanel()}
+function relayout(){layoutEmo();fitPanel()}
 function settle(){relayout();requestAnimationFrame(relayout);setTimeout(relayout,300)}  // and again once iOS has finished turning
 addEventListener('resize',settle);addEventListener('orientationchange',settle);
-if(SIDE.addEventListener)SIDE.addEventListener('change',settle);else SIDE.addListener(settle);
-
-// ---------- the channel button ----------
-function pickChannel(){
-  const m=menuShell('Answer in');
-  const opts=[{to:'say'},{to:'guild'},{to:'party'},...Object.keys(chat.chans).map(k=>({to:'channel',num:Number(k)}))];
-  const names=[];for(const l of [...chat.lines].reverse())if((l.kind==='whisper'||l.kind==='whisper-out')&&!names.includes(l.who)){names.push(l.who);if(names.length>=4)break}
-  for(const o of opts)mi(m,chanLabel(o),o.to==='channel'?'/'+o.num:'/'+o.to[0],()=>{chat.to=o;render()});
-  for(const n of names)mi(m,'Whisper '+short(n),'/w',()=>{chat.to={to:'whisper',name:n};render()});
-}
 
 // ---------- tap a link: a WoW tooltip, looked up by Aang ----------
 function tooltip(s){
@@ -963,36 +974,12 @@ function hint(msg){
   h.textContent=msg;clearTimeout(h._t);h._t=setTimeout(()=>h.remove(),4000);
 }
 
-// ---------- the Paladin Book (sheet omashu/remote/18 v5): Now, Fight, Talents, Gear, as of Bunji's last reload ----------
-// Drawn in its own shadow root so its styles (lifted from the approved mockup) never touch the chat's.
-const BX=QX-25;
+// ---------- the Paladin Book (sheets 18 v5, 25 v2; sheet 27: Fight and Talents inside the WoW home) ----------
+// Drawn in its own shadow root so its styles (lifted from the approved mockups) never touch the chat's.
 const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff;--parch:#f1e4c3;--parch2:#e7d8b4;--wood:#b8662c;--woodd:#6a3412}
 *{box-sizing:border-box}
-.sheet{position:absolute;left:10px;right:10px;top:70px;bottom:18px;max-width:420px;margin:0 auto;background:var(--parch);border-radius:28px;box-shadow:0 0 0 7px var(--wood),0 0 0 10px var(--woodd),0 -10px 40px #000a;padding:12px 12px 10px;color:#2a1a0e;display:flex;flex-direction:column;animation:up .26s cubic-bezier(.2,.8,.2,1);pointer-events:auto;font-family:"Pixelify Sans",system-ui,sans-serif}
-@keyframes up{from{transform:translateY(14px);opacity:.6}}
-.grip{width:60px;height:6px;border-radius:3px;background:#c9b48a;margin:0 auto 9px}
-.head{display:flex;align-items:center;gap:10px;margin-bottom:9px}
-.head img{width:38px;height:38px;border-radius:7px;box-shadow:0 0 0 2px #2a1205,0 0 0 4px #c8962e}
-.nm{font:700 16px Cinzel,serif;letter-spacing:.5px;color:#3a2410;line-height:1.1}
-.nm small{font:600 12px Figtree,system-ui;color:#b0487a;letter-spacing:0}
-.sub{font:12.5px Figtree,system-ui;color:#7a6446}
-.xp{height:8px;border-radius:4px;background:#d9c49a;margin-top:4px;overflow:hidden}
-.xp i{display:block;height:100%;background:linear-gradient(90deg,#8a3ccf,#c87af0)}
-.tabs{display:flex;gap:5px;margin-bottom:9px}
-.tab{flex:1;text-align:center;font:600 13px "Pixelify Sans";padding:8px 0;border-radius:10px;background:var(--parch2);color:#4a3420;box-shadow:inset 0 -3px 0 #0002;cursor:pointer;transition:background .15s ease-out}
-.tab.on{background:#2a1a0e;color:var(--hot);box-shadow:0 0 0 2px #c8962e,inset 0 -3px 0 #0006}
-.well{flex:1;background:#0d0906;border-radius:16px;box-shadow:inset 0 0 0 3px #2a1a0e;padding:11px;overflow:auto;color:#f0e2bf;position:relative;scrollbar-width:none;touch-action:pan-y;-webkit-overflow-scrolling:touch}
-.well::-webkit-scrollbar{display:none}
 .k{font:12px "Pixelify Sans";color:#9a8f78;letter-spacing:.6px;margin:2px 2px 7px;text-transform:uppercase;display:flex;justify-content:space-between}
 .k b{color:#c8b890;font-weight:400}
-.card{display:flex;gap:10px;align-items:center;background:#1a120b;border-radius:12px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:8px 10px;margin-bottom:7px}
-.card[data-g]{cursor:pointer}
-.card.hot{box-shadow:inset 0 0 0 2px #ffd36baa;background:linear-gradient(90deg,#2e1f0f,#1f150c)}
-.card img{width:40px;height:40px;border-radius:7px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20;flex:0 0 auto}
-.card .t{font:600 15px Figtree,system-ui;color:#fff3d8;line-height:1.15}
-.card .d{font:12.5px Figtree,system-ui;color:#a8987a;margin-top:2px;line-height:1.25}
-.card .go{margin-left:auto;font:600 12px "Pixelify Sans";color:var(--hot);flex:0 0 auto;text-align:right}
-.green{color:var(--green)!important}.blue{color:var(--blue)!important}
 .note{font:12px Figtree,system-ui;color:#8a7a5a;margin:6px 2px 0;line-height:1.35}
 .trees{display:flex;gap:5px;margin-bottom:8px}
 .trees span{flex:1;text-align:center;font:600 12px "Pixelify Sans";padding:6px 0;border-radius:8px;background:#1a120b;color:#a8987a;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
@@ -1037,44 +1024,8 @@ const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff
 .seg{display:flex;gap:5px;margin:2px 0 8px}
 .seg span{flex:1;text-align:center;font:600 12px "Pixelify Sans";padding:6px 0;border-radius:8px;background:#1a120b;color:#a8987a;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer}
 .seg span.on{background:#2a1c0e;color:var(--hot);box-shadow:inset 0 0 0 2px #ffd36b99}
-.ladder{position:relative;padding-left:22px}
-.ladder::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:3px;background:linear-gradient(#ffd36b,#5a3a10);border-radius:2px}
-.rung{position:relative;display:flex;align-items:center;gap:9px;margin-bottom:7px}
-.rung::before{content:"";position:absolute;left:-19px;width:11px;height:11px;border-radius:50%;background:#2a1a0e;box-shadow:0 0 0 2px #7a5a2a}
-.rung.have::before{background:#7a5a2a}.rung.next::before{background:var(--hot);box-shadow:0 0 0 2px #fff3c0,0 0 10px var(--hot)}
-.rung img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000}
-.rung .t{font:600 14px Figtree,system-ui;line-height:1.1}.rung .d{font:12px Figtree,system-ui;color:#a8987a}
-.rung .l{margin-left:auto;font:600 13px "Pixelify Sans";color:#c8b890}
-.rung.later{opacity:.55}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.fd{background:#1a120b;border-radius:10px;padding:6px 4px;text-align:center;box-shadow:inset 0 0 0 2px #2a1a0e}
-.fd img{width:32px;height:32px;border-radius:5px;box-shadow:0 0 0 2px #000}
-.fd div{font:11.5px/1.15 Figtree,system-ui;color:#e8dab8;margin-top:3px}
-.fd span{font:10px "Pixelify Sans";color:#9a8f78;display:block}
-.carry{display:grid;grid-template-columns:auto 1fr auto;gap:6px 9px;align-items:center;background:#1a120b;border-radius:12px;padding:8px 10px;box-shadow:inset 0 0 0 2px #2a1a0e;margin-bottom:6px}
-.carry img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000}
-.carry .t{font:600 14px Figtree,system-ui;color:#fff3d8;line-height:1.1}.carry .d{font:12px Figtree,system-ui;color:#a8987a;line-height:1.25}
-.carry .p{font:600 12px "Pixelify Sans";text-align:right;line-height:1.3}
-.carry .p .ah{color:var(--hot)}.carry .p .bag{color:#c8b890}
 .set{text-align:center;padding:18px 8px;background:#1a120b;border-radius:14px;box-shadow:inset 0 0 0 2px #2a1a0e}.set img{width:46px;height:46px;border-radius:8px;box-shadow:0 0 0 2px #000,0 0 0 4px #c8962e}.set .t{font:700 17px Cinzel,serif;color:var(--hot);margin-top:8px}.set .d{font:13px Figtree,system-ui;color:#a8987a;margin-top:4px}
 .mg{color:#ffd100}.ms{color:#c7c7cf}.mc{color:#d58a4a}
-.slot{font:10px "Pixelify Sans";color:#9a8f78;letter-spacing:.5px;text-transform:uppercase}
-.tab:active,.card[data-g]:active,.step:active,.seg span:active,.trees span:active,.nd:active{filter:brightness(.85)}
-.tr{background:#1a120b;border-radius:12px;box-shadow:inset 0 0 0 2px #2a1a0e;padding:9px 10px;margin-bottom:7px}
-.tr.newsp{box-shadow:inset 0 0 0 2px #f48cba88;background:linear-gradient(90deg,#24141c,#1a120b)}
-.tr .top{display:flex;gap:10px;align-items:center}
-.tr img{width:38px;height:38px;border-radius:7px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20}
-.tr .t{font:600 15px Figtree,system-ui;color:#fff3d8}
-.tr .tag{margin-left:auto;font:600 11px "Pixelify Sans";padding:3px 7px;border-radius:6px;flex:0 0 auto}
-.tr .tag+.tag{margin-left:5px}
-.tag.get{background:#ffd36b;color:#2a1405}.tag.skip{background:#2a1a0e;color:#9a8f78;box-shadow:inset 0 0 0 1px #4a3a20}.tag.new{background:#f48cba;color:#2a0d18}
-.tr .what{font:13px/1.35 Figtree,system-ui;color:#e8dab8;margin-top:6px}
-.tr .when{font:13px/1.35 Figtree,system-ui;color:#a8987a;margin-top:3px}.tr .when b{color:#ffd36b;font-weight:600}
-.tr .pad{font:600 11px "Pixelify Sans";color:#c8b890;margin-top:5px}
-.ups{display:flex;flex-wrap:wrap;gap:6px}
-.up{display:flex;align-items:center;gap:6px;background:#1a120b;border-radius:9px;padding:5px 8px 5px 5px;box-shadow:inset 0 0 0 2px #2a1a0e;font:13px Figtree,system-ui;color:#e8dab8}
-.up img{width:26px;height:26px;border-radius:5px;box-shadow:0 0 0 1px #000}.up i{font-style:normal;color:#9a8f78;font-size:12px}
-.costl{display:flex;justify-content:space-between;font:12px "Pixelify Sans";color:#9a8f78;margin:4px 2px 8px}.costl b{color:#ffd36b;font-weight:400}
 .step.glow{box-shadow:inset 0 0 0 2px #f48cba,0 0 14px #f48cba66;background:linear-gradient(90deg,#2a1420,#1a120b);animation:gl 2.8s ease-in-out infinite}
 @keyframes gl{50%{box-shadow:inset 0 0 0 2px #ffc0dc,0 0 22px #f48cba99}}
 .step .nb{font:600 10px "Pixelify Sans";color:#2a0d18;background:#f48cba;border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:2px}
@@ -1117,49 +1068,15 @@ const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff
 .fk .t{font:600 14px Figtree,system-ui;color:#fff3d8;margin-top:6px}.fk .d{font:12px Figtree,system-ui;color:#a8987a}
 .fk.on{background:#2a1c0e;box-shadow:inset 0 0 0 2px #ffd36baa}.fk.on img{box-shadow:0 0 0 2px #000,0 0 0 3px #ffd36b}
 @media (prefers-reduced-motion:reduce){.tnext.now .ic{animation:none;box-shadow:0 0 0 2px #000,0 0 0 4px #ffd36b}.lvs{scroll-behavior:auto}}
-@media (prefers-reduced-motion:reduce){.nd.next img,.sheet{animation:none}}`;
-var bookCoin=$('div','bookcoin');bookCoin.innerHTML='<img src="/book/icons/classicon_paladin.jpg" alt=""><span class="lv"></span>';app.appendChild(bookCoin);
-var book={on:false,level:0,at:0,host:null,data:null,loading:false,again:false,ui:{}};
+.btabs{display:flex;gap:5px;margin-bottom:9px}
+.btabs span{flex:1;text-align:center;font:600 13px "Pixelify Sans";padding:0;min-height:40px;display:grid;place-items:center;border-radius:10px;background:#1a120b;color:#a8987a;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer;transition:background .15s ease-out}
+.btabs span.on{background:#2a1c0e;color:var(--hot);box-shadow:inset 0 0 0 2px #ffd36b99}
+.btabs span:active,.step:active,.seg span:active,.trees span:active,.nd:active{filter:brightness(.85)}
+.bw{color:#f0e2bf;font-family:"Pixelify Sans",system-ui,sans-serif}
+@media (prefers-reduced-motion:reduce){.nd.next img{animation:none}}`;
+var book={on:false,level:0,at:0,train:0,data:null,loading:false,again:false,fail:false,tab:'fight',ui:{}};
 const BI=n=>`/book/icons/${encodeURIComponent(n)}.jpg`;
-const coins=t=>esc(t).replace(/(\d+)([gsc])\b/g,(_,n,u)=>`${n}<span class="m${u}">${u}</span>`);
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
-function placeBook(){if(!bookCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;bookCoin.style.left=(r.left+BX*k-28)+'px';bookCoin.style.top=(r.top+QY*k-28)+'px'}
-function showBookCoin(j){const b=chat.on&&j.book;const was=book.on;book.on=!!b;bookCoin.classList.toggle('on',book.on);
-  if(chat.open&&was!==book.on){if(!book.on&&chat.tab==='Upgrades')pickTab('All');else render()}if(b&&chat.open&&chat.tab==='Upgrades'&&b.at!==up.at)loadUp();
-  if(b){bookCoin.querySelector('.lv').textContent=b.level;if(book.host&&(b.at!==book.at||!book.data))loadBook()}book.at=b?b.at:0;if(!book.on)closeBook()}
-async function openBook(){if(book.host)return;
-  const dim=$('div','dim');app.appendChild(dim);const host=$('div','bookhost');app.appendChild(host);book.host=host;book.data=null;
-  // 2026-11-26: only a real tap (a click, never a scroll) on the dim well clear of the sheet and its wood frame closes it
-  dim.addEventListener('click',e=>{const sh=book.host&&book.host.shadowRoot.querySelector('.sheet');if(!sh)return;const r=sh.getBoundingClientRect(),m=24;
-    if(e.clientX<r.left-m||e.clientX>r.right+m||e.clientY<r.top-m||e.clientY>r.bottom+m)closeBook()});
-  const sh=host.attachShadow({mode:'open'});sh.innerHTML=`<style>${BOOK_CSS}</style><div class="sheet"><div class="grip"></div><div class="body"></div></div>`;
-  book.tab='now';await loadBook()}
-function closeBook(){if(!book.host)return;book.host.remove();book.host=null;book.data=null;app.querySelectorAll('.dim').forEach(n=>n.remove())}
-// one load at a time; a blip keeps the page you are reading, or says so when nothing is drawn yet (2026-11-26)
-async function loadBook(){if(book.loading){book.again=true;return}book.loading=true;book.again=false;
-  const {ok,status,j}=await api('/api/book').finally(()=>{book.loading=false});
-  if(book.host){if(ok){const keep=!!book.data;book.data=j;drawBook(keep)}else if(status===404)closeBook();
-    else if(!book.data){const body=book.host.shadowRoot.querySelector('.body');body.style.cssText='';body.innerHTML='<p class="note">Can\'t reach the laptop right now</p>'}}
-  if(book.again&&book.host)loadBook()}
-// keep: a refresh of the open book, which keeps its tab, scroll and picks
-function drawBook(keep){const B=book.data,root=book.host.shadowRoot,body=root.querySelector('.body'),old=root.querySelector('.well'),top=keep&&old?old.scrollTop:0;
-  body.style.cssText='display:flex;flex-direction:column;flex:1;min-height:0';
-  body.innerHTML=`<div class="head"><img src="${BI('classicon_paladin')}" alt=""><div style="flex:1"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${B.zone?' · '+esc(B.zone):''}</div><div class="xp"><i style="width:${B.xpPct}%"></i></div></div></div>
-  <div class="tabs">${['now','fight','talents','gear'].map(t=>`<span class="tab${t===book.tab?' on':''}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</span>`).join('')}</div><div class="well"></div>`;
-  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>bookTab(t.dataset.t));bookTab(book.tab,keep);if(keep)root.querySelector('.well').scrollTop=top}
-function bookTab(t,keep){book.tab=t;if(!keep)book.ui={sel:0,tree:'Retribution',pick:null,at:0};const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
-function ago(at){const m=Math.max(0,Math.round((Date.now()/1000-at)/60));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`}
-function bookNow(w,B){const k=`<div class="k">Now <b>as of your last reload · ${ago(B.at)}</b></div>`;
-  if(!B.cards.length&&!B.restock.length&&!B.train){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
-  w.innerHTML=k+trainHtml(B)+B.cards.map(c=>`<div class="card${c.tone==='hot'?' hot':''}"${c.tab?` data-g="${c.tab}"`:''}><img src="${BI(c.icon)}" alt=""><div><div class="t${c.tone==='blue'?' blue':c.tone==='green'?' green':''}">${esc(c.t)}</div><div class="d">${coins(c.d)}</div></div>${c.go?`<div class="go">${esc(c.go)}</div>`:''}</div>`).join('')
-   +(B.restock.length?`<div class="k" style="margin-top:12px">Restock <b>for level ${B.level}</b></div>`+B.restock.map(r=>`<div class="carry"><img src="${BI(r.icon)}" alt=""><div><div class="slot">${esc(r.slot)}</div><div class="t">${esc(r.t)}</div><div class="d">${esc(r.d)}</div></div><div class="p">${r.price.map((p,i)=>`<span class="${i?'bag':'ah'}">${coins(p)}</span>`).join('<br>')}</div></div>`).join(''):'')
-   +(B.fine?`<p class="note">${esc(B.fine)}</p>`:'');
-  w.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>bookTab(c.dataset.g))}
-function trainHtml(B){const T=B.train;if(!T)return'';
-  return `<div class="k" style="margin-top:2px">Train <b>at your paladin trainer</b></div>`
-   +T.fresh.map(f=>`<div class="tr newsp"><div class="top"><img src="${BI(f.icon)}" alt=""><div class="t">${esc(f.name)}</div><span class="tag new">NEW</span><span class="tag ${f.skip?'skip':'get'}">${f.skip?'Skip for now':'Get it'}</span></div>${f.what?`<div class="what">${esc(f.what)}</div>`:''}${f.skip?`<div class="when"><b>Skip it:</b> ${esc(f.skip)}</div>`:f.use?`<div class="when"><b>Use it:</b> ${esc(f.use)}</div>`:''}${f.pad&&!f.skip?`<div class="pad">Lands on ${esc(f.pad)}</div>`:''}</div>`).join('')
-   +(T.ups.length?`<div class="k" style="margin-top:8px">Upgrades <b>just grab these</b></div><div class="ups">${T.ups.map(u=>`<span class="up"><img src="${BI(u.icon)}" alt="">${esc(u.name)} <i>rank ${u.rank}</i></span>`).join('')}</div>`:'')
-   +`<div class="costl"><span>Cost for all of it</span><b>${moneyHtml(T.cost)}</b></div>`}
 function bookFight(w,B){const NEW=new Set(B.fresh||[]);const S=B.steps||[],P=B.prep||[];let sel=book.ui.sel<S.length?book.ui.sel:0;
   const key=x=>x[1]==='none'?x[0]:(x[1]==='LTRT'?'LT + RT':x[1])+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2]);
   const row=(x,i,pre)=>`<div class="step${!pre&&i===sel?' on':''}${NEW.has(x[4])?' glow':''}" data-i="${pre?'':i}"><span class="n">${pre?'•':i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}${NEW.has(x[4])?'<span class="nb">NEW</span>':''}</div><div class="d">${esc(x[5])}</div></div><span class="key">${key(x)}</span></div>`;
@@ -1216,57 +1133,186 @@ function bookTalents(w,B){
     const sel=w.querySelector('.lt.sel'),rd=w.querySelector('.lvs');if(sel&&rd)rd.scrollLeft=Math.max(0,sel.offsetLeft-rd.offsetLeft-rd.clientWidth/2+24)};
   if(P.length&&at(book.ui.at))tree=book.ui.tree=T[at(book.ui.at).name].tree;
   draw()}
-function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div class="ladder">${B.ladder.map(r=>`<div class="rung ${r.state}"><img src="${BI(r.icon)}" alt=""><div><div class="t blue">${esc(r.name)}</div><div class="d">${esc(r.from)} · ${r.dps.toFixed(1)} DPS</div></div><span class="l">${r.lvl}</span></div>`).join('')}</div>
-  <div class="k" style="margin-top:6px">For level ${B.level}</div><div class="grid4">${B.forLevel.map(f=>`<div class="fd"><img src="${BI(f.icon)}" alt=""><div>${esc(f.name)}</div><span>${esc(f.what)}</span></div>`).join('')}</div>
-  ${B.gearNote?`<p class="note">${esc(B.gearNote)}</p>`:''}`}
 
-// ---------- the Upgrades tab (sheet 17): Cheap Upgrades' list from its last scan, as of the last reload ----------
-// Its mode and budget tiles show what Cheap Upgrades is set to. Sending its own commands (/cu rich, /cu max, /cu scan)
-// waits for an in-game check that an add-on slash command typed from the phone doesn't block the controller.
-const CU_SEND=false;
-const up={data:null,pick:null,at:0,rich:null,max:null,pending:false,maxT:0,busy:false,fail:false,waitUntil:0};
-// one fetch at a time (so no answer lands out of order); after a failure, polls wait 10 s before asking again (2026-11-26)
-async function loadUp(force){if(up.busy||!force&&performance.now()<up.waitUntil)return;up.busy=true;
-  const {ok,j}=await api('/api/book').finally(()=>{up.busy=false});
-  if(ok){up.fail=false;up.waitUntil=0;if(j.at!==up.at){up.rich=up.max=null;up.pending=false}up.data=j;up.at=j.at}
-  else{up.fail=!up.data;up.waitUntil=performance.now()+10000;setTimeout(()=>{if(chat.open&&chat.tab==='Upgrades'&&(up.fail||!up.data))loadUp(true)},10000)}
-  if(chat.open&&chat.tab==='Upgrades')drawUp()}
 const money=c=>{c=Math.round(c||0);const g=Math.floor(c/10000),s=Math.floor(c/100)%100;return g?`${g}g${s?` ${s}s`:''}`:s?`${s}s`:`${c%100}c`};
 // the game's coin colours on the letters: gold g, silver s, copper c
 const moneyHtml=c=>esc(money(c)).replace(/(\d+)([gsc])/g,(_,n,u)=>`${n}<span class="m${u}">${u}</span>`);
-const CU_STEPS=[1000,2500,5000,10000,20000,50000,100000,250000,500000,1000000],CU_ANY=10000000;
-function cuSend(ask){if(!CU_SEND)return;knock();api('/api/send',ask)}
-function cuMax(c){up.max=c;up.pending=true;clearTimeout(up.maxT);up.maxT=setTimeout(()=>cuSend({cu:'max',copper:c}),1200);drawUp()}
-function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;ahEl.textContent='';const B=up.data;if(!B||!B.cu){ahEl.appendChild($('div','hd',up.fail?'Couldn\'t reach the laptop':'Reading Cheap Upgrades…'));return}
-  if(up.rich==null)up.rich=B.cu.rich;if(up.max==null)up.max=B.cu.max||50*10000;
-  const tray=()=>{const t=$('div','tray2');ahEl.appendChild(t);return t};
-  ahEl.appendChild($('div','k','Show me'));
-  const m=tray();for(const [label,on] of [['Best value',false],['Biggest upgrade',true]]){const x=$('div','tile'+(up.rich===on?' down':''),label);
-    x.addEventListener('click',()=>{if(up.rich===on||!CU_SEND)return;up.rich=on;up.pending=true;cuSend({cu:'rich',on});drawUp()});m.appendChild(x)}
-  ahEl.appendChild($('div','k','Most per item'));
-  const st=tray();st.classList.add('step');
-  const minus=$('div','tile','−'),amt=$('div','amt'),plus=$('div','tile','+');
-  // tap to type: gold and silver boxes, number keypad; saved when you leave the box or press Go
-  const gIn=$('input'),sIn=$('input');for(const [x,v,n] of [[gIn,up.max>=CU_ANY?'':Math.floor(up.max/10000)||'',4],[sIn,up.max>=CU_ANY?'':Math.floor(up.max/100)%100||'',2]]){x.inputMode='numeric';x.pattern='[0-9]*';x.maxLength=n;x.value=String(v);x.placeholder=up.max>=CU_ANY?(x===gIn?'Any':''):'0';x.autocomplete='off'}
-  const typed=()=>{const g=Math.min(1000,parseInt(gIn.value||'0',10)||0),sv=Math.min(99,parseInt(sIn.value||'0',10)||0),c=g*10000+sv*100;if(c>=100&&c!==up.max&&CU_SEND)cuMax(Math.min(CU_ANY,c))};
-  for(const x of [gIn,sIn]){x.addEventListener('input',()=>{x.value=x.value.replace(/\D/g,'')});x.addEventListener('change',typed);x.addEventListener('keydown',e=>{if(e.key==='Enter')x.blur()})}
-  const gL=$('span','mg','g'),sL=$('span','ms','s');gL.addEventListener('click',()=>gIn.focus());sL.addEventListener('click',()=>sIn.focus());   // the letter opens its own box
-  amt.append(gIn,gL,sIn,sL);
-  minus.addEventListener('click',()=>{if(!CU_SEND)return;const k=up.max>=CU_ANY?CU_STEPS.length-1:CU_STEPS.findLastIndex(v=>v<up.max);if(k>=0)cuMax(CU_STEPS[k])});
-  plus.addEventListener('click',()=>{if(!CU_SEND)return;const k=CU_STEPS.findIndex(v=>v>up.max);cuMax(k>=0?CU_STEPS[k]:CU_ANY)});
-  st.append(minus,amt,plus);
-  const ch=tray();ch.classList.add('chips');
-  if(B.money>=100){const g=$('div','tile'+(up.max===Math.floor(B.money/100)*100?' down':''));g.innerHTML='<span>My gold · '+moneyHtml(B.money)+'</span>';g.addEventListener('click',()=>CU_SEND&&cuMax(Math.max(100,Math.floor(B.money/100)*100)));ch.appendChild(g)}
-  const any=$('div','tile'+(up.max>=CU_ANY?' down':''),'Any');any.addEventListener('click',()=>CU_SEND&&cuMax(CU_ANY));ch.appendChild(any);
-  if(up.pending)ahEl.appendChild($('div','hd','New list after your next reload'));
-  const list=B.cu.list;
-  if(up.pick){const u=list.find(x=>x.id===up.pick);if(u){const d=$('div','uprow lit');d.innerHTML=upRow(u);ahEl.appendChild(d);
-    const go=$('div','upgo','Search');go.addEventListener('click',async()=>{knock();const {ok}=await api('/api/ah',{text:u.name.toLowerCase()+'/exact'});go.classList.toggle('no',!ok);go.textContent=ok?'Searched':'Open the auction house first';setTimeout(()=>{go.classList.remove('no');go.textContent='Search'},2500)});ahEl.appendChild(go);
-    const back=$('div','hd','‹ All upgrades');back.style.cursor='pointer';back.addEventListener('click',()=>{up.pick=null;drawUp()});ahEl.appendChild(back);return}}
-  ahEl.appendChild($('div','k',`Best for ${B.name} now`));
-  if(!list.length){ahEl.appendChild($('div','hd','Nothing yet. Scan at the auction house, then reload.'));return}
-  for(const u of list){const r=$('div','uprow');r.innerHTML=upRow(u);r.addEventListener('click',()=>{up.pick=u.id;drawUp()});ahEl.appendChild(r)}}
-function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u.icon)}.jpg" alt="">`:''}<div class="upw"><div class="upn${u.q!=null?' q'+u.q:''}">${esc(u.name)}</div><div class="ups">${esc(u.slot)}${u.lvl?' · level '+u.lvl:''}</div></div><div class="upr"><div class="upg">+${u.pct}%</div><div class="upc">${moneyHtml(u.price)}</div></div>`}
+
+// ---------- the WoW home (sheet omashu/remote/27, approved 2026-11-27): one coin, one home, Now · Chat · Pad · Book ----------
+// The coin (class icon and level; pink = unread whispers, gold dot = danger in his zone or training waiting) takes the
+// place of the "?" while WoW is on. The home opens on Chat when a whisper is waiting, else on the page used last.
+const HOME_KEY='omashu.homePage';
+const SV={
+ now:'<svg viewBox="0 0 12 12"><path d="M5 1h2v1h1v1h1v2h1v2h-1v2h-1v1h-1v1h-2v-1h-1v-1h-1v-2h-1v-2h1v-2h1v-1h1z" fill="currentColor"/><rect x="5.5" y="3" width="1" height="4" fill="#0d0906"/><rect x="5.5" y="8" width="1" height="1" fill="#0d0906"/></svg>',
+ chat:'<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 2h10v6h-5l-3 2v-2h-2z" fill="currentColor"/></svg>',
+ pad:'<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M4 1h4v1h1v1h1v6h-1v1h-1v1h-4v-1h-1v-1h-1v-6h1v-1h1z" fill="currentColor"/><rect x="5.5" y="2" width="1" height="3" fill="#0d0906"/></svg>',
+ book:'<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 2h4l1 1 1-1h4v8h-4l-1 1-1-1h-4z" fill="currentColor"/><rect x="5.5" y="3" width="1" height="7" fill="#0d0906"/></svg>'};
+const TICK='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M2 6h2v1h1v1h1v-1h1v-1h1v-1h1v-1h1v2h-1v1h-1v1h-1v1h-1v1h-2v-1h-1v-1h-1z" fill="#ffd36b"/></svg>';
+const PLUS='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M5 2h2v3h3v2h-3v3h-2v-3h-3v-2h3z" fill="#9a8f78"/></svg>';
+const LENS='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M3 1h4v1h1v1h1v4h-1v1h-1v1h-4v-1h-1v-1h-1v-4h1v-1h1zM3 3v3h1v1h3v-1h1v-3h-1v-1h-3v1z" fill="#c8962e"/><path d="M8 8h1v1h1v1h1v1h-1v-1h-1v-1h-1z" fill="#c8962e"/></svg>';
+const STAR='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M5 1h2v3h3v2h-2v2h1v3h-2v-1h-2v1h-2v-3h1v-2h-2v-2h3z" fill="currentColor"/></svg>';
+const home={el:null,well:null,page:null,ask:null,sent:{},nowSig:''};
+const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+const homePages=()=>book.on?['now','chat','pad','book']:['now','chat','pad'];
+function openHome(){
+  if(home.el||!chat.on)return;closeSheet();
+  const dim=$('div','whdim');dim.addEventListener('click',closeHome);app.appendChild(dim);
+  const el=$('div','wh');el.innerHTML='<div class="grip"></div><div class="head"></div><div class="well"></div><div class="hbar"></div>';
+  app.appendChild(el);home.el=panel=el;home.well=el.querySelector('.well');
+  el.querySelector('.grip').addEventListener('click',closeHome);
+  dropTicked();drawHead();
+  let start=unreadWhispers()>0?'chat':(()=>{try{return localStorage.getItem(HOME_KEY)}catch(e){return null}})()||'now';
+  if(!homePages().includes(start))start='now';
+  showPage(start,true);
+  if(book.on)loadBook();
+}
+function closeHome(){
+  if(!home.el)return;leavePage();closeAsk(true);
+  const el=home.el,dim=app.querySelector('.whdim');home.el=home.well=home.page=null;panel=null;
+  el.classList.add('out');if(dim)dim.classList.add('out');setTimeout(()=>{el.remove();if(dim)dim.remove()},reduced()?0:160);
+}
+function leavePage(){if(home.page==='pad')closePad();else if(home.page==='chat')unmountChat()}
+function showPage(p,first){
+  if(!home.el||p===home.page&&!first)return;
+  leavePage();closeAsk(true);
+  home.page=p;try{localStorage.setItem(HOME_KEY,p)}catch(e){}
+  const w=home.well;w.className='well';w.textContent='';w.scrollTop=0;void w.offsetWidth;w.className='well pagefade'+(p==='chat'||p==='pad'?' flush':'');
+  drawBar();
+  if(p==='now'){home.nowSig='';drawNow()}
+  else if(p==='chat')mountChat(w);
+  else if(p==='pad')openPad(w);
+  else drawBookPage();
+}
+function drawHead(){
+  if(!home.el)return;const h=home.el.querySelector('.head'),B=book.data,zone=chat.zone||(B&&B.zone)||'';
+  h.innerHTML=B?`<img src="${BI('classicon_paladin')}" alt=""><div class="hw"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${zone?' · '+esc(zone):''}</div><div class="xp"><i style="width:${Math.max(0,Math.min(100,B.xpPct||0))}%"></i></div></div>`
+    :`<div class="hw"><div class="nm">World of Warcraft</div><div class="sub">${book.level?'Level '+book.level+(zone?' · ':''):''}${esc(zone)}</div></div>`}
+function drawBar(){
+  if(!home.el)return;const bar=home.el.querySelector('.hbar'),pages=homePages();
+  if(bar.dataset.p!==pages.join()){bar.dataset.p=pages.join();
+    bar.innerHTML=pages.map(p=>`<div class="bk" data-p="${p}">${SV[p]}${p[0].toUpperCase()+p.slice(1)}${p==='chat'?'<span class="n" hidden></span>':p==='now'?'<span class="dot" hidden></span>':''}</div>`).join('');
+    bar.querySelectorAll('.bk').forEach(b=>b.addEventListener('click',()=>{knock();showPage(b.dataset.p)}))}
+  bar.querySelectorAll('.bk').forEach(b=>b.classList.toggle('on',b.dataset.p===home.page));
+  updateBadges()}
+// the coin and the bar keys: unread whispers (pink number), danger or training waiting (gold dot)
+function updateBadges(){
+  const n=chat.on?unreadWhispers():0,dot=chat.on&&(chat.danger.length>0||book.on&&book.train>0),txt=n>99?'99+':String(n);
+  const num=e=>{if(e){e.hidden=!n;e.textContent=txt}},spot=e=>{if(e)e.hidden=!dot};
+  num(wowCoin.querySelector('.n'));spot(wowCoin.querySelector('.dot'));
+  if(home.el){num(home.el.querySelector('.bk[data-p="chat"] .n'));spot(home.el.querySelector('.bk[data-p="now"] .dot'))}}
+function setCoin(){
+  wowCoin.classList.toggle('on',chat.on);
+  const ic=wowCoin.querySelector('.ic'),k=book.on?'pal':'wow';
+  if(ic.dataset.k!==k){ic.dataset.k=k;ic.innerHTML=book.on?`<img src="${BI('classicon_paladin')}" alt="">`:BUBBLE}
+  const lv=wowCoin.querySelector('.lv');lv.hidden=!book.on||!book.level;lv.textContent=book.level||'';
+  updateBadges()}
+
+// ---------- Now: danger (only when any), errands for the next town trip, then what's worth a detour ----------
+const agoHtml=at=>{const m=Math.max(0,Math.round((Date.now()-at)/60000));return m<1?'just<br>now':m<60?`${m} min<br>ago`:`${Math.round(m/60)} h<br>ago`};
+const ERR_KEY=()=>'omashu.errands.'+(myName()||'wow');
+function errands(){try{const a=JSON.parse(localStorage.getItem(ERR_KEY())||'[]');return Array.isArray(a)?a.filter(x=>x&&typeof x.n==='string'&&x.n).slice(0,30):[]}catch(e){return []}}
+function saveErrands(a){try{localStorage.setItem(ERR_KEY(),JSON.stringify(a.slice(0,30)))}catch(e){}}
+// ticked errands are done: they leave the list the next time the home opens
+function dropTicked(){const a=errands();if(a.some(x=>x.done))saveErrands(a.filter(x=>!x.done))}
+function qty(m){const B=book.data,have=B&&B.bags?B.bags[m.id]||0:null;return have==null||!m.id?'×'+m.c:`${have}/${m.c}`}
+function detourWhere(d,B){
+  const parts=[d.here?`${d.giver} · in your zone now`:`${d.zone}, ${d.giver}`,d.note.replace(/\.$/,'')];
+  if(B&&B.level<d.min)parts.push('from '+d.min);
+  return parts.join(' · ')}
+// what the Now page shows, so a poll redraws it only when something on it changed (a redraw under a finger loses taps)
+function nowSig(){const B=book.data;return JSON.stringify([chat.danger.slice(0,2).map(d=>[d.seq,d.text,Math.round((Date.now()-d.at)/60000)]),B&&[B.at,B.level,B.name],errands(),home.sent])}
+function drawNow(){
+  if(!home.el||home.page!=='now')return;const B=book.data,w=home.well,D=chat.danger.slice(0,2),mine=errands();
+  const sig=nowSig();if(sig===home.nowSig)return;home.nowSig=sig;const top=w.scrollTop;
+  let h='';
+  for(const d of D)h+=`<div class="danger"><img src="${BI('achievement_pvp_h_01')}" alt=""><div><div class="ti">${esc(d.kind==='attack'?d.text:'Alliance seen nearby')}</div><div class="de">${d.kind==='attack'?'Your zone'+(d.zone?' · '+esc(d.zone):''):esc((d.who?d.who+': ':'')+d.text)}</div></div><div class="ago">${agoHtml(d.at)}</div></div>`;
+  h+='<div class="k">Errands <b>next time in town</b></div>';
+  const T=B&&B.train;
+  if(T&&(T.fresh.length||T.ups.length)){const n=T.fresh.length,u=T.ups.length;
+    h+=`<div class="er"><div class="top"><div><div class="ti">Train at your paladin trainer</div><div class="de">${[n?n+' new':'',u?u+(u>1?' ranks up':' rank up'):''].filter(Boolean).join(' · ')}</div></div><div class="cost">${moneyHtml(T.cost)}</div></div>
+    <div class="spells">${[...T.fresh,...T.ups].slice(0,8).map(s=>`<img src="${BI(s.icon)}" alt="">`).join('')}</div></div>`}
+  for(const s of (B&&B.swaps)||[])h+=`<div class="er"><div class="top"><img class="sw" src="${BI(s.icon)}" alt=""><div><div class="ti">Unlearn ${esc(s.from)}, learn ${esc(s.to)}</div><div class="de">You've reached ${s.lvl}</div></div></div></div>`;
+  h+=`<div class="er">${mine.map((m,i)=>`<div class="it${m.done?' done':''}" data-i="${i}">${m.id?`<img src="/api/item/${m.id}.jpg" alt="">`:'<span class="noimg"></span>'}<div class="ti">${esc(m.n)}</div><span class="q">${qty(m)}</span><span class="tick">${TICK}</span></div>`).join('')}<div class="add">${PLUS}Add to my list</div></div>`;
+  const dets=(B&&B.detours)||[];
+  if(dets.length){h+=`<div class="k" style="margin-top:14px">Worth a detour <b>${dets.every(d=>d.dps)?'for your weapon':'near your level'}</b></div>`;
+    for(const d of dets)h+=`<div class="dtc"><div class="top"><img class="rw" src="${BI(d.icon)}" alt=""><div><div class="ti">${esc(d.name)}</div><div class="rwn">${esc(d.reward)}${d.dps?' · '+d.dps.toFixed(1)+' DPS':d.stats?' · '+esc(d.stats):''}</div><div class="de">${esc(detourWhere(d,B))}</div></div>${d.gain?`<div class="gain">×${d.gain.toFixed(1)}<small>vs your ${esc(B.weapon.word)}</small></div>`:''}</div>
+      <div class="pgo${home.sent[d.id]?' sent':''}" data-q="${d.id}">${home.sent[d.id]?TICK+'Polestar opened a tab for it':STAR+'Add to Polestar'}</div></div>`}
+  w.innerHTML=h;w.scrollTop=top;
+  w.querySelectorAll('img').forEach(im=>im.addEventListener('error',()=>{const s=$('span','noimg');s.className=im.className+' noimg';im.replaceWith(s)},{once:true}));
+  w.querySelectorAll('.it').forEach(e=>e.addEventListener('click',()=>{const a=errands(),m=a[+e.dataset.i];if(!m)return;knock();m.done=!m.done;saveErrands(a);e.classList.toggle('done',m.done);home.nowSig=nowSig()}));
+  w.querySelector('.add').addEventListener('click',openAsk);
+  w.querySelectorAll('.pgo').forEach(g=>g.addEventListener('click',()=>addPolestar(+g.dataset.q,g)));
+}
+// Add to Polestar: the laptop types /omq <quest id>; Polestar builds its own guide to that quest in a new tab
+async function addPolestar(id,el){
+  if(home.sent[id]||el.classList.contains('busy')||el.classList.contains('no'))return;knock();el.classList.add('busy');
+  const {ok,j}=await api('/api/send',{omq:id});el.classList.remove('busy');
+  if(ok){home.sent[id]=true;el.classList.add('sent');el.innerHTML=TICK+'Polestar opened a tab for it';home.nowSig=nowSig();return}
+  el.classList.add('no');el.textContent=j&&j.why==='refused'?'WoW won’t take that yet':j&&j.why==='not-in-wow'?'WoW is not up':'Not sent, try again';
+  setTimeout(()=>{if(!el.isConnected)return;el.classList.remove('no');el.innerHTML=STAR+'Add to Polestar'},2500)}
+// adding an errand: the auction search's suggestions, pictures and prices, then how many
+function openAsk(){
+  if(!home.el||home.ask)return;knock();
+  const dim=$('div','askdim');dim.addEventListener('click',()=>closeAsk());
+  const a=$('div','ask');a.innerHTML=`<label class="aslot">${LENS}<input type="text" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60"></label><div class="rows"></div>`;
+  home.el.append(dim,a);home.ask={el:a,dim,sel:null,c:1};
+  const i=a.querySelector('input');i.addEventListener('input',()=>{if(home.ask)home.ask.sel=null;drawAsk()});i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();i.blur()}});
+  i.focus();loadItems();drawAsk()}
+function closeAsk(now){const A=home.ask;if(!A)return;home.ask=null;const i=A.el.querySelector('input');if(document.activeElement===i)i.blur();
+  if(now||reduced()){A.el.remove();A.dim.remove();return}A.el.classList.add('out');A.dim.classList.add('out');setTimeout(()=>{A.el.remove();A.dim.remove()},160)}
+function askRow(n,id,q,on,bare){
+  const g=$('div','asg'+(on?' on':''));
+  if(id){const im=$('img');im.alt='';im.src='/api/item/'+id+'.jpg';im.onerror=()=>im.replaceWith($('span','noimg'));g.appendChild(im)}else g.appendChild($('span','noimg'));
+  const t=$('div','ti',n);t.style.color=QCOLOR[q]||'#fff';g.appendChild(t);
+  const p=id&&!bare?priceOf(id):null;if(p){const pr=$('div','p');pr.innerHTML=prMoney(p.low)+(p.usual?`<small>usually ${prMoney(p.usual).replace(/<[^>]+>/g,'')}</small>`:'');g.appendChild(pr)}
+  return g}
+// a tap acts when the finger lifts on the row, and keeps the keyboard up (as the mouse pad's suggestions, 2026-11-27)
+function onTap(g,fn){g.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+  g.addEventListener('pointerdown',e=>{e.preventDefault();g.classList.add('down')});g.addEventListener('pointercancel',()=>g.classList.remove('down'));
+  g.addEventListener('pointerup',()=>{if(!g.classList.contains('down'))return;g.classList.remove('down');fn()})}
+function drawAsk(){
+  const A=home.ask;if(!A)return;const i=A.el.querySelector('input'),rows=A.el.querySelector('.rows'),q=i.value.trim().toLowerCase(),typed=q.length>=2;
+  rows.textContent='';
+  const rec=ahRecent().map(x=>[x.n,x.id,x.q]);
+  let list=typed?[...rec.filter(r=>r[0].toLowerCase().includes(q)),...suggest(q).map(it=>[it.n,it.id,it.q])]:rec;
+  list=list.filter((r,k)=>list.findIndex(x=>x[0].toLowerCase()===r[0].toLowerCase())===k).slice(0,3);
+  if(list.length)rows.appendChild($('div','ahdr',typed?'RECENT AND MATCHING':'RECENT'));
+  for(const [n,id,qq] of list){const g=askRow(n,id,qq,A.sel&&A.sel.n===n);onTap(g,()=>{knock();A.sel={n,id,q:qq};drawAsk()});rows.appendChild(g)}
+  const sel=A.sel||(typed&&!list.length?{n:i.value.trim(),id:0,q:1}:null);
+  if(sel){rows.appendChild($('div','ahdr','HOW MANY'));const g=askRow(sel.n,sel.id,sel.q,false,true);g.style.cursor='default';
+    const st=$('div','stepper'),mi=$('span',null,'−'),b=$('b',null,String(A.c)),pl=$('span',null,'+');st.append(mi,b,pl);g.appendChild(st);
+    onTap(mi,()=>{knock();A.c=Math.max(1,A.c-1);b.textContent=A.c});onTap(pl,()=>{knock();A.c=Math.min(99,A.c+1);b.textContent=A.c});rows.appendChild(g)}
+  const go=$('div','pgo'+(sel?'':' off'));go.innerHTML=PLUS.replace('#9a8f78','#2a1405')+'Add to my list';
+  onTap(go,()=>{if(!sel)return;knock();const a=errands(),same=a.find(x=>x.n.toLowerCase()===sel.n.toLowerCase());
+    if(same){same.c=Math.min(99,(same.c||0)+A.c);same.done=false}else a.push({n:sel.n,id:sel.id||0,q:sel.q??1,c:A.c,done:false});
+    saveErrands(a);closeAsk();home.nowSig='';drawNow()});
+  rows.appendChild(go);
+  loadPrices(list.map(x=>x[1]).concat(sel&&sel.id?[sel.id]:[]).filter(Boolean))}
+
+// ---------- Book: Fight and Talents (sheet 27), in its own shadow root so its styles (from sheet 18) stay its own ----------
+function drawBookPage(){
+  if(!home.el||home.page!=='book')return;const w=home.well;
+  if(!book.data){w.innerHTML=book.fail?'<p class="de" style="margin:6px 2px">Can\'t reach the laptop right now</p>':'';return}
+  let host=w.querySelector('.bhost');
+  if(!host){w.textContent='';host=$('div','bhost');w.appendChild(host);const sh=host.attachShadow({mode:'open'});
+    sh.innerHTML=`<style>${BOOK_CSS}</style><div class="btabs">${['fight','talents'].map(t=>`<span data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</span>`).join('')}</div><div class="bw"></div>`;
+    sh.querySelectorAll('.btabs span').forEach(s=>s.addEventListener('click',()=>{if(s.dataset.t===book.tab)return;knock();w.scrollTop=0;bookTab(s.dataset.t)}))}
+  bookTab(book.tab||'fight',true)}
+function bookTab(t,keep){book.tab=t;if(!keep||!book.ui.tree)book.ui={sel:0,tree:'Retribution',pick:null,at:0};
+  const root=home.well.querySelector('.bhost').shadowRoot;root.querySelectorAll('.btabs span').forEach(x=>x.classList.toggle('on',x.dataset.t===t));
+  ({fight:bookFight,talents:bookTalents})[t](root.querySelector('.bw'),book.data)}
+// one load at a time; a blip keeps the page you are reading (2026-11-26)
+async function loadBook(){if(book.loading){book.again=true;return}book.loading=true;book.again=false;
+  const {ok,status,j}=await api('/api/book').finally(()=>{book.loading=false});
+  if(ok){const changed=!book.data||book.data.at!==j.at||book.data.name!==j.name;book.data=j;book.fail=false;homeRefresh(changed)}
+  else{if(status===404)book.data=null;book.fail=!book.data;homeRefresh(true)}
+  if(book.again)loadBook()}
+function homeRefresh(changed){if(!home.el)return;drawHead();drawBar();if(home.page==='now'){home.nowSig='';drawNow()}else if(home.page==='book'&&changed)drawBookPage()}
+// what /api/poll says about the book: a paladin's save (level, when, training waiting) or none
+function takeBook(b){const was=book.on;book.on=!!(chat.on&&b);book.level=b?b.level:0;book.train=b?b.train||0:0;
+  if(b&&b.at!==book.at)loadBook();book.at=b?b.at:0;
+  if(!book.on&&was){book.data=null;if(home.page==='book')showPage('now')}
+  if(was!==book.on&&home.el){drawBar();drawHead()}}
 
 // ---------- the trackpad (sheets omashu/remote/19, 21 v3): the phone moves and clicks the laptop's mouse, inside WoW only ----------
 // Speed: a laptop-trackpad curve. Slow finger = fine control, fast flick = across the TV. Moves are gathered and
@@ -1275,10 +1321,6 @@ function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u
 // to 5.3x; base 2 px per pt. Tap: lifted within 180 ms, moved under 8 pt. Two-finger tap: both up within 200 ms.
 const TP={ base:2.0, tapMs:180, tapPt:8, twoMs:200, scrollPt:20 };
 const tp={on:false,el:null,dx:0,dy:0,w:0,ev:[],busy:false,touches:new Map(),last:null,vel:0,two:null};
-const MOUSE_SVG='<svg viewBox="0 0 30 30"><rect x="8" y="3" width="14" height="24" rx="7" fill="#ffd36b" stroke="#140904" stroke-width="2"/><line x1="15" y1="3" x2="15" y2="12" stroke="#140904" stroke-width="2"/><rect x="14" y="6" width="2" height="4" fill="#7a4a1e"/></svg>';
-var mouseCoin=$('div','mousecoin');mouseCoin.innerHTML=MOUSE_SVG;app.appendChild(mouseCoin);
-const MX=CX+25;
-function placeMouse(){if(!mouseCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;mouseCoin.style.left=(r.left+MX*k-28)+'px';mouseCoin.style.top=(r.top+QY*k-28)+'px'}
 function tpGain(v){const u=Math.min(v,3.14);const f=v<0.036?0.33+18.4*v:v<=0.785?1:1+0.587*u*(u-0.785);return TP.base*f}
 // wheel steps add up into one total like the moves; only clicks and park wait in line, and never more than 40 (2026-11-26)
 function tpPush(m){if(m.w)tp.w+=m.w;else{tp.ev.push(m);if(tp.ev.length>40)tp.ev.splice(0,tp.ev.length-40)}tpFlush()}
@@ -1353,7 +1395,7 @@ async function loadPrices(ids){
   let ok=false,j=null;try{({ok,j}=await api('/api/prices?ids='+ids.join(',')))}catch(e){}
   if(!ok||!j||!j.items){ids.forEach(i=>PR.asked.delete(i));return}
   for(const i of ids)PR.days[i]=Array.isArray(j.items[i])?j.items[i]:[];
-  drawSugg()}
+  drawSugg();drawAsk()}
 function prMoney(c){c=Math.round(c);const g=Math.floor(c/10000),sv=Math.floor(c/100)%100,k=c%100;
   return (g?`<span class="cg">${g}g</span> `:'')+(sv?`<span class="cs">${sv}s</span> `:'')+(k||(!g&&!sv)?`<span class="cc">${k}c</span>`:'')}
 function priceOf(id){const d=PR.days[id];if(!d||!d.length)return null;
@@ -1416,16 +1458,16 @@ function laneSend(){
       if(no)no.textContent=r.ok?'':r.status===409?'WoW isn’t in front':'Not reaching the laptop'})
     .catch(()=>{const no=tp.el&&tp.el.querySelector('.tpno');if(no)no.textContent='Not reaching the laptop'})
     .finally(()=>{lane.out--})}
-function openPad(){if(tp.el)return;tp.on=true;
+function openPad(into){if(tp.el||!into)return;tp.on=true;
   lane.s=(Math.random()*4294967295)>>>0;lane.n=0;lane.x=lane.y=lane.sx=lane.sy=0;
-  const el=$('div','tpad');
+  const el=$('div','tpad inwell');
   el.innerHTML=`${[1,2,3,4].map(n=>`<div class="corner c${n}"><i></i><i></i><i></i></div>`).join('')}<div class="put">${PX_CHEV}</div>
   <div class="rail"><label class="slot">${PX_LENS}<input type="text" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60"></label>
   <div class="lev"><div class="ic a">${PX_PAD}</div><div class="ic b">${PX_PTR}</div><div class="hub"></div><div class="arm"></div></div></div>
   <div class="trail"><label class="tslot">${PX_PEN}<input type="text" enterkeyhint="enter" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" maxlength="200"></label>
   <div class="key" data-k="tab">${PX_TAB}</div><div class="key" data-k="enter">${PX_ENT}</div></div>
   <div class="sugg"></div><div class="surf"><div class="tpno"></div></div><div class="bars"><div class="bar" data-b="l"></div><div class="bar" data-b="r"></div></div>`;
-  app.appendChild(el);tp.el=el;
+  into.appendChild(el);tp.el=el;
   el.querySelector('.put').addEventListener('click',()=>{knock();closePad()});
   const L=el.querySelector('.lev');L.addEventListener('click',()=>throwLever(L));
   const i=el.querySelector('.slot input');
@@ -1473,7 +1515,7 @@ function openPad(){if(tp.el)return;tp.on=true;
 function closePad(leaving){if(!tp.el)return;tp.el.remove();tp.el=null;tp.on=false;tp.touches.clear();tp.two=null;tp.w=0;tp.dx=tp.dy=0;tp.ev.length=0;
   if(!leaving){tpPush({park:true});return}
   try{fetch('/api/mouse',{method:'POST',keepalive:true,headers:{'x-omashu':'1','Content-Type':'application/json'},body:'{"park":true}'})}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.hidden)closePad(true)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)closePad(true);else if(home.page==='pad'&&home.well&&!tp.el)openPad(home.well)});
 addEventListener('pagehide',()=>closePad(true));
 
 // ---------- staying in step with Aang ----------
@@ -1485,21 +1527,25 @@ async function poll(){
   const {ok,j}=await api(`/api/poll?after=${after}&session=${encodeURIComponent(chat.session||'')}`);
   if(ok){
     if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
-    const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);mouseCoin.classList.toggle('on',chat.on);if(!chat.on&&tp.el)closePad();
-    if(!chat.on){chat.ah=false;chat.ahWin=null;chat.typing=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
+    const was=chat.on;chat.on=!!j.chat;if(chat.on&&!was)closeSheet();if(!chat.on&&tp.el)closePad();
+    if(!chat.on){chat.ah=false;chat.ahWin=null;chat.typing=false;chat.danger=[];chat.zone=null;if(was){closeHome();chat.lines=[];chat.session=null;chat.whispers=0;chat.seen={}}}
     else{
       const newSession=j.session!==chat.session;if(newSession){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
       if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
         for(const l of j.lines)if(chat.emoteAt>performance.now()&&l.kind==='system'&&l.text[0]&&/^You /.test(l.text[0].s||'')){l.em=performance.now()+4000;chat.emoteAt=0}
         chat.lines.push(...j.lines);
-        if(fresh){const top=chat.lines[chat.lines.length-1].seq;for(const [n] of TABS)if(chat.seen[n]==null)chat.seen[n]=top}   // counts start from now, not from the backlog
+        if(fresh)chat.seen=W.initSeen(chat.lines,j.whispers||0);   // counts start from now, not from the backlog (but Aang's unread whispers stay unread)
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
-      chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
+      chat.whispers=j.whispers||0;
       // the auction house and which window is up: the mouse pad's search slot and lever (sheet 21)
       const ah=!!j.ah;chat.ahWin=ah&&(j.ahWin==='improved'||j.ahWin==='game')?j.ahWin:null;if(ah!==chat.ah){chat.ah=ah;if(ah)loadItems()}chat.typing=j.typing===true;if(tp.el)drawRail();
-      const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(chat.open&&gChanged&&rosterEl)drawRoster();
-      if(chat.open&&(j.lines&&j.lines.length||!was||newSession))render(newSession)}
+      const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(gChanged&&rosterEl)drawRoster();
+      // danger in his zone (sheet 27): Aang keeps the last 15 minutes of LocalDefense trouble for the zone he is in
+      chat.danger=Array.isArray(j.danger)?j.danger:[];chat.zone=j.zone||null;
+      const dz=JSON.stringify([chat.danger,chat.zone]);if(dz!==chat.dz){chat.dz=dz;drawHead();drawNow()}else drawNow();
+      if(j.lines&&j.lines.length||!was||newSession)render(newSession)}
+    takeBook(chat.on?j.book:null);setCoin();
     place();
   }
   }finally{polling=false;pollT=setTimeout(poll,document.hidden?5000:tp.el?700:1500)}
