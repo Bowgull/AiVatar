@@ -329,7 +329,6 @@ svg.px{shape-rendering:crispEdges}
 .tpad .lev .arm::after{content:"";position:absolute;left:-5px;top:-8px;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff3c0,#ffb84a 45%,#8a4214 80%);box-shadow:0 0 10px #ffd36b88}
 .tpad .lev .hub{position:absolute;left:68px;bottom:5px;width:20px;height:9px;border-radius:4px 4px 2px 2px;background:#6a4a1a;box-shadow:inset 0 2px 0 #c8962e}
 .tpad .lev.b .arm{transform:rotate(34deg)}
-.tpad .lev.busy .arm{transform:rotate(0)}
 .tpad .lev.no{box-shadow:inset 0 0 0 2px #b5413a,inset 0 0 0 4px #24140a,0 3px 0 #0a0503}
 .tpad .sugg{display:flex;flex-direction:column;gap:5px;z-index:1}
 .tpad .sugg:empty{display:none}
@@ -1209,23 +1208,27 @@ const PX_PTR=pxArt(['.#..........','.##.........','.#o#........','.#oo#.......',
 const PX_CHEV=pxArt(['............','............','............','.##......##.','.###....###.','..###..###..','...######...','....####....','.....##.....','............','............','............'],'#3a1a08');
 const PX_LENS=pxArt(['............','...####.....','..#....#....','.#......#...','.#......#...','.#......#...','.#......#...','..#....#....','...#####....','.......##...','........##..','.........##.'],'#c8962e');
 const QCOLOR=['#9d9d9d','#ffffff','#1eff00','#0070dd','#a335ee','#ff8000'];
-// the lever: lit side = the window WoW says is up. Thrown: the arm stands upright until WoW says it swapped (or 3 s).
-const lev={busy:false,want:null,until:0};
+// the lever: the arm swings the moment it's tapped (Joshua 2026-11-27: waiting upright for WoW felt stuck); the icon
+// lights only once WoW says that window is up. If the laptop refuses, the arm swings back with a red flash; if WoW
+// hasn't confirmed within 4 s, the arm goes back to whatever WoW last said.
+const lev={sending:false,want:null,until:0};
 function drawRail(){
   const el=tp.el;if(!el)return;el.classList.toggle('at-ah',chat.ah);
-  const L=el.querySelector('.lev');
-  if(lev.busy&&(chat.ahWin===lev.want||performance.now()>lev.until))lev.busy=false;
-  L.classList.toggle('busy',lev.busy);L.classList.toggle('b',chat.ahWin==='game');
-  L.querySelector('.ic.a').classList.toggle('lit',!lev.busy&&chat.ahWin==='improved');
-  L.querySelector('.ic.b').classList.toggle('lit',!lev.busy&&chat.ahWin==='game');
+  const L=el.querySelector('.lev'),now=performance.now();
+  if(lev.want&&(now>lev.until||chat.ahWin===lev.want&&!lev.sending))lev.want=null;
+  const side=lev.want||chat.ahWin;
+  L.classList.toggle('b',side==='game');
+  L.querySelector('.ic.a').classList.toggle('lit',side==='improved'&&chat.ahWin==='improved');
+  L.querySelector('.ic.b').classList.toggle('lit',side==='game'&&chat.ahWin==='game');
   if(!chat.ah){const i=el.querySelector('.slot input');if(document.activeElement===i)i.blur()}
 }
 async function throwLever(L){
-  if(lev.busy||!chat.ah)return;knock();
-  lev.busy=true;lev.want=chat.ahWin==='game'?'improved':'game';lev.until=performance.now()+3000;drawRail();
+  if(lev.sending||!chat.ah)return;knock();
+  const from=lev.want||chat.ahWin;lev.want=from==='game'?'improved':'game';lev.until=performance.now()+4000;lev.sending=true;drawRail();
   let ok=false;try{({ok}=await api('/api/ah',{swap:true}))}catch(e){}
-  if(!ok){lev.busy=false;L.classList.add('no');setTimeout(()=>L.classList.remove('no'),1200);drawRail()}
-  else setTimeout(drawRail,3100);   // no word from WoW in 3 s: the arm lands where WoW last said
+  lev.sending=false;
+  if(!ok){lev.want=null;L.classList.add('no');setTimeout(()=>L.classList.remove('no'),1200)}
+  drawRail();setTimeout(drawRail,4100);
 }
 function drawSugg(){
   const el=tp.el;if(!el)return;const box=el.querySelector('.sugg'),i=el.querySelector('.slot input');
@@ -1279,7 +1282,7 @@ function openPad(){if(tp.el)return;tp.on=true;
     if(tp.two){if(tp.touches.size===0){if(now-tp.two.t0<TP.twoMs+150&&tp.two.moved<TP.tapPt*2){knock();tpPush({b:'r',d:true});tpPush({b:'r',d:false})}tp.two=null}return}
     if(now-t.t0<TP.tapMs&&Math.hypot(t.x-t.x0,t.y-t.y0)<TP.tapPt){knock();tpPush({b:'l',d:true});tpPush({b:'l',d:false})}};
   surf.addEventListener('pointerup',lift);surf.addEventListener('pointercancel',lift);
-  lev.busy=false;drawRail();
+  lev.want=null;drawRail();
   tpPush({dx:1,dy:0});tpPush({dx:-1,dy:0});   // a small nudge: WoW shows its pointer once the mouse moves
 }
 // Put away: the pad closes and the laptop parks the pointer off the TV (and lets go of any held button). Leaving the
