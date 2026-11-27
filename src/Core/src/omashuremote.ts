@@ -115,6 +115,21 @@ export class Laptop {
   }
   /** Auctionable item names for the phone's suggestions (sheet omashu/remote/15): [name, quality, weight] from aux's own list
    *  (weight: +2 seen for sale, +1 trade good/consumable/reagent). */
+  /** The auction list's prices (sheet 22): each asked item's last 14 days from Improved's saved file,
+   *  [day, lowest, market, listed] in copper. Only clean numbers pass. */
+  async ahPrices(ids: number[]): Promise<{ at: string | null; items: Record<string, [number, number, number, number][]> } | null> {
+    const r = await this.call(`/ah/prices?ids=${ids.join(',')}`, {}, 8000);
+    if (!r?.ok) return null;
+    const j = await r.json().catch(() => null) as { at?: unknown; items?: Record<string, unknown> } | null;
+    if (!j || typeof j.items !== 'object' || !j.items) return null;
+    const items: Record<string, [number, number, number, number][]> = {};
+    for (const [k, v] of Object.entries(j.items)) {
+      if (!/^\d{1,7}$/.test(k) || !Array.isArray(v)) continue;
+      const days = v.filter((d): d is [number, number, number, number] => Array.isArray(d) && d.length === 4 && d.every(n => typeof n === 'number' && Number.isFinite(n) && n >= 0)).slice(-14);
+      if (days.length) items[k] = days;
+    }
+    return { at: typeof j.at === 'string' ? j.at : null, items };
+  }
   /** [name, quality, weight, item id]: the id (from 2026-11-27) gives the suggestion its picture; 0 when the laptop is older. */
   async ahItems(): Promise<{ at: string | null; items: AhItem[] } | null> {
     const r = await this.call('/ah/items', {}, 8000);
@@ -536,6 +551,14 @@ export class OmashuRemote {
       if (name === undefined) { const t = await this.wowhead.byId('item', id); name = t?.icon ?? null; this.itemIcons.set(id, name); if (this.itemIcons.size > 2000) this.itemIcons.delete(this.itemIcons.keys().next().value!); }
       const img = name ? await this.iconFromWowhead(name) : null;
       if (img) send(res, 200, img, 'image/jpeg', { 'Cache-Control': 'max-age=604800' }); else res.writeHead(404).end();
+      return;
+    }
+    if (req.method === 'GET' && p === '/api/prices') {   // sheet 22: up to 30 item ids
+      if (!phone.chat) { json(res, 403, { ok: false }); return; }
+      const ids = (url.searchParams.get('ids') ?? '').split(',').filter(x => /^\d{1,7}$/.test(x)).slice(0, 30).map(Number);
+      if (!ids.length) { json(res, 400, { ok: false, why: 'refused' }); return; }
+      const pr = await this.laptop.ahPrices(ids);
+      json(res, pr ? 200 : 409, pr ?? { ok: false, why: 'asleep' });
       return;
     }
     if (req.method === 'GET' && p === '/api/items') {

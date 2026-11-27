@@ -535,3 +535,18 @@ test('trackpad fast lane (sheet 21): /api/mv goes on as one signed UDP packet; b
     assert.equal((await r.as(GUEST).post('/api/mv', { s: 1, n: 2, x: 0, y: 0 })).status, 403, 'only the chat phone');
   } finally { await r.done(); }
 });
+
+test('auction list (sheet 22): /api/prices passes each item\'s days, clean numbers only, chat phone only', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    const res = await r.as(JOSH).get('/api/prices?ids=2770,2771,abc,99999999');
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    assert.deepEqual(j.items, { 2770: [[20783, 93, 99, 11618], [20784, 78, 213, 3638]] }, 'a bad day is dropped, and an item with none');
+    assert.equal(r.lap.pricesAsked, '2770,2771', 'only clean ids reach the laptop');
+    assert.equal((await r.as(JOSH).get('/api/prices?ids=abc')).status, 400);
+    assert.equal((await r.as(GUEST).get('/api/prices?ids=2770')).status, 403);
+  } finally { await r.done(); }
+});

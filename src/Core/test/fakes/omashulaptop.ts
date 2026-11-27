@@ -44,6 +44,7 @@ export class FakeLaptop {
   typed: string[] = [];
   /** aux's search box on screen (the auction house open), and what Couch Mode typed into it. */
   ah = false;
+  pricesAsked = '';
   win: 'improved' | 'game' | null = null;
   searched: string[] = [];
   /** aux's item list as Couch Mode serves it. */
@@ -190,6 +191,7 @@ export class FakeLaptop {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/ah/items') { j(200, { at: '2026-11-11T00:00:00.000Z', items: this.ahItems }); return; }
+    if (req.method === 'GET' && url.pathname === '/ah/prices') { this.pricesAsked = url.searchParams.get('ids') ?? ''; j(200, { at: '2026-11-27T00:00:00.000Z', items: { 2770: [[20783, 93, 99, 11618], [20784, 78, 213, 3638]], 2771: [[20784, -5, 'x', 1]] } }); return; }
     if (req.method === 'POST' && url.pathname === '/ah/swap') {
       if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
       if (!this.ah) { j(409, { ok: false, why: 'no-ah' }); return; }

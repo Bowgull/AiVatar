@@ -334,7 +334,19 @@ svg.px{shape-rendering:crispEdges}
 .tpad .sugg{display:flex;flex-direction:column;gap:5px;z-index:1}
 .tpad .sugg:empty{display:none}
 .tpad .sg img{width:30px;height:30px;border-radius:5px;box-shadow:0 0 0 2px #000;flex:none}
-.tpad .sg{display:flex;align-items:center;gap:9px;min-height:44px;background:#120a05;border-radius:10px;padding:6px 12px;box-shadow:inset 0 0 0 2px #3a2412;font:600 16px Figtree,system-ui,sans-serif}
+.tpad .hdr{font:12px "Pixelify Sans";color:#8a7b63;letter-spacing:.6px;margin:0 2px -1px}
+.tpad .sg .top{display:flex;align-items:center;gap:9px;min-height:44px}
+.tpad .sg .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tpad .sg .pr{font:700 14px Figtree,system-ui,sans-serif;text-align:right;line-height:1.15;flex:none;color:#f0e2bf}
+.tpad .sg .pr .u{display:block;font:400 11px Figtree,system-ui,sans-serif;color:#8a7b63}
+.tpad .sg .pr .tag{font:600 11px "Pixelify Sans";margin-left:4px}
+.tpad .sg.cheap{box-shadow:inset 0 0 0 2px #3c8f3a!important}.tpad .sg.cheap .tag{color:#7ae05a}.tpad .sg.dear .tag{color:#ff9a7a}
+.tpad .sg.open{box-shadow:inset 0 0 0 2px #ffd36b88}
+.tpad .cg{color:#ffd700}.tpad .cs{color:#c7c7cf}.tpad .cc{color:#e08a4a}
+.tpad .chart{margin:2px 0 6px;height:64px;border-radius:8px;background:#0a0503;box-shadow:inset 0 0 0 1px #3a2412;position:relative}
+.tpad .chart svg{position:absolute;left:8px;right:8px;top:6px;bottom:16px;width:calc(100% - 16px);height:calc(100% - 22px)}
+.tpad .chart .ax{position:absolute;left:8px;right:8px;bottom:2px;display:flex;justify-content:space-between;font:10px Figtree,system-ui,sans-serif;color:#6a5a40}
+.tpad .sg{display:block;background:#120a05;border-radius:10px;padding:2px 10px;box-shadow:inset 0 0 0 2px #3a2412;font:600 16px Figtree,system-ui,sans-serif}
 .tpad .sg:active,.tpad .sg.down{box-shadow:inset 0 0 0 2px #ffd36b88}
 .tpad .surf{flex:1;min-height:0;border-radius:16px;position:relative;overflow:hidden;z-index:1;touch-action:none;
   background:radial-gradient(ellipse at 50% 40%,#1c130c,#0d0805 75%);box-shadow:inset 0 0 0 2px #0a0503,inset 0 0 0 4px #5a3a18,inset 0 6px 22px #000}
@@ -1232,19 +1244,55 @@ async function throwLever(L){
   if(!ok){lev.want=null;L.classList.add('no');setTimeout(()=>L.classList.remove('no'),1200)}
   drawRail();setTimeout(drawRail,4100);
 }
+// Recent searches (this phone only) and every row's prices (sheet 22, 2026-11-27). The prices are Improved's, as of
+// the last reload or logout: today's lowest, and "usually" = the middle of its daily market prices (Improved's own rule).
+const RECENT_KEY='omashu.ahRecent2',RECENT_N=8;
+function ahRecent(){try{const a=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&typeof x.n==='string').slice(0,RECENT_N):[]}catch(e){return []}}
+function rememberSearch(n){const it=ITEM_BY&&ITEM_BY.get(n.toLowerCase());
+  const l=[{n,id:it?it.id:0,q:it?it.q:1},...ahRecent().filter(x=>x.n.toLowerCase()!==n.toLowerCase())].slice(0,RECENT_N);
+  try{localStorage.setItem(RECENT_KEY,JSON.stringify(l))}catch(e){}}
+const PR={at:0,days:{},asked:new Set(),open:null};
+async function loadPrices(ids){
+  if(performance.now()-PR.at>120000){PR.days={};PR.asked.clear();PR.at=performance.now()}
+  ids=ids.filter(i=>i&&!PR.asked.has(i));if(!ids.length)return;ids.forEach(i=>PR.asked.add(i));
+  let ok=false,j=null;try{({ok,j}=await api('/api/prices?ids='+ids.join(',')))}catch(e){}
+  if(!ok||!j||!j.items){ids.forEach(i=>PR.asked.delete(i));return}
+  for(const i of ids)PR.days[i]=Array.isArray(j.items[i])?j.items[i]:[];
+  drawSugg()}
+function prMoney(c){c=Math.round(c);const g=Math.floor(c/10000),sv=Math.floor(c/100)%100,k=c%100;
+  return (g?`<span class="cg">${g}g</span> `:'')+(sv?`<span class="cs">${sv}s</span> `:'')+(k||(!g&&!sv)?`<span class="cc">${k}c</span>`:'')}
+function priceOf(id){const d=PR.days[id];if(!d||!d.length)return null;
+  const low=d[d.length-1][1],ms=d.map(x=>x[2]).filter(x=>x>0).sort((a,b)=>a-b),usual=ms.length?ms[Math.floor((ms.length-1)/2)]:0;
+  return {low,usual,tone:usual&&low<usual*0.9?'cheap':usual&&low>usual*1.1?'dear':'',days:d}}
+function chart(p){const v=p.days.map(x=>x[1]),all=[...v,p.usual].filter(x=>x>0),lo=Math.min(...all),hi=Math.max(...all),span=hi-lo||1;
+  const y=c=>(36-(c-lo)/span*32).toFixed(1),x=k=>v.length<2?70:(k/(v.length-1)*140).toFixed(1);
+  const pts=v.map((c,k)=>`${x(k)},${y(c)}`).join(' ');
+  return `<div class="chart"><svg viewBox="0 0 140 40" preserveAspectRatio="none">${p.usual?`<line x1="0" y1="${y(p.usual)}" x2="140" y2="${y(p.usual)}" stroke="#8a7b63" stroke-width="1" stroke-dasharray="4 3"/>`:''}<polyline fill="none" stroke="#ffd36b" stroke-width="2" points="${pts}"/><circle cx="${x(v.length-1)}" cy="${y(v[v.length-1])}" r="3" fill="${p.tone==='dear'?'#ff9a7a':'#7ae05a'}"/></svg><div class="ax"><span>${v.length<2?'one day so far':v.length+' days'}</span><span>today</span></div></div>`}
+function sugRow(n,id,q){
+  const g=$('div','sg'),top=$('div','top');g.style.color=QCOLOR[q]||'#fff';
+  let im=null;if(id){im=$('img');im.alt='';im.src='/api/item/'+id+'.jpg';im.onerror=()=>im.remove();top.appendChild(im)}   // its picture (sheet 21), when Wowhead has one
+  top.appendChild($('span','nm',n));
+  const p=id?priceOf(id):null;
+  if(p){const pr=$('span','pr');pr.innerHTML=prMoney(p.low)+(p.tone?`<span class="tag">${p.tone==='cheap'?'▼':'▲'}</span>`:'')+(p.usual?`<span class="u">usually ${prMoney(p.usual).replace(/<[^>]+>/g,'')}</span>`:'');top.appendChild(pr);if(p.tone)g.classList.add(p.tone)}
+  g.appendChild(top);
+  if(p&&PR.open===id){g.classList.add('open');g.insertAdjacentHTML('beforeend',chart(p))}
+  // 2026-11-27 (Joshua: "tapping what's suggested and nothing is happening"): on the iPhone a tap takes the focus off
+  // the slot first, which cleared this list before the tap's click came. Now it acts when the finger lifts on the row,
+  // and the list waits a moment after the slot loses focus. The picture opens the price line; the rest searches.
+  g.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});   // keeps the keyboard and the list up
+  g.addEventListener('pointerdown',e=>{e.preventDefault();g.classList.add('down');g._pic=!!(im&&e.target===im)});
+  g.addEventListener('pointerup',()=>{if(!g.classList.contains('down'))return;g.classList.remove('down');
+    if(g._pic&&p){PR.open=PR.open===id?null:id;drawSugg()}else ahSearch(n)});
+  g.addEventListener('pointercancel',()=>g.classList.remove('down'));
+  return g}
 function drawSugg(){
   const el=tp.el;if(!el)return;const box=el.querySelector('.sugg'),i=el.querySelector('.slot input');
   box.textContent='';if(document.activeElement!==i)return;
-  for(const it of suggest(i.value)){const g=$('div','sg');g.style.color=QCOLOR[it.q]||'#fff';
-    if(it.id){const im=$('img');im.alt='';im.src='/api/item/'+it.id+'.jpg';im.onerror=()=>im.remove();g.appendChild(im)}   // its picture (sheet 21), when Wowhead has one
-    g.append(it.n);
-    // 2026-11-27 (Joshua: "tapping what's suggested and nothing is happening"): on the iPhone a tap takes the focus off
-    // the slot first, which cleared this list before the tap's click came. Now the search goes when the finger lifts
-    // on the row, and the list waits a moment after the slot loses focus.
-    g.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});   // keeps the keyboard and the list up
-    g.addEventListener('pointerdown',e=>{e.preventDefault();g.classList.add('down')});
-    g.addEventListener('pointerup',()=>{if(g.classList.contains('down'))ahSearch(it.n)});
-    g.addEventListener('pointercancel',()=>g.classList.remove('down'));box.appendChild(g)}
+  const typed=i.value.trim().length>=2;
+  const rows=typed?suggest(i.value).map(it=>[it.n,it.id,it.q]):ahRecent().map(x=>[x.n,x.id,x.q]);
+  if(!typed&&rows.length)box.appendChild($('div','hdr','RECENT'));
+  for(const [n,id,q] of rows)box.appendChild(sugRow(n,id,q));
+  loadPrices(rows.map(x=>x[1]).filter(Boolean));
 }
 let ahBusy=false;
 async function ahSearch(text){
@@ -1253,7 +1301,7 @@ async function ahSearch(text){
   let ok=false,why='';try{const a=await api('/api/ah',{text:item?item.l+'/exact':text});ok=a.ok;why=a.j&&a.j.why||''}catch(e){}finally{ahBusy=false}
   const slot=el.querySelector('.slot'),i=slot.querySelector('input');
   if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);i.value='';i.placeholder=why==='chat-open'?'WoW’s chat box is open':why==='no-ah'?'The auction house isn’t open':why==='not-in-wow'?'WoW isn’t in front':'Not sent, try again';clearTimeout(i._t);i._t=setTimeout(()=>{i.placeholder=''},4000);if(document.activeElement!==i)el.classList.remove('kb');drawSugg();return}   // the slot itself says why (the pad's line is hidden under the keyboard)
-  i.value='';i.blur();el.classList.remove('kb');drawSugg();settle();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
+  rememberSearch(text);i.value='';i.blur();el.classList.remove('kb');drawSugg();settle();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
 }
 // The fast lane (2026-11-27, "jumpy and glitchy"): moves no longer wait for each answer. The finger's total since the
 // pad opened goes out once per screen refresh, up to 4 on the way at once; Aang sends each on to the laptop as one UDP
