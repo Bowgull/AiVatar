@@ -500,7 +500,9 @@ function place(){const r=cv.getBoundingClientRect(),k=r.width/PW;coin.style.left
 function fit(){const k=3;cv.style.width=PW*k+'px';cv.style.height=PH*k+'px';cv.style.left=Math.round((innerWidth-PW*k)/2)+'px';cv.style.top=Math.round((innerHeight-PH*k)/2)+'px';place()}
 fit();addEventListener('resize',fit);
 
-const api=(p,body)=>fetch(p,body===undefined?{cache:'no-store'}:{method:'POST',headers:{'x-omashu':'1','Content-Type':'application/json'},body:JSON.stringify(body)})
+// every ask gives up after 6 s (the book 8 s), so a hung one never leaves polling or a busy flag stuck (2026-11-26)
+const wait=ms=>window.AbortSignal&&AbortSignal.timeout?AbortSignal.timeout(ms):undefined;
+const api=(p,body)=>fetch(p,{...(body===undefined?{cache:'no-store'}:{method:'POST',headers:{'x-omashu':'1','Content-Type':'application/json'},body:JSON.stringify(body)}),signal:wait(p.startsWith('/api/book')?8000:6000)})
   .then(r=>r.json().then(j=>({ok:r.ok,status:r.status,j}),()=>({ok:r.ok,status:r.status,j:{}}))).catch(()=>({ok:false,status:0,j:{}}));
 
 // ---------- the controls sheet ----------
@@ -512,7 +514,7 @@ const pos=e=>{const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)/(b.
 const onFire=p=>Math.abs(p.x-FX)<36&&p.y>FY-72&&p.y<FY+16;
 app.addEventListener('pointerdown',e=>{
   if(app.querySelector('.sheet')){if(!e.target.closest('.sheet'))closeSheet();return}
-  if(book.host){if(!e.target.closest('.bookhost'))closeBook();return}
+  if(book.host)return;   // the book closes on a tap on the dim well away from it (openBook), never on a touch or scroll start
   if(tp.el)return;
   if(e.target!==cv)return;
   const p=pos(e);
@@ -580,7 +582,7 @@ function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Wh
 function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
 
 let peopleEl=null,convoEl=null,rosterEl=null,ahEl=null,ahSendEl=null,ahBox=null,ahGo=null;
-let logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
+let logRO=null,logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
 function openChat(){
   if(chat.open)return;chat.open=true;
   app.appendChild($('div','cdim'));
@@ -591,7 +593,7 @@ function openChat(){
   convoEl=$('div','convo-hd');convoEl.hidden=true;peopleEl=$('div','people');peopleEl.hidden=true;rosterEl=$('div','roster');rosterEl.hidden=true;rosterSig='';
   logEl=$('div','log');leftEl.append(convoEl,rosterEl,peopleEl,logEl);
   logStuck=true;logEl.addEventListener('scroll',()=>{logStuck=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40});
-  if(window.ResizeObserver)new ResizeObserver(()=>{if(logStuck&&!logEl.hidden)logEl.scrollTop=logEl.scrollHeight}).observe(logEl);
+  if(window.ResizeObserver){logRO=logRO||new ResizeObserver(()=>{if(logStuck&&logEl&&!logEl.hidden)logEl.scrollTop=logEl.scrollHeight});logRO.observe(logEl)}
   trayEl=tray(null);moreEl=$('div','emsheet');
   sendEl=$('div','send');
   chanEl=$('div','chan');chanEl.addEventListener('click',pickChannel);
@@ -614,7 +616,7 @@ function openChat(){
   app.querySelector('.cdim').addEventListener('click',closeChat);
   chat.emo=null;layoutEmo();pickTab(chat.ah?'Auction':chat.tab==='Auction'?'All':chat.tab);fitPanel();
 }
-function closeChat(){trayEl2=null;chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
+function closeChat(){if(logRO)logRO.disconnect();trayEl2=null;chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
 // the keyboard: the panel fits the part of the screen still showing (tabs on top, the box just above the keys); the log shrinks
 function fitPanel(){
   if(scrollY||scrollX)scrollTo(0,0);
@@ -630,7 +632,7 @@ function pickTab(name){
   if(name==='Upgrades'&&!book.on)name='All';
   chat.tab=name;
   if(name==='Auction'){render(true);return}
-  if(name==='Upgrades'){up.pick=null;render(true);loadUp();return}
+  if(name==='Upgrades'){up.pick=null;render(true);loadUp(true);return}
   chat.wPerson=null;
   if(name==='Whispers'){const inc=chat.lines.filter(l=>l.kind==='whisper');chat.wUnread=new Set(chat.whispers?inc.slice(-chat.whispers).map(l=>l.seq):[]);
     chat.wOpen=Math.max(chat.seen.Whispers??0,...inc.filter(l=>!chat.wUnread.has(l.seq)).map(l=>l.seq),0);const w=[...chat.lines].reverse().find(l=>l.kind==='whisper');if(w)chat.to={to:'whisper',name:w.who};seenWhispers()}
@@ -659,7 +661,8 @@ function render(full){
   tabFade();
   const isAh=chat.tab==='Auction',isUp=chat.tab==='Upgrades';
   ahEl.hidden=!(isAh||isUp);ahSendEl.hidden=!isAh;sendEl.hidden=isAh||isUp;if(trayEl2)trayEl2.hidden=!isAh;
-  if(isAh||isUp){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;if(isUp)drawUp();else drawAh();return}
+  // 2026-11-26: new chat lines only update the counts here; rebuilding the list under a finger lost taps in busy chat
+  if(isAh||isUp){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;if(full||shownTab!==chat.tab){shownTab=chat.tab;if(isUp)drawUp();else drawAh()}return}
   logEl.hidden=false;
   const isW=l=>l.kind==='whisper'||l.kind==='whisper-out';
   const people=chat.tab==='Whispers'&&!chat.wPerson;
@@ -730,7 +733,7 @@ let ahBusy=false;
 async function ahSearch(text){
   text=String(text||'').trim();if(!text||ahBusy)return;ahBusy=true;knock();
   const item=ITEM_BY&&ITEM_BY.get(text.toLowerCase());if(item)text=item.n;   // a known item: searched exactly that item
-  const {ok}=await api('/api/ah',{text:item?item.l+'/exact':text});ahBusy=false;
+  let ok=false;try{({ok}=await api('/api/ah',{text:item?item.l+'/exact':text}))}finally{ahBusy=false}
   if(!ok){ahGo.classList.add('no');setTimeout(()=>ahGo&&ahGo.classList.remove('no'),1200);return}
   const list=[text,...ahRecent().filter(x=>x.toLowerCase()!==text.toLowerCase())].slice(0,AH_KEEP);
   try{localStorage.setItem('omashu.ahRecent',JSON.stringify(list))}catch(e){}
@@ -1076,27 +1079,35 @@ const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff
 @media (prefers-reduced-motion:reduce){.step.glow{animation:none}}
 @media (prefers-reduced-motion:reduce){.nd.next img,.sheet{animation:none}}`;
 var bookCoin=$('div','bookcoin');bookCoin.innerHTML='<img src="/book/icons/classicon_paladin.jpg" alt=""><span class="lv"></span>';app.appendChild(bookCoin);
-var book={on:false,level:0,at:0,host:null,data:null};
+var book={on:false,level:0,at:0,host:null,data:null,loading:false,again:false,ui:{}};
 const BI=n=>`/book/icons/${encodeURIComponent(n)}.jpg`;
 const coins=t=>esc(t).replace(/(\d+)([gsc])\b/g,(_,n,u)=>`${n}<span class="m${u}">${u}</span>`);
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
 function placeBook(){if(!bookCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;bookCoin.style.left=(r.left+BX*k-28)+'px';bookCoin.style.top=(r.top+QY*k-28)+'px'}
 function showBookCoin(j){const b=chat.on&&j.book;const was=book.on;book.on=!!b;bookCoin.classList.toggle('on',book.on);
   if(chat.open&&was!==book.on){if(!book.on&&chat.tab==='Upgrades')pickTab('All');else render()}if(b&&chat.open&&chat.tab==='Upgrades'&&b.at!==up.at)loadUp();
-  if(b){bookCoin.querySelector('.lv').textContent=b.level;if(book.host&&b.at!==book.at)loadBook()}book.at=b?b.at:0;if(!book.on)closeBook()}
+  if(b){bookCoin.querySelector('.lv').textContent=b.level;if(book.host&&(b.at!==book.at||!book.data))loadBook()}book.at=b?b.at:0;if(!book.on)closeBook()}
 async function openBook(){if(book.host)return;
-  app.appendChild($('div','dim'));const host=$('div','bookhost');app.appendChild(host);book.host=host;
+  const dim=$('div','dim');app.appendChild(dim);const host=$('div','bookhost');app.appendChild(host);book.host=host;book.data=null;
+  // 2026-11-26: only a real tap (a click, never a scroll) on the dim well clear of the sheet and its wood frame closes it
+  dim.addEventListener('click',e=>{const sh=book.host&&book.host.shadowRoot.querySelector('.sheet');if(!sh)return;const r=sh.getBoundingClientRect(),m=24;
+    if(e.clientX<r.left-m||e.clientX>r.right+m||e.clientY<r.top-m||e.clientY>r.bottom+m)closeBook()});
   const sh=host.attachShadow({mode:'open'});sh.innerHTML=`<style>${BOOK_CSS}</style><div class="sheet"><div class="grip"></div><div class="body"></div></div>`;
   book.tab='now';await loadBook()}
-function closeBook(){if(!book.host)return;book.host.remove();book.host=null;app.querySelectorAll('.dim').forEach(n=>n.remove())}
-async function loadBook(){const {ok,status,j}=await api('/api/book');if(!book.host)return;
-  if(!ok){if(status===404||!book.data)closeBook();return}book.data=j;drawBook()}   // a blip keeps the page you are reading
-function drawBook(){const B=book.data,root=book.host.shadowRoot,body=root.querySelector('.body');
+function closeBook(){if(!book.host)return;book.host.remove();book.host=null;book.data=null;app.querySelectorAll('.dim').forEach(n=>n.remove())}
+// one load at a time; a blip keeps the page you are reading, or says so when nothing is drawn yet (2026-11-26)
+async function loadBook(){if(book.loading){book.again=true;return}book.loading=true;book.again=false;
+  const {ok,status,j}=await api('/api/book').finally(()=>{book.loading=false});
+  if(book.host){if(ok){const keep=!!book.data;book.data=j;drawBook(keep)}else if(status===404)closeBook();
+    else if(!book.data){const body=book.host.shadowRoot.querySelector('.body');body.style.cssText='';body.innerHTML='<p class="note">Can\'t reach the laptop right now</p>'}}
+  if(book.again&&book.host)loadBook()}
+// keep: a refresh of the open book, which keeps its tab, scroll and picks
+function drawBook(keep){const B=book.data,root=book.host.shadowRoot,body=root.querySelector('.body'),old=root.querySelector('.well'),top=keep&&old?old.scrollTop:0;
   body.style.cssText='display:flex;flex-direction:column;flex:1;min-height:0';
   body.innerHTML=`<div class="head"><img src="${BI('classicon_paladin')}" alt=""><div style="flex:1"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${B.zone?' · '+esc(B.zone):''}</div><div class="xp"><i style="width:${B.xpPct}%"></i></div></div></div>
   <div class="tabs">${['now','fight','talents','gear'].map(t=>`<span class="tab${t===book.tab?' on':''}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</span>`).join('')}</div><div class="well"></div>`;
-  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>bookTab(t.dataset.t));bookTab(book.tab)}
-function bookTab(t){book.tab=t;const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
+  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>bookTab(t.dataset.t));bookTab(book.tab,keep);if(keep)root.querySelector('.well').scrollTop=top}
+function bookTab(t,keep){book.tab=t;if(!keep)book.ui={sel:0,tree:'Retribution',pick:null};const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
 function ago(at){const m=Math.max(0,Math.round((Date.now()/1000-at)/60));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`}
 function bookNow(w,B){const k=`<div class="k">Now <b>as of your last reload · ${ago(B.at)}</b></div>`;
   if(!B.cards.length&&!B.restock.length&&!B.train){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
@@ -1109,7 +1120,7 @@ function trainHtml(B){const T=B.train;if(!T)return'';
    +T.fresh.map(f=>`<div class="tr newsp"><div class="top"><img src="${BI(f.icon)}" alt=""><div class="t">${esc(f.name)}</div><span class="tag new">NEW</span><span class="tag ${f.skip?'skip':'get'}">${f.skip?'Skip for now':'Get it'}</span></div>${f.what?`<div class="what">${esc(f.what)}</div>`:''}${f.skip?`<div class="when"><b>Skip it:</b> ${esc(f.skip)}</div>`:f.use?`<div class="when"><b>Use it:</b> ${esc(f.use)}</div>`:''}${f.pad&&!f.skip?`<div class="pad">Lands on ${esc(f.pad)}</div>`:''}</div>`).join('')
    +(T.ups.length?`<div class="k" style="margin-top:8px">Upgrades <b>just grab these</b></div><div class="ups">${T.ups.map(u=>`<span class="up"><img src="${BI(u.icon)}" alt="">${esc(u.name)} <i>rank ${u.rank}</i></span>`).join('')}</div>`:'')
    +`<div class="costl"><span>Cost for all of it</span><b>${moneyHtml(T.cost)}</b></div>`}
-function bookFight(w,B){let sel=0;const NEW=new Set(B.fresh||[]);const S=B.steps||[],P=B.prep||[];
+function bookFight(w,B){const NEW=new Set(B.fresh||[]);const S=B.steps||[],P=B.prep||[];let sel=book.ui.sel<S.length?book.ui.sel:0;
   const key=x=>x[1]==='none'?x[0]:(x[1]==='LTRT'?'LT + RT':x[1])+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2]);
   const row=(x,i,pre)=>`<div class="step${!pre&&i===sel?' on':''}${NEW.has(x[4])?' glow':''}" data-i="${pre?'':i}"><span class="n">${pre?'•':i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}${NEW.has(x[4])?'<span class="nb">NEW</span>':''}</div><div class="d">${esc(x[5])}</div></div><span class="key">${key(x)}</span></div>`;
   const draw=()=>{const s=S[sel]||S[0];const lay=s?s[1]:'',btn=s?s[2]:'';const d=['U','D','L','R'].includes(btn);
@@ -1120,10 +1131,10 @@ function bookFight(w,B){let sel=0;const NEW=new Set(B.fresh||[]);const S=B.steps
    ${S.map((x,i)=>row(x,i)).join('')}
    ${P.length?`<div class="k" style="margin-top:10px">Before a fight</div>${P.map(x=>row(x,0,true)).join('')}`:''}
    <p class="note">Top of the list first, whatever's ready. It changes as you learn new spells: new ones glow until your next reload.${B.crusader?' Seal of the Crusader: skip it solo, Righteousness hits harder.':''}</p>`;
-   w.querySelectorAll('.step[data-i]').forEach(e=>{if(e.dataset.i!=='')e.onclick=()=>{sel=+e.dataset.i;draw()}})};
+   w.querySelectorAll('.step[data-i]').forEach(e=>{if(e.dataset.i!=='')e.onclick=()=>{sel=book.ui.sel=+e.dataset.i;draw()}})};
   draw()}
 function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(let i=0;i<r;i++){(lvlOf[n]=lvlOf[n]||[]).push(l+i);plan[n]=(plan[n]||0)+1}});
-  const have=n=>B.ranks[n]||0;let tree='Retribution',pick=B.next||(B.path[0]&&B.path[0][0]);
+  const have=n=>B.ranks[n]||0;let tree=book.ui.tree||'Retribution',pick=book.ui.pick&&B.tree.some(n=>n.name===book.ui.pick)?book.ui.pick:B.next||(B.path[0]&&B.path[0][0]);
   const totals=t=>B.tree.filter(x=>x.tree===t).reduce((s,x)=>s+have(x.name),0);
   const draw=()=>{const nodes=B.tree.filter(x=>x.tree===tree);let cells='';for(let tier=1;tier<=7;tier++)for(let c=0;c<4;c++){const x=nodes.find(n=>n.tier===tier&&n.col===c);if(!x){cells+='<div></div>';continue}
       const h=have(x.name),cls=x.name===B.next?'next':h>=x.max?'max':h>0?'part':plan[x.name]?'later':'';
@@ -1132,8 +1143,8 @@ function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(
     w.innerHTML=`<div class="trees">${['Holy','Protection','Retribution'].map(t=>`<span class="${t===tree?'on':''}" data-t="${t}">${t==='Protection'?'Prot':t==='Retribution'?'Ret':t}<i>${totals(t)}</i></span>`).join('')}</div>
     <div class="tree">${cells}</div>
     <div class="tt"><h5>${esc(x.name)}<span class="pips">${Array.from({length:x.max},(_,i)=>`<i class="${i<h?'f':''}"></i>`).join('')}</span></h5><span class="rk">${h}/${x.max} now · you'll take ${plan[x.name]||0}</span><div style="margin-top:4px">${esc(B.desc[x.name]||'Not in your leveling build.')}</div>${ls.length?`<div class="when">At level ${ls.join(', ')}${x.name===B.next?' · next point':''}</div>`:''}</div>`;
-    w.querySelectorAll('[data-t]').forEach(e=>e.onclick=()=>{tree=e.dataset.t;const f=B.tree.find(n=>n.tree===tree&&plan[n.name]);pick=f?f.name:(B.tree.find(n=>n.tree===tree)||{}).name;draw()});
-    w.querySelectorAll('.nd').forEach(e=>e.onclick=()=>{pick=e.dataset.n;draw()})};
+    w.querySelectorAll('[data-t]').forEach(e=>e.onclick=()=>{tree=e.dataset.t;const f=B.tree.find(n=>n.tree===tree&&plan[n.name]);pick=f?f.name:(B.tree.find(n=>n.tree===tree)||{}).name;book.ui.tree=tree;book.ui.pick=pick;draw()});
+    w.querySelectorAll('.nd').forEach(e=>e.onclick=()=>{pick=book.ui.pick=e.dataset.n;draw()})};
   draw()}
 function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div class="ladder">${B.ladder.map(r=>`<div class="rung ${r.state}"><img src="${BI(r.icon)}" alt=""><div><div class="t blue">${esc(r.name)}</div><div class="d">${esc(r.from)} · ${r.dps.toFixed(1)} DPS</div></div><span class="l">${r.lvl}</span></div>`).join('')}</div>
   <div class="k" style="margin-top:6px">For level ${B.level}</div><div class="grid4">${B.forLevel.map(f=>`<div class="fd"><img src="${BI(f.icon)}" alt=""><div>${esc(f.name)}</div><span>${esc(f.what)}</span></div>`).join('')}</div>
@@ -1143,15 +1154,20 @@ function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div c
 // Its mode and budget tiles show what Cheap Upgrades is set to. Sending its own commands (/cu rich, /cu max, /cu scan)
 // waits for an in-game check that an add-on slash command typed from the phone doesn't block the controller.
 const CU_SEND=false;
-const up={data:null,pick:null,at:0,rich:null,max:null,pending:false,maxT:0};
-async function loadUp(){const {ok,j}=await api('/api/book');if(ok){if(j.at!==up.at){up.rich=up.max=null;up.pending=false}up.data=j;up.at=j.at}if(chat.open&&chat.tab==='Upgrades')drawUp()}
+const up={data:null,pick:null,at:0,rich:null,max:null,pending:false,maxT:0,busy:false,fail:false,waitUntil:0};
+// one fetch at a time (so no answer lands out of order); after a failure, polls wait 10 s before asking again (2026-11-26)
+async function loadUp(force){if(up.busy||!force&&performance.now()<up.waitUntil)return;up.busy=true;
+  const {ok,j}=await api('/api/book').finally(()=>{up.busy=false});
+  if(ok){up.fail=false;up.waitUntil=0;if(j.at!==up.at){up.rich=up.max=null;up.pending=false}up.data=j;up.at=j.at}
+  else{up.fail=!up.data;up.waitUntil=performance.now()+10000;setTimeout(()=>{if(chat.open&&chat.tab==='Upgrades'&&(up.fail||!up.data))loadUp(true)},10000)}
+  if(chat.open&&chat.tab==='Upgrades')drawUp()}
 const money=c=>{c=Math.round(c||0);const g=Math.floor(c/10000),s=Math.floor(c/100)%100;return g?`${g}g${s?` ${s}s`:''}`:s?`${s}s`:`${c%100}c`};
 // the game's coin colours on the letters: gold g, silver s, copper c
 const moneyHtml=c=>esc(money(c)).replace(/(\d+)([gsc])/g,(_,n,u)=>`${n}<span class="m${u}">${u}</span>`);
 const CU_STEPS=[1000,2500,5000,10000,20000,50000,100000,250000,500000,1000000],CU_ANY=10000000;
 function cuSend(ask){if(!CU_SEND)return;knock();api('/api/send',ask)}
 function cuMax(c){up.max=c;up.pending=true;clearTimeout(up.maxT);up.maxT=setTimeout(()=>cuSend({cu:'max',copper:c}),1200);drawUp()}
-function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;ahEl.textContent='';const B=up.data;if(!B||!B.cu){ahEl.appendChild($('div','hd','Reading Cheap Upgrades…'));return}
+function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;ahEl.textContent='';const B=up.data;if(!B||!B.cu){ahEl.appendChild($('div','hd',up.fail?'Couldn\'t reach the laptop':'Reading Cheap Upgrades…'));return}
   if(up.rich==null)up.rich=B.cu.rich;if(up.max==null)up.max=B.cu.max||50*10000;
   const tray=()=>{const t=$('div','tray2');ahEl.appendChild(t);return t};
   ahEl.appendChild($('div','k','Show me'));
@@ -1188,22 +1204,24 @@ function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u
 // libinput's touchpad curve in phone points (reports/Phone trackpad research 2026-11-26.md): slow = finer, a flick up
 // to 5.3x; base 2 px per pt. Tap: lifted within 180 ms, moved under 8 pt. Two-finger tap: both up within 200 ms.
 const TP={ base:2.0, tapMs:180, tapPt:8, twoMs:200, scrollPt:20 };
-const tp={on:false,el:null,dx:0,dy:0,ev:[],busy:false,touches:new Map(),last:null,vel:0,two:null};
+const tp={on:false,el:null,dx:0,dy:0,w:0,ev:[],busy:false,touches:new Map(),last:null,vel:0,two:null};
 const MOUSE_SVG='<svg viewBox="0 0 30 30"><rect x="8" y="3" width="14" height="24" rx="7" fill="#ffd36b" stroke="#140904" stroke-width="2"/><line x1="15" y1="3" x2="15" y2="12" stroke="#140904" stroke-width="2"/><rect x="14" y="6" width="2" height="4" fill="#7a4a1e"/></svg>';
 var mouseCoin=$('div','mousecoin');mouseCoin.innerHTML=MOUSE_SVG;app.appendChild(mouseCoin);
 const MX=CX+25;
 function placeMouse(){if(!mouseCoin)return;const r=cv.getBoundingClientRect(),k=r.width/PW;mouseCoin.style.left=(r.left+MX*k-28)+'px';mouseCoin.style.top=(r.top+QY*k-28)+'px'}
 function tpGain(v){const u=Math.min(v,3.14);const f=v<0.036?0.33+18.4*v:v<=0.785?1:1+0.587*u*(u-0.785);return TP.base*f}
-function tpPush(m){tp.ev.push(m);tpFlush()}
+// wheel steps add up into one total like the moves; only clicks and park wait in line, and never more than 40 (2026-11-26)
+function tpPush(m){if(m.w)tp.w+=m.w;else{tp.ev.push(m);if(tp.ev.length>40)tp.ev.splice(0,tp.ev.length-40)}tpFlush()}
 async function tpFlush(){
   if(tp.busy)return;
-  const m={};const ddx=Math.round(tp.dx*100)/100,ddy=Math.round(tp.dy*100)/100;
+  const m={};const ddx=Math.round(tp.dx*100)/100,ddy=Math.round(tp.dy*100)/100,w=Math.max(-20,Math.min(20,tp.w));
   if(ddx||ddy){m.dx=ddx;m.dy=ddy;tp.dx-=ddx;tp.dy-=ddy}
+  if(w){m.w=w;tp.w-=w}
   if(tp.ev.length)Object.assign(m,tp.ev.shift());
   if(!Object.keys(m).length)return;
-  tp.busy=true;const {ok,j}=await api('/api/mouse',m);tp.busy=false;
-  const no=tp.el&&tp.el.querySelector('.tpno');if(no)no.textContent=ok?'':(j.why==='not-in-wow'?'WoW isn’t in front':'Not reaching the laptop');
-  if(tp.dx||tp.dy||tp.ev.length)tpFlush();
+  tp.busy=true;let r={ok:false,j:{}};try{r=await api('/api/mouse',m)}finally{tp.busy=false}
+  const no=tp.el&&tp.el.querySelector('.tpno');if(no)no.textContent=r.ok?'':(r.j.why==='not-in-wow'?'WoW isn’t in front':'Not reaching the laptop');
+  if(tp.dx||tp.dy||tp.w||tp.ev.length)tpFlush();
 }
 function openPad(){if(tp.el)return;tp.on=true;
   const el=$('div','tpad');el.innerHTML=`<div class="pbar"><div class="t">Trackpad</div><div class="done">Done</div></div>
@@ -1234,12 +1252,13 @@ function openPad(){if(tp.el)return;tp.on=true;
   surf.addEventListener('pointerup',lift);surf.addEventListener('pointercancel',lift);
   tpPush({dx:1,dy:0});tpPush({dx:-1,dy:0});   // a small nudge: WoW shows its pointer once the mouse moves
 }
-function closePad(){if(!tp.el)return;tp.el.remove();tp.el=null;tp.on=false;tp.touches.clear();tp.two=null;tpPush({park:true})}
+function closePad(){if(!tp.el)return;tp.el.remove();tp.el=null;tp.on=false;tp.touches.clear();tp.two=null;tp.w=0;tpPush({park:true})}
 
 // ---------- staying in step with Aang ----------
 let pollT=0,polling=false;
 async function poll(){
   if(polling)return;polling=true;clearTimeout(pollT);
+  try{
   const after=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
   const {ok,j}=await api(`/api/poll?after=${after}&session=${encodeURIComponent(chat.session||'')}`);
   if(ok){
@@ -1247,7 +1266,7 @@ async function poll(){
     const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);mouseCoin.classList.toggle('on',chat.on);if(!chat.on&&tp.el)closePad();
     if(!chat.on){chat.ah=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
-      if(j.session!==chat.session){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
+      const newSession=j.session!==chat.session;if(newSession){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
       if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
         for(const l of j.lines)if(chat.emoteAt>performance.now()&&l.kind==='system'&&l.text[0]&&/^You /.test(l.text[0].s||'')){l.em=performance.now()+4000;chat.emoteAt=0}
         chat.lines.push(...j.lines);
@@ -1255,12 +1274,15 @@ async function poll(){
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
       chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
-      const ah=!!j.ah;if(ah!==chat.ah){chat.ah=ah;chat.ahLit=null;if(chat.open)pickTab(ah?'Auction':chat.tab==='Auction'?'All':chat.tab)}
+      // 2026-11-26: the auction house opening or closing never drops a conversation or changes who a line goes to:
+      // it moves to Auction only from All, and back to All only from Auction; otherwise the tab just shows or hides
+      const ah=!!j.ah;if(ah!==chat.ah){chat.ah=ah;chat.ahLit=null;
+        if(chat.open){if(ah&&(chat.tab==='All'||chat.tab==='Auction'))pickTab('Auction');else if(!ah&&chat.tab==='Auction')pickTab('All');else render()}}
       const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(chat.open&&gChanged&&rosterEl)drawRoster();
-      if(chat.open&&(j.lines&&j.lines.length||!was))render()}
+      if(chat.open&&(j.lines&&j.lines.length||!was||newSession))render(newSession)}
     place();
   }
-  polling=false;pollT=setTimeout(poll,document.hidden?5000:1500);
+  }finally{polling=false;pollT=setTimeout(poll,document.hidden?5000:1500)}
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
 poll();

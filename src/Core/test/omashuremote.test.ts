@@ -19,15 +19,17 @@ const until = async (f: () => boolean | Promise<boolean>, ms = 3000) => {
   throw new Error('timed out waiting');
 };
 
-async function rig(o: { wowhead?: Wowhead } = {}) {
+async function rig(o: { wowhead?: Wowhead; now?: () => number; missGraceMs?: number; setup?: (lap: FakeLaptop) => void } = {}) {
   const lap = new FakeLaptop({ key: KEY, mac: MAC });
   await lap.start();
+  o.setup?.(lap);
   const cfg: RemoteConfig = {
     port: 0, laptop: { url: lap.url, key: KEY, mac: MAC, broadcast: ['127.0.0.1'], wakePort: lap.udpPort },
     phones: [{ name: 'Josh', key: JOSH, chat: true }, { name: 'Guest', key: GUEST }],
   };
   const notes: string[] = [];
-  const remote = new OmashuRemote({ cfg, host: '127.0.0.1', tickMs: { busy: 40, idle: 40 }, notify: t => notes.push(t), log: () => {}, wowhead: o.wowhead });
+  const remote = new OmashuRemote({ cfg, host: '127.0.0.1', tickMs: { busy: 40, idle: 40 }, notify: t => notes.push(t), log: () => {}, wowhead: o.wowhead,
+    now: o.now, missGraceMs: o.missGraceMs ?? (o.now ? undefined : 400) });
   const port = await remote.start();
   const base = `http://127.0.0.1:${port}`;
   const as = (key: string | null) => ({
@@ -338,6 +340,14 @@ test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only fo
     assert.equal(icon.status, 200); assert.equal(icon.headers.get('content-type'), 'image/jpeg');
     assert.equal((await r.as(JOSH).get('/book/icons/..%2Fremote.jpg')).status, 404, 'only plain icon names');
     assert.equal((await r.as(JOSH).get('/book/icons/nope_not_here.jpg')).status, 404);
+    // WoW rewriting the save at /reload: the laptop answers "no book" for a moment; the book stays (2026-11-26)
+    const save = r.lap.bookSave;
+    const freshLook = async () => { r.lap.bookIds = []; r.remote['bookAskedAt'] = 0; await until(() => r.lap.bookIds.length > 0); await r.remote['tickRunning']; };
+    r.lap.bookSave = null;
+    await freshLook();
+    assert.equal(((await r.poll()) as { book?: { level: number } | null }).book?.level, 23, 'a save mid-rewrite keeps the book');
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 200);
+    r.lap.bookSave = save;
     // a blip (a loading screen, a busy moment): the laptop misses a look or two; the book and chat stay (2026-11-26)
     const missed = r.remote['misses'] as number;
     r.lap.awake = false;
@@ -356,6 +366,67 @@ test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only fo
     r.lap.stopWow();
     await until(async () => (await r.poll()).chat === false);
     assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'WoW closed: the book closes too');
+    // another character logs in: their save replaces the book (a warlock's: no book)
+    r.lap.startWow(); r.lap.bookSave = save;
+    await until(async () => ((await r.poll()) as { book?: { level: number } | null }).book?.level === 23);
+    r.lap.bookSave = { class: 'WARLOCK', name: 'Bujuju', level: 30 };
+    await freshLook();
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'another character: the book goes');
+  } finally { await r.done(); }
+});
+
+test('a long loading screen (2026-11-26): WoW counts as gone only after 30 s with no answer, however many looks missed', async () => {
+  let t = 1_000_000;
+  const r = await rig({ now: () => t });
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    r.lap.awake = false;
+    await until(() => (r.remote['misses'] as number) >= 8);
+    t += 25_000;
+    await until(() => (r.remote['misses'] as number) >= 10);
+    const p = await r.poll();
+    assert.equal(p.fire, 'lit'); assert.equal(p.chat, true, 'many misses inside 30 s: still in WoW');
+    t += 6_000;
+    await until(async () => (await r.poll()).fire === 'out');
+    assert.equal((await r.poll()).chat, false);
+  } finally { await r.done(); }
+});
+
+test('one look at a time (2026-11-26): a send during a slow look waits for it instead of starting a second', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    r.lap.stateDelayMs = 800;
+    await until(() => r.lap.stateOpen === 1);
+    r.lap.stateOpenMax = 0;
+    assert.equal((await r.as(JOSH).post('/api/send', { act: 'roll' })).status, 200);   // asks for a look in 300 ms
+    await new Promise(res => setTimeout(res, 1500));
+    assert.equal(r.lap.stateOpenMax, 1, 'never two looks at once');
+  } finally { await r.done(); }
+});
+
+test('Aang just started (2026-11-26): /api/poll answers 503 until the first look at the laptop is done', async () => {
+  const r = await rig({ setup: lap => { lap.startWow(); lap.stateDelayMs = 400; } });
+  try {
+    const first = await r.as(JOSH).get('/api/poll');
+    assert.equal(first.status, 503, 'nothing known yet: no game:null that would wipe the phone');
+    await until(async () => (await r.as(JOSH).get('/api/poll')).status === 200);
+    assert.equal((await r.poll()).game, 'wow');
+  } finally { await r.done(); }
+});
+
+test('a long backlog (2026-11-26): all of the laptop\'s lines arrive, not just its oldest 500', async () => {
+  const r = await rig({ setup: lap => { lap.startWow(); for (let i = 1; i <= 800; i++) lap.log(`[Guild] Morrowyn: line ${i}`); } });
+  try {
+    await until(() => r.remote.lines.length === 800);
+    const ls = (await r.poll()).lines!;
+    assert.equal(ls.length, 500);
+    assert.deepEqual(ls.at(-1)!.text, [{ s: 'line 800' }]);
+    r.lap.log('[Guild] Morrowyn: and one more');
+    await until(() => r.remote.lines.length === 801);
+    assert.equal(r.notes.length, 0, 'backlog never buzzes');
   } finally { await r.done(); }
 });
 
