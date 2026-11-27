@@ -171,7 +171,7 @@ export interface Rung { id: number; name: string; icon: string; lvl: number; dps
 export const LADDER: Rung[] = [
   { id: 15424, name: 'Axe of Orgrimmar', icon: 'inv_axe_04', lvl: 15, dps: 16.06, from: 'Quest in Orgrimmar', skill: 'Two-Handed Axes' },
   { id: 270018, name: 'Hammerbone', icon: 'inv_hammer_15', lvl: 20, dps: 20.44, from: 'Wailing Caverns quest reward' },
-  { id: 268484, name: 'Moonsilver Blade', icon: 'inv_sword_25', lvl: 20, dps: 21.03, from: 'Class quest "A Moon-Kissed Blade" · Polestar guides it', skill: 'Two-Handed Swords', quest: 95036 },
+  { id: 268484, name: 'Moonsilver Blade', icon: 'inv_sword_25', lvl: 20, dps: 21.03, from: 'Class quest "The Moonsilver Blade" · Polestar guides it', skill: 'Two-Handed Swords', quest: 95126 },
   { id: 267369, name: 'Wolfsbane', icon: 'inv_sword_25', lvl: 25, dps: 25.59, from: 'Kill Old Fire-Eye with the Moonsilver Blade · Silverpine', skill: 'Two-Handed Swords', quest: 95140 },
   { id: 6687, name: 'Corpsemaker', icon: 'inv_weapon_halbard_01', lvl: 29, dps: 28.95, from: 'Polearm · Razorfen Kraul', skill: 'Polearms' },
   { id: 274601, name: 'Harpoon of Command', icon: 'inv_spear_04', lvl: 35, dps: 35.74, from: 'Polearm · The Drowned City', skill: 'Polearms' },
@@ -247,6 +247,68 @@ export const BANDAGE: Ware[] = [
   { id: 14529, name: 'Runecloth Bandage', icon: 'inv_misc_bandage_11', lvl: 1, fa: 200 }, { id: 14530, name: 'Heavy Runecloth Bandage', icon: 'inv_misc_bandage_12', lvl: 1, fa: 225 },
 ];
 
+/** Quests worth a detour (the WoW home's Now page, sheet 27), from reports/Polestar route vs best quests 2026-11-27.md
+ *  in the omashu repo: its two phone short lists (1-30 and 30-60) and the two-handers that beat Polestar's route. lvl =
+ *  the quest's level, min = the lowest level that can take it. dps for a two-hander reward, stats for armor, xp for a
+ *  quest worth only its XP. Icons: the reward's own where known, else a stand-in of the same kind. The Lumina chain
+ *  (95126, 95140) is left out on purpose: Polestar's class guide does it. */
+export interface DetourQuest { id: number; name: string; lvl: number; min: number; zone: string; giver: string; reward: string; icon: string; note: string; dps?: number; stats?: string; xp?: number }
+export const DETOURS: DetourQuest[] = [
+  // 1-30
+  { id: 99156, name: 'Rear Guard Patrol', lvl: 13, min: 6, zone: 'Tirisfal Glades', giver: 'Deathguard Linnea, Deathknell', reward: "Riptear's Cleaver", dps: 8.9, icon: 'inv_axe_10', note: "Polestar's route stops one quest short. It also opens the Forsaken Greataxe at 15." },
+  { id: 99, name: "Arugal's Folly", lvl: 15, min: 9, zone: 'Silverpine Forest', giver: 'Dalar Dawnweaver', reward: 'Logsplitter', dps: 10.8, icon: 'inv_axe_10', note: "After Arugal's Folly (424), same giver as the route's 423." },
+  { id: 5730, name: 'Hidden Enemies', lvl: 16, min: 9, zone: 'Orgrimmar', giver: 'Neeru Fireblade', reward: 'Axe of Orgrimmar', dps: 16.1, icon: 'inv_axe_04', note: 'Runs through Ragefire Chasm.' },
+  { id: 5725, name: 'The Power to Destroy...', lvl: 16, min: 9, zone: 'Undercity', giver: 'Varimathras', reward: 'Gargoyle Leggings', stats: 'mail legs', icon: 'inv_chest_chain_05', note: 'Same Ragefire Chasm run. 2950 XP.' },
+  { id: 92422, name: "The Wrath of Rath'mael", lvl: 22, min: 15, zone: 'Tirisfal Glades', giver: 'Deathguard Kristof', reward: 'Forsaken Greataxe', dps: 20.5, icon: 'inv_axe_10', note: 'Runs through the Ruins of Lordaeron.' },
+  { id: 914, name: 'Leaders of the Fang', lvl: 22, min: 10, zone: 'Thunder Bluff', giver: 'Nara Wildmane', reward: 'Hammerbone', dps: 20.4, icon: 'inv_hammer_15', note: 'Runs through Wailing Caverns, where the route already sends you.' },
+  { id: 95216, name: 'The New Plague', lvl: 22, min: 15, zone: 'Undercity', giver: 'Theodore Griffs', reward: '5450 XP', xp: 5450, icon: 'inv_misc_book_09', note: "Finishes the route's A Recipe For Death, in the Ruins of Lordaeron." },
+  { id: 442, name: 'Assault on Fenris Isle', lvl: 24, min: 10, zone: 'Silverpine Forest', giver: 'High Executor Hadrec', reward: 'Gnollhide Pants', stats: 'Str 6 Sta 4', icon: 'inv_chest_chain_05', note: 'The Rot Hide chain comes first: four short quests.' },
+  { id: 1013, name: 'The Book of Ur', lvl: 26, min: 16, zone: 'Undercity', giver: "Keeper Bel'dugur", reward: '5600 XP', xp: 5600, icon: 'inv_misc_book_09', note: 'Shadowfang Keep, which the route already runs.' },
+  { id: 6565, name: 'Allegiance to the Old Gods', lvl: 26, min: 17, zone: 'Ashenvale', giver: "Je'neu Sancrea", reward: 'Band of the Fist', xp: 6300, icon: 'inv_misc_book_09', note: 'Blackfathom Deeps, which the route already runs. 6300 XP.' },
+  { id: 6571, name: 'Warsong Supplies', lvl: 27, min: 22, zone: 'Ashenvale', giver: 'Locke Okarr', reward: 'Warsong Gauntlets', stats: 'Str 10 Sta 3', icon: 'inv_chest_chain_05', note: 'Best hands before 30. Nothing to do first.' },
+  { id: 1089, name: 'The Den', lvl: 29, min: 20, zone: 'Stonetalon Mountains', giver: 'Braelyn Firehand', reward: 'Juggernaut Leggings', stats: 'Str 10', icon: 'inv_chest_chain_05', note: "After 1088, same giver as the route's 1087." },
+  // 30-60
+  { id: 98823, name: 'Earthen Echo', lvl: 31, min: 24, zone: 'Thunder Bluff', giver: 'Bashana Runetotem', reward: 'Heavehammer', dps: 27.7, icon: 'inv_hammer_15', note: 'Starts from an item in the Excavation Site.' },
+  { id: 79242, name: 'No Honor Among Thieves', lvl: 40, min: 30, zone: 'Stranglethorn Vale', giver: 'Tokal', reward: "Soldier's Visor", stats: 'plate head Str 14 Sta 10', icon: 'inv_chest_plate01', note: "A short chain in the route's zone." },
+  { id: 1383, name: 'Nothing But The Truth', lvl: 42, min: 37, zone: 'Duskwood', giver: 'Apothecary Faustin', reward: 'Cragwood Maul', dps: 37.1, icon: 'inv_hammer_15', note: "Finishes the route's 1372. Items from Swamp of Sorrows and Desolace." },
+  { id: 93128, name: 'Khan Jehn', lvl: 42, min: 35, zone: "Shen'dralas", giver: 'Nerlokh', reward: 'Abandoned Ferocity', dps: 37.2, icon: 'inv_axe_10', note: "The Gelkis chain (14 quests). Or Magram's from Orgrul, not both." },
+  { id: 94968, name: 'Eye of Mugg', lvl: 45, min: 40, zone: 'Riverglades', giver: "Krom'rosh", reward: 'Bigger Rock on Bigger Stick', dps: 41.2, icon: 'inv_hammer_15', note: "Krol'dok Stronghold. 11500 XP." },
+  { id: 95433, name: 'Death to the Executioner', lvl: 46, min: 36, zone: 'Riverglades', giver: "Crag'rog", reward: 'Thud Hammer', dps: 35.6, icon: 'inv_hammer_15', note: "Polestar's route stops one quest short. One elite to kill." },
+  { id: 793, name: 'Broken Alliances', lvl: 50, min: 40, zone: 'Badlands', giver: 'Gorn', reward: 'Warforged Chestplate', stats: 'plate chest Str 24', icon: 'inv_chest_plate01', note: 'Same trip as the Blackrock Depths quests.' },
+  { id: 7862, name: 'Job Opening: Guard Captain of Revantusk Village', lvl: 51, min: 46, zone: 'The Hinterlands', giver: 'the board at Revantusk', reward: 'Rune of the Guard Captain', stats: 'trinket, hit and AP', icon: 'inv_misc_book_09', note: '80 Vilebranch kills, in the zone the route takes you at 49.' },
+  { id: 91685, name: 'Ley of the Land', lvl: 54, min: 45, zone: 'Azshara', giver: 'Izvi Gildfizz', reward: "Honor Guard's Plate", stats: 'plate chest Str 18 Sta 9', icon: 'inv_chest_plate01', note: "Finishes the route's Blue Gold." },
+  { id: 4134, name: 'Lost Thunderbrew Recipe', lvl: 55, min: 50, zone: 'Badlands', giver: 'Shadowmage Vivian Lagrave', reward: 'Limb Cleaver', dps: 42.7, icon: 'inv_axe_10', note: 'Blackrock Depths. 11300 XP.' },
+  { id: 86814, name: 'Blackmaw Counter-Offensive', lvl: 55, min: 47, zone: 'Felwood', giver: 'Gorn One Eye', reward: "Cliff Walker's Cinch", stats: 'plate waist Str 17 Sta 9', icon: 'inv_chest_plate01', note: 'Kill Prince Halanox, in the zone the route takes you at 53.' },
+  { id: 7877, name: "The Treasure of the Shen'dralar", lvl: 60, min: 56, zone: 'Dire Maul', giver: "Shen'dralar Ancient", reward: 'Bonecrusher', dps: 53.8, icon: 'inv_hammer_15', note: 'Dire Maul.' },
+  { id: 5466, name: 'The Lich, Ras Frostwhisper', lvl: 60, min: 57, zone: 'Western Plaguelands', giver: 'Magistrate Marduke', reward: 'Warblade of Caer Darrow', dps: 57.4, icon: 'inv_sword_25', note: 'A Scholomance chain.' },
+];
+/** The Now page's detours for this level (sheet 27): of the two-handers that beat what he holds and are within reach
+ *  (he can take it within 3 levels, it is at most 10 levels off), the nearest and the biggest; only when that makes
+ *  fewer than two, the nearest armor or XP quest he can take now. Never a quest done or outgrown (2 levels past it). */
+export interface Detour extends DetourQuest { /** times his weapon's DPS (two-handers, when his DPS is known) */ gain?: number; /** in his zone now */ here: boolean }
+export function detours(level: number, myDps: number, done: Set<number>, zone: string): Detour[] {
+  const open = DETOURS.filter(d => !done.has(d.id) && d.lvl + 2 >= level);
+  const weapons = open.filter(d => d.dps && d.min <= level + 3 && d.lvl <= level + 10 && d.dps > myDps + 0.5).sort((a, b) => a.lvl - b.lvl || a.id - b.id);
+  const pick: DetourQuest[] = [];
+  if (weapons.length) pick.push(weapons[0]);
+  const big = [...weapons].sort((a, b) => b.dps! - a.dps! || a.lvl - b.lvl)[0];
+  if (big && !pick.includes(big)) pick.push(big);
+  for (const d of open.filter(d => !d.dps && d.min <= level).sort((a, b) => a.lvl - b.lvl)) { if (pick.length >= 2) break; pick.push(d); }
+  return pick.map(d => ({ ...d, ...(d.dps && myDps > 0 ? { gain: Math.round(d.dps / myDps * 10) / 10 } : {}), here: !!zone && d.zone === zone }));
+}
+/** The two profession switches (DECISIONS 2026-11-27), as errands once due, until the new one is learned. */
+export interface Swap { lvl: number; from: string; to: string; icon: string }
+export function swaps(level: number, skills: Record<string, number>): Swap[] {
+  const out: Swap[] = [];
+  if (level >= 50 && skills['Engineering'] === undefined) out.push({ lvl: 50, from: 'Skinning', to: 'Engineering', icon: 'trade_engineering' });
+  if (level >= 60 && skills['Alchemy'] === undefined) out.push({ lvl: 60, from: 'Herbalism', to: 'Alchemy', icon: 'trade_alchemy' });
+  return out;
+}
+/** The item subclass OmaBook saves for the weapon, as a plain word. */
+export function weaponWord(sub: unknown): string {
+  return ({ 0: 'axe', 1: 'axe', 4: 'mace', 5: 'mace', 6: 'polearm', 7: 'sword', 8: 'sword', 10: 'staff', 15: 'dagger' } as Record<number, string>)[typeof sub === 'number' ? sub : -1] ?? 'weapon';
+}
+
 /** The item ids whose auction prices the book uses (Couch Mode's /book?ids=). */
 export const PRICE_IDS: number[] = [...POTION, ...WEIGHTSTONE, ...SHARPENING].map(w => w.id);
 
@@ -255,11 +317,14 @@ export const ICONS: string[] = [...new Set([
   ...TREE.map(t => t.icon), ...LADDER.map(r => r.icon), ...CLASS_QUESTS.map(q => q.icon),
   ...[FOOD, WATER, POTION, WEIGHTSTONE, SHARPENING, BANDAGE].flat().map(w => w.icon),
   ...Object.values(FIGHTS).flat().map(f => f[3]), ...Object.values(SPELLS).map(g => g.icon), ...CLASS_QUESTS.map(q => q.icon), 'spell_holy_devotionaura', 'spell_holy_fistofjustice', 'spell_holy_resurrection', 'classicon_paladin', 'inv_misc_book_09', 'inv_chest_chain_05',
+  ...DETOURS.map(d => d.icon), 'trade_engineering', 'trade_alchemy', 'achievement_pvp_h_01',
 ])].sort();
+/** Icons the remote fetches from Wowhead's icon store on first use instead of shipping them. */
+export const FETCHED_ICONS: string[] = [...new Set([...LADDER.map(r => r.icon), 'trade_engineering', 'trade_alchemy'])];
 
 // ------------------------------------------------------------------ what the phone draws
 
-export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear' | 'fight'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
+export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'fight'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
 export interface Restock { icon: string; slot: string; t: string; d: string; price: string[] }
 /** Icons for the spells the trainer only upgrades (Wowhead Forever). */
 const RANK_ICONS: Record<string, string> = { 'Seal of Righteousness': 'ability_thunderbolt', 'Devotion Aura': 'spell_holy_devotionaura',
@@ -282,8 +347,11 @@ export interface BookView {
   ranks: Record<string, number>; next: string | null;
   /** The road ahead (sheet 25): one point a level, and what he took off the path. */
   road: RoadPoint[]; off: OffPath[];
-  ladder: (Rung & { state: 'have' | 'next' | 'later' })[]; forLevel: { icon: string; name: string; what: string }[]; gearNote: string;
   bracket: string;
+  /** The WoW home's Now page (sheet 27): quests worth a detour, the two profession switches once due, bag counts. */
+  detours: Detour[]; swaps: Swap[]; bags: Record<string, number>;
+  /** What he holds: its DPS (0 = unknown) and a plain word for it ("mace"). */
+  weapon: { dps: number; word: string };
   /** Cheap Upgrades (sheet 17): its mode (rich = biggest in budget), budget in copper, and its list from the last scan.
    *  icon, q (quality) and lvl are filled in from Wowhead by the remote. */
   cu: { rich: boolean; max: number | null; list: { id: number; name: string; slot: string; price: number; pct: number; icon?: string; q?: number; lvl?: number }[] };
@@ -416,7 +484,7 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   // 4. a better weapon is open: the best rung at your level that beats what you hold
   let up: Rung | null = null;
   for (const r of LADDER) if (r.lvl <= level && r.dps > myDps + 0.5 && owned?.id !== r.id && (!r.skill || skills[r.skill] !== undefined || level < r.lvl)) up = r;
-  if (up && !(up.quest && isDone(up.quest))) cards.push({ icon: up.icon, t: `${up.name} is waiting`, d: `${up.from} · ${up.dps.toFixed(1)} DPS`, tone: 'blue', tab: 'gear', go: '›' });
+  if (up && !(up.quest && isDone(up.quest))) cards.push({ icon: up.icon, t: `${up.name} is waiting`, d: `${up.from} · ${up.dps.toFixed(1)} DPS`, tone: 'blue' });
   // 5. a class quest is open (one at a time; the Moonsilver Blade and Wolfsbane are weapon cards above)
   // a quest reads as done by the spell it gives, the end of its chain (then its own id, only the start, doesn't count),
   // or else its own id: a never-done id must not block the cards after it
@@ -471,15 +539,10 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
     if (bd) stock('Bandage', BANDAGE, 10, 5, () => ['you make it'], () => `First Aid ${fa}`, { ...bd, lvl: 1 });
   }
 
-  // Gear tab
-  const nextRung = LADDER.find(r => r.dps > myDps + 0.5 && owned?.id !== r.id) ?? null;
-  const ladder = LADDER.map(r => ({ ...r, state: (r === nextRung ? 'next' : r.lvl <= level && (r.dps <= myDps + 0.5 || owned?.id === r.id) ? 'have' : 'later') as 'have' | 'next' | 'later' }));
-  const f = best(FOOD, level)!, wt = best(WATER, level)!, pt = best(POTION, level)!, st = best(blunt ? WEIGHTSTONE : SHARPENING, level)!;
-  const forLevel = [{ icon: f.icon, name: f.name, what: 'food' }, { icon: wt.icon, name: wt.name, what: 'water' }, { icon: pt.icon, name: pt.name.replace(' Potion', ''), what: `potion · ${pt.lvl}` }, { icon: st.icon, name: st.name, what: 'weapon' }];
-  // each skill once, at the first weapon still ahead that needs it
-  const need: Rung[] = [];
-  for (const r of LADDER) if (r.skill && skills[r.skill] === undefined && r.dps > myDps + 0.5 && !need.some(n => n.skill === r.skill)) need.push(r);
-  const gearNote = need.length ? `Train ${need.map(r => r.skill).join(' and ')} at a weapon master before ${need.map(r => r.lvl).join(' and ')}.` : '';
+  // the WoW home's Now page (sheet 27)
+  const doneIds = new Set<number>([...doneSet].map(Number).filter(Number.isInteger));
+  const dets = detours(level, myDps, doneIds, typeof s.zone === 'string' ? s.zone : '');
+  const sw = swaps(level, skills);
 
   // the spec: the tree with the most points
   const per: Record<string, number> = {};
@@ -495,7 +558,7 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
     spec: spec && spec[1] > 0 ? spec[0] : '', zone: typeof s.zone === 'string' ? s.zone : '', at: num(s.at), money: Math.max(0, Math.floor(num(s.money))),
     cards, restock, fine: fine.length ? `All stocked: ${fine.join(', ')}.` : '',
     ranks, next: nt?.name ?? nextTalent(ranks, level + 1)?.name ?? null, ...(({ road: r, off }) => ({ road: r, off }))(road(ranks)),
-    ladder, forLevel, gearNote, bracket: level < 20 ? '1-20' : level < 40 ? '20-40' : '40+',
+    detours: dets, swaps: sw, bags, weapon: { dps: myDps, word: weaponWord(owned?.sub) }, bracket: level < 20 ? '1-20' : level < 40 ? '20-40' : '40+',
     cu: {
       rich: s.cu?.rich === true, max: num(s.cu?.max) > 0 ? num(s.cu?.max) : null,
       list: cuRows.filter(u => Number.isInteger(u.id) && num(u.id) > 0 && typeof u.name === 'string').slice(0, 10)

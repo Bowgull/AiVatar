@@ -2914,8 +2914,8 @@ ${backup}` : t, card ? { brief: card } : {});
 
   /**
    * The phone fire remote (omashu PLAN Phase 13): the fire wakes or sleeps the couch laptop; WoW chat for his phone.
-   * A whisper buzzes his phone through Discord, the one phone route Aang has (wow-chat-spec.md: "whatever
-   * notification route Aang has for the iPhone"). Nothing starts without the settings file.
+   * An attack in his zone buzzes his phone through Discord, the one phone route Aang has (whispers don't).
+   * Nothing starts without the settings file.
    */
   private startOmashu(): void {
     const cfg = loadRemoteConfig(path.join(this.cfg.stateDir, 'omashu-remote.json'));
@@ -2924,8 +2924,9 @@ ${backup}` : t, card ? { brief: card } : {});
     this.omashu = new OmashuRemote({
       cfg,
       saveCfg: c => writeFileAtomic(cfgFile, JSON.stringify(c, null, 2) + '\n', { mode: 0o600 }),
-      // (No whisper buzz through Discord: Joshua 2026-11-27, "stop surfacing whispers in game as discord notifications".
-      //  The phone's chat coin still counts them.)
+      // Only an attack in the zone he's in buzzes (sheet 27, 2026-11-27), once per zone per 10 minutes. Whispers never do:
+      // Joshua 2026-11-27, "stop surfacing whispers in game as discord notifications" (the phone's coin still counts them).
+      notify: text => this.sendTo('discord', { t: 'bubble', text: `WoW: ${text.slice(0, 300)}`, stream: false, proactive: true, buzz: true }),
     });
     this.omashu.start().then(p => console.log(`omashu remote: listening on port ${p} (home Wi-Fi only)`), e => console.error(`omashu remote: could not start: ${(e as Error).message}`));
   }

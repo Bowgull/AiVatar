@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { makeBook, nextTalent, road, coin, rotation, ICONS, PATH, TREE, LADDER, FOOD, WATER, POTION, SPELLS, type BookSave } from '../src/omashubook.ts';
+import { makeBook, nextTalent, road, coin, rotation, detours, swaps, ICONS, FETCHED_ICONS, DETOURS, PATH, TREE, LADDER, FOOD, WATER, POTION, SPELLS, type BookSave } from '../src/omashubook.ts';
 
 // the Horde book (2026-11-27): Icy Veins' order at 23, holding the Moonsilver Blade, the Bandarion and Redemption chains done
 const at23 = { Deflection: 5, 'Sanctified Judgement': 3, 'Improved Judgement': 2, 'Seal of Command': 1, 'Pursuit of Justice': 2, Conviction: 1 };   // the path through level 23
@@ -17,7 +17,7 @@ test('the tables hold together: every path talent is in the tree with room for i
   for (const [n, r] of Object.entries(total)) assert.ok(r <= TREE.find(t => t.name === n)!.max, `${n} ${r}`);
   assert.equal(PATH.reduce((s, p) => s + p[2], 0), 51, 'one point a level from 10 to 60');
   // weapon icons come from Wowhead at run time (omashuremote's /book/icons fallback); the rest ship
-  const fetched = new Set(LADDER.map(r => r.icon));
+  const fetched = new Set(FETCHED_ICONS);
   for (const i of ICONS) if (!fetched.has(i)) assert.ok(existsSync(path.join(import.meta.dirname, '..', 'assets', 'omashu', 'book', 'icons', `${i}.jpg`)), i);
   for (const list of [FOOD, WATER, POTION]) assert.equal(new Set(list.map(w => w.id)).size, list.length);
   for (let i = 1; i < LADDER.length; i++) assert.ok(LADDER[i].dps > LADDER[i - 1].dps && LADDER[i].lvl >= LADDER[i - 1].lvl);
@@ -84,16 +84,17 @@ test('fight: only spells you know (no Hammer of Justice before you have it), new
 test('weapon: the best open rung that beats what you hold; the Moonsilver Blade until its quest is done', () => {
   const b = makeBook(base({ weapon: { id: 270018, dps: 20.44, sub: 5 } }))!;
   assert.equal(b.cards[0].t, 'Moonsilver Blade is waiting');
-  assert.equal(b.ladder.find(r => r.state === 'next')!.name, 'Moonsilver Blade');
-  assert.equal(makeBook(base())!.ladder.find(r => r.state === 'next')!.name, 'Wolfsbane');
-  assert.ok(!makeBook(base({ weapon: { id: 270018, dps: 20.44, sub: 5 }, done: { 95803: true, 94441: true, 95036: true } }))!.cards.some(c => /Moonsilver/.test(c.t)), 'quest done');
+  assert.equal(b.cards[0].tab, undefined, 'no Gear tab to open (2026-11-27)');
+  assert.ok(!('ladder' in b) && !('gearNote' in b), 'the Gear tab is gone');
+  assert.ok(!makeBook(base({ weapon: { id: 270018, dps: 20.44, sub: 5 }, done: { 95803: true, 94441: true, 95126: true } }))!.cards.some(c => /Moonsilver/.test(c.t)), 'quest done');
+  assert.ok(makeBook(base({ weapon: { id: 270018, dps: 20.44, sub: 5 }, done: { 95803: true, 94441: true, 95036: true } }))!.cards.some(c => /Moonsilver/.test(c.t)), '95036 (A Moon-Kissed Blade) gives no blade: the reward quest is 95126');
+  assert.equal(LADDER.find(r => r.name === 'Moonsilver Blade')!.quest, 95126);
 });
 
 test('weapon skill: three levels before the rung that needs it', () => {
   assert.ok(!makeBook(base({ level: 25 }))!.cards.some(c => /Polearms/.test(c.t)));
   const b = makeBook(base({ level: 26, talents: {} }))!;
   assert.ok(b.cards.some(c => c.t === 'Learn Polearms soon'));
-  assert.equal(b.gearNote, 'Train Polearms and Two-Handed Axes at a weapon master before 29 and 60.', 'each skill once; the outgrown level 15 axe never counts');
   assert.ok(!makeBook(base({ level: 26, skills: { Polearms: 1 } }))!.cards.some(c => /Polearms/.test(c.t)));
   assert.ok(!makeBook(base({ level: 13 }))!.cards.some(c => /Two-Handed Axes/.test(c.t)), 'no nag for an axe weaker than what he holds');
 });
@@ -208,7 +209,7 @@ test('7. Forsaken class quests: each chain done by its last quest or the spell i
 test('8. Hammerbone waits for Wailing Caverns, 20', () => {
   const lo = { level: 19, talents: {}, weapon: { id: 5579, dps: 2.6, sub: 5 }, skills: { 'Two-Handed Maces': 90, 'Two-Handed Axes': 1 } };
   assert.ok(!makeBook(base(lo))!.cards.some(c => /Hammerbone/.test(c.t)));
-  assert.ok(makeBook(base({ ...lo, level: 20, done: { 95803: true, 94441: true, 95036: true } }))!.cards.some(c => c.t === 'Hammerbone is waiting'));
+  assert.ok(makeBook(base({ ...lo, level: 20, done: { 95803: true, 94441: true, 95126: true } }))!.cards.some(c => c.t === 'Hammerbone is waiting'));
 });
 
 test('9. Seal of Command: new ranks at 30, 40, 50 and 60', () => assert.match(SPELLS['Seal of Command'].use!, /30, 40, 50 and 60/));
@@ -246,4 +247,34 @@ test('the road (sheet 25): one point a level from his next point; off the path m
   // tier gates hold on the path: no point comes before its row opens (5 points in that tree per row)
   const per: Record<string, number> = {};
   for (const p of r0.road) { const t = TREE.find(x => x.name === p.name)!; assert.ok((per[t.tree] ?? 0) >= 5 * (t.tier - 1), `${p.name} at ${p.lvl}`); per[t.tree] = (per[t.tree] ?? 0) + 1; }
+});
+
+test('detours (sheet 27): the nearest and the biggest two-hander in reach, with the gain over his weapon', () => {
+  const d = detours(7, 1.84, new Set(), 'Tirisfal Glades');
+  assert.deepEqual(d.map(x => x.id), [99156, 5730], 'level 7: Rear Guard Patrol (nearest), Hidden Enemies (biggest)');
+  assert.equal(d[0].gain, 4.8); assert.equal(d[1].gain, 8.8);
+  assert.equal(d[0].here, true, 'Deathguard Linnea is in his zone'); assert.equal(d[1].here, false);
+  assert.deepEqual(detours(7, 1.84, new Set([99156]), '').map(x => x.id), [99, 5730], 'a done quest never shows');
+  assert.equal(detours(7, 0, new Set(), '')[0].gain, undefined, 'no gain without his weapon\'s DPS');
+  assert.deepEqual(detours(35, 21, new Set(), '').map(x => x.id), [1383, 93128], 'past 30: the 30-60 list');
+  assert.deepEqual(detours(30, 21, new Set(), '').map(x => x.id), [98823, 1089], 'one two-hander in reach: the nearest armor fills in');
+  assert.ok(!detours(34, 21, new Set(), '').some(x => x.id === 98823), 'outgrown two levels past it');
+  const late = detours(16, 30, new Set(), '');
+  assert.ok(late.every(x => !x.dps) && late.length === 2, 'no two-hander beats a 30 DPS weapon: the nearest armor or XP quests instead');
+  assert.ok(late.every(x => x.min <= 16));
+  assert.deepEqual(detours(60, 70, new Set(DETOURS.map(x => x.id)), ''), [], 'all done: nothing');
+  for (const x of DETOURS) { assert.ok(Number.isInteger(x.id) && x.id > 0 && x.id <= 999999, x.name); assert.ok(x.min <= x.lvl, x.name); assert.ok(x.dps || x.stats || x.xp, x.name); }
+  assert.ok(!DETOURS.some(x => x.id === 95126 || x.id === 95140), 'the Lumina class chain is Polestar\'s');
+});
+
+test('detours and profession switches reach the book', () => {
+  const b = makeBook(base({ level: 7, weapon: { id: 1, dps: 1.84, sub: 5 }, zone: 'Tirisfal Glades', done: {} }))!;
+  assert.deepEqual(b.detours.map(x => x.id), [99156, 5730]);
+  assert.deepEqual(b.weapon, { dps: 1.84, word: 'mace' });
+  assert.deepEqual(b.swaps, []);
+  assert.deepEqual(swaps(50, { Skinning: 200 }).map(s => s.to), ['Engineering']);
+  assert.deepEqual(swaps(60, { Skinning: 200, Herbalism: 250 }).map(s => s.to), ['Engineering', 'Alchemy']);
+  assert.deepEqual(swaps(60, { Engineering: 1, Alchemy: 1 }), [], 'gone once learned');
+  assert.deepEqual(swaps(49, {}), []);
+  assert.deepEqual(makeBook(base({ bags: { 858: 3 } }))!.bags, { 858: 3 }, 'bag counts for his own errands');
 });

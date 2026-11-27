@@ -100,6 +100,10 @@ export function parseChatLine(raw: string, seq: number): ChatLine | null {
   let m: RegExpMatchArray | null;
   if ((m = b.match(new RegExp(String.raw`^\[(\d{1,2})\. ([^\]]+?)(?: - [^\]]*)?\] ${NAME}: (.*)$`))))
     return { seq, t, kind: 'channel', chan: { num: Number(m[1]), name: m[2] }, who: m[3], text: segments(m[4]) };
+  // a numbered channel with no speaker: the game's own LocalDefense lines ("[3. LocalDefense - Tirisfal Glades] The
+  // Bulwark is under attack!"), so the phone files them under Defense (sheet 28, 2026-11-27)
+  if ((m = b.match(/^\[(\d{1,2})\. ([^\]]+?)(?: - [^\]]*)?\] (.+)$/)))
+    return { seq, t, kind: 'channel', chan: { num: Number(m[1]), name: m[2] }, text: segments(m[3]) };
   if ((m = b.match(new RegExp(String.raw`^\[([A-Za-z ]+)\] ${NAME}: (.*)$`))) && PREFIX[m[1].toLowerCase()])
     return { seq, t, kind: PREFIX[m[1].toLowerCase()], who: m[2], text: segments(m[3]) };
   if ((m = b.match(new RegExp(String.raw`^${NAME} whispers: (.*)$`)))) return { seq, t, kind: 'whisper', who: m[1], text: segments(m[2]) };

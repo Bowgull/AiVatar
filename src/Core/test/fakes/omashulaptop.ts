@@ -20,6 +20,7 @@ const ALLOW = [
   String.raw`^/(invite|friend|ignore|who) [^\s/|\\]{2,24}( [^\s/|\\]{2,24})?$`,
   String.raw`^/roll$`,
   String.raw`^/reload$`,
+  String.raw`^/omq [1-9]\d{0,5}$`,   // Add to Polestar (sheet 27): Couch Mode's own allow-list needs this line too
   String.raw`^/cu rich (on|off)$`,
   String.raw`^/cu max ([1-9]\d{0,3}g( [1-9]\d?s)?|[1-9]\d?s)$`,
   // the emotes: the same emotes.json Couch Mode reads (mockup 10)
@@ -125,6 +126,7 @@ export class FakeLaptop {
     else if (cmd === 'invite') this.log(`You have invited ${rest} to join your group.`);
     else if (cmd === 'friend') this.log(`${rest} added to friends.`);
     else if (cmd === 'ignore') this.log(`${rest} is now being ignored.`);
+    else if (cmd === 'omq') this.log(`Polestar: quest ${rest} opened in a new guide tab.`);   // OmaGuide's /omq (sheet 27)
     else this.log(rest ? `You ${cmd} at ${rest}.` : `You ${cmd}.`);           // an emote, roughly as WoW words it
   }
 

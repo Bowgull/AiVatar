@@ -266,6 +266,48 @@ export class Wowhead {
   private remember(k: string, v: Tip | null) { this.cache.set(k, v); while (this.cache.size > 300) this.cache.delete(this.cache.keys().next().value!); }
 }
 
+// ------------------------------------------------------------------ danger in his zone (sheet 27)
+
+/** The zone a raw chat line says he is in: General and LocalDefense are per zone, so their tag carries it
+ *  ("[1. General - Tirisfal Glades] ...", and WoW's own "Changed Channel: [1. General - Brill]"). Null when it doesn't. */
+export function zoneFromRaw(raw: string): string | null {
+  const b = String(raw ?? '').replace(/\|Hchannel:[^|]*\|h/g, '').replace(/\|h/g, '');
+  const m = /^(?:\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\s+\d{1,2}:\d{2}:\d{2}(?:\.\d+)?\s+)?(?:(?:Changed|Joined) Channel: )?\[\d{1,2}\. (?:General|LocalDefense) - ([^\]]{2,60})\]/.exec(b);
+  return m ? m[1].trim() : null;
+}
+export interface Danger { kind: 'attack' | 'alliance'; text: string; place?: string; who?: string; zone: string; /** ms */ at: number; seq: number }
+/** A LocalDefense line that means trouble: the game's "X is under attack!", or a player calling out Alliance. */
+export function dangerOf(c: ChatLine): Pick<Danger, 'kind' | 'text' | 'place' | 'who'> | null {
+  if (c.kind !== 'channel' || !c.chan || !/^(?:localdefense|defense)/i.test(c.chan.name)) return null;
+  const text = c.text.map(x => 's' in x ? x.s : `[${x.name}]`).join('').trim();
+  const m = !c.who ? /^(.{2,60}?) is under attack!?$/i.exec(text) : null;
+  if (m) return { kind: 'attack', place: m[1], text: `${m[1]} is under attack` };
+  if (c.who && /\b(?:alliance|ally|allies|allys|alys|alli|ali)\b/i.test(text)) return { kind: 'alliance', who: String(c.who).split('-')[0], text: text.slice(0, 200) };
+  return null;
+}
+/** When a backlog line was written: its "4:53" (12-hour) read as the latest such time at or before now. */
+export function lineAt(t: string, now: number): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? '');
+  if (!m) return now;
+  const d = new Date(now), h = Number(m[1]) % 12, min = Number(m[2]);
+  let best = -Infinity;
+  for (const back of [0, 1]) for (const pm of [0, 12]) {
+    const c = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back, h + pm, min).getTime();
+    if (c <= now && c > best) best = c;
+  }
+  return Number.isFinite(best) ? best : now;
+}
+const DANGER_SHOW_MS = 15 * 60_000;   // the Now page's danger card: the last ~15 minutes
+const DANGER_BUZZ_MS = 10 * 60_000;   // the phone buzzes once per zone per 10 minutes
+
+/** A Polestar quest the phone asks for (sheet 27, "Add to Polestar"): {omq: id}, an id 1..999999, nothing else. */
+export function omqLine(v: unknown): string | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (Object.keys(o).length !== 1 || typeof o.omq !== 'number' || !Number.isInteger(o.omq) || o.omq < 1 || o.omq > 999999) return null;
+  return `/omq ${o.omq}`;
+}
+
 // ------------------------------------------------------------------ the service
 
 export type Fire = 'out' | 'waking' | 'lit' | 'sleeping';
@@ -280,7 +322,8 @@ export interface RemoteOpts {
   fetch?: Fetch;
   wowhead?: Wowhead;
   wake?: (mac: string, targets: string[], port: number) => Promise<void>;
-  /** A whisper came in: buzz Joshua's phone (core.ts sends it through Discord). */
+  /** An attack in the zone he's in: buzz Joshua's phone (core.ts sends it through Discord). Whispers never buzz
+   *  (Joshua 2026-11-27: "stop surfacing whispers in game as discord notifications"). */
   notify?: (text: string) => void;
   log?: (s: string) => void;
   now?: () => number;
@@ -331,6 +374,10 @@ export class OmashuRemote {
   /** Who in the guild is online (sheet 11): the last complete list from the add-on; null until one arrives. */
   guild: GuildMember[] | null = null;
   private guildParts: { list: number; n: number; got: (GuildMember | undefined)[] } | null = null;
+  /** LocalDefense trouble this session (sheet 27), and the zone the chat last said he is in. */
+  danger: Danger[] = [];
+  private chatZone: string | null = null;
+  private buzzed = new Map<string, number>();
   private tickRunning: Promise<void> | null = null;
   private tickAgain = false;  // asked for a look while one was running: one more right after it
   private ticked = false;     // the first look has finished: until then /api/poll knows nothing true
@@ -403,7 +450,14 @@ export class OmashuRemote {
     else { this.forget(); this.book = null; this.bookAskedAt = 0; }
   }
 
-  private forget() { this.ah = false; this.ahWin = null; this.typing = false; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
+  private forget() { this.ah = false; this.ahWin = null; this.typing = false; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; this.danger = []; this.chatZone = null; }
+  /** The zone he is in: what the chat last said, else the book's (as of his last reload). '' when neither knows. */
+  zone(): string { return this.chatZone ?? this.book?.zone ?? ''; }
+  /** Danger for the Now page: his zone, the last 15 minutes, newest first. */
+  dangerNow(): Danger[] {
+    const z = this.zone(), now = this.now();
+    return this.danger.filter(d => (!z || !d.zone || d.zone === z) && now - d.at < DANGER_SHOW_MS).reverse();
+  }
 
   private async follow(): Promise<void> {
     // the book's save only changes on a reload, logout, level-up or bag change, so once a minute is plenty
@@ -454,9 +508,19 @@ export class OmashuRemote {
         // the speaker's class, sent by the laptop since chat strip v2 (2026-11-11): the phone colours the name by it
         if (c.who && typeof l.cls === 'string' && /^[A-Z]{4,12}$/.test(l.cls)) c.cls = l.cls;
         this.lines.push(c);
-        if (c.kind === 'whisper') {
-          this.whispers++;
-          if (this.primed) this.o.notify?.(`${c.who} whispers: ${c.text.map(s => 's' in s ? s.s : `[${s.name}]`).join('')}`);
+        if (c.kind === 'whisper') this.whispers++;    // counted on the coin; never buzzed (2026-11-27)
+        const z = zoneFromRaw(l.raw);
+        if (z) this.chatZone = z;
+        const d = dangerOf(c);
+        if (d) {
+          const now = this.now(), zone = z ?? this.zone();
+          this.danger.push({ ...d, zone, at: this.primed ? now : lineAt(c.t, now), seq: c.seq });
+          if (this.danger.length > 60) this.danger.splice(0, this.danger.length - 60);
+          // the buzz: an attack in the zone he's in, once per zone per 10 minutes, never for the backlog
+          if (this.primed && d.kind === 'attack' && zone && zone === this.zone() && now - (this.buzzed.get(zone) ?? -Infinity) >= DANGER_BUZZ_MS) {
+            this.buzzed.set(zone, now);
+            this.o.notify?.(`${d.text} (${zone})`);
+          }
         }
       }
       if (b.lines.length < CHAT_BATCH || n >= 4) break;
@@ -553,7 +617,7 @@ export class OmashuRemote {
     }
     if (req.method === 'GET' && p === '/emotes.json') { send(res, 200, readFileSync(CATALOG_FILE), 'application/json'); return; }
     if (req.method === 'GET' && p === '/api/favourites') { json(res, 200, { favourites: phone.favourites ?? CATALOG.favourites }); return; }
-    if (req.method === 'GET' && p === '/forest.js') { send(res, 200, readFileSync(path.join(ASSETS, 'forest.js')), 'text/javascript; charset=utf-8'); return; }
+    if (req.method === 'GET' && (p === '/forest.js' || p === '/wowchat.js')) { send(res, 200, readFileSync(path.join(ASSETS, p.slice(1))), 'text/javascript; charset=utf-8'); return; }
 
     if (req.method === 'GET' && p === '/api/poll') {
       // 2026-11-26: before the first look (Aang just restarted) game:null would make the phone wipe chat and close the book
@@ -562,7 +626,8 @@ export class OmashuRemote {
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
-      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, ahWin: this.ahWin, typing: this.typing, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
+      const book = this.book ? { level: this.book.level, at: this.book.at, cls: 'PALADIN', train: this.book.train ? this.book.train.fresh.length + this.book.train.ups.length : 0 } : null;
+      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, ahWin: this.ahWin, typing: this.typing, book, zone: this.zone() || null, danger: this.dangerNow() } : {}) });
       return;
     }
     // a suggestion's picture (sheet 21): only items on the laptop's list, the icon from Wowhead's store, kept in memory
@@ -587,6 +652,8 @@ export class OmashuRemote {
     }
     if (req.method === 'GET' && p === '/api/items') {
       if (!phone.chat) { json(res, 403, { ok: false }); return; }
+      // the errand search (sheet 27) can ask before he has been to the auction house: fetch the list once a minute at most
+      if (!this.items && this.game === 'wow' && this.now() - this.itemsAskedAt > 60_000) { this.itemsAskedAt = this.now(); const it = await this.laptop.ahItems(); if (it && it.items.length) this.items = it; }
       json(res, 200, this.items ?? { at: null, items: [] });
       return;
     }
@@ -679,7 +746,8 @@ export class OmashuRemote {
     }
     if (p === '/api/send') {
       const ask = await body(req) as SendAsk | null;
-      const line = ask ? buildLine(ask) : null;
+      // "Add to Polestar" (sheet 27): /omq <quest id>, typed like any chat line; Couch Mode's allow-list still decides
+      const line = ask && typeof ask === 'object' && 'omq' in ask ? omqLine(ask) : ask ? buildLine(ask) : null;
       if (!line) { json(res, 400, { ok: false, why: 'refused' }); return; }
       if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
       const r = await this.laptop.send(line);

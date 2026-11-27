@@ -7,7 +7,8 @@ import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { FakeLaptop } from './fakes/omashulaptop.ts';
-import { Laptop, OmashuRemote, Wowhead, loadRemoteConfig, sendWake, type RemoteConfig } from '../src/omashuremote.ts';
+import { Laptop, OmashuRemote, Wowhead, loadRemoteConfig, sendWake, zoneFromRaw, dangerOf, lineAt, omqLine, type RemoteConfig } from '../src/omashuremote.ts';
+import { parseChatLine } from '../src/omashu.ts';
 import dgram from 'node:dgram';
 import { createHmac } from 'node:crypto';
 
@@ -215,7 +216,7 @@ test('guild list (sheet 11): built from the add-on lines, swapped in only when c
   } finally { await r.done(); }
 });
 
-test('chat: read while WoW is up, cleared when it closes, whispers counted and buzzed (backlog never buzzes)', async () => {
+test('chat: read while WoW is up, cleared when it closes, whispers counted and never buzzed (2026-11-27)', async () => {
   const r = await rig();
   try {
     r.lap.startWow();
@@ -225,8 +226,9 @@ test('chat: read while WoW is up, cleared when it closes, whispers counted and b
     assert.equal(r.notes.length, 0);
     r.lap.log('[2. Trade - City] Bellacoin: WTS |cff1eff00|Hitem:9811::::::::12:::::::|h[Grips of Control]|h|r 2g');
     r.lap.log('Hadrik Stone whispers: bring a mage too if you can');
-    await until(() => r.notes.length === 1);
-    assert.equal(r.notes[0], 'Hadrik Stone whispers: bring a mage too if you can');
+    await until(async () => ((await r.poll()).lines ?? []).length === 4);
+    await r.remote['tickRunning'];
+    assert.equal(r.notes.length, 0, 'a whisper never buzzes the phone');
     const p = await r.poll();
     assert.equal(p.game, 'wow'); assert.equal(p.whispers, 2);
     assert.deepEqual(p.lines!.map(l => l.kind), ['whisper', 'guild', 'channel', 'whisper']);
@@ -563,5 +565,90 @@ test('auction list (sheet 22): /api/prices passes each item\'s days, clean numbe
     assert.equal(r.lap.pricesAsked, '2770,2771', 'only clean ids reach the laptop');
     assert.equal((await r.as(JOSH).get('/api/prices?ids=abc')).status, 400);
     assert.equal((await r.as(GUEST).get('/api/prices?ids=2770')).status, 403);
+  } finally { await r.done(); }
+});
+
+test('Add to Polestar (sheet 27): {omq: id} reaches WoW as /omq <id>, only whole ids 1..999999, only for the chat phone', async () => {
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    const res = await r.as(JOSH).post('/api/send', { omq: 99156 });
+    assert.equal(res.status, 200);
+    assert.equal(r.lap.typed.at(-1), '/omq 99156');
+    assert.equal((await r.as(JOSH).post('/api/send', { omq: 1 })).status, 200);
+    assert.equal((await r.as(JOSH).post('/api/send', { omq: 999999 })).status, 200);
+    assert.equal(r.lap.typed.at(-1), '/omq 999999');
+    const sent = r.lap.typed.length;
+    for (const bad of [{ omq: 0 }, { omq: 1000000 }, { omq: -5 }, { omq: 12.5 }, { omq: '99156' }, { omq: null }, { omq: 99156, text: 'x' }, { omq: [1] }, { omq: 1e21 }]) {
+      const b = await r.as(JOSH).post('/api/send', bad);
+      assert.equal(b.status, 400, JSON.stringify(bad));
+    }
+    assert.equal((await r.as(GUEST).post('/api/send', { omq: 99156 })).status, 403, 'a phone without chat');
+    assert.equal((await r.as(JOSH).post('/api/send', { omq: 99156 }, {})).status, 403, 'no header');
+    assert.equal(r.lap.typed.length, sent, 'nothing refused reached the laptop');
+    r.lap.stopWow();
+    await until(async () => (await r.poll()).chat === false);
+    assert.equal((await r.as(JOSH).post('/api/send', { omq: 99156 })).status, 409, 'WoW closed');
+  } finally { await r.done(); }
+});
+
+test('danger, the pure parts: zone from the channel tag, attacks and Alliance call-outs, backlog times, /omq lines', () => {
+  assert.equal(zoneFromRaw('11/27 16:53:00.000  [1. General - Tirisfal Glades] Gideon Byrne: hi'), 'Tirisfal Glades');
+  assert.equal(zoneFromRaw('11/27 16:53:00.000  Changed Channel: |Hchannel:1|h[1. General - Silverpine Forest]|h'), 'Silverpine Forest');
+  assert.equal(zoneFromRaw('11/27 16:53:00.000  [2. Trade - City] Bob: wts'), null, 'Trade is not a zone');
+  assert.equal(zoneFromRaw('11/27 16:53:00.000  Bob says: [1. General - Mulgore]'), null, 'only the line\'s own tag');
+  const atk = parseChatLine('11/27 16:53:00.000  [3. LocalDefense - Tirisfal Glades] The Bulwark is under attack!', 1)!;
+  assert.deepEqual(dangerOf(atk), { kind: 'attack', place: 'The Bulwark', text: 'The Bulwark is under attack' });
+  const ally = parseChatLine('11/27 16:55:00.000  [3. LocalDefense - Tirisfal Glades] Crypto Exchange: lots of alliance camping outside sm entrance', 2)!;
+  assert.deepEqual(dangerOf(ally), { kind: 'alliance', who: 'Crypto Exchange', text: 'lots of alliance camping outside sm entrance' });
+  assert.equal(dangerOf(parseChatLine('11/27 16:55:00.000  [1. General - Tirisfal Glades] Bob: alliance in brill', 3)!), null, 'Defense only');
+  assert.equal(dangerOf(parseChatLine('11/27 16:55:00.000  [3. LocalDefense - Tirisfal Glades] Bob: anyone selling bags', 4)!), null);
+  const now = new Date(2026, 10, 27, 17, 0).getTime();
+  assert.equal(lineAt('4:53', now), new Date(2026, 10, 27, 16, 53).getTime());
+  assert.equal(lineAt('5:10', now), new Date(2026, 10, 27, 5, 10).getTime(), 'a 12-hour time later than now is the morning one');
+  assert.equal(lineAt('', now), now);
+  assert.equal(omqLine({ omq: 5730 }), '/omq 5730');
+  assert.equal(omqLine({ omq: 0 }), null); assert.equal(omqLine({ omq: 5730, x: 1 }), null); assert.equal(omqLine([5730]), null);
+});
+
+test('danger (sheet 27): Defense lines in his zone reach Now; an attack buzzes once per zone per 10 min, never the backlog', async () => {
+  let t = Date.now();
+  const r = await rig({ now: () => t, missGraceMs: 400 });
+  type P = { zone?: string | null; danger?: { kind: string; text: string; zone: string; who?: string }[]; book?: unknown };
+  const poll = async () => await r.poll() as unknown as P;
+  try {
+    r.lap.startWow();
+    r.lap.log('[3. LocalDefense - Tirisfal Glades] The Bulwark is under attack!');   // backlog: shown, not buzzed
+    await until(async () => ((await poll()).danger ?? []).length === 1);
+    let p = await poll();
+    assert.equal(p.zone, 'Tirisfal Glades', 'the zone from the Defense tag');
+    assert.deepEqual(p.danger!.map(d => [d.kind, d.text, d.zone]), [['attack', 'The Bulwark is under attack', 'Tirisfal Glades']]);
+    assert.equal(r.notes.length, 0, 'the backlog never buzzes');
+    r.lap.log('Ferathiel whispers: pst for ginv');
+    r.lap.log('[3. LocalDefense - Tirisfal Glades] Brill is under attack!');
+    await until(() => r.notes.length === 1);
+    assert.equal(r.notes[0], 'Brill is under attack (Tirisfal Glades)');
+    r.lap.log('[3. LocalDefense - Tirisfal Glades] Brill is under attack!');
+    r.lap.log('[3. LocalDefense - Tirisfal Glades] Crypto Exchange: lots of alliance camping outside sm entrance');
+    await until(async () => ((await poll()).danger ?? []).length === 4);
+    await r.remote['tickRunning'];
+    assert.equal(r.notes.length, 1, 'the same zone within 10 minutes: no second buzz; Alliance call-outs and whispers never buzz');
+    assert.equal((await poll()).danger![0].kind, 'alliance', 'newest first');
+    // he rides into Silverpine: the Tirisfal lines leave the card, the new zone buzzes on its own
+    r.lap.log('Changed Channel: [1. General - Silverpine Forest]');
+    await until(async () => (await poll()).zone === 'Silverpine Forest');
+    assert.deepEqual((await poll()).danger, []);
+    r.lap.log('[3. LocalDefense - Silverpine Forest] The Sepulcher is under attack!');
+    await until(() => r.notes.length === 2);
+    assert.equal(r.notes[1], 'The Sepulcher is under attack (Silverpine Forest)');
+    // 11 minutes on: the same zone buzzes again; 16 minutes after a line it leaves the card
+    t += 11 * 60_000;
+    r.lap.log('[3. LocalDefense - Silverpine Forest] The Sepulcher is under attack!');
+    await until(() => r.notes.length === 3);
+    t += 5 * 60_000;
+    p = await poll();
+    assert.equal(p.danger!.length, 1, 'the 16-minute-old line is gone, the 5-minute-old one stays');
+    assert.equal((await r.as(GUEST).get('/api/poll').then(x => x.json()) as P).danger, undefined, 'only the chat phone sees it');
   } finally { await r.done(); }
 });
