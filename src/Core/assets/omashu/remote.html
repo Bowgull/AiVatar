@@ -1246,7 +1246,26 @@ async function ahSearch(text){
   if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);return}
   i.value='';i.blur();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
 }
+// The fast lane (2026-11-27, "jumpy and glitchy"): moves no longer wait for each answer. The finger's total since the
+// pad opened goes out once per screen refresh, up to 4 on the way at once; Aang sends each on to the laptop as one UDP
+// packet and the laptop glides the pointer there. A lost or late one costs nothing (the next carries the total).
+// Old Aang (no /api/mv): back to one move at a time.
+const lane={s:0,n:0,x:0,y:0,sx:0,sy:0,out:0,raf:0,slow:false};
+function tpMove(dx,dy){
+  if(lane.slow){tp.dx+=dx;tp.dy+=dy;tpFlush();return}
+  lane.x+=dx;lane.y+=dy;if(!lane.raf)lane.raf=requestAnimationFrame(laneSend)}
+function laneSend(){
+  lane.raf=0;if(!tp.el||lane.x===lane.sx&&lane.y===lane.sy)return;
+  if(lane.out>=4){lane.raf=requestAnimationFrame(laneSend);return}
+  lane.sx=lane.x;lane.sy=lane.y;lane.out++;
+  fetch('/api/mv',{method:'POST',headers:{'x-omashu':'1','Content-Type':'application/json'},body:JSON.stringify({s:lane.s,n:++lane.n,x:Math.round(lane.x*100)/100,y:Math.round(lane.y*100)/100})})
+    .then(r=>{const no=tp.el&&tp.el.querySelector('.tpno');
+      if(r.status===404||r.status===405){lane.slow=true;tp.dx+=lane.x-lane.sx;tp.dy+=lane.y-lane.sy;return}
+      if(no)no.textContent=r.ok?'':r.status===409?'WoW isn’t in front':'Not reaching the laptop'})
+    .catch(()=>{const no=tp.el&&tp.el.querySelector('.tpno');if(no)no.textContent='Not reaching the laptop'})
+    .finally(()=>{lane.out--})}
 function openPad(){if(tp.el)return;tp.on=true;
+  lane.s=(Math.random()*4294967295)>>>0;lane.n=0;lane.x=lane.y=lane.sx=lane.sy=0;
   const el=$('div','tpad');
   el.innerHTML=`${[1,2,3,4].map(n=>`<div class="corner c${n}"><i></i><i></i><i></i></div>`).join('')}<div class="put">${PX_CHEV}</div>
   <div class="rail"><label class="slot">${PX_LENS}<input type="text" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60"></label>
@@ -1274,7 +1293,7 @@ function openPad(){if(tp.el)return;tp.on=true;
   surf.addEventListener('pointermove',e=>{const t=tp.touches.get(e.pointerId);if(!t)return;
     const now=performance.now(),mx=e.clientX-t.x,my=e.clientY-t.y,dt=Math.max(1,now-t.tl);t.x=e.clientX;t.y=e.clientY;t.tl=now;
     const r=surf.getBoundingClientRect();t.dot.style.left=e.clientX-r.left+'px';t.dot.style.top=e.clientY-r.top+'px';
-    if(tp.touches.size===1){const v=Math.hypot(mx,my)/dt;tp.vel=tp.vel*0.6+v*0.4;const g=tpGain(tp.vel);tp.dx+=mx*g;tp.dy+=my*g;tpFlush()}
+    if(tp.touches.size===1){const v=Math.hypot(mx,my)/dt;tp.vel=tp.vel*0.6+v*0.4;const g=tpGain(tp.vel);tpMove(mx*g,my*g)}
     else if(tp.two){tp.two.moved+=Math.abs(my)+Math.abs(mx);tp.two.acc+=my/2;   // two fingers: scroll (each finger moves it half)
       const n=Math.trunc(tp.two.acc/TP.scrollPt);if(n){tp.two.acc-=n*TP.scrollPt;tpPush({w:n})}}});
   const lift=e=>{const t=tp.touches.get(e.pointerId);if(!t)return;tp.touches.delete(e.pointerId);t.dot.remove();

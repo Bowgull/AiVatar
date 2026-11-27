@@ -7,7 +7,9 @@ import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { FakeLaptop } from './fakes/omashulaptop.ts';
-import { OmashuRemote, Wowhead, loadRemoteConfig, sendWake, type RemoteConfig } from '../src/omashuremote.ts';
+import { Laptop, OmashuRemote, Wowhead, loadRemoteConfig, sendWake, type RemoteConfig } from '../src/omashuremote.ts';
+import dgram from 'node:dgram';
+import { createHmac } from 'node:crypto';
 
 const MAC = '02:00:5e:10:20:30';
 const KEY = 'laptop-key-for-tests-only-0123456789';
@@ -503,4 +505,31 @@ test('the wake packet goes out over UDP', async () => {
     await new Promise(r => setTimeout(r, 50));
     assert.equal(lap.wakePackets, 1);
   } finally { await lap.stop(); }
+});
+
+test('trackpad fast lane (sheet 21): /api/mv goes on as one signed UDP packet; bad ones and other phones are refused', async () => {
+  const sock = dgram.createSocket('udp4');
+  await new Promise<void>(res => sock.bind(0, '127.0.0.1', () => res()));
+  const got: Buffer[] = []; sock.on('message', b => got.push(b));
+  try {
+    const lap = new Laptop({ url: 'http://127.0.0.1:1', key: 'secret', movePort: sock.address().port });
+    lap.move(7, 3, 12.5, -40.25);
+    await until(async () => got.length === 1);
+    const b = got[0];
+    assert.equal(b.length, 36);
+    assert.equal(b.subarray(0, 4).toString('ascii'), 'OMV1');
+    assert.deepEqual([b.readUInt32LE(4), b.readUInt32LE(8), b.readDoubleLE(12), b.readDoubleLE(20)], [7, 3, 12.5, -40.25]);
+    assert.deepEqual(b.subarray(28), createHmac('sha256', 'secret').update(b.subarray(0, 28)).digest().subarray(0, 8), 'signed with the laptop key');
+    assert.deepEqual(Laptop.movePacket('secret', 7, 3, 12.5, -40.25), b, 'same bytes every time');
+  } finally { sock.close(); }
+  const r = await rig();
+  try {
+    r.lap.startWow();
+    await until(async () => (await r.poll()).chat === true);
+    assert.equal((await r.as(JOSH).post('/api/mv', { s: 1, n: 1, x: 3, y: -2 })).status, 204);
+    for (const bad of [{ s: -1, n: 1, x: 0, y: 0 }, { s: 1, n: 1.5, x: 0, y: 0 }, { s: 1, n: 1, x: 'a', y: 0 }, { s: 1, n: 1, x: 1e9, y: 0 }, {}]) {
+      assert.equal((await r.as(JOSH).post('/api/mv', bad)).status, 400, JSON.stringify(bad));
+    }
+    assert.equal((await r.as(GUEST).post('/api/mv', { s: 1, n: 2, x: 0, y: 0 })).status, 403, 'only the chat phone');
+  } finally { await r.done(); }
 });

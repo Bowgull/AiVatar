@@ -12,7 +12,7 @@
 // (Joshua's). Chat history is this WoW session only: it is dropped when WoW closes.
 import http from 'node:http';
 import dgram from 'node:dgram';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, parseGuildLine, tooltipLines, type ChatLine, type GuildMember, type SendAsk, type TipLine } from './omashu.ts';
@@ -27,7 +27,7 @@ export interface RemoteConfig {
   enabled?: boolean;
   port?: number;
   /** The laptop, from omashu's handoff/laptop.md (never committed). */
-  laptop: { url: string; key: string; mac?: string; broadcast?: string[]; wakePort?: number };
+  laptop: { url: string; key: string; mac?: string; broadcast?: string[]; wakePort?: number; /** The trackpad's fast lane (UDP), default 47801. */ movePort?: number };
   phones: PhoneEntry[];
   /** Wowhead's data set for WoW Forever: "classic" (default), "" for retail, or another of its paths. */
   wowhead?: string;
@@ -134,7 +134,24 @@ export class Laptop {
     if (j.prices && typeof j.prices === 'object') for (const [k, v] of Object.entries(j.prices)) if (/^\d{1,7}$/.test(k) && typeof v === 'number' && v > 0) prices[k] = v;
     return { at: typeof j.at === 'string' ? j.at : null, book: j.book && typeof j.book === 'object' ? j.book : null, prices };
   }
-/** The phone's trackpad (sheet omashu/remote/19): one message of moves (pixels), a wheel turn, a button press or
+/** One packet for the trackpad's fast lane (sheet 21, 2026-11-27): 36 bytes, "OMV1" | session | number | x | y |
+   *  the first 8 bytes of HMAC-SHA256 (the laptop key) over the rest. x, y: how far the finger has moved the pointer in
+   *  all since the pad opened, so a lost or late packet loses nothing (the laptop ignores older numbers). */
+  static movePacket(key: string, sess: number, n: number, x: number, y: number): Buffer {
+    const b = Buffer.alloc(36);
+    b.write('OMV1', 0, 'ascii'); b.writeUInt32LE(sess >>> 0, 4); b.writeUInt32LE(n >>> 0, 8); b.writeDoubleLE(x, 12); b.writeDoubleLE(y, 20);
+    createHmac('sha256', key).update(b.subarray(0, 28)).digest().copy(b, 28, 0, 8);
+    return b;
+  }
+  private udp: dgram.Socket | null = null;
+  /** Fire and forget: no answer, never waits (the laptop's own loop isn't involved). */
+  move(sess: number, n: number, x: number, y: number): void {
+    try {
+      if (!this.udp) { this.udp = dgram.createSocket('udp4'); this.udp.on('error', () => { this.udp?.close(); this.udp = null; }); this.udp.unref(); }
+      this.udp.send(Laptop.movePacket(this.cfg.key, sess, n, x, y), this.cfg.movePort ?? 47801, new URL(this.cfg.url).hostname);
+    } catch { /* the next move tries again */ }
+  }
+  /** The phone's trackpad (sheet omashu/remote/19): one message of moves (pixels), a wheel turn, a button press or
    *  release, or park. The laptop acts only while WoW is playing and in front. ms is the round trip. */
   async mouse(m: MouseAsk): Promise<{ ok: boolean; why?: string; ms: number }> {
     const t0 = performance.now();
@@ -567,6 +584,16 @@ export class OmashuRemote {
       if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
       const r = await this.laptop.ahSearch(text);
       json(res, r.ok ? 200 : 409, r);
+      return;
+    }
+    if (p === '/api/mv') {   // the trackpad's fast lane: {s, n, x, y}, straight on to the laptop as one UDP packet
+      const b = await body(req) as { s?: unknown; n?: unknown; x?: unknown; y?: unknown } | null;
+      const ok = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
+      const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1e7;
+      if (!b || !ok(b.s) || !ok(b.n) || !num(b.x) || !num(b.y)) { json(res, 400, { ok: false, why: 'refused' }); return; }
+      if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
+      this.laptop.move(b.s as number, b.n as number, b.x as number, b.y as number);
+      res.writeHead(204, { 'Cache-Control': 'no-store' }); res.end();
       return;
     }
     if (p === '/api/mouse') {
