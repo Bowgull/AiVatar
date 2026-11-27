@@ -30,6 +30,7 @@ export interface FakeOpts { key: string; mac: string; me?: string; wakeDelayMs?:
 
 export class FakeLaptop {
   awake = false;
+  swaps = 0;
   /** Awake but the fire is out: no picture, no game, campfire closed. */
   dark = false;
   wakePosts = 0;
@@ -188,6 +189,11 @@ export class FakeLaptop {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/ah/items') { j(200, { at: '2026-11-11T00:00:00.000Z', items: this.ahItems }); return; }
+    if (req.method === 'POST' && url.pathname === '/ah/swap') {
+      if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
+      if (!this.ah) { j(409, { ok: false, why: 'no-ah' }); return; }
+      this.swaps++; j(200, { ok: true }); return;
+    }
     if (req.method === 'POST' && url.pathname === '/ah/search') {
       let b = '';
       req.on('data', d => { b += d; });

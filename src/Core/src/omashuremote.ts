@@ -104,6 +104,13 @@ export class Laptop {
     const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
     return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
   }
+  /** The phone's Switch window button: ImprovedForever's auction window <-> the game's own (one key on the laptop). */
+  async ahSwap(): Promise<{ ok: boolean; why?: string }> {
+    const r = await this.call('/ah/swap', { method: 'POST' }, 3000);
+    if (!r) return { ok: false, why: 'asleep' };
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
+    return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
+  }
   /** Auctionable item names for the phone's suggestions (sheet omashu/remote/15): [name, quality, weight] from aux's own list
    *  (weight: +2 seen for sale, +1 trade good/consumable/reagent). */
   async ahItems(): Promise<{ at: string | null; items: [string, number, number][] } | null> {
@@ -543,7 +550,14 @@ export class OmashuRemote {
     if (!phone.chat) { json(res, 403, { ok: false }); return; }
     if (p === '/api/seen') { this.whispers = 0; json(res, 200, { ok: true }); return; }
     if (p === '/api/ah') {
-      const t = (await body(req) as { text?: unknown } | null)?.text;
+      const b = await body(req) as { text?: unknown; swap?: unknown } | null;
+      if (b?.swap === true) {
+        if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
+        const r = await this.laptop.ahSwap();
+        json(res, r.ok ? 200 : 409, r);
+        return;
+      }
+      const t = b?.text;
       const text = typeof t === 'string' ? t.trim() : '';
       if (!text || text.length > 60 || /[\x00-\x1f|\\]/.test(text)) { json(res, 400, { ok: false, why: 'refused' }); return; }
       if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }

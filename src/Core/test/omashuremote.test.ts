@@ -304,6 +304,12 @@ test('auction search (sheet 14): the tab follows the auction house, the search r
       assert.equal((await r.as(JOSH).post('/api/ah', bad)).status, 400, JSON.stringify(bad));
     }
     assert.equal(r.lap.searched.length, 1, 'nothing refused reached the laptop');
+    // the Switch window button: ImprovedForever's window <-> the game's own (2026-11-26)
+    assert.equal((await r.as(JOSH).post('/api/ah', { swap: true })).status, 200);
+    assert.equal(r.lap.swaps, 1, 'one key press on the laptop');
+    assert.equal((await r.as(GUEST).post('/api/ah', { swap: true })).status, 403, 'a phone without chat cannot switch');
+    assert.equal((await r.as(JOSH).post('/api/ah', { swap: 'yes' })).status, 400, 'only swap:true switches');
+    assert.equal(r.lap.swaps, 1);
     assert.equal((await r.as(GUEST).post('/api/ah', { text: 'Linen Cloth' })).status, 403, 'a phone without chat cannot search');
     assert.equal((await r.as(JOSH).post('/api/ah', { text: 'Linen Cloth' }, {})).status, 403, 'a page elsewhere cannot post');
     r.lap.ah = false;

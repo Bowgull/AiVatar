@@ -114,6 +114,8 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .ah .hd{color:#8a7b63;font-size:12px;padding:2px 4px 0;font-family:"Pixelify Sans"}
 .srow{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:9px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;font-size:16px;color:#fff;cursor:pointer;flex:none}
 .srow svg{width:16px;height:16px;flex:none;opacity:.55}
+.srow.swap{color:#ffd36b}.srow.swap svg{opacity:.9}.srow.swap .sub{margin-left:auto;font-size:12px;color:#8a7b63}
+.srow.down{transform:translateY(1px);box-shadow:inset 0 0 0 2px #4a2f17}.srow.no{box-shadow:inset 0 0 0 2px #8a2a1a}
 .srow.lit{box-shadow:inset 0 0 0 2px #ffd36b99;background:#2a1c0e}
 .srow.lit svg{opacity:1}
 .findgo{flex:none;width:46px;border-radius:10px;background:#c08a1e;box-shadow:inset 0 -3px 0 #6e4a0c;display:flex;align-items:center;justify-content:center}
@@ -688,6 +690,9 @@ function ahRecent(){try{const a=JSON.parse(localStorage.getItem('omashu.ahRecent
 function drawAh(){
   loadItems();
   ahEl.textContent='';const list=ahRecent();
+  // ImprovedForever's controller window <-> the game's own auction window, for the trackpad (Joshua 2026-11-26)
+  const sw=$('div','srow swap');sw.innerHTML=SWAP_SVG;sw.append('Switch window');sw.appendChild($('span','sub','controller ⇄ regular'));
+  sw.addEventListener('click',()=>ahSwap(sw));ahEl.appendChild(sw);
   if(list.length)ahEl.appendChild($('div','hd','Recent'));
   for(const n of list){const r=$('div','srow'+(n===chat.ahLit?' lit':''));r.innerHTML=AGAIN;r.append(n);r.addEventListener('click',()=>ahSearch(n));ahEl.appendChild(r)}
 }
@@ -730,6 +735,11 @@ function knock(){try{actx=actx||new (window.AudioContext||window.webkitAudioCont
   const src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=n;f.type='bandpass';f.frequency.value=1100;f.Q.value=2.5;g.gain.value=.35;
   src.connect(f).connect(g).connect(actx.destination);src.start()}catch(e){}}
 let ahBusy=false;
+const SWAP_SVG='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h11l-3-3M14 11H3l3 3"/></svg>';
+async function ahSwap(el){
+  if(ahBusy)return;ahBusy=true;knock();el.classList.add('down');
+  let ok=false;try{({ok}=await api('/api/ah',{swap:true}))}finally{ahBusy=false;el.classList.remove('down')}
+  if(!ok){el.classList.add('no');setTimeout(()=>el.classList.remove('no'),1200)}}
 async function ahSearch(text){
   text=String(text||'').trim();if(!text||ahBusy)return;ahBusy=true;knock();
   const item=ITEM_BY&&ITEM_BY.get(text.toLowerCase());if(item)text=item.n;   // a known item: searched exactly that item
