@@ -104,6 +104,13 @@ export class Laptop {
     const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
     return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
   }
+  /** The phone's Switch window button: ImprovedForever's auction window <-> the game's own (one key on the laptop). */
+  async ahSwap(): Promise<{ ok: boolean; why?: string }> {
+    const r = await this.call('/ah/swap', { method: 'POST' }, 3000);
+    if (!r) return { ok: false, why: 'asleep' };
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
+    return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
+  }
   /** Auctionable item names for the phone's suggestions (sheet omashu/remote/15): [name, quality, weight] from aux's own list
    *  (weight: +2 seen for sale, +1 trade good/consumable/reagent). */
   async ahItems(): Promise<{ at: string | null; items: [string, number, number][] } | null> {
@@ -208,9 +215,11 @@ export class Wowhead {
 // ------------------------------------------------------------------ the service
 
 export type Fire = 'out' | 'waking' | 'lit' | 'sleeping';
+const MISS_GRACE_MS = 30_000;   // 30 s with no answer before WoW counts as gone (a loading screen can take a while)
 const WAKE_GIVE_UP_MS = 120_000;
 const SLEEP_GIVE_UP_MS = 150_000;   // Couch Mode waits up to 90 s for Zelda to close, then forces it
 const KEEP_LINES = 2000;
+const CHAT_BATCH = 500;    // the most lines the laptop's /chat answers with at once
 
 export interface RemoteOpts {
   cfg: RemoteConfig;
@@ -223,6 +232,8 @@ export interface RemoteOpts {
   now?: () => number;
   /** Fast polling for tests. */
   tickMs?: { busy: number; idle: number };
+  /** How long WoW may go unanswered before it counts as gone (MISS_GRACE_MS; tests shorten it). */
+  missGraceMs?: number;
   host?: string;
   /** Where item icons not shipped with the book come from (tests point it at a fake). */
   iconHost?: string;
@@ -241,6 +252,8 @@ export class OmashuRemote {
   fire: Fire = 'out';
   game: 'zelda' | 'wow' | null = null;
   private since = 0;          // when 'waking' or 'sleeping' began
+  private misses = 0;         // answers in a row the laptop did not give while WoW was running
+  private missSince = 0;      // when the first of those went unanswered
   private lookedAt = 0;       // the last time a phone asked
   private session: string | null = null;
   private after = 0;
@@ -259,6 +272,8 @@ export class OmashuRemote {
   guild: GuildMember[] | null = null;
   private guildParts: { list: number; n: number; got: (GuildMember | undefined)[] } | null = null;
   private tickRunning: Promise<void> | null = null;
+  private tickAgain = false;  // asked for a look while one was running: one more right after it
+  private ticked = false;     // the first look has finished: until then /api/poll knows nothing true
 
   private o: RemoteOpts;
   constructor(o: RemoteOpts) {
@@ -288,8 +303,16 @@ export class OmashuRemote {
   // ---------- watching the laptop ----------
   private schedule(ms: number) {
     if (this.stopped) return;
+    // 2026-11-26: a send, wake or sleep during a look used to start a second one beside it, and both counted the same blip
+    if (this.tickRunning) { this.tickAgain = true; return; }
     if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => { this.tickRunning = this.tick().finally(() => { this.tickRunning = null; this.schedule(this.pace()); }); }, ms);
+    this.timer = setTimeout(() => {
+      this.tickRunning = this.tick().finally(() => {
+        this.tickRunning = null; this.ticked = true;
+        const again = this.tickAgain; this.tickAgain = false;
+        this.schedule(again ? 0 : this.pace());
+      });
+    }, ms);
   }
   private pace(): number {
     const t = this.o.tickMs ?? { busy: 2000, idle: 10_000 };
@@ -299,8 +322,17 @@ export class OmashuRemote {
 
   /** One look at the laptop: is it up, what game, and any new chat. */
   async tick(): Promise<void> {
-    const st = await this.laptop.state();
-    const up = st !== null && !st.dark, now = this.now();       // lit: it answers and is not dark
+    const st = await this.laptop.state(), now = this.now();
+    // A laptop in a loading screen or a busy moment can miss answers. While WoW was running, ride that out (keep the
+    // game, the chat and the book as they were) instead of tearing the phone's book and chat down. 2026-11-26: counted
+    // in time, not misses (three misses was ~10 s, shorter than a long loading screen).
+    if (st === null && this.game === 'wow' && this.fire === 'lit') {
+      if (!this.misses++) this.missSince = now;
+      if (now - this.missSince < (this.o.missGraceMs ?? MISS_GRACE_MS)) return;
+      this.log(`the laptop stopped answering (${this.misses} misses): fire out`); this.misses = 0;
+    }
+    if (st !== null && this.misses) { this.log(`the laptop missed ${this.misses} answers in a row, then came back`); this.misses = 0; }
+    const up = st !== null && !st.dark;       // lit: it answers and is not dark
     if (this.fire === 'waking') { if (up) this.fire = 'lit'; else if (now - this.since > WAKE_GIVE_UP_MS) { this.fire = 'out'; this.log('woke nothing: the laptop stayed dark or did not answer'); } }
     else if (this.fire === 'sleeping') { if (!up) this.fire = 'out'; else if (now - this.since > SLEEP_GIVE_UP_MS) this.fire = 'lit'; }
     else this.fire = up ? 'lit' : 'out';
@@ -328,10 +360,14 @@ export class OmashuRemote {
           if (lv) u.lvl = Number(lv);
         }
         for (const c of book?.cards ?? []) { const u = c.item && book!.cu.list.find(x => x.id === c.item); if (u && u.icon) c.icon = u.icon; }
-        this.book = book;
+        // 2026-11-26: WoW rewrites the save at /reload and the laptop can answer "no book" meanwhile; keep the one we
+        // have until WoW closes (tick drops it) or another character's save arrives
+        const raw = bk.book as { name?: unknown } | null;
+        if (book || !this.book || (raw && String(raw.name ?? 'Paladin') !== this.book.name)) this.book = book;
       }
     }
-    let b = await this.laptop.chat(this.after);
+    const from = this.after;
+    let b = await this.laptop.chat(from);
     if (!b) return;
     this.ah = !!b.ah;
     if (this.ah && this.now() - this.itemsAskedAt > 300_000) { this.itemsAskedAt = this.now(); const it = await this.laptop.ahItems(); if (it && it.items.length) this.items = it; }
@@ -339,24 +375,31 @@ export class OmashuRemote {
       this.forget();
       this.session = b.session;
       if (!b.session) return;
-      if (b.lines.length && b.lines[0].seq > 1) { const all = await this.laptop.chat(0); if (all) b = all; }
+      if (from > 0) { const all = await this.laptop.chat(0); if (!all || all.session !== b.session) return; b = all; }
     }
-    for (const l of b.lines) {
-      if (l.seq <= this.after) continue;
-      this.after = l.seq;
-      const gl = parseGuildLine(l.raw);
-      if (gl) { this.takeGuild(gl); continue; }      // the guild list: never shown as chat
-      const c = parseChatLine(l.raw, l.seq);
-      if (!c) continue;
-      // the speaker's class, sent by the laptop since chat strip v2 (2026-11-11): the phone colours the name by it
-      if (c.who && typeof l.cls === 'string' && /^[A-Z]{4,12}$/.test(l.cls)) c.cls = l.cls;
-      this.lines.push(c);
-      if (c.kind === 'whisper') {
-        this.whispers++;
-        if (this.primed) this.o.notify?.(`${c.who} whispers: ${c.text.map(s => 's' in s ? s.s : `[${s.name}]`).join('')}`);
+    // 2026-11-26: the laptop sends at most 500 lines a batch and keeps up to 1000, so a new session (or Aang just
+    // started) takes more than one: after moves only to the last line received, and full batches are followed up
+    for (let n = 1; ; n++) {
+      for (const l of b.lines) {
+        if (l.seq <= this.after) continue;
+        this.after = l.seq;
+        const gl = parseGuildLine(l.raw);
+        if (gl) { this.takeGuild(gl); continue; }      // the guild list: never shown as chat
+        const c = parseChatLine(l.raw, l.seq);
+        if (!c) continue;
+        // the speaker's class, sent by the laptop since chat strip v2 (2026-11-11): the phone colours the name by it
+        if (c.who && typeof l.cls === 'string' && /^[A-Z]{4,12}$/.test(l.cls)) c.cls = l.cls;
+        this.lines.push(c);
+        if (c.kind === 'whisper') {
+          this.whispers++;
+          if (this.primed) this.o.notify?.(`${c.who} whispers: ${c.text.map(s => 's' in s ? s.s : `[${s.name}]`).join('')}`);
+        }
       }
+      if (b.lines.length < CHAT_BATCH || n >= 4) break;
+      const more = await this.laptop.chat(this.after);
+      if (!more || more.session !== this.session) break;
+      b = more;
     }
-    this.after = Math.max(this.after, b.seq);
     if (this.lines.length > KEEP_LINES) this.lines.splice(0, this.lines.length - KEEP_LINES);
     this.primed = true;
   }
@@ -449,6 +492,8 @@ export class OmashuRemote {
     if (req.method === 'GET' && p === '/forest.js') { send(res, 200, readFileSync(path.join(ASSETS, 'forest.js')), 'text/javascript; charset=utf-8'); return; }
 
     if (req.method === 'GET' && p === '/api/poll') {
+      // 2026-11-26: before the first look (Aang just restarted) game:null would make the phone wipe chat and close the book
+      if (!this.ticked) { json(res, 503, { ok: false, why: 'starting' }); return; }
       const chat = !!phone.chat && this.game === 'wow';
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
@@ -505,7 +550,14 @@ export class OmashuRemote {
     if (!phone.chat) { json(res, 403, { ok: false }); return; }
     if (p === '/api/seen') { this.whispers = 0; json(res, 200, { ok: true }); return; }
     if (p === '/api/ah') {
-      const t = (await body(req) as { text?: unknown } | null)?.text;
+      const b = await body(req) as { text?: unknown; swap?: unknown } | null;
+      if (b?.swap === true) {
+        if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
+        const r = await this.laptop.ahSwap();
+        json(res, r.ok ? 200 : 409, r);
+        return;
+      }
+      const t = b?.text;
       const text = typeof t === 'string' ? t.trim() : '';
       if (!text || text.length > 60 || /[\x00-\x1f|\\]/.test(text)) { json(res, 400, { ok: false, why: 'refused' }); return; }
       if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
