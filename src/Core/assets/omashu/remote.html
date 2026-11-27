@@ -575,7 +575,7 @@ const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'
 const AH_FILL='#f2d58a',AH_LIT='#ffd36b',AH_KEEP=6;
 const MAG='<svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M12.5 12.5 L18 18" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>';
 const AGAIN='<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6" fill="none" stroke="#ffd36b" stroke-width="2"/><path d="M12.6 1.6 L12.8 5 L9.4 5.2" fill="none" stroke="#ffd36b" stroke-width="2"/></svg>';
-const chat={ah:false,ahLit:null,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'guild'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
+const chat={ah:false,ahLit:null,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'say'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
   linkColor:{}};
 const short=n=>String(n||'').split('-')[0];
 
@@ -616,7 +616,7 @@ function openChat(){
   ahSendEl.append(ahBox,ahGo);leftEl.appendChild(ahSendEl);
   app.appendChild(panel);
   app.querySelector('.cdim').addEventListener('click',closeChat);
-  chat.emo=null;layoutEmo();pickTab(chat.ah?'Auction':chat.tab==='Auction'?'All':chat.tab);fitPanel();
+  chat.emo=null;layoutEmo();pickTab(chat.ah?'Auction':chat.tab==='Auction'?'All':chat.tab);chat.to={to:'say'};render();fitPanel();   // always opens on Say (Joshua 2026-11-27)
 }
 function closeChat(){if(logRO)logRO.disconnect();trayEl2=null;chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
 // the keyboard: the panel fits the part of the screen still showing (tabs on top, the box just above the keys); the log shrinks
