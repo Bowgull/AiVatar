@@ -1109,15 +1109,18 @@ function trainHtml(B){const T=B.train;if(!T)return'';
    +T.fresh.map(f=>`<div class="tr newsp"><div class="top"><img src="${BI(f.icon)}" alt=""><div class="t">${esc(f.name)}</div><span class="tag new">NEW</span><span class="tag ${f.skip?'skip':'get'}">${f.skip?'Skip for now':'Get it'}</span></div>${f.what?`<div class="what">${esc(f.what)}</div>`:''}${f.skip?`<div class="when"><b>Skip it:</b> ${esc(f.skip)}</div>`:f.use?`<div class="when"><b>Use it:</b> ${esc(f.use)}</div>`:''}${f.pad&&!f.skip?`<div class="pad">Lands on ${esc(f.pad)}</div>`:''}</div>`).join('')
    +(T.ups.length?`<div class="k" style="margin-top:8px">Upgrades <b>just grab these</b></div><div class="ups">${T.ups.map(u=>`<span class="up"><img src="${BI(u.icon)}" alt="">${esc(u.name)} <i>rank ${u.rank}</i></span>`).join('')}</div>`:'')
    +`<div class="costl"><span>Cost for all of it</span><b>${moneyHtml(T.cost)}</b></div>`}
-function bookFight(w,B){let br=B.bracket,sel=0;const F=Object.assign({},B.fights,{[B.bracket]:B.steps.length?B.steps:B.fights[B.bracket]});const NEW=new Set(B.fresh||[]);
-  const draw=()=>{const S=F[br],s=S[sel],[,lay,btn]=s;const d=['U','D','L','R'].includes(btn);   // a D-pad step lights the D-pad (with its trigger if it has one)
-   w.innerHTML=`<div class="seg">${Object.keys(F).map(b=>`<span class="${b===br?'on':''}" data-b="${b}">Level ${b}</span>`).join('')}</div>
-   <div class="mini"><div class="trig"><span class="${lay==='LT'?'on':''}">LT</span><span class="${lay==='RT'?'on':''}">RT</span></div>
+function bookFight(w,B){let sel=0;const NEW=new Set(B.fresh||[]);const S=B.steps||[],P=B.prep||[];
+  const key=x=>x[1]==='none'?x[0]:(x[1]==='LTRT'?'LT + RT':x[1])+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2]);
+  const row=(x,i,pre)=>`<div class="step${!pre&&i===sel?' on':''}${NEW.has(x[4])?' glow':''}" data-i="${pre?'':i}"><span class="n">${pre?'•':i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}${NEW.has(x[4])?'<span class="nb">NEW</span>':''}</div><div class="d">${esc(x[5])}</div></div><span class="key">${key(x)}</span></div>`;
+  const draw=()=>{const s=S[sel]||S[0];const lay=s?s[1]:'',btn=s?s[2]:'';const d=['U','D','L','R'].includes(btn);
+   w.innerHTML=`<div class="k">Your rotation <b>level ${B.level}</b></div>
+   ${s?`<div class="mini"><div class="trig"><span class="${lay==='LT'||lay==='LTRT'?'on':''}">LT</span><span class="${lay==='RT'||lay==='LTRT'?'on':''}">RT</span></div>
    <div class="dpad">${['U','D','L','R'].map(k=>`<span class="${k} ${(d&&btn===k)?'on':''}">${{U:'▲',D:'▼',L:'◀',R:'▶'}[k]}</span>`).join('')}</div>
-   <div class="face">${['Y','X','B','A'].map(k=>`<span class="${k} ${(!d&&btn===k)?'on':''}">${k}</span>`).join('')}</div></div>
-   ${S.map((x,i)=>`<div class="step${i===sel?' on':''}${br===B.bracket&&NEW.has(x[4])?' glow':''}" data-i="${i}"><span class="n">${i+1}</span><img src="${BI(x[3])}" alt=""><div><div class="t">${esc(x[4])}${br===B.bracket&&NEW.has(x[4])?'<span class="nb">NEW</span>':''}</div><div class="d">${esc(x[5])}</div></div><span class="key">${x[1]==='none'?x[0]:x[1]+' + '+(['U','D','L','R'].includes(x[2])?'D-'+{U:'up',D:'down',L:'left',R:'right'}[x[2]]:x[2])}</span></div>`).join('')}
-   <p class="note">Hold the trigger, press the button. Top of the list first, whatever's ready.${B.crusader&&br===B.bracket?' Seal of the Crusader: skip it solo. Righteousness hits harder.':''}</p>`;
-   w.querySelectorAll('[data-b]').forEach(e=>e.onclick=()=>{br=e.dataset.b;sel=0;draw()});w.querySelectorAll('.step').forEach(e=>e.onclick=()=>{sel=+e.dataset.i;draw()})};
+   <div class="face">${['Y','X','B','A'].map(k=>`<span class="${k} ${(!d&&btn===k)?'on':''}">${k}</span>`).join('')}</div></div>`:''}
+   ${S.map((x,i)=>row(x,i)).join('')}
+   ${P.length?`<div class="k" style="margin-top:10px">Before a fight</div>${P.map(x=>row(x,0,true)).join('')}`:''}
+   <p class="note">Top of the list first, whatever's ready. It changes as you learn new spells: new ones glow until your next reload.${B.crusader?' Seal of the Crusader: skip it solo, Righteousness hits harder.':''}</p>`;
+   w.querySelectorAll('.step[data-i]').forEach(e=>{if(e.dataset.i!=='')e.onclick=()=>{sel=+e.dataset.i;draw()}})};
   draw()}
 function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(let i=0;i<r;i++){(lvlOf[n]=lvlOf[n]||[]).push(l+i);plan[n]=(plan[n]||0)+1}});
   const have=n=>B.ranks[n]||0;let tree='Retribution',pick=B.next||(B.path[0]&&B.path[0][0]);

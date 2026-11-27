@@ -11,9 +11,9 @@ if (process.argv.includes('--asleep')) lap.awake = false; else lap.startWow();
 lap.closeMs = Number(process.env.CLOSE_MS ?? 20);
 // the Paladin Book (sheet 18): a level 23 Bunji as OmaBook would save him (--allset: nothing to do)
 const allset = process.argv.includes('--allset');
-lap.bookSave = { class: 'PALADIN', name: 'Bunji', level: 23, money: 32000, xp: 410, xpMax: 1000, zone: 'Duskwood', at: Math.floor(Date.now() / 1000) - 360,
-  unspent: allset ? 0 : 1, talents: { Benediction: 5, Conviction: 3, 'Improved Judgement': 2, 'Seal of Command': 1, 'Pursuit of Justice': 2, ...(allset ? { 'Sanctified Judgement': 1 } : {}) },
-  skills: { 'Two-Handed Maces': 115 }, spells: ['Devotion Aura', 'Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Seal of the Crusader', 'Divine Protection'], fresh: allset ? [] : ['Holy Strike'],
+lap.bookSave = { class: 'PALADIN', name: 'Bunji', level: 8, money: 32000, xp: 410, xpMax: 1000, zone: 'Duskwood', at: Math.floor(Date.now() / 1000) - 360,
+  unspent: allset ? 0 : 1, talents: {},
+  skills: { 'Two-Handed Maces': 115 }, spells: ['Devotion Aura', 'Blessing of Might', 'Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Hammer of Justice', 'Seal of the Crusader', 'Divine Protection'], fresh: allset ? [] : ['Hammer of Justice'],
   train: allset ? [] : [{ name: 'Lay on Hands', lvl: 10, rank: 1, cost: 300 }, { name: 'Seal of Fury', lvl: 10, rank: 1, cost: 300 }, { name: 'Seal of Righteousness', lvl: 10, rank: 2, cost: 300 }, { name: 'Devotion Aura', lvl: 10, rank: 2, cost: 300 }], weapon: { id: 7230, dps: 19.71, sub: 5 }, done: allset ? { 1806: true, 78093: true } : {},
   bags: allset ? { 4542: 14, 1205: 18, 1710: 5, 3241: 3 } : { 5480: 8, 1179: 12, 3241: 1 },
   cu: { rich: false, max: 50000, list: allset ? [] : [{ id: 2264, name: 'Mantle of Thieves', slot: 'Shoulder', price: 11000, pct: 64 }, { id: 15562, name: "Brutish Breastplate", slot: 'Chest', price: 4500, pct: 31 }, { id: 6380, name: 'Inscribed Buckler', slot: 'Off Hand', price: 2200, pct: 12 }] } };

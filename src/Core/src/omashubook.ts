@@ -62,7 +62,7 @@ export const FIGHTS: Record<string, [string, string, string, string, string, str
 export interface SpellGuide { icon: string; what: string; use?: string; skip?: string; pad?: string }
 export const SPELLS: Record<string, SpellGuide> = {
   'Judgement': { icon: 'spell_holy_righteousfury', what: 'Hits the mob with your Seal\'s Judgement. In Forever it does NOT use up the Seal. 10 sec cooldown, 10 yd.', use: 'Keep a Seal on and press it every time it lights up.', pad: 'RT + X' },
-  'Hammer of Justice': { icon: 'spell_holy_sealofmight', what: 'Stuns a mob for 3 sec. 1 min cooldown, 10 yd. The game gives you rank 1 at 8.', use: 'Stop a caster or a runner, or hold a 2nd mob. With Seal of Command, Judge the stunned mob for double damage.', pad: 'LT + A' },
+  'Hammer of Justice': { icon: 'spell_holy_sealofmight', what: 'Stuns a mob for 3 sec. 1 min cooldown, 10 yd. The game gives you rank 1 at 8.', use: 'Stop a caster or a runner, or hold a 2nd mob. Later, with Seal of Command, Judge the stunned mob for double damage.', pad: 'LT + A' },
   'Divine Protection': { icon: 'spell_holy_restoration', what: "You take no damage for a few secs, but you can't attack.", use: "Only when a fight's going bad. Heal up or run.", pad: 'LT + D-down' },
   'Holy Strike': { icon: 'classicon_paladin', what: 'Quick hit: some weapon damage plus Holy damage. 10 sec cooldown.', use: 'Hit it whenever it lights up.', pad: 'RT + Y' },
   'Seal of the Crusader': { icon: 'spell_holy_holysmite', what: '+35 attack power, you swing 40% faster but each hit is weaker, 30 sec. Its Judgement: the mob takes more Holy damage for 40 sec.', skip: 'Righteousness is simpler and hits harder solo. Handy in groups.', pad: 'D-left' },
@@ -92,6 +92,36 @@ export const SPELLS: Record<string, SpellGuide> = {
   'Holy Wrath': { icon: 'spell_holy_excorcism', what: 'Holy blast around you that hits and stuns undead and demons.', skip: 'Undead and demon packs only.', pad: 'RT + D-left' },
   'Turn Undead': { icon: 'spell_holy_turnundead', what: 'Makes one undead run away for a bit.', skip: 'Rarely needed solo.', pad: 'set 2, LT + A' },
 };
+
+/** The rotation, built for your exact level from the spells (and talents) you have (Joshua 2026-11-26: "rotations per
+ *  level"). One priority list; each row shows only once you have its spell. [label, trigger, button, icon, spell, when]. */
+type Step = [string, string, string, string, string, string];
+export function rotation(known: Set<string>, ranks: Record<string, number>): { steps: Step[]; prep: Step[] } {
+  const has = (n: string) => known.has(n) || (ranks[n] ?? 0) > 0;
+  const command = has('Seal of Command');
+  const steps: Step[] = [];
+  const add = (st: Step, ok = true) => { if (ok && has(st[4])) steps.push(st); };
+  add(['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on. Lasts 30 sec']);
+  add(['D-up', 'none', 'U', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on. Lasts 30 sec'], !command);
+  add(['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Open with it on undead and demons']);
+  add(['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', command ? 'Stun, then Judgement: twice the damage' : 'Stop a caster or a runner, or hold a 2nd mob']);
+  add(['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'Every time it lights up. Your Seal stays']);
+  add(['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up']);
+  add(['RT', 'RT', 'U', 'ability_thunderclap', 'Hammer of Wrath', 'Mob under 20% health']);
+  add(['LT', 'LT', 'B', 'spell_holy_prayerofhealing', 'Repentance', 'Humanoids: sleep, then Judgement']);
+  add(['RT', 'RT', 'B', 'spell_holy_innerfire', 'Consecration', 'Only with 3+ mobs on you']);
+  if (command && (ranks['Unsealed Wrath'] ?? 0) > 0) add(['D-down', 'none', 'D', 'ability_thunderbolt', 'Seal of Righteousness', 'Optional: swap after 3 swings, then back to Command']);
+  if (has('Divine Shield')) add(['LT', 'LT', 'D', 'spell_holy_divineintervention', 'Divine Shield', 'Fight going bad: shield, then heal or run']);
+  else add(['LT', 'LT', 'D', 'spell_holy_restoration', 'Divine Protection', 'Fight going bad: bubble, then heal']);
+  add(['LT', 'LT', 'R', 'spell_holy_layonhands', 'Lay on Hands', 'About to die: full heal, all your mana']);
+  add(['LT', 'LT', 'X', 'spell_holy_flashheal', 'Flash of Light', 'Quick heal mid-fight']);
+  add(['LT', 'LT', has('Flash of Light') ? 'Y' : 'X', 'spell_holy_holybolt', 'Holy Light', 'After a fight if under half']);
+  const prep: Step[] = [];
+  if (has('Retribution Aura')) prep.push(['LTRT', 'LTRT', 'D', 'spell_holy_auraoflight', 'Retribution Aura', 'Always on']);
+  else if (has('Devotion Aura')) prep.push(['LTRT', 'LTRT', 'D', 'spell_holy_devotionaura', 'Devotion Aura', 'Always on']);
+  if (has('Blessing of Might')) prep.push(['LTRT', 'LTRT', 'B', 'spell_holy_fistofjustice', 'Blessing of Might', 'On yourself, lasts 1 hour']);
+  return { steps, prep };
+}
 
 /** Two-hander ladder: Wowhead Forever item ids, DPS and icons; sources from Polestar's Forever guides. */
 export interface Rung { id: number; name: string; icon: string; lvl: number; dps: number; from: string; skill?: string; quest?: number }
@@ -176,7 +206,7 @@ export const ICONS: string[] = [...new Set([
 
 // ------------------------------------------------------------------ what the phone draws
 
-export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
+export interface Card { icon: string; t: string; d: string; go?: string; tone?: 'hot' | 'blue' | 'green'; tab?: 'talents' | 'gear' | 'fight'; /** a Cheap Upgrades item: the remote swaps in its real icon */ item?: number }
 export interface Restock { icon: string; slot: string; t: string; d: string; price: string[] }
 /** Icons for the spells the trainer only upgrades (Wowhead Forever). */
 const RANK_ICONS: Record<string, string> = { 'Seal of Righteousness': 'ability_thunderbolt', 'Devotion Aura': 'spell_holy_devotionaura',
@@ -191,6 +221,8 @@ export interface BookView {
   fresh: string[];
   /** Fight steps for your bracket: only spells you know. */
   steps: [string, string, string, string, string, string][];
+  /** Before a fight: aura and blessing. */
+  prep: [string, string, string, string, string, string][];
   crusader: boolean;
   name: string; level: number; xpPct: number; spec: string; zone: string; at: number; /** gold carried, in copper */ money: number;
   cards: Card[]; restock: Restock[]; fine: string;
@@ -241,6 +273,11 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   if (unspent > 0) {
     const node = nt && TREE.find(t => t.name === nt.name);
     cards.push({ icon: node?.icon ?? 'classicon_paladin', t: unspent > 1 ? `Spend your ${unspent} talent points` : 'Spend your talent point', d: nt && node ? `${nt.name}, rank ${nt.rank} of ${node.max}` : 'Your leveling build is done: pick what you like', tone: 'hot', tab: 'talents', go: '›' });
+  }
+  // 1b. spells learned since the last reload: what each does, when to use it, its button (they glow on Fight too)
+  for (const n of (s.fresh ?? []).filter(x => typeof x === 'string').slice(0, 4)) {
+    const g = SPELLS[n];
+    cards.push({ icon: iconOf(n), t: `New: ${n}`, d: g ? `${g.what}${g.use ? ' ' + g.use : g.skip ? ' Skip for now: ' + g.skip : ''}${g.pad ? ' · ' + g.pad : ''}` : 'Now on your pad and in Fight.', tone: 'hot', tab: 'fight', go: '›' });
   }
   // 2. what to train: the trainer's list (Polestar's Forever data) split into spells you've never had and upgrades
   const known = new Set((s.spells ?? []).filter(x => typeof x === 'string'));
@@ -316,13 +353,10 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   const spec = Object.entries(per).sort((a, b) => b[1] - a[1])[0];
   const xpMax = num(s.xpMax);
   const br = level < 20 ? '1-20' : level < 40 ? '20-40' : '40+';
-  const has = (n: string) => known.size === 0 || known.has(n);
-  const steps = FIGHTS[br].filter(f => has(f[4])
-    && !(f[4] === 'Seal of Righteousness' && f[0] === 'D-up' && known.has('Seal of Command'))
-    && !(f[4] === 'Divine Protection' && br !== '1-20' && known.has('Divine Shield')))
-    .map(f => f[4] === 'Holy Light' && !known.has('Flash of Light') && known.size ? [f[0], f[1], 'X', f[3], f[4], f[5]] as typeof f : f);
+  const rot = rotation(known, ranks);
+  const steps = rot.steps;
   return {
-    train, fresh: (s.fresh ?? []).filter(x => typeof x === 'string'), steps, crusader: known.has('Seal of the Crusader'),
+    train, fresh: (s.fresh ?? []).filter(x => typeof x === 'string'), steps, prep: rot.prep, crusader: known.has('Seal of the Crusader'),
     name: String(s.name ?? 'Paladin'), level, xpPct: xpMax > 0 ? Math.round(num(s.xp) / xpMax * 100) : 0,
     spec: spec && spec[1] > 0 ? spec[0] : '', zone: typeof s.zone === 'string' ? s.zone : '', at: num(s.at), money: Math.max(0, Math.floor(num(s.money))),
     cards, restock, fine: fine.length ? `All stocked: ${fine.join(', ')}.` : '',

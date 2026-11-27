@@ -53,10 +53,10 @@ test('training: the trainer list split into new spells (with plain lines) and up
 });
 
 test('Forever Judgement keeps the Seal; Command replaces Righteousness on D-up; Holy Light stays on X until Flash of Light', () => {
-  const lv8 = makeBook(base({ level: 8, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Hammer of Justice', 'Divine Protection'] }))!;
+  const lv8 = makeBook(base({ level: 8, talents: {}, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Hammer of Justice', 'Divine Protection'] }))!;
   assert.match(lv8.steps.find(s => s[4] === 'Judgement')![5], /Seal stays/);
   assert.ok(lv8.steps.some(s => s[4] === 'Hammer of Justice' && s[1] === 'LT' && s[2] === 'A'));
-  const lv20 = makeBook(base({ level: 20, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Exorcism'] }))!;
+  const lv20 = makeBook(base({ level: 20, talents: {}, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Exorcism'] }))!;
   assert.deepEqual(lv20.steps.filter(s => s[2] === 'U').map(s => s[4]), ['Seal of Righteousness'], 'a seal before the talent');
   assert.equal(lv20.steps.find(s => s[4] === 'Holy Light')![2], 'X', 'Holy Light on X until Flash of Light');
   const lv22 = makeBook(base({ level: 22, spells: ['Seal of Righteousness', 'Seal of Command', 'Judgement', 'Holy Strike', 'Holy Light', 'Flash of Light'] }))!;
@@ -67,8 +67,10 @@ test('Forever Judgement keeps the Seal; Command replaces Righteousness on D-up; 
 });
 
 test('fight: only spells you know (no Hammer of Justice before you have it), new ones flagged', () => {
-  const b = makeBook(base({ level: 6, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Seal of the Crusader'], fresh: ['Holy Strike'] }))!;
+  const b = makeBook(base({ level: 6, talents: {}, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Seal of the Crusader', 'Devotion Aura'], fresh: ['Holy Strike'] }))!;
   assert.deepEqual(b.steps.map(s => s[4]), ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light']);
+  assert.deepEqual(b.prep.map(s => s[4]), ['Devotion Aura']);
+  const nc = b.cards.find(c => c.t === 'New: Holy Strike')!; assert.ok(nc && /RT \+ Y/.test(nc.d) && nc.tab === 'fight', 'a new spell is taught on Now');
   assert.deepEqual(b.fresh, ['Holy Strike']); assert.equal(b.crusader, true);
 });
 
