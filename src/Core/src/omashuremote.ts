@@ -17,7 +17,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, parseGuildLine, tooltipLines, type ChatLine, type GuildMember, type SendAsk, type TipLine } from './omashu.ts';
 import { writeFileAtomic } from './atomic.ts';
-import { makeBook, PRICE_IDS, FIGHTS, TREE, DESC, PATH, ICONS, type BookView } from './omashubook.ts';
+import { makeBook, PRICE_IDS, FIGHTS, TREE, DESC, PATH, TALENT_PAD, ICONS, type BookView } from './omashubook.ts';
 
 export const REMOTE_PORT = 47880;
 const ASSETS = path.join(import.meta.dirname, '..', 'assets', 'omashu');
@@ -592,7 +592,7 @@ export class OmashuRemote {
     }
     if (req.method === 'GET' && p === '/api/book') {
       if (!phone.chat) { json(res, 403, { ok: false }); return; }
-      json(res, this.book ? 200 : 404, this.book ? { ...this.book, fights: FIGHTS, tree: TREE, desc: DESC, path: PATH } : { ok: false });
+      json(res, this.book ? 200 : 404, this.book ? { ...this.book, fights: FIGHTS, tree: TREE, desc: DESC, path: PATH, pad: TALENT_PAD } : { ok: false });
       return;
     }
     const icon = /^\/book\/icons\/([a-z0-9_]{3,64})\.jpg$/.exec(p)?.[1];

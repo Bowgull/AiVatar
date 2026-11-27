@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { makeBook, nextTalent, coin, rotation, ICONS, PATH, TREE, LADDER, FOOD, WATER, POTION, SPELLS, type BookSave } from '../src/omashubook.ts';
+import { makeBook, nextTalent, road, coin, rotation, ICONS, PATH, TREE, LADDER, FOOD, WATER, POTION, SPELLS, type BookSave } from '../src/omashubook.ts';
 
 // the Horde book (2026-11-27): Icy Veins' order at 23, holding the Moonsilver Blade, the Bandarion and Redemption chains done
 const at23 = { Deflection: 5, 'Sanctified Judgement': 3, 'Improved Judgement': 2, 'Seal of Command': 1, 'Pursuit of Justice': 2, Conviction: 1 };   // the path through level 23
@@ -225,4 +225,25 @@ test('11. a malformed save never breaks the page', () => {
   const b = makeBook(base(bad))!;
   assert.ok(b); assert.deepEqual(b.fresh, []); assert.equal(b.train, null); assert.deepEqual(b.cu.list, []);
   assert.ok(makeBook(base({ train: [null, 'x', { name: 3 }] as never, cu: { list: [null, 7] as never } })));
+});
+
+test('the road (sheet 25): one point a level from his next point; off the path moves it, never breaks it', () => {
+  const r0 = road({});
+  assert.deepEqual(r0.road.slice(0, 2), [{ lvl: 10, name: 'Deflection', rank: 1 }, { lvl: 11, name: 'Deflection', rank: 2 }]);
+  assert.equal(r0.road.length, 51, '10 to 60'); assert.equal(r0.capstone, 40); assert.deepEqual(r0.off, []);
+  assert.deepEqual(road(at23).road[0], { lvl: 24, name: 'Conviction', rank: 2 }, 'level 23 on the path: Conviction 2 next, at 24');
+  // Benediction 2 instead of Deflection: finish Benediction to 5 in Deflection's place, capstone still 40
+  const b = road({ Benediction: 2 });
+  assert.deepEqual(b.road.slice(0, 3).map(p => p.name + ' ' + p.rank + ' @' + p.lvl), ['Benediction 3 @12', 'Benediction 4 @13', 'Benediction 5 @14']);
+  assert.ok(!b.road.some(p => p.name === 'Deflection'), 'no Deflection after the swap');
+  assert.equal(b.capstone, 40); assert.equal(b.off[0].name, 'Benediction'); assert.match(b.off[0].note, /Finish it to 5\. Unsealed Wrath still lands at 40/);
+  // two points somewhere else: the whole road moves two levels, and says so
+  const o = road({ Deflection: 5, 'Divine Strength': 2 });
+  assert.equal(o.road[0].lvl, 17); assert.equal(o.capstone, 42);
+  assert.equal(o.off[0].name, 'Divine Strength'); assert.match(o.off[0].note, /Unsealed Wrath moves to 42/);
+  // the road never runs past 60
+  assert.ok(o.road.every(p => p.lvl <= 60));
+  // tier gates hold on the path: no point comes before its row opens (5 points in that tree per row)
+  const per: Record<string, number> = {};
+  for (const p of r0.road) { const t = TREE.find(x => x.name === p.name)!; assert.ok((per[t.tree] ?? 0) >= 5 * (t.tier - 1), `${p.name} at ${p.lvl}`); per[t.tree] = (per[t.tree] ?? 0) + 1; }
 });

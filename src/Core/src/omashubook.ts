@@ -40,6 +40,9 @@ const POINTS: { name: string; lvl: number; rank: number }[] = (() => {
   return out.sort((a, b) => a.lvl - b.lvl);
 })();
 
+/** Talents that change the pad (OmaPad v4 map), for the talents tab. */
+export const TALENT_PAD: Record<string, string> = { 'Seal of Command': 'Takes Righteousness\'s spot: RT + Y', 'Repentance': 'New on your pad: LT + B', 'Unsealed Wrath': 'Second Seal arrives: RT + D-right' };
+
 export const DESC: Record<string, string> = {
   'Deflection': '+1% parry per rank.', 'Conviction': 'More critical strikes with all spells and attacks.',
   'Improved Judgement': 'Judgement cooldown 1 sec shorter per rank: 8 sec at 2/2.', 'Pursuit of Justice': 'Run and ride 8% faster per rank: 15% at 2/2. Your best way out of a fight.',
@@ -277,6 +280,8 @@ export interface BookView {
   name: string; level: number; xpPct: number; spec: string; zone: string; at: number; /** gold carried, in copper */ money: number;
   cards: Card[]; restock: Restock[]; fine: string;
   ranks: Record<string, number>; next: string | null;
+  /** The road ahead (sheet 25): one point a level, and what he took off the path. */
+  road: RoadPoint[]; off: OffPath[];
   ladder: (Rung & { state: 'have' | 'next' | 'later' })[]; forLevel: { icon: string; name: string; what: string }[]; gearNote: string;
   bracket: string;
   /** Cheap Upgrades (sheet 17): its mode (rich = biggest in budget), budget in copper, and its list from the last scan.
@@ -294,10 +299,46 @@ export const SLOT_NAMES: Record<number, string> = { 1: 'head', 2: 'neck', 3: 'sh
   10: 'hands', 11: 'ring', 12: 'ring', 13: 'trinket', 14: 'trinket', 15: 'back', 16: 'main hand', 17: 'off hand', 18: 'ranged' };
 const slotName = (v: unknown) => typeof v === 'number' ? SLOT_NAMES[v] ?? '' : typeof v === 'string' ? (/^\d+$/.test(v) ? SLOT_NAMES[+v] ?? '' : v) : '';
 
-/** The talent the next unspent point goes in (the first point of the path not yet taken), or null. */
+/** One point on the road: the level it comes at (a point a level from 10), the talent and the rank it brings. */
+export interface RoadPoint { lvl: number; name: string; rank: number }
+/** Talents he has that the path doesn't (or more ranks than it takes), with a calm line on what it changes. */
+export interface OffPath { name: string; ranks: number; note: string }
+/** The road from where he is (the talents tab, sheet 25; Joshua 2026-11-27): every path point he doesn't have yet, in
+ *  the path's order, one a level from his next point. Going off the path never breaks it (the talent research's rule:
+ *  keep spending in Ret, take the next point on the list): off-path points still count toward rows, they only move
+ *  the rest of the road later. Benediction instead of Deflection (both row 1): finish whichever has more to 5. */
+export function road(ranks: Record<string, number>): { road: RoadPoint[]; off: OffPath[]; capstone: number | null } {
+  const has = (n: string) => ranks[n] ?? 0;
+  const spent = Object.values(ranks).reduce((a, r) => a + (r > 0 ? r : 0), 0);
+  let pts = POINTS.filter(p => has(p.name) < p.rank).map(p => ({ name: p.name, rank: p.rank }));
+  const ben = has('Benediction'), swap = ben > 0 && ben >= has('Deflection') && has('Deflection') < 5;
+  if (swap) {   // Benediction takes Deflection's place in the order
+    const at = pts.findIndex(p => p.name === 'Deflection');
+    pts = pts.filter(p => p.name !== 'Deflection');
+    const add = []; for (let r = ben + 1; r <= 5; r++) add.push({ name: 'Benediction', rank: r });
+    pts.splice(at < 0 ? 0 : at, 0, ...add);
+  }
+  const out = pts.map((p, k) => ({ lvl: spent + 10 + k, ...p })).filter(p => p.lvl <= 60);
+  const cap = out.find(p => p.name === 'Unsealed Wrath')?.lvl ?? null;
+  // what the path would have by now (his first `spent` points): anything past that is off the road or taken early
+  const byNow: Record<string, number> = {}; for (const p of POINTS.slice(0, spent)) byNow[p.name] = p.rank;
+  const off: OffPath[] = [];
+  for (const t of TREE) {
+    const h = has(t.name); if (h <= (byNow[t.name] ?? 0) || t.name === 'Benediction' && swap) continue;
+    if (t.name === 'Deflection' && swap) continue;
+    const extra = h - (byNow[t.name] ?? 0);
+    off.push({ name: t.name, ranks: h, note: t.name === 'Benediction' && !swap
+      ? `Not on the road, and that's fine: it saves mana instead. Deflection comes first now; Benediction stays as it is.`
+      : `Not on the road, and that's fine: ${extra === 1 ? 'that point still counts' : 'those points still count'} toward its row.${cap && cap > 40 ? ` Unsealed Wrath moves to ${cap}.` : cap ? ` Unsealed Wrath still lands at ${cap}.` : ''}` });
+  }
+  if (swap) off.unshift({ name: 'Benediction', ranks: ben, note: `Not on the road, and that's fine: it saves mana instead of parrying. Finish it to 5.${cap ? ` Unsealed Wrath ${cap > 40 ? 'moves to' : 'still lands at'} ${cap}.` : ''}` });
+  return { road: out, off, capstone: cap };
+}
+
+/** The talent the next unspent point goes in (the first point of the road), or null. */
 export function nextTalent(ranks: Record<string, number>, level: number): { name: string; rank: number } | null {
-  for (const p of POINTS) { if (p.lvl > level) break; if ((ranks[p.name] ?? 0) < p.rank) return { name: p.name, rank: p.rank }; }
-  return null;
+  const p = road(ranks).road[0];
+  return p && p.lvl <= level ? { name: p.name, rank: p.rank } : null;
 }
 
 /** Bag count of every item of one tier (any food that heals the same as the best one counts). */
@@ -453,7 +494,7 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
     name: String(s.name ?? 'Paladin'), level, xpPct: xpMax > 0 ? Math.round(num(s.xp) / xpMax * 100) : 0,
     spec: spec && spec[1] > 0 ? spec[0] : '', zone: typeof s.zone === 'string' ? s.zone : '', at: num(s.at), money: Math.max(0, Math.floor(num(s.money))),
     cards, restock, fine: fine.length ? `All stocked: ${fine.join(', ')}.` : '',
-    ranks, next: nt?.name ?? nextTalent(ranks, level + 1)?.name ?? null,
+    ranks, next: nt?.name ?? nextTalent(ranks, level + 1)?.name ?? null, ...(({ road: r, off }) => ({ road: r, off }))(road(ranks)),
     ladder, forLevel, gearNote, bracket: level < 20 ? '1-20' : level < 40 ? '20-40' : '40+',
     cu: {
       rich: s.cu?.rich === true, max: num(s.cu?.max) > 0 ? num(s.cu?.max) : null,

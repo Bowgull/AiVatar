@@ -1079,6 +1079,44 @@ const BOOK_CSS=`:host{--hot:#ffd36b;--pal:#f48cba;--green:#2fdc3a;--blue:#4a90ff
 @keyframes gl{50%{box-shadow:inset 0 0 0 2px #ffc0dc,0 0 22px #f48cba99}}
 .step .nb{font:600 10px "Pixelify Sans";color:#2a0d18;background:#f48cba;border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:2px}
 @media (prefers-reduced-motion:reduce){.step.glow{animation:none}}
+.tnext{display:flex;gap:11px;align-items:center;background:#1a120b;border-radius:14px;padding:10px 11px;box-shadow:inset 0 0 0 2px #2a1a0e}
+.tnext.now{background:linear-gradient(90deg,#2e1f0f,#1f150c);box-shadow:inset 0 0 0 2px #ffd36baa}
+.tnext .ic{position:relative;width:52px;height:52px;flex:none;border-radius:9px;box-shadow:0 0 0 2px #000,0 0 0 4px #c8962e}
+.tnext.now .ic{animation:nxr 2.8s ease-in-out infinite}
+@keyframes nxr{50%{box-shadow:0 0 0 2px #000,0 0 0 4px #ffd36b,0 0 18px #ffd36b88}}
+.tnext .ic img{width:100%;height:100%;border-radius:9px;display:block}
+.tnext .lv{font:600 12px "Pixelify Sans";color:var(--hot);letter-spacing:.4px}
+.tnext .t{font:700 17px Figtree,system-ui;color:#fff3d8;display:flex;align-items:center;gap:8px;line-height:1.15;margin-top:2px}
+.pips i.p{background:#6a4a1a;box-shadow:0 0 0 1px #ffd36b88}
+.twhy{font:14px/1.4 Figtree,system-ui;color:#e8dab8;margin:8px 3px 0}
+.tpadl{display:flex;align-items:center;gap:8px;margin:8px 0 0;font:600 12px "Pixelify Sans";color:#c8b890}
+.tpadl .pb{color:#2a1405;background:var(--hot);border-radius:6px;padding:3px 7px;box-shadow:inset 0 -2px 0 #0004}
+.lvbar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sk{width:52px;height:46px;flex:none;border-radius:10px;display:grid;place-items:center;font:600 26px "Pixelify Sans";color:#f0e2bf;background:linear-gradient(#4a2c16,#331d0e);box-shadow:inset 0 -5px 0 #1e1008,inset 0 2px 0 #6a4424,0 0 0 2px #0a0503;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .06s}
+.sk.down{transform:translateY(3px);background:linear-gradient(#24140a,#2e1a0c);box-shadow:inset 0 4px 0 #0a0503,inset 0 0 14px #ffd36b33,0 0 0 2px #0a0503}
+.sk.off{opacity:.35}
+.lvn{flex:1;text-align:center;line-height:1.1}
+.lvn b{display:block;font:700 20px Cinzel,serif;color:var(--hot);letter-spacing:.5px}
+.lvn span{font:12px "Pixelify Sans";color:#9a8f78}
+.tnext .ic.star::after,.lt.star::after{content:"";position:absolute;top:-4px;right:-4px;width:13px;height:13px;background:var(--hot);clip-path:polygon(50% 0,62% 36%,100% 38%,70% 60%,80% 100%,50% 76%,20% 100%,30% 60%,0 38%,38% 36%);filter:drop-shadow(0 0 3px #ffd36b)}
+.lvs{display:flex;gap:5px;overflow-x:auto;padding:6px 2px;margin-top:8px;scrollbar-width:none;scroll-behavior:smooth}
+.lvs::-webkit-scrollbar{display:none}
+.lt{position:relative;flex:0 0 40px;text-align:center;cursor:pointer}
+.lt img{width:32px;height:32px;border-radius:6px;box-shadow:0 0 0 2px #000,0 0 0 3px #3a2a1a;filter:grayscale(.5) brightness(.65);transition:filter .18s ease-out,box-shadow .18s ease-out}
+.lt span{display:block;font:600 11px "Pixelify Sans";color:#8a7b63;margin-top:2px}
+.lt.got img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #8a6a2a}
+.lt.sel img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #ffd36b,0 0 10px #ffd36b88}.lt.sel span{color:var(--hot)}
+.nd.look img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #fff3c0,0 0 12px #ffd36b88}
+.nd.ghost img{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #c8962e88;opacity:.8}.nd.ghost b{color:#c8962e}
+.bend{display:flex;gap:10px;align-items:center;background:#22180c;border-radius:12px;padding:8px 10px;margin-bottom:8px;box-shadow:inset 0 0 0 2px #c8962e66}
+.bend img{width:34px;height:34px;border-radius:6px;box-shadow:0 0 0 2px #000;flex:none}
+.bend .t{font:600 14px Figtree,system-ui;color:#fff3d8}.bend .d{font:12.5px/1.35 Figtree,system-ui;color:#c8b890;margin-top:2px}
+.fork{display:flex;gap:8px;margin-top:8px}
+.fk{flex:1;text-align:center;background:#1a120b;border-radius:12px;padding:10px 6px;box-shadow:inset 0 0 0 2px #2a1a0e;cursor:pointer;transition:box-shadow .18s ease-out}
+.fk img{width:40px;height:40px;border-radius:8px;box-shadow:0 0 0 2px #000,0 0 0 3px #4a3a20}
+.fk .t{font:600 14px Figtree,system-ui;color:#fff3d8;margin-top:6px}.fk .d{font:12px Figtree,system-ui;color:#a8987a}
+.fk.on{background:#2a1c0e;box-shadow:inset 0 0 0 2px #ffd36baa}.fk.on img{box-shadow:0 0 0 2px #000,0 0 0 3px #ffd36b}
+@media (prefers-reduced-motion:reduce){.tnext.now .ic{animation:none;box-shadow:0 0 0 2px #000,0 0 0 4px #ffd36b}.lvs{scroll-behavior:auto}}
 @media (prefers-reduced-motion:reduce){.nd.next img,.sheet{animation:none}}`;
 var bookCoin=$('div','bookcoin');bookCoin.innerHTML='<img src="/book/icons/classicon_paladin.jpg" alt=""><span class="lv"></span>';app.appendChild(bookCoin);
 var book={on:false,level:0,at:0,host:null,data:null,loading:false,again:false,ui:{}};
@@ -1109,7 +1147,7 @@ function drawBook(keep){const B=book.data,root=book.host.shadowRoot,body=root.qu
   body.innerHTML=`<div class="head"><img src="${BI('classicon_paladin')}" alt=""><div style="flex:1"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${B.zone?' · '+esc(B.zone):''}</div><div class="xp"><i style="width:${B.xpPct}%"></i></div></div></div>
   <div class="tabs">${['now','fight','talents','gear'].map(t=>`<span class="tab${t===book.tab?' on':''}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</span>`).join('')}</div><div class="well"></div>`;
   body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>bookTab(t.dataset.t));bookTab(book.tab,keep);if(keep)root.querySelector('.well').scrollTop=top}
-function bookTab(t,keep){book.tab=t;if(!keep)book.ui={sel:0,tree:'Retribution',pick:null};const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
+function bookTab(t,keep){book.tab=t;if(!keep)book.ui={sel:0,tree:'Retribution',pick:null,at:0};const root=book.host.shadowRoot,w=root.querySelector('.well');root.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));w.scrollTop=0;({now:bookNow,fight:bookFight,talents:bookTalents,gear:bookGear})[t](w,book.data)}
 function ago(at){const m=Math.max(0,Math.round((Date.now()/1000-at)/60));return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`}
 function bookNow(w,B){const k=`<div class="k">Now <b>as of your last reload · ${ago(B.at)}</b></div>`;
   if(!B.cards.length&&!B.restock.length&&!B.train){w.innerHTML=`${k}<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">You're set. Go play.</div><div class="d">No points to spend, nothing to train, bags stocked.</div></div>${B.fine?`<div class="k" style="margin-top:12px">Restock</div><p class="note">${esc(B.fine)}</p>`:''}`;return}
@@ -1135,18 +1173,48 @@ function bookFight(w,B){const NEW=new Set(B.fresh||[]);const S=B.steps||[],P=B.p
    <p class="note">Top of the list first, whatever's ready. It changes as you learn new spells: new ones glow until your next reload.${B.crusader?' Seal of the Crusader: skip it solo, Righteousness hits harder.':''}</p>`;
    w.querySelectorAll('.step[data-i]').forEach(e=>{if(e.dataset.i!=='')e.onclick=()=>{sel=book.ui.sel=+e.dataset.i;draw()}})};
   draw()}
-function bookTalents(w,B){const plan={},lvlOf={};B.path.forEach(([n,l,r])=>{for(let i=0;i<r;i++){(lvlOf[n]=lvlOf[n]||[]).push(l+i);plan[n]=(plan[n]||0)+1}});
-  const have=n=>B.ranks[n]||0;let tree=book.ui.tree||'Retribution',pick=book.ui.pick&&B.tree.some(n=>n.name===book.ui.pick)?book.ui.pick:B.next||(B.path[0]&&B.path[0][0]);
-  const totals=t=>B.tree.filter(x=>x.tree===t).reduce((s,x)=>s+have(x.name),0);
-  const draw=()=>{const nodes=B.tree.filter(x=>x.tree===tree);let cells='';for(let tier=1;tier<=7;tier++)for(let c=0;c<4;c++){const x=nodes.find(n=>n.tier===tier&&n.col===c);if(!x){cells+='<div></div>';continue}
-      const h=have(x.name),cls=x.name===B.next?'next':h>=x.max?'max':h>0?'part':plan[x.name]?'later':'';
-      cells+=`<div class="nd ${cls}${x.name===pick?' sel':''}" data-n="${esc(x.name)}"><img src="${BI(x.icon)}" alt="${esc(x.name)}"><b>${h}/${x.max}</b></div>`}
-    const x=B.tree.find(n=>n.name===pick)||nodes[0],h=have(x.name),ls=lvlOf[x.name]||[];
-    w.innerHTML=`<div class="trees">${['Holy','Protection','Retribution'].map(t=>`<span class="${t===tree?'on':''}" data-t="${t}">${t==='Protection'?'Prot':t==='Retribution'?'Ret':t}<i>${totals(t)}</i></span>`).join('')}</div>
-    <div class="tree">${cells}</div>
-    <div class="tt"><h5>${esc(x.name)}<span class="pips">${Array.from({length:x.max},(_,i)=>`<i class="${i<h?'f':''}"></i>`).join('')}</span></h5><span class="rk">${h}/${x.max} now · you'll take ${plan[x.name]||0}</span><div style="margin-top:4px">${esc(B.desc[x.name]||'Not in your leveling build.')}</div>${ls.length?`<div class="when">At level ${ls.join(', ')}${x.name===B.next?' · next point':''}</div>`:''}</div>`;
-    w.querySelectorAll('[data-t]').forEach(e=>e.onclick=()=>{tree=e.dataset.t;const f=B.tree.find(n=>n.tree===tree&&plan[n.name]);pick=f?f.name:(B.tree.find(n=>n.tree===tree)||{}).name;book.ui.tree=tree;book.ui.pick=pick;draw()});
-    w.querySelectorAll('.nd').forEach(e=>e.onclick=()=>{pick=book.ui.pick=e.dataset.n;draw()})};
+// The talents tab (sheet 25 v2, Joshua 2026-11-27: "one level at a time or multiple levels"): − and + step through the
+// road (tap one level, hold to run), a strip of every level to jump to, the tree as it will be at that level. The road
+// comes from Aang's book (his real ranks; off-path points move it, never break it). The 59-60 pick is kept on this phone.
+const FORK_KEY='omashu.talentFork',STARS={'Seal of Command':1,'Repentance':1,'Unsealed Wrath':1,'Precision':1};
+const tHold={t:0,d:0,end:null};addEventListener('pointerup',()=>tHold.end&&tHold.end());addEventListener('pointercancel',()=>tHold.end&&tHold.end());
+function bookTalents(w,B){
+  const T=Object.fromEntries(B.tree.map(x=>[x.name,x])),pad=B.pad||{},desc=B.desc||{},have=n=>B.ranks[n]||0;
+  const fork=(()=>{try{return localStorage.getItem(FORK_KEY)==='Holy Conduit'?'Holy Conduit':"Guardian's Favor"}catch(e){return "Guardian's Favor"}})();
+  const P=(B.road||[]).filter(p=>T[p.name]).map(p=>p.name==="Guardian's Favor"&&fork!=="Guardian's Favor"?{...p,name:fork}:p);
+  const plan={};B.path.forEach(([n,,r])=>plan[n]=(plan[n]||0)+r);
+  const first=P.length?P[0].lvl:B.level,last=P.length?P[P.length-1].lvl:B.level;
+  const at=lv=>P.find(p=>p.lvl===lv);
+  const rankAt=(n,lv)=>Math.max(have(n),P.filter(p=>p.name===n&&p.lvl<=lv).reduce((m,p)=>Math.max(m,p.rank),0));
+  let tree=book.ui.tree||'Retribution',pick=null;book.ui.at=Math.min(last,Math.max(first,book.ui.at||first));
+  const step=d=>{const v=Math.min(last,Math.max(first,book.ui.at+d));if(v===book.ui.at)return;book.ui.at=v;const p=at(v);if(p)tree=book.ui.tree=T[p.name].tree;pick=null;draw()};
+  tHold.end=()=>{if(!tHold.d)return;clearTimeout(tHold.t);tHold.d=0;if(w.isConnected)draw()};
+  const draw=()=>{const lv=book.ui.at,p=at(lv),totals=t=>B.tree.filter(n=>n.tree===t).reduce((a,n)=>a+(p?rankAt(n.name,lv):have(n.name)),0);
+    let top=(B.off||[]).map(o=>`<div class="bend">${T[o.name]?`<img src="${BI(T[o.name].icon)}" alt="">`:''}<div><div class="t">You took ${esc(o.name)}</div><div class="d">${esc(o.note)}</div></div></div>`).join('');
+    if(p){const x=T[p.name],now=lv<=B.level,ahead=lv-B.level,pd=pad[x.name];
+      top+=`<div class="lvbar"><div class="sk${lv<=first?' off':''}${tHold.d<0?' down':''}" data-d="-1">−</div><div class="lvn"><b>Level ${lv}</b><span>${now?'now · spend it':ahead===1?'next level':ahead+' levels ahead'}</span></div><div class="sk${lv>=last?' off':''}${tHold.d>0?' down':''}" data-d="1">+</div></div>
+      <div class="tnext${now?' now':''}"><div class="ic${STARS[x.name]?' star':''}"><img src="${BI(x.icon)}" alt=""></div><div style="flex:1;min-width:0">
+      <div class="lv">${x.tree==='Retribution'?'Ret':x.tree==='Protection'?'Prot':'Holy'} · rank ${p.rank} of ${x.max}</div>
+      <div class="t">${esc(x.name)}<span class="pips">${Array.from({length:x.max},(_,i)=>`<i class="${i<have(x.name)?'f':i<p.rank?'p':''}"></i>`).join('')}</span></div></div></div>
+      <div class="twhy">${esc(desc[x.name]||'')}</div>${pd?`<div class="tpadl"><span class="pb">${esc(pd.split(': ')[1]||'')}</span>${esc(pd.split(': ')[0])}</div>`:''}
+      ${x.name==="Guardian's Favor"||x.name==='Holy Conduit'?`<div class="fork">${["Guardian's Favor",'Holy Conduit'].filter(n=>T[n]).map(n=>`<div class="fk${n===fork?' on':''}" data-f="${esc(n)}"><img src="${BI(T[n].icon)}" alt=""><div class="t">${esc(n)}</div><div class="d">${n==='Holy Conduit'?'Questing in packs':'World PvP'}</div></div>`).join('')}</div>`:''}
+      <div class="lvs">${P.map(q=>`<div class="lt${q.lvl===lv?' sel':''}${q.lvl<lv?' got':''}${STARS[q.name]?' star':''}" data-l="${q.lvl}"><img src="${BI(T[q.name].icon)}" alt=""><span>${q.lvl}</span></div>`).join('')}</div>`}
+    else top+=`<div class="set"><img src="${BI('classicon_paladin')}" alt=""><div class="t">Every point is spent.</div><div class="d">Nothing left on the road.</div></div>`;
+    const nodes=B.tree.filter(x=>x.tree===tree);let cells='';
+    for(let tier=1;tier<=7;tier++)for(let c=0;c<4;c++){const n=nodes.find(q=>q.tier===tier&&q.col===c);if(!n){cells+='<div></div>';continue}
+      const h=have(n.name),r=p?rankAt(n.name,lv):h,cls=p&&n.name===p.name?(lv<=B.level?'next':'look'):r>h?'ghost':h>=n.max?'max':h>0?'part':plan[n.name]?'later':'';
+      cells+=`<div class="nd ${cls}${n.name===pick?' sel':''}" data-n="${esc(n.name)}"><img src="${BI(n.icon)}" alt="${esc(n.name)}"><b>${r}/${n.max}</b></div>`}
+    const x=pick&&T[pick];
+    w.innerHTML=`${top}<div class="trees" style="margin-top:10px">${['Holy','Protection','Retribution'].map(t=>`<span class="${t===tree?'on':''}" data-t="${t}">${t==='Protection'?'Prot':t==='Retribution'?'Ret':t}<i>${totals(t)}</i></span>`).join('')}</div>
+      <div class="tree">${cells}</div>${x?`<div class="tt"><h5>${esc(x.name)}<span class="pips">${Array.from({length:x.max},(_,i)=>`<i class="${i<have(x.name)?'f':''}"></i>`).join('')}</span></h5><span class="rk">${have(x.name)}/${x.max} now · not on your road</span><div style="margin-top:4px">${esc(desc[x.name]||'')}</div></div>`:''}`;
+    // − and +: tap for one level, hold to run (the page redraws on each step, so the hold lives outside the buttons)
+    w.querySelectorAll('.sk').forEach(k=>{const d=+k.dataset.d;k.onpointerdown=e=>{e.preventDefault();knock();clearTimeout(tHold.t);tHold.d=d;step(d);let gap=380;const go=()=>{tHold.t=setTimeout(()=>{step(d);gap=Math.max(90,gap*0.75);go()},gap)};go();draw()}});
+    w.querySelectorAll('.lt').forEach(e=>e.onclick=()=>{book.ui.at=+e.dataset.l;tree=book.ui.tree=T[at(book.ui.at).name].tree;pick=null;draw()});
+    w.querySelectorAll('[data-t]').forEach(e=>e.onclick=()=>{tree=book.ui.tree=e.dataset.t;draw()});
+    w.querySelectorAll('.nd').forEach(e=>e.onclick=()=>{const q=P.find(q=>q.name===e.dataset.n);if(q){book.ui.at=q.lvl;pick=null}else pick=pick===e.dataset.n?null:e.dataset.n;draw()});
+    w.querySelectorAll('.fk').forEach(e=>e.onclick=()=>{knock();try{localStorage.setItem(FORK_KEY,e.dataset.f)}catch(_){}bookTalents(w,B)});
+    const sel=w.querySelector('.lt.sel'),rd=w.querySelector('.lvs');if(sel&&rd)rd.scrollLeft=Math.max(0,sel.offsetLeft-rd.offsetLeft-rd.clientWidth/2+24)};
+  if(P.length&&at(book.ui.at))tree=book.ui.tree=T[at(book.ui.at).name].tree;
   draw()}
 function bookGear(w,B){w.innerHTML=`<div class="k">Two-hander ladder</div><div class="ladder">${B.ladder.map(r=>`<div class="rung ${r.state}"><img src="${BI(r.icon)}" alt=""><div><div class="t blue">${esc(r.name)}</div><div class="d">${esc(r.from)} · ${r.dps.toFixed(1)} DPS</div></div><span class="l">${r.lvl}</span></div>`).join('')}</div>
   <div class="k" style="margin-top:6px">For level ${B.level}</div><div class="grid4">${B.forLevel.map(f=>`<div class="fd"><img src="${BI(f.icon)}" alt=""><div>${esc(f.name)}</div><span>${esc(f.what)}</span></div>`).join('')}</div>
