@@ -297,6 +297,9 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   if (!raw || typeof raw !== 'object') return null;
   const s = raw as BookSave;
   if (s.class !== 'PALADIN') return null;
+  // 2026-11-27: this book is the Alliance paladin's (class quests, trainers, vendors). The new Bunji is a Horde
+  // (Undead) paladin; Joshua: "Replace the book entirely". Until the Horde book exists, no book at all for Horde.
+  if (s.faction === 'Horde') return null;
   const level = Math.max(1, Math.min(60, Math.floor(num(s.level, 1))));
   const ranks: Record<string, number> = {};
   for (const [k, v] of Object.entries(s.talents ?? {})) if (typeof v === 'number') ranks[k] = v;

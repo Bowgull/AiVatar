@@ -23,6 +23,7 @@ test('the tables hold together: every path talent is in the tree with room for i
 test('not a paladin, or nothing saved: no book', () => {
   assert.equal(makeBook(null), null);
   assert.equal(makeBook({ class: 'WARLOCK', level: 30 }), null);
+  assert.equal(makeBook({ class: 'PALADIN', level: 1, faction: 'Horde' }), null, 'no Alliance book for a Horde paladin (2026-11-27)');
 });
 
 test('all done: no cards, nothing to restock, the stocked list', () => {
