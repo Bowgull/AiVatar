@@ -61,6 +61,7 @@ export function cleanMouse(v: unknown): MouseAsk | null {
   return Object.keys(m).length ? m : null;
 }
 export type AhWindow = 'improved' | 'game' | null;
+export type AhItem = [string, number, number, number];
 export interface ChatBatch { session: string | null; seq: number; ah?: boolean; win?: AhWindow; lines: { seq: number; raw: string; cls?: string }[] }
 
 export class Laptop {
@@ -114,13 +115,14 @@ export class Laptop {
   }
   /** Auctionable item names for the phone's suggestions (sheet omashu/remote/15): [name, quality, weight] from aux's own list
    *  (weight: +2 seen for sale, +1 trade good/consumable/reagent). */
-  async ahItems(): Promise<{ at: string | null; items: [string, number, number][] } | null> {
+  /** [name, quality, weight, item id]: the id (from 2026-11-27) gives the suggestion its picture; 0 when the laptop is older. */
+  async ahItems(): Promise<{ at: string | null; items: AhItem[] } | null> {
     const r = await this.call('/ah/items', {}, 8000);
     if (!r?.ok) return null;
     const j = await r.json().catch(() => null) as { at?: unknown; items?: unknown } | null;
     if (!j || !Array.isArray(j.items)) return null;
     const items = (j.items as unknown[]).filter((x): x is [string, number, number?] => Array.isArray(x) && typeof x[0] === 'string' && x[0].length <= 100 && Number.isInteger(x[1]))
-      .slice(0, 30000).map(x => [x[0], Math.max(0, Math.min(7, x[1])), Math.max(0, Math.min(3, Number(x[2]) || 0))] as [string, number, number]);
+      .slice(0, 30000).map(x => [x[0], Math.max(0, Math.min(7, x[1])), Math.max(0, Math.min(3, Number(x[2]) || 0)), Number.isInteger(x[3]) && (x[3] as number) > 0 && (x[3] as number) < 1e7 ? x[3] as number : 0] as AhItem);
     return { at: typeof j.at === 'string' ? j.at : null, items };
   }
   /** The Paladin Book's data (sheet omashu/remote/18): OmaBook's save as of the last reload or logout, with aux's prices
@@ -283,7 +285,9 @@ export class OmashuRemote {
   /** Which auction window is on the TV, for the trackpad's lever (sheet 21): ImprovedForever's or the game's own. */
   ahWin: AhWindow = null;
   /** aux's auctionable items, fetched from the laptop while at the auction house (at most every 5 minutes). */
-  items: { at: string | null; items: [string, number, number][] } | null = null;
+  items: { at: string | null; items: AhItem[] } | null = null;
+  /** item id -> Wowhead icon name, for the suggestions' pictures */
+  private itemIcons = new Map<number, string | null>();
   private itemsAskedAt = 0;
   /** The Paladin Book (sheet 18): made from the newest OmaBook save while WoW runs; null when that save isn't a paladin. */
   book: BookView | null = null;
@@ -472,7 +476,7 @@ export class OmashuRemote {
       const b = Buffer.from(await r.arrayBuffer());
       if (b.length > 200_000) return null;
       this.icons.set(name, b);
-      while (this.icons.size > 100) this.icons.delete(this.icons.keys().next().value!);
+      while (this.icons.size > 400) this.icons.delete(this.icons.keys().next().value!);
       return b;
     } catch { return null; }
   }
@@ -520,6 +524,18 @@ export class OmashuRemote {
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
       json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, ahWin: this.ahWin, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
+      return;
+    }
+    // a suggestion's picture (sheet 21): only items on the laptop's list, the icon from Wowhead's store, kept in memory
+    const itemPic = /^\/api\/item\/(\d{1,7})\.jpg$/.exec(p)?.[1];
+    if (req.method === 'GET' && itemPic) {
+      if (!phone.chat) { res.writeHead(403).end(); return; }
+      const id = Number(itemPic);
+      if (!this.items?.items.some(x => x[3] === id)) { res.writeHead(404).end(); return; }
+      let name = this.itemIcons.get(id);
+      if (name === undefined) { const t = await this.wowhead.byId('item', id); name = t?.icon ?? null; this.itemIcons.set(id, name); if (this.itemIcons.size > 2000) this.itemIcons.delete(this.itemIcons.keys().next().value!); }
+      const img = name ? await this.iconFromWowhead(name) : null;
+      if (img) send(res, 200, img, 'image/jpeg', { 'Cache-Control': 'max-age=604800' }); else res.writeHead(404).end();
       return;
     }
     if (req.method === 'GET' && p === '/api/items') {

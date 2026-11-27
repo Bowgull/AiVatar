@@ -317,6 +317,7 @@ svg.px{shape-rendering:crispEdges}
 .tpad.at-ah .rail{display:flex}
 .tpad .slot{flex:1;min-width:0;height:60px;border-radius:10px;background:#120a05;box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #3a2412,0 1px 0 #5a3a20;display:flex;align-items:center;gap:10px;padding:0 12px;transition:box-shadow .2s ease-out}
 .tpad .slot svg{width:22px;height:22px;flex:none}
+.tpad .slot input::placeholder{color:#ff9a7a}
 .tpad .slot input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 17px Figtree,system-ui,sans-serif;color:#f0e2bf;caret-color:#ffd36b;-webkit-user-select:text;user-select:text}
 .tpad .slot:focus-within{box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #ffd36b88,0 0 14px #ffd36b33}
 .tpad .slot.no{box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #b5413a}
@@ -332,7 +333,8 @@ svg.px{shape-rendering:crispEdges}
 .tpad .lev.no{box-shadow:inset 0 0 0 2px #b5413a,inset 0 0 0 4px #24140a,0 3px 0 #0a0503}
 .tpad .sugg{display:flex;flex-direction:column;gap:5px;z-index:1}
 .tpad .sugg:empty{display:none}
-.tpad .sg{display:flex;align-items:center;min-height:44px;background:#120a05;border-radius:10px;padding:6px 12px;box-shadow:inset 0 0 0 2px #3a2412;font:600 16px Figtree,system-ui,sans-serif}
+.tpad .sg img{width:30px;height:30px;border-radius:5px;box-shadow:0 0 0 2px #000;flex:none}
+.tpad .sg{display:flex;align-items:center;gap:9px;min-height:44px;background:#120a05;border-radius:10px;padding:6px 12px;box-shadow:inset 0 0 0 2px #3a2412;font:600 16px Figtree,system-ui,sans-serif}
 .tpad .sg:active{box-shadow:inset 0 0 0 2px #ffd36b88}
 .tpad .surf{flex:1;min-height:0;border-radius:16px;position:relative;overflow:hidden;z-index:1;touch-action:none;
   background:radial-gradient(ellipse at 50% 40%,#1c130c,#0d0805 75%);box-shadow:inset 0 0 0 2px #0a0503,inset 0 0 0 4px #5a3a18,inset 0 6px 22px #000}
@@ -696,7 +698,7 @@ let ITEMS=null,ITEM_BY=null,itemsAskedAt=0;
 async function loadItems(){
   if(ITEMS&&ITEMS.length||performance.now()-itemsAskedAt<3000)return;itemsAskedAt=performance.now();
   const {ok,j}=await api('/api/items');if(!ok||!Array.isArray(j.items)||!j.items.length)return;
-  ITEMS=j.items.map(([n,q,w])=>({n,q,w:w||0,l:n.toLowerCase()}));ITEM_BY=new Map(ITEMS.map(i=>[i.l,i]));if(tp.el)drawSugg()}
+  ITEMS=j.items.map(([n,q,w,id])=>({n,q,w:w||0,id:id||0,l:n.toLowerCase()}));ITEM_BY=new Map(ITEMS.map(i=>[i.l,i]));if(tp.el)drawSugg()}
 function near(a,b){   // a typo of the same length: at most one letter off (copr ~ copp)
   if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i]&&++d>1)return false;return true}
 function suggest(q){
@@ -1233,7 +1235,9 @@ async function throwLever(L){
 function drawSugg(){
   const el=tp.el;if(!el)return;const box=el.querySelector('.sugg'),i=el.querySelector('.slot input');
   box.textContent='';if(document.activeElement!==i)return;
-  for(const it of suggest(i.value)){const g=$('div','sg',it.n);g.style.color=QCOLOR[it.q]||'#fff';
+  for(const it of suggest(i.value)){const g=$('div','sg');g.style.color=QCOLOR[it.q]||'#fff';
+    if(it.id){const im=$('img');im.alt='';im.src='/api/item/'+it.id+'.jpg';im.onerror=()=>im.remove();g.appendChild(im)}   // its picture (sheet 21), when Wowhead has one
+    g.append(it.n);
     g.addEventListener('pointerdown',e=>e.preventDefault());   // keeps the keyboard up until the search goes
     g.addEventListener('click',()=>ahSearch(it.n));box.appendChild(g)}
 }
@@ -1241,9 +1245,9 @@ let ahBusy=false;
 async function ahSearch(text){
   const el=tp.el;text=String(text||'').trim();if(!el||!text||ahBusy)return;ahBusy=true;knock();
   const item=ITEM_BY&&ITEM_BY.get(text.toLowerCase());if(item)text=item.n;   // a known item: searched exactly that item
-  let ok=false;try{({ok}=await api('/api/ah',{text:item?item.l+'/exact':text}))}catch(e){}finally{ahBusy=false}
+  let ok=false,why='';try{const a=await api('/api/ah',{text:item?item.l+'/exact':text});ok=a.ok;why=a.j&&a.j.why||''}catch(e){}finally{ahBusy=false}
   const slot=el.querySelector('.slot'),i=slot.querySelector('input');
-  if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);return}
+  if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);i.value='';i.placeholder=why==='chat-open'?'WoW’s chat box is open':why==='no-ah'?'The auction house isn’t open':why==='not-in-wow'?'WoW isn’t in front':'Not sent, try again';clearTimeout(i._t);i._t=setTimeout(()=>{i.placeholder=''},4000);drawSugg();return}   // the slot itself says why (the pad's line is hidden under the keyboard)
   i.value='';i.blur();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
 }
 // The fast lane (2026-11-27, "jumpy and glitchy"): moves no longer wait for each answer. The finger's total since the
