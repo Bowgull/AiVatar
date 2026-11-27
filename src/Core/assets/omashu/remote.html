@@ -109,22 +109,9 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .emo svg{width:24px;height:24px}
 .go{flex:none;width:46px;border-radius:10px;background:#3f8f47;box-shadow:inset 0 -3px 0 #1f4f27;display:flex;align-items:center;justify-content:center}
 .go svg{width:20px;height:20px}
-/* auction search (sheet omashu/remote/14): an Auction tab while the auction house is open in WoW */
+/* the Upgrades tab's list (sheet 17) */
 .ah{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:#0d0a07;border-radius:10px;box-shadow:inset 0 0 0 2px #2a1a0e,inset 0 3px 10px #000;padding:8px;overflow-y:auto;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:pan-y}
 .ah .hd{color:#8a7b63;font-size:12px;padding:2px 4px 0;font-family:"Pixelify Sans"}
-.srow{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:9px;background:#1a120b;box-shadow:inset 0 0 0 2px #2a1a0e;font-size:16px;color:#fff;cursor:pointer;flex:none}
-.srow svg{width:16px;height:16px;flex:none;opacity:.55}
-.srow.swap{color:#ffd36b}.srow.swap svg{opacity:.9}.srow.swap .sub{margin-left:auto;font-size:12px;color:#8a7b63}
-.srow.down{transform:translateY(1px);box-shadow:inset 0 0 0 2px #4a2f17}.srow.no{box-shadow:inset 0 0 0 2px #8a2a1a}
-.srow.lit{box-shadow:inset 0 0 0 2px #ffd36b99;background:#2a1c0e}
-.srow.lit svg{opacity:1}
-.findgo{flex:none;width:46px;border-radius:10px;background:#c08a1e;box-shadow:inset 0 -3px 0 #6e4a0c;display:flex;align-items:center;justify-content:center}
-.findgo svg{width:20px;height:20px}
-.findgo.no{background:#b5413a;box-shadow:inset 0 -3px 0 #5e1f1b}
-/* item suggestions while typing (sheet omashu/remote/15): the emote tray's wooden tiles, right above the box */
-.ahtray{margin-top:8px;background:var(--wood);border-radius:12px;box-shadow:0 0 0 2px var(--wood-dark),inset 0 0 0 2px var(--wood-hi);padding:7px;display:flex;gap:6px}
-.ahtray .tile{flex:1 1 auto;min-width:0;padding:9px 6px 7px;font-size:13px;line-height:1.15;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.ahtray .tile b{color:#ffd36b;font-weight:600;text-shadow:0 0 6px #ffd36b66}
 /* name menu (and the channel picker, the same wood menu) */
 .mdim{position:absolute;inset:0;z-index:6;background:#000a}
 .menu{position:absolute;z-index:7;left:44px;right:44px;top:330px;background:var(--wood);border-radius:14px;
@@ -229,8 +216,8 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 /* send row: picker, smiley, box, send, all 44+ ; the box stays 16+ so the iPhone doesn't zoom when you type */
 .send{gap:6px;margin-top:8px}
 .chan{min-height:var(--tap);max-width:36%;padding:0 11px;font-size:var(--fs-label);display:flex;align-items:center}
-.emo,.go,.findgo{min-height:var(--tap);width:var(--tap)}
-.emo svg{width:26px;height:26px}.go svg,.findgo svg{width:22px;height:22px}
+.emo,.go{min-height:var(--tap);width:var(--tap)}
+.emo svg{width:26px;height:26px}.go svg{width:22px;height:22px}
 .box{min-height:var(--tap);min-width:38%;font-size:max(16px,var(--fs-body));padding:0 10px}
 .send .hint{font-size:var(--fs-fine);bottom:-20px;left:12px}
 /* guild roster */
@@ -250,8 +237,6 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .convo-hd .nm{font-size:var(--fs-body);padding:8px 12px}
 /* auction tab */
 .ah .hd{font-size:var(--fs-sub);color:var(--dim-text);padding:4px 6px 0}
-.srow{min-height:var(--row);font-size:var(--fs-body)}
-.ahtray .tile{min-height:var(--tap);font-size:var(--fs-sub)}
 /* menus */
 .menu,.menu.name{left:20px;right:20px;top:auto;bottom:max(16px,calc(env(safe-area-inset-bottom,0px) + 10px));padding:14px 12px 12px;max-height:calc(100% - 70px)}
 .side .menu,.side .menu.name{bottom:auto}   /* menus rise from the bottom, where the thumb is; sideways keeps its own place */
@@ -281,8 +266,8 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 /* the controls sheet (look, don't tap) */
 .sheet table{font-size:var(--fs-body)}.sheet td.s,.sheet .hint,.sheet .foot{font-size:var(--fs-sub)}.btn{font-size:var(--fs-sub)}.btn.w{font-size:var(--fs-fine)}
 /* every tap shows it landed: a little darker and smaller while your thumb is down (an iPhone page can't buzz) */
-.tab,.chan,.emo,.go,.findgo,.back,.mi,.tile,.chip,.srow,.mem,.who-row,.roster .hd,.rb div,.menu .no{transition:transform .08s,filter .08s}
-.tab:active,.chan:active,.emo:active,.go:active,.findgo:active,.back:active,.mi:active,.tile:active,.chip:active,.srow:active,.mem:active,.who-row:active,.roster .hd:active,.rb div:active,.menu .no:active{filter:brightness(.82);transform:scale(.97)}
+.tab,.chan,.emo,.go,.back,.mi,.tile,.chip,.mem,.who-row,.roster .hd,.rb div,.menu .no{transition:transform .08s,filter .08s}
+.tab:active,.chan:active,.emo:active,.go:active,.back:active,.mi:active,.tile:active,.chip:active,.mem:active,.who-row:active,.roster .hd:active,.rb div:active,.menu .no:active{filter:brightness(.82);transform:scale(.97)}
 /* the Upgrades tab (sheet 17): Cheap Upgrades' list while Bunji plays, gold like the Auction tab */
 .ah .k{color:#9a8f78;font:13px "Pixelify Sans";padding:2px 4px 0}
 .ah .tray2{display:flex;gap:6px;flex:none}
@@ -312,19 +297,55 @@ html,body{font-family:"Pixelify Sans",system-ui,sans-serif}
 .mousecoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center}
 .mousecoin.on{display:grid}.mousecoin svg{width:30px;height:30px}
-.tpad{position:absolute;left:10px;right:10px;top:max(14px,env(safe-area-inset-top));bottom:max(14px,env(safe-area-inset-bottom));z-index:8;background:var(--parch);border-radius:28px;
-  box-shadow:0 0 0 7px #b8662c,0 0 0 10px #6a3412,0 -10px 40px #000a;padding:12px;display:flex;flex-direction:column;gap:10px;animation:tpup .22s cubic-bezier(.2,.8,.2,1)}
-@keyframes tpup{from{transform:translateY(12px);opacity:.6}}
-.tpad .pbar{display:flex;justify-content:space-between;align-items:center}
-.tpad .pbar .t{font:700 16px Cinzel,serif;color:#3a2410}
-.tpad .done{font:600 14px "Pixelify Sans";background:#2a1a0e;color:#ffd36b;border-radius:10px;padding:9px 16px;box-shadow:0 0 0 2px #c8962e,inset 0 -3px 0 #0006}
-.tpad .surf{flex:1;border-radius:18px;background:repeating-linear-gradient(45deg,#120c08 0 6px,#0f0a07 6px 12px);box-shadow:inset 0 0 0 3px #2a1a0e,inset 0 4px 18px #000;position:relative;overflow:hidden;touch-action:none}
-.tpad .touch{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:radial-gradient(#ffd36b55,#ffd36b00 70%);box-shadow:0 0 0 2px #ffd36b66;pointer-events:none}
-.tpad .tpno{position:absolute;left:0;right:0;bottom:12px;text-align:center;font:13px Figtree,system-ui;color:#ff9a7a}
-.tpad .btns{display:flex;gap:10px}
-.tpad .btn2{flex:1;height:84px;border-radius:16px;display:grid;place-items:center;font:600 18px "Pixelify Sans";color:#f0e2bf;background:#3a2212;box-shadow:inset 0 -6px 0 #24140a,0 0 0 2px #24140a;touch-action:none}
-.tpad .btn2.down{background:#24140a;box-shadow:inset 0 4px 0 #120803,0 0 0 2px #ffd36b88;color:#ffd36b}
-@media (prefers-reduced-motion:reduce){.tpad{animation:none}}
+/* the mouse pad (sheet 21 v3, 2026-11-27): a leather mat in the wood frame, stitched, brass corners, a felt pad and two
+   click bars with no words. At the auction house a search slot and the window lever sit along the top. The brass tab
+   on top puts it away (the pointer leaves the TV); so does leaving the app. */
+.tpad{position:absolute;left:10px;right:10px;top:max(22px,calc(env(safe-area-inset-top) + 8px));bottom:max(14px,env(safe-area-inset-bottom));z-index:8;border-radius:26px;padding:26px 14px 14px;display:flex;flex-direction:column;gap:12px;
+  background:radial-gradient(ellipse at 50% 30%,#3a2516 0%,#24160c 60%,#1a0f08 100%);box-shadow:0 0 0 6px var(--wood),0 0 0 9px var(--wood-dark),inset 0 0 0 2px #120803,0 -10px 40px #000a;animation:tpin .22s ease-out}
+@keyframes tpin{from{transform:translateY(12px);opacity:.6}}
+.tpad::before{content:"";position:absolute;inset:7px;border-radius:20px;border:2px dashed #6a4a2a;opacity:.55;pointer-events:none}
+.tpad .corner{position:absolute;width:18px;height:18px;pointer-events:none}
+.tpad .corner i{position:absolute;background:#c8962e;box-shadow:inset 0 -2px 0 #6a4a1a}
+.tpad .c1{left:4px;top:4px}.tpad .c2{right:4px;top:4px;transform:scaleX(-1)}.tpad .c3{left:4px;bottom:4px;transform:scaleY(-1)}.tpad .c4{right:4px;bottom:4px;transform:scale(-1)}
+.tpad .corner i:nth-child(1){left:0;top:0;width:18px;height:6px}.tpad .corner i:nth-child(2){left:0;top:0;width:6px;height:18px}.tpad .corner i:nth-child(3){left:6px;top:6px;width:6px;height:6px}
+svg.px{shape-rendering:crispEdges}
+.tpad .put{position:absolute;left:50%;top:-15px;width:84px;height:34px;margin-left:-42px;border-radius:0 0 12px 12px;z-index:3;display:grid;place-items:center;
+  background:linear-gradient(#e0b04a,#a8761e);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #6a4a1a,inset 0 2px 0 #fff3c0,0 4px 10px #000a;transition:transform .08s,box-shadow .08s}
+.tpad .put svg{width:32px;height:32px;margin-top:2px}
+.tpad .put:active{transform:translateY(3px);box-shadow:0 0 0 3px #3a1a08,inset 0 -2px 0 #6a4a1a,inset 0 2px 0 #fff3c0,0 1px 4px #000a}
+.tpad .rail{display:none;gap:10px;position:relative;z-index:1}
+.tpad.at-ah .rail{display:flex}
+.tpad .slot{flex:1;min-width:0;height:60px;border-radius:10px;background:#120a05;box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #3a2412,0 1px 0 #5a3a20;display:flex;align-items:center;gap:10px;padding:0 12px;transition:box-shadow .2s ease-out}
+.tpad .slot svg{width:22px;height:22px;flex:none}
+.tpad .slot input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 17px Figtree,system-ui,sans-serif;color:#f0e2bf;caret-color:#ffd36b;-webkit-user-select:text;user-select:text}
+.tpad .slot:focus-within{box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #ffd36b88,0 0 14px #ffd36b33}
+.tpad .slot.no{box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #b5413a}
+.tpad .slot.sent{box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #ffd36b,0 0 18px #ffd36b66}
+.tpad .lev{position:relative;width:156px;height:60px;border-radius:10px;flex:none;background:linear-gradient(#3a2412,#24160c);box-shadow:inset 0 0 0 2px #c8962e,inset 0 0 0 4px #24140a,0 3px 0 #0a0503}
+.tpad .lev .ic{position:absolute;top:13px;width:34px;height:34px;opacity:.35;filter:grayscale(.6);transition:opacity .22s ease-out,filter .22s ease-out}
+.tpad .lev .ic.a{left:10px}.tpad .lev .ic.b{right:10px}
+.tpad .lev .ic.lit{opacity:1;filter:drop-shadow(0 0 6px #ffd36b)}
+.tpad .lev .arm{position:absolute;left:74px;bottom:10px;width:8px;height:32px;border-radius:4px;background:linear-gradient(90deg,#8a6a2a,#ffd36b,#8a6a2a);transform-origin:50% 100%;transform:rotate(-34deg);transition:transform .3s cubic-bezier(.3,1.5,.5,1)}
+.tpad .lev .arm::after{content:"";position:absolute;left:-5px;top:-8px;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff3c0,#ffb84a 45%,#8a4214 80%);box-shadow:0 0 10px #ffd36b88}
+.tpad .lev .hub{position:absolute;left:68px;bottom:5px;width:20px;height:9px;border-radius:4px 4px 2px 2px;background:#6a4a1a;box-shadow:inset 0 2px 0 #c8962e}
+.tpad .lev.b .arm{transform:rotate(34deg)}
+.tpad .lev.busy .arm{transform:rotate(0)}
+.tpad .lev.no{box-shadow:inset 0 0 0 2px #b5413a,inset 0 0 0 4px #24140a,0 3px 0 #0a0503}
+.tpad .sugg{display:flex;flex-direction:column;gap:5px;z-index:1}
+.tpad .sugg:empty{display:none}
+.tpad .sg{display:flex;align-items:center;min-height:44px;background:#120a05;border-radius:10px;padding:6px 12px;box-shadow:inset 0 0 0 2px #3a2412;font:600 16px Figtree,system-ui,sans-serif}
+.tpad .sg:active{box-shadow:inset 0 0 0 2px #ffd36b88}
+.tpad .surf{flex:1;min-height:0;border-radius:16px;position:relative;overflow:hidden;z-index:1;touch-action:none;
+  background:radial-gradient(ellipse at 50% 40%,#1c130c,#0d0805 75%);box-shadow:inset 0 0 0 2px #0a0503,inset 0 0 0 4px #5a3a18,inset 0 6px 22px #000}
+.tpad .surf::after{content:"";position:absolute;inset:0;opacity:.18;pointer-events:none;background-image:radial-gradient(#6a4a2a 1px,transparent 1px);background-size:5px 5px}
+.tpad .touch{position:absolute;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:radial-gradient(#ffd36b4a,#ffd36b00 70%);box-shadow:0 0 0 2px #ffd36b55;pointer-events:none}
+.tpad .tpno{position:absolute;left:0;right:0;bottom:12px;text-align:center;font:13px Figtree,system-ui;color:#ff9a7a;z-index:1}
+.tpad .bars{display:flex;height:70px;flex:none;border-radius:14px;overflow:hidden;z-index:1;box-shadow:0 0 0 2px #0a0503,0 0 0 4px #5a3a18,0 4px 0 4px #0a0503}
+.tpad .bar{flex:1;background:linear-gradient(#4a2c16,#331d0e);box-shadow:inset 0 -6px 0 #1e1008,inset 0 2px 0 #6a4424;touch-action:none}
+.tpad .bar+.bar{border-left:2px solid #0a0503}
+.tpad .bar.down{background:linear-gradient(#24140a,#2e1a0c);box-shadow:inset 0 5px 0 #0a0503,inset 0 0 18px #ffd36b33}
+.tpad.kb{bottom:auto;box-shadow:0 0 0 6px var(--wood),0 0 0 9px var(--wood-dark),inset 0 0 0 2px #120803,0 0 0 100vmax #000d}.tpad.kb .surf,.tpad.kb .bars{display:none}   /* typing: the rest of the screen dims, nothing under it to hit */
+@media (prefers-reduced-motion:reduce){.tpad{animation:none}.tpad .lev .arm,.tpad .lev .ic,.tpad .slot{transition:none}}
 /* the Paladin Book's coin (sheet 18 v5): left of the "?", only while Bunji (a paladin) plays */
 .bookcoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center;animation:bkbr 2.8s ease-in-out infinite}
@@ -572,10 +593,8 @@ const CLASS_COLOR={WARRIOR:'#C69B6D',MAGE:'#3FC7EB',ROGUE:'#FFF468',DRUID:'#FF7C
 const NAME_COLOR={...CLASS_COLOR,SHAMAN:'#3d9bff',DEATHKNIGHT:'#ec4c66',EVOKER:'#3fb39b'};
 const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';   // sheet 12: the last 4 people, the last 6 lines with each
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
-const AH_FILL='#f2d58a',AH_LIT='#ffd36b',AH_KEEP=6;
-const MAG='<svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="#fff" stroke-width="2.6"/><path d="M12.5 12.5 L18 18" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>';
-const AGAIN='<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6" fill="none" stroke="#ffd36b" stroke-width="2"/><path d="M12.6 1.6 L12.8 5 L9.4 5.2" fill="none" stroke="#ffd36b" stroke-width="2"/></svg>';
-const chat={ah:false,ahLit:null,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'say'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
+const AH_FILL='#f2d58a',AH_LIT='#ffd36b';
+const chat={ah:false,ahWin:null,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'say'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
   linkColor:{}};
 const short=n=>String(n||'').split('-')[0];
 
@@ -583,7 +602,7 @@ function chanLabel(t){return t.to==='say'?'Say':t.to==='guild'?'Guild':t.to==='p
 function chanHint(t){return t.to==='say'?'Say something…':t.to==='whisper'?'Whisper '+short(t.name)+'…':'Message '+(t.to==='channel'?(chat.chans[t.num]||'channel '+t.num):chanLabel(t).toLowerCase())+'…'}
 function chanClass(t){return t.to==='guild'?'g':t.to==='whisper'?'w':''}
 
-let peopleEl=null,convoEl=null,rosterEl=null,ahEl=null,ahSendEl=null,ahBox=null,ahGo=null;
+let peopleEl=null,convoEl=null,rosterEl=null,ahEl=null;
 let logRO=null,logStuck=true,panel=null,logEl=null,tabsEl=null,sendEl=null,box=null,chanEl=null,leftEl=null,rightEl=null,trayEl=null,moreEl=null,emoEl=null;
 function openChat(){
   if(chat.open)return;chat.open=true;
@@ -607,18 +626,11 @@ function openChat(){
   const go=$('div','go');go.innerHTML=SEND;go.addEventListener('pointerdown',e=>e.preventDefault());go.addEventListener('click',send);   // pointerdown kept off the box: tapping Send doesn't close the keyboard
   sendEl.append(chanEl,emoEl,box,go);leftEl.appendChild(sendEl);
   ahEl=$('div','ah');ahEl.hidden=true;leftEl.insertBefore(ahEl,sendEl);
-  ahSendEl=$('div','send');ahSendEl.hidden=true;
-  ahBox=$('input','box');ahBox.type='text';ahBox.enterKeyHint='search';ahBox.autocomplete='off';ahBox.maxLength=60;ahBox.placeholder='Search the auction house';
-  ahBox.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ahSearch(ahBox.value)}});
-  ahBox.addEventListener('input',drawTray);
-  ahBox.addEventListener('focus',()=>app.classList.add('typing'));ahBox.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
-  ahGo=$('div','findgo');ahGo.innerHTML=MAG;ahGo.addEventListener('pointerdown',e=>e.preventDefault());ahGo.addEventListener('click',()=>ahSearch(ahBox.value));
-  ahSendEl.append(ahBox,ahGo);leftEl.appendChild(ahSendEl);
   app.appendChild(panel);
   app.querySelector('.cdim').addEventListener('click',closeChat);
-  chat.emo=null;layoutEmo();pickTab(chat.ah?'Auction':chat.tab==='Auction'?'All':chat.tab);chat.to={to:'say'};render();fitPanel();   // always opens on Say (Joshua 2026-11-27)
+  chat.emo=null;layoutEmo();pickTab(chat.tab);chat.to={to:'say'};render();fitPanel();   // always opens on Say (Joshua 2026-11-27)
 }
-function closeChat(){if(logRO)logRO.disconnect();trayEl2=null;chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
+function closeChat(){if(logRO)logRO.disconnect();chat.open=false;chat.emo=null;app.classList.remove('typing');tabEls={};shownTab=null;shownSeq=0;closeMenus();app.querySelectorAll('.cdim,.panel').forEach(n=>n.remove());panel=null}
 // the keyboard: the panel fits the part of the screen still showing (tabs on top, the box just above the keys); the log shrinks
 function fitPanel(){
   if(scrollY||scrollX)scrollTo(0,0);
@@ -630,10 +642,8 @@ function fitPanel(){
 if(window.visualViewport){visualViewport.addEventListener('resize',settle);visualViewport.addEventListener('scroll',fitPanel)}
 
 function pickTab(name){
-  if(name==='Auction'&&!chat.ah)name='All';
   if(name==='Upgrades'&&!book.on)name='All';
   chat.tab=name;
-  if(name==='Auction'){render(true);return}
   if(name==='Upgrades'){up.pick=null;render(true);loadUp(true);return}
   chat.wPerson=null;
   if(name==='Whispers'){const inc=chat.lines.filter(l=>l.kind==='whisper');chat.wUnread=new Set(chat.whispers?inc.slice(-chat.whispers).map(l=>l.seq):[]);
@@ -649,11 +659,8 @@ function showBadge(){badge.hidden=!chat.whispers;badge.textContent=chat.whispers
 let tabEls={},shownTab=null,shownSeq=0;
 function render(full){
   if(!panel)return;
-  if(!tabsEl.children.length){const t=$('div','tab','Auction');t.addEventListener('click',()=>pickTab('Auction'));
-    t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabsEl.appendChild(t);tabEls.Auction=t}
-  tabEls.Auction.hidden=!chat.ah;tabEls.Auction.className='tab'+(chat.tab==='Auction'?' on':'');
   if(!tabEls.Upgrades){const t=$('div','tab','Upgrades');t.addEventListener('click',()=>pickTab('Upgrades'));
-    t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabEls.Auction.after(t);tabEls.Upgrades=t}
+    t.style.setProperty('--tf',AH_FILL);t.style.setProperty('--tc',AH_LIT);tabsEl.prepend(t);tabEls.Upgrades=t}
   tabEls.Upgrades.hidden=!book.on;tabEls.Upgrades.className='tab'+(chat.tab==='Upgrades'?' on':'');
   if(!tabEls[TABS[0][0]])for(const [n] of TABS){const t=$('div','tab',n);t.addEventListener('click',()=>pickTab(n));
     if(TAB_FILL[n])t.style.setProperty('--tf',TAB_FILL[n]);t.style.setProperty('--tc',TAB_LIT[n]);tabsEl.appendChild(t);tabEls[n]=t}
@@ -661,10 +668,10 @@ function render(full){
     const k=n==='Whispers'?chat.whispers:chat.lines.filter(l=>l.seq>(chat.seen[n]??0)&&f(l)).length;
     let b=t.querySelector('.n');if(k&&n!==chat.tab){if(!b){b=$('span','n');t.appendChild(b)}b.textContent=k>99?'99+':String(k)}else if(b)b.remove()}
   tabFade();
-  const isAh=chat.tab==='Auction',isUp=chat.tab==='Upgrades';
-  ahEl.hidden=!(isAh||isUp);ahSendEl.hidden=!isAh;sendEl.hidden=isAh||isUp;if(trayEl2)trayEl2.hidden=!isAh;
+  const isUp=chat.tab==='Upgrades';
+  ahEl.hidden=!isUp;sendEl.hidden=isUp;
   // 2026-11-26: new chat lines only update the counts here; rebuilding the list under a finger lost taps in busy chat
-  if(isAh||isUp){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;if(full||shownTab!==chat.tab){shownTab=chat.tab;if(isUp)drawUp();else drawAh()}return}
+  if(isUp){peopleEl.hidden=logEl.hidden=convoEl.hidden=rosterEl.hidden=true;if(full||shownTab!==chat.tab){shownTab=chat.tab;drawUp()}return}
   logEl.hidden=false;
   const isW=l=>l.kind==='whisper'||l.kind==='whisper-out';
   const people=chat.tab==='Whispers'&&!chat.wPerson;
@@ -685,23 +692,12 @@ function render(full){
   chat.seen[chat.tab]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
   chanEl.textContent=chanLabel(chat.to)+' ▾';chanEl.className='chan '+chanClass(chat.to);box.placeholder=chanHint(chat.to);
 }
-// the Auction tab (sheet 14): your last 6 searches (this phone only), tap one to run it again
-function ahRecent(){try{const a=JSON.parse(localStorage.getItem('omashu.ahRecent')||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string').slice(0,AH_KEEP):[]}catch(e){return []}}
-function drawAh(){
-  loadItems();
-  ahEl.textContent='';const list=ahRecent();
-  // ImprovedForever's controller window <-> the game's own auction window, for the trackpad (Joshua 2026-11-26)
-  const sw=$('div','srow swap');sw.innerHTML=SWAP_SVG;sw.append('Switch window');sw.appendChild($('span','sub','controller ⇄ regular'));
-  sw.addEventListener('click',()=>ahSwap(sw));ahEl.appendChild(sw);
-  if(list.length)ahEl.appendChild($('div','hd','Recent'));
-  for(const n of list){const r=$('div','srow'+(n===chat.ahLit?' lit':''));r.innerHTML=AGAIN;r.append(n);r.addEventListener('click',()=>ahSearch(n));ahEl.appendChild(r)}
-}
-// the item list (aux's auctionable items, from the laptop) and the best 3 for what's typed
+// the item list (auctionable items, from the laptop) and the best 3 for what's typed: the mouse pad's suggestions
 let ITEMS=null,ITEM_BY=null,itemsAskedAt=0;
 async function loadItems(){
   if(ITEMS&&ITEMS.length||performance.now()-itemsAskedAt<3000)return;itemsAskedAt=performance.now();
   const {ok,j}=await api('/api/items');if(!ok||!Array.isArray(j.items)||!j.items.length)return;
-  ITEMS=j.items.map(([n,q,w])=>({n,q,w:w||0,l:n.toLowerCase()}));ITEM_BY=new Map(ITEMS.map(i=>[i.l,i]));drawTray()}
+  ITEMS=j.items.map(([n,q,w])=>({n,q,w:w||0,l:n.toLowerCase()}));ITEM_BY=new Map(ITEMS.map(i=>[i.l,i]));if(tp.el)drawSugg()}
 function near(a,b){   // a typo of the same length: at most one letter off (copr ~ copp)
   if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i]&&++d>1)return false;return true}
 function suggest(q){
@@ -715,40 +711,12 @@ function suggest(q){
   out.sort((a,b)=>a.r-b.r||b.it.w-a.it.w||a.it.n.length-b.it.n.length||a.it.n.localeCompare(b.it.n));   // best match, then what really trades
   return out.slice(0,3).map(x=>x.it);
 }
-let trayEl2=null;
-function drawTray(){
-  if(!ahSendEl)return;
-  if(!ITEMS)loadItems();
-  const list=suggest(ahBox.value);
-  if(!list.length){if(trayEl2){trayEl2.remove();trayEl2=null}return}
-  if(!trayEl2){trayEl2=$('div','ahtray');ahSendEl.parentNode.insertBefore(trayEl2,ahSendEl)}
-  trayEl2.textContent='';const q=ahBox.value.trim().toLowerCase();
-  for(const it of list){const t=$('div','tile'),w=$('span');t.appendChild(w);const at=it.l.indexOf(q);   // one span: the tile is a flex box
-    if(at>=0){w.append(it.n.slice(0,at));w.appendChild($('b',null,it.n.slice(at,at+q.length)));w.append(it.n.slice(at+q.length))}else w.append(it.n);
-    t.addEventListener('pointerdown',e=>e.preventDefault());   // keeps the keyboard up until the search goes
-    t.addEventListener('click',()=>{t.classList.add('down');ahSearch(it.n)});trayEl2.appendChild(t)}
-}
 // a soft wood click (made here, no sound file): a short knock of filtered noise
 let actx=null;
 function knock(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const n=actx.createBuffer(1,Math.floor(actx.sampleRate*.035),actx.sampleRate),d=n.getChannelData(0);
   for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,4);
   const src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=n;f.type='bandpass';f.frequency.value=1100;f.Q.value=2.5;g.gain.value=.35;
   src.connect(f).connect(g).connect(actx.destination);src.start()}catch(e){}}
-let ahBusy=false;
-const SWAP_SVG='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h11l-3-3M14 11H3l3 3"/></svg>';
-async function ahSwap(el){
-  if(ahBusy)return;ahBusy=true;knock();el.classList.add('down');
-  let ok=false;try{({ok}=await api('/api/ah',{swap:true}))}finally{ahBusy=false;el.classList.remove('down')}
-  if(!ok){el.classList.add('no');setTimeout(()=>el.classList.remove('no'),1200)}}
-async function ahSearch(text){
-  text=String(text||'').trim();if(!text||ahBusy)return;ahBusy=true;knock();
-  const item=ITEM_BY&&ITEM_BY.get(text.toLowerCase());if(item)text=item.n;   // a known item: searched exactly that item
-  let ok=false;try{({ok}=await api('/api/ah',{text:item?item.l+'/exact':text}))}finally{ahBusy=false}
-  if(!ok){ahGo.classList.add('no');setTimeout(()=>ahGo&&ahGo.classList.remove('no'),1200);return}
-  const list=[text,...ahRecent().filter(x=>x.toLowerCase()!==text.toLowerCase())].slice(0,AH_KEEP);
-  try{localStorage.setItem('omashu.ahRecent',JSON.stringify(list))}catch(e){}
-  chat.ahLit=text;ahBox.value='';ahBox.blur();drawTray();if(chat.tab==='Auction')drawAh();
-}
 // the Guild tab: who's on (sheet 11), names in their class colour, highest level first, you last (the add-on sorts)
 let rosterSig='';
 function drawRoster(){
@@ -911,7 +879,7 @@ function layoutEmo(){
   emoEl.classList.toggle('on',!!chat.emo);emoEl.innerHTML=chat.emo?SMILE_ON:SMILE;
   trayEl.hidden=chat.emo!=='tray';moreEl.hidden=chat.emo!=='more';
   const stick=logEl.hidden||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
-  const ahTab=chat.tab==='Auction'||chat.tab==='Upgrades';   // these tabs have their own list in place of the log
+  const ahTab=chat.tab==='Upgrades';   // this tab has its own list in place of the log
   // move the tray and More sheet only when they're not already in place: moving a node takes the cursor out of the
   // emote search box, so the keyboard opened and at once closed again (Joshua 2026-11-11: "cant click into the search bar")
   if(s){if(trayEl.parentNode!==rightEl||trayEl.nextSibling!==moreEl||moreEl.nextSibling)rightEl.append(trayEl,moreEl);rightEl.hidden=!chat.emo||ahTab;logEl.hidden=ahTab}
@@ -1208,7 +1176,7 @@ function drawUp(){if(ahEl.contains(document.activeElement)&&document.activeEleme
   for(const u of list){const r=$('div','uprow');r.innerHTML=upRow(u);r.addEventListener('click',()=>{up.pick=u.id;drawUp()});ahEl.appendChild(r)}}
 function upRow(u){return `${u.icon?`<img src="/book/icons/${encodeURIComponent(u.icon)}.jpg" alt="">`:''}<div class="upw"><div class="upn${u.q!=null?' q'+u.q:''}">${esc(u.name)}</div><div class="ups">${esc(u.slot)}${u.lvl?' · level '+u.lvl:''}</div></div><div class="upr"><div class="upg">+${u.pct}%</div><div class="upc">${moneyHtml(u.price)}</div></div>`}
 
-// ---------- the trackpad (sheet omashu/remote/19): the phone moves and clicks the laptop's mouse, inside WoW only ----------
+// ---------- the trackpad (sheets omashu/remote/19, 21 v3): the phone moves and clicks the laptop's mouse, inside WoW only ----------
 // Speed: a laptop-trackpad curve. Slow finger = fine control, fast flick = across the TV. Moves are gathered and
 // sent one message at a time (never a queue), so the pointer is never behind your finger by more than one trip.
 // libinput's touchpad curve in phone points (reports/Phone trackpad research 2026-11-26.md): slow = finer, a flick up
@@ -1233,12 +1201,63 @@ async function tpFlush(){
   const no=tp.el&&tp.el.querySelector('.tpno');if(no)no.textContent=r.ok?'':(r.j.why==='not-in-wow'?'WoW isn’t in front':'Not reaching the laptop');
   if(tp.dx||tp.dy||tp.w||tp.ev.length)tpFlush();
 }
+// the mouse pad's pixel art (sheet 21 v3): 12x12 grids, '#' ink, 'o' a hole. Gamepad = ImprovedForever's window,
+// pointer = the game's own; the chevron on the brass tab puts the pad away; the lens marks the search slot.
+function pxArt(rows,ink,hole){return `<svg class="px" viewBox="0 0 12 12">${rows.flatMap((r,y)=>[...r].map((c,x)=>c==='#'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${ink}"/>`:c==='o'&&hole?`<rect x="${x}" y="${y}" width="1" height="1" fill="${hole}"/>`:'')).join('')}</svg>`}
+const PX_PAD=pxArt(['............','............','..########..','.##########.','##o####o#o##','#ooo#####o##','##o###o##o##','############','###......###','##........##','............','............'],'#ffd36b','#24140a');
+const PX_PTR=pxArt(['.#..........','.##.........','.#o#........','.#oo#.......','.#ooo#......','.#oooo#.....','.#ooooo#....','.#oooooo#...','.#ooo####...','.#o#.#o#....','.##..#o#....','......##....'],'#ffd36b','#fff3c0');
+const PX_CHEV=pxArt(['............','............','............','.##......##.','.###....###.','..###..###..','...######...','....####....','.....##.....','............','............','............'],'#3a1a08');
+const PX_LENS=pxArt(['............','...####.....','..#....#....','.#......#...','.#......#...','.#......#...','.#......#...','..#....#....','...#####....','.......##...','........##..','.........##.'],'#c8962e');
+const QCOLOR=['#9d9d9d','#ffffff','#1eff00','#0070dd','#a335ee','#ff8000'];
+// the lever: lit side = the window WoW says is up. Thrown: the arm stands upright until WoW says it swapped (or 3 s).
+const lev={busy:false,want:null,until:0};
+function drawRail(){
+  const el=tp.el;if(!el)return;el.classList.toggle('at-ah',chat.ah);
+  const L=el.querySelector('.lev');
+  if(lev.busy&&(chat.ahWin===lev.want||performance.now()>lev.until))lev.busy=false;
+  L.classList.toggle('busy',lev.busy);L.classList.toggle('b',chat.ahWin==='game');
+  L.querySelector('.ic.a').classList.toggle('lit',!lev.busy&&chat.ahWin==='improved');
+  L.querySelector('.ic.b').classList.toggle('lit',!lev.busy&&chat.ahWin==='game');
+  if(!chat.ah){const i=el.querySelector('.slot input');if(document.activeElement===i)i.blur()}
+}
+async function throwLever(L){
+  if(lev.busy||!chat.ah)return;knock();
+  lev.busy=true;lev.want=chat.ahWin==='game'?'improved':'game';lev.until=performance.now()+3000;drawRail();
+  let ok=false;try{({ok}=await api('/api/ah',{swap:true}))}catch(e){}
+  if(!ok){lev.busy=false;L.classList.add('no');setTimeout(()=>L.classList.remove('no'),1200);drawRail()}
+  else setTimeout(drawRail,3100);   // no word from WoW in 3 s: the arm lands where WoW last said
+}
+function drawSugg(){
+  const el=tp.el;if(!el)return;const box=el.querySelector('.sugg'),i=el.querySelector('.slot input');
+  box.textContent='';if(document.activeElement!==i)return;
+  for(const it of suggest(i.value)){const g=$('div','sg',it.n);g.style.color=QCOLOR[it.q]||'#fff';
+    g.addEventListener('pointerdown',e=>e.preventDefault());   // keeps the keyboard up until the search goes
+    g.addEventListener('click',()=>ahSearch(it.n));box.appendChild(g)}
+}
+let ahBusy=false;
+async function ahSearch(text){
+  const el=tp.el;text=String(text||'').trim();if(!el||!text||ahBusy)return;ahBusy=true;knock();
+  const item=ITEM_BY&&ITEM_BY.get(text.toLowerCase());if(item)text=item.n;   // a known item: searched exactly that item
+  let ok=false;try{({ok}=await api('/api/ah',{text:item?item.l+'/exact':text}))}catch(e){}finally{ahBusy=false}
+  const slot=el.querySelector('.slot'),i=slot.querySelector('input');
+  if(!ok){slot.classList.add('no');setTimeout(()=>slot.classList.remove('no'),1200);return}
+  i.value='';i.blur();slot.classList.add('sent');setTimeout(()=>slot.classList.remove('sent'),600);
+}
 function openPad(){if(tp.el)return;tp.on=true;
-  const el=$('div','tpad');el.innerHTML=`<div class="pbar"><div class="t">Trackpad</div><div class="done">Done</div></div>
-  <div class="surf"><div class="tpno"></div></div><div class="btns"><div class="btn2" data-b="l">Left click</div><div class="btn2" data-b="r">Right click</div></div>`;
+  const el=$('div','tpad');
+  el.innerHTML=`${[1,2,3,4].map(n=>`<div class="corner c${n}"><i></i><i></i><i></i></div>`).join('')}<div class="put">${PX_CHEV}</div>
+  <div class="rail"><label class="slot">${PX_LENS}<input type="text" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60"></label>
+  <div class="lev"><div class="ic a">${PX_PAD}</div><div class="ic b">${PX_PTR}</div><div class="hub"></div><div class="arm"></div></div></div>
+  <div class="sugg"></div><div class="surf"><div class="tpno"></div></div><div class="bars"><div class="bar" data-b="l"></div><div class="bar" data-b="r"></div></div>`;
   app.appendChild(el);tp.el=el;
-  el.querySelector('.done').addEventListener('click',closePad);
-  el.querySelectorAll('.btn2').forEach(b=>{
+  el.querySelector('.put').addEventListener('click',()=>{knock();closePad()});
+  const L=el.querySelector('.lev');L.addEventListener('click',()=>throwLever(L));
+  const i=el.querySelector('.slot input');
+  i.addEventListener('focus',()=>{el.classList.add('kb');loadItems();drawSugg()});
+  i.addEventListener('blur',()=>{el.classList.remove('kb');drawSugg();settle()});
+  i.addEventListener('input',drawSugg);
+  i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ahSearch(i.value)}});
+  el.querySelectorAll('.bar').forEach(b=>{
     const up=e=>{if(!b.classList.contains('down'))return;b.classList.remove('down');tpPush({b:b.dataset.b,d:false})};
     b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('down');knock();tpPush({b:b.dataset.b,d:true})});
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up)});
@@ -1260,9 +1279,17 @@ function openPad(){if(tp.el)return;tp.on=true;
     if(tp.two){if(tp.touches.size===0){if(now-tp.two.t0<TP.twoMs+150&&tp.two.moved<TP.tapPt*2){knock();tpPush({b:'r',d:true});tpPush({b:'r',d:false})}tp.two=null}return}
     if(now-t.t0<TP.tapMs&&Math.hypot(t.x-t.x0,t.y-t.y0)<TP.tapPt){knock();tpPush({b:'l',d:true});tpPush({b:'l',d:false})}};
   surf.addEventListener('pointerup',lift);surf.addEventListener('pointercancel',lift);
+  lev.busy=false;drawRail();
   tpPush({dx:1,dy:0});tpPush({dx:-1,dy:0});   // a small nudge: WoW shows its pointer once the mouse moves
 }
-function closePad(){if(!tp.el)return;tp.el.remove();tp.el=null;tp.on=false;tp.touches.clear();tp.two=null;tp.w=0;tpPush({park:true})}
+// Put away: the pad closes and the laptop parks the pointer off the TV (and lets go of any held button). Leaving the
+// app or locking the phone does the same (Joshua 2026-11-27); then the page may be frozen any moment, so that park
+// goes out on its own as a keepalive request instead of waiting in the pad's line.
+function closePad(leaving){if(!tp.el)return;tp.el.remove();tp.el=null;tp.on=false;tp.touches.clear();tp.two=null;tp.w=0;tp.dx=tp.dy=0;tp.ev.length=0;
+  if(!leaving){tpPush({park:true});return}
+  try{fetch('/api/mouse',{method:'POST',keepalive:true,headers:{'x-omashu':'1','Content-Type':'application/json'},body:'{"park":true}'})}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)closePad(true)});
+addEventListener('pagehide',()=>closePad(true));
 
 // ---------- staying in step with Aang ----------
 let pollT=0,polling=false;
@@ -1274,7 +1301,7 @@ async function poll(){
   if(ok){
     if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
     const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);mouseCoin.classList.toggle('on',chat.on);if(!chat.on&&tp.el)closePad();
-    if(!chat.on){chat.ah=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
+    if(!chat.on){chat.ah=false;chat.ahWin=null;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
       const newSession=j.session!==chat.session;if(newSession){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
       if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
@@ -1284,10 +1311,8 @@ async function poll(){
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
       chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
-      // 2026-11-26: the auction house opening or closing never drops a conversation or changes who a line goes to:
-      // it moves to Auction only from All, and back to All only from Auction; otherwise the tab just shows or hides
-      const ah=!!j.ah;if(ah!==chat.ah){chat.ah=ah;chat.ahLit=null;
-        if(chat.open){if(ah&&(chat.tab==='All'||chat.tab==='Auction'))pickTab('Auction');else if(!ah&&chat.tab==='Auction')pickTab('All');else render()}}
+      // the auction house and which window is up: the mouse pad's search slot and lever (sheet 21)
+      const ah=!!j.ah;chat.ahWin=ah&&(j.ahWin==='improved'||j.ahWin==='game')?j.ahWin:null;if(ah!==chat.ah){chat.ah=ah;if(ah)loadItems()}if(tp.el)drawRail();
       const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(chat.open&&gChanged&&rosterEl)drawRoster();
       if(chat.open&&(j.lines&&j.lines.length||!was||newSession))render(newSession)}
     place();

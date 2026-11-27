@@ -307,6 +307,13 @@ test('auction search (sheet 14): the tab follows the auction house, the search r
     // the Switch window button: ImprovedForever's window <-> the game's own (2026-11-26)
     assert.equal((await r.as(JOSH).post('/api/ah', { swap: true })).status, 200);
     assert.equal(r.lap.swaps, 1, 'one key press on the laptop');
+    // which window is up reaches the phone, for the lever (sheet 21, 2026-11-27)
+    r.lap.win = 'improved';
+    await until(async () => (await r.poll()).ahWin === 'improved');
+    r.lap.win = 'game';
+    await until(async () => (await r.poll()).ahWin === 'game');
+    r.lap.win = 'nonsense' as never;
+    await until(async () => (await r.poll()).ahWin === null);
     assert.equal((await r.as(GUEST).post('/api/ah', { swap: true })).status, 403, 'a phone without chat cannot switch');
     assert.equal((await r.as(JOSH).post('/api/ah', { swap: 'yes' })).status, 400, 'only swap:true switches');
     assert.equal(r.lap.swaps, 1);

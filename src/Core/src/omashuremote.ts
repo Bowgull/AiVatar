@@ -60,7 +60,8 @@ export function cleanMouse(v: unknown): MouseAsk | null {
   if (o.park === true) m.park = true;
   return Object.keys(m).length ? m : null;
 }
-export interface ChatBatch { session: string | null; seq: number; ah?: boolean; lines: { seq: number; raw: string; cls?: string }[] }
+export type AhWindow = 'improved' | 'game' | null;
+export interface ChatBatch { session: string | null; seq: number; ah?: boolean; win?: AhWindow; lines: { seq: number; raw: string; cls?: string }[] }
 
 export class Laptop {
   private cfg: RemoteConfig['laptop'];
@@ -95,7 +96,7 @@ export class Laptop {
     if (!r?.ok) return null;
     const j = await r.json().catch(() => null) as ChatBatch | null;
     if (!j || !Array.isArray(j.lines)) return null;
-    return { session: typeof j.session === 'string' ? j.session : null, seq: Number(j.seq) || 0, ah: j.ah === true, lines: j.lines.filter(l => l && typeof l.raw === 'string' && Number.isFinite(l.seq)) };
+    return { session: typeof j.session === 'string' ? j.session : null, seq: Number(j.seq) || 0, ah: j.ah === true, win: j.win === 'improved' || j.win === 'game' ? j.win : null, lines: j.lines.filter(l => l && typeof l.raw === 'string' && Number.isFinite(l.seq)) };
   }
   /** Auction search (sheet omashu/remote/14): the laptop types it into aux's search box, only if that box is on screen. */
   async ahSearch(text: string): Promise<{ ok: boolean; why?: string }> {
@@ -262,6 +263,8 @@ export class OmashuRemote {
   whispers = 0;
   /** aux's search box is on screen in WoW (the auction house is open): the phone shows its Auction tab. */
   ah = false;
+  /** Which auction window is on the TV, for the trackpad's lever (sheet 21): ImprovedForever's or the game's own. */
+  ahWin: AhWindow = null;
   /** aux's auctionable items, fetched from the laptop while at the auction house (at most every 5 minutes). */
   items: { at: string | null; items: [string, number, number][] } | null = null;
   private itemsAskedAt = 0;
@@ -341,7 +344,7 @@ export class OmashuRemote {
     else { this.forget(); this.book = null; this.bookAskedAt = 0; }
   }
 
-  private forget() { this.ah = false; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
+  private forget() { this.ah = false; this.ahWin = null; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
 
   private async follow(): Promise<void> {
     // the book's save only changes on a reload, logout, level-up or bag change, so once a minute is plenty
@@ -370,6 +373,7 @@ export class OmashuRemote {
     let b = await this.laptop.chat(from);
     if (!b) return;
     this.ah = !!b.ah;
+    this.ahWin = this.ah ? b.win ?? null : null;
     if (this.ah && this.now() - this.itemsAskedAt > 300_000) { this.itemsAskedAt = this.now(); const it = await this.laptop.ahItems(); if (it && it.items.length) this.items = it; }
     if (b.session !== this.session) {
       this.forget();
@@ -498,7 +502,7 @@ export class OmashuRemote {
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
-      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
+      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, ahWin: this.ahWin, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
       return;
     }
     if (req.method === 'GET' && p === '/api/items') {

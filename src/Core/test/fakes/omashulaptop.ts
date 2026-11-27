@@ -44,6 +44,7 @@ export class FakeLaptop {
   typed: string[] = [];
   /** aux's search box on screen (the auction house open), and what Couch Mode typed into it. */
   ah = false;
+  win: 'improved' | 'game' | null = null;
   searched: string[] = [];
   /** aux's item list as Couch Mode serves it. */
   ahItems: [string, number][] = [['Tin Ore', 1], ['Tin Bar', 1], ['Copper Ore', 1], ['Thunderfury', 5]];
@@ -152,7 +153,7 @@ export class FakeLaptop {
     if (req.method === 'GET' && url.pathname === '/chat') {
       if (!this.session) { j(200, { session: null, seq: 0, lines: [] }); return; }
       const after = Number(url.searchParams.get('after')) || 0;
-      j(200, { session: this.session, seq: this.seq, ah: this.ah, lines: this.lines.filter(l => l.seq > after).slice(0, 500) });
+      j(200, { session: this.session, seq: this.seq, ah: this.ah, win: this.win, lines: this.lines.filter(l => l.seq > after).slice(0, 500) });
       return;
     }
     if (req.method === 'POST' && url.pathname === '/chat/send') {
