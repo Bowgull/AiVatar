@@ -6,9 +6,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { makeBook, nextTalent, coin, ICONS, PATH, TREE, LADDER, FOOD, WATER, POTION, type BookSave } from '../src/omashubook.ts';
 
-const at23 = { Deflection: 5, Conviction: 3, 'Improved Judgement': 2, 'Pursuit of Justice': 2, 'Seal of Command': 1, 'Sanctified Judgement': 1 };
+const at23 = { Benediction: 5, Conviction: 3, 'Improved Judgement': 2, 'Seal of Command': 1, 'Pursuit of Justice': 2, 'Sanctified Judgement': 1 };
 const stocked = { 4542: 10, 1205: 10, 1710: 5, 3241: 5 };
-const base = (o: Partial<BookSave> = {}): BookSave => ({ class: 'PALADIN', name: 'Bunji', level: 23, xp: 410, xpMax: 1000, zone: 'Duskwood', unspent: 0, talents: { ...at23 }, bags: { ...stocked }, skills: { 'Two-Handed Maces': 115 }, weapon: { id: 6953, dps: 25.63, sub: 5 }, done: { 1806: true, 78093: true }, ...o });
+const base = (o: Partial<BookSave> = {}): BookSave => ({ class: 'PALADIN', name: 'Bunji', level: 23, xp: 410, xpMax: 1000, zone: 'Duskwood', unspent: 0, talents: { ...at23 }, bags: { ...stocked }, skills: { 'Two-Handed Maces': 115 }, weapon: { id: 6953, dps: 25.63, sub: 5 }, done: { 2998: true, 1806: true, 78093: true }, ...o });
 
 test('the tables hold together: every path talent is in the tree with room for its ranks, every icon ships', () => {
   const total: Record<string, number> = {};
@@ -37,7 +37,7 @@ test('talent point: the next point of the leveling path, with its rank', () => {
   const b = makeBook(base({ unspent: 1, talents: { ...at23, 'Sanctified Judgement': 0 } }))!;
   assert.equal(b.cards[0].t, 'Spend your talent point');
   assert.equal(b.cards[0].d, 'Sanctified Judgement, rank 1 of 3');
-  assert.equal(nextTalent({}, 10)?.name, 'Deflection');
+  assert.equal(nextTalent({}, 10)?.name, 'Benediction');
   assert.equal(nextTalent(at23, 23), null, 'all taken');
   assert.equal(makeBook(base({ unspent: 2 }))!.cards[0].t, 'Spend your 2 talent points');
 });
@@ -52,6 +52,20 @@ test('training: the trainer list split into new spells (with plain lines) and up
   assert.equal(makeBook(base())!.train, null, 'nothing to train: no card');
 });
 
+test('Forever Judgement keeps the Seal; Command replaces Righteousness on D-up; Holy Light stays on X until Flash of Light', () => {
+  const lv8 = makeBook(base({ level: 8, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Hammer of Justice', 'Divine Protection'] }))!;
+  assert.match(lv8.steps.find(s => s[4] === 'Judgement')![5], /Seal stays/);
+  assert.ok(lv8.steps.some(s => s[4] === 'Hammer of Justice' && s[1] === 'LT' && s[2] === 'A'));
+  const lv20 = makeBook(base({ level: 20, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Exorcism'] }))!;
+  assert.deepEqual(lv20.steps.filter(s => s[2] === 'U').map(s => s[4]), ['Seal of Righteousness'], 'a seal before the talent');
+  assert.equal(lv20.steps.find(s => s[4] === 'Holy Light')![2], 'X', 'Holy Light on X until Flash of Light');
+  const lv22 = makeBook(base({ level: 22, spells: ['Seal of Righteousness', 'Seal of Command', 'Judgement', 'Holy Strike', 'Holy Light', 'Flash of Light'] }))!;
+  assert.deepEqual(lv22.steps.filter(s => s[2] === 'U').map(s => s[4]), ['Seal of Command']);
+  assert.equal(lv22.steps.find(s => s[4] === 'Holy Light')![2], 'Y');
+  const lv44 = makeBook(base({ level: 44, spells: ['Seal of Command', 'Hammer of Wrath', 'Judgement'] }))!;
+  const hw = lv44.steps.find(s => s[4] === 'Hammer of Wrath')!; assert.equal(hw[0], 'RT'); assert.equal(hw[2], 'U');
+});
+
 test('fight: only spells you know (no Hammer of Justice before you have it), new ones flagged', () => {
   const b = makeBook(base({ level: 6, spells: ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light', 'Seal of the Crusader'], fresh: ['Holy Strike'] }))!;
   assert.deepEqual(b.steps.map(s => s[4]), ['Seal of Righteousness', 'Judgement', 'Holy Strike', 'Holy Light']);
@@ -59,10 +73,10 @@ test('fight: only spells you know (no Hammer of Justice before you have it), new
 });
 
 test('weapon: the best open rung that beats what you hold; Verigan\'s Fist until its quest is done', () => {
-  const b = makeBook(base({ weapon: { id: 7230, dps: 19.71, sub: 5 }, done: {} }))!;
+  const b = makeBook(base({ weapon: { id: 7230, dps: 19.71, sub: 5 }, done: { 2998: true } }))!;
   assert.equal(b.cards[0].t, "Verigan's Fist is waiting");
   assert.equal(b.cards.filter(c => /Verigan/.test(c.t)).length, 1, 'not also as a class quest card');
-  assert.ok(b.cards.some(c => c.t === 'Class quest: Cloak of the Divine Storm'));
+  assert.ok(b.cards.some(c => c.t === 'Class quest: Cloak of the Divine Storm (Ashenvale)'));
   assert.equal(b.ladder.find(r => r.state === 'next')!.name, "Verigan's Fist");
   assert.equal(makeBook(base())!.ladder.find(r => r.state === 'next')!.name, 'Heavehammer');
 });

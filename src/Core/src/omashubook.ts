@@ -22,8 +22,10 @@ export interface BookSave {
 export interface TreeNode { sid: string; name: string; max: number; icon: string; tree: 'Holy' | 'Protection' | 'Retribution'; col: number; tier: number }
 export const TREE: TreeNode[] = JSON.parse(readFileSync(path.join(BOOK_DIR, 'tree.json'), 'utf8'));
 
-/** Mobalytics' Forever Retribution path: [talent, first level, ranks], one point a level from 10. */
-export const PATH: [string, number, number][] = [['Deflection', 10, 5], ['Conviction', 15, 3], ['Improved Judgement', 18, 2], ['Pursuit of Justice', 20, 2], ['Seal of Command', 22, 1], ['Sanctified Judgement', 23, 2], ['Two-Handed Weapon Specialization', 25, 3], ['Sacred Arbiter', 28, 1], ['Sanctified Judgement', 29, 1], ['Vengeance', 30, 3], ['Repentance', 33, 1], ['Benediction', 34, 1], ['Champion of the Light', 35, 5], ['Unsealed Wrath', 40, 1], ['Divine Strength', 41, 5], ['Reverence', 46, 2], ['Improved Seals', 48, 5], ['Divine Intellect', 53, 5], ['Precision', 58, 3]];
+/** Forever Retribution leveling path (audit 2026-11-26, checked against the game's own tree, tree.json): Benediction first
+ *  (Polestar's Forever build: cheaper instant spells, less drinking), Seal of Command as soon as it opens at 20 (tier 3,
+ *  10 Ret points). [talent, first level, ranks], one point a level from 10; every tier gate checked. */
+export const PATH: [string, number, number][] = [['Benediction', 10, 5], ['Conviction', 15, 3], ['Improved Judgement', 18, 2], ['Seal of Command', 20, 1], ['Pursuit of Justice', 21, 2], ['Sanctified Judgement', 23, 2], ['Two-Handed Weapon Specialization', 25, 3], ['Sacred Arbiter', 28, 1], ['Sanctified Judgement', 29, 1], ['Vengeance', 30, 3], ['Repentance', 33, 1], ['Deflection', 34, 1], ['Champion of the Light', 35, 5], ['Unsealed Wrath', 40, 1], ['Divine Strength', 41, 5], ['Reverence', 46, 2], ['Improved Seals', 48, 5], ['Divine Intellect', 53, 5], ['Precision', 58, 3]];
 
 /** Each point of the path in order: the level it is taken at, and the rank it brings that talent to. */
 const POINTS: { name: string; lvl: number; rank: number }[] = (() => {
@@ -33,24 +35,25 @@ const POINTS: { name: string; lvl: number; rank: number }[] = (() => {
 })();
 
 export const DESC: Record<string, string> = {
-  'Deflection': '+1% parry per rank. Fewer hits get through.', 'Conviction': 'More critical strikes with all spells and attacks.',
-  'Improved Judgement': 'Judgement cooldown 1 second shorter.', 'Pursuit of Justice': 'Run 15% faster, mounted too.',
+  'Deflection': '+1% parry per rank.', 'Conviction': 'More critical strikes with all spells and attacks.',
+  'Improved Judgement': 'Judgement cooldown 1 sec shorter per rank: 8 sec at 2/2.', 'Pursuit of Justice': 'Run 15% faster, mounted too.',
   'Seal of Command': 'Your main Seal from here: extra Holy hits worth 70% of your weapon. Best with a slow two-hander.',
   'Sanctified Judgement': "Judgement gives back 60% of the Seal's mana. Fewer drinks.",
   'Two-Handed Weapon Specialization': 'More Physical and Holy damage with a two-hander, less threat.',
-  'Sacred Arbiter': 'Holy Strike +20% and it refreshes all your Judgements.', 'Vengeance': 'After a critical hit, +5% damage for 30 s, stacks to 5.',
-  'Repentance': 'Incapacitate a humanoid for 6 s. A second stun for doubled Judgement.', 'Benediction': 'Instant spells cost 10% less mana.',
+  'Sacred Arbiter': 'Holy Strike +20%, and it refreshes Judgement effects on the target (Crusader, Justice, Light, Wisdom).', 'Vengeance': 'After a critical hit, +5% damage for 30 s, stacks to 5.',
+  'Repentance': 'Puts a mob to sleep for up to 6 sec; any damage wakes it. Seal of Command\'s Judgement hits it twice as hard.', 'Benediction': 'Instant spells (Judgement, Holy Strike, Seals) cost less mana. Less drinking.',
   'Champion of the Light': 'Intellect becomes spell damage; Hammer of Wrath casts faster.',
-  'Unsealed Wrath': 'Hits store copies of your Seal (up to 3); swap Seals to set them off.', 'Divine Strength': '+2% Strength per rank.',
+  'Unsealed Wrath': 'Hits store copies of your Seal (up to 3, 15 sec). Hit with a different Seal and each copy gets its normal chance to go off. Optional: costs a second Seal.', 'Divine Strength': '+2% Strength per rank.',
   'Reverence': '30% of mana regen keeps going while you cast.', 'Improved Seals': 'More damage from your Seals and Judgements.',
   'Divine Intellect': '+2% Intellect per rank.', 'Precision': '+1% chance to hit per rank.',
 };
 
 /** The Fight tab: [trigger label, layout, button, icon, spell, when] per step, OmaPad's paladin layout. */
 export const FIGHTS: Record<string, [string, string, string, string, string, string][]> = {
-  '1-20': [['D-up', 'none', 'U', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'As you run in'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'A second mob, or to stop a cast'], ['LT', 'LT', 'X', 'spell_holy_holybolt', 'Holy Light', 'After the fight, if under half']],
-  '20-40': [['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on, slow two-hander'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'Stun first'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'Double damage on a stunned enemy'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'On cooldown'], ['RT', 'RT', 'B', 'spell_holy_innerfire', 'Consecration', 'Only on 3+ mobs'], ['LT', 'LT', 'Y', 'spell_holy_holybolt', 'Holy Light', 'Between fights']],
-  '40+': [['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Swing 3 times: 3 stored copies'], ['D-down', 'none', 'D', 'ability_thunderbolt', 'Seal of Righteousness', 'Swap for the 4th swing: copies go off'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'On cooldown'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'On cooldown, refreshes Judgement'], ['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Undead and demons'], ['D-up', 'RT', 'U', 'ability_thunderclap', 'Hammer of Wrath', 'Under 20% health (44+)']],
+  // Forever: Judgement does NOT use up the Seal (spell 20271: "Does not consume the Seal", 10 sec cooldown, 10 yd).
+  '1-20': [['D-up', 'none', 'U', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on. Lasts 30 sec'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'On the pull, then every 10 sec. Your Seal stays'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'Stop a caster or a runner, or hold a 2nd mob'], ['LT', 'LT', 'D', 'spell_holy_restoration', 'Divine Protection', 'Fight going bad: bubble, then heal'], ['LT', 'LT', 'X', 'spell_holy_holybolt', 'Holy Light', 'After a fight if under half'], ['LT', 'LT', 'R', 'spell_holy_layonhands', 'Lay on Hands', 'About to die: full heal, all your mana']],
+  '20-40': [['D-up', 'none', 'U', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on until you take Seal of Command'], ['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on. Best with a slow two-hander'], ['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Opener on undead and demons'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'Stun, then Judgement: twice the damage with Command'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'Every time it lights up'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up'], ['LT', 'LT', 'B', 'spell_holy_prayerofhealing', 'Repentance', 'Humanoids: sleep, then Judgement'], ['RT', 'RT', 'B', 'spell_holy_innerfire', 'Consecration', 'Only with 3+ mobs on you'], ['LT', 'LT', 'X', 'spell_holy_flashheal', 'Flash of Light', 'Quick top-up mid-fight'], ['LT', 'LT', 'Y', 'spell_holy_holybolt', 'Holy Light', 'Between fights'], ['LT', 'LT', 'D', 'spell_holy_divineintervention', 'Divine Shield', 'Emergency'], ['LT', 'LT', 'D', 'spell_holy_restoration', 'Divine Protection', 'Emergency']],
+  '40+': [['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on'], ['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Undead and demons'], ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', 'Stun, then Judgement for double'], ['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'Every time it lights up'], ['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up'], ['RT', 'RT', 'U', 'ability_thunderclap', 'Hammer of Wrath', 'Mob under 20% health'], ['RT', 'RT', 'B', 'spell_holy_innerfire', 'Consecration', '3+ mobs'], ['D-down', 'none', 'D', 'ability_thunderbolt', 'Seal of Righteousness', 'Optional swap after 3 swings (Unsealed Wrath)'], ['LT', 'LT', 'X', 'spell_holy_flashheal', 'Flash of Light', 'Mid-fight'], ['LT', 'LT', 'Y', 'spell_holy_holybolt', 'Holy Light', 'Between fights'], ['LT', 'LT', 'D', 'spell_holy_divineintervention', 'Divine Shield', 'Emergency']],
 };
 
 /** Each paladin spell Forever's trainer sells to 24 (Polestar's trainer data, Wowhead Forever tooltips, 2026-11-26), in
@@ -58,42 +61,54 @@ export const FIGHTS: Record<string, [string, string, string, string, string, str
  *  Spells not here still show in the train list, just without the lines. */
 export interface SpellGuide { icon: string; what: string; use?: string; skip?: string; pad?: string }
 export const SPELLS: Record<string, SpellGuide> = {
-  'Judgement': { icon: 'spell_holy_righteousfury', what: 'Uses up your seal to hit the mob once.', use: 'Run in, Judgement, then put your seal back on.', pad: 'RT + X' },
+  'Judgement': { icon: 'spell_holy_righteousfury', what: 'Hits the mob with your Seal\'s Judgement. In Forever it does NOT use up the Seal. 10 sec cooldown, 10 yd.', use: 'Keep a Seal on and press it every time it lights up.', pad: 'RT + X' },
+  'Hammer of Justice': { icon: 'spell_holy_sealofmight', what: 'Stuns a mob for 3 sec. 1 min cooldown, 10 yd. The game gives you rank 1 at 8.', use: 'Stop a caster or a runner, or hold a 2nd mob. With Seal of Command, Judge the stunned mob for double damage.', pad: 'LT + A' },
   'Divine Protection': { icon: 'spell_holy_restoration', what: "You take no damage for a few secs, but you can't attack.", use: "Only when a fight's going bad. Heal up or run.", pad: 'LT + D-down' },
   'Holy Strike': { icon: 'classicon_paladin', what: 'Quick hit: some weapon damage plus Holy damage. 10 sec cooldown.', use: 'Hit it whenever it lights up.', pad: 'RT + Y' },
-  'Seal of the Crusader': { icon: 'spell_holy_holysmite', what: 'Judge it and the mob takes more Holy damage for 40 secs.', skip: 'Righteousness is simpler and hits harder solo. Handy in groups.', pad: 'D-left' },
+  'Seal of the Crusader': { icon: 'spell_holy_holysmite', what: '+35 attack power, you swing 40% faster but each hit is weaker, 30 sec. Its Judgement: the mob takes more Holy damage for 40 sec.', skip: 'Righteousness is simpler and hits harder solo. Handy in groups.', pad: 'D-left' },
   'Parry': { icon: 'ability_parry', what: 'Lets you parry some hits. Nothing to press.', use: 'Always on once you have it.' },
   'Lay on Hands': { icon: 'spell_holy_layonhands', what: 'Heals to full but uses all your mana.', use: "Panic button when you're about to die.", pad: 'LT + D-right' },
   'Blessing of Protection': { icon: 'spell_holy_sealofprotection', what: "Stops all physical damage on someone for a bit, but they can't attack.", use: 'Save a buddy in a group who has aggro.', pad: 'set 2, LT + Y' },
   'Seal of Fury': { icon: 'spell_holy_retributionaura', what: 'A tank seal: Judging it makes the mob attack you.', skip: "Only for tanking in groups. Solo you don't need it.", pad: 'set 2, LT + RT + Y' },
   'Blessing of Wisdom': { icon: 'spell_holy_sealofwisdom', what: 'Gives you mana back over time for an hour.', use: 'Swap Might for it if you keep running out of mana.', pad: 'set 2, LT + X' },
-  'Retribution Aura': { icon: 'spell_holy_auraoflight', what: 'Mobs that hit you take Holy damage back.', use: 'Try it instead of Devotion while questing.', pad: 'LT + RT + D-down' },
+  'Retribution Aura': { icon: 'spell_holy_auraoflight', what: 'Mobs that hit you take Holy damage back.', use: 'Your aura from here: it takes Devotion Aura\'s button.', pad: 'LT + RT + D-down' },
   'Righteous Fury': { icon: 'spell_holy_sealoffury', what: 'Makes mobs much more likely to attack you.', skip: 'Tanking only. Leave it off solo.', pad: 'set 2, LT + RT + X' },
   'Blessing of Freedom': { icon: 'spell_holy_sealofvalor', what: "Can't be slowed or rooted for 10 secs.", use: 'When something slows you or roots you.', pad: 'LT + D-left' },
-  'Exorcism': { icon: 'spell_holy_excorcism_02', what: 'Big Holy hit, only on undead or demons.', use: 'Open on undead and demons.', pad: 'RT + A' },
+  'Exorcism': { icon: 'spell_holy_excorcism_02', what: 'Holy hit on undead or demons. 30 yd, 15 sec cooldown.', use: 'Open on undead and demons.', pad: 'RT + A' },
+  'Seal of Command': { icon: 'ability_warrior_innerrage', what: 'Your main Seal: hits get a chance for extra Holy damage. Lasts 30 sec.', use: 'Keep it on. Buy the new rank at 30 and 40.', pad: 'D-up' },
   'Flash of Light': { icon: 'spell_holy_flashheal', what: 'Small, fast, cheap heal.', use: 'Top up between fights, or mid-fight when Holy Light is too slow.', pad: 'LT + X' },
   'Blessing of Kings': { icon: 'spell_magic_magearmor', what: '+10% to all your stats for an hour.', use: 'Keep it on if you like it more than Might.', pad: 'LT + RT + A' },
   'Consecration': { icon: 'spell_holy_innerfire', what: 'Holy fire on the ground around you.', use: 'When 3 or more mobs are on you.', pad: 'RT + B' },
   'Concentration Aura': { icon: 'spell_holy_mindsooth', what: 'Helps you finish casts while getting hit.', skip: "For healers. You're better with Devotion or Retribution.", pad: 'set 2, RT + D-left' },
-  'Seal of Justice': { icon: 'spell_holy_sealofwrath', what: "Judge it and the mob can't run away.", use: 'On mobs that run at low health.' },
+  'Seal of Justice': { icon: 'spell_holy_sealofwrath', what: "Your hits get a chance to stun for 2 sec. Judge it and the mob can't run away.", use: 'On mobs that run at low health. Not on your pad: cast it from the spellbook.' },
+  'Shadow Resistance Aura': { icon: 'spell_shadow_sealofkings', what: '+30 Shadow resistance for the group.', skip: 'Only against shadow casters or in dungeons that need it.', pad: 'set 2, RT + D-up' },
+  'Seal of Light': { icon: 'spell_holy_healingaura', what: 'Judge it and hits on the mob can heal you.', skip: 'Command hits much harder. Try it only if you keep running low on health.' },
+  'Divine Intervention': { icon: 'spell_nature_timestop', what: 'Saves a party member: mobs stop attacking them, but they can\'t act for 3 min. Costs your life.', skip: 'Group wipes only.', pad: 'set 2, D-left' },
+  'Divine Shield': { icon: 'spell_holy_divineintervention', what: 'Immune to all damage for 10 sec, but you deal half damage. 5 min cooldown.', use: 'Emergency, then heal or run. Takes Divine Protection\'s button.', pad: 'LT + D-down' },
+  'Seal of Wisdom': { icon: 'spell_holy_righteousnessaura', what: 'Judge it and hits on the mob can give you mana.', skip: 'Command first. Try it if mana is your problem.' },
+  'Plate Mail': { icon: 'inv_chest_plate01', what: 'You can wear plate armor.', use: 'Buy it at 40. Your armor jumps a lot.' },
+  'Cleanse': { icon: 'spell_holy_renew', what: 'Removes a poison, a disease and a magic effect.', use: 'Replaces Purify.', pad: 'set 2, LT + B' },
+  'Hammer of Wrath': { icon: 'ability_thunderclap', what: 'Big Holy hit, only on mobs under 20% health.', use: 'Finish mobs off.', pad: 'RT + D-up' },
+  'Holy Wrath': { icon: 'spell_holy_excorcism', what: 'Holy blast around you that hits and stuns undead and demons.', skip: 'Undead and demon packs only.', pad: 'RT + D-left' },
   'Turn Undead': { icon: 'spell_holy_turnundead', what: 'Makes one undead run away for a bit.', skip: 'Rarely needed solo.', pad: 'set 2, LT + A' },
 };
 
 /** Two-hander ladder: Wowhead Forever item ids, DPS and icons; sources from Polestar's Forever guides. */
 export interface Rung { id: number; name: string; icon: string; lvl: number; dps: number; from: string; skill?: string; quest?: number }
 export const LADDER: Rung[] = [
-  { id: 279895, name: 'Ironforge Greathammer', icon: 'inv_hammer_21', lvl: 13, dps: 15.97, from: 'Quest "Old Ironforge Incursion" · Hall of Thanes' },
+  { id: 279895, name: 'Ironforge Greathammer', icon: 'inv_hammer_21', lvl: 9, dps: 15.97, from: 'Quest "Old Ironforge Incursion" · Hall of Thanes' },
   { id: 7230, name: "Smite's Mighty Hammer", icon: 'inv_hammer_09', lvl: 18, dps: 19.71, from: 'Deadmines' },
   { id: 6953, name: "Verigan's Fist", icon: 'inv_hammer_05', lvl: 20, dps: 25.63, from: 'Class quest · Polestar guides it', quest: 1806 },
-  { id: 271766, name: 'Heavehammer', icon: 'inv_hammer_09', lvl: 31, dps: 27.73, from: 'Excavation Site: Wetlands quest' },
+  { id: 271766, name: 'Heavehammer', icon: 'inv_hammer_09', lvl: 24, dps: 27.73, from: 'Excavation Site: Wetlands quest' },
   { id: 274601, name: 'Harpoon of Command', icon: 'inv_spear_04', lvl: 35, dps: 35.74, from: "Polearm · Var'Taka, Drowned City", skill: 'Polearms' },
   { id: 6830, name: 'Bonebiter', icon: 'inv_axe_04', lvl: 40, dps: 38.82, from: 'Axe · "In the Name of the Light", Scarlet Monastery', skill: 'Two-Handed Axes' },
 ];
 
 /** Paladin class quests OmaBook checks (Polestar's Forever paladin guides), with the level each opens at. */
 export const CLASS_QUESTS: { id: number; name: string; lvl: number; icon: string }[] = [
-  { id: 1806, name: "Verigan's Fist", lvl: 20, icon: 'inv_hammer_05' },
-  { id: 78093, name: 'Cloak of the Divine Storm', lvl: 22, icon: 'inv_misc_book_11' },
+  { id: 2998, name: 'The Tome of Divinity (Redemption), Goldshire', lvl: 12, icon: 'spell_holy_resurrection' },
+  { id: 1806, name: "Verigan's Fist: The Tome of Valor, Ironforge", lvl: 20, icon: 'inv_hammer_05' },
+  { id: 78093, name: 'Cloak of the Divine Storm (Ashenvale)', lvl: 22, icon: 'inv_misc_book_11' },
   { id: 1661, name: 'The Tome of Nobility (Warhorse)', lvl: 40, icon: 'ability_mount_charger' },
   { id: 8418, name: 'Holy Mightstone', lvl: 50, icon: 'inv_stone_16' },
   { id: 7647, name: 'Charger', lvl: 60, icon: 'ability_mount_charger' },
@@ -111,9 +126,9 @@ export const FOOD: Ware[] = [
   { id: 4544, name: 'Mulgore Spice Bread', icon: 'inv_misc_food_11', lvl: 25, v: true }, { id: 3771, name: 'Wild Hog Shank', icon: 'inv_misc_food_13', lvl: 25, v: true },
   { id: 8364, name: 'Mithril Head Trout', icon: 'inv_misc_fish_02', lvl: 25 },
   { id: 4601, name: 'Soft Banana Bread', icon: 'inv_misc_food_09', lvl: 35, v: true }, { id: 4599, name: 'Cured Ham Steak', icon: 'inv_misc_food_14', lvl: 35, v: true },
-  { id: 12218, name: 'Monster Omelet', icon: 'inv_misc_food_06', lvl: 35 }, { id: 13932, name: 'Poached Sunscale Salmon', icon: 'inv_misc_fish_19', lvl: 35 },
+  { id: 12218, name: 'Monster Omelet', icon: 'inv_misc_food_06', lvl: 35 },
   { id: 8950, name: 'Homemade Cherry Pie', icon: 'inv_misc_food_10', lvl: 45, v: true }, { id: 8952, name: 'Roasted Quail', icon: 'inv_misc_food_15', lvl: 45, v: true },
-  { id: 13934, name: 'Mightfish Steak', icon: 'inv_misc_food_47', lvl: 45 }, { id: 20452, name: 'Smoked Desert Dumplings', icon: 'inv_misc_food_64', lvl: 45 },
+  { id: 13934, name: 'Mightfish Steak', icon: 'inv_misc_food_47', lvl: 45 }, { id: 13932, name: 'Poached Sunscale Salmon', icon: 'inv_misc_fish_19', lvl: 45 }, { id: 20452, name: 'Smoked Desert Dumplings', icon: 'inv_misc_food_64', lvl: 45 },
 ];
 export const WATER: Ware[] = [
   { id: 159, name: 'Refreshing Spring Water', icon: 'inv_drink_07', lvl: 1, v: true }, { id: 1179, name: 'Ice Cold Milk', icon: 'inv_drink_milk_01', lvl: 5, v: true },
@@ -156,7 +171,7 @@ export const PRICE_IDS: number[] = [...POTION, ...WEIGHTSTONE, ...SHARPENING].ma
 export const ICONS: string[] = [...new Set([
   ...TREE.map(t => t.icon), ...LADDER.map(r => r.icon), ...CLASS_QUESTS.map(q => q.icon),
   ...[FOOD, WATER, POTION, WEIGHTSTONE, SHARPENING, BANDAGE].flat().map(w => w.icon),
-  ...Object.values(FIGHTS).flat().map(f => f[3]), ...Object.values(SPELLS).map(g => g.icon), 'spell_holy_devotionaura', 'spell_holy_fistofjustice', 'spell_holy_resurrection', 'classicon_paladin', 'inv_misc_book_09', 'inv_chest_chain_05',
+  ...Object.values(FIGHTS).flat().map(f => f[3]), ...Object.values(SPELLS).map(g => g.icon), ...CLASS_QUESTS.map(q => q.icon), 'spell_holy_devotionaura', 'spell_holy_fistofjustice', 'spell_holy_resurrection', 'classicon_paladin', 'inv_misc_book_09', 'inv_chest_chain_05',
 ])].sort();
 
 // ------------------------------------------------------------------ what the phone draws
@@ -166,7 +181,7 @@ export interface Restock { icon: string; slot: string; t: string; d: string; pri
 /** Icons for the spells the trainer only upgrades (Wowhead Forever). */
 const RANK_ICONS: Record<string, string> = { 'Seal of Righteousness': 'ability_thunderbolt', 'Devotion Aura': 'spell_holy_devotionaura',
   'Holy Light': 'spell_holy_holybolt', 'Blessing of Might': 'spell_holy_fistofjustice', 'Hammer of Justice': 'spell_holy_sealofmight',
-  'Redemption': 'spell_holy_resurrection' };
+  'Redemption': 'spell_holy_resurrection', 'Seal of Command': 'ability_warrior_innerrage', 'Holy Strike': 'classicon_paladin' };
 const iconOf = (n: string) => SPELLS[n]?.icon ?? RANK_ICONS[n] ?? 'inv_misc_book_09';
 export interface TrainSpell { name: string; icon: string; what?: string; use?: string; skip?: string; pad?: string; lvl: number }
 export interface BookView {
@@ -301,7 +316,11 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   const spec = Object.entries(per).sort((a, b) => b[1] - a[1])[0];
   const xpMax = num(s.xpMax);
   const br = level < 20 ? '1-20' : level < 40 ? '20-40' : '40+';
-  const steps = FIGHTS[br].filter(f => known.size === 0 || known.has(f[4]));
+  const has = (n: string) => known.size === 0 || known.has(n);
+  const steps = FIGHTS[br].filter(f => has(f[4])
+    && !(f[4] === 'Seal of Righteousness' && f[0] === 'D-up' && known.has('Seal of Command'))
+    && !(f[4] === 'Divine Protection' && br !== '1-20' && known.has('Divine Shield')))
+    .map(f => f[4] === 'Holy Light' && !known.has('Flash of Light') && known.size ? [f[0], f[1], 'X', f[3], f[4], f[5]] as typeof f : f);
   return {
     train, fresh: (s.fresh ?? []).filter(x => typeof x === 'string'), steps, crusader: known.has('Seal of the Crusader'),
     name: String(s.name ?? 'Paladin'), level, xpPct: xpMax > 0 ? Math.round(num(s.xp) / xpMax * 100) : 0,

@@ -323,7 +323,7 @@ test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only fo
     r.remote['bookAskedAt'] = 0;
     await until(() => r.lap.bookIds.length > 0);
     assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'a warlock gets no paladin book');
-    r.lap.bookSave = { class: 'PALADIN', name: 'Bunji', level: 23, unspent: 1, talents: { Deflection: 5, Conviction: 3, 'Improved Judgement': 2, 'Pursuit of Justice': 2, 'Seal of Command': 1 }, bags: {} };
+    r.lap.bookSave = { class: 'PALADIN', name: 'Bunji', level: 23, unspent: 1, talents: { Benediction: 5, Conviction: 3, 'Improved Judgement': 2, 'Seal of Command': 1, 'Pursuit of Justice': 2 }, bags: {} };
     r.lap.bookPrices = { 929: 1800, 1710: 15000, 3241: 900, 99999: 5 };
     r.remote['bookAskedAt'] = 0;
     await until(async () => ((await r.poll()) as { book?: { level: number } | null }).book?.level === 23);

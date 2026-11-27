@@ -1110,7 +1110,7 @@ function trainHtml(B){const T=B.train;if(!T)return'';
    +(T.ups.length?`<div class="k" style="margin-top:8px">Upgrades <b>just grab these</b></div><div class="ups">${T.ups.map(u=>`<span class="up"><img src="${BI(u.icon)}" alt="">${esc(u.name)} <i>rank ${u.rank}</i></span>`).join('')}</div>`:'')
    +`<div class="costl"><span>Cost for all of it</span><b>${moneyHtml(T.cost)}</b></div>`}
 function bookFight(w,B){let br=B.bracket,sel=0;const F=Object.assign({},B.fights,{[B.bracket]:B.steps.length?B.steps:B.fights[B.bracket]});const NEW=new Set(B.fresh||[]);
-  const draw=()=>{const S=F[br],s=S[sel],[,lay,btn]=s;const d=['U','D','L','R'].includes(btn)&&lay!=='LT'&&lay!=='RT'||lay==='none'||s[0].startsWith('D');
+  const draw=()=>{const S=F[br],s=S[sel],[,lay,btn]=s;const d=['U','D','L','R'].includes(btn);   // a D-pad step lights the D-pad (with its trigger if it has one)
    w.innerHTML=`<div class="seg">${Object.keys(F).map(b=>`<span class="${b===br?'on':''}" data-b="${b}">Level ${b}</span>`).join('')}</div>
    <div class="mini"><div class="trig"><span class="${lay==='LT'?'on':''}">LT</span><span class="${lay==='RT'?'on':''}">RT</span></div>
    <div class="dpad">${['U','D','L','R'].map(k=>`<span class="${k} ${(d&&btn===k)?'on':''}">${{U:'▲',D:'▼',L:'◀',R:'▶'}[k]}</span>`).join('')}</div>
