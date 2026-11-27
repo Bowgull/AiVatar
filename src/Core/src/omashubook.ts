@@ -26,10 +26,12 @@ export interface BookSave {
 export interface TreeNode { sid: string; name: string; max: number; icon: string; tree: 'Holy' | 'Protection' | 'Retribution'; col: number; tier: number }
 export const TREE: TreeNode[] = JSON.parse(readFileSync(path.join(BOOK_DIR, 'tree.json'), 'utf8'));
 
-/** Icy Veins' Forever Retribution leveling order (icy-veins.com/wow-forever/retribution-paladin-leveling, 15 Nov 2026,
- *  read from its talent calculator). [talent, first level, ranks], one point a level from 10. Every tier gate checked
- *  against the game's tree (tree.json): Seal of Command opens at 22 with 10 Ret points, Unsealed Wrath at 40 with 30. */
-export const PATH: [string, number, number][] = [['Deflection', 10, 5], ['Improved Judgement', 15, 2], ['Conviction', 17, 3], ['Pursuit of Justice', 20, 2], ['Seal of Command', 22, 1], ['Sanctified Judgement', 23, 2], ['Sacred Arbiter', 25, 1], ['Two-Handed Weapon Specialization', 26, 3], ['Sanctified Judgement', 29, 1], ['Vengeance', 30, 3], ['Repentance', 33, 1], ['Vindication', 34, 1], ['Champion of the Light', 35, 5], ['Unsealed Wrath', 40, 1], ['Divine Strength', 41, 5], ['Reverence', 46, 2], ['Improved Seals', 48, 3], ['Holy Conduit', 51, 2], ['Improved Seals', 53, 2], ['Purifying Power', 55, 2], ['Divine Precision', 57, 2], ['Vindication', 59, 2]];
+/** The levelling order for an Undead Ret paladin questing alone on a PvP realm (reports/Forever paladin talent builds.md,
+ *  2026-11-27; Joshua: "whatever gets me leveled fastest and is strongest"). The six guides' shared Ret core, with
+ *  Deflection (parry) first, Repentance at 30 and hit (Precision) by 48; Guardian's Favor at 59-60 for world PvP.
+ *  [talent, first level, ranks], one point a level from 10. Every tier gate checked against the game's tree (tree.json):
+ *  Seal of Command at 20 with 10 Ret points, Repentance at 30 with 20, Unsealed Wrath at 40 with 30. */
+export const PATH: [string, number, number][] = [['Deflection', 10, 5], ['Sanctified Judgement', 15, 3], ['Improved Judgement', 18, 2], ['Seal of Command', 20, 1], ['Pursuit of Justice', 21, 2], ['Conviction', 23, 2], ['Sacred Arbiter', 25, 1], ['Two-Handed Weapon Specialization', 26, 3], ['Conviction', 29, 1], ['Repentance', 30, 1], ['Vengeance', 31, 3], ['Vindication', 34, 1], ['Champion of the Light', 35, 5], ['Unsealed Wrath', 40, 1], ['Divine Intellect', 41, 5], ['Precision', 46, 3], ['Divine Strength', 49, 5], ['Improved Seals', 54, 5], ["Guardian's Favor", 59, 2]];
 
 /** Each point of the path in order: the level it is taken at, and the rank it brings that talent to. */
 const POINTS: { name: string; lvl: number; rank: number }[] = (() => {
@@ -40,19 +42,19 @@ const POINTS: { name: string; lvl: number; rank: number }[] = (() => {
 
 export const DESC: Record<string, string> = {
   'Deflection': '+1% parry per rank.', 'Conviction': 'More critical strikes with all spells and attacks.',
-  'Improved Judgement': 'Judgement cooldown 1 sec shorter per rank: 8 sec at 2/2.', 'Pursuit of Justice': 'Run 15% faster, mounted too.',
+  'Improved Judgement': 'Judgement cooldown 1 sec shorter per rank: 8 sec at 2/2.', 'Pursuit of Justice': 'Run and ride 8% faster per rank: 15% at 2/2. Your best way out of a fight.',
   'Seal of Command': 'Your main Seal from here: extra Holy hits worth 70% of your weapon. Best with a slow two-hander.',
-  'Sanctified Judgement': "Judgement gives back 60% of the Seal's mana. Fewer drinks.",
+  'Sanctified Judgement': "Judgement gives back 20% of the Seal's mana per rank: 60% at 3/3. Your biggest mana fix before 40.",
   'Two-Handed Weapon Specialization': 'More Physical and Holy damage with a two-hander, less threat.',
-  'Sacred Arbiter': 'Holy Strike +20%, and it refreshes Judgement effects on the target (Crusader, Justice, Light, Wisdom).', 'Vengeance': 'After a critical hit, +5% damage for 30 s, stacks to 5.',
+  'Sacred Arbiter': 'Holy Strike +20%, and it refreshes Judgement effects on the target (Crusader, Justice, Light, Wisdom).', 'Vengeance': 'After a critical hit, +1% damage per rank for 30 s, stacks to 5 (up to +15% at 3/3).',
   'Repentance': 'Puts a mob to sleep for up to 6 sec; any damage wakes it. Seal of Command\'s Judgement hits it twice as hard.', 'Benediction': 'Instant spells (Judgement, Holy Strike, Seals) cost less mana. Less drinking.',
   'Champion of the Light': 'Intellect becomes spell damage; Hammer of Wrath casts faster.',
   'Unsealed Wrath': 'Hits store copies of your Seal (up to 3, 15 sec). Hit with a different Seal and each copy gets its normal chance to go off. Optional: costs a second Seal.', 'Divine Strength': '+2% Strength per rank.',
-  'Reverence': '30% of mana regen keeps going while you cast.', 'Improved Seals': 'More damage from your Seals and Judgements.',
-  'Divine Intellect': '+2% Intellect per rank.', 'Precision': '+1% chance to hit per rank.',
+  'Reverence': '30% of mana regen keeps going while you cast.', 'Improved Seals': '+3% Seal and Judgement damage per rank.',
+  'Divine Intellect': '+2% Intellect per rank. Opens Precision, and more Intellect feeds Champion of the Light.', 'Precision': '+1% hit per rank: swings, Judgement and spells. Fewer misses in a gank.',
   'Vindication': "Your hits can lower the target's attack power and raise yours, up to 3%.",
   'Holy Conduit': 'Consecration, Holy Wrath and Exorcism cost 40% less mana.',
-  'Purifying Power': "A Holy talent on Icy Veins' path. Read its tooltip in game.", 'Divine Precision': "A Holy talent on Icy Veins' path. Read its tooltip in game.",
+  "Guardian's Favor": 'Blessing of Freedom lasts 6 sec longer and Blessing of Protection comes back 2 min sooner at 2/2.',
 };
 
 /** The old per-bracket Fight tables: [trigger label, layout, button, icon, spell, when]. The phone now draws `rotation()`'s

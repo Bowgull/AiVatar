@@ -7,7 +7,7 @@ import path from 'node:path';
 import { makeBook, nextTalent, coin, rotation, ICONS, PATH, TREE, LADDER, FOOD, WATER, POTION, SPELLS, type BookSave } from '../src/omashubook.ts';
 
 // the Horde book (2026-11-27): Icy Veins' order at 23, holding the Moonsilver Blade, the Bandarion and Redemption chains done
-const at23 = { Deflection: 5, 'Improved Judgement': 2, Conviction: 3, 'Pursuit of Justice': 2, 'Seal of Command': 1, 'Sanctified Judgement': 1 };
+const at23 = { Deflection: 5, 'Sanctified Judgement': 3, 'Improved Judgement': 2, 'Seal of Command': 1, 'Pursuit of Justice': 2, Conviction: 1 };   // the path through level 23
 const stocked = { 4542: 10, 1205: 10, 1710: 5, 2871: 5 };   // a sword: sharpening stones
 const base = (o: Partial<BookSave> = {}): BookSave => ({ class: 'PALADIN', name: 'Bunji', level: 23, xp: 410, xpMax: 1000, zone: 'Duskwood', unspent: 0, talents: { ...at23 }, bags: { ...stocked }, skills: { 'Two-Handed Maces': 115, 'Two-Handed Swords': 100 }, weapon: { id: 268484, dps: 21.03, sub: 8 }, done: { 95803: true, 94441: true }, faction: 'Horde', ...o });
 
@@ -41,7 +41,7 @@ test('talent point: the next point of the leveling path, with its rank', () => {
   const b = makeBook(base({ unspent: 1, talents: { ...at23, 'Sanctified Judgement': 0 } }))!;
   assert.equal(b.cards[0].t, 'Spend your talent point');
   assert.equal(b.cards[0].d, 'Sanctified Judgement, rank 1 of 3');
-  assert.equal(nextTalent({}, 10)?.name, 'Deflection', "Icy Veins' order");
+  assert.equal(nextTalent({}, 10)?.name, 'Deflection', 'parry first');
   assert.equal(nextTalent(at23, 23), null, 'all taken');
   assert.equal(makeBook(base({ unspent: 2 }))!.cards[0].t, 'Spend your 2 talent points');
 });
