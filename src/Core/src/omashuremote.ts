@@ -17,7 +17,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { buildLine, CATALOG, CATALOG_FILE, cleanFavourites, isHomeAddress, magicPacket, macBytes, parseChatLine, parseGuildLine, tooltipLines, type ChatLine, type GuildMember, type SendAsk, type TipLine } from './omashu.ts';
 import { writeFileAtomic } from './atomic.ts';
-import { makeBook, PRICE_IDS, FIGHTS, TREE, DESC, PATH, type BookView } from './omashubook.ts';
+import { makeBook, PRICE_IDS, FIGHTS, TREE, DESC, PATH, ICONS, type BookView } from './omashubook.ts';
 
 export const REMOTE_PORT = 47880;
 const ASSETS = path.join(import.meta.dirname, '..', 'assets', 'omashu');
@@ -553,7 +553,8 @@ export class OmashuRemote {
       const f = path.join(ASSETS, 'book', 'icons', `${icon}.jpg`);
       if (existsSync(f)) { send(res, 200, readFileSync(f), 'image/jpeg', { 'Cache-Control': 'max-age=86400' }); return; }
       // an item from Cheap Upgrades' list: its icon from Wowhead's icon store, kept in memory
-      const img = this.book?.cu.list.some(u => u.icon === icon) ? await this.iconFromWowhead(icon) : null;
+      // or one of the book's own icons not shipped yet (the Horde weapons, 2026-11-27)
+      const img = this.book?.cu.list.some(u => u.icon === icon) || ICONS.includes(icon) ? await this.iconFromWowhead(icon) : null;
       if (img) send(res, 200, img, 'image/jpeg', { 'Cache-Control': 'max-age=86400' }); else res.writeHead(404).end();
       return;
     }

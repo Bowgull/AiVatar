@@ -2,8 +2,10 @@
 // how to fight, the talent tree and the gear ladder. Pure: it takes the OmaBook add-on's save (as of the last /reload or
 // logout, read by Couch Mode's GET /book with aux's auction prices) and returns what the phone draws. Nothing is live.
 //
-// Every table below is checked against WoW Forever's own data (Wowhead Forever item tooltips and sources, 2026-11-26),
-// the talent tree is read from Bunji's game, and the leveling order is Polestar's Forever Retribution build (see PATH).
+// 2026-11-27: replaced for the new Bunji, an Undead (Horde) paladin on the PvP ruleset (Joshua: "Replace the book
+// entirely"). Sources: reports/Undead paladin world PvP leveling.md (Icy Veins, Mobalytics, Warcraft Tavern, Skill
+// Capped), Polestar's Horde guides on the laptop (quest ids), Wowhead Forever (weapon ids, DPS, icons), the talent tree
+// read from the game (tree.json). Buttons are OmaPad's paladin v4 map (mockup omashu/pad/23).
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -24,10 +26,10 @@ export interface BookSave {
 export interface TreeNode { sid: string; name: string; max: number; icon: string; tree: 'Holy' | 'Protection' | 'Retribution'; col: number; tier: number }
 export const TREE: TreeNode[] = JSON.parse(readFileSync(path.join(BOOK_DIR, 'tree.json'), 'utf8'));
 
-/** Forever Retribution leveling path (audit 2026-11-26, checked against the game's own tree, tree.json): Benediction first
- *  (Polestar's Forever build: cheaper instant spells, less drinking), Seal of Command as soon as it opens at 20 (tier 3,
- *  10 Ret points). [talent, first level, ranks], one point a level from 10; every tier gate checked. */
-export const PATH: [string, number, number][] = [['Benediction', 10, 5], ['Conviction', 15, 3], ['Improved Judgement', 18, 2], ['Seal of Command', 20, 1], ['Pursuit of Justice', 21, 2], ['Sanctified Judgement', 23, 2], ['Two-Handed Weapon Specialization', 25, 3], ['Sacred Arbiter', 28, 1], ['Sanctified Judgement', 29, 1], ['Vengeance', 30, 3], ['Repentance', 33, 1], ['Deflection', 34, 1], ['Champion of the Light', 35, 5], ['Unsealed Wrath', 40, 1], ['Divine Strength', 41, 5], ['Reverence', 46, 2], ['Improved Seals', 48, 5], ['Divine Intellect', 53, 5], ['Precision', 58, 3]];
+/** Icy Veins' Forever Retribution leveling order (icy-veins.com/wow-forever/retribution-paladin-leveling, 15 Nov 2026,
+ *  read from its talent calculator). [talent, first level, ranks], one point a level from 10. Every tier gate checked
+ *  against the game's tree (tree.json): Seal of Command opens at 22 with 10 Ret points, Unsealed Wrath at 40 with 30. */
+export const PATH: [string, number, number][] = [['Deflection', 10, 5], ['Improved Judgement', 15, 2], ['Conviction', 17, 3], ['Pursuit of Justice', 20, 2], ['Seal of Command', 22, 1], ['Sanctified Judgement', 23, 2], ['Sacred Arbiter', 25, 1], ['Two-Handed Weapon Specialization', 26, 3], ['Sanctified Judgement', 29, 1], ['Vengeance', 30, 3], ['Repentance', 33, 1], ['Vindication', 34, 1], ['Champion of the Light', 35, 5], ['Unsealed Wrath', 40, 1], ['Divine Strength', 41, 5], ['Reverence', 46, 2], ['Improved Seals', 48, 3], ['Holy Conduit', 51, 2], ['Improved Seals', 53, 2], ['Purifying Power', 55, 2], ['Divine Precision', 57, 2], ['Vindication', 59, 2]];
 
 /** Each point of the path in order: the level it is taken at, and the rank it brings that talent to. */
 const POINTS: { name: string; lvl: number; rank: number }[] = (() => {
@@ -48,6 +50,9 @@ export const DESC: Record<string, string> = {
   'Unsealed Wrath': 'Hits store copies of your Seal (up to 3, 15 sec). Hit with a different Seal and each copy gets its normal chance to go off. Optional: costs a second Seal.', 'Divine Strength': '+2% Strength per rank.',
   'Reverence': '30% of mana regen keeps going while you cast.', 'Improved Seals': 'More damage from your Seals and Judgements.',
   'Divine Intellect': '+2% Intellect per rank.', 'Precision': '+1% chance to hit per rank.',
+  'Vindication': "Your hits can lower the target's attack power and raise yours, up to 3%.",
+  'Holy Conduit': 'Consecration, Holy Wrath and Exorcism cost 40% less mana.',
+  'Purifying Power': "A Holy talent on Icy Veins' path. Read its tooltip in game.", 'Divine Precision': "A Holy talent on Icy Veins' path. Read its tooltip in game.",
 };
 
 /** The old per-bracket Fight tables: [trigger label, layout, button, icon, spell, when]. The phone now draws `rotation()`'s
@@ -65,36 +70,39 @@ export const FIGHTS: Record<string, [string, string, string, string, string, str
 export interface SpellGuide { icon: string; what: string; use?: string; skip?: string; pad?: string }
 export const SPELLS: Record<string, SpellGuide> = {
   'Judgement': { icon: 'spell_holy_righteousfury', what: 'Hits the mob with your Seal\'s Judgement. In Forever it does NOT use up the Seal. 10 sec cooldown, 10 yd.', use: 'Keep a Seal on and press it every time it lights up.', pad: 'RT + X' },
-  'Hammer of Justice': { icon: 'spell_holy_sealofmight', what: 'Stuns a mob for 3 sec. 1 min cooldown, 10 yd. The game gives you rank 1 at 8.', use: 'Stop a caster or a runner, or hold a 2nd mob. Later, with Seal of Command, Judge the stunned mob for double damage.', pad: 'LT + A' },
-  'Divine Protection': { icon: 'spell_holy_restoration', what: "You take no damage for a few secs, but you can't attack.", use: "Only when a fight's going bad. Heal up or run.", pad: 'LT + D-down' },
-  'Holy Strike': { icon: 'classicon_paladin', what: 'Quick hit: some weapon damage plus Holy damage. 10 sec cooldown.', use: 'Hit it whenever it lights up.', pad: 'RT + Y' },
-  'Seal of the Crusader': { icon: 'spell_holy_holysmite', what: '+35 attack power, you swing 40% faster but each hit is weaker, 30 sec. Its Judgement: the mob takes more Holy damage for 40 sec.', skip: 'Righteousness is simpler and hits harder solo. Handy in groups.', pad: 'D-left' },
+  'Hammer of Justice': { icon: 'spell_holy_sealofmight', what: 'Stuns a mob for 3 sec. 1 min cooldown, 10 yd. The game gives you rank 1 at 8.', use: 'Stop a caster or a runner, or hold a 2nd mob. Later, with Seal of Command, Judge the stunned mob for double damage.', pad: 'RT + D-up' },
+  'Divine Protection': { icon: 'spell_holy_restoration', what: "You take no damage for a few secs, but you can't attack.", use: "Only when a fight's going bad. Heal up or run.", pad: 'LT + A' },
+  'Holy Strike': { icon: 'classicon_paladin', what: 'Quick hit: some weapon damage plus Holy damage. 10 sec cooldown.', use: 'Hit it whenever it lights up.', pad: 'RT + B' },
+  'Seal of the Crusader': { icon: 'spell_holy_holysmite', what: '+35 attack power, you swing 40% faster but each hit is weaker, 30 sec. Its Judgement: the mob takes more Holy damage for 40 sec.', skip: 'Bosses and elites only. Guides disagree on normal mobs.', pad: 'set 2, LT + RT + B' },
   'Parry': { icon: 'ability_parry', what: 'Lets you parry some hits. Nothing to press.', use: 'Always on once you have it.' },
   'Lay on Hands': { icon: 'spell_holy_layonhands', what: 'Heals to full but uses all your mana.', use: "Panic button when you're about to die.", pad: 'LT + D-right' },
   'Blessing of Protection': { icon: 'spell_holy_sealofprotection', what: "Stops all physical damage on someone for a bit, but they can't attack.", use: 'Save a buddy in a group who has aggro.', pad: 'set 2, LT + Y' },
   'Seal of Fury': { icon: 'spell_holy_retributionaura', what: 'A tank seal: Judging it makes the mob attack you.', skip: "Only for tanking in groups. Solo you don't need it.", pad: 'set 2, LT + RT + Y' },
   'Blessing of Wisdom': { icon: 'spell_holy_sealofwisdom', what: 'Gives you mana back over time for an hour.', use: 'Swap Might for it if you keep running out of mana.', pad: 'set 2, LT + X' },
-  'Retribution Aura': { icon: 'spell_holy_auraoflight', what: 'Mobs that hit you take Holy damage back.', use: 'Your aura from here: it takes Devotion Aura\'s button.', pad: 'LT + RT + D-down' },
+  'Retribution Aura': { icon: 'spell_holy_auraoflight', what: 'Mobs that hit you take Holy damage back.', use: 'Your aura from here: it takes Devotion Aura\'s button.', pad: 'LT + RT + B' },
   'Righteous Fury': { icon: 'spell_holy_sealoffury', what: 'Makes mobs much more likely to attack you.', skip: 'Tanking only. Leave it off solo.', pad: 'set 2, LT + RT + X' },
   'Blessing of Freedom': { icon: 'spell_holy_sealofvalor', what: "Can't be slowed or rooted for 10 secs.", use: 'When something slows you or roots you.', pad: 'LT + D-left' },
   'Exorcism': { icon: 'spell_holy_excorcism_02', what: 'Holy hit on undead or demons. 30 yd, 15 sec cooldown.', use: 'Open on undead and demons.', pad: 'RT + A' },
-  'Seal of Command': { icon: 'ability_warrior_innerrage', what: 'Your main Seal: hits get a chance for extra Holy damage. Lasts 30 sec.', use: 'Keep it on. Buy the new rank at 30, 40, 50 and 60.', pad: 'D-up' },
+  'Seal of Command': { icon: 'ability_warrior_innerrage', what: 'Your main Seal: hits get a chance for extra Holy damage. Lasts 30 sec.', use: 'Keep it on. Buy the new rank at 30, 40, 50 and 60.', pad: 'RT + Y' },
   'Flash of Light': { icon: 'spell_holy_flashheal', what: 'Small, fast, cheap heal.', use: 'Top up between fights, or mid-fight when Holy Light is too slow.', pad: 'LT + X' },
-  'Blessing of Kings': { icon: 'spell_magic_magearmor', what: '+10% to all your stats for an hour.', use: 'Keep it on if you like it more than Might.', pad: 'LT + RT + A' },
-  'Consecration': { icon: 'spell_holy_innerfire', what: 'Holy fire on the ground around you.', use: 'When 3 or more mobs are on you.', pad: 'RT + B' },
+  'Blessing of Kings': { icon: 'spell_magic_magearmor', what: '+10% to all your stats for an hour.', use: 'Your blessing from 20: it takes Might\'s button.', pad: 'D-up' },
+  'Consecration': { icon: 'spell_holy_innerfire', what: 'Holy fire on the ground around you.', use: 'When 3 or more mobs are on you.', pad: 'RT + D-left' },
   'Concentration Aura': { icon: 'spell_holy_mindsooth', what: 'Helps you finish casts while getting hit.', skip: "For healers. You're better with Devotion or Retribution.", pad: 'set 2, RT + D-left' },
   'Seal of Justice': { icon: 'spell_holy_sealofwrath', what: "Your hits get a chance to stun for 2 sec. Judge it and the mob can't run away.", use: 'On mobs that run at low health. Not on your pad: cast it from the spellbook.' },
   'Shadow Resistance Aura': { icon: 'spell_shadow_sealofkings', what: '+30 Shadow resistance for the group.', skip: 'Only against shadow casters or in dungeons that need it.', pad: 'set 2, RT + D-up' },
   'Seal of Light': { icon: 'spell_holy_healingaura', what: 'Judge it and hits on the mob can heal you.', skip: 'Command hits much harder. Try it only if you keep running low on health.' },
   'Divine Intervention': { icon: 'spell_nature_timestop', what: 'Saves a party member: mobs stop attacking them, but they can\'t act for 3 min. Costs your life.', skip: 'Group wipes only.', pad: 'set 2, D-left' },
-  'Divine Shield': { icon: 'spell_holy_divineintervention', what: 'Immune to all damage for 10 sec, but you deal half damage. 5 min cooldown.', use: 'Emergency, then heal or run. Takes Divine Protection\'s button.', pad: 'LT + D-down' },
+  'Divine Shield': { icon: 'spell_holy_divineintervention', what: 'Immune to all damage for 10 sec, but you deal half damage. 5 min cooldown.', use: 'Emergency, then heal or run. Takes Divine Protection\'s button.', pad: 'LT + A' },
   'Seal of Wisdom': { icon: 'spell_holy_righteousnessaura', what: 'Judge it and hits on the mob can give you mana.', skip: 'Command first. Try it if mana is your problem.' },
   'Plate Mail': { icon: 'inv_chest_plate01', what: 'You can wear plate armor.', use: 'Buy it at 40. Your armor jumps a lot.' },
   'Cleanse': { icon: 'spell_holy_renew', what: 'Removes a poison, a disease and a magic effect.', use: 'Replaces Purify.', pad: 'set 2, LT + B' },
-  'Hammer of Wrath': { icon: 'ability_thunderclap', what: 'Big Holy hit, only on mobs under 20% health.', use: 'Finish mobs off.', pad: 'RT + D-up' },
-  'Holy Wrath': { icon: 'spell_holy_excorcism', what: 'Holy blast around you that hits and stuns undead and demons.', skip: 'Undead and demon packs only.', pad: 'RT + D-left' },
+  'Hammer of Wrath': { icon: 'ability_thunderclap', what: 'Big Holy hit, only on mobs under 20% health.', use: 'Finish mobs off.', pad: 'RT + D-down' },
+  'Holy Wrath': { icon: 'spell_holy_excorcism', what: 'Holy blast around you that hits and stuns undead and demons.', skip: 'Undead and demon packs only.', pad: 'In your spellbook' },
   'Turn Undead': { icon: 'spell_holy_turnundead', what: 'Makes one undead run away for a bit.', skip: 'Rarely needed solo.', pad: 'set 2, LT + A' },
-  // the game gives Purify at 8 and the Tome of Divinity quest gives Redemption: neither is sold, so they only show as New
+  // the game gives Purify at 8 and "A Lesson in Divinity" gives Redemption: neither is sold, so they only show as New
+  // the Undead racials (Icy Veins race guide, after the 27 Oct tuning)
+  'Will of the Forsaken': { icon: 'inv_misc_book_09', what: 'Breaks Charm, Fear and Sleep. 2 min cooldown. No longer makes you immune.', use: 'Press it after the fear lands, not before.', pad: 'LT + D-down' },
+  'Cannibalize': { icon: 'inv_misc_book_09', what: 'Eat a humanoid or undead corpse within 5 yd: 35% health and mana over 10 sec. Moving or a hit stops it. 2 min cooldown.', use: 'Between fights instead of eating and drinking.', pad: 'LT + D-up' },
   'Purify': { icon: 'inv_misc_book_09', what: 'Removes a poison and a disease from you or a buddy.', use: 'When a poison or a disease is wearing you down.', pad: 'set 2, LT + B' },
   'Redemption': { icon: 'spell_holy_resurrection', what: 'Brings a dead party member back to life.', use: 'After a fight, on a buddy who died.', pad: 'set 2, D-right' },
   'Blessing of Salvation': { icon: 'inv_misc_book_09', what: 'The target makes less threat, so mobs stay on the tank.', skip: 'For groups: put it on the damage dealers. Solo, keep Might.', pad: 'In your spellbook' },
@@ -121,56 +129,63 @@ export function rotation(known: Set<string>, ranks: Record<string, number>): { s
   const command = has('Seal of Command');
   const steps: Step[] = [];
   const add = (st: Step, ok = true) => { if (ok && has(st[4])) steps.push(st); };
-  add(['D-up', 'none', 'U', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on. Lasts 30 sec']);
-  add(['D-up', 'none', 'U', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on. Lasts 30 sec'], !command);
-  add(['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Open with it on undead and demons']);
+  // OmaPad v4 (2026-11-27): RT is the whole attack, LT gets you out of trouble, the D-pad alone is upkeep
+  add(['RT', 'RT', 'Y', 'ability_warrior_innerrage', 'Seal of Command', 'Keep it on. Lasts 30 sec']);
+  add(['RT', 'RT', 'Y', 'ability_thunderbolt', 'Seal of Righteousness', 'Keep it on. Lasts 30 sec'], !command);
+  add(['RT', 'RT', 'A', 'spell_holy_excorcism_02', 'Exorcism', 'Open with it on undead and demons, from 30 yd']);
   // with Seal of Command the stun sets up a double Judgement, so it comes first; before that it's only for trouble
-  const hoj: Step = ['LT', 'LT', 'A', 'spell_holy_sealofmight', 'Hammer of Justice', command ? 'Stun, then Judgement: twice the damage' : 'Stop a caster or a runner, or hold a 2nd mob'];
+  const hoj: Step = ['RT', 'RT', 'U', 'spell_holy_sealofmight', 'Hammer of Justice', command ? 'Stun, then Judgement: twice the damage' : 'Stop a caster or a runner, or hold a 2nd mob'];
   if (command) add(hoj);
   add(['RT', 'RT', 'X', 'spell_holy_righteousfury', 'Judgement', 'Every time it lights up. Your Seal stays']);
-  add(['RT', 'RT', 'Y', 'classicon_paladin', 'Holy Strike', 'Every time it lights up']);
+  add(['RT', 'RT', 'B', 'classicon_paladin', 'Holy Strike', 'Every time it lights up']);
   if (!command) add(hoj);
-  add(['RT', 'RT', 'U', 'ability_thunderclap', 'Hammer of Wrath', 'Mob under 20% health']);
+  if (command && (ranks['Unsealed Wrath'] ?? 0) > 0) add(['RT', 'RT', 'R', 'ability_thunderbolt', 'Seal of Righteousness', '3 swings with Command, swap here, 1 swing, back']);
+  add(['RT', 'RT', 'D', 'ability_thunderclap', 'Hammer of Wrath', 'Mob under 20% health']);
   add(['LT', 'LT', 'B', 'spell_holy_prayerofhealing', 'Repentance', 'Humanoids: sleep, then Judgement']);
-  add(['RT', 'RT', 'B', 'spell_holy_innerfire', 'Consecration', 'Only with 3+ mobs on you']);
-  if (command && (ranks['Unsealed Wrath'] ?? 0) > 0) add(['D-down', 'none', 'D', 'ability_thunderbolt', 'Seal of Righteousness', 'Optional: swap after 3 swings, then back to Command']);
-  if (has('Divine Shield')) add(['LT', 'LT', 'D', 'spell_holy_divineintervention', 'Divine Shield', 'Fight going bad: shield, then heal or run']);
-  else add(['LT', 'LT', 'D', 'spell_holy_restoration', 'Divine Protection', 'Fight going bad: bubble, then heal']);
+  add(['RT', 'RT', 'L', 'spell_holy_innerfire', 'Consecration', 'Only with 3+ mobs on you']);
+  if (has('Divine Shield')) add(['LT', 'LT', 'A', 'spell_holy_divineintervention', 'Divine Shield', 'Fight going bad: shield, then heal or run']);
+  else add(['LT', 'LT', 'A', 'spell_holy_restoration', 'Divine Protection', 'Fight going bad: bubble, then heal']);
+  add(['LT', 'LT', 'D', 'inv_misc_book_09', 'Will of the Forsaken', 'Feared or charmed: press it after it lands']);
   add(['LT', 'LT', 'R', 'spell_holy_layonhands', 'Lay on Hands', 'About to die: full heal, all your mana']);
   add(['LT', 'LT', 'X', 'spell_holy_flashheal', 'Flash of Light', 'Quick heal mid-fight']);
   add(['LT', 'LT', has('Flash of Light') ? 'Y' : 'X', 'spell_holy_holybolt', 'Holy Light', 'After a fight if under half']);
+  add(['LT', 'LT', 'U', 'inv_misc_book_09', 'Cannibalize', 'After a fight, on a humanoid or undead corpse']);
   const prep: Step[] = [];
-  if (has('Retribution Aura')) prep.push(['LTRT', 'LTRT', 'D', 'spell_holy_auraoflight', 'Retribution Aura', 'Always on']);
-  else if (has('Devotion Aura')) prep.push(['LTRT', 'LTRT', 'D', 'spell_holy_devotionaura', 'Devotion Aura', 'Always on']);
-  if (has('Blessing of Might')) prep.push(['LTRT', 'LTRT', 'B', 'spell_holy_fistofjustice', 'Blessing of Might', 'On yourself, lasts 1 hour']);
-  if (has('Blessing of Kings')) prep.push(['LTRT', 'LTRT', 'A', 'spell_magic_magearmor', 'Blessing of Kings', has('Blessing of Might') ? 'Or Kings: +10% to all your stats' : 'On yourself, lasts 1 hour']);
+  if (has('Retribution Aura')) prep.push(['LTRT', 'LTRT', 'B', 'spell_holy_auraoflight', 'Retribution Aura', 'Always on']);
+  else if (has('Devotion Aura')) prep.push(['LTRT', 'LTRT', 'B', 'spell_holy_devotionaura', 'Devotion Aura', 'Always on']);
+  if (has('Blessing of Kings')) prep.push(['D-up', 'none', 'U', 'spell_magic_magearmor', 'Blessing of Kings', 'On yourself, lasts 1 hour']);
+  else if (has('Blessing of Might')) prep.push(['D-up', 'none', 'U', 'spell_holy_fistofjustice', 'Blessing of Might', 'On yourself, lasts 1 hour']);
   return { steps, prep };
 }
 
-/** Two-hander ladder: Wowhead Forever item ids, DPS and icons; sources from Polestar's Forever guides. lvl = when you can
- *  get it: Ironforge Greathammer needs 9 but its quest is level 16 (audit #22; the quest's own minimum is unread). */
+/** Horde two-hander ladder (timesaver.gg's Forever paladin weapons and the guide; ids, DPS and icons from Wowhead
+ *  Forever, 2026-11-27). lvl = when you can get it (quest rewards have no level on the item). The Undead starts with
+ *  Maces and Two-Handed Maces; swords, axes and polearms need a weapon master. The level 10 Empyrean Greatsword is
+ *  left out: its quest is on Zephras Isle, reported Skyborne-only. */
 export interface Rung { id: number; name: string; icon: string; lvl: number; dps: number; from: string; skill?: string; quest?: number }
 export const LADDER: Rung[] = [
-  { id: 279895, name: 'Ironforge Greathammer', icon: 'inv_hammer_21', lvl: 16, dps: 15.97, from: 'Quest "Old Ironforge Incursion" · Hall of Thanes' },
-  { id: 7230, name: "Smite's Mighty Hammer", icon: 'inv_hammer_09', lvl: 18, dps: 19.71, from: 'Deadmines' },
-  { id: 6953, name: "Verigan's Fist", icon: 'inv_hammer_05', lvl: 20, dps: 25.63, from: 'Class quest · Polestar guides it', quest: 1806 },
-  { id: 271766, name: 'Heavehammer', icon: 'inv_hammer_09', lvl: 24, dps: 27.73, from: 'Excavation Site: Wetlands quest' },
-  { id: 274601, name: 'Harpoon of Command', icon: 'inv_spear_04', lvl: 35, dps: 35.74, from: "Polearm · Var'Taka, Drowned City", skill: 'Polearms' },
-  { id: 6830, name: 'Bonebiter', icon: 'inv_axe_04', lvl: 40, dps: 38.82, from: 'Axe · "In the Name of the Light", Scarlet Monastery', skill: 'Two-Handed Axes' },
+  { id: 15424, name: 'Axe of Orgrimmar', icon: 'inv_axe_04', lvl: 15, dps: 16.06, from: 'Quest in Orgrimmar', skill: 'Two-Handed Axes' },
+  { id: 270018, name: 'Hammerbone', icon: 'inv_hammer_15', lvl: 20, dps: 20.44, from: 'Wailing Caverns quest reward' },
+  { id: 268484, name: 'Moonsilver Blade', icon: 'inv_sword_25', lvl: 20, dps: 21.03, from: 'Class quest "A Moon-Kissed Blade" · Polestar guides it', skill: 'Two-Handed Swords', quest: 95036 },
+  { id: 267369, name: 'Wolfsbane', icon: 'inv_sword_25', lvl: 25, dps: 25.59, from: 'Kill Old Fire-Eye with the Moonsilver Blade · Silverpine', skill: 'Two-Handed Swords', quest: 95140 },
+  { id: 6687, name: 'Corpsemaker', icon: 'inv_weapon_halbard_01', lvl: 29, dps: 28.95, from: 'Polearm · Razorfen Kraul', skill: 'Polearms' },
+  { id: 274601, name: 'Harpoon of Command', icon: 'inv_spear_04', lvl: 35, dps: 35.74, from: 'Polearm · The Drowned City', skill: 'Polearms' },
+  { id: 7723, name: "Mograine's Might", icon: 'inv_mace_13', lvl: 39, dps: 38.82, from: 'Scarlet Monastery Cathedral' },
+  { id: 9413, name: 'The Rockpounder', icon: 'inv_hammer_12', lvl: 44, dps: 42.70, from: 'Uldaman' },
+  { id: 2915, name: 'Taran Icebreaker', icon: 'inv_hammer_02', lvl: 47, dps: 49.74, from: 'Auction house (bind on equip)' },
+  { id: 280056, name: 'Flameslash Crescent', icon: 'inv_weapon_halberd_10', lvl: 54, dps: 50.56, from: 'Polearm · Blackmaw Hold', skill: 'Polearms' },
+  { id: 279260, name: "Forest Defender's Axe", icon: 'inv_axe_2h_raidhyjalc60_d_01', lvl: 60, dps: 61.52, from: 'Crafted', skill: 'Two-Handed Axes' },
 ];
 
-/** Paladin class quests OmaBook checks (Polestar's Forever paladin guides), with the level each opens at. One card at a
- *  time, so each must be able to read as done: the spell it gives (`spell`), the last quest of its chain (`ends`, which
- *  then replaces its own id), or its own id. 2998 is only where the human Tome of Divinity chain starts (Polestar: Brother Wilhelm, human; 2999 is the
- *  dwarf one). The chain ends are from Wowhead Classic (1788 human, 1785 dwarf, then 1790 / 1789 after them); Polestar
- *  doesn't mark which quest is last, and OmaBook only saves the six ids below, so knowing Redemption is the sure sign. */
+/** Forsaken paladin class quests (Polestar's Horde guides "Tyr's Watch and Redemption" and "Moonsilver Blade and
+ *  Wolfsbane", quest ids from its quest data, 2026-11-27). Each reads as done by the spell it gives, the last quest of its
+ *  chain (`ends`), or its own id; OmaBook saves exactly these ids. The Moonsilver Blade and Wolfsbane are the weapon
+ *  ladder's cards. The level 60 Charger's middle steps are unconfirmed (the guide's check list). */
 export const CLASS_QUESTS: { id: number; name: string; lvl: number; icon: string; ends?: number[]; spell?: string[] }[] = [
-  { id: 2998, name: 'The Tome of Divinity (Redemption), Goldshire', lvl: 12, icon: 'spell_holy_resurrection', ends: [1788, 1790, 1785, 1789], spell: ['Redemption'] },
-  { id: 1806, name: "Verigan's Fist: The Tome of Valor, Ironforge", lvl: 20, icon: 'inv_hammer_05' },
-  { id: 78093, name: 'Cloak of the Divine Storm (Ashenvale)', lvl: 22, icon: 'inv_misc_book_11' },
-  { id: 1661, name: 'The Tome of Nobility (Warhorse)', lvl: 40, icon: 'ability_mount_charger', spell: ['Summon Warhorse', 'Summon Charger'] },
-  { id: 8418, name: 'Holy Mightstone', lvl: 50, icon: 'inv_stone_16' },
-  { id: 7647, name: 'Charger', lvl: 60, icon: 'ability_mount_charger', spell: ['Summon Charger'] },
+  { id: 99152, name: 'Bandarion Keep: the Forsaken paladins (a mace, a shield)', lvl: 8, icon: 'classicon_paladin', ends: [95803] },
+  { id: 94427, name: 'A Lesson in Divinity (Redemption): Danitha Morr, Bandarion Keep', lvl: 12, icon: 'spell_holy_resurrection', ends: [94441], spell: ['Redemption'] },
+  { id: 94971, name: "A Paladin's Steed (Warhorse): Garen Largo, Undercity", lvl: 40, icon: 'ability_mount_charger', spell: ['Summon Warhorse', 'Summon Charger'] },
+  { id: 97185, name: 'Justice and Retribution (Charger): Danitha Morr', lvl: 60, icon: 'ability_mount_charger', spell: ['Summon Charger'] },
 ];
 
 /** Consumables by tier (Wowhead Forever: id, level to use, icon; v = vendor sells it). The first item of a tier is the one to buy. */
@@ -297,9 +312,6 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   if (!raw || typeof raw !== 'object') return null;
   const s = raw as BookSave;
   if (s.class !== 'PALADIN') return null;
-  // 2026-11-27: this book is the Alliance paladin's (class quests, trainers, vendors). The new Bunji is a Horde
-  // (Undead) paladin; Joshua: "Replace the book entirely". Until the Horde book exists, no book at all for Horde.
-  if (s.faction === 'Horde') return null;
   const level = Math.max(1, Math.min(60, Math.floor(num(s.level, 1))));
   const ranks: Record<string, number> = {};
   for (const [k, v] of Object.entries(s.talents ?? {})) if (typeof v === 'number') ranks[k] = v;
@@ -354,14 +366,15 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   // 3. a weapon skill the ladder will need soon
   const owned = s.weapon && typeof s.weapon === 'object' ? s.weapon : null;
   const myDps = num(owned?.dps);
-  for (const r of LADDER) if (r.skill && level >= r.lvl - 3 && skills[r.skill] === undefined) {
+  // only for a weapon that would still be an upgrade (the level 15 axe never nags a paladin holding Wolfsbane)
+  for (const r of LADDER) if (r.skill && level >= r.lvl - 3 && skills[r.skill] === undefined && r.dps > myDps + 0.5) {
     cards.push({ icon: r.icon, t: `Learn ${r.skill}${level >= r.lvl ? '' : ' soon'}`, d: `${r.name} at ${r.lvl} needs it · a weapon master teaches it` }); break;
   }
   // 4. a better weapon is open: the best rung at your level that beats what you hold
   let up: Rung | null = null;
   for (const r of LADDER) if (r.lvl <= level && r.dps > myDps + 0.5 && owned?.id !== r.id && (!r.skill || skills[r.skill] !== undefined || level < r.lvl)) up = r;
   if (up && !(up.quest && isDone(up.quest))) cards.push({ icon: up.icon, t: `${up.name} is waiting`, d: `${up.from} · ${up.dps.toFixed(1)} DPS`, tone: 'blue', tab: 'gear', go: '›' });
-  // 5. a class quest is open (one at a time; Verigan's Fist is already the weapon card above)
+  // 5. a class quest is open (one at a time; the Moonsilver Blade and Wolfsbane are weapon cards above)
   // a quest reads as done by the spell it gives, the end of its chain (then its own id, only the start, doesn't count),
   // or else its own id: a never-done id must not block the cards after it
   const questDone = (q: typeof CLASS_QUESTS[number]) => (q.spell ?? []).some(n => known.has(n)) || (q.ends ? q.ends.some(isDone) : isDone(q.id));
@@ -420,7 +433,9 @@ export function makeBook(raw: unknown, prices: Record<string, number> = {}): Boo
   const ladder = LADDER.map(r => ({ ...r, state: (r === nextRung ? 'next' : r.lvl <= level && (r.dps <= myDps + 0.5 || owned?.id === r.id) ? 'have' : 'later') as 'have' | 'next' | 'later' }));
   const f = best(FOOD, level)!, wt = best(WATER, level)!, pt = best(POTION, level)!, st = best(blunt ? WEIGHTSTONE : SHARPENING, level)!;
   const forLevel = [{ icon: f.icon, name: f.name, what: 'food' }, { icon: wt.icon, name: wt.name, what: 'water' }, { icon: pt.icon, name: pt.name.replace(' Potion', ''), what: `potion · ${pt.lvl}` }, { icon: st.icon, name: st.name, what: 'weapon' }];
-  const need = LADDER.filter(r => r.skill && skills[r.skill] === undefined);
+  // each skill once, at the first weapon still ahead that needs it
+  const need: Rung[] = [];
+  for (const r of LADDER) if (r.skill && skills[r.skill] === undefined && r.dps > myDps + 0.5 && !need.some(n => n.skill === r.skill)) need.push(r);
   const gearNote = need.length ? `Train ${need.map(r => r.skill).join(' and ')} at a weapon master before ${need.map(r => r.lvl).join(' and ')}.` : '';
 
   // the spec: the tree with the most points
