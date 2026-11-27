@@ -2924,7 +2924,8 @@ ${backup}` : t, card ? { brief: card } : {});
     this.omashu = new OmashuRemote({
       cfg,
       saveCfg: c => writeFileAtomic(cfgFile, JSON.stringify(c, null, 2) + '\n', { mode: 0o600 }),
-      notify: text => this.sendTo('discord', { t: 'bubble', text: `WoW: ${text.slice(0, 300)}`, stream: false, proactive: true, buzz: true }),
+      // (No whisper buzz through Discord: Joshua 2026-11-27, "stop surfacing whispers in game as discord notifications".
+      //  The phone's chat coin still counts them.)
     });
     this.omashu.start().then(p => console.log(`omashu remote: listening on port ${p} (home Wi-Fi only)`), e => console.error(`omashu remote: could not start: ${(e as Error).message}`));
   }
