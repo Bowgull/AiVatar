@@ -46,6 +46,8 @@ export class FakeLaptop {
   ah = false;
   pricesAsked = '';
   win: 'improved' | 'game' | null = null;
+  typing = false;
+  typed: unknown[] = [];
   searched: string[] = [];
   /** aux's item list as Couch Mode serves it. */
   ahItems: [string, number][] = [['Tin Ore', 1], ['Tin Bar', 1], ['Copper Ore', 1], ['Thunderfury', 5]];
@@ -154,7 +156,7 @@ export class FakeLaptop {
     if (req.method === 'GET' && url.pathname === '/chat') {
       if (!this.session) { j(200, { session: null, seq: 0, lines: [] }); return; }
       const after = Number(url.searchParams.get('after')) || 0;
-      j(200, { session: this.session, seq: this.seq, ah: this.ah, win: this.win, lines: this.lines.filter(l => l.seq > after).slice(0, 500) });
+      j(200, { session: this.session, seq: this.seq, ah: this.ah, win: this.win, typing: this.typing, lines: this.lines.filter(l => l.seq > after).slice(0, 500) });
       return;
     }
     if (req.method === 'POST' && url.pathname === '/chat/send') {
@@ -192,6 +194,16 @@ export class FakeLaptop {
     }
     if (req.method === 'GET' && url.pathname === '/ah/items') { j(200, { at: '2026-11-11T00:00:00.000Z', items: this.ahItems }); return; }
     if (req.method === 'GET' && url.pathname === '/ah/prices') { this.pricesAsked = url.searchParams.get('ids') ?? ''; j(200, { at: '2026-11-27T00:00:00.000Z', items: { 2770: [[20783, 93, 99, 11618], [20784, 78, 213, 3638]], 2771: [[20784, -5, 'x', 1]] } }); return; }
+    if (req.method === 'POST' && url.pathname === '/type') {
+      let b = '';
+      req.on('data', d => { b += d; });
+      req.on('end', () => {
+        if (!this.typing) { j(409, { ok: false, why: 'no-box' }); return; }
+        try { this.typed.push(JSON.parse(b)); } catch { j(400, { ok: false, why: 'refused' }); return; }
+        j(200, { ok: true });
+      });
+      return;
+    }
     if (req.method === 'POST' && url.pathname === '/ah/swap') {
       if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
       if (!this.ah) { j(409, { ok: false, why: 'no-ah' }); return; }

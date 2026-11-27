@@ -62,7 +62,19 @@ export function cleanMouse(v: unknown): MouseAsk | null {
 }
 export type AhWindow = 'improved' | 'game' | null;
 export type AhItem = [string, number, number, number];
-export interface ChatBatch { session: string | null; seq: number; ah?: boolean; win?: AhWindow; lines: { seq: number; raw: string; cls?: string }[] }
+/** One typing step from the phone: letters to add, and/or a key (back = n backspaces). */
+export interface TypeMsg { t?: string; k?: 'tab' | 'enter' | 'back'; n?: number }
+/** null = not a valid typing step. */
+export function typeMsg(b: unknown): TypeMsg | null {
+  if (!b || typeof b !== 'object') return null;
+  const { t, k, n } = b as Record<string, unknown>;
+  const m: TypeMsg = {};
+  if (t !== undefined) { if (typeof t !== 'string' || !t || t.length > 60 || /[\x00-\x1f|]/.test(t)) return null; m.t = t; }
+  if (k !== undefined) { if (k !== 'tab' && k !== 'enter' && k !== 'back') return null; m.k = k; }
+  if (m.k === 'back') { if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 60) return null; m.n = n; }
+  return m.t || m.k ? m : null;
+}
+export interface ChatBatch { session: string | null; seq: number; ah?: boolean; win?: AhWindow; typing?: boolean; lines: { seq: number; raw: string; cls?: string }[] }
 
 export class Laptop {
   private cfg: RemoteConfig['laptop'];
@@ -97,11 +109,18 @@ export class Laptop {
     if (!r?.ok) return null;
     const j = await r.json().catch(() => null) as ChatBatch | null;
     if (!j || !Array.isArray(j.lines)) return null;
-    return { session: typeof j.session === 'string' ? j.session : null, seq: Number(j.seq) || 0, ah: j.ah === true, win: j.win === 'improved' || j.win === 'game' ? j.win : null, lines: j.lines.filter(l => l && typeof l.raw === 'string' && Number.isFinite(l.seq)) };
+    return { session: typeof j.session === 'string' ? j.session : null, seq: Number(j.seq) || 0, ah: j.ah === true, win: j.win === 'improved' || j.win === 'game' ? j.win : null, typing: j.typing === true, lines: j.lines.filter(l => l && typeof l.raw === 'string' && Number.isFinite(l.seq)) };
   }
   /** Auction search (sheet omashu/remote/14): the laptop types it into aux's search box, only if that box is on screen. */
   async ahSearch(text: string): Promise<{ ok: boolean; why?: string }> {
     const r = await this.call('/ah/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }, 5000);
+    if (!r) return { ok: false, why: 'asleep' };
+    const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
+    return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
+  }
+  /** Typing into any WoW text box (sheet omashu/remote/24): letters, Tab, Enter or backspaces, only while a game box has the keyboard. */
+  async type(m: TypeMsg): Promise<{ ok: boolean; why?: string }> {
+    const r = await this.call('/type', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(m) }, 3000);
     if (!r) return { ok: false, why: 'asleep' };
     const j = await r.json().catch(() => ({})) as { ok?: boolean; why?: string };
     return r.ok && j.ok !== false ? { ok: true } : { ok: false, why: String(j.why ?? r.status) };
@@ -299,6 +318,8 @@ export class OmashuRemote {
   ah = false;
   /** Which auction window is on the TV, for the trackpad's lever (sheet 21): ImprovedForever's or the game's own. */
   ahWin: AhWindow = null;
+  typing = false;
+  private padAt = -Infinity;
   /** aux's auctionable items, fetched from the laptop while at the auction house (at most every 5 minutes). */
   items: { at: string | null; items: AhItem[] } | null = null;
   /** item id -> Wowhead icon name, for the suggestions' pictures */
@@ -356,6 +377,8 @@ export class OmashuRemote {
   private pace(): number {
     const t = this.o.tickMs ?? { busy: 2000, idle: 10_000 };
     const busy = this.game === 'wow' || this.fire === 'waking' || this.fire === 'sleeping' || this.now() - this.lookedAt < 20_000;
+    // the mouse pad is in use: look more often, so the type slot (sheet 24) rises soon after a WoW box is clicked
+    if (this.game === 'wow' && this.now() - this.padAt < 30_000) return Math.min(t.busy, 700);
     return busy ? t.busy : t.idle;
   }
 
@@ -380,7 +403,7 @@ export class OmashuRemote {
     else { this.forget(); this.book = null; this.bookAskedAt = 0; }
   }
 
-  private forget() { this.ah = false; this.ahWin = null; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
+  private forget() { this.ah = false; this.ahWin = null; this.typing = false; this.session = null; this.after = 0; this.lines = []; this.whispers = 0; this.primed = false; this.guild = null; this.guildParts = null; }
 
   private async follow(): Promise<void> {
     // the book's save only changes on a reload, logout, level-up or bag change, so once a minute is plenty
@@ -410,6 +433,7 @@ export class OmashuRemote {
     if (!b) return;
     this.ah = !!b.ah;
     this.ahWin = this.ah ? b.win ?? null : null;
+    this.typing = !!b.typing;
     if (this.ah && this.now() - this.itemsAskedAt > 300_000) { this.itemsAskedAt = this.now(); const it = await this.laptop.ahItems(); if (it && it.items.length) this.items = it; }
     if (b.session !== this.session) {
       this.forget();
@@ -538,7 +562,7 @@ export class OmashuRemote {
       const after = Number(url.searchParams.get('after')) || 0;
       const s = url.searchParams.get('session');
       const lines = !chat ? [] : (s && s === this.session ? this.lines.filter(l => l.seq > after) : this.lines).slice(-500);
-      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, ahWin: this.ahWin, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
+      json(res, 200, { fire: this.fire, game: this.game, chat, ...(chat ? { session: this.session, whispers: this.whispers, lines, guild: this.guild, ah: this.ah, ahWin: this.ahWin, typing: this.typing, book: this.book ? { level: this.book.level, at: this.book.at } : null } : {}) });
       return;
     }
     // a suggestion's picture (sheet 21): only items on the laptop's list, the icon from Wowhead's store, kept in memory
@@ -626,6 +650,14 @@ export class OmashuRemote {
       json(res, r.ok ? 200 : 409, r);
       return;
     }
+    if (p === '/api/type') {   // typing into a WoW text box (sheet 24): mail, trade, bank
+      const m = typeMsg(await body(req));
+      if (!m) { json(res, 400, { ok: false, why: 'refused' }); return; }
+      if (this.game !== 'wow') { json(res, 409, { ok: false, why: 'not-in-wow' }); return; }
+      const r = await this.laptop.type(m);
+      json(res, r.ok ? 200 : 409, r);
+      return;
+    }
     if (p === '/api/mv') {   // the trackpad's fast lane: {s, n, x, y}, straight on to the laptop as one UDP packet
       const b = await body(req) as { s?: unknown; n?: unknown; x?: unknown; y?: unknown } | null;
       const ok = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
@@ -636,6 +668,7 @@ export class OmashuRemote {
       res.writeHead(204, { 'Cache-Control': 'no-store' }); res.end();
       return;
     }
+    if (p === '/api/mouse' || p === '/api/mv') this.padAt = this.now();
     if (p === '/api/mouse') {
       const m = cleanMouse(await body(req));
       if (!m) { json(res, 400, { ok: false, why: 'refused' }); return; }

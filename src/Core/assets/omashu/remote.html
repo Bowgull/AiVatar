@@ -315,6 +315,17 @@ svg.px{shape-rendering:crispEdges}
 .tpad .put:active{transform:translateY(3px);box-shadow:0 0 0 3px #3a1a08,inset 0 -2px 0 #6a4a1a,inset 0 2px 0 #fff3c0,0 1px 4px #000a}
 .tpad .rail{display:none;gap:10px;position:relative;z-index:1}
 .tpad.at-ah .rail{display:flex}
+/* sheet 24: a WoW text box has the cursor (mail, trade, bank) -> the type slot with Tab and Enter takes the rail */
+.tpad .trail{display:none;gap:8px;position:relative;z-index:1}
+.tpad.typing .trail{display:flex}.tpad.typing .rail{display:none}
+.tpad .tslot{flex:1;min-width:0;height:60px;border-radius:10px;background:#120a05;box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #ffd36b88,0 0 14px #ffd36b33;display:flex;align-items:center;gap:10px;padding:0 12px;animation:trise .22s ease-out}
+.tpad .tslot svg{width:22px;height:22px;flex:none}
+.tpad .tslot input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 17px Figtree,system-ui,sans-serif;color:#f0e2bf;caret-color:#ffd36b;-webkit-user-select:text;user-select:text}
+.tpad .tslot.no{box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #b5413a}
+.tpad .key{width:64px;height:60px;border-radius:10px;flex:none;display:grid;place-items:center;background:linear-gradient(#4a2c16,#331d0e);box-shadow:inset 0 -5px 0 #1e1008,inset 0 2px 0 #6a4424,0 0 0 2px #0a0503;touch-action:none}
+.tpad .key svg{width:30px;height:30px}
+.tpad .key.down{background:linear-gradient(#24140a,#2e1a0c);box-shadow:inset 0 5px 0 #0a0503,inset 0 0 18px #ffd36b33,0 0 0 2px #0a0503}
+@keyframes trise{from{transform:translateY(8px);opacity:0}}
 .tpad .slot{flex:1;min-width:0;height:60px;border-radius:10px;background:#120a05;box-shadow:inset 0 3px 8px #000,inset 0 0 0 2px #3a2412,0 1px 0 #5a3a20;display:flex;align-items:center;gap:10px;padding:0 12px;transition:box-shadow .2s ease-out}
 .tpad .slot svg{width:22px;height:22px;flex:none}
 .tpad .slot input::placeholder{color:#ff9a7a}
@@ -358,7 +369,7 @@ svg.px{shape-rendering:crispEdges}
 .tpad .bar+.bar{border-left:2px solid #0a0503}
 .tpad .bar.down{background:linear-gradient(#24140a,#2e1a0c);box-shadow:inset 0 5px 0 #0a0503,inset 0 0 18px #ffd36b33}
 .tpad.kb{bottom:auto;box-shadow:0 0 0 6px var(--wood),0 0 0 9px var(--wood-dark),inset 0 0 0 2px #120803,0 0 0 100vmax #000d}.tpad.kb .surf,.tpad.kb .bars{display:none}   /* typing: the rest of the screen dims, nothing under it to hit */
-@media (prefers-reduced-motion:reduce){.tpad{animation:none}.tpad .lev .arm,.tpad .lev .ic,.tpad .slot{transition:none}}
+@media (prefers-reduced-motion:reduce){.tpad{animation:none}.tpad .tslot{animation:none}.tpad .lev .arm,.tpad .lev .ic,.tpad .slot{transition:none}}
 /* the Paladin Book's coin (sheet 18 v5): left of the "?", only while Bunji (a paladin) plays */
 .bookcoin{position:absolute;width:56px;height:56px;z-index:3;display:none;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 50% 38%,#c8762c,#8a4214 70%);box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 22px #ffb84a55;place-items:center;animation:bkbr 2.8s ease-in-out infinite}
@@ -607,7 +618,7 @@ const NAME_COLOR={...CLASS_COLOR,SHAMAN:'#3d9bff',DEATHKNIGHT:'#ec4c66',EVOKER:'
 const CLASS_NAME=c=>c?c.charAt(0)+c.slice(1).toLowerCase().replace('knight',' Knight').replace('hunter',c==='DEMONHUNTER'?' Hunter':'hunter'):'';   // sheet 12: the last 4 people, the last 6 lines with each
 const KIND={guild:'g',officer:'o',party:'p',raid:'r',whisper:'w','whisper-out':'w',channel:'gen',system:'sys',yell:'yl',say:''};
 const AH_FILL='#f2d58a',AH_LIT='#ffd36b';
-const chat={ah:false,ahWin:null,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'say'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
+const chat={ah:false,ahWin:null,typing:false,on:false,open:false,session:null,lines:[],tab:'All',seen:{},whispers:0,to:{to:'say'},chans:{},wPerson:null,wSeen:{},wOpen:0,guild:null,guildFolded:false,
   linkColor:{}};
 const short=n=>String(n||'').split('-')[0];
 
@@ -1220,14 +1231,30 @@ function pxArt(rows,ink,hole){return `<svg class="px" viewBox="0 0 12 12">${rows
 const PX_PAD=pxArt(['............','............','..########..','.##########.','##o####o#o##','#ooo#####o##','##o###o##o##','############','###......###','##........##','............','............'],'#ffd36b','#24140a');
 const PX_PTR=pxArt(['.#..........','.##.........','.#o#........','.#oo#.......','.#ooo#......','.#oooo#.....','.#ooooo#....','.#oooooo#...','.#ooo####...','.#o#.#o#....','.##..#o#....','......##....'],'#ffd36b','#fff3c0');
 const PX_CHEV=pxArt(['............','............','............','.##......##.','.###....###.','..###..###..','...######...','....####....','.....##.....','............','............','............'],'#3a1a08');
+const PX_PEN=pxArt(['.........##.','........####','.......####.','......####..','.....####...','....####....','...####.....','..####......','.###........','.##.........','#...........','............'],'#ffd36b');
+const PX_TAB=pxArt(['............','............','#.......#...','#........#..','#.#########.','#........#..','#.......#...','............','............','............','............','............'],'#f0e2bf');
+const PX_ENT=pxArt(['............','..........#.','..........#.','..........#.','...#......#.','..##......#.','.##########.','..##........','...#........','............','............','............'],'#f0e2bf');
 const PX_LENS=pxArt(['............','...####.....','..#....#....','.#......#...','.#......#...','.#......#...','.#......#...','..#....#....','...#####....','.......##...','........##..','.........##.'],'#c8962e');
 const QCOLOR=['#9d9d9d','#ffffff','#1eff00','#0070dd','#a335ee','#ff8000'];
 // the lever: the arm swings the moment it's tapped (Joshua 2026-11-27: waiting upright for WoW felt stuck); the icon
 // lights only once WoW says that window is up. If the laptop refuses, the arm swings back with a red flash; if WoW
 // hasn't confirmed within 4 s, the arm goes back to whatever WoW last said.
 const lev={sending:false,want:null,until:0};
+// Typing into a WoW text box (sheet 24, Joshua 2026-11-27: "trade mail and bank"): the slot shows only while WoW says
+// a box has the cursor. Each change goes out as it's typed (letters added, or backspaces for letters taken back), in
+// order, so what's in the slot is what WoW has. Tab and Enter start a fresh slot: the cursor is in a new box.
+const ty={sent:'',q:Promise.resolve(),until:0};
+function tySend(m){ty.q=ty.q.then(async()=>{let ok=false;try{({ok}=await api('/api/type',m))}catch(e){}
+  if(!ok&&tp.el){const t=tp.el.querySelector('.tslot');t.classList.add('no');setTimeout(()=>t.classList.remove('no'),1200)}})}
+function tyInput(i){const v=i.value,s=ty.sent;let p=0;while(p<v.length&&p<s.length&&v[p]===s[p])p++;
+  const back=s.length-p,add=v.slice(p);ty.sent=v;ty.until=performance.now()+3000;
+  if(back)tySend({k:'back',n:Math.min(60,back)});if(add)tySend({t:add.replace(/[\x00-\x1f|]/g,'').slice(0,60)})}
+function tyKey(k){knock();ty.until=performance.now()+3000;tySend({k});ty.sent='';const i=tp.el&&tp.el.querySelector('.tslot input');if(i)i.value=''}
 function drawRail(){
   const el=tp.el;if(!el)return;el.classList.toggle('at-ah',chat.ah);
+  const typing=chat.typing||performance.now()<ty.until;   // a key just pressed: hold the slot while WoW moves the cursor
+  if(!typing&&el.classList.contains('typing')){const i=el.querySelector('.tslot input');ty.sent='';i.value='';if(document.activeElement===i)i.blur()}
+  el.classList.toggle('typing',typing);
   const L=el.querySelector('.lev'),now=performance.now();
   if(lev.want&&(now>lev.until||chat.ahWin===lev.want&&!lev.sending))lev.want=null;
   const side=lev.want||chat.ahWin;
@@ -1327,6 +1354,8 @@ function openPad(){if(tp.el)return;tp.on=true;
   el.innerHTML=`${[1,2,3,4].map(n=>`<div class="corner c${n}"><i></i><i></i><i></i></div>`).join('')}<div class="put">${PX_CHEV}</div>
   <div class="rail"><label class="slot">${PX_LENS}<input type="text" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="60"></label>
   <div class="lev"><div class="ic a">${PX_PAD}</div><div class="ic b">${PX_PTR}</div><div class="hub"></div><div class="arm"></div></div></div>
+  <div class="trail"><label class="tslot">${PX_PEN}<input type="text" enterkeyhint="enter" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" maxlength="200"></label>
+  <div class="key" data-k="tab">${PX_TAB}</div><div class="key" data-k="enter">${PX_ENT}</div></div>
   <div class="sugg"></div><div class="surf"><div class="tpno"></div></div><div class="bars"><div class="bar" data-b="l"></div><div class="bar" data-b="r"></div></div>`;
   app.appendChild(el);tp.el=el;
   el.querySelector('.put').addEventListener('click',()=>{knock();closePad()});
@@ -1336,6 +1365,15 @@ function openPad(){if(tp.el)return;tp.on=true;
   i.addEventListener('blur',()=>setTimeout(()=>{if(!tp.el||document.activeElement===i||ahBusy)return;el.classList.remove('kb');drawSugg();settle()},300));
   i.addEventListener('input',drawSugg);
   i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ahSearch(i.value)}});
+  const ti=el.querySelector('.tslot input');
+  ti.addEventListener('focus',()=>el.classList.add('kb'));
+  ti.addEventListener('blur',()=>setTimeout(()=>{if(!tp.el||document.activeElement===ti)return;el.classList.remove('kb');settle()},300));
+  ti.addEventListener('input',()=>tyInput(ti));
+  ti.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();tyKey('enter')}});
+  el.querySelectorAll('.key').forEach(k=>{   // pressed without taking the keyboard away from the slot
+    k.addEventListener('pointerdown',e=>{e.preventDefault();k.classList.add('down')});
+    const off=()=>k.classList.remove('down');k.addEventListener('pointercancel',off);
+    k.addEventListener('pointerup',e=>{e.preventDefault();off();tyKey(k.dataset.k)})});
   el.querySelectorAll('.bar').forEach(b=>{
     const up=e=>{if(!b.classList.contains('down'))return;b.classList.remove('down');tpPush({b:b.dataset.b,d:false})};
     b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('down');knock();tpPush({b:b.dataset.b,d:true})});
@@ -1380,7 +1418,7 @@ async function poll(){
   if(ok){
     if(performance.now()>S.heldUntil){const want=j.fire==='lit'||j.fire==='waking'?1:0;if(!S.known){S.known=true;S.lv=want}if(want!==S.target){S.target=want;if(want===0)S.touch=null}}
     const was=chat.on;chat.on=!!j.chat;coin.classList.toggle('on',chat.on);showBookCoin(j);mouseCoin.classList.toggle('on',chat.on);if(!chat.on&&tp.el)closePad();
-    if(!chat.on){chat.ah=false;chat.ahWin=null;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
+    if(!chat.on){chat.ah=false;chat.ahWin=null;chat.typing=false;if(was){closeChat();chat.lines=[];chat.session=null;chat.whispers=0}}
     else{
       const newSession=j.session!==chat.session;if(newSession){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
       if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
@@ -1391,12 +1429,12 @@ if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);
         for(const l of j.lines)if(l.chan)chat.chans[l.chan.num]=l.chan.name}
       chat.whispers=chat.open&&chat.tab==='Whispers'&&j.whispers?(seenWhispers(),0):j.whispers||0;showBadge();
       // the auction house and which window is up: the mouse pad's search slot and lever (sheet 21)
-      const ah=!!j.ah;chat.ahWin=ah&&(j.ahWin==='improved'||j.ahWin==='game')?j.ahWin:null;if(ah!==chat.ah){chat.ah=ah;if(ah)loadItems()}if(tp.el)drawRail();
+      const ah=!!j.ah;chat.ahWin=ah&&(j.ahWin==='improved'||j.ahWin==='game')?j.ahWin:null;if(ah!==chat.ah){chat.ah=ah;if(ah)loadItems()}chat.typing=j.typing===true;if(tp.el)drawRail();
       const gChanged=JSON.stringify(j.guild??null)!==JSON.stringify(chat.guild);chat.guild=j.guild??null;if(chat.open&&gChanged&&rosterEl)drawRoster();
       if(chat.open&&(j.lines&&j.lines.length||!was||newSession))render(newSession)}
     place();
   }
-  }finally{polling=false;pollT=setTimeout(poll,document.hidden?5000:1500)}
+  }finally{polling=false;pollT=setTimeout(poll,document.hidden?5000:tp.el?700:1500)}
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
 poll();

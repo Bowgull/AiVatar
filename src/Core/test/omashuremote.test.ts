@@ -318,6 +318,21 @@ test('auction search (sheet 14): the tab follows the auction house, the search r
     await until(async () => (await r.poll()).ahWin === 'game');
     r.lap.win = 'nonsense' as never;
     await until(async () => (await r.poll()).ahWin === null);
+    // typing into any game text box (sheet 24): mail, trade, bank; the phone hears when a box has the keyboard
+    assert.equal((await r.as(JOSH).post('/api/type', { t: 'Bunji' })).status, 409, 'no game box: nothing typed');
+    r.lap.typing = true;
+    await until(async () => (await r.poll()).typing === true);
+    assert.equal((await r.as(JOSH).post('/api/type', { t: 'Bunji' })).status, 200);
+    assert.equal((await r.as(JOSH).post('/api/type', { k: 'tab' })).status, 200);
+    assert.equal((await r.as(JOSH).post('/api/type', { k: 'back', n: 2 })).status, 200);
+    assert.deepEqual(r.lap.typed, [{ t: 'Bunji' }, { k: 'tab' }, { k: 'back', n: 2 }]);
+    for (const bad of [{}, { t: '' }, { t: 'a\nb' }, { t: 'a|c' }, { k: 'f4' }, { k: 'back' }, { k: 'back', n: 99 }, { t: 'x'.repeat(61) }]) {
+      assert.equal((await r.as(JOSH).post('/api/type', bad)).status, 400, JSON.stringify(bad));
+    }
+    assert.equal((await r.as(GUEST).post('/api/type', { t: 'x' })).status, 403, 'a phone without chat cannot type');
+    assert.equal(r.lap.typed.length, 3, 'nothing refused reached the laptop');
+    r.lap.typing = false;
+    await until(async () => (await r.poll()).typing === false);
     assert.equal((await r.as(GUEST).post('/api/ah', { swap: true })).status, 403, 'a phone without chat cannot switch');
     assert.equal((await r.as(JOSH).post('/api/ah', { swap: 'yes' })).status, 400, 'only swap:true switches');
     assert.equal(r.lap.swaps, 1);
