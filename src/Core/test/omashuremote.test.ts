@@ -338,6 +338,21 @@ test('paladin book (sheet 18): made from OmaBook\'s save while WoW runs, only fo
     assert.equal(icon.status, 200); assert.equal(icon.headers.get('content-type'), 'image/jpeg');
     assert.equal((await r.as(JOSH).get('/book/icons/..%2Fremote.jpg')).status, 404, 'only plain icon names');
     assert.equal((await r.as(JOSH).get('/book/icons/nope_not_here.jpg')).status, 404);
+    // a blip (a loading screen, a busy moment): the laptop misses a look or two; the book and chat stay (2026-11-26)
+    const missed = r.remote['misses'] as number;
+    r.lap.awake = false;
+    await until(() => (r.remote['misses'] as number) >= missed + 2);
+    r.lap.awake = true;
+    const p = await r.poll() as { chat: boolean; fire: string; book?: { level: number } | null };
+    assert.equal(p.chat, true, 'chat stays through a blip'); assert.equal(p.fire, 'lit'); assert.equal(p.book?.level, 23, 'the book stays through a blip');
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 200);
+    await until(() => r.remote['misses'] === 0);
+    // a laptop that stays silent is gone: fire out, book closed
+    r.lap.awake = false;
+    await until(async () => (await r.poll()).fire === 'out');
+    assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'silent laptop: the book closes');
+    r.lap.awake = true;
+    await until(async () => (await r.poll()).chat === true);
     r.lap.stopWow();
     await until(async () => (await r.poll()).chat === false);
     assert.equal((await r.as(JOSH).get('/api/book')).status, 404, 'WoW closed: the book closes too');

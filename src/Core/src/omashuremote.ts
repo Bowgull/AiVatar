@@ -208,6 +208,7 @@ export class Wowhead {
 // ------------------------------------------------------------------ the service
 
 export type Fire = 'out' | 'waking' | 'lit' | 'sleeping';
+const MISS_GRACE = 3;   // three missed looks in a row (about 10 s) before WoW counts as gone
 const WAKE_GIVE_UP_MS = 120_000;
 const SLEEP_GIVE_UP_MS = 150_000;   // Couch Mode waits up to 90 s for Zelda to close, then forces it
 const KEEP_LINES = 2000;
@@ -241,6 +242,7 @@ export class OmashuRemote {
   fire: Fire = 'out';
   game: 'zelda' | 'wow' | null = null;
   private since = 0;          // when 'waking' or 'sleeping' began
+  private misses = 0;         // answers in a row the laptop did not give while WoW was running
   private lookedAt = 0;       // the last time a phone asked
   private session: string | null = null;
   private after = 0;
@@ -300,6 +302,11 @@ export class OmashuRemote {
   /** One look at the laptop: is it up, what game, and any new chat. */
   async tick(): Promise<void> {
     const st = await this.laptop.state();
+    // A laptop in a loading screen or a busy moment can miss an answer or two. While WoW was running, ride that out
+    // (keep the game, the chat and the book as they were) instead of tearing the phone's book and chat down.
+    if (st === null && this.game === 'wow' && this.fire === 'lit' && ++this.misses < MISS_GRACE) return;
+    if (st !== null && this.misses) { this.log(`the laptop missed ${this.misses} answers in a row, then came back`); this.misses = 0; }
+    if (st === null && this.misses >= MISS_GRACE) { this.log(`the laptop stopped answering (${this.misses} misses): fire out`); this.misses = 0; }
     const up = st !== null && !st.dark, now = this.now();       // lit: it answers and is not dark
     if (this.fire === 'waking') { if (up) this.fire = 'lit'; else if (now - this.since > WAKE_GIVE_UP_MS) { this.fire = 'out'; this.log('woke nothing: the laptop stayed dark or did not answer'); } }
     else if (this.fire === 'sleeping') { if (!up) this.fire = 'out'; else if (now - this.since > SLEEP_GIVE_UP_MS) this.fire = 'lit'; }

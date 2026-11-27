@@ -501,7 +501,7 @@ function fit(){const k=3;cv.style.width=PW*k+'px';cv.style.height=PH*k+'px';cv.s
 fit();addEventListener('resize',fit);
 
 const api=(p,body)=>fetch(p,body===undefined?{cache:'no-store'}:{method:'POST',headers:{'x-omashu':'1','Content-Type':'application/json'},body:JSON.stringify(body)})
-  .then(r=>r.json().then(j=>({ok:r.ok,j}),()=>({ok:r.ok,j:{}}))).catch(()=>({ok:false,j:{}}));
+  .then(r=>r.json().then(j=>({ok:r.ok,status:r.status,j}),()=>({ok:r.ok,status:r.status,j:{}}))).catch(()=>({ok:false,status:0,j:{}}));
 
 // ---------- the controls sheet ----------
 const openSheet=()=>{if(app.querySelector('.sheet'))return;app.appendChild($('div','dim'));app.insertAdjacentHTML('beforeend',document.getElementById('sheet').innerHTML)};
@@ -1089,8 +1089,8 @@ async function openBook(){if(book.host)return;
   const sh=host.attachShadow({mode:'open'});sh.innerHTML=`<style>${BOOK_CSS}</style><div class="sheet"><div class="grip"></div><div class="body"></div></div>`;
   book.tab='now';await loadBook()}
 function closeBook(){if(!book.host)return;book.host.remove();book.host=null;app.querySelectorAll('.dim').forEach(n=>n.remove())}
-async function loadBook(){const {ok,j}=await api('/api/book');if(!book.host)return;
-  if(!ok){closeBook();return}book.data=j;drawBook()}
+async function loadBook(){const {ok,status,j}=await api('/api/book');if(!book.host)return;
+  if(!ok){if(status===404||!book.data)closeBook();return}book.data=j;drawBook()}   // a blip keeps the page you are reading
 function drawBook(){const B=book.data,root=book.host.shadowRoot,body=root.querySelector('.body');
   body.style.cssText='display:flex;flex-direction:column;flex:1;min-height:0';
   body.innerHTML=`<div class="head"><img src="${BI('classicon_paladin')}" alt=""><div style="flex:1"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${B.zone?' · '+esc(B.zone):''}</div><div class="xp"><i style="width:${B.xpPct}%"></i></div></div></div>
