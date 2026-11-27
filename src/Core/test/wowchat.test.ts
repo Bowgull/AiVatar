@@ -67,6 +67,12 @@ test('swipe order: the busy rows, as the list shows them', () => {
   assert.deepEqual(C.busyOrder(C.rows(BASE, seen, 'Bunji')), [], 'nothing busy: nothing to swipe to');
 });
 
+test('swipe order while reading: the open one stays, the order holds, newly busy ones join at the end', () => {
+  assert.deepEqual(C.swipeOrder([], ['w:Hadrik', 'guild'], 'gen'), ['gen', 'w:Hadrik', 'guild'], 'a quiet channel opened from the list can still swipe on');
+  assert.deepEqual(C.swipeOrder(['w:Hadrik', 'guild'], ['guild', 'def'], 'w:Hadrik'), ['w:Hadrik', 'guild', 'def'], 'read ones stay put, Defense joins');
+  assert.deepEqual(C.swipeOrder(['guild'], [], 'guild'), ['guild'], 'alone: no dots');
+});
+
 test('reply goes to the channel being read; Everything goes to Say', () => {
   assert.deepEqual(C.replyTo('all', BASE, {}), { to: 'say' });
   assert.deepEqual(C.replyTo('w:Hadrik', BASE, {}), { to: 'whisper', name: 'Hadrik' });

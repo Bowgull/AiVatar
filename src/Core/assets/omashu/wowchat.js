@@ -92,6 +92,14 @@
   }
   /** The busy rows you swipe through inside a channel, in list order. */
   function busyOrder(list) { return list.fresh.map(function (r) { return r.id; }); }
+  /** The swipe order while reading: the one being read stays in it, the order already shown stays put, and channels
+   *  that got busy since are added at the end (a new line never reshuffles the dots under a finger). */
+  function swipeOrder(order, busy, current) {
+    var out = (order || []).slice();
+    if (current && out.indexOf(current) < 0) out.unshift(current);
+    for (var i = 0; i < busy.length; i++) if (out.indexOf(busy[i]) < 0) out.push(busy[i]);
+    return out;
+  }
   /** Who a reply goes to: the channel being read. Everything (and anything without a place) goes to Say. */
   function replyTo(id, lines, chans) {
     if (!id || id === 'all') return { to: 'say' };
@@ -115,5 +123,5 @@
     var c = CHANS.filter(function (x) { return x.id === id; })[0] || { name: id, col: '#efe6d2' };
     return { name: c.name, col: c.col, sub: 'replies go here' };
   }
-  root.WowChat = { CHANS: CHANS, chanOf: chanOf, inChan: inChan, tagOf: tagOf, plain: plain, unread: unread, initSeen: initSeen, rows: rows, busyOrder: busyOrder, replyTo: replyTo, hint: hint, info: info, short: short };
+  root.WowChat = { CHANS: CHANS, chanOf: chanOf, inChan: inChan, tagOf: tagOf, plain: plain, unread: unread, initSeen: initSeen, rows: rows, busyOrder: busyOrder, swipeOrder: swipeOrder, replyTo: replyTo, hint: hint, info: info, short: short };
 })(typeof window !== 'undefined' ? window : globalThis);

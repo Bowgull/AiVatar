@@ -648,7 +648,7 @@ requestAnimationFrame(loop);
 // ---------- WoW chat (sheets 06, 28 C; Joshua's phone only, while WoW is up): the WoW home's Chat page ----------
 // A Messages-style list (Everything on top, then NEW, then QUIET); tap a row to read it, the back arrow to return, and
 // inside, swipe left or right to the next busy one. What you type goes to the channel you're reading (no picker;
-// Everything goes to Say). The list, counts and reply targets are wowchat.js (tested in omashuremote.test.ts).
+// Everything goes to Say). The list, counts and reply targets are wowchat.js (tested in wowchat.test.ts).
 // WoW's own class colours (RAID_CLASS_COLORS), for the guild list
 const CLASS_COLOR={WARRIOR:'#C69B6D',MAGE:'#3FC7EB',ROGUE:'#FFF468',DRUID:'#FF7C0A',HUNTER:'#AAD372',SHAMAN:'#0070DD',PRIEST:'#FFFFFF',WARLOCK:'#8788EE',PALADIN:'#F48CBA',DEATHKNIGHT:'#C41E3A',MONK:'#00FF98',DEMONHUNTER:'#A330C9',EVOKER:'#33937F'};
 // names only: the three class colours under 4.5:1 on the log get a lighter shade of the same hue (size pass 2026-11-13)
@@ -691,7 +691,8 @@ function rowEl(r){
   return d}
 function openConvo(id,dir){
   if(!chatWrap)return;
-  if(chat.view==='list'||!chat.order.includes(id))chat.order=W.busyOrder(chatRows());   // the busy ones, as the list showed them
+  // the busy ones, as the list showed them (and the one opened, even a quiet one)
+  chat.order=W.swipeOrder(chat.view==='list'||!chat.order.includes(id)?[]:chat.order,W.busyOrder(chatRows()),id);
   if(logRO)logRO.disconnect();closeMenus();
   chat.view=id;chat.to=W.replyTo(id,chat.lines,chat.chans);chatWrap.textContent='';listEl=null;listSig='';
   const inf=W.info(id),top=$('div','ctop'+(dir?' '+dir:''));
@@ -738,6 +739,7 @@ function render(full){
   if(stick)logEl.scrollTop=logEl.scrollHeight;
   chat.seen[id]=chat.lines.length?chat.lines[chat.lines.length-1].seq:0;
   if(chat.whispers&&!unreadWhispers())seenWhispers();
+  chat.order=W.swipeOrder(chat.order,W.busyOrder(chatRows()),id);   // a channel that got busy meanwhile joins the swipe
   drawDots();box.placeholder=W.hint(id);updateBadges()}
 // the keyboard: the home fits the part of the screen still showing (the reply box just above the keys); the log shrinks
 function fitPanel(){
@@ -1236,7 +1238,7 @@ function drawNow(){
   const dets=(B&&B.detours)||[];
   if(dets.length){h+=`<div class="k" style="margin-top:14px">Worth a detour <b>${dets.every(d=>d.dps)?'for your weapon':'near your level'}</b></div>`;
     for(const d of dets)h+=`<div class="dtc"><div class="top"><img class="rw" src="${BI(d.icon)}" alt=""><div><div class="ti">${esc(d.name)}</div><div class="rwn">${esc(d.reward)}${d.dps?' · '+d.dps.toFixed(1)+' DPS':d.stats?' · '+esc(d.stats):''}</div><div class="de">${esc(detourWhere(d,B))}</div></div>${d.gain?`<div class="gain">×${d.gain.toFixed(1)}<small>vs your ${esc(B.weapon.word)}</small></div>`:''}</div>
-      <div class="pgo${home.sent[d.id]?' sent':''}" data-q="${d.id}">${home.sent[d.id]?TICK+'Polestar opened a tab for it':STAR+'Add to Polestar'}</div></div>`}
+      <div class="pgo${home.sent[d.id]?' sent':''}" data-q="${d.id}">${home.sent[d.id]?TICK+'Sent to Polestar':STAR+'Add to Polestar'}</div></div>`}
   w.innerHTML=h;w.scrollTop=top;
   w.querySelectorAll('img').forEach(im=>im.addEventListener('error',()=>{const s=$('span','noimg');s.className=im.className+' noimg';im.replaceWith(s)},{once:true}));
   w.querySelectorAll('.it').forEach(e=>e.addEventListener('click',()=>{const a=errands(),m=a[+e.dataset.i];if(!m)return;knock();m.done=!m.done;saveErrands(a);e.classList.toggle('done',m.done);home.nowSig=nowSig()}));
@@ -1247,7 +1249,7 @@ function drawNow(){
 async function addPolestar(id,el){
   if(home.sent[id]||el.classList.contains('busy')||el.classList.contains('no'))return;knock();el.classList.add('busy');
   const {ok,j}=await api('/api/send',{omq:id});el.classList.remove('busy');
-  if(ok){home.sent[id]=true;el.classList.add('sent');el.innerHTML=TICK+'Polestar opened a tab for it';home.nowSig=nowSig();return}
+  if(ok){home.sent[id]=true;el.classList.add('sent');el.innerHTML=TICK+'Sent to Polestar';home.nowSig=nowSig();return}
   el.classList.add('no');el.textContent=j&&j.why==='refused'?'WoW won’t take that yet':j&&j.why==='not-in-wow'?'WoW is not up':'Not sent, try again';
   setTimeout(()=>{if(!el.isConnected)return;el.classList.remove('no');el.innerHTML=STAR+'Add to Polestar'},2500)}
 // adding an errand: the auction search's suggestions, pictures and prices, then how many
