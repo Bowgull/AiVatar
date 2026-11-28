@@ -118,7 +118,6 @@ svg.ic{width:34px;height:34px;display:block;margin:0 auto}
 .emsheet .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
 .emsheet .gh{color:#ffd36b;font-size:14px;font-weight:600;margin:10px 4px 5px}.emsheet .gh:first-child,.emsheet .head+.gh{margin-top:2px}
 .emsheet .tile{font-size:15px;padding:14px 2px 13px}
-.emsheet .tile.reload{margin-top:8px}
 /* emotes aimed at a name */
 .at{margin:10px 6px 4px;color:#e4c9a0;font-size:13px}
 .menu .tray{margin:0;padding:0;background:none;box-shadow:none;grid-template-columns:repeat(4,1fr);gap:5px}
@@ -313,6 +312,20 @@ svg.px{shape-rendering:crispEdges}
 .wh .xp{height:7px;border-radius:4px;background:#d9c49a;margin-top:4px;overflow:hidden}.wh .xp i{display:block;height:100%;background:linear-gradient(90deg,#8a3ccf,#c87af0)}
 .wh .well{flex:1;min-height:0;margin:0 10px;background:#0d0906;border-radius:16px;box-shadow:inset 0 0 0 3px #2a1a0e;padding:11px;overflow:auto;color:#f0e2bf;scrollbar-width:none;position:relative;touch-action:pan-y;-webkit-overflow-scrolling:touch}
 .wh .well::-webkit-scrollbar{display:none}
+/* sheet omashu/remote/29 (Joshua 2026-11-27): the brass Reload key, top right of the header on every page.
+   Hold it: the gold ring fills in 500 ms, then WoW reloads. Let go early and the ring drains (160 ms). */
+.wh .rl{--p:0;position:relative;width:46px;height:46px;flex:none;border-radius:50%;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  background:conic-gradient(#ffd36b calc(var(--p)*1turn),#5a3412 0);padding:3px;box-shadow:0 0 0 2px #2a1205}
+.wh .rl .face{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 35%,#e0b04a,#a8701e 62%,#7a4a10);box-shadow:inset 0 -3px 0 #5a3208,inset 0 2px 0 #ffe9a866;transition:transform .06s}
+.wh .rl.down .face{transform:translateY(1px);box-shadow:inset 0 -1px 0 #5a3208,inset 0 2px 0 #ffe9a866}
+.wh .rl svg{width:24px;height:24px;shape-rendering:crispEdges;transition:transform .5s cubic-bezier(.3,1.4,.6,1)}
+.wh .rl.fired{box-shadow:0 0 0 2px #2a1205,0 0 18px #ffd36b}
+.wh .rl.fired .face{background:radial-gradient(circle at 50% 35%,#fff0b0,#ffd36b 55%,#c8962e)}
+.wh .rl.fired svg{transform:rotate(360deg)}
+.wh .rl.wait .face{animation:rlbr 2.8s ease-in-out infinite}
+@keyframes rlbr{0%,100%{box-shadow:inset 0 -3px 0 #5a3208,0 0 0 #ffd36b00}50%{box-shadow:inset 0 -3px 0 #5a3208,0 0 14px #ffd36b99}}
+@media (prefers-reduced-motion:reduce){.wh .rl svg{transition:none}.wh .rl.fired svg{transform:none}.wh .rl.wait .face{animation:none;box-shadow:inset 0 -3px 0 #5a3208,0 0 10px #ffd36b88}}
 .wh .well.flush{padding:0;overflow:hidden;display:flex;flex-direction:column}
 .wh .hbar{flex:none;display:flex;gap:6px;padding:9px 12px 12px}
 .wh .bk{flex:1;height:58px;border-radius:13px;background:#e7d8b4;box-shadow:inset 0 -4px 0 #0002;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative;
@@ -898,12 +911,8 @@ function showMore(name){
   const chips=$('div','chips');
   for(const p of CAT.pages){const c=$('div','chip',p.name);c.addEventListener('click',()=>{emPage=p.name;emQuery='';sb.value='';draw();c.scrollIntoView({inline:'center',block:'nearest'})});chips.appendChild(c)}
   const grid=$('div','grid'),note=$('div','enote');
-  // Reload WoW's interface (Joshua 2026-11-11), not an emote: asked once more first, so a stray tap can't do it
-  const rl=$('div','tile more reload','Reload WoW');rl.addEventListener('click',()=>{const m=menuShell("Reload WoW's interface?",'Takes a few seconds');
-    // sheet omashu/remote/16 (Joshua 2026-11-11: "Yes that looks perfect"): one big gold Reload, a small quiet Cancel
-    const yes=$('div','yes','Reload');yes.addEventListener('click',()=>{closeMenus();knock();api('/api/send',{act:'reload'})});m.appendChild(yes);
-    const no=$('div','no','Cancel');no.addEventListener('click',closeMenus);m.appendChild(no)});
-  moreEl.append(sb,chips,grid,note,...(name?[]:[rl]));
+  // Reload WoW moved to the home header's hold key (sheet 29, Joshua 2026-11-27)
+  moreEl.append(sb,chips,grid,note);
   function draw(){
     const q=emQuery.trim().toLowerCase();
     const list=q?ALL.filter(c=>(LABEL[c]||c).toLowerCase().includes(q)).slice(0,12):((CAT.pages.find(p=>p.name===emPage)||{emotes:[]}).emotes.map(e=>e[1]));
@@ -1185,10 +1194,32 @@ function showPage(p,first){
   else if(p==='pad')openPad(w);
   else drawBookPage();
 }
+// sheet 29: hold the brass key 500 ms to reload WoW (the 12x12 pixel arrow drawn 2x)
+const RL_ARROW=["...####.....",".######.....",".##......##.","##......####","##.......##.","##.......##.","##.......##.","##.......##.",".##.....##..","..#######...","...#####....","............"];
+const reloadKey={node:null,holding:false,busy:false,p:0,raf:0,t0:0,
+  el(){if(this.node)return this.node;
+    let r='';RL_ARROW.forEach((row,y)=>[...row].forEach((c,x)=>{if(c==='#')r+=`<rect x="${x}" y="${y}" width="1" height="1"/>`}));
+    const k=$('div','rl');k.innerHTML=`<div class="face"><svg viewBox="0 0 12 12" fill="#3a1e06">${r}</svg></div>`;
+    k.setAttribute('role','button');k.setAttribute('aria-label','Hold to reload WoW');
+    const set=v=>{this.p=v;k.style.setProperty('--p',v)};
+    const tick=()=>{set(Math.min(1,(performance.now()-this.t0)/500));if(this.p>=1)return fire();this.raf=requestAnimationFrame(tick)};
+    const fire=()=>{this.holding=false;this.busy=true;k.classList.remove('down');k.classList.add('fired','wait');k.querySelector('svg').style.fill='#6a3a08';
+      try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}knock();api('/api/send',{act:'reload'}).catch(()=>{});
+      // WoW takes a few seconds; the key glows steady, then it's ready again
+      setTimeout(()=>{k.classList.remove('fired','wait');k.querySelector('svg').style.fill='';set(0);this.busy=false},6000)};
+    const drain=()=>{cancelAnimationFrame(this.raf);this.holding=false;k.classList.remove('down');const s0=this.p,t=performance.now();
+      const d=()=>{const q=Math.max(0,s0*(1-(performance.now()-t)/160));set(q);if(q>0)this.raf=requestAnimationFrame(d)};d()};
+    k.addEventListener('pointerdown',e=>{if(this.busy)return;e.preventDefault();e.stopPropagation();try{k.setPointerCapture(e.pointerId)}catch(_){}
+      cancelAnimationFrame(this.raf);this.holding=true;k.classList.add('down');this.t0=performance.now()-this.p*500;this.raf=requestAnimationFrame(tick)});
+    for(const n of['pointerup','pointercancel','lostpointercapture'])k.addEventListener(n,()=>{if(this.holding&&this.p<1)drain()});
+    k.addEventListener('contextmenu',e=>e.preventDefault());
+    return this.node=k}};
 function drawHead(){
   if(!home.el)return;const h=home.el.querySelector('.head'),B=book.data,zone=chat.zone||(B&&B.zone)||'';
-  h.innerHTML=B?`<img src="${BI('classicon_paladin')}" alt=""><div class="hw"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${zone?' · '+esc(zone):''}</div><div class="xp"><i style="width:${Math.max(0,Math.min(100,B.xpPct||0))}%"></i></div></div>`
-    :`<div class="hw"><div class="nm">World of Warcraft</div><div class="sub">${book.level?'Level '+book.level+(zone?' · ':''):''}${esc(zone)}</div></div>`}
+  const html=B?`<img src="${BI('classicon_paladin')}" alt=""><div class="hw"><div class="nm">${esc(B.name)} <small>Paladin</small></div><div class="sub">Level ${B.level}${B.spec?' '+esc(B.spec):''}${zone?' · '+esc(zone):''}</div><div class="xp"><i style="width:${Math.max(0,Math.min(100,B.xpPct||0))}%"></i></div></div>`
+    :`<div class="hw"><div class="nm">World of Warcraft</div><div class="sub">${book.level?'Level '+book.level+(zone?' · ':''):''}${esc(zone)}</div></div>`;
+  if(html===h.dataset.html&&h.querySelector(".rl"))return;if(reloadKey.holding&&h.contains(reloadKey.node))return;
+  h.dataset.html=html;h.innerHTML=html;h.appendChild(reloadKey.el())}
 function drawBar(){
   if(!home.el)return;const bar=home.el.querySelector('.hbar'),pages=homePages();
   if(bar.dataset.p!==pages.join()){bar.dataset.p=pages.join();
