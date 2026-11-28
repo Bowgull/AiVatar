@@ -367,6 +367,8 @@ export class OmashuRemote {
   items: { at: string | null; items: AhItem[] } | null = null;
   /** item id -> Wowhead icon name, for the suggestions' pictures */
   private itemIcons = new Map<number, string | null>();
+  /** 'item123' -> Wowhead icon name, for links in chat (sheet 30) */
+  private linkIcons = new Map<string, string | null>();
   private itemsAskedAt = 0;
   /** The Paladin Book (sheet 18): made from the newest OmaBook save while WoW runs; null when that save isn't a paladin. */
   book: BookView | null = null;
@@ -638,6 +640,19 @@ export class OmashuRemote {
       if (!this.items?.items.some(x => x[3] === id)) { res.writeHead(404).end(); return; }
       let name = this.itemIcons.get(id);
       if (name === undefined) { const t = await this.wowhead.byId('item', id); name = t?.icon ?? null; this.itemIcons.set(id, name); if (this.itemIcons.size > 2000) this.itemIcons.delete(this.itemIcons.keys().next().value!); }
+      const img = name ? await this.iconFromWowhead(name) : null;
+      if (img) send(res, 200, img, 'image/jpeg', { 'Cache-Control': 'max-age=604800' }); else res.writeHead(404).end();
+      return;
+    }
+    // a link's picture in chat (sheet 30): only an item or spell someone linked in the lines held here, its icon from Wowhead
+    const linkPic = /^\/api\/link\/(item|spell)\/(\d{1,7})\.jpg$/.exec(p);
+    if (req.method === 'GET' && linkPic) {
+      if (!phone.chat) { res.writeHead(403).end(); return; }
+      const kind = linkPic[1] as 'item' | 'spell', id = Number(linkPic[2]);
+      if (!this.lines.some(l => l.text.some(g => 'link' in g && g.link === kind && g.id === id))) { res.writeHead(404).end(); return; }
+      const key = kind + id;
+      let name = this.linkIcons.get(key);
+      if (name === undefined) { const t = await this.wowhead.byId(kind, id); name = t?.icon ?? null; this.linkIcons.set(key, name); if (this.linkIcons.size > 2000) this.linkIcons.delete(this.linkIcons.keys().next().value!); }
       const img = name ? await this.iconFromWowhead(name) : null;
       if (img) send(res, 200, img, 'image/jpeg', { 'Cache-Control': 'max-age=604800' }); else res.writeHead(404).end();
       return;

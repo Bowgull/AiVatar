@@ -35,10 +35,16 @@ const say = [
   '[Guild] Bujuju Banton: thanks all',
   'Hadrik Stone whispers: bring a mage too if you can',
   '[4. LookingForGroup] Ana Reyes: LF2M Deadmines, need heals',
+  'To Hadrik Stone: yeah once I hit 18',
+  'Hadrik Stone whispers: perfect, got a spare |cff1eff00|Hitem:2289::::::::12:::::::|h[Scroll of Strength II]|h|r if you want it',
 ];
+// the speakers' classes, as the strip carries them (sheet 30's crests and name colours)
+const CLS: Record<string, string> = { 'Thornwick Vale': 'ROGUE', 'Morrowyn Ash': 'MAGE', Bellacoin: 'ROGUE', 'Hadrik Stone': 'WARRIOR', 'Bujuju Banton': 'WARLOCK', 'Ana Reyes': 'SHAMAN' };
+const clsOf = (l: string) => Object.keys(CLS).find(n => l.includes(n + ':') || l.startsWith(n + ' whispers'));
+const say1 = (l: string) => { const n = clsOf(l); lap.log(l, new Date(), n ? CLS[n] : undefined); };
 let i = 0;
-for (; i < 9; i++) lap.log(say[i]);
+for (; i < 12; i++) say1(say[i]);
 // the guild list, as OmashuChatLog sends it (sheet 11)
 const GUILD = ['Morrowyn Ash|14|MAGE|Silverpine Forest', 'Hadrik Stone|12|WARRIOR|Undercity', 'Thornwick Vale|9|ROGUE|Tirisfal Glades', 'Ana Reyes|8|SHAMAN|Durotar', 'Bujuju Banton|7|WARLOCK|Tirisfal Glades'];
 GUILD.forEach((g, k) => lap.log(`{omashu-guild} 1 ${k + 1}/${GUILD.length} ${g}`));
-setInterval(() => { if (lap.game === 'wow') lap.log(say[i++ % say.length]); }, 8000);
+setInterval(() => { if (lap.game === 'wow') say1(say[i++ % say.length]); }, 8000);

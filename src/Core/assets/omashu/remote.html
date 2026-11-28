@@ -481,6 +481,77 @@ svg.px{shape-rendering:crispEdges}
 .csug svg{width:18px;height:18px;flex:none}
 .l.echo{color:#b8a27a;font:600 13px "Pixelify Sans";letter-spacing:.3px;margin-top:6px}
 @media (prefers-reduced-motion:reduce){.tray .tile.down{transform:none}}
+/* sheet omashu/remote/30 (Joshua 2026-11-27, look A): class crests for people, pixel emblems for channels in the game's
+   colours, new chats glow warm; whispers and Party as leather and brass bubbles, busy channels as a log grouped by person;
+   item links as chips with their picture */
+.wh .clist{padding:6px 0}
+.wh .cv{position:relative;background:none;box-shadow:none;border-radius:0;margin:0;padding:9px 14px;gap:12px;min-height:62px}
+.wh .cv+.cv::before{content:"";position:absolute;left:68px;right:14px;top:0;height:1px;background:#241810}
+.wh .cv:active{background:#ffffff08}
+.wh .cv.fresh{background:linear-gradient(90deg,#ffb84a14,transparent 70%)}
+.wh .cv.fresh::after{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;background:var(--hot);box-shadow:0 0 8px var(--hot)}
+.wh .cv.quiet{opacity:1}.wh .cv.quiet .n span,.wh .cv.quiet .p{opacity:.55}
+.wh .cv .u{box-shadow:0 0 0 2px #0d0906}
+.wh .sep{display:flex;align-items:center;gap:8px;font:600 11px "Pixelify Sans";letter-spacing:1.4px;color:#7d6c52;padding:10px 14px 6px;margin:0}
+.wh .sep::after{content:"";flex:1;height:2px;background:repeating-linear-gradient(90deg,#2e2015 0 4px,transparent 4px 8px)}
+.crest{width:42px;height:42px;border-radius:50%;flex:none;padding:3px;background:linear-gradient(#e0b04a,#8a5a18);box-shadow:0 0 0 2px #2a1205;display:grid;place-items:center}
+.crest img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}
+.crest b{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;background:#2a1a0e;font:600 15px "Pixelify Sans"}
+.cv.fresh .crest{box-shadow:0 0 0 2px #2a1205,0 0 12px #ffd36b88}
+.emb{width:42px;height:42px;flex:none;display:grid;place-items:center;position:relative;
+  clip-path:polygon(8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px),0 8px,4px 8px,4px 4px,8px 4px);
+  background:linear-gradient(#2e2218,#1a120b)}
+.emb::before{content:"";position:absolute;inset:2px;clip-path:inherit;background:linear-gradient(#251a11,#140d08)}
+.emb svg{position:relative;width:24px;height:24px}
+.cv.fresh .emb{background:linear-gradient(#6a4a20,#3a2410)}
+.crest.sm{width:30px;height:30px;padding:2px}.crest.sm b{font-size:12px}.emb.sm{width:34px;height:34px}.emb.sm svg{width:18px;height:18px}
+.wh .cv .p .ichip{background:none;padding:0}
+
+.wh .cv .p em{font-style:normal;color:#d8c8a8}
+/* the header */
+.wh .ctop{gap:10px;background:linear-gradient(#18110b,#0d0906)}
+.wh .cn{font:700 17px Cinzel,serif}
+/* chips */
+.ichip{display:inline-block;vertical-align:bottom;line-height:inherit;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  padding:0 5px 0 3px;border-radius:5px;background:#ffffff12;background:color-mix(in srgb,currentColor 13%,transparent);font-weight:600;cursor:pointer}
+.ichip img{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.24em;margin-right:4px;border-radius:3px;box-shadow:0 0 0 1px #000a}
+.ichip.bare{padding-left:5px}
+/* the log, grouped: one name, its lines under it */
+.wh .cwrap .log{gap:2px}
+.when{align-self:center;font:12px "Pixelify Sans";color:#6e5f48;margin:8px 0 6px;letter-spacing:.6px}
+.lg{display:flex;gap:9px;padding:6px 4px 6px 8px;border-left:3px solid var(--cc,#ffc0c0);margin-top:4px}
+.lg .bd{flex:1;min-width:0}
+.lg .gw{font:600 14.5px system-ui,-apple-system,sans-serif;display:flex;gap:8px;align-items:baseline;cursor:pointer}
+.lg .gw small{font:11.5px system-ui,-apple-system,sans-serif;color:#6e5f48}
+.lg .ln{color:#f0e2bf;margin-top:2px;overflow-wrap:anywhere}
+.lg.me{background:linear-gradient(90deg,#ffd36b12,transparent);--cc:#ffd36b}
+.lg.hl,.grp.hl{background:#ffffff10;border-radius:6px}
+/* bubbles: theirs dark tooled leather with a stitched edge, yours polished brass */
+.grp{display:flex;gap:8px;align-items:flex-end;margin-top:6px;padding-right:6px}
+.grp.me{flex-direction:row-reverse}
+.grp .col{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:78%;min-width:0}
+.grp.me .col{align-items:flex-end}
+.grp .gw{font:600 12.5px system-ui,-apple-system,sans-serif;margin:0 0 2px 10px;cursor:pointer}
+.grp .crest.sm{margin-bottom:18px;cursor:pointer}
+.bub{position:relative;max-width:100%;border-radius:20px;color:#f3e6c8;padding:10px 15px 11px;overflow-wrap:anywhere;text-shadow:0 1px 0 #0008;
+  background:radial-gradient(120% 140% at 20% 0%,#3e2c1b 0%,#2a1d12 45%,#1e140c 100%);
+  box-shadow:inset 0 1px 0 #ffe6b81a,inset 0 -2px 0 #0007,0 0 0 1px #0a0604,0 3px 8px #0009}
+.bub::after{content:"";position:absolute;inset:4px;border-radius:16px;border:1px dashed #6b4a2a;opacity:.55;pointer-events:none}
+.grp:not(.me) .bub.mid,.grp:not(.me) .bub.last{border-top-left-radius:7px}
+.grp:not(.me) .bub.first:not(.last),.grp:not(.me) .bub.mid{border-bottom-left-radius:7px}
+.grp:not(.me) .bub.last{border-bottom-left-radius:5px}
+.grp:not(.me) .bub.mid::after,.grp:not(.me) .bub.last::after{border-top-left-radius:4px}
+.grp:not(.me) .bub.first:not(.last)::after,.grp:not(.me) .bub.mid::after{border-bottom-left-radius:4px}
+.grp.me .bub{color:#2c1604;text-shadow:0 1px 0 #ffe9a888;font-weight:500;background:linear-gradient(180deg,#fbe3a0 0%,#efc768 18%,#dca447 62%,#c78a2c 100%);
+  box-shadow:inset 0 1px 0 #fff7d8,inset 0 -3px 0 #9a5f16,inset 0 0 0 1px #b07422,0 0 0 1px #4a2a06,0 3px 10px #0008,0 0 18px #ffb84a2e}
+.grp.me .bub::after{border:1px solid #fff2c0;opacity:.35;inset:3px;border-radius:17px}
+.grp.me .bub.mid,.grp.me .bub.last{border-top-right-radius:7px}
+.grp.me .bub.first:not(.last),.grp.me .bub.mid{border-bottom-right-radius:7px}
+.grp.me .bub.last{border-bottom-right-radius:5px}
+.grp.me .bub.mid::after,.grp.me .bub.last::after{border-top-right-radius:4px}
+.grp.me .bub.first:not(.last)::after,.grp.me .bub.mid::after{border-bottom-right-radius:4px}
+.grp.me .bub .ichip{background:#2a1405e6;text-shadow:none}
+.grp .tm{font:11.5px system-ui,-apple-system,sans-serif;color:#6e5f48;margin:2px 8px 0}
 </style>
 </head>
 <body>
@@ -735,11 +806,13 @@ function drawList(){
   listEl.appendChild($('div','sep','QUIET'));R.quiet.forEach(r=>listEl.appendChild(rowEl(r)));
   listEl.scrollTop=top}
 function rowEl(r){
-  const d=$('div','cv'+(r.u||r.kind==='all'?'':' quiet'));
-  const av=$('div','av',r.ic);av.style.background=r.col;
-  const b=$('div','b'),n=$('div','n'),nm=$('span',null,r.name);nm.style.color=r.col;n.append(nm,$('small',null,r.last&&r.last.t||''));
+  const d=$('div','cv'+(r.u?' fresh':r.kind==='all'?'':' quiet'));
+  const wh=r.id.startsWith('w:'),cls=wh?clsOf(r.id.slice(2)):null;
+  const face=wh?crestEl(cls,r.id.slice(2)):embEl(r.id,r.col);
+  const b=$('div','b'),n=$('div','n'),nm=$('span',null,r.name);nm.style.color=cls&&NAME_COLOR[cls]||r.col;n.append(nm,$('small',null,r.last&&r.last.t||''));
   const l=r.last,pre=!l?'':l.kind==='whisper-out'?'You: ':l.who&&r.kind!=='whisper'?short(l.who)+': ':'';   // a whisper row already names the person
-  b.append(n,$('div','p',l?pre+W.plain(l):'quiet since you logged in'));d.append(av,b);
+  const p=$('div','p');if(l){if(pre)p.appendChild($('em',null,pre));p.append(...segs(l))}else p.textContent='quiet since you logged in';
+  b.append(n,p);d.append(face,b);
   if(r.u)d.appendChild($('span','u',r.u>99?'99+':String(r.u)));
   d.addEventListener('click',()=>{knock();openConvo(r.id,'slide')});
   return d}
@@ -751,7 +824,10 @@ function openConvo(id,dir){
   chat.view=id;chat.to=W.replyTo(id,chat.lines,chat.chans);chatWrap.textContent='';listEl=null;listSig='';
   const inf=W.info(id),top=$('div','ctop'+(dir?' '+dir:''));
   const back=$('div','back');back.innerHTML=BACK_PX;back.addEventListener('click',()=>{knock();showList('slideb')});
-  const tt=$('div','ct'),nm=$('div','cn',inf.name);nm.style.color=inf.col;tt.append(nm,$('small',null,inf.sub));top.append(back,tt);
+  const wh=id.startsWith('w:'),hc=wh?clsOf(id.slice(2)):null;
+  const tt=$('div','ct'),nm=$('div','cn',inf.name);nm.style.color=hc&&NAME_COLOR[hc]||inf.col;
+  tt.append(nm,$('small',null,wh?(hc?CLASS_NAME(hc)+' · whisper':'whisper'):id==='all'?inf.sub:inf.name+' channel'));
+  top.append(back,wh?crestEl(hc,id.slice(2),1):embEl(id,inf.col,1),tt);
   rosterEl=$('div','roster');rosterEl.hidden=true;rosterSig='';
   logEl=$('div','log'+(dir?' '+dir:''));shownSeq=0;
   logStuck=true;logEl.addEventListener('scroll',()=>{logStuck=logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40});
@@ -786,8 +862,8 @@ function render(full){
   if(!logEl)return;const id=chat.view;
   drawRoster();
   const stick=full||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
-  if(full||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0}
-  let added=0;for(const l of chat.lines)if(l.seq>shownSeq&&(W.inChan(l,id)||l.cmd===id)){if(!added++){const q=logEl.querySelector('.none');if(q)q.remove()}logEl.appendChild(lineEl(l,id))}
+  if(full||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0;logEl._at=null}
+  let added=0;for(const l of chat.lines)if(l.seq>shownSeq&&(W.inChan(l,id)||l.cmd===id)){if(!added++){const q=logEl.querySelector('.none');if(q)q.remove()}addLine(l,id)}
   if(chat.lines.length)shownSeq=Math.max(shownSeq,chat.lines[chat.lines.length-1].seq);
   while(logEl.children.length>300)logEl.firstChild.remove();
   if(!logEl.children.length)logEl.appendChild($('div','l none','Nothing yet.'));
@@ -868,13 +944,12 @@ function lineEl(l,id){
   else if(l.who){d.appendChild(who());d.append(wv?': ':l.kind==='whisper'?' whispers: ':l.kind==='say'?' says: ':l.kind==='yell'?' yells: ':': ')}
   for(const s of l.text){
     if('s' in s){d.append(s.s);continue}
-    const cls=s.link==='quest'?'quest':s.link==='spell'?'spell':s.q!=null?'q'+s.q:(chat.linkColor[s.name]||'item');
-    const a=$('span','lk '+cls,'['+s.name+']');a.dataset.name=s.name;if(s.id||s.q!=null||s.link!=='unknown')a.dataset.coded='1';a.addEventListener('click',()=>tooltip(s));d.appendChild(a)}
+    d.appendChild(chipEl(s))}   // links as chips everywhere (sheet 30)
   return d;
 }
 
 // ---------- tap a name ----------
-function closeMenus(){app.querySelectorAll('.mdim,.menu,.tip').forEach(n=>n.remove());app.querySelectorAll('.l.hl,.mem.hl').forEach(n=>n.classList.remove('hl'))}
+function closeMenus(){app.querySelectorAll('.mdim,.menu,.tip').forEach(n=>n.remove());app.querySelectorAll('.l.hl,.mem.hl,.lg.hl,.grp.hl').forEach(n=>n.classList.remove('hl'))}
 function menuShell(title,sub){closeMenus();const dm=$('div','mdim');dm.addEventListener('click',closeMenus);app.appendChild(dm);
   const m=$('div','menu');const h=$('h4',null,title);if(sub)h.appendChild($('span',null,sub));m.appendChild(h);app.appendChild(m);return m}
 function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small&&small[0]!=='/')b.appendChild($('small',null,small));   // never the /command behind it (Joshua 2026-11-27)
@@ -980,6 +1055,59 @@ const EICS={};
 function eic(k,cls,col){const key=k+'|'+cls+'|'+col;if(EICS[key])return EICS[key];const g=EIC[k]||EIC.talk;let d='';
   g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]==='#')d+=`M${x} ${y}h1v1h-1z`});
   return EICS[key]=`<svg class="${cls}" viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="${col}" d="${d}"/></svg>`}
+// ---------- sheet 30 (Joshua 2026-11-27, look A): class crests, channel emblems, item chips, lines grouped by person ----------
+Object.assign(EIC,{
+banner:["#...........","##########..","#.########..","#.##....##..","#.##.##.##..","#.##....##..","#.########..","#.###..###..","#.##....##..","#.#......#..","#...........","#..........."],
+party:["..##.....##.",".####...####",".####...####","..##.....##.","............",".####...####","######.#####","######.#####","######.#####","............","............","............"],
+shield:["############","#..........#","#.###..###.#","#.###..###.#","#..........#","#.###..###.#",".#.##..##.#.",".#........#.","..#......#..","...#....#...","....#..#....",".....##....."],
+post:[".....##.....","..#######...","..########..","..#######...",".....##.....","...#######..","..########..","...#######..",".....##.....",".....##.....",".....##.....","...######..."],
+bag:["....#..#....",".....##.....","....####....",".....##.....","...######...","..########..",".##########.",".##########.",".##########.",".##########.","..########..","...######..."]});
+const CHAN_PIX={all:'star',guild:'banner',party:'party',def:'shield',gen:'post',lfg:'attacktarget',trade:'bag'};
+const CLASS_ICON=new Set(['WARRIOR','MAGE','ROGUE','DRUID','HUNTER','SHAMAN','PRIEST','WARLOCK','PALADIN','DEATHKNIGHT','MONK','DEMONHUNTER','EVOKER']);
+// a person's class, from the newest line where the laptop knew it
+function clsOf(name){const n=short(name);for(let i=chat.lines.length-1;i>=0;i--){const l=chat.lines[i];if(l.cls&&l.who&&short(l.who)===n)return l.cls}return null}
+function crestEl(cls,name,sm){
+  const c=$('div','crest'+(sm?' sm':''));
+  const letter=()=>{const b=$('b',null,(short(name)[0]||'?').toUpperCase());b.style.color=cls&&NAME_COLOR[cls]||'#ff80ff';return b};
+  if(cls&&CLASS_ICON.has(cls)){const im=$('img');im.alt='';im.src='/book/icons/classicon_'+cls.toLowerCase()+'.jpg';im.onerror=()=>im.replaceWith(letter());c.appendChild(im)}
+  else c.appendChild(letter());
+  return c}
+function embEl(id,col,sm){const e=$('div','emb'+(sm?' sm':''));e.innerHTML=eic(CHAN_PIX[id]||'talk','',col);return e}
+// an item, spell or quest link: a chip with its picture and quality colour; tap it for the game's tooltip
+function chipEl(s){
+  const cls=s.link==='quest'?'quest':s.link==='spell'?'spell':s.q!=null?'q'+s.q:(chat.linkColor[s.name]||'item');
+  const a=$('span','ichip lk '+cls);a.dataset.name=s.name;if(s.id||s.q!=null||s.link!=='unknown')a.dataset.coded='1';
+  if(s.id&&(s.link==='item'||s.link==='spell')){const im=$('img');im.alt='';im.src=`/api/link/${s.link}/${s.id}.jpg`;im.onerror=()=>{im.remove();a.classList.add('bare')};a.appendChild(im)}
+  else a.classList.add('bare');
+  a.append(s.name);a.addEventListener('click',e=>{e.stopPropagation();tooltip(s)});return a}
+const segs=l=>l.text.map(s=>'s' in s?document.createTextNode(s.s):chipEl(s));
+const toMin=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?(+m[1])*60+(+m[2]):null};
+const mineL=l=>l.kind==='whisper-out'||!!(l.who&&myName()&&short(l.who)===short(myName()));
+// one line into the log: whispers and Party as bubbles, other channels grouped by person; Everything, the game's own
+// lines, emotes and Defense stay single lines as before
+function addLine(l,id){
+  if(id==='all'||l.em||l.kind==='system'||!l.who||W.chanOf(l)==='def'){logEl.appendChild(lineEl(l,id));logEl._at=toMin(l.t);return}
+  const me=mineL(l),mode=id.startsWith('w:')||id==='party'?'b':'l',key=(me?'me':short(l.who))+mode,at=toMin(l.t);
+  const gap=logEl._at==null||at==null?null:(at-logEl._at+1440)%1440;
+  if(l.t&&(gap===null||gap>=5)&&!(logEl.lastElementChild&&logEl.lastElementChild._key===key&&gap===null))logEl.appendChild($('div','when',l.t));
+  let g=logEl.lastElementChild;
+  if(!(g&&g._key===key&&(gap===null||gap<3))){g=mode==='b'?bubGroup(l,id,me):logGroup(l,id,me);g._key=key;logEl.appendChild(g)}
+  if(mode==='b')bubAdd(g,l);else{const ln=$('div','ln');ln.dataset.seq=l.seq;ln.append(...segs(l));g.querySelector('.bd').appendChild(ln)}
+  logEl._at=at}
+function bubGroup(l,id,me){
+  const g=$('div','grp'+(me?' me':''));
+  if(!me){const c=crestEl(l.cls||clsOf(l.who),l.who,1);c.addEventListener('click',()=>nameMenu(l,g));g.appendChild(c)}
+  const col=$('div','col');
+  if(!me&&!id.startsWith('w:')){const w=$('div','gw',short(l.who));w.style.color=NAME_COLOR[l.cls]||'#efe6d2';w.addEventListener('click',()=>nameMenu(l,g));col.appendChild(w)}
+  col.appendChild($('div','tm',l.t||''));g.appendChild(col);return g}
+function bubAdd(g,l){
+  const col=g.querySelector('.col'),tm=col.querySelector('.tm'),b=$('div','bub');b.dataset.seq=l.seq;b.append(...segs(l));col.insertBefore(b,tm);tm.textContent=l.t||'';
+  const bs=col.querySelectorAll('.bub');bs.forEach((x,i)=>{x.classList.remove('first','mid','last');if(i===0)x.classList.add('first');if(i===bs.length-1)x.classList.add('last');if(i>0&&i<bs.length-1)x.classList.add('mid')})}
+function logGroup(l,id,me){
+  const g=$('div','lg'+(me?' me':''));g.style.setProperty('--cc',me?'#ffd36b':W.info(id).col);
+  if(!me){const c=crestEl(l.cls||clsOf(l.who),l.who,1);c.addEventListener('click',()=>nameMenu(l,g));g.appendChild(c)}
+  const bd=$('div','bd'),w=$('div','gw'),nm=$('span',null,me?'You':short(l.who));nm.style.color=me?'#ffd36b':NAME_COLOR[l.cls]||'#efe6d2';
+  w.append(nm,$('small',null,l.t||''));if(!me)w.addEventListener('click',()=>nameMenu(l,g));bd.appendChild(w);g.appendChild(bd);return g}
 const VOICE='<svg class="v" viewBox="0 0 6 6" shape-rendering="crispEdges"><path fill="#ffd36b" d="M2 0h1v6h-1v-1h-1v-1h-1v-2h1v-1h1zM4 1h1v1h-1zM5 2h1v2h-1zM4 4h1v1h-1z"/></svg>';
 const MOVE='<svg class="m" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="#a8e08a" d="M4 0h2v1h-2zM3 1h2v1h-2zM1 2h4v1h-4zM0 3h1v1h-1zM2 3h2v1h-2zM5 3h1v1h-1zM2 4h3v1h-3zM1 5h1v1h-1zM4 5h1v1h-1zM0 6h1v1h-1zM5 6h1v1h-1z"/></svg>';
 // The one emote list (emotes.json, sheet 31) and this phone's favourites, both from Aang.
@@ -1106,7 +1234,7 @@ function tooltip(s){
     if(!ok||!j.lines){body.appendChild($('div','gy','Not found on Wowhead'));return}
     const qc=j.kind==='quest'?'quest':j.kind==='spell'?'spell':j.q!=null?'q'+j.q:'item';
     nm.className='nm '+qc;nm.textContent=j.name;
-    if(!s.id&&!s.q){chat.linkColor[s.name]=qc;logEl&&logEl.querySelectorAll('.lk').forEach(a=>{if(a.dataset.name===s.name&&a.dataset.coded!=='1')a.className='lk '+qc})}
+    if(!s.id&&!s.q){chat.linkColor[s.name]=qc;logEl&&logEl.querySelectorAll('.lk').forEach(a=>{if(a.dataset.name===s.name&&a.dataset.coded!=='1')a.className=(a.classList.contains('ichip')?'ichip'+(a.classList.contains('bare')?' bare':'')+' ':'')+'lk '+qc})}
     j.lines.forEach((x,i)=>{if(i===0&&x.l===j.name&&!x.r)return;
       const row=$('div',(x.r?'two ':'')+(x.c||''));row.appendChild($('span',null,x.l));if(x.r)row.appendChild($('span',null,x.r));body.appendChild(row)})});
 }
