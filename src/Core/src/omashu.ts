@@ -123,6 +123,7 @@ export type SendAsk =
   | { act: Emote; name?: string }
   | { act: 'roll' }
   | { act: 'reload' }    // the phone's Reload tile: WoW's interface reloads (Joshua 2026-11-11)
+  | { cmd: string }      // his own /command, typed in any chat (sheet 31, Joshua 2026-11-27): see freeCommand
   // Cheap Upgrades' own two settings, from the Upgrades tab (sheet 17b A, Joshua 2026-11-26): rich mode, and the max
   // price per item in copper (sent as gold and silver, the way the add-on reads it)
   | { cu: 'rich'; on: boolean }
@@ -140,7 +141,7 @@ export function cuMoney(copper: number): string | null {
  * it, this file allows only what is in it, and Couch Mode reads the same file before typing anything into WoW.
  * Each command is a word in lower case (yes, golfclap, pick); /roll is its own command.
  */
-export interface EmoteCatalog { pages: { name: string; emotes: [label: string, cmd: string][] }[]; favourites: string[] }
+export interface EmoteCatalog { pages: { name: string; key?: string; icon?: string; hidden?: boolean; emotes: [label: string, cmd: string, icon?: string, voice?: number, moves?: number][] }[]; favourites: string[] }
 export const CATALOG_FILE = path.join(import.meta.dirname, '..', 'assets', 'omashu', 'emotes.json');
 export const CATALOG: EmoteCatalog = JSON.parse(readFileSync(CATALOG_FILE, 'utf8'));
 export const EMOTES: readonly string[] = CATALOG.pages.flatMap(p => p.emotes.map(e => e[1])).filter(c => /^[a-z]{2,15}$/.test(c));
@@ -169,7 +170,7 @@ export function parseGuildLine(raw: string): { list: number; i: number; n: numbe
 }
 
 /** The allow-list, word for word the one in the contract (Couch Mode checks the same lines again before typing). */
-const TEXT = String.raw`(?!/)[^|\r\n\x00-\x1f]{1,255}`;
+const TEXT = String.raw`(?![\s/])[^|\r\n\x00-\x1f]{1,255}`;   // no slash, and no space before one: "/s  /run x" would run
 /** One word of a name. WoW: Forever names are two words, and WoW reads the first two words of "/w" as the name. */
 const WORD = String.raw`[^\s/|\\]{2,24}`;
 const NAME2 = `${WORD} ${WORD}`, NAME12 = `${WORD}( ${WORD})?`;
@@ -184,7 +185,22 @@ export const ALLOWED: RegExp[] = [
   /^\/cu max ([1-9]\d{0,3}g( [1-9]\d?s)?|[1-9]\d?s)$/,
   new RegExp(String.raw`^/(${EMOTES.join('|')})( ${NAME12})?$`),
 ];
-export const allowed = (line: string) => typeof line === 'string' && line.length <= 255 && ALLOWED.some(r => r.test(line));
+/**
+ * His own /commands (sheet 31, Joshua 2026-11-27: "anything but a few"). Any one command, letters and digits, with
+ * plain text after it, except the few that can do real damage from one line: running code, the console, clicking any
+ * button by name, leaving or disbanding the guild, logging out. WoW reads commands in any case, so the check does too.
+ * No " /" anywhere after the command: "/w Name /run x" would switch to the whisper on the space and run the rest.
+ */
+export const CMD_BLOCK: readonly string[] = ['run', 'script', 'dump', 'tinspect', 'console', 'click', 'camp', 'logout', 'quit', 'exit',
+  'gquit', 'guildquit', 'gdisband', 'guilddisband', 'lua', 'wowlua'];
+const FREE = /^\/([A-Za-z][A-Za-z0-9]{0,31})(?: (?![\s/])[^|\r\n\x00-\x1f]{1,250})?$/u;
+export function freeCommand(line: string): boolean {
+  if (typeof line !== 'string' || line.length > 255) return false;
+  const m = FREE.exec(line);
+  if (!m || /\s\//u.test(line)) return false;
+  return !CMD_BLOCK.includes(m[1].toLowerCase());
+}
+export const allowed = (line: string) => typeof line === 'string' && line.length <= 255 && (ALLOWED.some(r => r.test(line)) || freeCommand(line));
 
 /** Dictation and typing tidied: one line, no control characters, outer spaces gone. */
 export const tidy = (text: string) => String(text ?? '').replace(/[\r\n\t]+/g, ' ').replace(/[\x00-\x1f\x7f]/g, '').replace(/\s{2,}/g, ' ').trim();
@@ -192,6 +208,7 @@ export const tidy = (text: string) => String(text ?? '').replace(/[\r\n\t]+/g, '
 /** The chat command for an ask, or null when it is not one he approved (or the text could not be sent as is). */
 export function buildLine(a: SendAsk): string | null {
   if (!a || typeof a !== 'object') return null;
+  if ('cmd' in a) { const line = typeof a.cmd === 'string' ? tidy(a.cmd) : ''; return allowed(line) ? line : null; }
   if ('cu' in a) {
     const line = a.cu === 'rich' && typeof a.on === 'boolean' ? `/cu rich ${a.on ? 'on' : 'off'}` : a.cu === 'max' ? (cuMoney(a.copper) ? `/cu max ${cuMoney(a.copper)}` : null) : null;
     return line && allowed(line) ? line : null;

@@ -2,7 +2,7 @@
 // sent to WoW, and Wowhead tooltips turned into plain lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOG, EMOTES, allowed, cleanFavourites, buildLine, cuMoney, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
+import { CATALOG, CMD_BLOCK, EMOTES, allowed, freeCommand, cleanFavourites, buildLine, cuMoney, isHomeAddress, magicPacket, parseChatLine, segments, tooltipLines } from '../src/omashu.ts';
 
 test('a magic packet is six 0xFF and the MAC sixteen times', () => {
   const p = magicPacket('aa:bb:cc:dd:ee:ff');
@@ -76,7 +76,7 @@ test('sending: only the approved commands can be built', () => {
   assert.equal(buildLine({ act: 'roll' }), '/roll');
   assert.equal(buildLine({ act: 'wave', name: 'Hadrik' }), '/wave Hadrik');
   // emotes (mockup 10): all 72, alone or at a one- or two-word name
-  assert.equal(EMOTES.length, 72);
+  assert.equal(EMOTES.length, 88);
   for (const e of EMOTES) {
     assert.equal(buildLine({ act: e }), `/${e}`);
     assert.equal(buildLine({ act: e, name: 'Gideon Byrne' }), `/${e} Gideon Byrne`);
@@ -91,7 +91,7 @@ test('sending: only the approved commands can be built', () => {
     { act: 'follow me' } as never, { act: 'congrats' } as never, { act: 'roll', name: 'Hadrik' } as never,
     { to: 'raid', text: 'x' }, { to: 'say', text: 'x'.repeat(260) }, null,
   ]) assert.equal(buildLine(bad as never), null, JSON.stringify(bad));
-  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Name', '/w Bujuju hi', '/w Ab Cd /run x', '/who Ab Cd Ef', '/roll 100', '/dance Ab Cd Ef', '/dance /run', '/followme Ab /x', '/emote waves', '/e waves', '/spank', '/attacktarget'])
+  for (const bad of ['/run x', '/script x', '/console x', '/s /run x', '/g a\nb', '/w Ab Cd /run x', '/dance /run', '/followme Ab /x', '/RUN x', '/Script x', '/s  /run x', '/s \u3000/run x', '/click StaticPopup1Button1', '/camp', '/logout', '/gquit', '/dump 1'])
     assert.ok(!allowed(bad), bad);
 });
 
@@ -108,14 +108,17 @@ test('Wowhead tooltip HTML becomes plain coloured lines, two columns kept', () =
   assert.ok(l.every(x => !/[<>]/.test(x.l + (x.r ?? ''))));
 });
 
-test('emotes.json: six pages of 12, no repeats, favourites only known commands (mockup 10)', () => {
-  assert.equal(CATALOG.pages.length, 6);
-  for (const p of CATALOG.pages) assert.equal(p.emotes.length, 12, p.name);
+test('emotes.json: six pages of 12 by moment, the older ones on a hidden page, no repeats, favourites only known commands (sheet 31)', () => {
+  const shown = CATALOG.pages.filter(p => !p.hidden);
+  assert.equal(shown.length, 6);
+  for (const p of shown) { assert.equal(p.emotes.length, 12, p.name); assert.ok(p.key && p.icon, p.name); }
+  for (const p of CATALOG.pages) for (const e of p.emotes) { assert.equal(e.length, 5, e[1]); assert.ok(typeof e[2] === 'string' && [0, 1].includes(e[3]!) && [0, 1].includes(e[4]!), e[1]); }
+  for (const e of ['golfclap', 'eyeroll', 'facepalm', 'victory', 'violin', 'challenge', 'tap', 'veto', 'kiss', 'slap']) assert.ok(EMOTES.includes(e as never), e);
   assert.equal(new Set(EMOTES).size, EMOTES.length);
   assert.deepEqual(cleanFavourites(CATALOG.favourites), CATALOG.favourites);
   assert.ok(CATALOG.favourites.includes('sit'));
   assert.deepEqual(cleanFavourites(['roll', 'fart']), ['roll', 'fart']);
-  for (const bad of [['run'], ['wave', 'wave'], Array(13).fill('wave'), 'wave', [1], ['/wave'], ['attacktarget']]) assert.equal(cleanFavourites(bad), null, JSON.stringify(bad));
+  for (const bad of [['run'], ['wave', 'wave'], Array(13).fill('wave'), 'wave', [1], ['/wave'], ['spank']]) assert.equal(cleanFavourites(bad), null, JSON.stringify(bad));
 });
 
 test('Cheap Upgrades from the Upgrades tab (sheet 17b A): rich on/off and a max price in gold and silver, nothing else', () => {
@@ -128,5 +131,16 @@ test('Cheap Upgrades from the Upgrades tab (sheet 17b A): rich on/off and a max 
   for (const bad of [{ cu: 'max', copper: 99 }, { cu: 'max', copper: 10_000_100 }, { cu: 'max', copper: 1.5 }, { cu: 'rich', on: 'yes' }, { cu: 'scan' }, { cu: 'max', copper: '5g' }])
     assert.equal(buildLine(bad as never), null, JSON.stringify(bad));
   assert.equal(cuMoney(10000), '1g');
-  assert.ok(!allowed('/cu scan') && !allowed('/cu max 5g; /run x') && !allowed('/cu rich maybe'));
+  assert.ok(!allowed('/cu max 5g; /run x'));   // '/cu scan' typed by hand is his own command now (sheet 31)
+});
+
+test('his own /commands (sheet 31): anything but the few that do damage from one line', () => {
+  for (const ok of ['/inspect', '/invite Hadrik Stone', '/who Ironforge', '/e flexes at the sky', '/roll 100', '/afk', '/dnd brb', '/cast Holy Light',
+    '/use Hearthstone', '/w Bujuju Banton hi', '/readycheck', '/pvp', '/reload', '/2 WTS bags', '/target Hogger'])
+    { assert.ok(allowed(ok), ok); assert.equal(buildLine({ cmd: ok }), ok); }
+  assert.equal(buildLine({ cmd: '  /inspect  ' }), '/inspect', 'tidied');
+  for (const c of CMD_BLOCK) { assert.equal(buildLine({ cmd: `/${c}` }), null, c); assert.equal(buildLine({ cmd: `/${c.toUpperCase()} x` }), null, c); }
+  for (const bad of ['/run print(1)', '/ScRiPt x', 'hello', '//run', '/ run x', '/w Ab /run x', '/s /x', '/s  /run x', '/e a |cff link', '/é x', '/' + 'a'.repeat(40), '/x ' + 'a'.repeat(260)])
+    assert.equal(buildLine({ cmd: bad }), null, JSON.stringify(bad));
+  assert.equal(buildLine({ cmd: 5 } as never), null);
 });

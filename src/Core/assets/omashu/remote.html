@@ -440,6 +440,47 @@ svg.px{shape-rendering:crispEdges}
 .wh .bhost{display:block}
 @media (prefers-reduced-motion:reduce){.wowcoin,.wh,.whdim,.wh .ask,.wh .askdim,.wh .pagefade,.wh .slide,.wh .slideb{animation:none}.wh.out,.whdim.out,.wh .ask.out{transition:none}.wowcoin{box-shadow:0 0 0 3px #3a1a08,inset 0 -5px 0 #5a2a0a,0 0 24px #ffb84a88}}
 [hidden]{display:none!important}
+/* sheet omashu/remote/31 (Joshua 2026-11-27): the emote tray by moment, a pixel picture per emote, a gold speaker when your
+   character says it out loud, a green figure when it moves; typing your own /commands in any chat */
+.tray{display:flex;flex-direction:column;margin-top:8px;padding:8px 8px 10px;border-radius:16px;background:linear-gradient(#7a4a22,#5a341a);
+  box-shadow:inset 0 1px 0 #ffd9a033,inset 0 -3px 0 #0005,0 0 0 2px #2a1205}
+.etabs{display:flex;gap:4px;margin-bottom:8px}
+.etabs b{flex:1;min-height:38px;border-radius:9px;display:grid;place-items:center;background:#3a2210;box-shadow:inset 0 -2px 0 #0006,inset 0 1px 0 #ffd9a01a;cursor:pointer}
+.etabs b svg{width:20px;height:20px}
+.etabs b.on{background:linear-gradient(#f2cf74,#c88f30);box-shadow:inset 0 1px 0 #fff2c0,inset 0 -2px 0 #8a5412,0 0 10px #ffc85a55}
+.pname{font:600 11px "Pixelify Sans";letter-spacing:1.4px;text-transform:uppercase;color:#f0d9a8;margin:0 4px 6px;opacity:.85}
+.egrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tray .tile,.menu .tile,.emsheet .tile{flex-direction:column;gap:5px;min-height:64px;padding:8px 2px 6px;border-radius:11px;
+  background:radial-gradient(120% 100% at 50% 0%,#3a2817,#211509 80%);box-shadow:inset 0 1px 0 #ffe6b81c,inset 0 -3px 0 #0008,0 0 0 1px #1a0e06;
+  font:600 11.5px "Pixelify Sans";color:#efe0bd;letter-spacing:.3px}
+.tile svg.ic{width:26px;height:26px}
+.tile svg.v,.tile svg.m{position:absolute;top:6px;width:12px;height:12px}.tile svg.v{left:6px}.tile svg.m{right:6px}
+.tray .tile.down,.menu .tile.down,.emsheet .tile.down{transform:translateY(2px);background:radial-gradient(120% 100% at 50% 0%,#3a2817,#211509 80%);
+  box-shadow:inset 0 -1px 0 #0008,0 0 0 1px #1a0e06,0 0 14px #ffc85a66;color:#ffd36b}
+.tile.down svg.ic{filter:drop-shadow(0 0 4px #ffd36b)}
+.tile.fav::after{display:none}
+.tray .tile.fav,.emsheet .tile.fav{box-shadow:inset 0 1px 0 #ffe6b81c,inset 0 -3px 0 #0008,0 0 0 1px #1a0e06,inset 0 0 0 2px #c8962e88}
+.tray .tile.blank,.emsheet .tile.blank{background:none;box-shadow:none;min-height:64px}
+.tray .tile.more,.menu .tile.more{min-height:44px;background:#e4d1a3;color:var(--brown);box-shadow:inset 0 -3px 0 #c9b07a;grid-column:1/-1}
+.tray .esearch{margin:0 0 8px}
+.tray .swaphint{margin-top:6px}
+.menu .tray{display:block;margin:0;padding:0;background:none;box-shadow:none}
+.side .tray{flex:1;min-height:0;overflow-y:auto}
+.side .egrid{grid-template-columns:repeat(3,1fr)}
+.wh .cwrap .emo.on{background:linear-gradient(#f2cf74,#c88f30);box-shadow:inset 0 1px 0 #fff2c0,inset 0 -3px 0 #8a5412,0 0 10px #ffc85a55}
+.wh .cwrap .send.cmd .box{background:linear-gradient(#3a2410,#26170a);box-shadow:inset 0 0 0 2px #e8b848,0 0 12px #ffc85a44;color:#ffe3a0;font-weight:600}
+.wh .cwrap .send.cmd .go{background:linear-gradient(#f2cf74,#c88f30);box-shadow:inset 0 1px 0 #fff2c0,inset 0 -3px 0 #8a5412}
+.wh .cwrap .send.bad .box{box-shadow:inset 0 0 0 2px #d0503a,0 0 12px #d0503a44}
+.wh .cwrap .send.bad .go{background:#3a2a1e;box-shadow:inset 0 -3px 0 #0005;opacity:.6}
+.csug{flex:none;margin:0 8px 6px;border-radius:14px;overflow:hidden;background:linear-gradient(#2c1e12,#1d130b);box-shadow:inset 0 0 0 1px #4a3018,0 -6px 18px #0009;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.csug div{display:flex;align-items:center;gap:10px;padding:0 12px;min-height:44px;font-size:15px;color:#d8c8a8;cursor:pointer}
+.csug div+div{border-top:1px solid #2e2015}
+.csug div:first-child{background:linear-gradient(90deg,#ffc85a22,transparent)}
+.csug b{font-weight:600;color:#ffd36b;min-width:92px}
+.csug svg{width:18px;height:18px;flex:none}
+.l.echo{color:#b8a27a;font:600 13px "Pixelify Sans";letter-spacing:.3px;margin-top:6px}
+@media (prefers-reduced-motion:reduce){.tray .tile.down{transform:none}}
 </style>
 </head>
 <body>
@@ -722,11 +763,12 @@ function openConvo(id,dir){
   emoEl=$('div','emo');emoEl.addEventListener('click',smiley);
   box=$('input','box');box.type='text';box.enterKeyHint='send';box.autocomplete='off';box.maxLength=240;
   box.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send()}});
+  box.addEventListener('input',cmdUI);
   box.addEventListener('focus',()=>{app.classList.add('typing');if(chat.emo){chat.emo=null;layoutEmo()}});
   box.addEventListener('blur',()=>{app.classList.remove('typing');settle()});
   const go=$('div','go');go.innerHTML=SEND_PX;go.addEventListener('pointerdown',e=>e.preventDefault());go.addEventListener('click',send);   // pointerdown kept off the box: tapping Send doesn't close the keyboard
   sendEl.append(emoEl,box,go);
-  chatWrap.append(top,rosterEl,logEl,dotsEl,sendEl);
+  chatWrap.append(top,rosterEl,logEl,dotsEl,sendEl);sugEl=null;
   chat.emo=null;layoutEmo();render(true);fitPanel()}
 // swipe left or right inside a channel: the next busy one (sheet 28 C)
 function swipeOn(el){
@@ -745,7 +787,7 @@ function render(full){
   drawRoster();
   const stick=full||logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight<40;
   if(full||!chat.lines.some(l=>l.seq===shownSeq)){logEl.textContent='';shownSeq=0}
-  let added=0;for(const l of chat.lines)if(l.seq>shownSeq&&W.inChan(l,id)){if(!added++){const q=logEl.querySelector('.none');if(q)q.remove()}logEl.appendChild(lineEl(l,id))}
+  let added=0;for(const l of chat.lines)if(l.seq>shownSeq&&(W.inChan(l,id)||l.cmd===id)){if(!added++){const q=logEl.querySelector('.none');if(q)q.remove()}logEl.appendChild(lineEl(l,id))}
   if(chat.lines.length)shownSeq=Math.max(shownSeq,chat.lines[chat.lines.length-1].seq);
   while(logEl.children.length>300)logEl.firstChild.remove();
   if(!logEl.children.length)logEl.appendChild($('div','l none','Nothing yet.'));
@@ -835,7 +877,8 @@ function lineEl(l,id){
 function closeMenus(){app.querySelectorAll('.mdim,.menu,.tip').forEach(n=>n.remove());app.querySelectorAll('.l.hl,.mem.hl').forEach(n=>n.classList.remove('hl'))}
 function menuShell(title,sub){closeMenus();const dm=$('div','mdim');dm.addEventListener('click',closeMenus);app.appendChild(dm);
   const m=$('div','menu');const h=$('h4',null,title);if(sub)h.appendChild($('span',null,sub));m.appendChild(h);app.appendChild(m);return m}
-function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small)b.appendChild($('small',null,small));b.addEventListener('click',()=>{closeMenus();fn()});(into||m).appendChild(b);return b}
+function mi(m,label,small,fn,into){const b=$('div','mi',label);if(small&&small[0]!=='/')b.appendChild($('small',null,small));   // never the /command behind it (Joshua 2026-11-27)
+  b.addEventListener('click',()=>{closeMenus();fn()});(into||m).appendChild(b);return b}
 function nameMenu(l,row){
   row.classList.add('hl');
   const n=l.who,where={guild:'Guild',officer:'Officer',party:'Party',raid:'Raid',whisper:'Whisper','whisper-out':'Whisper',say:'Say',yell:'Yell'}[l.kind]||(l.chan?W.tagOf(l):'');
@@ -850,15 +893,100 @@ function nameMenu(l,row){
 }
 const act=a=>api('/api/send',a);
 
-// ---------- emotes (sheet 07) ----------
+// ---------- emotes (sheet 07; sheet 31, Joshua 2026-11-27: pages by moment, a pixel picture each, voice and move marks) ----------
 const SMILE='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="#ffd36b" d="M4 1h4v1h2v2h1v4h-1v2h-2v1h-4v-1h-2v-2h-1v-4h1v-2h2z"/><path fill="#3a2212" d="M4 4h1v2h-1zM7 4h1v2h-1zM3 7h1v1h4v-1h1v1h-1v1h-4v-1h-1z"/></svg>';
 const SMILE_ON=SMILE.replace('#3a2212','#120803');
-const DIE='<svg viewBox="0 0 9 9" shape-rendering="crispEdges"><path fill="#f0e2bf" d="M1 0h7v1h1v7h-1v1h-7v-1h-1v-7h1z"/><path fill="#3a2212" d="M2 2h1v1h-1zM6 2h1v1h-1zM4 4h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1z"/></svg>';
-// The one emote list (emotes.json, mockup 10, approved 2026-11-09) and this phone's favourites, both from Aang.
-let CAT={pages:[],favourites:[]},LABEL={roll:'Roll'},ALL=[],FAVS=[];
+// 12x12 pictures, drawn by hand for sheet 31 ('#' = lit)
+const EIC={
+wave:["....#.#.....","..#.#.#.#...","..#.#.#.#...","..#.#.#.#...","..#######.#.","..########..","..#######...","..#######...","...#####....","...#####....","....###.....","............"],
+hello:["............",".##########.","#..........#","#.#..#.#...#","#.#..#.....#","#.####.#...#","#.#..#.#...#","#.#..#.#...#","#..........#",".####.#####.","....##......","....#......."],
+cheer:["#....##....#","#...####...#",".#..####..#.",".#...##...#.","..########..",".....##.....",".....##.....","....####....","....#..#....","...##..##...","...#....#...","..##....##.."],
+thank:["............","..##....##..",".####..####.","############","############","############",".##########.","..########..","...######...","....####....",".....##.....","............"],
+sit:["..##........","..##........","..##........","..##........","..##........","..########..","..########..","..##....##..","..##....##..","..##....##..","..##....##..","............"],
+dance:["....########","....########","....#......#","....#......#","....#......#","....#......#","..###....###",".####...####",".####...####","..##.....##.","............","............"],
+laugh:["...######...","..#......#..",".#........#.","#.##....##.#","#..........#","#.########.#","#.#......#.#","#..######..#",".#........#.","..#......#..","...######...","............"],
+roll:["............",".##########.",".#........#.",".#.##..##.#.",".#.##..##.#.",".#........#.",".#........#.",".#.##..##.#.",".#.##..##.#.",".#........#.",".##########.","............"],
+bow:["............","............","..##........",".####.......",".#######....","..########..","......####..","......##.#..",".....##..#..",".....#...#..","....##...##.","............"],
+kneel:["....##......","...####.....","...####.....","....##......","...####.....","..######....","..#.##.#....","....####....","....#..###..","....#....#..","...##....#..","............"],
+salute:["....##.#....","...#####....","...####.#...","....##..#...","..######....",".#.####.....","...####.....","...#..#.....","...#..#.....","...#..#.....","..##..##....","............"],
+fart:["............","......##....",".....####...","..##.####...",".####.##.##.",".####...####","..##..#.####",".....###.##.",".....###....","......#.....","............","............"],
+taunt:["............","........##..",".......#..#.","..##...#..#.",".#..#..##.#.",".#..#...###.",".#..#######.",".##########.",".#########..","..########..","...######...","............"],
+challenge:["#..........#",".#........#.","..#......#..","...#....#...","....#..#....",".....##.....",".....##.....","....#..#....",".#.#....#.#.","..#......#..",".#.#....#.#.","............"],
+charge:["............","#.....#.....","##....##....",".##....##...","..##....##..","...##....##.","...##....##.","..##....##..",".##....##...","##....##....","#.....#.....","............"],
+roar:["############","#.#.#..#.#.#","#..........#","#..........#",".#........#.","..#......#..",".#........#.","#..........#","#..........#","#.#.#..#.#.#","############","............"],
+threaten:["...######...","..########..",".##########.",".#...##...#.",".#...##...#.",".####..####.","..###..###..","...######...","...#.##.#...","...######...","............","............"],
+shakefist:["............","...######...","..#.#.#.##..","..#.#.#.##..","..########..","..##.....#..","..#.#....#..","..#..#..##..","...######...","....####....","....####....","....####...."],
+glare:["............","##........##",".##......##.","..##....##..","............",".####..####.","#..##..##..#","#..##..##..#",".####..####.","............","............","............"],
+growl:["............","############","#.#......#.#","#.#......#.#","#..........#","#..........#","#.#......#.#","#.#......#.#","############","............","............","............"],
+flex:["............","....###.....","...#####....","...##.##....","...##..##...","...##..####.","...##.######","..##########",".##########.",".#########..","..######....","............"],
+rude:[".....##.....",".....##.....",".....##.....",".....##.....","...####.....","..#####.##..","..########..","..########..","..#######...","...######...","...######...","............"],
+openfire:[".....##.....","...######...","..#..##..#..",".#...##...#.",".#........#.","####.##.####","####.##.####",".#........#.",".#...##...#.","..#..##..#..","...######...",".....##....."],
+incoming:[".....##.....",".....##.....","....####....","....#..#....","...##..##...","...#.##.#...","..##.##.##..","..#..##..#..",".##......##.",".#...##...#.","############","............"],
+victory:["############","#.########.#","#.########.#",".#.######.#.","..########..","...######...","....####....",".....##.....",".....##.....","....####....","...######...","............"],
+gloat:["............","#....##....#","##..####..##","###.####.###","############","############","#.##.##.##.#","############","############","............","............","............"],
+violin:["..........#.",".........#..","........#...","...####.....","..######....","..#.##.#....","...####.....","..######....",".##.##.##...",".########...","..######....","...####....."],
+golfclap:["............","..#.#..#.#..","..#.#..#.#..","..#.#..#.#..","..###..###..",".####..####.",".####..####.",".####..####.","..###..###..","..##....##..","..##....##..","............"],
+cackle:["...######...","..#......#..",".#.#....#.#.","#..##..##..#","#..........#","#.########.#","#.#.#..#.#.#","#.########.#",".#........#.","..#......#..","...######...","............"],
+pity:[".....#......",".....##.....","....###.....","....####....","...######...","..########..","..#####.##..","..####.###..","..########..","...######...","....####....","............"],
+mock:["...######...","..#......#..",".#........#.","#.###..###.#","#..........#","#..........#","#.########.#","#....##....#",".#...##...#.","..#.####.#..","...######...","............"],
+chicken:["....##......","...####.....","..#####.....",".##.###.....","##..####..#.","....#######.","....#######.",".....######.","......####..",".......#....","......##....","............"],
+spit:["............","..##........",".####....#..",".####...###.","..##....###.","......#..#..",".....###....",".....###....","......#.....","..#.........",".###........","..#........."],
+boot:["....####....","....####....","....####....","....####....","....####....","....####....","....#######.","....########","....########","...#########","...#########","............"],
+eyeroll:["............","............","...######...","..#.####.#..",".#..####..#.","#...####...#","#..........#",".#........#.","..#......#..","...######...","............","............"],
+facepalm:["...######...","..#......#..",".#.#.#.#..#.","#..#.#.#...#","#..#.#.#...#","#.#######..#","#.#######..#","#.######...#",".#.####...#.","..#......#..","...######...","............"],
+sigh:["............","#######.....",".......##...","........#...","..######....","............","##########..","..........#.","..........#.","......####..","............","............"],
+bored:["...######...","..#......#..",".#...#....#.","#....#.....#","#....#.....#","#....####..#","#..........#","#..........#",".#........#.","..#......#..","...######...","............"],
+tap:["............","...##.......","...##.......","...##.......","...##.......","...##....#..","...######...","..#######.#.","..########..","........#...",".######.....","............"],
+scoff:["...######...","..#......#..",".#.##.....#.","#.........##","#.##..##...#","#..........#","#..........#","#...####...#",".#........#.","..#......#..","...######...","............"],
+veto:["############","#..........#","#.##....##.#","#..##..##..#","#...####...#","#....##....#","#...####...#","#..##..##..#","#.##....##.#","#..........#","############","............"],
+oops:["............",".##..####...",".##.##..##..",".##.....##..",".##....##...",".##...##....",".##...##....","............",".##...##....",".##...##....","............","............"],
+bonk:["#.#.........",".#..........","#.#.######..","...#......#.","..#........#","..#.#....#.#","..#........#","..#..####..#","...#......#.","....######..","............","............"],
+shrug:["....####....","....####....",".....##.....","##.######.##",".##.####.##.","..##.##.##..","....####....","....####....","....#..#....","....#..#....","...##..##...","............"],
+smirk:["...######...","..#......#..",".#........#.","#..##..##..#","#..##..##..#","#..........#","#.......#..#","#..######..#",".#........#.","..#......#..","...######...","............"],
+doubt:["...######...","..##....##..","..##....##..","........##..",".......##...","......##....",".....##.....",".....##.....","............",".....##.....",".....##.....","............"],
+hug:["............","..##....##..",".####..####.",".####..####.","..###..###..",".##########.","############","#.########.#","..###..###..","..##....##..","..##....##..","............"],
+congratulate:[".....#......","..#..#..#...","...#.#.#....","....###.....","#####.#####.","....###.....","...#.#.#....","..#..#..#...",".....#......","............","............","............"],
+applaud:["#....##....#",".#..####..#.","....####....","...######...","...######...","...######...","....####....","....####....","....####....","....####....","............","............"],
+wink:["...######...","..#......#..",".#........#.","#..##......#","#..##..###.#","#..........#","#..........#","#..#....#..#",".#..####..#.","..#......#..","...######...","............"],
+flirt:["............",".##.##......","#######.....","#######.....",".#####.##.##","..###.######","...#..######","......######",".......####.","........##..","............","............"],
+ready:["............","..........##",".........###","........###.",".......###..","##....###...","###..###....",".######.....","..####......","...##.......","............","............"],
+wait:["############",".#........#.",".#........#.","..#......#..","...#....#...","....#..#....","....#..#....","...#.##.#...","..#.####.#..",".#.######.#.","############","............"],
+followme:["............","......#.....","......##....","......###...","###########.","############","###########.","......###...","......##....","......#.....","............","............"],
+follow:["..##........",".####.......",".####...##..",".####..####.","..##...####.","........##..","..##........",".####.......","..##....##..","........##..","............","............"],
+attacktarget:["..........##",".........###","........###.",".......###..","......###...",".....###....","#...###.....","##.###......",".####.......","..##........",".####.......","##..#......."],
+flee:["......##....","......##....","....####....","...#.##.#...","..#..##..#..","....####....","....#..#....","...#....#...","..#......#..",".#.......##.","............","............"],
+healme:["............","....####....","....####....","....####....","############","############","############","############","....####....","....####....","....####....","............"],
+helpme:["...######...","..#......#..",".#...##...#.","#....##....#","#....##....#","#....##....#","#....##....#","#..........#",".#...##...#.","..#..##..#..","...######...","............"],
+oom:["....####....",".....##.....",".....##.....","....#..#....","...#....#...","..#......#..","..#......#..","..#......#..","..#.####.#..","..########..","...######...","............"],
+yes:["....##......","...###......","...###......","..###.......","..########..","##########..","##.#######..","##.#######..","##.######...","##.######...","....####....","............"],
+no:["............","....####....","##.######...","##.######...","##.#######..","##.#######..","##########..","..########..","..###.......","...###......","...###......","....##......"],
+nod:["....####....","...######...","...######...","....####....","............","............","....####....",".....##.....","....####....",".....##.....","....####....","............"],
+sleep:["......#####.","........##..",".......##...","......#####.","####........","..##........",".##.........","####...###..","........#...","......###...","............","............"],
+yawn:["...######...","..#......#..",".#........#.","#.###..###.#","#..........#","#....##....#","#...#..#...#","#...#..#...#",".#...##...#.","..#......#..","...######...","............"],
+sorry:["...######...","..#......#..",".#........#.","#..##..##..#","#..##..##..#","#..........#","#...####...#","#..#....#..#",".#........#.","..#......#..","...######...","............"],
+point:["............","............","....######..","...#######..","############","...#######..","...######...","...######...","....####....","............","............","............"],
+bye:[".....#.#....","...#.#.#.#..","...#.#.#.#..","...#.#.#.#..",".#.#######..","..########..","...#######..","...#######..","....#####...","....#####...",".....###....","............"],
+welcome:["....####....","....####....",".....##.....","############",".....##.....","....####....","....####....","....#..#....","....#..#....","...##..##...","............","............"],
+cry:["...######...","..#......#..",".#........#.","#..##..##..#","#..........#","#..#....#..#","#..#....#..#","#...####...#",".#.#.....#.#","..#......#..","...######...","............"],
+whistle:[".........##.",".........#.#","...####..#..","..#....#.##.",".#......###.",".#.#..#.#...",".#......#...",".#...##.#...","..#....#....","...####.....","............","............"],
+train:["............","........##..",".##.....##..",".##########.",".##########.",".##########.",".##########.","############","..##.....##.","..##.....##.","............","............"],
+rofl:["...######...","..#......#..",".#.#....#.#.","#..##..##..#","#..........#","#.########.#","#.#......#.#","#..######..#",".##......##.","###......###","...######...","............"],
+talk:["............","############","#..........#","#..........#","#.##.##.##.#","#.##.##.##.#","#..........#","#..........#","############","..##........","..#.........","............"],
+star:[".....##.....","....####....","....####....","############",".##########.","..########..","...######...","...######...","..###..###..","..##....##..",".##......##.","............"],
+flag:["#...........","#########...","##########..","#########...","########....","#########...","#...........","#...........","#...........","#...........","#...........","............"],
+fire:[".....#......","....##......","...####.....","...#####.#..","..########..","..###.####..","..##...###..","...##.##....","#..........#",".###....###.","...######...",".###....###."],
+lens:["..#####.....",".#.....#....","#.......#...","#.......#...","#.......#...","#.......#...",".#.....#....","..#####.#...","........#...",".........#..","..........#.","..........##"]};
+const EICS={};
+function eic(k,cls,col){const key=k+'|'+cls+'|'+col;if(EICS[key])return EICS[key];const g=EIC[k]||EIC.talk;let d='';
+  g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]==='#')d+=`M${x} ${y}h1v1h-1z`});
+  return EICS[key]=`<svg class="${cls}" viewBox="0 0 12 12" shape-rendering="crispEdges"><path fill="${col}" d="${d}"/></svg>`}
+const VOICE='<svg class="v" viewBox="0 0 6 6" shape-rendering="crispEdges"><path fill="#ffd36b" d="M2 0h1v6h-1v-1h-1v-1h-1v-2h1v-1h1zM4 1h1v1h-1zM5 2h1v2h-1zM4 4h1v1h-1z"/></svg>';
+const MOVE='<svg class="m" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="#a8e08a" d="M4 0h2v1h-2zM3 1h2v1h-2zM1 2h4v1h-4zM0 3h1v1h-1zM2 3h2v1h-2zM5 3h1v1h-1zM2 4h3v1h-3zM1 5h1v1h-1zM4 5h1v1h-1zM0 6h1v1h-1zM5 6h1v1h-1z"/></svg>';
+// The one emote list (emotes.json, sheet 31) and this phone's favourites, both from Aang.
+let CAT={pages:[],favourites:[]},LABEL={roll:'Roll'},META={roll:{ic:'roll',v:0,m:0}},ALL=[],FAVS=[];
 async function loadEmotes(){
   try{const r=await fetch('/emotes.json',{cache:'no-store'});if(r.ok)CAT=await r.json()}catch(e){}
-  ALL=[];for(const p of CAT.pages)for(const [l,c] of p.emotes){LABEL[c]=l;ALL.push(c)}
+  ALL=[];for(const p of CAT.pages)for(const [l,c,ic,v,m] of p.emotes){LABEL[c]=l;META[c]={ic:ic||'talk',v:!!v,m:!!m};ALL.push(c)}
   FAVS=CAT.favourites.slice();
   try{const {ok,j}=await api('/api/favourites');if(ok&&Array.isArray(j.favourites))FAVS=j.favourites}catch(e){}
   emPage=CAT.pages.length?CAT.pages[0].name:'';
@@ -866,9 +994,10 @@ async function loadEmotes(){
 }
 function saveFavs(){api('/api/favourites',{favourites:FAVS})}
 // asked of the layout itself, not innerWidth/innerHeight: iOS reports those late after turning the phone or closing the keyboard
-let emoteUntil=0,swapIn=null,emPage='',emQuery='';
+let emoteUntil=0,swapIn=null,emPage='',emQuery='',emTab='fav';
 function emoteTile(c,name){
-  const t=$('div','tile');if(c==='roll')t.innerHTML=DIE;t.append(LABEL[c]||c);
+  const t=$('div','tile'),mt=META[c]||{ic:'talk'};
+  t.innerHTML=(mt.v?VOICE:'')+(mt.m?MOVE:'')+eic(mt.ic,'ic','#f3e2bb');t.appendChild($('span',null,LABEL[c]||c));
   let timer=0,long=false;
   t.addEventListener('pointerdown',()=>{long=false;clearTimeout(timer);timer=setTimeout(()=>{long=true;starMenu(c)},500)});
   const cancel=()=>clearTimeout(timer);t.addEventListener('pointerleave',cancel);t.addEventListener('pointercancel',cancel);
@@ -888,18 +1017,37 @@ function starMenu(c){
   mi(m,has?'Remove from favourites':'Add to favourites',null,()=>{
     if(has){FAVS=FAVS.filter(x=>x!==c);saveFavs();refreshTray();return}
     if(FAVS.length<12){FAVS.push(c);saveFavs();refreshTray();return}
-    swapIn=c;chat.emo='tray';refreshTray();layoutEmo()});
+    swapIn=c;emTab='fav';chat.emo='tray';refreshTray();layoutEmo()});
   mi(m,'Cancel',null,()=>{});
 }
 function finishSwap(out){const i=FAVS.indexOf(out);if(i>=0)FAVS[i]=swapIn;swapIn=null;saveFavs();refreshTray()}
 function refreshTray(){if(!trayEl)return;const n=tray(null);trayEl.replaceWith(n);trayEl=n;layoutEmo();if(chat.emo==='more')showMore(moreFor)}
 function tray(name){
   const g=$('div','tray'+(swapIn&&!name?' swapping':''));
-  // at a person: your favourites (no Roll) and Follow
-  const list=name?[...FAVS.filter(c=>c!=='roll'),...(FAVS.includes('follow')?[]:['follow'])].slice(0,12):FAVS;
-  for(const c of list){const t=emoteTile(c,name);if(swapIn&&!name)t.classList.add('pick');g.appendChild(t)}
-  if(swapIn&&!name){const h=$('div','swaphint','Tap the favourite to swap for '+(LABEL[swapIn]||swapIn));g.appendChild(h)}
-  else{const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(moreEl)showMore(name)});g.appendChild(more)}
+  if(name){   // at a person: your favourites (no Roll) and Follow, then More
+    const grid=$('div','egrid');
+    for(const c of [...FAVS.filter(c=>c!=='roll'),...(FAVS.includes('follow')?[]:['follow'])].slice(0,12))grid.appendChild(emoteTile(c,name));
+    const more=$('div','tile more','More');more.addEventListener('click',()=>{closeMenus();if(moreEl)showMore(name)});grid.appendChild(more);
+    g.appendChild(grid);return g}
+  // the tabs: search, favourites, then a page per moment (the hidden page is only found by search)
+  const pages=CAT.pages.filter(p=>!p.hidden),tabs=$('div','etabs');
+  for(const [k,ic] of [['search','lens'],['fav','star'],...pages.map(p=>[p.key,p.icon])]){
+    const b=$('b',emTab===k?'on':'');b.innerHTML=eic(ic,'',emTab===k?'#3a1e06':'#e8c88a');
+    b.addEventListener('click',()=>{if(emTab===k)return;emTab=k;knock();refreshTray()});tabs.appendChild(b)}
+  g.appendChild(tabs);
+  const grid=$('div','egrid');
+  const fill=list=>{grid.textContent='';
+    for(const c of list){const t=emoteTile(c,null);if(emTab!=='fav'&&FAVS.includes(c))t.classList.add('fav');if(swapIn&&emTab==='fav')t.classList.add('pick');grid.appendChild(t)}
+    for(let i=list.length;i<12;i++)grid.appendChild($('div','tile blank'))};          // always three rows: nothing jumps
+  if(emTab==='search'){
+    const sb=$('input','esearch');sb.type='search';sb.placeholder='Search emotes';sb.value=emQuery;sb.autocomplete='off';sb.enterKeyHint='done';
+    const draw=()=>{const q=emQuery.trim().toLowerCase();fill(q?['roll',...ALL].filter(c=>(LABEL[c]||c).toLowerCase().includes(q)||c.includes(q)).slice(0,12):[])};
+    sb.addEventListener('input',()=>{emQuery=sb.value;draw()});sb.addEventListener('keydown',e=>{if(e.key==='Enter')sb.blur()});
+    g.append(sb,grid);draw()}
+  else{
+    const p=emTab==='fav'?null:pages.find(x=>x.key===emTab);if(emTab!=='fav'&&!p)emTab='fav';
+    g.append($('div','pname',p?p.name:'Favourites'),grid);fill(p?p.emotes.map(e=>e[1]):FAVS)}
+  if(swapIn)g.appendChild($('div','swaphint','Tap the favourite to swap for '+(LABEL[swapIn]||swapIn)));
   return g;
 }
 let moreFor=null;
@@ -970,6 +1118,7 @@ function tooltip(s){
 let sending=false;
 function send(){
   const text=box.value.trim();if(!text||sending)return;
+  if(text[0]==='/'){sendCmd(text);return}
   sending=true;box.value='';hint(null);
   const ask=chat.to.to==='whisper'?{to:'whisper',name:chat.to.name,text}:chat.to.to==='channel'?{to:'channel',num:chat.to.num,text}:{to:chat.to.to,text};
   const pend=$('div','l pend');pend.textContent=text;logEl.appendChild(pend);logEl.scrollTop=logEl.scrollHeight;
@@ -977,6 +1126,46 @@ function send(){
     if(ok){setTimeout(()=>pend.remove(),2500);return}                 // WoW's copy comes in with the next poll
     pend.remove();if(!box.value)box.value=text;
     hint(j&&j.why==='refused'?'WoW won\'t take that line':j&&j.why==='not-in-wow'?'WoW is not up':'Not sent, try again')});
+}
+// ---------- your own /commands, from any chat (sheet 31, Joshua 2026-11-27) ----------
+// Anything goes except the few that can do real damage from one line. Aang and Couch Mode check the same list again.
+const CMD_BLOCK=['run','script','dump','tinspect','console','click','camp','logout','quit','exit','gquit','guildquit','gdisband','guilddisband','lua','wowlua'];
+const CMDS=[['invite','invite to your group','flag'],['inspect','look at their gear','doubt'],['who','find players','lens'],['whisper','whisper someone','talk'],
+ ['reply','answer the last whisper','talk'],['say','say it nearby','talk'],['yell','yell it','talk'],['guild','to your guild','flag'],['party','to your group','hug'],
+ ['emote','your own emote text','talk'],['roll','roll 1 to 100','roll'],['random','roll a number','roll'],['afk','away from keyboard','sleep'],['dnd','do not disturb','veto'],
+ ['follow','follow your target','follow'],['target','target by name','openfire'],['assist','target what they target','openfire'],['cast','cast a spell','fire'],
+ ['use','use an item','oom'],['equip','put on an item','boot'],['kick','remove from your group','boot'],['promote','make them leader','gloat'],
+ ['readycheck','ready check','ready'],['pvp','turn PvP on','challenge'],['duel','challenge to a duel','challenge'],['forfeit','give up the duel','sorry'],
+ ['played','time played','bored'],['join','join a channel','talk'],['reload','reload the interface','fire'],['macro','open your macros','talk'],
+ ['friend','add a friend','thank'],['ignore','ignore someone','veto'],['raidinfo','where you are saved','flag'],['help','the game\'s list of commands','doubt']];
+const cmdWord=t=>{const m=/^\/([A-Za-z0-9]+)/.exec(t);return m?m[1].toLowerCase():''};
+const cmdBlocked=t=>CMD_BLOCK.includes(cmdWord(t));
+let sugEl=null;
+function cmdUI(){
+  if(!sendEl)return;const v=box.value,on=v[0]==='/',bad=on&&cmdBlocked(v);
+  sendEl.classList.toggle('cmd',on);sendEl.classList.toggle('bad',bad);
+  if(bad)hint('/'+cmdWord(v)+' can\'t be sent from the phone');else if(!on)hint(null);
+  // suggestions: while the first word is still being typed
+  const q=on&&!/\s/.test(v)?v.slice(1).toLowerCase():null;let rows=[];
+  if(q!==null){
+    for(const [c,d,ic] of CMDS)if(c.startsWith(q)&&c!==q)rows.push([c,d,ic]);
+    for(const c of ALL)if(c.startsWith(q)&&c!==q&&!rows.some(r=>r[0]===c))rows.push([c,'emote: '+(LABEL[c]||c).toLowerCase(),(META[c]||{}).ic||'talk']);
+    rows=rows.slice(0,3)}
+  if(!rows.length){if(sugEl){sugEl.remove();sugEl=null}return}
+  if(!sugEl){sugEl=$('div','csug');chatWrap.insertBefore(sugEl,sendEl)}
+  sugEl.textContent='';
+  for(const [c,d,ic] of rows){const r=$('div');r.innerHTML=eic(ic,'','#ffd36b');r.append($('b',null,'/'+c),d);
+    r.addEventListener('pointerdown',e=>e.preventDefault());   // keeps the keyboard up
+    r.addEventListener('click',()=>{box.value='/'+c+' ';box.focus();cmdUI()});sugEl.appendChild(r)}
+}
+function sendCmd(text){
+  if(cmdBlocked(text)){cmdUI();return}
+  sending=true;box.value='';cmdUI();
+  const echo=$('div','l echo','\u203a '+text);logEl.appendChild(echo);logEl.scrollTop=logEl.scrollHeight;
+  chat.cmdAt=performance.now()+8000;chat.cmdIn=chat.view;            // the game's answer shows here too
+  api('/api/send',{cmd:text}).then(({ok,j})=>{sending=false;if(ok)return;
+    echo.remove();if(!box.value){box.value=text;cmdUI()}
+    hint(j&&j.why==='refused'?'WoW won\'t take that command':j&&j.why==='not-in-wow'?'WoW is not up':'Not sent, try again')});
 }
 function hint(msg){
   let h=sendEl&&sendEl.querySelector('.hint');
@@ -1156,7 +1345,7 @@ const HOME_KEY='omashu.homePage';
 const SV={
  now:'<svg viewBox="0 0 12 12"><path d="M5 1h2v1h1v1h1v2h1v2h-1v2h-1v1h-1v1h-2v-1h-1v-1h-1v-2h-1v-2h1v-2h1v-1h1z" fill="currentColor"/><rect x="5.5" y="3" width="1" height="4" fill="#0d0906"/><rect x="5.5" y="8" width="1" height="1" fill="#0d0906"/></svg>',
  chat:'<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 2h10v6h-5l-3 2v-2h-2z" fill="currentColor"/></svg>',
- pad:'<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M4 1h4v1h1v1h1v6h-1v1h-1v1h-4v-1h-1v-1h-1v-6h1v-1h1z" fill="currentColor"/><rect x="5.5" y="2" width="1" height="3" fill="#0d0906"/></svg>',
+ pad:'<svg viewBox="0 0 13 13" shape-rendering="crispEdges"><path d="M3 1h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM3 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1z" fill="currentColor"/></svg>',   // the pointer: the Mouse key (sheet 32 B, Joshua 2026-11-27), 13x13 so 26px is exactly 2x
  book:'<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 2h4l1 1 1-1h4v8h-4l-1 1-1-1h-4z" fill="currentColor"/><rect x="5.5" y="3" width="1" height="7" fill="#0d0906"/></svg>'};
 const TICK='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M2 6h2v1h1v1h1v-1h1v-1h1v-1h1v-1h1v2h-1v1h-1v1h-1v1h-1v1h-2v-1h-1v-1h-1z" fill="#ffd36b"/></svg>';
 const PLUS='<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M5 2h2v3h3v2h-3v3h-2v-3h-3v-2h3z" fill="#9a8f78"/></svg>';
@@ -1223,7 +1412,7 @@ function drawHead(){
 function drawBar(){
   if(!home.el)return;const bar=home.el.querySelector('.hbar'),pages=homePages();
   if(bar.dataset.p!==pages.join()){bar.dataset.p=pages.join();
-    bar.innerHTML=pages.map(p=>`<div class="bk" data-p="${p}">${SV[p]}${p[0].toUpperCase()+p.slice(1)}${p==='chat'?'<span class="n" hidden></span>':p==='now'?'<span class="dot" hidden></span>':''}</div>`).join('');
+    bar.innerHTML=pages.map(p=>`<div class="bk" data-p="${p}">${SV[p]}${p==='pad'?'Mouse':p[0].toUpperCase()+p.slice(1)}${p==='chat'?'<span class="n" hidden></span>':p==='now'?'<span class="dot" hidden></span>':''}</div>`).join('');
     bar.querySelectorAll('.bk').forEach(b=>b.addEventListener('click',()=>{knock();showPage(b.dataset.p)}))}
   bar.querySelectorAll('.bk').forEach(b=>b.classList.toggle('on',b.dataset.p===home.page));
   updateBadges()}
@@ -1566,6 +1755,7 @@ async function poll(){
       const newSession=j.session!==chat.session;if(newSession){chat.session=j.session;chat.lines=[];chat.seen={};chat.chans={}}
       if(j.lines&&j.lines.length){const fresh=!chat.lines.length;
         for(const l of j.lines)if(chat.emoteAt>performance.now()&&l.kind==='system'&&l.text[0]&&/^You /.test(l.text[0].s||'')){l.em=performance.now()+4000;chat.emoteAt=0}
+        for(const l of j.lines)if(chat.cmdAt>performance.now()&&l.kind==='system'&&chat.cmdIn)l.cmd=chat.cmdIn;
         chat.lines.push(...j.lines);
         if(fresh)chat.seen=W.initSeen(chat.lines,j.whispers||0);   // counts start from now, not from the backlog (but Aang's unread whispers stay unread)
 if(chat.lines.length>2000)chat.lines.splice(0,chat.lines.length-2000);

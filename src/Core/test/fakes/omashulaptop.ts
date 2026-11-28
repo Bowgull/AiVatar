@@ -8,6 +8,7 @@ import dgram from 'node:dgram';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { freeCommand } from '../../src/omashu.ts';
 
 const EMOTE_CMDS: string[] = JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'assets', 'omashu', 'emotes.json'), 'utf8'))
   .pages.flatMap((p: { emotes: [string, string][] }) => p.emotes.map(e => e[1]));
@@ -167,7 +168,7 @@ export class FakeLaptop {
       req.on('end', () => {
         let line = '';
         try { line = String(JSON.parse(b).line ?? ''); } catch { /* refused below */ }
-        if (line.length > 255 || !ALLOW.some(r => r.test(line))) { j(400, { ok: false, why: 'refused' }); return; }
+        if (line.length > 255 || !(ALLOW.some(r => r.test(line)) || freeCommand(line))) { j(400, { ok: false, why: 'refused' }); return; }   // his own commands (sheet 31), as Couch Mode
         if (this.game !== 'wow') { j(409, { ok: false, why: 'not-in-wow' }); return; }
         this.typed.push(line);
         this.echo(line);
